@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31019.35
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UA-CloudLibrary", "UA-CloudLibrary.csproj", "{FA3F73D3-144E-4A9A-A44F-D0F67580E8EF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FA3F73D3-144E-4A9A-A44F-D0F67580E8EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FA3F73D3-144E-4A9A-A44F-D0F67580E8EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FA3F73D3-144E-4A9A-A44F-D0F67580E8EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FA3F73D3-144E-4A9A-A44F-D0F67580E8EF}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B18C4ECD-199D-4657-963A-AF276DBC2C76}
+	EndGlobalSection
+EndGlobal

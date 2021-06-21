@@ -1,3 +1,3 @@
 # UA-CloudLibrary
 
-JWise Edit test
+Reference implementation of the UA Cloud Library.
