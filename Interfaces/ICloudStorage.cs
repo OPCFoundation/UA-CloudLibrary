@@ -10,18 +10,18 @@ namespace UA_CloudLibrary.Interfaces
     public interface ICloudStorage
     {
         /// <summary>
-        /// Find a files based on certain keywords
+        /// Find nodesets based on certain keywords
         /// </summary>
-        Task<string[]> FindFilesAsync(string keywords, CancellationToken cancellationToken = default);
+        Task<string[]> FindNodesetsAsync(string keywords, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Upload a file with given extension from a local directory to cloud storage
+        /// Upload a nodeset from a local directory to storage
         /// </summary>
-        Task<bool> UploadFileAsync(string name, string content, CancellationToken cancellationToken = default);
+        Task<bool> UploadNodesetAsync(string name, string content, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Download a file with given extension from the cloud to a local file
+        /// Download a nodeset from storage to a local file
         /// </summary>
-        Task<string> DownloadFileAsync(string name, CancellationToken cancellationToken = default);
+        Task<string> DownloadNodesetAsync(string name, CancellationToken cancellationToken = default);
     }
 }
