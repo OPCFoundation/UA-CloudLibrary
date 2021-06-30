@@ -24,14 +24,16 @@ namespace UA_CloudLibrary.Controllers
                 case "Azure": _storage = new AzureFileStorage(); break;
                 case "AWS": _storage = new AWSFileStorage(); break;
                 case "GCP": _storage = new GCPFileStorage(); break;
-                default: throw new Exception("Invalid HostingPlatform specified in environment! Valid variables are Azure, AWS and GCP");
+                default: _storage = new LocalFileStorage(); break;  //this is easier for debugging
+                //default: throw new Exception("Invalid HostingPlatform specified in environment! Valid variables are Azure, AWS and GCP");
             }
         }
 
         [HttpGet("find")]
-        public async Task<string[]> FindAddressSpaceAsync(string keywords)
+        public async Task<string> FindAddressSpaceAsync(string keywords)
         {
-            return await _storage.FindFilesAsync(keywords).ConfigureAwait(false);
+            return await _database.FindNodeSetInDatabase(keywords);
+            //return await _storage.FindFilesAsync(keywords).ConfigureAwait(false);
         }
 
         [HttpGet("download")]
@@ -48,15 +50,24 @@ namespace UA_CloudLibrary.Controllers
         }
 
         [HttpPut("upload")]
-        public async Task<HttpStatusCode> SubmitAddressSpaceAsync(InfoModel model)
+        public async Task<MetaModel> SubmitAddressSpaceAsync(InfoModel model)
         {
-            if (await _storage.UploadFileAsync(model.Name, model.NodeSetXml).ConfigureAwait(false))
+            //Upload the new file to the storage service, and get the file handle that the storage service returned
+            string newFileHandle = await _storage.UploadFileAsync(model.Name, model.NodeSetXml).ConfigureAwait(false);
+            if (newFileHandle != string.Empty)
             {
-                return HttpStatusCode.OK;
+                //add a record of the new file to the index database, and get back the database ID for the new nodeset
+                var newID = await _database.AddNodeSetToDatabaseAsync(newFileHandle);
+
+                MetaModel result = new MetaModel();
+                result.NodesetId = newID;
+                result.NodesetFilename = newFileHandle;
+                //TODO: insert/gather other metadata
+                return result;
             }
             else
             {
-                return HttpStatusCode.InternalServerError;
+                throw new Exception("Nodeset could not be uploaded or indexed");
             }
         }
 

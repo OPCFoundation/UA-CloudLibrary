@@ -17,7 +17,7 @@ namespace UA_CloudLibrary.Interfaces
         /// <summary>
         /// Upload a nodeset from a local directory to storage
         /// </summary>
-        Task<bool> UploadFileAsync(string name, string content, CancellationToken cancellationToken = default);
+        Task<string> UploadFileAsync(string name, string content, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Download a nodeset from storage to a local file
