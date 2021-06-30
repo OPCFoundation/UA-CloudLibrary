@@ -7,21 +7,21 @@ namespace UA_CloudLibrary.Interfaces
     /// <summary>
     /// Azure storage interface
     /// </summary>
-    public interface ICloudStorage
+    public interface IFileStorage
     {
         /// <summary>
         /// Find nodesets based on certain keywords
         /// </summary>
-        Task<string[]> FindNodesetsAsync(string keywords, CancellationToken cancellationToken = default);
+        Task<string[]> FindFilesAsync(string keywords, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Upload a nodeset from a local directory to storage
         /// </summary>
-        Task<bool> UploadNodesetAsync(string name, string content, CancellationToken cancellationToken = default);
+        Task<bool> UploadFileAsync(string name, string content, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Download a nodeset from storage to a local file
         /// </summary>
-        Task<string> DownloadNodesetAsync(string name, CancellationToken cancellationToken = default);
+        Task<string> DownloadFileAsync(string name, CancellationToken cancellationToken = default);
     }
 }

@@ -7,23 +7,23 @@ namespace UA_CloudLibrary
     using System.Diagnostics;
     using System.Threading;
     using System.Threading.Tasks;
-    using UA_CloudLibrary.Interfaces;
 
     /// <summary>
     /// PostgresSQL storage class
     /// </summary>
-    public class PostgresSQLStorage : ICloudStorage
+    public class PostgresSQLDB
     {
         /// <summary>
         /// Default constructor
         /// </summary>
-        public PostgresSQLStorage()
+        public PostgresSQLDB()
         {
-            // Obtain connection string information from the portal
-            string Host = "uacloudlib.postgres.database.azure.com";
-            string User = "barnstee@uacloudlib";
+            // Obtain connection string information from the environment
+            string Host = Environment.GetEnvironmentVariable("PostgresSQLEndpoint");
+            string User = Environment.GetEnvironmentVariable("PostgresSQLUsername");
+            string Password = Environment.GetEnvironmentVariable("PostgresSQLPassword");
+
             string DBname = "uacloudlib";
-            string Password = "";
             string Port = "5432";
 
             // Build connection string using parameters from portal
