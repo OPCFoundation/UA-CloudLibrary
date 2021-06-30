@@ -32,7 +32,7 @@ namespace UA_CloudLibrary.Controllers
         [HttpGet("find")]
         public async Task<string> FindAddressSpaceAsync(string keywords)
         {
-            return await _database.FindNodeSetInDatabase(keywords);
+            return await _database.FindNodesetsAsync(keywords);
             //return await _storage.FindFilesAsync(keywords).ConfigureAwait(false);
         }
 

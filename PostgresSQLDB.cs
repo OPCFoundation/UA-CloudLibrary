@@ -31,7 +31,7 @@ namespace UA_CloudLibrary
             //TODO: Define minimum metadata and related tables and columns to store it, sample set below
             string[] dbInitCommands = {
                 "CREATE TABLE IF NOT EXISTS Nodesets(Nodeset_id serial PRIMARY KEY, Nodeset_Filename TEXT)",
-                "CREATE TABLE IF NOT EXISTS Metadata(Metadata_id serial PRIMARY KEY, Nodeset_id INT, Description TEXT, Author TEXT, Uploaded_Date TIMESTAMP WITH TIME ZONE, CONSTRAINT fk_Nodeset FOREIGN KEY(Nodeset_id) REFERENCES Nodesets(Nodeset_id))",
+                "CREATE TABLE IF NOT EXISTS Metadata(Metadata_id serial PRIMARY KEY, Nodeset_id INT, Metadata_Name TEXT, Metadata_Value TEXT, CONSTRAINT fk_Nodeset FOREIGN KEY(Nodeset_id) REFERENCES Nodesets(Nodeset_id))",
                 "CREATE TABLE IF NOT EXISTS ObjectTypes(ObjectType_id serial PRIMARY KEY, Nodeset_id INT, ObjectType_BrowseName TEXT, ObjectType_DisplayName TEXT, ObjectType_Namespace TEXT, CONSTRAINT fk_Nodeset FOREIGN KEY(Nodeset_id) REFERENCES Nodesets(Nodeset_id))"
             };
 
@@ -60,26 +60,6 @@ namespace UA_CloudLibrary
             catch (Exception ex)
             {
                 Debug.WriteLine(ex, "Connection to PostgreSQL failed!");
-            }
-        }
-
-        /// <summary>
-        /// Find a nodeset using keywords within PostgreSQL
-        /// </summary>
-        public Task<string[]> FindNodesetsAsync(string keywords, CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                List<string> results = new List<string>();
-
-                // TODO!
-
-                return Task.FromResult(new string[1]);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine(ex, "Find files failed!");
-                return Task.FromResult(new string[1]);
             }
         }
 
@@ -124,12 +104,63 @@ namespace UA_CloudLibrary
         }
 
         /// <summary>
+        /// Add a record of an ObjectType to a Nodeset Record in the DB. Call this foreach ObjectType discovered in an uploaded Nodeset
+        /// </summary>
+        public Task<bool> AddObjectTypeToNodesetAsync(int NodesetId, string ObjectTypeBrowseName, string ObjectTypeDisplayName, string ObjectTypeNamespace, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                using (var connection = new NpgsqlConnection(connectionString))
+                {
+                    connection.Open();
+                    //Its dumb that I need to do this in two steps, but I don't know how to do it one...
+                    //  Step 1, insert the record
+                    var sqlInsert = String.Format("INSERT INTO public.objecttypes (objecttype_browsename, objecttype_displayname, objecttype_namespace) VALUES('{0}, {1}, {2}') WHERE nodeset_id = {3}", ObjectTypeBrowseName, ObjectTypeDisplayName, ObjectTypeNamespace, NodesetId);
+                    var sqlCommand = new NpgsqlCommand(sqlInsert, connection);
+                    sqlCommand.ExecuteNonQuery();
+                    return Task.FromResult(true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex, "Could not insert to PostgreSQL!");
+            }
+            return Task.FromResult(false);
+        }
+
+        /// <summary>
+        /// Add a record of an arbitrary MetaData field to a Nodeset Record in the DB. You can insert any metadata field at any time, as long as you know the ID of the NodeSet you want to attach it to
+        /// Note these metadata fields are what are used in the FindNodeSet method
+        /// </summary>
+        public Task<bool> AddMetaDataToNodeSet(int NodesetId, string MetaDataName, string MetaDataValue, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                using (var connection = new NpgsqlConnection(connectionString))
+                {
+                    connection.Open();
+                    //Its dumb that I need to do this in two steps, but I don't know how to do it one...
+                    //  Step 1, insert the record
+                    var sqlInsert = String.Format("INSERT INTO public.objecttypes (metadata_name, metadata_value) VALUES('{0}, {1}') WHERE nodeset_id = {2}", MetaDataName, MetaDataValue, NodesetId);
+                    var sqlCommand = new NpgsqlCommand(sqlInsert, connection);
+                    sqlCommand.ExecuteNonQuery();
+                    return Task.FromResult(true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex, "Could not insert to PostgreSQL!");
+            }
+            return Task.FromResult(false);
+        }
+
+        /// <summary>
         /// Create a record for a newly uploaded nodeset file. This is the first step in database ingestion.
         /// </summary>
         /// <param name="filename">Path to where the nodeset file was stored</param>
         /// <param name="cancellationToken"></param>
         /// <returns>The database record ID for the new nodeset</returns>
-        public Task<string> FindNodeSetInDatabase(string keywords, CancellationToken cancellationToken = default)
+        public Task<string> FindNodesetsAsync(string keywords, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -141,7 +172,7 @@ namespace UA_CloudLibrary
                         FROM public.metadata
                         INNER JOIN public.nodesets
                         ON public.metadata.nodeset_id = public.nodesets.nodeset_id
-                        WHERE LOWER(public.metadata.description) = LOWER('{0}');", keywords);
+                        WHERE LOWER(public.metadata.metadata_value) = LOWER('{0}');", keywords);
                     var sqlCommand = new NpgsqlCommand(sqlQuery, connection);
                     var result = sqlCommand.ExecuteScalar();
                     return Task.FromResult(result.ToString());
