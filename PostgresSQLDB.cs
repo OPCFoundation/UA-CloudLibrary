@@ -3,7 +3,6 @@ namespace UA_CloudLibrary
 {
     using Npgsql;
     using System;
-    using System.Collections.Generic;
     using System.Diagnostics;
     using System.Threading;
     using System.Threading.Tasks;
@@ -16,7 +15,7 @@ namespace UA_CloudLibrary
         /// <summary>
         /// Default constructor
         /// </summary>
-        /// 
+        ///
         string connectionString;
         public PostgresSQLDB()
         {
@@ -77,19 +76,20 @@ namespace UA_CloudLibrary
                 using (var connection = new NpgsqlConnection(connectionString))
                 {
                     connection.Open();
-                    //Its dumb that I need to do this in two steps, but I don't know how to do it one...
-                    //  Step 1, insert the record
+
+                    // insert the record
                     var sqlInsert = String.Format("INSERT INTO public.nodesets (nodeset_filename) VALUES('{0}')", filename);
                     var sqlCommand = new NpgsqlCommand(sqlInsert, connection);
                     sqlCommand.ExecuteNonQuery();
-                    //  Step 2, query for the id of the record I just created (see? dumb)
+
+                    // query for the id of the record
                     var sqlQuery = String.Format("SELECT nodeset_id from public.nodesets where nodeset_filename = '{0}'", filename);
                     sqlCommand = new NpgsqlCommand(sqlQuery, connection);
                     var result = sqlCommand.ExecuteScalar();
                     if (int.TryParse(result.ToString(), out retVal))
                     {
                         return Task.FromResult(retVal);
-                    } 
+                    }
                     else
                     {
                         Debug.WriteLine("Record could be inserted or found!");
@@ -113,8 +113,8 @@ namespace UA_CloudLibrary
                 using (var connection = new NpgsqlConnection(connectionString))
                 {
                     connection.Open();
-                    //Its dumb that I need to do this in two steps, but I don't know how to do it one...
-                    //  Step 1, insert the record
+
+                    // insert the record
                     var sqlInsert = String.Format("INSERT INTO public.objecttypes (objecttype_browsename, objecttype_displayname, objecttype_namespace) VALUES('{0}, {1}, {2}') WHERE nodeset_id = {3}", ObjectTypeBrowseName, ObjectTypeDisplayName, ObjectTypeNamespace, NodesetId);
                     var sqlCommand = new NpgsqlCommand(sqlInsert, connection);
                     sqlCommand.ExecuteNonQuery();
@@ -139,8 +139,8 @@ namespace UA_CloudLibrary
                 using (var connection = new NpgsqlConnection(connectionString))
                 {
                     connection.Open();
-                    //Its dumb that I need to do this in two steps, but I don't know how to do it one...
-                    //  Step 1, insert the record
+
+                    // insert the record
                     var sqlInsert = String.Format("INSERT INTO public.objecttypes (metadata_name, metadata_value) VALUES('{0}, {1}') WHERE nodeset_id = {2}", MetaDataName, MetaDataValue, NodesetId);
                     var sqlCommand = new NpgsqlCommand(sqlInsert, connection);
                     sqlCommand.ExecuteNonQuery();
@@ -167,6 +167,7 @@ namespace UA_CloudLibrary
                 using (var connection = new NpgsqlConnection(connectionString))
                 {
                     connection.Open();
+
                     //TODO: This isn't a very good query
                     var sqlQuery = String.Format(@"SELECT public.nodesets.nodeset_filename
                         FROM public.metadata

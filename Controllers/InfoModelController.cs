@@ -5,7 +5,6 @@ namespace UA_CloudLibrary.Controllers
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Logging;
     using System;
-    using System.Net;
     using System.Threading.Tasks;
     using UA_CloudLibrary.Interfaces;
 
@@ -24,8 +23,11 @@ namespace UA_CloudLibrary.Controllers
                 case "Azure": _storage = new AzureFileStorage(); break;
                 case "AWS": _storage = new AWSFileStorage(); break;
                 case "GCP": _storage = new GCPFileStorage(); break;
-                default: _storage = new LocalFileStorage(); break;  //this is easier for debugging
-                //default: throw new Exception("Invalid HostingPlatform specified in environment! Valid variables are Azure, AWS and GCP");
+#if DEBUG
+                default: _storage = new LocalFileStorage(); break;
+#else
+                default: throw new Exception("Invalid HostingPlatform specified in environment! Valid variables are Azure, AWS and GCP");
+#endif
             }
         }
 
@@ -33,7 +35,6 @@ namespace UA_CloudLibrary.Controllers
         public async Task<string> FindAddressSpaceAsync(string keywords)
         {
             return await _database.FindNodesetsAsync(keywords);
-            //return await _storage.FindFilesAsync(keywords).ConfigureAwait(false);
         }
 
         [HttpGet("download")]
@@ -52,7 +53,7 @@ namespace UA_CloudLibrary.Controllers
         [HttpPut("upload")]
         public async Task<MetaModel> SubmitAddressSpaceAsync(InfoModel model)
         {
-            //Upload the new file to the storage service, and get the file handle that the storage service returned
+            // upload the new file to the storage service, and get the file handle that the storage service returned
             string newFileHandle = await _storage.UploadFileAsync(model.Name, model.NodeSetXml).ConfigureAwait(false);
             if (newFileHandle != string.Empty)
             {
