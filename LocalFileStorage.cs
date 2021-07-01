@@ -14,12 +14,12 @@
     /// <summary>
     /// Azure storage class
     /// </summary>
-    public class AzureFileStorage : IFileStorage
+    public class LocalFileStorage : IFileStorage
     {
         /// <summary>
         /// Default constructor
         /// </summary>
-        public AzureFileStorage()
+        public LocalFileStorage()
         {
             // nothing to do
         }
@@ -33,7 +33,7 @@
             {
                 List<string> results = new List<string>();
 
-                if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("BlobStorageConnectionString")))
+                /*if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("BlobStorageConnectionString")))
                 {
                     // open blob storage
                     BlobContainerClient container = new BlobContainerClient(Environment.GetEnvironmentVariable("BlobStorageConnectionString"), "uacloudlib");
@@ -49,7 +49,7 @@
                     }
 
                     return results.ToArray();
-                }
+                }*/
 
                 return new string[1];
             }
@@ -61,45 +61,20 @@
         }
 
         /// <summary>
-        /// Upload a file to a blob.
-        /// TODO: return a handle for the file that was created so it can be stored in the index database
+        /// Upload a file to a blob and return the filename for storage in the index db
         /// </summary>
         public async Task<string> UploadFileAsync(string name, string content, CancellationToken cancellationToken = default)
         {
             try
             {
-                if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("BlobStorageConnectionString")))
-                {
-                    // open blob storage
-                    BlobContainerClient container = new BlobContainerClient(Environment.GetEnvironmentVariable("BlobStorageConnectionString"), "uacloudlib");
-                    await container.CreateIfNotExistsAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
-
-                    // Get a reference to the blob
-                    BlobClient blob = container.GetBlobClient(name);
-
-                    // Open the file and upload its data
-                    using (MemoryStream file = new MemoryStream(Encoding.UTF8.GetBytes(content)))
-                    {
-                        await blob.DeleteIfExistsAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
-                        await blob.UploadAsync(file, cancellationToken).ConfigureAwait(false);
-
-                        // Verify uploaded
-                        BlobProperties properties = await blob.GetPropertiesAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
-                        if (file.Length != properties.ContentLength)
-                        {
-                            throw new Exception("Could not verify upload!");
-                        }
-                        return properties.ETag.ToString(); //TODO: Replace ETag with whatever the correct file handle is
-                    }
-
-                }
-
-                return string.Empty;
+                var tempFile = Path.GetTempFileName();
+                await File.WriteAllTextAsync(tempFile, content);
+                return tempFile;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine(ex, "File upload failed!");
-                return string.Empty;
+                return null;
             }
         }
 
@@ -108,7 +83,7 @@
         /// </summary>
         public async Task<string> DownloadFileAsync(string name, CancellationToken cancellationToken = default)
         {
-            try
+            /*try
             {
                 if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("BlobStorageConnectionString")))
                 {
@@ -149,7 +124,8 @@
             {
                 Debug.WriteLine(ex, "File download failed!");
                 return string.Empty;
-            }
+            }*/
+            return string.Empty;
         }
     }
 }

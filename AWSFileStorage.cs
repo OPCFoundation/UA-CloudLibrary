@@ -38,20 +38,20 @@
         }
 
         /// <summary>
-        /// Upload a file to a blob.
+        /// Upload a file to a blob and return a handle to the file that can be stored in the index database
         /// </summary>
-        public Task<bool> UploadFileAsync(string name, string content, CancellationToken cancellationToken = default)
+        public Task<string> UploadFileAsync(string name, string content, CancellationToken cancellationToken = default)
         {
             try
             {
                 // TODO!
 
-                return Task.FromResult(false);
+                return Task.FromResult(string.Empty);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine(ex, "File upload failed!");
-                return Task.FromResult(false);
+                return Task.FromResult(string.Empty);
             }
         }
 
