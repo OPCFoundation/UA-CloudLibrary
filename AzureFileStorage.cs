@@ -89,7 +89,8 @@
                         {
                             throw new Exception("Could not verify upload!");
                         }
-                        return properties.ETag.ToString(); //TODO: Replace ETag with whatever the correct file handle is
+
+                        return properties.ETag.ToString(); // TODO: Replace ETag with whatever the correct file handle is
                     }
 
                 }

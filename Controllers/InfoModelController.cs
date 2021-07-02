@@ -51,19 +51,20 @@ namespace UA_CloudLibrary.Controllers
         }
 
         [HttpPut("upload")]
-        public async Task<MetaModel> SubmitAddressSpaceAsync(InfoModel model)
+        public async Task<AddressSpace> UploadAddressSpaceAsync(InfoModel model)
         {
             // upload the new file to the storage service, and get the file handle that the storage service returned
             string newFileHandle = await _storage.UploadFileAsync(model.Name, model.NodeSetXml).ConfigureAwait(false);
             if (newFileHandle != string.Empty)
             {
-                //add a record of the new file to the index database, and get back the database ID for the new nodeset
-                var newID = await _database.AddNodeSetToDatabaseAsync(newFileHandle);
+                // add a record of the new file to the index database, and get back the database ID for the new nodeset
+                int newID = await _database.AddNodeSetToDatabaseAsync(newFileHandle);
 
-                MetaModel result = new MetaModel();
-                result.NodesetId = newID;
-                result.NodesetFilename = newFileHandle;
-                //TODO: insert/gather other metadata
+                AddressSpace result = new AddressSpace();
+                result.ID = newID.ToString();
+                result.Nodeset.AddressSpaceID = newFileHandle;
+                // TODO: insert/gather other metadata
+
                 return result;
             }
             else
