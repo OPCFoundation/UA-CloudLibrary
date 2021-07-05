@@ -5,6 +5,7 @@ namespace UA_CloudLibrary.Controllers
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Logging;
     using System;
+    using System.IO;
     using System.Threading.Tasks;
     using UA_CloudLibrary.Interfaces;
 
@@ -38,23 +39,18 @@ namespace UA_CloudLibrary.Controllers
         }
 
         [HttpGet("download")]
-        public async Task<InfoModel> DownloadAdressSpaceAsync(string name)
+        public async Task<AddressSpace> DownloadAdressSpaceAsync(string name)
         {
-            InfoModel result = new InfoModel();
-            result.Name = name;
-            result.NodeSetXml = await _storage.DownloadFileAsync(name).ConfigureAwait(false);
-            result.Cost = "$0";
-            result.Owner = "OPC Foundation";
-            result.VersionInfo = "1.0";
-            result.Remarks = "None";
+            AddressSpace result = new AddressSpace();
+            result.Nodeset.NodesetXml = await _storage.DownloadFileAsync(name).ConfigureAwait(false);
             return result;
         }
 
         [HttpPut("upload")]
-        public async Task<AddressSpace> UploadAddressSpaceAsync(InfoModel model)
+        public async Task<AddressSpace> UploadAddressSpaceAsync(AddressSpace uaAddressSpace)
         {
             // upload the new file to the storage service, and get the file handle that the storage service returned
-            string newFileHandle = await _storage.UploadFileAsync(model.Name, model.NodeSetXml).ConfigureAwait(false);
+            string newFileHandle = await _storage.UploadFileAsync(Path.GetTempFileName(), uaAddressSpace.Nodeset.NodesetXml).ConfigureAwait(false);
             if (newFileHandle != string.Empty)
             {
                 // add a record of the new file to the index database, and get back the database ID for the new nodeset

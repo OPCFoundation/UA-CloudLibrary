@@ -12,11 +12,11 @@ namespace UA_CloudLibrary
     /// </summary>
     public class PostgresSQLDB
     {
+        private string _connectionString;
+
         /// <summary>
         /// Default constructor
         /// </summary>
-        ///
-        string connectionString;
         public PostgresSQLDB()
         {
             // Obtain connection string information from the environment
@@ -27,15 +27,8 @@ namespace UA_CloudLibrary
             string DBname = "uacloudlib";
             string Port = "5432";
 
-            //TODO: Define minimum metadata and related tables and columns to store it, sample set below
-            string[] dbInitCommands = {
-                "CREATE TABLE IF NOT EXISTS Nodesets(Nodeset_id serial PRIMARY KEY, Nodeset_Filename TEXT)",
-                "CREATE TABLE IF NOT EXISTS Metadata(Metadata_id serial PRIMARY KEY, Nodeset_id INT, Metadata_Name TEXT, Metadata_Value TEXT, CONSTRAINT fk_Nodeset FOREIGN KEY(Nodeset_id) REFERENCES Nodesets(Nodeset_id))",
-                "CREATE TABLE IF NOT EXISTS ObjectTypes(ObjectType_id serial PRIMARY KEY, Nodeset_id INT, ObjectType_BrowseName TEXT, ObjectType_DisplayName TEXT, ObjectType_Namespace TEXT, CONSTRAINT fk_Nodeset FOREIGN KEY(Nodeset_id) REFERENCES Nodesets(Nodeset_id))"
-            };
-
             // Build connection string using parameters from portal
-            connectionString = string.Format(
+            _connectionString = string.Format(
                 "Server={0};Username={1};Database={2};Port={3};Password={4};SSLMode=Prefer",
                 Host,
                 User,
@@ -43,10 +36,17 @@ namespace UA_CloudLibrary
                 Port,
                 Password);
 
-            //Setup the database
+            // Setup the database
+            // TODO: Define minimum metadata and related tables and columns to store it, sample set below
+            string[] dbInitCommands = {
+                "CREATE TABLE IF NOT EXISTS Nodesets(Nodeset_id serial PRIMARY KEY, Nodeset_Filename TEXT)",
+                "CREATE TABLE IF NOT EXISTS Metadata(Metadata_id serial PRIMARY KEY, Nodeset_id INT, Metadata_Name TEXT, Metadata_Value TEXT, CONSTRAINT fk_Nodeset FOREIGN KEY(Nodeset_id) REFERENCES Nodesets(Nodeset_id))",
+                "CREATE TABLE IF NOT EXISTS ObjectTypes(ObjectType_id serial PRIMARY KEY, Nodeset_id INT, ObjectType_BrowseName TEXT, ObjectType_DisplayName TEXT, ObjectType_Namespace TEXT, CONSTRAINT fk_Nodeset FOREIGN KEY(Nodeset_id) REFERENCES Nodesets(Nodeset_id))"
+            };
+
             try
             {
-                using (var connection = new NpgsqlConnection(connectionString))
+                using (var connection = new NpgsqlConnection(_connectionString))
                 {
                     connection.Open();
                     foreach (string initCommand in dbInitCommands)
@@ -73,7 +73,7 @@ namespace UA_CloudLibrary
             int retVal = -1;
             try
             {
-                using (var connection = new NpgsqlConnection(connectionString))
+                using (var connection = new NpgsqlConnection(_connectionString))
                 {
                     connection.Open();
 
@@ -110,7 +110,7 @@ namespace UA_CloudLibrary
         {
             try
             {
-                using (var connection = new NpgsqlConnection(connectionString))
+                using (var connection = new NpgsqlConnection(_connectionString))
                 {
                     connection.Open();
 
@@ -136,7 +136,7 @@ namespace UA_CloudLibrary
         {
             try
             {
-                using (var connection = new NpgsqlConnection(connectionString))
+                using (var connection = new NpgsqlConnection(_connectionString))
                 {
                     connection.Open();
 
@@ -164,7 +164,7 @@ namespace UA_CloudLibrary
         {
             try
             {
-                using (var connection = new NpgsqlConnection(connectionString))
+                using (var connection = new NpgsqlConnection(_connectionString))
                 {
                     connection.Open();
 
