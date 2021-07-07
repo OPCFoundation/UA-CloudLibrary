@@ -8,6 +8,7 @@ namespace UA_CloudLibrary.Controllers
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Text;
     using System.Threading.Tasks;
     using UA_CloudLibrary.Interfaces;
 
@@ -52,81 +53,88 @@ namespace UA_CloudLibrary.Controllers
         public async Task<AddressSpace> UploadAddressSpaceAsync(AddressSpace uaAddressSpace)
         {
             // upload the new file to the storage service, and get the file handle that the storage service returned
-            string newFileHandle = await _storage.UploadFileAsync(Path.GetTempFileName(), uaAddressSpace.Nodeset.NodesetXml).ConfigureAwait(false);
+            string newFileHandle = await _storage.UploadFileAsync(Guid.NewGuid().ToString(), uaAddressSpace.Nodeset.NodesetXml).ConfigureAwait(false);
             if (newFileHandle != string.Empty)
             {
                 // add a record of the new file to the index database, and get back the database ID for the new nodeset
                 List<string> namespaces = new List<string>();
-                using (Stream stream = new FileStream(newFileHandle, FileMode.Open))
+                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
                 {
-                    UANodeSet nodeSet = UANodeSet.Read(stream);
-                    foreach (string ns in nodeSet.NamespaceUris)
+                    try
                     {
-                        if (!namespaces.Contains(ns))
+                        UANodeSet nodeSet = UANodeSet.Read(stream);
+                        foreach (string ns in nodeSet.NamespaceUris)
                         {
-                            namespaces.Add(ns);
+                            if (!namespaces.Contains(ns))
+                            {
+                                namespaces.Add(ns);
+                            }
+                        }
+
+                        foreach (UANode uaNode in nodeSet.Items)
+                        {
+                            UAVariable variable = uaNode as UAVariable;
+                            if (variable != null)
+                            {
+                                // skip over variables
+                                continue;
+                            }
+
+                            UAMethod method = uaNode as UAMethod;
+                            if (method != null)
+                            {
+                                // skip over methods
+                                continue;
+                            }
+
+                            UAObject uaObject = uaNode as UAObject;
+                            if (uaObject != null)
+                            {
+                                // skip over objects
+                                continue;
+                            }
+
+                            UAView view = uaNode as UAView;
+                            if (view != null)
+                            {
+                                // skip over views
+                                continue;
+                            }
+
+                            UAVariableType variableType = uaNode as UAVariableType;
+                            if (variableType != null)
+                            {
+                                // TODO: add variable types to database
+                                continue;
+                            }
+
+                            UADataType dataType = uaNode as UADataType;
+                            if (dataType != null)
+                            {
+                                // TODO: add data types to database
+                                continue;
+                            }
+
+                            UAReferenceType referenceType = uaNode as UAReferenceType;
+                            if (referenceType != null)
+                            {
+                                // TODO: add reference types to database
+                                continue;
+                            }
+
+                            UAObjectType objectType = uaNode as UAObjectType;
+                            if (objectType != null)
+                            {
+                                // TODO: add object types to database
+                                continue;
+                            }
+
+                            throw new ArgumentException("Unknown UA node detected!");
                         }
                     }
-
-                    foreach (UANode uaNode in nodeSet.Items)
+                    catch (Exception)
                     {
-                        UAVariable variable = uaNode as UAVariable;
-                        if (variable != null)
-                        {
-                           // skip over variables
-                            continue;
-                        }
-
-                        UAMethod method = uaNode as UAMethod;
-                        if (method != null)
-                        {
-                            // skip over methods
-                            continue;
-                        }
-
-                        UAObject uaObject = uaNode as UAObject;
-                        if (uaObject != null)
-                        {
-                            // skip over objects
-                            continue;
-                        }
-
-                        UAView view = uaNode as UAView;
-                        if (view != null)
-                        {
-                            // skip over views
-                            continue;
-                        }
-
-                        UAVariableType variableType = uaNode as UAVariableType;
-                        if (variableType != null)
-                        {
-                            // TODO: add variable types to database
-                            continue;
-                        }
-
-                        UADataType dataType = uaNode as UADataType;
-                        if (dataType != null)
-                        {
-                            // TODO: add data types to database
-                            continue;
-                        }
-
-                        UAReferenceType referenceType = uaNode as UAReferenceType;
-                        if (referenceType != null)
-                        {
-                            // TODO: add reference types to database
-                            continue;
-                        }
-
-                        UAObjectType objectType = uaNode as UAObjectType;
-                        if (objectType != null)
-                        {
-                            // TODO: add object types to database
-                            continue;
-                        }
-
-                        throw new ArgumentException("Unknown UA node detected!");
+                        throw new ArgumentException("Could not parse nodeset XML file!");
                     }
                 }
 
