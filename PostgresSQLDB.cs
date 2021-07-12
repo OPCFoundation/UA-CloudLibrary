@@ -7,6 +7,15 @@ namespace UA_CloudLibrary
     using System.Threading;
     using System.Threading.Tasks;
 
+    //TODO: Maybe find a better home for this?
+    public enum UATypes
+    {
+        ObjectType,
+        VariableType,
+        DataType,
+        ReferenceType
+    }
+
     /// <summary>
     /// PostgresSQL storage class
     /// </summary>
@@ -41,7 +50,10 @@ namespace UA_CloudLibrary
             string[] dbInitCommands = {
                 "CREATE TABLE IF NOT EXISTS Nodesets(Nodeset_id serial PRIMARY KEY, Nodeset_Filename TEXT)",
                 "CREATE TABLE IF NOT EXISTS Metadata(Metadata_id serial PRIMARY KEY, Nodeset_id INT, Metadata_Name TEXT, Metadata_Value TEXT, CONSTRAINT fk_Nodeset FOREIGN KEY(Nodeset_id) REFERENCES Nodesets(Nodeset_id))",
-                "CREATE TABLE IF NOT EXISTS ObjectTypes(ObjectType_id serial PRIMARY KEY, Nodeset_id INT, ObjectType_BrowseName TEXT, ObjectType_DisplayName TEXT, ObjectType_Namespace TEXT, CONSTRAINT fk_Nodeset FOREIGN KEY(Nodeset_id) REFERENCES Nodesets(Nodeset_id))"
+                "CREATE TABLE IF NOT EXISTS ObjectTypes(ObjectType_id serial PRIMARY KEY, Nodeset_id INT, ObjectType_BrowseName TEXT, ObjectType_DisplayName TEXT, ObjectType_Namespace TEXT, CONSTRAINT fk_Nodeset FOREIGN KEY(Nodeset_id) REFERENCES Nodesets(Nodeset_id))",
+                "CREATE TABLE IF NOT EXISTS VariableTypes(VariableType_id serial PRIMARY KEY, Nodeset_id INT, VariableType_BrowseName TEXT, VariableType_DisplayName TEXT, VariableType_Namespace TEXT, CONSTRAINT fk_Nodeset FOREIGN KEY(Nodeset_id) REFERENCES Nodesets(Nodeset_id))",
+                "CREATE TABLE IF NOT EXISTS DataTypes(DataType_id serial PRIMARY KEY, Nodeset_id INT, DataType_BrowseName TEXT, DataType_DisplayName TEXT, DataType_Namespace TEXT, CONSTRAINT fk_Nodeset FOREIGN KEY(Nodeset_id) REFERENCES Nodesets(Nodeset_id))",
+                "CREATE TABLE IF NOT EXISTS ReferenceTypes(ReferenceType_id serial PRIMARY KEY, Nodeset_id INT, ReferenceType_BrowseName TEXT, ReferenceType_DisplayName TEXT, ReferenceType_Namespace TEXT, CONSTRAINT fk_Nodeset FOREIGN KEY(Nodeset_id) REFERENCES Nodesets(Nodeset_id))"
             };
 
             try
@@ -106,7 +118,7 @@ namespace UA_CloudLibrary
         /// <summary>
         /// Add a record of an ObjectType to a Nodeset Record in the DB. Call this foreach ObjectType discovered in an uploaded Nodeset
         /// </summary>
-        public Task<bool> AddObjectTypeToNodesetAsync(int NodesetId, string ObjectTypeBrowseName, string ObjectTypeDisplayName, string ObjectTypeNamespace, CancellationToken cancellationToken = default)
+        public Task<bool> AddUATypeToNodesetAsync(int NodesetId, UATypes UAType, string UATypeBrowseName, string UATypeDisplayName, string UATypeNamespace, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -115,7 +127,7 @@ namespace UA_CloudLibrary
                     connection.Open();
 
                     // insert the record
-                    var sqlInsert = String.Format("INSERT INTO public.objecttypes (objecttype_browsename, objecttype_displayname, objecttype_namespace) VALUES('{0}, {1}, {2}') WHERE nodeset_id = {3}", ObjectTypeBrowseName, ObjectTypeDisplayName, ObjectTypeNamespace, NodesetId);
+                    var sqlInsert = String.Format("INSERT INTO public.{0}s ({0}_browsename, {0}_displayname, {0}_namespace) VALUES('{1}, {2}, {3}') WHERE nodeset_id = {4}", UAType, UATypeBrowseName, UATypeDisplayName, UATypeNamespace, NodesetId);
                     var sqlCommand = new NpgsqlCommand(sqlInsert, connection);
                     sqlCommand.ExecuteNonQuery();
                     return Task.FromResult(true);
