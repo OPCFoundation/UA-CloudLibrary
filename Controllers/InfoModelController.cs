@@ -79,14 +79,7 @@ namespace UA_CloudLibrary.Controllers
                             }
                         }
 
-                        //TODO: Once we define CloudLib submission metadata, we can look for it and add it to the database
-                        //Pseudocode...
-                        //foreach (metadatafield in nodeset)
-                        //{
-                            //_database.AddMetaDataToNodeSet(newNodeSetID, metadatafield.name, metadatafield.value);
-                        //}
-
-                        //TODO: We still need to handle the case where its not included in the NodeSet and we have to ask the submitting user to provide it
+                        // TODO: _database.AddMetaDataToNodeSet(newNodeSetID, metadatafield.name, metadatafield.value);
 
                         foreach (UANode uaNode in nodeSet.Items)
                         {

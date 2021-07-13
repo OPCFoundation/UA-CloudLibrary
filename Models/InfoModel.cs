@@ -16,28 +16,36 @@ namespace UA_CloudLibrary
         {
             ID = string.Empty;
             Title = string.Empty;
-            Version = string.Empty;
+            Version = new Version("1.0.0");
             License = AddressSpaceLicense.Custom;
+            CopyrightText = string.Empty;
             CreationTimeStamp = DateTime.UtcNow;
             LastModification = DateTime.UtcNow;
             Contributor = new Organisation();
             Description = string.Empty;
             Category = new AddresSpaceCategory();
             Nodeset = new AddressSpaceNodeset2();
-            OPCFDocumentNumber = null;
+            DocumentationUrl = null;
             IconUrl = null;
             LicenseUrl = null;
-            KeyWords = new string[0];
+            Keywords = new string[0];
             PurchasingInformationUrl = null;
+            ReleaseNotesUrl = null;
+            TestSpecificationUrl = null;
+            SupportedLocales = null;
+            NumberOfDownloads = 0;
+            AdditionalProperties = null;
         }
 
         public string ID { get; set; }
 
         public string Title { get; set; }
 
-        public string Version { get; set; }
+        public Version Version { get; set; }
 
         public AddressSpaceLicense License { get; set; }
+
+        public string CopyrightText {get;set;}
 
         public DateTime CreationTimeStamp { get; set; }
 
@@ -52,17 +60,31 @@ namespace UA_CloudLibrary
         public AddressSpaceNodeset2 Nodeset { get; set; }
 
         /// <summary>
-        /// If the address space is a official UA Information Model this refers to the OPC XYZ number of the published document. E.g. "OPC 40001-1" for the "UA CS for Machinery Part 1 - Basic Building Blocks"
+        /// Link to additional documentation, specifications, GitHub, etc.
+        /// For example, If the address space is based on a standard or official UA Information Model, this links to the standard or the OPC specification URL.
         /// </summary>
-        public string OPCFDocumentNumber { get; set; }
+        public Uri DocumentationUrl { get; set; }
 
-        public string IconUrl { get; set; }
+        public Uri IconUrl { get; set; }
 
-        public string LicenseUrl { get; set; }
+        public Uri LicenseUrl { get; set; }
 
-        public string[] KeyWords { get; set; }
+        public string[] Keywords { get; set; }
 
-        public string PurchasingInformationUrl { get; set; }
+        public Uri PurchasingInformationUrl { get; set; }
+
+        public Uri ReleaseNotesUrl { get; set; }
+
+        public Uri TestSpecificationUrl { get; set; }
+
+        /// <summary>
+        /// Supported ISO language codes
+        /// </summary>
+        public string[] SupportedLocales { get; set; }
+
+        public uint NumberOfDownloads { get; set; }
+
+        public Tuple<string, string>[] AdditionalProperties { get; set; }
     }
 
 
