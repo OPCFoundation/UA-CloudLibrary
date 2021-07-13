@@ -4,6 +4,7 @@ namespace UA_CloudLibrary.Controllers
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Logging;
+    using Opc.Ua;
     using Opc.Ua.Export;
     using System;
     using System.Collections.Generic;
@@ -61,6 +62,10 @@ namespace UA_CloudLibrary.Controllers
 
                 // iterate through the incoming namespace
                 List<string> namespaces = new List<string>();
+
+                // add the default namespace
+                namespaces.Add("http://opcfoundation.org/UA/");
+
                 using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
                 {
                     try
@@ -80,6 +85,7 @@ namespace UA_CloudLibrary.Controllers
                         //{
                             //_database.AddMetaDataToNodeSet(newNodeSetID, metadatafield.name, metadatafield.value);
                         //}
+
                         //TODO: We still need to handle the case where its not included in the NodeSet and we have to ask the submitting user to provide it
 
                         foreach (UANode uaNode in nodeSet.Items)
@@ -116,7 +122,7 @@ namespace UA_CloudLibrary.Controllers
                             if (objectType != null)
                             {
                                 //Tell the database about the newly discovered ObjectType
-                                await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.ObjectType, uaNode.BrowseName, uaNode.DisplayName.ToString(), findNameSpaceStringForNode(uaNode.NodeId, namespaces));
+                                await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.ObjectType, uaNode.BrowseName, uaNode.DisplayName.ToString(), FindNameSpaceStringForNode(uaNode.NodeId, namespaces));
                                 continue;
                             }
 
@@ -124,7 +130,7 @@ namespace UA_CloudLibrary.Controllers
                             if (variableType != null)
                             {
                                 //Tell the database about the newly discovered ObjectType
-                                await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.VariableType, uaNode.BrowseName, uaNode.DisplayName.ToString(), findNameSpaceStringForNode(uaNode.NodeId, namespaces));
+                                await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.VariableType, uaNode.BrowseName, uaNode.DisplayName.ToString(), FindNameSpaceStringForNode(uaNode.NodeId, namespaces));
                                 continue;
                             }
 
@@ -132,7 +138,7 @@ namespace UA_CloudLibrary.Controllers
                             if (dataType != null)
                             {
                                 //Tell the database about the newly discovered ObjectType
-                                await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.DataType, uaNode.BrowseName, uaNode.DisplayName.ToString(), findNameSpaceStringForNode(uaNode.NodeId, namespaces));
+                                await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.DataType, uaNode.BrowseName, uaNode.DisplayName.ToString(), FindNameSpaceStringForNode(uaNode.NodeId, namespaces));
                                 continue;
                             }
 
@@ -140,7 +146,7 @@ namespace UA_CloudLibrary.Controllers
                             if (referenceType != null)
                             {
                                 //Tell the database about the newly discovered ObjectType
-                                await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.ReferenceType, uaNode.BrowseName, uaNode.DisplayName.ToString(), findNameSpaceStringForNode(uaNode.NodeId, namespaces));
+                                await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.ReferenceType, uaNode.BrowseName, uaNode.DisplayName.ToString(), FindNameSpaceStringForNode(uaNode.NodeId, namespaces));
                                 continue;
                             }
 
@@ -165,28 +171,21 @@ namespace UA_CloudLibrary.Controllers
         }
 
         /// <summary>
-        /// This hacky function lookups up the namespace for a given node.
-        /// TODO: This could probably be simplified by someone who is good at Regular Expressions
+        /// Look up the namespace for a given node.
         /// </summary>
         /// <param name="nodeId">The id of the node that you want to find the namespace for</param>
         /// <param name="namespaces">The list of namespaces in the nodeset</param>
         /// <returns>The string value of the matching namespace</returns>
-        private string findNameSpaceStringForNode(string nodeId, List<string>namespaces)
+        private string FindNameSpaceStringForNode(string nodeId, List<string> namespaces)
         {
-            //eg: ns=1;i=16827
-            var idParts = nodeId.ToLower().Split(";");  //eg: ns=1, i=16827
-            var namespacePart = idParts[0]; //eg: ns=1
-            namespacePart = namespacePart.Replace("ns=", string.Empty); //eg: 1
-            int nsPos;
-            if (int.TryParse(namespacePart, out nsPos))
+            try
             {
-                nsPos = nsPos - 1; //C# Lists are 0-delimited, the UA Namespace lookup table starts counting at 1
-                if (namespaces.Count >= nsPos)
-                    return namespaces[nsPos];
-                else
-                    throw new Exception("NodeSet refers to namespace that doesn't exist!");
+                return NodeId.ToExpandedNodeId(nodeId, new NamespaceTable(namespaces)).NamespaceUri;
             }
-            return string.Empty;
+            catch (Exception)
+            {
+                return string.Empty;
+            }
         }
 
         private IFileStorage _storage;
