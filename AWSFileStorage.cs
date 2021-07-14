@@ -20,7 +20,7 @@
         }
 
         /// <summary>
-        /// blobItem.Name
+        /// Find a file based on a unique name
         /// </summary>
         public Task<string> FindFileAsync(string name, CancellationToken cancellationToken = default)
         {
