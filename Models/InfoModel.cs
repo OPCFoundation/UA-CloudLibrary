@@ -1,7 +1,7 @@
 
 using System;
 
-namespace UA_CloudLibrary
+namespace UACloudLibrary
 {
     public enum AddressSpaceLicense
     {
