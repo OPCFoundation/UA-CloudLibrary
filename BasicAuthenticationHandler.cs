@@ -1,10 +1,10 @@
 ﻿
-namespace UA_CloudLibrary
+namespace UACloudLibrary
 {
     using Microsoft.AspNetCore.Authentication;
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Options;
-    using UA_CloudLibrary.Interfaces;
+    using UACloudLibrary.Interfaces;
     using System;
     using System.Linq;
     using System.Net.Http.Headers;

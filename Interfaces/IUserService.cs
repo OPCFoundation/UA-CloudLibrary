@@ -1,5 +1,5 @@
 ﻿
-namespace UA_CloudLibrary.Interfaces
+namespace UACloudLibrary.Interfaces
 {
     /// <summary>
     /// User credentials validation interface

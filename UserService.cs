@@ -1,7 +1,7 @@
 ﻿
-namespace UA_CloudLibrary
+namespace UACloudLibrary
 {
-    using UA_CloudLibrary.Interfaces;
+    using UACloudLibrary.Interfaces;
     using System;
 
     /// <summary>

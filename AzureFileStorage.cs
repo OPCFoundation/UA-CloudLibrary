@@ -1,4 +1,4 @@
-﻿namespace UA_CloudLibrary
+﻿namespace UACloudLibrary
 {
     using Azure.Storage.Blobs;
     using Azure.Storage.Blobs.Models;
@@ -9,7 +9,7 @@
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
-    using UA_CloudLibrary.Interfaces;
+    using UACloudLibrary.Interfaces;
 
     /// <summary>
     /// Azure storage class

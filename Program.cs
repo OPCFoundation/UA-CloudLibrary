@@ -1,5 +1,5 @@
 
-namespace UA_CloudLibrary
+namespace UACloudLibrary
 {
     using Microsoft.AspNetCore.Hosting;
     using Microsoft.Extensions.Hosting;

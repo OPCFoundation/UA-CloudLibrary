@@ -45,7 +45,7 @@ namespace UACloudLibrary
 
         public AddressSpaceLicense License { get; set; }
 
-        public string CopyrightText {get;set;}
+        public string CopyrightText {get; set;}
 
         public DateTime CreationTimeStamp { get; set; }
 

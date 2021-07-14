@@ -1,5 +1,5 @@
 ﻿
-namespace UA_CloudLibrary.Controllers
+namespace UACloudLibrary.Controllers
 {
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
@@ -11,7 +11,8 @@ namespace UA_CloudLibrary.Controllers
     using System.IO;
     using System.Text;
     using System.Threading.Tasks;
-    using UA_CloudLibrary.Interfaces;
+    using UACloudLibrary.Interfaces;
+    using UACloudLibrary;
 
     [Authorize]
     [ApiController]

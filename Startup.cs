@@ -1,5 +1,5 @@
 
-namespace UA_CloudLibrary
+namespace UACloudLibrary
 {
     using Microsoft.AspNetCore.Authentication;
     using Microsoft.AspNetCore.Builder;
@@ -9,7 +9,7 @@ namespace UA_CloudLibrary
     using Microsoft.Extensions.Hosting;
     using Microsoft.OpenApi.Models;
     using System;
-    using UA_CloudLibrary.Interfaces;
+    using UACloudLibrary.Interfaces;
 
     public class Startup
     {

@@ -1,5 +1,5 @@
 
-namespace UA_CloudLibrary
+namespace UACloudLibrary
 {
     using Npgsql;
     using System;

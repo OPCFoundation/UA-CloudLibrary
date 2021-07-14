@@ -1,4 +1,4 @@
-﻿namespace UA_CloudLibrary
+﻿namespace UACloudLibrary
 {
     using System;
     using System.Collections.Generic;
@@ -6,7 +6,7 @@
     using System.IO;
     using System.Threading;
     using System.Threading.Tasks;
-    using UA_CloudLibrary.Interfaces;
+    using UACloudLibrary.Interfaces;
 
     /// <summary>
     /// Azure storage class

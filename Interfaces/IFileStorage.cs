@@ -1,5 +1,5 @@
 
-namespace UA_CloudLibrary.Interfaces
+namespace UACloudLibrary.Interfaces
 {
     using System.Threading;
     using System.Threading.Tasks;
