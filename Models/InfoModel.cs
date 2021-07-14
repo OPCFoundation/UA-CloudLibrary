@@ -16,7 +16,7 @@ namespace UACloudLibrary
         {
             ID = string.Empty;
             Title = string.Empty;
-            Version = new Version("1.0.0");
+            Version = "1.0.0";
             License = AddressSpaceLicense.Custom;
             CopyrightText = string.Empty;
             CreationTimeStamp = DateTime.UtcNow;
@@ -41,7 +41,7 @@ namespace UACloudLibrary
 
         public string Title { get; set; }
 
-        public Version Version { get; set; }
+        public string Version { get; set; }
 
         public AddressSpaceLicense License { get; set; }
 

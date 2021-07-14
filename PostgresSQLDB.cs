@@ -6,15 +6,7 @@ namespace UACloudLibrary
     using System.Diagnostics;
     using System.Threading;
     using System.Threading.Tasks;
-
-    //TODO: Maybe find a better home for this?
-    public enum UATypes
-    {
-        ObjectType,
-        VariableType,
-        DataType,
-        ReferenceType
-    }
+    using UACloudLibrary.Models;
 
     /// <summary>
     /// PostgresSQL storage class
@@ -46,7 +38,6 @@ namespace UACloudLibrary
                 Password);
 
             // Setup the database
-            // TODO: Define minimum metadata and related tables and columns to store it, sample set below
             string[] dbInitCommands = {
                 "CREATE TABLE IF NOT EXISTS Nodesets(Nodeset_id serial PRIMARY KEY, Nodeset_Filename TEXT)",
                 "CREATE TABLE IF NOT EXISTS Metadata(Metadata_id serial PRIMARY KEY, Nodeset_id INT, Metadata_Name TEXT, Metadata_Value TEXT, CONSTRAINT fk_Nodeset FOREIGN KEY(Nodeset_id) REFERENCES Nodesets(Nodeset_id))",
@@ -196,46 +187,6 @@ namespace UACloudLibrary
                 Debug.WriteLine(ex, "Connection to PostgreSQL failed!");
             }
             return Task.FromResult(string.Empty);
-        }
-
-        /// <summary>
-        /// Upload a nodeset to PostgreSQL
-        /// </summary>
-        [Obsolete("Files should not be uploaded to the database, use the file system upload mechanism instead", true)]
-        public Task<bool> UploadNodesetAsync(string name, string content, CancellationToken cancellationToken = default)
-        {
-            var returnMessage = "Files will not be stored in the database, need to implement a file system upload instead";
-            try
-            {
-                // TODO!
-                Debug.WriteLine(returnMessage);
-                return Task.FromResult(false);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine(returnMessage, ex);
-                return Task.FromResult(false);
-            }
-        }
-
-        /// <summary>
-        /// Download a nodeset from PostgreSQL
-        /// </summary>
-        [Obsolete("Files will not be stored in the database, need to implement a file system retreival instead", true)]
-        public Task<string> DownloadNodesetAsync(string name, CancellationToken cancellationToken = default)
-        {
-            var returnMessage = "Files will not be stored in the database, need to implement a file system retreival instead";
-            try
-            {
-                // TODO!
-                Debug.WriteLine(returnMessage);
-                return Task.FromResult(returnMessage);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine(returnMessage, ex);
-                return Task.FromResult(string.Empty);
-            }
         }
     }
 }

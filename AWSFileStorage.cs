@@ -20,20 +20,20 @@
         }
 
         /// <summary>
-        /// Find a files based on certain keywords
+        /// blobItem.Name
         /// </summary>
-        public Task<string[]> FindFilesAsync(string keywords, CancellationToken cancellationToken = default)
+        public Task<string> FindFileAsync(string name, CancellationToken cancellationToken = default)
         {
             try
             {
                 // TODO!
 
-                return Task.FromResult(new string[1]);
+                return null;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine(ex, "File download failed!");
-                return Task.FromResult(new string[1]);
+                return null;
             }
         }
 

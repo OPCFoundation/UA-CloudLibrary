@@ -13,6 +13,7 @@ namespace UACloudLibrary.Controllers
     using System.Threading.Tasks;
     using UACloudLibrary.Interfaces;
     using UACloudLibrary;
+    using UACloudLibrary.Models;
 
     [Authorize]
     [ApiController]

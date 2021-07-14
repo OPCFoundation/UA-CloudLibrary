@@ -25,14 +25,12 @@
         }
 
         /// <summary>
-        /// Find a files based on certain keywords
+        /// Find a file based on a unique name
         /// </summary>
-        public async Task<string[]> FindFilesAsync(string keywords, CancellationToken cancellationToken = default)
+        public async Task<string> FindFileAsync(string name, CancellationToken cancellationToken = default)
         {
             try
             {
-                List<string> results = new List<string>();
-
                 if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("BlobStorageConnectionString")))
                 {
                     // open blob storage
@@ -42,27 +40,24 @@
                     var resultSegment = container.GetBlobsAsync();
                     await foreach (BlobItem blobItem in resultSegment.ConfigureAwait(false))
                     {
-                        if (blobItem.Name.Contains(keywords))
+                        if (blobItem.Name == name)
                         {
-                            results.Add(blobItem.Name);
+                            return blobItem.Name;
                         }
                     }
-
-                    return results.ToArray();
                 }
 
-                return new string[1];
+                return null;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine(ex, "File download failed!");
-                return new string[1];
+                return null;
             }
         }
 
         /// <summary>
         /// Upload a file to a blob.
-        /// TODO: return a handle for the file that was created so it can be stored in the index database
         /// </summary>
         public async Task<string> UploadFileAsync(string name, string content, CancellationToken cancellationToken = default)
         {
@@ -90,9 +85,8 @@
                             throw new Exception("Could not verify upload!");
                         }
 
-                        return properties.ETag.ToString(); // TODO: Replace ETag with whatever the correct file handle is
+                        return name;
                     }
-
                 }
 
                 return string.Empty;

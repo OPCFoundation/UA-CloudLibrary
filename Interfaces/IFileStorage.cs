@@ -10,9 +10,9 @@ namespace UACloudLibrary.Interfaces
     public interface IFileStorage
     {
         /// <summary>
-        /// Find nodesets based on certain keywords
+        /// Find a file based on a unique name
         /// </summary>
-        Task<string[]> FindFilesAsync(string keywords, CancellationToken cancellationToken = default);
+        Task<string> FindFileAsync(string name, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Upload a nodeset from a local directory to storage

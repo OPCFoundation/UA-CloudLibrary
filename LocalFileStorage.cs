@@ -1,7 +1,6 @@
 ﻿namespace UACloudLibrary
 {
     using System;
-    using System.Collections.Generic;
     using System.Diagnostics;
     using System.IO;
     using System.Threading;
@@ -22,22 +21,25 @@
         }
 
         /// <summary>
-        /// Find a files based on certain keywords
+        /// Find a file based on a unique name
         /// </summary>
-        public Task<string[]> FindFilesAsync(string keywords, CancellationToken cancellationToken = default)
+        public Task<string> FindFileAsync(string name, CancellationToken cancellationToken = default)
         {
             try
             {
-                List<string> results = new List<string>();
-
-                // TODO!
-
-                return Task.FromResult(new string[1]);
+                if (File.Exists(Path.Combine(Path.GetTempPath(), name)))
+                {
+                    return Task.FromResult(name);
+                }
+                else
+                {
+                    return null;
+                }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine(ex, "File download failed!");
-                return Task.FromResult(new string[1]);
+                return null;
             }
         }
 
@@ -48,9 +50,8 @@
         {
             try
             {
-                var tempFile = Path.GetTempFileName();
-                await File.WriteAllTextAsync(tempFile, content);
-                return tempFile;
+                await File.WriteAllTextAsync(Path.Combine(Path.GetTempPath(), name), content);
+                return name;
             }
             catch (Exception ex)
             {
@@ -62,18 +63,16 @@
         /// <summary>
         /// Download a blob to a file.
         /// </summary>
-        public Task<string> DownloadFileAsync(string name, CancellationToken cancellationToken = default)
+        public async Task<string> DownloadFileAsync(string name, CancellationToken cancellationToken = default)
         {
             try
             {
-                // TODO!
-
-                return Task.FromResult(string.Empty);
+                return await File.ReadAllTextAsync(Path.Combine(Path.GetTempPath(), name));
             }
             catch (Exception ex)
             {
                 Debug.WriteLine(ex, "File download failed!");
-                return Task.FromResult(string.Empty);
+                return null;
             }
         }
     }
