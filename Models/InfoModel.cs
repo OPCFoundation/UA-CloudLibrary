@@ -108,11 +108,11 @@ namespace UACloudLibrary
 
         public string Description { get; set; }
 
-        public string LogoUrl { get; set; }
+        public Uri LogoUrl { get; set; }
 
         public string ContactEmail { get; set; }
 
-        public string Website { get; set; }
+        public Uri Website { get; set; }
 
         public DateTime CreationTimeStamp { get; set; }
 
@@ -137,7 +137,7 @@ namespace UACloudLibrary
 
         public string Description { get; set; }
 
-        public string IconUrl { get; set; }
+        public Uri IconUrl { get; set; }
 
         public DateTime CreationTimeStamp { get; set; }
 
