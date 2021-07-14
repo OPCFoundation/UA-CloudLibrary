@@ -41,7 +41,7 @@ namespace UACloudLibrary.Controllers
         [HttpGet("find")]
         public async Task<string> FindAddressSpaceAsync(string keywords)
         {
-            return await _database.FindNodesetsAsync(keywords);
+            return await _database.FindNodesetsAsync(keywords).ConfigureAwait(false);
         }
 
         [HttpGet("download")]
@@ -60,7 +60,7 @@ namespace UACloudLibrary.Controllers
             if (newFileHandle != string.Empty)
             {
                 // add a record of the new file to the index database, and get back the database ID for the new nodeset
-                int newNodeSetID = await _database.AddNodeSetToDatabaseAsync(newFileHandle);
+                int newNodeSetID = await _database.AddNodeSetToDatabaseAsync(newFileHandle).ConfigureAwait(false);
 
                 // iterate through the incoming namespace
                 List<string> namespaces = new List<string>();
@@ -117,7 +117,7 @@ namespace UACloudLibrary.Controllers
                             if (objectType != null)
                             {
                                 //Tell the database about the newly discovered ObjectType
-                                await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.ObjectType, uaNode.BrowseName, uaNode.DisplayName.ToString(), FindNameSpaceStringForNode(uaNode.NodeId, namespaces));
+                                await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.ObjectType, uaNode.BrowseName, uaNode.DisplayName.ToString(), FindNameSpaceStringForNode(uaNode.NodeId, namespaces)).ConfigureAwait(false);
                                 continue;
                             }
 
@@ -125,7 +125,7 @@ namespace UACloudLibrary.Controllers
                             if (variableType != null)
                             {
                                 //Tell the database about the newly discovered ObjectType
-                                await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.VariableType, uaNode.BrowseName, uaNode.DisplayName.ToString(), FindNameSpaceStringForNode(uaNode.NodeId, namespaces));
+                                await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.VariableType, uaNode.BrowseName, uaNode.DisplayName.ToString(), FindNameSpaceStringForNode(uaNode.NodeId, namespaces)).ConfigureAwait(false);
                                 continue;
                             }
 
@@ -133,7 +133,7 @@ namespace UACloudLibrary.Controllers
                             if (dataType != null)
                             {
                                 //Tell the database about the newly discovered ObjectType
-                                await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.DataType, uaNode.BrowseName, uaNode.DisplayName.ToString(), FindNameSpaceStringForNode(uaNode.NodeId, namespaces));
+                                await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.DataType, uaNode.BrowseName, uaNode.DisplayName.ToString(), FindNameSpaceStringForNode(uaNode.NodeId, namespaces)).ConfigureAwait(false);
                                 continue;
                             }
 
@@ -141,7 +141,7 @@ namespace UACloudLibrary.Controllers
                             if (referenceType != null)
                             {
                                 //Tell the database about the newly discovered ObjectType
-                                await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.ReferenceType, uaNode.BrowseName, uaNode.DisplayName.ToString(), FindNameSpaceStringForNode(uaNode.NodeId, namespaces));
+                                await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.ReferenceType, uaNode.BrowseName, uaNode.DisplayName.ToString(), FindNameSpaceStringForNode(uaNode.NodeId, namespaces)).ConfigureAwait(false);
                                 continue;
                             }
 

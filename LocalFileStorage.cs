@@ -50,7 +50,7 @@
         {
             try
             {
-                await File.WriteAllTextAsync(Path.Combine(Path.GetTempPath(), name), content);
+                await File.WriteAllTextAsync(Path.Combine(Path.GetTempPath(), name), content).ConfigureAwait(false);
                 return name;
             }
             catch (Exception ex)
@@ -67,7 +67,7 @@
         {
             try
             {
-                return await File.ReadAllTextAsync(Path.Combine(Path.GetTempPath(), name));
+                return await File.ReadAllTextAsync(Path.Combine(Path.GetTempPath(), name)).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
