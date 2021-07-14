@@ -49,6 +49,8 @@ namespace UACloudLibrary.Controllers
         {
             AddressSpace result = new AddressSpace();
             result.Nodeset.NodesetXml = await _storage.DownloadFileAsync(name).ConfigureAwait(false);
+
+            // TODO: Lookup and add additional metadata
             return result;
         }
 
@@ -81,7 +83,118 @@ namespace UACloudLibrary.Controllers
                             }
                         }
 
-                        // TODO: _database.AddMetaDataToNodeSet(newNodeSetID, metadatafield.name, metadatafield.value);
+                        // add nodeset metadata provided by the user to the database
+                        if (!string.IsNullOrWhiteSpace(uaAddressSpace.Title))
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "nodesettitle", uaAddressSpace.Title).ConfigureAwait(false);
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(uaAddressSpace.Version))
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "version", new Version(uaAddressSpace.Version).ToString()).ConfigureAwait(false);
+                        }
+
+                        await _database.AddMetaDataToNodeSet(newNodeSetID, "license", uaAddressSpace.License.ToString()).ConfigureAwait(false);
+
+                        if (!string.IsNullOrWhiteSpace(uaAddressSpace.CopyrightText))
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "copyright", uaAddressSpace.CopyrightText).ConfigureAwait(false);
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(uaAddressSpace.Description))
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "description", uaAddressSpace.Description).ConfigureAwait(false);
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(uaAddressSpace.Category.Name))
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "addressspacename", uaAddressSpace.Category.Name).ConfigureAwait(false);
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(uaAddressSpace.Category.Description))
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "addressspacedescription", uaAddressSpace.Category.Description).ConfigureAwait(false);
+                        }
+
+                        if (uaAddressSpace.Category.IconUrl != null)
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "addressspaceiconurl", uaAddressSpace.Category.IconUrl.ToString()).ConfigureAwait(false);
+                        }
+
+                        if (uaAddressSpace.DocumentationUrl != null)
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "documentationurl", uaAddressSpace.DocumentationUrl.ToString()).ConfigureAwait(false);
+                        }
+
+                        if (uaAddressSpace.IconUrl != null)
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "iconurl", uaAddressSpace.IconUrl.ToString()).ConfigureAwait(false);
+                        }
+
+                        if (uaAddressSpace.LicenseUrl != null)
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "licenseurl", uaAddressSpace.LicenseUrl.ToString()).ConfigureAwait(false);
+                        }
+
+                        if (uaAddressSpace.Keywords.Length > 0)
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "keywords", string.Join(',', uaAddressSpace.Keywords)).ConfigureAwait(false);
+                        }
+
+                        if (uaAddressSpace.PurchasingInformationUrl != null)
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "purchasinginfo", uaAddressSpace.PurchasingInformationUrl.ToString()).ConfigureAwait(false);
+                        }
+
+                        if (uaAddressSpace.ReleaseNotesUrl != null)
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "releasenotes", uaAddressSpace.ReleaseNotesUrl.ToString()).ConfigureAwait(false);
+                        }
+
+                        if (uaAddressSpace.TestSpecificationUrl != null)
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "testspecification", uaAddressSpace.TestSpecificationUrl.ToString()).ConfigureAwait(false);
+                        }
+
+                        if (uaAddressSpace.SupportedLocales.Length > 0)
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "locales", string.Join(',', uaAddressSpace.SupportedLocales)).ConfigureAwait(false);
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(uaAddressSpace.Contributor.Name))
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "orgname", uaAddressSpace.Contributor.Name).ConfigureAwait(false);
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(uaAddressSpace.Contributor.Description))
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "orgdescription", uaAddressSpace.Contributor.Description).ConfigureAwait(false);
+                        }
+
+                        if (uaAddressSpace.Contributor.LogoUrl != null)
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "orglogo", uaAddressSpace.Contributor.LogoUrl.ToString()).ConfigureAwait(false);
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(uaAddressSpace.Contributor.ContactEmail))
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "orgcontact", uaAddressSpace.Contributor.ContactEmail).ConfigureAwait(false);
+                        }
+
+                        if (uaAddressSpace.Contributor.Website != null)
+                        {
+                            await _database.AddMetaDataToNodeSet(newNodeSetID, "orgwebsite", uaAddressSpace.Contributor.Website.ToString()).ConfigureAwait(false);
+                        }
+
+                        await _database.AddMetaDataToNodeSet(newNodeSetID, "numdownloads", "0").ConfigureAwait(false);
+
+                        foreach (Tuple<string, string> additionalProperty in uaAddressSpace.AdditionalProperties)
+                        {
+                            if (!string.IsNullOrWhiteSpace(additionalProperty.Item1) && !string.IsNullOrWhiteSpace(additionalProperty.Item2))
+                            {
+                                await _database.AddMetaDataToNodeSet(newNodeSetID, additionalProperty.Item1, additionalProperty.Item2).ConfigureAwait(false);
+                            }
+                        }
 
                         foreach (UANode uaNode in nodeSet.Items)
                         {
