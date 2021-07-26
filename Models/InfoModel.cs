@@ -1,5 +1,7 @@
 
 using System;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace UACloudLibrary
 {
@@ -9,7 +11,7 @@ namespace UACloudLibrary
         ApacheLicense20,
         Custom
     }
-
+    [Table("AddressSpaces")]
     public class AddressSpace
     {
         public AddressSpace()
@@ -23,7 +25,7 @@ namespace UACloudLibrary
             LastModification = DateTime.UtcNow;
             Contributor = new Organisation();
             Description = string.Empty;
-            Category = new AddresSpaceCategory();
+            Category = new AddressSpaceCategory();
             Nodeset = new AddressSpaceNodeset2();
             DocumentationUrl = null;
             IconUrl = null;
@@ -34,29 +36,42 @@ namespace UACloudLibrary
             TestSpecificationUrl = null;
             SupportedLocales = null;
             NumberOfDownloads = 0;
-            AdditionalProperties = null;
+            //AdditionalProperties = null;
         }
-
+        [Key]
+        [Required]
         public string ID { get; set; }
-
+        [Required]
         public string Title { get; set; }
 
         public string Version { get; set; }
-
+        [Required]
         public AddressSpaceLicense License { get; set; }
 
         public string CopyrightText {get; set;}
-
+        [Required]
         public DateTime CreationTimeStamp { get; set; }
 
+        [Required]
         public DateTime LastModification { get; set; }
 
+        // Specifically used for efcore related data loading
+        [ForeignKey("Contributor")]
+        public string ContributorID { get; set; }
+
+        [Required]
         public Organisation Contributor { get; set; }
 
         public string Description { get; set; }
 
-        public AddresSpaceCategory Category { get; set; }
+        // Specifically used for efcore related data loading
+        [ForeignKey("Category")]
+        public string CategoryID { get; set; }
 
+        [Required]
+        public AddressSpaceCategory Category { get; set; }
+
+        [Required]
         public AddressSpaceNodeset2 Nodeset { get; set; }
 
         /// <summary>
@@ -83,11 +98,11 @@ namespace UACloudLibrary
         public string[] SupportedLocales { get; set; }
 
         public uint NumberOfDownloads { get; set; }
-
-        public Tuple<string, string>[] AdditionalProperties { get; set; }
+       
+        // Disabled this property due to incompatibility with EFCore and Postgres
+        //public Tuple<string, string>[] AdditionalProperties { get; set; }
     }
-
-
+    [Table("Organisations")]
     public class Organisation
     {
         public Organisation()
@@ -101,9 +116,10 @@ namespace UACloudLibrary
             CreationTimeStamp = DateTime.UtcNow;
             LastModification = DateTime.UtcNow;
         }
-
+        [Key]
+        [Required]
         public string ID { get; set; }
-
+        [Required]
         public string Name { get; set; }
 
         public string Description { get; set; }
@@ -113,15 +129,15 @@ namespace UACloudLibrary
         public string ContactEmail { get; set; }
 
         public Uri Website { get; set; }
-
+        [Required]
         public DateTime CreationTimeStamp { get; set; }
-
+        [Required]
         public DateTime LastModification { get; set; }
     }
-
-    public class AddresSpaceCategory
+    [Table("AddressSpaceCategories")]
+    public class AddressSpaceCategory
     {
-        public AddresSpaceCategory()
+        public AddressSpaceCategory()
         {
             ID = string.Empty;
             Name = string.Empty;
@@ -130,20 +146,21 @@ namespace UACloudLibrary
             CreationTimeStamp = DateTime.UtcNow;
             LastModification = DateTime.UtcNow;
         }
-
+        [Key]
+        [Required]
         public string ID { get; set; }
-
+        [Required]
         public string Name { get; set; }
 
         public string Description { get; set; }
 
         public Uri IconUrl { get; set; }
-
+        [Required]
         public DateTime CreationTimeStamp { get; set; }
-
+        [Required]
         public DateTime LastModification { get; set; }
     }
-
+    [Table("AddressSpaceNodesets")]
     public class AddressSpaceNodeset2
     {
         public AddressSpaceNodeset2()
@@ -153,13 +170,14 @@ namespace UACloudLibrary
             CreationTimeStamp = DateTime.UtcNow;
             LastModification = DateTime.UtcNow;
         }
-
+        [Key]
+        [ForeignKey("AddressSpace")]
         public string AddressSpaceID { get; set; }
 
         public string NodesetXml { get; set; }
-
+        [Required]
         public DateTime CreationTimeStamp { get; set; }
-
+        [Required]
         public DateTime LastModification { get; set; }
     }
 }

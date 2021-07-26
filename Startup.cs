@@ -1,15 +1,21 @@
 
 namespace UACloudLibrary
 {
-    using Microsoft.AspNetCore.Authentication;
+    using GraphQL.Server;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.Hosting;
-    using Microsoft.Extensions.Configuration;
     using Microsoft.Extensions.DependencyInjection;
+    using Microsoft.AspNetCore.Authentication;
+    using Microsoft.Extensions.Configuration;
     using Microsoft.Extensions.Hosting;
     using Microsoft.OpenApi.Models;
     using System;
     using UACloudLibrary.Interfaces;
+    using UA_CloudLibrary.GraphQL;
+    using Microsoft.EntityFrameworkCore;
+    using GraphQL.Server.Transports.AspNetCore;
+    using UA_CloudLibrary.GraphQL.Types;
+    using GraphQL;
 
     public class Startup
     {
@@ -69,6 +75,30 @@ namespace UACloudLibrary
                     }
                 });
             });
+            // Setting up database context
+            // Alternative would be to create queries manually
+            services.AddDbContext<AppDbContext>(o =>
+            {
+                o.UseNpgsql(Configuration["ConnectionString"]);
+            });
+            // Setting up dependency injection
+            services.AddSingleton<IServiceProvider>(c => new FuncServiceProvider(type => c.GetRequiredService(type)));
+            services.Configure<IISServerOptions>(options => options.AllowSynchronousIO = true);
+
+            // Setting up GraphQL with GraphQL DOTNET
+            services
+                .AddScoped<CloudLibQuery>()
+                .AddScoped<Schema>()
+                .AddGraphQL()
+                .AddDefaultEndpointSelectorPolicy()
+                // Add required services for GraphQL request/response de/serialization
+                .AddSystemTextJson() // For .NET Core 3+
+                .AddNewtonsoftJson() // For everything else
+#if DEBUG
+                .AddErrorInfoProvider(opt => opt.ExposeExceptionStackTrace = true)
+#endif                
+                .AddDataLoader() // Add required services for DataLoader support
+                .AddGraphTypes(typeof(Schema));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -96,9 +126,9 @@ namespace UACloudLibrary
 
             app.UseEndpoints(endpoints =>
             {
+                endpoints.MapGraphQL<Schema, GraphQLHttpMiddleware<Schema>>();
                 endpoints.MapControllers();
             });
         }
     }
 }
-
