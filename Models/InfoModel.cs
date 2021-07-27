@@ -19,8 +19,8 @@ namespace UACloudLibrary
             Version = "1.0.0";
             License = AddressSpaceLicense.Custom;
             CopyrightText = string.Empty;
-            CreationTimeStamp = DateTime.UtcNow;
-            LastModification = DateTime.UtcNow;
+            CreationTime = DateTime.UtcNow;
+            LastModificationTime = DateTime.UtcNow;
             Contributor = new Organisation();
             Description = string.Empty;
             Category = new AddresSpaceCategory();
@@ -47,9 +47,9 @@ namespace UACloudLibrary
 
         public string CopyrightText {get; set;}
 
-        public DateTime CreationTimeStamp { get; set; }
+        public DateTime CreationTime { get; set; }
 
-        public DateTime LastModification { get; set; }
+        public DateTime LastModificationTime { get; set; }
 
         public Organisation Contributor { get; set; }
 
@@ -98,8 +98,8 @@ namespace UACloudLibrary
             LogoUrl = null;
             ContactEmail = null;
             Website = null;
-            CreationTimeStamp = DateTime.UtcNow;
-            LastModification = DateTime.UtcNow;
+            CreationTime = DateTime.UtcNow;
+            LastModificationTime = DateTime.UtcNow;
         }
 
         public string ID { get; set; }
@@ -114,9 +114,9 @@ namespace UACloudLibrary
 
         public Uri Website { get; set; }
 
-        public DateTime CreationTimeStamp { get; set; }
+        public DateTime CreationTime { get; set; }
 
-        public DateTime LastModification { get; set; }
+        public DateTime LastModificationTime { get; set; }
     }
 
     public class AddresSpaceCategory
@@ -127,8 +127,8 @@ namespace UACloudLibrary
             Name = string.Empty;
             Description = null;
             IconUrl = null;
-            CreationTimeStamp = DateTime.UtcNow;
-            LastModification = DateTime.UtcNow;
+            CreationTime = DateTime.UtcNow;
+            LastModificationTime = DateTime.UtcNow;
         }
 
         public string ID { get; set; }
@@ -139,9 +139,9 @@ namespace UACloudLibrary
 
         public Uri IconUrl { get; set; }
 
-        public DateTime CreationTimeStamp { get; set; }
+        public DateTime CreationTime { get; set; }
 
-        public DateTime LastModification { get; set; }
+        public DateTime LastModificationTime { get; set; }
     }
 
     public class AddressSpaceNodeset2
@@ -150,16 +150,16 @@ namespace UACloudLibrary
         {
             AddressSpaceID = string.Empty;
             NodesetXml = string.Empty;
-            CreationTimeStamp = DateTime.UtcNow;
-            LastModification = DateTime.UtcNow;
+            CreationTime = DateTime.UtcNow;
+            LastModificationTime = DateTime.UtcNow;
         }
 
         public string AddressSpaceID { get; set; }
 
         public string NodesetXml { get; set; }
 
-        public DateTime CreationTimeStamp { get; set; }
+        public DateTime CreationTime { get; set; }
 
-        public DateTime LastModification { get; set; }
+        public DateTime LastModificationTime { get; set; }
     }
 }
