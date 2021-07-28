@@ -57,12 +57,20 @@ namespace UACloudLibrary.Controllers
         [HttpPut("upload")]
         public async Task<AddressSpace> UploadAddressSpaceAsync(AddressSpace uaAddressSpace)
         {
-            // upload the new file to the storage service, and get the file handle that the storage service returned
-            string newFileHandle = await _storage.UploadFileAsync(Guid.NewGuid().ToString(), uaAddressSpace.Nodeset.NodesetXml).ConfigureAwait(false);
-            if (newFileHandle != string.Empty)
+            // check if the nodeset already exists in the database
+            string result = await _database.FindNodesetsAsync(uaAddressSpace.Title).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(result))
             {
+                // new nodeset, upload the new file to the storage service, and get the file handle that the storage service returned
+                uaAddressSpace.Nodeset.AddressSpaceID = await _storage.UploadFileAsync(Guid.NewGuid().ToString(), uaAddressSpace.Nodeset.NodesetXml).ConfigureAwait(false);
+                if (uaAddressSpace.Nodeset.AddressSpaceID == string.Empty)
+                {
+                    throw new Exception("Nodeset could not be uploaded");
+                }
+
                 // add a record of the new file to the index database, and get back the database ID for the new nodeset
-                int newNodeSetID = await _database.AddNodeSetToDatabaseAsync(newFileHandle).ConfigureAwait(false);
+                int newNodeSetID = await _database.AddNodeSetToDatabaseAsync(uaAddressSpace.Nodeset.AddressSpaceID).ConfigureAwait(false);
+                uaAddressSpace.ID = newNodeSetID.ToString();
 
                 // iterate through the incoming namespace
                 List<string> namespaces = new List<string>();
@@ -80,119 +88,6 @@ namespace UACloudLibrary.Controllers
                             if (!namespaces.Contains(ns))
                             {
                                 namespaces.Add(ns);
-                            }
-                        }
-
-                        // add nodeset metadata provided by the user to the database
-                        if (!string.IsNullOrWhiteSpace(uaAddressSpace.Title))
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "nodesettitle", uaAddressSpace.Title).ConfigureAwait(false);
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(uaAddressSpace.Version))
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "version", new Version(uaAddressSpace.Version).ToString()).ConfigureAwait(false);
-                        }
-
-                        await _database.AddMetaDataToNodeSet(newNodeSetID, "license", uaAddressSpace.License.ToString()).ConfigureAwait(false);
-
-                        if (!string.IsNullOrWhiteSpace(uaAddressSpace.CopyrightText))
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "copyright", uaAddressSpace.CopyrightText).ConfigureAwait(false);
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(uaAddressSpace.Description))
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "description", uaAddressSpace.Description).ConfigureAwait(false);
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(uaAddressSpace.Category.Name))
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "addressspacename", uaAddressSpace.Category.Name).ConfigureAwait(false);
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(uaAddressSpace.Category.Description))
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "addressspacedescription", uaAddressSpace.Category.Description).ConfigureAwait(false);
-                        }
-
-                        if (uaAddressSpace.Category.IconUrl != null)
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "addressspaceiconurl", uaAddressSpace.Category.IconUrl.ToString()).ConfigureAwait(false);
-                        }
-
-                        if (uaAddressSpace.DocumentationUrl != null)
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "documentationurl", uaAddressSpace.DocumentationUrl.ToString()).ConfigureAwait(false);
-                        }
-
-                        if (uaAddressSpace.IconUrl != null)
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "iconurl", uaAddressSpace.IconUrl.ToString()).ConfigureAwait(false);
-                        }
-
-                        if (uaAddressSpace.LicenseUrl != null)
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "licenseurl", uaAddressSpace.LicenseUrl.ToString()).ConfigureAwait(false);
-                        }
-
-                        if (uaAddressSpace.Keywords.Length > 0)
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "keywords", string.Join(',', uaAddressSpace.Keywords)).ConfigureAwait(false);
-                        }
-
-                        if (uaAddressSpace.PurchasingInformationUrl != null)
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "purchasinginfo", uaAddressSpace.PurchasingInformationUrl.ToString()).ConfigureAwait(false);
-                        }
-
-                        if (uaAddressSpace.ReleaseNotesUrl != null)
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "releasenotes", uaAddressSpace.ReleaseNotesUrl.ToString()).ConfigureAwait(false);
-                        }
-
-                        if (uaAddressSpace.TestSpecificationUrl != null)
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "testspecification", uaAddressSpace.TestSpecificationUrl.ToString()).ConfigureAwait(false);
-                        }
-
-                        if (uaAddressSpace.SupportedLocales.Length > 0)
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "locales", string.Join(',', uaAddressSpace.SupportedLocales)).ConfigureAwait(false);
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(uaAddressSpace.Contributor.Name))
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "orgname", uaAddressSpace.Contributor.Name).ConfigureAwait(false);
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(uaAddressSpace.Contributor.Description))
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "orgdescription", uaAddressSpace.Contributor.Description).ConfigureAwait(false);
-                        }
-
-                        if (uaAddressSpace.Contributor.LogoUrl != null)
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "orglogo", uaAddressSpace.Contributor.LogoUrl.ToString()).ConfigureAwait(false);
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(uaAddressSpace.Contributor.ContactEmail))
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "orgcontact", uaAddressSpace.Contributor.ContactEmail).ConfigureAwait(false);
-                        }
-
-                        if (uaAddressSpace.Contributor.Website != null)
-                        {
-                            await _database.AddMetaDataToNodeSet(newNodeSetID, "orgwebsite", uaAddressSpace.Contributor.Website.ToString()).ConfigureAwait(false);
-                        }
-
-                        await _database.AddMetaDataToNodeSet(newNodeSetID, "numdownloads", "0").ConfigureAwait(false);
-
-                        foreach (Tuple<string, string> additionalProperty in uaAddressSpace.AdditionalProperties)
-                        {
-                            if (!string.IsNullOrWhiteSpace(additionalProperty.Item1) && !string.IsNullOrWhiteSpace(additionalProperty.Item2))
-                            {
-                                await _database.AddMetaDataToNodeSet(newNodeSetID, additionalProperty.Item1, additionalProperty.Item2).ConfigureAwait(false);
                             }
                         }
 
@@ -267,15 +162,157 @@ namespace UACloudLibrary.Controllers
                     }
                 }
 
-                AddressSpace result = new AddressSpace();
-                result.ID = newNodeSetID.ToString();
-                result.Nodeset.AddressSpaceID = newFileHandle;
-                return result;
+                uaAddressSpace.CreationTime = DateTime.UtcNow;
+                await _database.AddMetaDataToNodeSet(newNodeSetID, "adressspacecreationtime", uaAddressSpace.CreationTime.ToString()).ConfigureAwait(false);
+
+                uaAddressSpace.LastModificationTime = uaAddressSpace.CreationTime;
+                await _database.AddMetaDataToNodeSet(newNodeSetID, "adressspacemodifiedtime", uaAddressSpace.LastModificationTime.ToString()).ConfigureAwait(false);
+
+                uaAddressSpace.Category.CreationTime = uaAddressSpace.CreationTime;
+                await _database.AddMetaDataToNodeSet(newNodeSetID, "categorycreationtime", uaAddressSpace.Category.CreationTime.ToString()).ConfigureAwait(false);
+
+                uaAddressSpace.Category.LastModificationTime = uaAddressSpace.CreationTime;
+                await _database.AddMetaDataToNodeSet(newNodeSetID, "categorymodifiedtime", uaAddressSpace.Category.LastModificationTime.ToString()).ConfigureAwait(false);
+
+                uaAddressSpace.Contributor.CreationTime = uaAddressSpace.CreationTime;
+                await _database.AddMetaDataToNodeSet(newNodeSetID, "contributorcreationtime", uaAddressSpace.Contributor.CreationTime.ToString()).ConfigureAwait(false);
+
+                uaAddressSpace.Contributor.LastModificationTime = uaAddressSpace.CreationTime;
+                await _database.AddMetaDataToNodeSet(newNodeSetID, "contributormodifiedtime", uaAddressSpace.Contributor.LastModificationTime.ToString()).ConfigureAwait(false);
+
+                uaAddressSpace.Nodeset.CreationTime = uaAddressSpace.CreationTime;
+                await _database.AddMetaDataToNodeSet(newNodeSetID, "nodesetcreationtime", uaAddressSpace.Nodeset.CreationTime.ToString()).ConfigureAwait(false);
+
+                uaAddressSpace.Nodeset.LastModificationTime = uaAddressSpace.CreationTime;
+                await _database.AddMetaDataToNodeSet(newNodeSetID, "nodesetmodifiedtime", uaAddressSpace.Nodeset.LastModificationTime.ToString()).ConfigureAwait(false);
+
+                // add nodeset metadata provided by the user to the database
+                if (!string.IsNullOrWhiteSpace(uaAddressSpace.Title))
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "nodesettitle", uaAddressSpace.Title).ConfigureAwait(false);
+                }
+
+                if (!string.IsNullOrWhiteSpace(uaAddressSpace.Version))
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "version", new Version(uaAddressSpace.Version).ToString()).ConfigureAwait(false);
+                }
+
+                await _database.AddMetaDataToNodeSet(newNodeSetID, "license", uaAddressSpace.License.ToString()).ConfigureAwait(false);
+
+                if (!string.IsNullOrWhiteSpace(uaAddressSpace.CopyrightText))
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "copyright", uaAddressSpace.CopyrightText).ConfigureAwait(false);
+                }
+
+                if (!string.IsNullOrWhiteSpace(uaAddressSpace.Description))
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "description", uaAddressSpace.Description).ConfigureAwait(false);
+                }
+
+                if (!string.IsNullOrWhiteSpace(uaAddressSpace.Category.Name))
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "addressspacename", uaAddressSpace.Category.Name).ConfigureAwait(false);
+                }
+
+                if (!string.IsNullOrWhiteSpace(uaAddressSpace.Category.Description))
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "addressspacedescription", uaAddressSpace.Category.Description).ConfigureAwait(false);
+                }
+
+                if (uaAddressSpace.Category.IconUrl != null)
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "addressspaceiconurl", uaAddressSpace.Category.IconUrl.ToString()).ConfigureAwait(false);
+                }
+
+                if (uaAddressSpace.DocumentationUrl != null)
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "documentationurl", uaAddressSpace.DocumentationUrl.ToString()).ConfigureAwait(false);
+                }
+
+                if (uaAddressSpace.IconUrl != null)
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "iconurl", uaAddressSpace.IconUrl.ToString()).ConfigureAwait(false);
+                }
+
+                if (uaAddressSpace.LicenseUrl != null)
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "licenseurl", uaAddressSpace.LicenseUrl.ToString()).ConfigureAwait(false);
+                }
+
+                if (uaAddressSpace.Keywords.Length > 0)
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "keywords", string.Join(',', uaAddressSpace.Keywords)).ConfigureAwait(false);
+                }
+
+                if (uaAddressSpace.PurchasingInformationUrl != null)
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "purchasinginfo", uaAddressSpace.PurchasingInformationUrl.ToString()).ConfigureAwait(false);
+                }
+
+                if (uaAddressSpace.ReleaseNotesUrl != null)
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "releasenotes", uaAddressSpace.ReleaseNotesUrl.ToString()).ConfigureAwait(false);
+                }
+
+                if (uaAddressSpace.TestSpecificationUrl != null)
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "testspecification", uaAddressSpace.TestSpecificationUrl.ToString()).ConfigureAwait(false);
+                }
+
+                if (uaAddressSpace.SupportedLocales.Length > 0)
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "locales", string.Join(',', uaAddressSpace.SupportedLocales)).ConfigureAwait(false);
+                }
+
+                if (!string.IsNullOrWhiteSpace(uaAddressSpace.Contributor.Name))
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "orgname", uaAddressSpace.Contributor.Name).ConfigureAwait(false);
+                }
+
+                if (!string.IsNullOrWhiteSpace(uaAddressSpace.Contributor.Description))
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "orgdescription", uaAddressSpace.Contributor.Description).ConfigureAwait(false);
+                }
+
+                if (uaAddressSpace.Contributor.LogoUrl != null)
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "orglogo", uaAddressSpace.Contributor.LogoUrl.ToString()).ConfigureAwait(false);
+                }
+
+                if (!string.IsNullOrWhiteSpace(uaAddressSpace.Contributor.ContactEmail))
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "orgcontact", uaAddressSpace.Contributor.ContactEmail).ConfigureAwait(false);
+                }
+
+                if (uaAddressSpace.Contributor.Website != null)
+                {
+                    await _database.AddMetaDataToNodeSet(newNodeSetID, "orgwebsite", uaAddressSpace.Contributor.Website.ToString()).ConfigureAwait(false);
+                }
+
+                await _database.AddMetaDataToNodeSet(newNodeSetID, "numdownloads", "0").ConfigureAwait(false);
+
+                foreach (Tuple<string, string> additionalProperty in uaAddressSpace.AdditionalProperties)
+                {
+                    if (!string.IsNullOrWhiteSpace(additionalProperty.Item1) && !string.IsNullOrWhiteSpace(additionalProperty.Item2))
+                    {
+                        await _database.AddMetaDataToNodeSet(newNodeSetID, additionalProperty.Item1, additionalProperty.Item2).ConfigureAwait(false);
+                    }
+                }
             }
             else
             {
-                throw new Exception("Nodeset could not be uploaded or indexed");
+                // existing nodeset
+                uaAddressSpace.LastModificationTime = DateTime.UtcNow;
+                uaAddressSpace.Category.LastModificationTime = uaAddressSpace.LastModificationTime;
+                uaAddressSpace.Contributor.LastModificationTime = uaAddressSpace.LastModificationTime;
+                uaAddressSpace.Nodeset.LastModificationTime = uaAddressSpace.LastModificationTime;
+
+                // TODO: update existing nodeset metadata in the database
+
+                uaAddressSpace.Nodeset.NodesetXml = await _storage.DownloadFileAsync(uaAddressSpace.Nodeset.AddressSpaceID).ConfigureAwait(false);
             }
+
+            return uaAddressSpace;
         }
 
         /// <summary>
