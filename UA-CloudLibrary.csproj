@@ -12,8 +12,9 @@
     <PackageReference Include="AWSSDK.S3" Version="3.7.1.8" />
     <PackageReference Include="Azure.Storage.Blobs" Version="12.9.1" />
     <PackageReference Include="Google.Cloud.Storage.V1" Version="3.5.0" />
-    <PackageReference Include="GraphQL.Conventions" Version="4.1.0" />
-    <PackageReference Include="GraphQL.Server.All" Version="5.0.2" />
+	<PackageReference Include="GraphQL" Version="3.3.2" />
+	<PackageReference Include="GraphQL.EntityFramework" Version="11.0.0" />
+	<PackageReference Include="GraphQL.NewtonsoftJson" Version="3.1.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="5.0.8" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="5.0.8" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Proxies" Version="5.0.8" />

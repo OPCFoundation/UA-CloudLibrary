@@ -1,5 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using UACloudLibrary;
+using System.Linq;
+using System;
 
 namespace UA_CloudLibrary.GraphQL
 {
@@ -15,83 +18,38 @@ namespace UA_CloudLibrary.GraphQL
         public DbSet<AddressSpaceCategory> AddressSpaceCategories { get; set; }
         public DbSet<AddressSpaceNodeset2> AddressSpaceNodesets { get; set; }
 
+        public static IModel GetInstance()
+        {
+            string Host = Environment.GetEnvironmentVariable("PostgresSQLEndpoint");
+            string User = Environment.GetEnvironmentVariable("PostgresSQLUsername");
+            string Password = Environment.GetEnvironmentVariable("PostgresSQLPassword");
+
+            string DBname = "uacloudlib";
+            string Port = "5432";
+
+            string _connectionString = string.Format(
+                "Server={0};Username={1};Database={2};Port={3};Password={4};SSLMode=Prefer",
+                Host,
+                User,
+                DBname,
+                Port,
+                Password);
+            DbContextOptionsBuilder builder = new DbContextOptionsBuilder();
+            builder.UseNpgsql(_connectionString);
+            using AppDbContext context = new AppDbContext(builder.Options);
+            return context.Model;
+        }
+
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // Setting up the required properties and the keys
-            //modelBuilder
-            //    .Entity<AddressSpace>(c =>
-            //    {
-            //        c.HasKey(key => key.ID);
-            //        c.Property(p => p.Title)
-            //            .IsRequired();
-            //        c.Property(p => p.Version)
-            //            .IsRequired();
-            //        c.Property(p => p.License)
-            //            .IsRequired();
-            //        c.Property(p => p.Contributor)
-            //            .IsRequired();
-            //        c.Property(p => p.Category)
-            //            .IsRequired();
+            modelBuilder.Entity<AddressSpace>().Ignore(c => c.AdditionalProperties);
 
-            //        // Needs to be adjusted
-            //        c.Property(p => p.Nodeset)
-            //            .IsRequired();
-            //        c.Property(p => p.Keywords)
-            //            .IsRequired();
-            //        c.Property(p => p.CreationTimeStamp)
-            //            .IsRequired();
-            //        c.Property(p => p.LastModification)
-            //            .IsRequired();
-
-            //        // Relationships
-            //        c.HasOne(c => c.Contributor).WithOne(c => c.);
-            //        c.HasOne(c => c.Category).WithOne("ID");
-            //        c.HasOne(c => c.Nodeset).WithOne("AddressSpaceID");
-            //    });
-
-            //modelBuilder
-            //    .Entity<Organisation>(c =>
-            //    {
-            //        c.HasKey(key => key.ID);
-            //        c.Property(p => p.Name)
-            //            .IsRequired();
-            //        c.Property(p => p.ID)
-            //            .IsRequired();
-            //        c.Property(p => p.CreationTimeStamp)
-            //            .IsRequired();
-            //        c.Property(p => p.LastModification)
-            //            .IsRequired();
-            //    });
-
-            //modelBuilder
-            //    .Entity<AddressSpaceCategory>(c =>
-            //    {
-            //        c.HasKey(key => key.ID);
-            //        c.Property(p => p.Name)
-            //            .IsRequired();
-            //        c.Property(p => p.ID)
-            //            .IsRequired();
-            //        c.Property(p => p.CreationTimeStamp)
-            //            .IsRequired();
-            //        c.Property(p => p.LastModification)
-            //            .IsRequired();
-            //    });
-
-            //modelBuilder
-            //    .Entity<AddressSpaceNodeset2>(c =>
-            //    {
-            //        c.HasKey(key => key.AddressSpaceID);
-            //        c.Property(p => p.NodesetXml)
-            //            .IsRequired();
-            //        c.Property(p => p.AddressSpaceID)
-            //            .IsRequired();
-            //        c.Property(p => p.CreationTimeStamp)
-            //            .IsRequired();
-            //        c.Property(p => p.LastModification)
-            //            .IsRequired();
-            //    });
+            modelBuilder.Entity<AddressSpace>()
+                .HasIndex(b => new { b.Title, b.Description, b.Keywords, b.SupportedLocales })
+                .IsTsVectorExpressionIndex("english");
         }
     }
 }

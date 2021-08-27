@@ -98,9 +98,8 @@ namespace UACloudLibrary
         public string[] SupportedLocales { get; set; }
 
         public uint NumberOfDownloads { get; set; }
-       
-        // Disabled this property due to incompatibility with EFCore and Postgres
-        //public Tuple<string, string>[] AdditionalProperties { get; set; }
+
+        public Tuple<string, string>[] AdditionalProperties { get; set; }
     }
     [Table("Organisations")]
     public class Organisation

@@ -1,7 +1,6 @@
 
 namespace UACloudLibrary
 {
-    using GraphQL.Server;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.Hosting;
     using Microsoft.Extensions.DependencyInjection;
@@ -13,9 +12,13 @@ namespace UACloudLibrary
     using UACloudLibrary.Interfaces;
     using UA_CloudLibrary.GraphQL;
     using Microsoft.EntityFrameworkCore;
-    using GraphQL.Server.Transports.AspNetCore;
-    using UA_CloudLibrary.GraphQL.Types;
     using GraphQL;
+    using GraphQL.Utilities;
+    using GraphQL.EntityFramework;
+    using UA_CloudLibrary.GraphQL.GraphTypes;
+    using Microsoft.AspNetCore.Mvc;
+    using System.Collections.Generic;
+    using System.Linq;
 
     public class Startup
     {
@@ -75,30 +78,52 @@ namespace UACloudLibrary
                     }
                 });
             });
+
+            #region GraphQL
+            // Defining which dotnet class represents which GraphQL type class
+            GraphTypeTypeRegistry.Register<AddressSpaceCategory, AddressSpaceCategoryType>();
+            GraphTypeTypeRegistry.Register<AddressSpaceNodeset2, AddressSpaceNodeset2Type>();
+            GraphTypeTypeRegistry.Register<Organisation, OrganisationType>();
+            GraphTypeTypeRegistry.Register<AddressSpace, AddressSpaceType>();
+            GraphTypeTypeRegistry.Register<AddressSpaceLicense, AddressSpaceLicenseType>();
+
+            EfGraphQLConventions.RegisterInContainer<AppDbContext>(
+                    services,
+                    model: AppDbContext.GetInstance());
+            EfGraphQLConventions.RegisterConnectionTypesInContainer(services);
+
+            foreach (var type in GetGraphQlTypes())
+            {
+                services.AddSingleton(type);
+            }
+
+            services.AddSingleton<AddressSpace>();
+            services.AddSingleton<AddressSpaceCategory>();
+            services.AddSingleton<AddressSpaceNodeset2>();
+            services.AddSingleton<AddressSpaceLicenseType>();
+
             // Setting up database context
-            // Alternative would be to create queries manually
             services.AddDbContext<AppDbContext>(o =>
             {
                 o.UseNpgsql(Configuration["ConnectionString"]);
             });
-            // Setting up dependency injection
-            services.AddSingleton<IServiceProvider>(c => new FuncServiceProvider(type => c.GetRequiredService(type)));
-            services.Configure<IISServerOptions>(options => options.AllowSynchronousIO = true);
 
-            // Setting up GraphQL with GraphQL DOTNET
-            services
-                .AddScoped<CloudLibQuery>()
-                .AddScoped<Schema>()
-                .AddGraphQL()
-                .AddDefaultEndpointSelectorPolicy()
-                // Add required services for GraphQL request/response de/serialization
-                .AddSystemTextJson() // For .NET Core 3+
-                .AddNewtonsoftJson() // For everything else
-#if DEBUG
-                .AddErrorInfoProvider(opt => opt.ExposeExceptionStackTrace = true)
-#endif                
-                .AddDataLoader() // Add required services for DataLoader support
-                .AddGraphTypes(typeof(Schema));
+            services.AddSingleton<IDocumentExecuter, EfDocumentExecuter>();
+            services.AddSingleton<GraphQL.Types.ISchema, Schema>();
+            var mvc = services.AddMvc(option => option.EnableEndpointRouting = false);
+            mvc.SetCompatibilityVersion(CompatibilityVersion.Latest);
+
+            services.Configure<IISServerOptions>(options => options.AllowSynchronousIO = true);
+            #endregion
+        }
+
+        static IEnumerable<Type> GetGraphQlTypes()
+        {
+            return typeof(Startup).Assembly
+                .GetTypes()
+                .Where(x => !x.IsAbstract &&
+                            (typeof(GraphQL.Types.IObjectGraphType).IsAssignableFrom(x) ||
+                             typeof(GraphQL.Types.IInputObjectGraphType).IsAssignableFrom(x)));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -126,7 +151,6 @@ namespace UACloudLibrary
 
             app.UseEndpoints(endpoints =>
             {
-                endpoints.MapGraphQL<Schema, GraphQLHttpMiddleware<Schema>>();
                 endpoints.MapControllers();
             });
         }
