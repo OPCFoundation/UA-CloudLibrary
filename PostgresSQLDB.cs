@@ -158,11 +158,8 @@ namespace UACloudLibrary
         }
 
         /// <summary>
-        /// Create a record for a newly uploaded nodeset file. This is the first step in database ingestion.
+        /// Find an existing nodeset based on keywords
         /// </summary>
-        /// <param name="filename">Path to where the nodeset file was stored</param>
-        /// <param name="cancellationToken"></param>
-        /// <returns>The database record ID for the new nodeset</returns>
         public Task<string> FindNodesetsAsync(string keywords, CancellationToken cancellationToken = default)
         {
             try

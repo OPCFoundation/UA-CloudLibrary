@@ -21,8 +21,8 @@ namespace UACloudLibrary
             Version = "1.0.0";
             License = AddressSpaceLicense.Custom;
             CopyrightText = string.Empty;
-            CreationTimeStamp = DateTime.UtcNow;
-            LastModification = DateTime.UtcNow;
+            CreationTime = DateTime.UtcNow;
+            LastModificationTime = DateTime.UtcNow;
             Contributor = new Organisation();
             Description = string.Empty;
             Category = new AddressSpaceCategory();
@@ -49,11 +49,10 @@ namespace UACloudLibrary
         public AddressSpaceLicense License { get; set; }
 
         public string CopyrightText {get; set;}
-        [Required]
-        public DateTime CreationTimeStamp { get; set; }
 
-        [Required]
-        public DateTime LastModification { get; set; }
+        public DateTime CreationTime { get; set; }
+
+        public DateTime LastModificationTime { get; set; }
 
         // Specifically used for efcore related data loading
         [ForeignKey("Contributor")]
@@ -112,8 +111,8 @@ namespace UACloudLibrary
             LogoUrl = null;
             ContactEmail = null;
             Website = null;
-            CreationTimeStamp = DateTime.UtcNow;
-            LastModification = DateTime.UtcNow;
+            CreationTime = DateTime.UtcNow;
+            LastModificationTime = DateTime.UtcNow;
         }
         [Key]
         [Required]
@@ -128,10 +127,10 @@ namespace UACloudLibrary
         public string ContactEmail { get; set; }
 
         public Uri Website { get; set; }
-        [Required]
-        public DateTime CreationTimeStamp { get; set; }
-        [Required]
-        public DateTime LastModification { get; set; }
+
+        public DateTime CreationTime { get; set; }
+
+        public DateTime LastModificationTime { get; set; }
     }
     [Table("AddressSpaceCategories")]
     public class AddressSpaceCategory
@@ -142,8 +141,8 @@ namespace UACloudLibrary
             Name = string.Empty;
             Description = null;
             IconUrl = null;
-            CreationTimeStamp = DateTime.UtcNow;
-            LastModification = DateTime.UtcNow;
+            CreationTime = DateTime.UtcNow;
+            LastModificationTime = DateTime.UtcNow;
         }
         [Key]
         [Required]
@@ -154,10 +153,10 @@ namespace UACloudLibrary
         public string Description { get; set; }
 
         public Uri IconUrl { get; set; }
-        [Required]
-        public DateTime CreationTimeStamp { get; set; }
-        [Required]
-        public DateTime LastModification { get; set; }
+
+        public DateTime CreationTime { get; set; }
+
+        public DateTime LastModificationTime { get; set; }
     }
     [Table("AddressSpaceNodesets")]
     public class AddressSpaceNodeset2
@@ -166,17 +165,17 @@ namespace UACloudLibrary
         {
             AddressSpaceID = string.Empty;
             NodesetXml = string.Empty;
-            CreationTimeStamp = DateTime.UtcNow;
-            LastModification = DateTime.UtcNow;
+            CreationTime = DateTime.UtcNow;
+            LastModificationTime = DateTime.UtcNow;
         }
         [Key]
         [ForeignKey("AddressSpace")]
         public string AddressSpaceID { get; set; }
 
         public string NodesetXml { get; set; }
-        [Required]
-        public DateTime CreationTimeStamp { get; set; }
-        [Required]
-        public DateTime LastModification { get; set; }
+
+        public DateTime CreationTime { get; set; }
+
+        public DateTime LastModificationTime { get; set; }
     }
 }
