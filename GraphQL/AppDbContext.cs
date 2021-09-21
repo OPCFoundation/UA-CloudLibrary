@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using UACloudLibrary;
 using System.Linq;
 using System;
+using UA_CloudLibrary.DbContextModels;
 
 namespace UA_CloudLibrary.GraphQL
 {
@@ -10,13 +11,19 @@ namespace UA_CloudLibrary.GraphQL
     {
         public AppDbContext(DbContextOptions options) : base(options)
         {
-
         }
 
         public DbSet<Organisation> Organisations { get; set; }
         public DbSet<AddressSpace> AddressSpaces { get; set; }
         public DbSet<AddressSpaceCategory> AddressSpaceCategories { get; set; }
         public DbSet<AddressSpaceNodeset2> AddressSpaceNodesets { get; set; }
+        public DbSet<Objecttype> ObjectTypes { get; set; }
+        public DbSet<Referencetype> ReferenceTypes { get; set; }
+        public DbSet<Nodeset> Nodeset { get; set; }
+        public DbSet<Datatype> DataTypes { get; set; }
+        public DbSet<Variabletype> VariableTypes { get; set; }
+        public DbSet<Metadata> Metadata { get; set; }
+
 
         public static IModel GetInstance()
         {
