@@ -101,6 +101,12 @@ namespace UACloudLibrary
             services.AddSingleton<AddressSpaceCategory>();
             services.AddSingleton<AddressSpaceNodeset2>();
             services.AddSingleton<AddressSpaceLicenseType>();
+            services.AddSingleton<DatatypeGQL>();
+            services.AddSingleton<MetadataGQL>();
+            services.AddSingleton<NodesetGQL>();
+            services.AddSingleton<ObjecttypeGQL>();
+            services.AddSingleton<ReferencetypeGQL>();
+            services.AddSingleton<VariabletypeGQL>();
 
             // Setting up database context
             services.AddDbContext<AppDbContext>(o =>
