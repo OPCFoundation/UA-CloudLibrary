@@ -111,7 +111,23 @@ namespace UACloudLibrary
             // Setting up database context
             services.AddDbContext<AppDbContext>(o =>
             {
-                o.UseNpgsql(Configuration["ConnectionString"]);
+                // Obtain connection string information from the environment
+                string Host = Environment.GetEnvironmentVariable("PostgresSQLEndpoint");
+                string User = Environment.GetEnvironmentVariable("PostgresSQLUsername");
+                string Password = Environment.GetEnvironmentVariable("PostgresSQLPassword");
+
+                string DBname = "uacloudlib";
+                string Port = "5432";
+
+                // Build connection string using parameters from portal
+                string connectionString = string.Format(
+                    "Server={0};Username={1};Database={2};Port={3};Password={4};SSLMode=Prefer",
+                    Host,
+                    User,
+                    DBname,
+                    Port,
+                    Password);
+                o.UseNpgsql(connectionString);
             });
 
             services.AddSingleton<IDocumentExecuter, EfDocumentExecuter>();
