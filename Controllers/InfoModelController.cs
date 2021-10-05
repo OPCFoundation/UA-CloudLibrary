@@ -58,6 +58,8 @@ namespace UACloudLibrary.Controllers
         public async Task<AddressSpace> UploadAddressSpaceAsync(AddressSpace uaAddressSpace)
         {
             // check if the nodeset already exists in the database
+            // TODO: Change this to checking a hash including all the metadata
+            // TODO: Allow forced overwrite as a parameter
             string result = await _database.FindNodesetsAsync(uaAddressSpace.Title).ConfigureAwait(false);
             if (string.IsNullOrEmpty(result))
             {

@@ -168,7 +168,7 @@ namespace UACloudLibrary
                 {
                     connection.Open();
 
-                    //TODO: This isn't a very good query
+                    //TODO: This need to be expanded to do free text on all fields
                     var sqlQuery = String.Format(@"SELECT public.nodesets.nodeset_filename
                         FROM public.metadata
                         INNER JOIN public.nodesets
