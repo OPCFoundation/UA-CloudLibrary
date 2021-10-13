@@ -81,13 +81,15 @@ namespace UACloudLibrary
                     connection.Open();
 
                     // insert the record
-                    var sqlInsert = String.Format("INSERT INTO public.nodesets (nodeset_filename) VALUES('{0}')", filename);
+                    var sqlInsert = String.Format("INSERT INTO public.nodesets (nodeset_filename) VALUES(@filename)");
                     var sqlCommand = new NpgsqlCommand(sqlInsert, connection);
+                    sqlCommand.Parameters.AddWithValue("filename", filename);
                     sqlCommand.ExecuteNonQuery();
 
                     // query for the id of the record
-                    var sqlQuery = String.Format("SELECT nodeset_id from public.nodesets where nodeset_filename = '{0}'", filename);
+                    var sqlQuery = String.Format("SELECT nodeset_id from public.nodesets where nodeset_filename = @filename");
                     sqlCommand = new NpgsqlCommand(sqlQuery, connection);
+                    sqlCommand.Parameters.AddWithValue("filename", filename);
                     var result = sqlCommand.ExecuteScalar();
                     if (int.TryParse(result.ToString(), out retVal))
                     {
@@ -118,8 +120,13 @@ namespace UACloudLibrary
                     connection.Open();
 
                     // insert the record
-                    var sqlInsert = String.Format("INSERT INTO public.{0}s ({0}_browsename, {0}_displayname, {0}_namespace) VALUES('{1}, {2}, {3}') WHERE nodeset_id = {4}", UAType, UATypeBrowseName, UATypeDisplayName, UATypeNamespace, NodesetId);
+                    var sqlInsert = String.Format("INSERT INTO public.{0}s ({0}_browsename, {0}_displayname, {0}_namespace) VALUES('@browsename, @displayname, @namespace') WHERE nodeset_id = @nodesetid");
                     var sqlCommand = new NpgsqlCommand(sqlInsert, connection);
+                    sqlCommand.Parameters.AddWithValue("browsename", UATypeBrowseName);
+                    sqlCommand.Parameters.AddWithValue("displayname", UATypeDisplayName);
+                    sqlCommand.Parameters.AddWithValue("namespace", UATypeNamespace);
+                    sqlCommand.Parameters.AddWithValue("nodesetid", NodesetId);
+
                     sqlCommand.ExecuteNonQuery();
                     return Task.FromResult(true);
                 }
@@ -144,8 +151,11 @@ namespace UACloudLibrary
                     connection.Open();
 
                     // insert the record
-                    var sqlInsert = String.Format("INSERT INTO public.objecttypes (metadata_name, metadata_value) VALUES('{0}, {1}') WHERE nodeset_id = {2}", MetaDataName, MetaDataValue, NodesetId);
+                    var sqlInsert = String.Format("INSERT INTO public.objecttypes (metadata_name, metadata_value) VALUES(@metadataname, @metadatavalue) WHERE nodeset_id = @nodesetid");
                     var sqlCommand = new NpgsqlCommand(sqlInsert, connection);
+                    sqlCommand.Parameters.AddWithValue("metadataname", MetaDataName);
+                    sqlCommand.Parameters.AddWithValue("metadatavalue", MetaDataValue);
+                    sqlCommand.Parameters.AddWithValue("nodesetid", NodesetId);
                     sqlCommand.ExecuteNonQuery();
                     return Task.FromResult(true);
                 }
@@ -167,38 +177,61 @@ namespace UACloudLibrary
                 using (var connection = new NpgsqlConnection(_connectionString))
                 {
                     connection.Open();
-
                     var mySqlCmd = new NpgsqlCommand();
                     mySqlCmd.Connection = connection;
+
+                    //Search for matching metadata fields
+                    //  Add keywords as parameters
                     string sqlParams = string.Empty;
                     int i = 0;
-
                     foreach (string keyword in keywords)
                     {
                         string paramName = string.Format("keyword{0}", i);
                         mySqlCmd.Parameters.AddWithValue(paramName, "%" + keyword + "%");
-                        sqlParams += string.Format(" LOWER(public.metadata.metadata_value) LIKE LOWER(@{0}) or", paramName);
+                        sqlParams += string.Format(@" 
+                         LOWER(public.metadata.metadata_value) 
+                         LIKE LOWER(@{0}) or", paramName);
                         i++;
                     }
                     sqlParams = sqlParams.Substring(0, sqlParams.Length - 2);
+                    //  Build parameterized query string
+                    var sqlQuery = String.Format(@"
+                        SELECT public.nodesets.nodeset_filename
+                        FROM public.nodesets
+                        NATURAL JOIN public.metadata
+                        WHERE {0}", sqlParams);
 
-                    //TODO: Expand this query to search more tables with "JOIN"
-                    var sqlQuery = String.Format(@"SELECT public.nodesets.nodeset_filename
-                        FROM public.metadata
-                        INNER JOIN public.nodesets
-                        ON public.metadata.nodeset_id = public.nodesets.nodeset_id
+                    // Search for matching objecttype fields
+                    //     TODO: This can be done in a loop with the other tables (variabletypes, referencetypes) since their naming convention is similar
+                    //  Re-use existing parameters
+                    sqlParams = string.Empty;
+                    foreach (NpgsqlParameter param in mySqlCmd.Parameters)
+                    {
+                        sqlParams += string.Format(@" 
+                         LOWER(public.objecttypes.objecttype_browsename)
+                         LIKE LOWER(@{0}) or 
+                         LOWER(public.objecttypes.objecttype_displayname) 
+                         LIKE LOWER(@{0}) or", param.ParameterName);
+                    }
+                    sqlParams = sqlParams.Substring(0, sqlParams.Length - 2);
+                    //  Update parameterized query string
+                    sqlQuery += String.Format(@"
+                        UNION 
+                        SELECT public.nodesets.nodeset_filename
+                        FROM public.nodesets
+                        NATURAL JOIN public.objecttypes
                         WHERE {0}", sqlParams);
 
                     //TODO: Remove debugging of parameters
                     #if DEBUG
-                    mySqlCmd.CommandText = sqlQuery;
-                    Debug.WriteLine(mySqlCmd.CommandText);
-                    string debugSQL = mySqlCmd.CommandText;
-                    foreach (NpgsqlParameter param in mySqlCmd.Parameters)
-                    {
-                        debugSQL = debugSQL.Replace(("@" + param.ParameterName), param.Value.ToString());
-                    }
-                    Debug.WriteLine(debugSQL);
+                        mySqlCmd.CommandText = sqlQuery;
+                        Debug.WriteLine(mySqlCmd.CommandText);
+                        string debugSQL = mySqlCmd.CommandText;
+                        foreach (NpgsqlParameter param in mySqlCmd.Parameters)
+                        {
+                            debugSQL = debugSQL.Replace(("@" + param.ParameterName), "'" + param.Value.ToString() + "'");
+                        }
+                        Debug.WriteLine(debugSQL);
                     #endif
 
                     var result = mySqlCmd.ExecuteScalar();
