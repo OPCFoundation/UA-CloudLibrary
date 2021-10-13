@@ -39,7 +39,7 @@ namespace UACloudLibrary.Controllers
         }
 
         [HttpGet("find")]
-        public async Task<string> FindAddressSpaceAsync(string keywords)
+        public async Task<string> FindAddressSpaceAsync([FromQuery] string[] keywords)
         {
             return await _database.FindNodesetsAsync(keywords).ConfigureAwait(false);
         }
@@ -60,7 +60,9 @@ namespace UACloudLibrary.Controllers
             // check if the nodeset already exists in the database
             // TODO: Change this to checking a hash including all the metadata
             // TODO: Allow forced overwrite as a parameter
-            string result = await _database.FindNodesetsAsync(uaAddressSpace.Title).ConfigureAwait(false);
+            string[] keywords = new string[0];
+            keywords[0] = uaAddressSpace.Title;
+            string result = await _database.FindNodesetsAsync(keywords).ConfigureAwait(false);
             if (string.IsNullOrEmpty(result))
             {
                 // new nodeset, upload the new file to the storage service, and get the file handle that the storage service returned

@@ -160,7 +160,7 @@ namespace UACloudLibrary
         /// <summary>
         /// Find an existing nodeset based on keywords
         /// </summary>
-        public Task<string> FindNodesetsAsync(string keywords, CancellationToken cancellationToken = default)
+        public Task<string> FindNodesetsAsync(string[] keywords, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -168,15 +168,44 @@ namespace UACloudLibrary
                 {
                     connection.Open();
 
-                    //TODO: This need to be expanded to do free text on all fields
+                    var mySqlCmd = new NpgsqlCommand();
+                    mySqlCmd.Connection = connection;
+                    string sqlParams = string.Empty;
+                    int i = 0;
+
+                    foreach (string keyword in keywords)
+                    {
+                        string paramName = string.Format("keyword{0}", i);
+                        mySqlCmd.Parameters.AddWithValue(paramName, "%" + keyword + "%");
+                        sqlParams += string.Format(" LOWER(public.metadata.metadata_value) LIKE LOWER(@{0}) or", paramName);
+                        i++;
+                    }
+                    sqlParams = sqlParams.Substring(0, sqlParams.Length - 2);
+
+                    //TODO: Expand this query to search more tables with "JOIN"
                     var sqlQuery = String.Format(@"SELECT public.nodesets.nodeset_filename
                         FROM public.metadata
                         INNER JOIN public.nodesets
                         ON public.metadata.nodeset_id = public.nodesets.nodeset_id
-                        WHERE LOWER(public.metadata.metadata_value) = LOWER('{0}');", keywords);
-                    var sqlCommand = new NpgsqlCommand(sqlQuery, connection);
-                    var result = sqlCommand.ExecuteScalar();
-                    return Task.FromResult(result.ToString());
+                        WHERE {0}", sqlParams);
+
+                    //TODO: Remove debugging of parameters
+                    #if DEBUG
+                    mySqlCmd.CommandText = sqlQuery;
+                    Debug.WriteLine(mySqlCmd.CommandText);
+                    string debugSQL = mySqlCmd.CommandText;
+                    foreach (NpgsqlParameter param in mySqlCmd.Parameters)
+                    {
+                        debugSQL = debugSQL.Replace(("@" + param.ParameterName), param.Value.ToString());
+                    }
+                    Debug.WriteLine(debugSQL);
+                    #endif
+
+                    var result = mySqlCmd.ExecuteScalar();
+                    if (result != null)
+                    {
+                        return Task.FromResult(result.ToString());
+                    }
                 }
             }
             catch (Exception ex)
