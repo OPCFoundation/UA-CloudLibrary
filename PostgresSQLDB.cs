@@ -222,8 +222,7 @@ namespace UACloudLibrary
                         NATURAL JOIN public.objecttypes
                         WHERE {0}", sqlParams);
 
-                    //TODO: Remove debugging of parameters
-                    #if DEBUG
+#if DEBUG
                         mySqlCmd.CommandText = sqlQuery;
                         Debug.WriteLine(mySqlCmd.CommandText);
                         string debugSQL = mySqlCmd.CommandText;
@@ -232,8 +231,7 @@ namespace UACloudLibrary
                             debugSQL = debugSQL.Replace(("@" + param.ParameterName), "'" + param.Value.ToString() + "'");
                         }
                         Debug.WriteLine(debugSQL);
-                    #endif
-
+#endif
                     var result = mySqlCmd.ExecuteScalar();
                     if (result != null)
                     {
