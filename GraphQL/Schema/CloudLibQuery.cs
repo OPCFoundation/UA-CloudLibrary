@@ -109,7 +109,7 @@ namespace UA_CloudLibrary.GraphQL
                 arguments: new QueryArguments(new QueryArgument(typeof(StringGraphType)) { Name = "keywords" }),
                 resolve: async context =>
                 {
-                    return await postgres.FindNodesetsAsync(context.GetArgument<string>("keywords"));
+                    return await postgres.FindNodesetsAsync(context.GetArgument<string[]>("keywords"));
                 });
             #endregion
 
