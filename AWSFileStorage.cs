@@ -67,33 +67,20 @@
         private async Task<AmazonS3Client> ConnectToS3(CancellationToken cancellationToken)
         {
             var cred = await GetTemporaryCredentialsAsync(cancellationToken);
-
-            if( cred == null && _region == null)
-            {
-                return new AmazonS3Client();
-            }
-            else if( cred == null && _region != null)
-            {
-                return new AmazonS3Client(_region);
-            }
-            else if (_region == null)
-            {
-                return new AmazonS3Client(cred);
-            }
-            else
-            {
-                return new AmazonS3Client(cred, _region);
-            }
+            var config = _region == null ? new AmazonS3Config() : new AmazonS3Config { RegionEndpoint = _region };
+            
+            return new AmazonS3Client(cred, config);
+            
         }
 
-        private static async Task<SessionAWSCredentials> GetTemporaryCredentialsAsync(CancellationToken cancellationToken)
+        private static async Task<AWSCredentials> GetTemporaryCredentialsAsync(CancellationToken cancellationToken)
         {
             Credentials credentials = null;
 
             var roleArn = Environment.GetEnvironmentVariable("AWSRoleArn");
             if (string.IsNullOrEmpty(roleArn))
             {
-                return null;
+                return FallbackCredentialsFactory.GetCredentials();
             }
          
             using (var stsClient = new AmazonSecurityTokenServiceClient())
