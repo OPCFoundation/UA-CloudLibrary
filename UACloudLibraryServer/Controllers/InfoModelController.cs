@@ -60,7 +60,7 @@ namespace UACloudLibrary.Controllers
             // check if the nodeset already exists in the database
             // TODO: Change this to checking a hash including all the metadata
             // TODO: Allow forced overwrite as a parameter
-            string[] keywords = new string[0];
+            string[] keywords = new string[1];
             keywords[0] = uaAddressSpace.Title;
             string result = await _database.FindNodesetsAsync(keywords).ConfigureAwait(false);
             if (string.IsNullOrEmpty(result))
