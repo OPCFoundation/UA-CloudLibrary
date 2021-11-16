@@ -5,10 +5,6 @@ VisualStudioVersion = 16.0.31019.35
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UA-CloudLibrary", "UA-CloudLibrary.csproj", "{FA3F73D3-144E-4A9A-A44F-D0F67580E8EF}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UACloudLibClientLibrary", "UACloudLib ClientLibrary\UACloudLibClientLibrary\UACloudLibClientLibrary.csproj", "{3E1B28DA-1BAB-4AC7-9A09-45280570A2F0}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SampleForm", "UACloudLib ClientLibrary\Sample\SampleForm.csproj", "{1A2CFC5C-508C-4310-8250-258A14164ECE}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -19,14 +15,6 @@ Global
 		{FA3F73D3-144E-4A9A-A44F-D0F67580E8EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FA3F73D3-144E-4A9A-A44F-D0F67580E8EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FA3F73D3-144E-4A9A-A44F-D0F67580E8EF}.Release|Any CPU.Build.0 = Release|Any CPU
-		{3E1B28DA-1BAB-4AC7-9A09-45280570A2F0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{3E1B28DA-1BAB-4AC7-9A09-45280570A2F0}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{3E1B28DA-1BAB-4AC7-9A09-45280570A2F0}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{3E1B28DA-1BAB-4AC7-9A09-45280570A2F0}.Release|Any CPU.Build.0 = Release|Any CPU
-		{1A2CFC5C-508C-4310-8250-258A14164ECE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{1A2CFC5C-508C-4310-8250-258A14164ECE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{1A2CFC5C-508C-4310-8250-258A14164ECE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{1A2CFC5C-508C-4310-8250-258A14164ECE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -11,7 +11,7 @@ using GraphQL.EntityFramework;
 
 namespace UA_CloudLibrary.GraphQL
 {
-    
+
 
     #region GraphQlController
     [Route("[controller]")]
@@ -35,13 +35,22 @@ namespace UA_CloudLibrary.GraphQL
             [BindRequired, FromBody] PostBody body,
             CancellationToken cancellation)
         {
-            return Execute(body.Query, body.OperationName, body.Variables, cancellation);
+            if ((body.Query != null) && (body.OperationName != null) && (body.Variables != null))
+            {
+                return Execute(body.Query, body.OperationName, body.Variables, cancellation);
+            }
+            else
+            {
+                return Task.FromResult("Error, can't execute: Query or operation or variables are null!");
+            }
         }
 
         public class PostBody
         {
             public string? OperationName { get; set; }
-            public string Query { get; set; }
+
+            public string? Query { get; set; }
+
             public JObject? Variables { get; set; }
         }
 
@@ -73,7 +82,7 @@ namespace UA_CloudLibrary.GraphQL
                 EnableMetrics = true,
 #endif
             };
-            
+
             var executeAsync = await executer.ExecuteAsync(options);
 
             await writer.WriteAsync(Response.Body, executeAsync, cancellation);

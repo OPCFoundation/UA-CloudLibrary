@@ -21,10 +21,10 @@ namespace UA_CloudLibrary.GraphQL
                 arguments: new QueryArguments(
                     new QueryArgument<AddressSpaceInput> { Name = "addressSpace"}
                     ),
-                resolve: async context => {
+                resolve: context => {
                     // TODO: handle upload
                     Dictionary<string, object> space = (Dictionary<string, object>)context.Arguments["addressSpace"];
-                    return null;    
+                    return null;
                     }
                 );
 
@@ -53,7 +53,7 @@ namespace UA_CloudLibrary.GraphQL
                     string target = (string)context.Arguments["targetAddressSpaceID"];
                     string source = (string)context.Arguments["sourceAddressSpaceID"];
                     string type = (string)context.Arguments["relationshipType"];
-                    
+
                     // TODO: Handle relationship creation
                     return null;
                     }
