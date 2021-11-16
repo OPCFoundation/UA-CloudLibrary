@@ -15,7 +15,7 @@
     using System.IO;
     using System.Text;
     using System.Net;
-    
+
 
     /// <summary>
     /// AWS S3 storage class
@@ -68,9 +68,9 @@
         {
             var cred = await GetTemporaryCredentialsAsync(cancellationToken);
             var config = _region == null ? new AmazonS3Config() : new AmazonS3Config { RegionEndpoint = _region };
-            
+
             return new AmazonS3Client(cred, config);
-            
+
         }
 
         private static async Task<AWSCredentials> GetTemporaryCredentialsAsync(CancellationToken cancellationToken)
@@ -82,7 +82,7 @@
             {
                 return FallbackCredentialsFactory.GetCredentials();
             }
-         
+
             using (var stsClient = new AmazonSecurityTokenServiceClient())
             {
                 var request = new AssumeRoleRequest
