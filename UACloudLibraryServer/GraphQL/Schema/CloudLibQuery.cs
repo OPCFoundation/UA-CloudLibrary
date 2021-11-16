@@ -1,16 +1,12 @@
-﻿using GraphQL.Types;
-using System.Collections.Generic;
-using System.Threading;
-using GraphQL;
-using Microsoft.EntityFrameworkCore;
-using Npgsql.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using UACloudLibrary;
+﻿using GraphQL;
 using GraphQL.EntityFramework;
-using UA_CloudLibrary.GraphQL.GraphTypes;
-using System.Linq;
-using UACloudLibrary.Interfaces;
+using GraphQL.Types;
+using Microsoft.EntityFrameworkCore;
 using System;
+using System.Linq;
+using UA_CloudLibrary.GraphQL.GraphTypes;
+using UACloudLibrary;
+using UACloudLibrary.Interfaces;
 
 namespace UA_CloudLibrary.GraphQL
 {
@@ -80,7 +76,7 @@ namespace UA_CloudLibrary.GraphQL
                                         .Matches(searchtext));
                 }
                 );
-            
+
             AddSingleField(
                 name: "Nodeset",
                 resolve: context =>
