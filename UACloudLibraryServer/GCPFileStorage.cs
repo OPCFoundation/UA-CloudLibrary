@@ -1,7 +1,6 @@
 ﻿namespace UACloudLibrary
 {
     using System;
-    using System.Diagnostics;
     using System.Threading;
     using System.Threading.Tasks;
     using UACloudLibrary.Interfaces;
@@ -32,7 +31,7 @@
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex, "File download failed!");
+                Console.WriteLine(ex);
                 return null;
             }
         }
@@ -50,7 +49,7 @@
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex, "File upload failed!");
+                Console.WriteLine(ex);
                 return Task.FromResult(string.Empty);
             }
         }
@@ -68,7 +67,7 @@
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex, "File download failed!");
+                Console.WriteLine(ex);
                 return Task.FromResult(string.Empty);
             }
         }

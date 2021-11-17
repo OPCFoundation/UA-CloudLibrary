@@ -14,6 +14,7 @@ namespace UACloudLibrary.Controllers
     using UACloudLibrary.Interfaces;
     using UACloudLibrary;
     using UACloudLibrary.Models;
+    using System.Net;
 
     [Authorize]
     [ApiController]
@@ -23,7 +24,7 @@ namespace UACloudLibrary.Controllers
         public InfoModelController(ILogger<InfoModelController> logger)
         {
             _logger = logger;
-            _database = new PostgresSQLDB();
+            _database = new PostgreSQLDB();
 
             switch (Environment.GetEnvironmentVariable("HostingPlatform"))
             {
@@ -39,23 +40,37 @@ namespace UACloudLibrary.Controllers
         }
 
         [HttpGet("find")]
-        public async Task<string> FindAddressSpaceAsync([FromQuery] string[] keywords)
+        public async Task<IActionResult> FindAddressSpaceAsync([FromQuery] string[] keywords)
         {
-            return await _database.FindNodesetsAsync(keywords).ConfigureAwait(false);
+            string result = await _database.FindNodesetsAsync(keywords).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(result))
+            {
+                return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.InternalServerError };
+            }
+            else
+            {
+                return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.OK };
+            }
         }
 
         [HttpGet("download")]
-        public async Task<AddressSpace> DownloadAdressSpaceAsync(string name)
+        public async Task<IActionResult> DownloadAdressSpaceAsync(string name)
         {
             AddressSpace result = new AddressSpace();
+
             result.Nodeset.NodesetXml = await _storage.DownloadFileAsync(name).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(result.Nodeset.NodesetXml))
+            {
+                return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
+            }
 
             // TODO: Lookup and add additional metadata
-            return result;
+
+            return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.OK };
         }
 
         [HttpPut("upload")]
-        public async Task<AddressSpace> UploadAddressSpaceAsync(AddressSpace uaAddressSpace)
+        public async Task<IActionResult> UploadAddressSpaceAsync(AddressSpace uaAddressSpace)
         {
             // check if the nodeset already exists in the database
             // TODO: Change this to checking a hash including all the metadata (filecontent + keywords)
@@ -69,7 +84,7 @@ namespace UACloudLibrary.Controllers
                 uaAddressSpace.Nodeset.AddressSpaceID = await _storage.UploadFileAsync(Guid.NewGuid().ToString(), uaAddressSpace.Nodeset.NodesetXml).ConfigureAwait(false);
                 if (uaAddressSpace.Nodeset.AddressSpaceID == string.Empty)
                 {
-                    throw new Exception("Nodeset could not be uploaded");
+                    return new ObjectResult("Nodeset could not be stored") { StatusCode = (int)HttpStatusCode.InternalServerError };
                 }
 
                 // add a record of the new file to the index database, and get back the database ID for the new nodeset
@@ -162,7 +177,8 @@ namespace UACloudLibrary.Controllers
                     }
                     catch (Exception ex)
                     {
-                        throw new ArgumentException("Could not parse nodeset XML file: " + ex.Message);
+                        Console.WriteLine("Could not parse nodeset XML file: " + ex.Message);
+                        return new ObjectResult("Could not parse nodeset XML file: " + ex.Message) { StatusCode = (int)HttpStatusCode.InternalServerError };
                     }
                 }
 
@@ -316,7 +332,7 @@ namespace UACloudLibrary.Controllers
                 uaAddressSpace.Nodeset.NodesetXml = await _storage.DownloadFileAsync(uaAddressSpace.Nodeset.AddressSpaceID).ConfigureAwait(false);
             }
 
-            return uaAddressSpace;
+            return new ObjectResult(uaAddressSpace) { StatusCode = (int)HttpStatusCode.OK };
         }
 
         /// <summary>
@@ -338,7 +354,7 @@ namespace UACloudLibrary.Controllers
         }
 
         private IFileStorage _storage;
-        private PostgresSQLDB _database;
+        private PostgreSQLDB _database;
         private readonly ILogger<InfoModelController> _logger;
     }
 }

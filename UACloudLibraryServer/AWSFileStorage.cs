@@ -1,10 +1,5 @@
 ﻿namespace UACloudLibrary
 {
-    using System;
-    using System.Diagnostics;
-    using System.Threading;
-    using System.Threading.Tasks;
-    using UACloudLibrary.Interfaces;
     using Amazon;
     using Amazon.Runtime;
     using Amazon.S3;
@@ -12,9 +7,13 @@
     using Amazon.S3.Util;
     using Amazon.SecurityToken;
     using Amazon.SecurityToken.Model;
+    using System;
     using System.IO;
-    using System.Text;
     using System.Net;
+    using System.Text;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using UACloudLibrary.Interfaces;
 
 
     /// <summary>
@@ -43,7 +42,7 @@
                 }
                 catch (Exception ex1)
                 {
-                    Debug.WriteLine($"{connStr} is not a valid S3 Url: {ex1.Message}");
+                    Console.WriteLine($"{connStr} is not a valid S3 Url: {ex1.Message}");
                 }
             }
 
@@ -58,7 +57,7 @@
                     }
                     catch (Exception)
                     {
-                        Debug.WriteLine($"{regionName} is not a valid AWS region");
+                        Console.WriteLine($"{regionName} is not a valid AWS region");
                     }
                 }
             }
@@ -66,7 +65,7 @@
 
         private async Task<AmazonS3Client> ConnectToS3(CancellationToken cancellationToken)
         {
-            var cred = await GetTemporaryCredentialsAsync(cancellationToken);
+            var cred = await GetTemporaryCredentialsAsync(cancellationToken).ConfigureAwait(false);
             var config = _region == null ? new AmazonS3Config() : new AmazonS3Config { RegionEndpoint = _region };
 
             return new AmazonS3Client(cred, config);
@@ -92,7 +91,7 @@
                     RoleSessionName = "S3AccessRole"
                 };
 
-                var response = await stsClient.AssumeRoleAsync(request, cancellationToken);
+                var response = await stsClient.AssumeRoleAsync(request, cancellationToken).ConfigureAwait(false);
                 credentials = response.Credentials;
             }
 
@@ -110,11 +109,11 @@
         {
             try
             {
-                using (var s3Client = await ConnectToS3(cancellationToken))
+                using (var s3Client = await ConnectToS3(cancellationToken).ConfigureAwait(false))
                 {
                     var key = string.IsNullOrEmpty(_prefix) ? name : _prefix + name;
 
-                    await s3Client.GetObjectMetadataAsync(_bucket, key, cancellationToken);
+                    await s3Client.GetObjectMetadataAsync(_bucket, key, cancellationToken).ConfigureAwait(false);
 
                 }
 
@@ -122,7 +121,7 @@
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex, "File not found!");
+                Console.WriteLine(ex);
                 return null;
             }
         }
@@ -134,7 +133,7 @@
         {
             try
             {
-                using (var s3 = await ConnectToS3(cancellationToken))
+                using (var s3 = await ConnectToS3(cancellationToken).ConfigureAwait(false))
                 {
                     var key = string.IsNullOrEmpty(_prefix) ? name : _prefix + name;
 
@@ -147,14 +146,14 @@
                         InputStream = ms
                     };
 
-                    var response = await s3.PutObjectAsync(putRequest, cancellationToken);
+                    var response = await s3.PutObjectAsync(putRequest, cancellationToken).ConfigureAwait(false);
                     if (response.HttpStatusCode == HttpStatusCode.OK)
                     {
                         return name;
                     }
                     else
                     {
-                        Debug.WriteLine($"File upload failed!");
+                        Console.WriteLine($"File upload failed!");
                         return string.Empty;
                     }
 
@@ -162,7 +161,7 @@
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex, "File upload failed!");
+                Console.WriteLine(ex);
                 return string.Empty;
             }
         }
@@ -174,7 +173,7 @@
         {
             try
             {
-                using (var s3 = await ConnectToS3(cancellationToken))
+                using (var s3 = await ConnectToS3(cancellationToken).ConfigureAwait(false))
                 {
                     var key = string.IsNullOrEmpty(_prefix) ? name : _prefix + name;
 
@@ -184,7 +183,7 @@
                         Key = key
                     };
 
-                    var res = await s3.GetObjectAsync(req, cancellationToken);
+                    var res = await s3.GetObjectAsync(req, cancellationToken).ConfigureAwait(false);
 
                     using (var reader = new StreamReader(res.ResponseStream))
                     {
@@ -195,7 +194,7 @@
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex, "File download failed!");
+                Console.WriteLine(ex);
                 return string.Empty;
             }
         }

@@ -12,6 +12,7 @@ namespace UACloudLibrary
     using System.Text;
     using System.Text.Encodings.Web;
     using System.Threading.Tasks;
+    using Microsoft.Extensions.Primitives;
 
     public class BasicAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
     {
@@ -43,6 +44,11 @@ namespace UACloudLibrary
             string username = null;
             try
             {
+                if (StringValues.IsNullOrEmpty(Request.Headers["Authorization"]))
+                {
+                    throw new ArgumentException("Authentication header missing in request!");
+                }
+
                 AuthenticationHeaderValue authHeader = AuthenticationHeaderValue.Parse(Request.Headers["Authorization"]);
                 string[] credentials = Encoding.UTF8.GetString(Convert.FromBase64String(authHeader.Parameter)).Split(':');
                 username = credentials.FirstOrDefault();

@@ -18,7 +18,7 @@ namespace UACloudLibClientLibrary
     public partial class UACloudLibClient
     {
         private GraphQLHttpClient m_client = null;
-        private GraphQLRequest request = new GraphQLRequest();
+        private GraphQLRequest _request = new GraphQLRequest();
 
         public Uri Endpoint
         {
@@ -40,10 +40,26 @@ namespace UACloudLibClientLibrary
         /// <param name="after"></param>
         /// <param name="filter"></param>
         /// <returns>The converted JSON result</returns>
-        public async Task<PageInfo<Organisation>> GetOrganisations(int pageSize = 10, string after = "-1", List<OrganisationWhereExpression> filter = null)
+        public async Task<Tuple<string, PageInfo<Organisation>>> GetOrganisations(int pageSize = 10, string after = "-1", List<OrganisationWhereExpression> filter = null)
         {
-            request.Query = QueryMethods.QueryOrganisations(pageSize, after, filter);
-            return await SendAndConvert<PageInfo<Organisation>>(request);
+            try
+            {
+                _request.Query = QueryMethods.QueryOrganisations(pageSize, after, filter);
+                GraphQLResponse<JObject> response = await m_client.SendQueryAsync<JObject>(_request).ConfigureAwait(false);
+                if ((response.Errors != null) && (response.Errors.Length > 0))
+                {
+                    return new Tuple<string, PageInfo<Organisation>>("GraphQL error: " + response.Errors[0].Message, null);
+                }
+                else
+                {
+                    string dataJson = response.Data?.First?.First?.ToString();
+                    return new Tuple<string, PageInfo<Organisation>>(null, JsonConvert.DeserializeObject<PageInfo<Organisation>>(dataJson));
+                }
+            }
+            catch (Exception ex)
+            {
+                return new Tuple<string, PageInfo<Organisation>>("GraphQL exception: " + ex.Message, null);
+            }
         }
 
         /// <summary>
@@ -54,10 +70,27 @@ namespace UACloudLibClientLibrary
         /// <param name="filter"></param>
         /// <param name="groupedExpression"></param>
         /// <returns>The converted JSON result</returns>
-        public async Task<PageInfo<AddressSpace>> GetAddressSpaces(int pageSize = 10, string after = "-1", List<AddressSpaceWhereExpression> filter = null, GroupedOrExpression<AddressSpaceSearchField> groupedExpression = null)
+        public async Task<Tuple<string, PageInfo<AddressSpace>>> GetAddressSpaces(int pageSize = 10, string after = "-1", List<AddressSpaceWhereExpression> filter = null, GroupedOrExpression<AddressSpaceSearchField> groupedExpression = null)
         {
-            request.Query = QueryMethods.AddressSpacesQuery(after, pageSize, filter, groupedExpression);
-            return await SendAndConvert<PageInfo<AddressSpace>>(request);
+            try
+            {
+                _request.Query = QueryMethods.AddressSpacesQuery(after, pageSize, filter, groupedExpression);
+                GraphQLResponse<JObject> response = await m_client.SendQueryAsync<JObject>(_request).ConfigureAwait(false);
+                if ((response.Errors != null) && (response.Errors.Length > 0))
+                {
+                    return new Tuple<string, PageInfo<AddressSpace>>("GraphQL error: " + response.Errors[0].Message, null);
+                }
+                else
+                {
+                    string dataJson = response.Data?.First?.First?.ToString();
+                    return new Tuple<string, PageInfo<AddressSpace>>(null, JsonConvert.DeserializeObject<PageInfo<AddressSpace>>(dataJson));
+                }
+            }
+            catch (Exception ex)
+            {
+                return new Tuple<string, PageInfo<AddressSpace>>("GraphQL exception: " + ex.Message, null);
+            }
+
         }
 
         /// <summary>
@@ -67,10 +100,26 @@ namespace UACloudLibClientLibrary
         /// <param name="after"></param>
         /// <param name="searchtext"></param>
         /// <returns></returns>
-        public async Task<PageInfo<AddressSpace>> GetAddressSpaces(string searchtext, int pageSize = 10, string after = "-1")
+        public async Task<Tuple<string, PageInfo<AddressSpace>>> GetAddressSpaces(string searchtext, int pageSize = 10, string after = "-1")
         {
-            request.Query = QueryMethods.AddressSpaceQuery(after, pageSize, searchtext);
-            return await SendAndConvert<PageInfo<AddressSpace>>(request);
+            try
+            {
+                _request.Query = QueryMethods.AddressSpaceQuery(after, pageSize, searchtext);
+                GraphQLResponse<JObject> response = await m_client.SendQueryAsync<JObject>(_request).ConfigureAwait(false);
+                if ((response.Errors != null) && (response.Errors.Length > 0))
+                {
+                    return new Tuple<string, PageInfo<AddressSpace>>("GraphQL error: " + response.Errors[0].Message, null);
+                }
+                else
+                {
+                    string dataJson = response.Data?.First?.First?.ToString();
+                    return new Tuple<string, PageInfo<AddressSpace>>(null, JsonConvert.DeserializeObject<PageInfo<AddressSpace>>(dataJson));
+                }
+            }
+            catch (Exception ex)
+            {
+                return new Tuple<string, PageInfo<AddressSpace>>("GraphQL exception: " + ex.Message, null);
+            }
         }
 
         /// <summary>
@@ -80,10 +129,26 @@ namespace UACloudLibClientLibrary
         /// <param name="after"></param>
         /// <param name="filter"></param>
         /// <returns>The converted JSON result</returns>
-        public async Task<PageInfo<AddressSpaceCategory>> GetAddressSpaceCategories(int pageSize = 10, string after = "-1", List<CategoryWhereExpression> filter = null)
+        public async Task<Tuple<string, PageInfo<AddressSpaceCategory>>> GetAddressSpaceCategories(int pageSize = 10, string after = "-1", List<CategoryWhereExpression> filter = null)
         {
-            request.Query = QueryMethods.QueryCategories(pageSize, after, filter);
-            return await SendAndConvert<PageInfo<AddressSpaceCategory>>(request);
+            try
+            {
+                _request.Query = QueryMethods.QueryCategories(pageSize, after, filter);
+                GraphQLResponse<JObject> response = await m_client.SendQueryAsync<JObject>(_request).ConfigureAwait(false);
+                if ((response.Errors != null) && (response.Errors.Length > 0))
+                {
+                    return new Tuple<string, PageInfo<AddressSpaceCategory>>("GraphQL error: " + response.Errors[0].Message, null);
+                }
+                else
+                {
+                    string dataJson = response.Data?.First?.First?.ToString();
+                    return new Tuple<string, PageInfo<AddressSpaceCategory>>(null, JsonConvert.DeserializeObject<PageInfo<AddressSpaceCategory>>(dataJson));
+                }
+            }
+            catch (Exception ex)
+            {
+                return new Tuple<string, PageInfo<AddressSpaceCategory>>("GraphQL exception: " + ex.Message, null);
+            }
         }
 
         /// <summary>
@@ -91,27 +156,25 @@ namespace UACloudLibClientLibrary
         /// </summary>
         /// <param name="NodesetID"></param>
         /// <returns>The converted JSON result</returns>
-        public async Task<AddressSpaceNodeset2> GetNodeset(string NodesetID)
-        {
-            request.Query = QueryMethods.NodesetQuery(NodesetID);
-            return await SendAndConvert<AddressSpaceNodeset2>(request);
-        }
-
-        // Sends the query and converts it
-        private async Task<T> SendAndConvert<T>(GraphQLRequest request) where T : new()
+        public async Task<Tuple<string, AddressSpaceNodeset2>> GetNodeset(string NodesetID)
         {
             try
             {
-                GraphQLResponse<JObject> response = await m_client.SendQueryAsync<JObject>(request);
-
-                string dataJson = response.Data.First?.First?.ToString();
-
-                return JsonConvert.DeserializeObject<T>(dataJson);
+                _request.Query = QueryMethods.NodesetQuery(NodesetID);
+                GraphQLResponse<JObject> response = await m_client.SendQueryAsync<JObject>(_request).ConfigureAwait(false);
+                if ((response.Errors != null) && (response.Errors.Length > 0))
+                {
+                    return new Tuple<string, AddressSpaceNodeset2>("GraphQL error: " + response.Errors[0].Message, null);
+                }
+                else
+                {
+                    string dataJson = response.Data?.First?.First?.ToString();
+                    return new Tuple<string, AddressSpaceNodeset2>(null, JsonConvert.DeserializeObject<AddressSpaceNodeset2>(dataJson));
+                }
             }
             catch (Exception ex)
             {
-                Console.WriteLine("GraphQL exception: " + ex.Message);
-                return new T();
+                return new Tuple<string, AddressSpaceNodeset2>("GraphQL exception: " + ex.Message, null);
             }
         }
     }

@@ -14,22 +14,31 @@ namespace UA_CloudLibrary.GraphQL
         }
 
         public DbSet<Organisation> Organisations { get; set; }
+
         public DbSet<AddressSpace> AddressSpaces { get; set; }
+
         public DbSet<AddressSpaceCategory> AddressSpaceCategories { get; set; }
+
         public DbSet<AddressSpaceNodeset2> AddressSpaceNodesets { get; set; }
+
         public DbSet<Objecttype> ObjectTypes { get; set; }
+
         public DbSet<Referencetype> ReferenceTypes { get; set; }
+
         public DbSet<Nodeset> Nodeset { get; set; }
+
         public DbSet<Datatype> DataTypes { get; set; }
+
         public DbSet<Variabletype> VariableTypes { get; set; }
+
         public DbSet<Metadata> Metadata { get; set; }
 
 
         public static IModel GetInstance()
         {
-            string Host = Environment.GetEnvironmentVariable("PostgresSQLEndpoint");
-            string User = Environment.GetEnvironmentVariable("PostgresSQLUsername");
-            string Password = Environment.GetEnvironmentVariable("PostgresSQLPassword");
+            string Host = Environment.GetEnvironmentVariable("PostgreSQLEndpoint");
+            string User = Environment.GetEnvironmentVariable("PostgreSQLUsername");
+            string Password = Environment.GetEnvironmentVariable("PostgreSQLPassword");
 
             string DBname = "uacloudlib";
             string Port = "5432";
@@ -41,9 +50,11 @@ namespace UA_CloudLibrary.GraphQL
                 DBname,
                 Port,
                 Password);
+
             DbContextOptionsBuilder builder = new DbContextOptionsBuilder();
             builder.UseNpgsql(_connectionString);
             using AppDbContext context = new AppDbContext(builder.Options);
+
             return context.Model;
         }
 
