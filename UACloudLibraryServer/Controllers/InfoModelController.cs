@@ -70,15 +70,14 @@ namespace UACloudLibrary.Controllers
         }
 
         [HttpPut("upload")]
-        public async Task<IActionResult> UploadAddressSpaceAsync(AddressSpace uaAddressSpace)
+        public async Task<IActionResult> UploadAddressSpaceAsync(AddressSpace uaAddressSpace, bool overwrite = false)
         {
             // check if the nodeset already exists in the database
             // TODO: Change this to checking a hash including all the metadata (filecontent + keywords)
-            // TODO: Allow forced overwrite as a parameter
             string[] keywords = new string[1];
             keywords[0] = uaAddressSpace.Title;
             string result = await _database.FindNodesetsAsync(keywords).ConfigureAwait(false);
-            if (string.IsNullOrEmpty(result))
+            if (string.IsNullOrEmpty(result) || overwrite)
             {
                 // new nodeset, upload the new file to the storage service, and get the file handle that the storage service returned
                 uaAddressSpace.Nodeset.AddressSpaceID = await _storage.UploadFileAsync(Guid.NewGuid().ToString(), uaAddressSpace.Nodeset.NodesetXml).ConfigureAwait(false);

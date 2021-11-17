@@ -30,9 +30,7 @@
       "launchBrowser": true,
       "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}/swagger",
       "environmentVariables": {
-        "PostgreSQLUsername": "barnstee@uacloudlib",
-        "PostgreSQLEndpoint": "uacloudlib.postgres.database.azure.com",
-        "PostgreSQLPassword": "UA4Ever&Beyond"
+        "PostgreSQLEndpoint": "uacloudlib.postgres.database.azure.com"
       },
       "publishAllPorts": true,
       "useSSL": true
