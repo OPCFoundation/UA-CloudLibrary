@@ -188,8 +188,8 @@ namespace UACloudLibrary
                     {
                         string paramName = string.Format("keyword{0}", i);
                         mySqlCmd.Parameters.AddWithValue(paramName, "%" + keyword + "%");
-                        sqlParams += string.Format(@" 
-                         LOWER(public.metadata.metadata_value) 
+                        sqlParams += string.Format(@"
+                         LOWER(public.metadata.metadata_value)
                          LIKE LOWER(@{0}) or", paramName);
                         i++;
                     }
@@ -207,16 +207,16 @@ namespace UACloudLibrary
                     sqlParams = string.Empty;
                     foreach (NpgsqlParameter param in mySqlCmd.Parameters)
                     {
-                        sqlParams += string.Format(@" 
+                        sqlParams += string.Format(@"
                          LOWER(public.objecttypes.objecttype_browsename)
-                         LIKE LOWER(@{0}) or 
-                         LOWER(public.objecttypes.objecttype_displayname) 
+                         LIKE LOWER(@{0}) or
+                         LOWER(public.objecttypes.objecttype_displayname)
                          LIKE LOWER(@{0}) or", param.ParameterName);
                     }
                     sqlParams = sqlParams.Substring(0, sqlParams.Length - 2);
                     //  Update parameterized query string
                     sqlQuery += String.Format(@"
-                        UNION 
+                        UNION
                         SELECT public.nodesets.nodeset_filename
                         FROM public.nodesets
                         NATURAL JOIN public.objecttypes
@@ -231,7 +231,8 @@ namespace UACloudLibrary
                             debugSQL = debugSQL.Replace(("@" + param.ParameterName), "'" + param.Value.ToString() + "'");
                         }
                         Debug.WriteLine(debugSQL);
-#endif
+ #endif
+
                     var result = mySqlCmd.ExecuteScalar();
                     if (result != null)
                     {

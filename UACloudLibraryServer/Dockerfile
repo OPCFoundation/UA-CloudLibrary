@@ -7,13 +7,14 @@ EXPOSE 443
 
 FROM mcr.microsoft.com/dotnet/core/sdk:3.1-buster AS build
 WORKDIR /src
+COPY ["UA-CloudLibrary.csproj", ""]
+RUN dotnet restore "./UA-CloudLibrary.csproj"
 COPY . .
-RUN dotnet restore "./UACloudLibraryServer/UA-CloudLibrary.csproj"
-
-RUN dotnet build "./UACloudLibraryServer/UA-CloudLibrary.csproj" -c Release -o /app/build
+WORKDIR "/src/."
+RUN dotnet build "UA-CloudLibrary.csproj" -c Release -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "./UACloudLibraryServer/UA-CloudLibrary.csproj" -c Release -o /app/publish
+RUN dotnet publish "UA-CloudLibrary.csproj" -c Release -o /app/publish
 
 FROM base AS final
 WORKDIR /app
