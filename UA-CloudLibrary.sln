@@ -7,7 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UA-CloudLibrary", "UACloudL
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UACloudLibClientLibrary", "UACloudLibraryClient\UACloudLibClientLibrary\UACloudLibClientLibrary.csproj", "{4016EB0C-5965-46CA-A0F5-564AB9D0E36E}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SampleForm", "UACloudLibraryClient\Sample\SampleForm.csproj", "{A587B1D3-0A12-40EB-96A4-13F6D9458D36}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SampleClient", "UACloudLibraryClient\Sample\SampleClient.csproj", "{A587B1D3-0A12-40EB-96A4-13F6D9458D36}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{3D43B49A-27D9-47EC-A824-263B43AA9C76}"
 	ProjectSection(SolutionItems) = preProject

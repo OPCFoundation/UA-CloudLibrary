@@ -3,8 +3,6 @@
     using Azure.Storage.Blobs;
     using Azure.Storage.Blobs.Models;
     using System;
-    using System.Collections.Generic;
-    using System.Diagnostics;
     using System.IO;
     using System.Text;
     using System.Threading;
@@ -51,7 +49,7 @@
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex, "File download failed!");
+                Console.WriteLine(ex);
                 return null;
             }
         }
@@ -93,7 +91,7 @@
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex, "File upload failed!");
+                Console.WriteLine(ex);
                 return string.Empty;
             }
         }
@@ -142,7 +140,7 @@
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex, "File download failed!");
+                Console.WriteLine(ex);
                 return string.Empty;
             }
         }

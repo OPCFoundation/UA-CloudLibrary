@@ -39,9 +39,9 @@ namespace UACloudLibrary
             services.AddAuthentication("BasicAuthentication")
                 .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null);
 
-            services.AddSwaggerGen(c =>
+            services.AddSwaggerGen(options =>
             {
-                c.SwaggerDoc("v1", new OpenApiInfo
+                options.SwaggerDoc("v1", new OpenApiInfo
                 {
                     Title = "UA Cloud Library REST Service",
                     Version = "v1",
@@ -54,7 +54,7 @@ namespace UACloudLibrary
                     },
                 });
 
-                c.AddSecurityDefinition("basic", new OpenApiSecurityScheme
+                options.AddSecurityDefinition("basic", new OpenApiSecurityScheme
                 {
                     Name = "Authorization",
                     Type = SecuritySchemeType.Http,
@@ -63,7 +63,7 @@ namespace UACloudLibrary
                     Description = "Basic Authorization header using the Bearer scheme."
                 });
 
-                c.AddSecurityRequirement(new OpenApiSecurityRequirement
+                options.AddSecurityRequirement(new OpenApiSecurityRequirement
                 {
                     {
                           new OpenApiSecurityScheme
@@ -79,7 +79,6 @@ namespace UACloudLibrary
                 });
             });
 
-            #region GraphQL
             // Defining which dotnet class represents which GraphQL type class
             GraphTypeTypeRegistry.Register<AddressSpaceCategory, AddressSpaceCategoryType>();
             GraphTypeTypeRegistry.Register<AddressSpaceNodeset2, AddressSpaceNodeset2Type>();
@@ -112,9 +111,9 @@ namespace UACloudLibrary
             services.AddDbContext<AppDbContext>(o =>
             {
                 // Obtain connection string information from the environment
-                string Host = Environment.GetEnvironmentVariable("PostgresSQLEndpoint");
-                string User = Environment.GetEnvironmentVariable("PostgresSQLUsername");
-                string Password = Environment.GetEnvironmentVariable("PostgresSQLPassword");
+                string Host = Environment.GetEnvironmentVariable("PostgreSQLEndpoint");
+                string User = Environment.GetEnvironmentVariable("PostgreSQLUsername");
+                string Password = Environment.GetEnvironmentVariable("PostgreSQLPassword");
 
                 string DBname = "uacloudlib";
                 string Port = "5432";
@@ -127,16 +126,19 @@ namespace UACloudLibrary
                     DBname,
                     Port,
                     Password);
+
                 o.UseNpgsql(connectionString);
             });
 
             services.AddSingleton<IDocumentExecuter, EfDocumentExecuter>();
             services.AddSingleton<GraphQL.Types.ISchema, Schema>();
+
             var mvc = services.AddMvc(option => option.EnableEndpointRouting = false);
             mvc.SetCompatibilityVersion(CompatibilityVersion.Latest);
 
             services.Configure<IISServerOptions>(options => options.AllowSynchronousIO = true);
-            #endregion
+
+            services.AddControllers().AddNewtonsoftJson();
         }
 
         static IEnumerable<Type> GetGraphQlTypes()

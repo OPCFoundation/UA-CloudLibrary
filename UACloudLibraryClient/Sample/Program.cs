@@ -16,11 +16,11 @@ namespace Sample
             Application.SetCompatibleTextRenderingDefault(false);
             try
             {
-                Application.Run(new Form1());
+                Application.Run(new QueryForm());
             }
-            catch(Exception)
+            catch(Exception ex)
             {
-                // Programm ends if the login page gets closed
+                MessageBox.Show(ex.Message, "UA Cloud Library Client");
             }
         }
     }

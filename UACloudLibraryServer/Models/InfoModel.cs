@@ -11,6 +11,7 @@ namespace UACloudLibrary
         ApacheLicense20,
         Custom
     }
+
     [Table("AddressSpaces")]
     public class AddressSpace
     {
@@ -36,15 +37,19 @@ namespace UACloudLibrary
             TestSpecificationUrl = null;
             SupportedLocales = null;
             NumberOfDownloads = 0;
-            //AdditionalProperties = null;
+            AdditionalProperties = new Tuple<string, string>[0];
         }
+
         [Key]
         [Required]
         public string ID { get; set; }
+
         [Required]
         public string Title { get; set; }
 
+
         public string Version { get; set; }
+
         [Required]
         public AddressSpaceLicense License { get; set; }
 
@@ -100,6 +105,7 @@ namespace UACloudLibrary
 
         public Tuple<string, string>[] AdditionalProperties { get; set; }
     }
+
     [Table("Organisations")]
     public class Organisation
     {
@@ -114,9 +120,11 @@ namespace UACloudLibrary
             CreationTime = DateTime.UtcNow;
             LastModificationTime = DateTime.UtcNow;
         }
+
         [Key]
         [Required]
         public string ID { get; set; }
+
         [Required]
         public string Name { get; set; }
 
@@ -132,6 +140,7 @@ namespace UACloudLibrary
 
         public DateTime LastModificationTime { get; set; }
     }
+
     [Table("AddressSpaceCategories")]
     public class AddressSpaceCategory
     {
@@ -144,9 +153,11 @@ namespace UACloudLibrary
             CreationTime = DateTime.UtcNow;
             LastModificationTime = DateTime.UtcNow;
         }
+
         [Key]
         [Required]
         public string ID { get; set; }
+
         [Required]
         public string Name { get; set; }
 
@@ -158,6 +169,7 @@ namespace UACloudLibrary
 
         public DateTime LastModificationTime { get; set; }
     }
+
     [Table("AddressSpaceNodesets")]
     public class AddressSpaceNodeset2
     {
@@ -168,6 +180,7 @@ namespace UACloudLibrary
             CreationTime = DateTime.UtcNow;
             LastModificationTime = DateTime.UtcNow;
         }
+
         [Key]
         [ForeignKey("AddressSpace")]
         public string AddressSpaceID { get; set; }

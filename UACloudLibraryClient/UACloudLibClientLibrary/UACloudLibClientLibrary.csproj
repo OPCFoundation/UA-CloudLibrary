@@ -5,9 +5,9 @@
   </PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="GraphQL" Version="4.5.0" />
-		<PackageReference Include="GraphQL.Client" Version="3.2.4" />
-		<PackageReference Include="GraphQL.Client.Serializer.Newtonsoft" Version="3.2.4" />
+		<PackageReference Include="GraphQL" Version="4.6.1" />
+		<PackageReference Include="GraphQL.Client" Version="4.0.1" />
+		<PackageReference Include="GraphQL.Client.Serializer.Newtonsoft" Version="4.0.1" />
 		<PackageReference Include="GraphQL.Query.Builder" Version="1.2.1" />
 	</ItemGroup>
 	

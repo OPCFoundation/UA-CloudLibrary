@@ -1,7 +1,5 @@
 ﻿using Newtonsoft.Json;
-using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace UACloudLibClientLibrary
 {
@@ -10,7 +8,7 @@ namespace UACloudLibClientLibrary
     /// </summary>
     /// <typeparam name="T"></typeparam>
     public class PageInfo<T> where T : class
-    {        
+    {
         [JsonProperty("edges")]
         public List<PageItem<T>> Items { get; set; }
 
@@ -20,6 +18,7 @@ namespace UACloudLibClientLibrary
         [JsonProperty("totalCount")]
         public int TotalCount { get; set; }
     }
+
     /// <summary>
     /// Contains the data if a next and/or previous page is available
     /// </summary>

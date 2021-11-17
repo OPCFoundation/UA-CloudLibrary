@@ -3,7 +3,6 @@ namespace UACloudLibrary
 {
     using Npgsql;
     using System;
-    using System.Diagnostics;
     using System.Threading;
     using System.Threading.Tasks;
     using UACloudLibrary.Models;
@@ -11,19 +10,19 @@ namespace UACloudLibrary
     /// <summary>
     /// PostgresSQL storage class
     /// </summary>
-    public class PostgresSQLDB
+    public class PostgreSQLDB
     {
         private string _connectionString;
 
         /// <summary>
         /// Default constructor
         /// </summary>
-        public PostgresSQLDB()
+        public PostgreSQLDB()
         {
             // Obtain connection string information from the environment
-            string Host = Environment.GetEnvironmentVariable("PostgresSQLEndpoint");
-            string User = Environment.GetEnvironmentVariable("PostgresSQLUsername");
-            string Password = Environment.GetEnvironmentVariable("PostgresSQLPassword");
+            string Host = Environment.GetEnvironmentVariable("PostgreSQLEndpoint");
+            string User = Environment.GetEnvironmentVariable("PostgreSQLUsername");
+            string Password = Environment.GetEnvironmentVariable("PostgreSQLPassword");
 
             string DBname = "uacloudlib";
             string Port = "5432";
@@ -61,7 +60,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex, "Connection to PostgreSQL failed!");
+                Console.WriteLine(ex);
             }
         }
 
@@ -97,13 +96,13 @@ namespace UACloudLibrary
                     }
                     else
                     {
-                        Debug.WriteLine("Record could be inserted or found!");
+                        Console.WriteLine("Record could be inserted or found!");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex, "Connection to PostgreSQL failed!");
+                Console.WriteLine(ex);
             }
             return Task.FromResult(retVal);
         }
@@ -133,7 +132,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex, "Could not insert to PostgreSQL!");
+                Console.WriteLine(ex);
             }
             return Task.FromResult(false);
         }
@@ -162,7 +161,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex, "Could not insert to PostgreSQL!");
+                Console.WriteLine(ex);
             }
             return Task.FromResult(false);
         }
@@ -193,6 +192,7 @@ namespace UACloudLibrary
                          LIKE LOWER(@{0}) or", paramName);
                         i++;
                     }
+
                     sqlParams = sqlParams.Substring(0, sqlParams.Length - 2);
                     //  Build parameterized query string
                     var sqlQuery = String.Format(@"
@@ -213,6 +213,7 @@ namespace UACloudLibrary
                          LOWER(public.objecttypes.objecttype_displayname)
                          LIKE LOWER(@{0}) or", param.ParameterName);
                     }
+
                     sqlParams = sqlParams.Substring(0, sqlParams.Length - 2);
                     //  Update parameterized query string
                     sqlQuery += String.Format(@"
@@ -223,14 +224,14 @@ namespace UACloudLibrary
                         WHERE {0}", sqlParams);
 
 #if DEBUG
-                        mySqlCmd.CommandText = sqlQuery;
-                        Debug.WriteLine(mySqlCmd.CommandText);
-                        string debugSQL = mySqlCmd.CommandText;
-                        foreach (NpgsqlParameter param in mySqlCmd.Parameters)
-                        {
-                            debugSQL = debugSQL.Replace(("@" + param.ParameterName), "'" + param.Value.ToString() + "'");
-                        }
-                        Debug.WriteLine(debugSQL);
+                    mySqlCmd.CommandText = sqlQuery;
+                    Console.WriteLine(mySqlCmd.CommandText);
+                    string debugSQL = mySqlCmd.CommandText;
+                    foreach (NpgsqlParameter param in mySqlCmd.Parameters)
+                    {
+                        debugSQL = debugSQL.Replace(("@" + param.ParameterName), "'" + param.Value.ToString() + "'");
+                    }
+                    Console.WriteLine(debugSQL);
  #endif
 
                     var result = mySqlCmd.ExecuteScalar();
@@ -242,8 +243,9 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex, "Connection to PostgreSQL failed!");
+                Console.WriteLine(ex);
             }
+
             return Task.FromResult(string.Empty);
         }
     }

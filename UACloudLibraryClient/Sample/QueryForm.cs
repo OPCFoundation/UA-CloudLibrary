@@ -1,11 +1,6 @@
 ﻿using SampleForm;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using UACloudLibClientLibrary;
@@ -13,14 +8,14 @@ using UACloudLibClientLibrary.WhereExpressions;
 
 namespace Sample
 {
-    public partial class Form1 : Form
+    public partial class QueryForm : Form
     {
-        
+
 
         // Switch with factory pattern
-        PageInfo<AddressSpace> m_AddressSpacePageInfo = null;
-        PageInfo<Organisation> m_OrganisationPageInfo = null;
-        PageInfo<AddressSpaceCategory> m_AddressSpaceCategoryPageInfo = null;
+        Tuple<string, PageInfo<AddressSpace>> m_AddressSpacePageInfo = null;
+        Tuple<string, PageInfo<Organisation>> m_OrganisationPageInfo = null;
+        Tuple<string, PageInfo<AddressSpaceCategory>> m_AddressSpaceCategoryPageInfo = null;
         List<AddressSpaceWhereExpression> AddressExpressions = new List<AddressSpaceWhereExpression>();
         List<OrganisationWhereExpression> OrgExpressions = new List<OrganisationWhereExpression>();
         List<CategoryWhereExpression> CategoryExpressions = new List<CategoryWhereExpression>();
@@ -28,7 +23,7 @@ namespace Sample
         public int m_SelectedAddressSpaceID;
         UACloudLibClient client = null;
 
-        public Form1()
+        public QueryForm()
         {
             InitializeComponent();
 
@@ -53,7 +48,6 @@ namespace Sample
 
         private void AddCriteriaBtn_Click(object sender, EventArgs e)
         {
-
             switch (QueryComboBox.SelectedItem)
             {
                 case "AddressSpaces":
@@ -102,11 +96,20 @@ namespace Sample
                     {
                         // request the addressspaces with given attributes and the data in the grid
                         m_AddressSpacePageInfo = await client.GetAddressSpaces(10, "-1", AddressExpressions);
-                        DataGridMethods.FillAddressSpaceView(ResultView, m_AddressSpacePageInfo);
-                        
-                        NextPageBtn.Visible = m_AddressSpacePageInfo.Page.hasNext;
-                        PrevPageBtn.Visible = m_AddressSpacePageInfo.Page.hasPrev;
-                        
+                        if (!string.IsNullOrEmpty(m_AddressSpacePageInfo.Item1))
+                        {
+                            MessageBox.Show(m_AddressSpacePageInfo.Item1, "UA Cloud Library Client");
+                            break;
+                        }
+
+                        DataGridMethods.FillAddressSpaceView(ResultView, m_AddressSpacePageInfo.Item2);
+
+                        if ((m_AddressSpacePageInfo != null) && m_AddressSpacePageInfo.Item2 != null && (m_AddressSpacePageInfo.Item2.Page != null))
+                        {
+                            NextPageBtn.Visible = m_AddressSpacePageInfo.Item2.Page.hasNext;
+                            PrevPageBtn.Visible = m_AddressSpacePageInfo.Item2.Page.hasPrev;
+                        }
+
                         // remove attributes from list
                         AddressExpressions.Clear();
                         FillCriteriaComboBox(typeof(AddressSpaceSearchField));
@@ -115,11 +118,20 @@ namespace Sample
                 case "Organisations":
                     {
                         m_OrganisationPageInfo = await client.GetOrganisations(10, "-1", OrgExpressions);
-                        DataGridMethods.FillOrganisationView(ResultView, m_OrganisationPageInfo);
-                        
-                        NextPageBtn.Visible = m_OrganisationPageInfo.Page.hasNext;
-                        PrevPageBtn.Visible = m_OrganisationPageInfo.Page.hasPrev;
-                        
+                        if (!string.IsNullOrEmpty(m_OrganisationPageInfo.Item1))
+                        {
+                            MessageBox.Show(m_OrganisationPageInfo.Item1, "UA Cloud Library Client");
+                            break;
+                        }
+
+                        DataGridMethods.FillOrganisationView(ResultView, m_OrganisationPageInfo.Item2);
+
+                        if ((m_OrganisationPageInfo != null) && (m_OrganisationPageInfo.Item2 != null) && (m_AddressSpaceCategoryPageInfo.Item2.Page != null))
+                        {
+                            NextPageBtn.Visible = m_OrganisationPageInfo.Item2.Page.hasNext;
+                            PrevPageBtn.Visible = m_OrganisationPageInfo.Item2.Page.hasPrev;
+                        }
+
                         OrgExpressions.Clear();
                         FillCriteriaComboBox(typeof(OrganisationSearchField));
                         break;
@@ -127,11 +139,20 @@ namespace Sample
                 case "Categories":
                     {
                         m_AddressSpaceCategoryPageInfo = await client.GetAddressSpaceCategories(10, "-1", CategoryExpressions);
-                        DataGridMethods.FillCategoriesView(ResultView, m_AddressSpaceCategoryPageInfo);
-                        
-                        NextPageBtn.Visible = m_AddressSpaceCategoryPageInfo.Page.hasNext;
-                        PrevPageBtn.Visible = m_AddressSpaceCategoryPageInfo.Page.hasPrev;
-                        
+                        if (!string.IsNullOrEmpty(m_AddressSpaceCategoryPageInfo.Item1))
+                        {
+                            MessageBox.Show(m_AddressSpaceCategoryPageInfo.Item1, "UA Cloud Library Client");
+                            break;
+                        }
+
+                        DataGridMethods.FillCategoriesView(ResultView, m_AddressSpaceCategoryPageInfo.Item2);
+
+                        if ((m_AddressSpaceCategoryPageInfo != null) && (m_AddressSpaceCategoryPageInfo.Item2 != null) && (m_AddressSpaceCategoryPageInfo.Item2.Page != null))
+                        {
+                            NextPageBtn.Visible = m_AddressSpaceCategoryPageInfo.Item2.Page.hasNext;
+                            PrevPageBtn.Visible = m_AddressSpaceCategoryPageInfo.Item2.Page.hasPrev;
+                        }
+
                         CategoryExpressions.Clear();
                         FillCriteriaComboBox(typeof(CategorySearchField));
                         break;
@@ -184,9 +205,6 @@ namespace Sample
             }
         }
 
-
-
-
         private async void DownloadBtn_Click(object sender, EventArgs e)
         {
             await ContextQuery();
@@ -203,45 +221,55 @@ namespace Sample
         /// <returns></returns>
         private async Task ContextQuery()
         {
-            int currentRow = ResultView.CurrentCell.RowIndex;
+            if ((ResultView != null) && (ResultView.CurrentCell != null))
+            {
+                int currentRow = ResultView.CurrentCell.RowIndex;
 
-            if (QueryComboBox.SelectedItem.ToString() == "AddressSpaces")
-            {
-                // Download the selected nodeset
-                string nodesetID = "";
-                nodesetID = m_AddressSpacePageInfo.Items[currentRow].Item.ID;
-                AddressSpaceNodeset2 nodeset2 = await client.GetNodeset(nodesetID);
-                NodesetResultTextBox.Text = nodeset2.NodesetXml;
-                FilePanel.Enabled = true;
-            }
-            else
-            {
-                // Get addressspaces with selected contributor or category
-                AddressSpaceWhereExpression ex = new AddressSpaceWhereExpression();
-                switch (QueryComboBox.SelectedItem)
+                if (QueryComboBox.SelectedItem.ToString() == "AddressSpaces")
                 {
-                    case "Categories":
-                        {
-                            ex.Value = m_AddressSpaceCategoryPageInfo.Items[currentRow].Item.ID;
-                            ex.Path = AddressSpaceSearchField.categoryID;
-                            break;
-                        }
-                    case "Organisations":
-                        {
-                            ex.Value = m_OrganisationPageInfo.Items[currentRow].Item.ID;
-                            ex.Path = AddressSpaceSearchField.contributorID;
-                            break;
-                        }
-                    default:
-                        {
-                            break;
-                        }
+                    // Download the selected nodeset
+                    string nodesetID = "";
+                    nodesetID = m_AddressSpacePageInfo.Item2.Items[currentRow].Item.ID;
+                    Tuple<string, AddressSpaceNodeset2> nodeset2 = await client.GetNodeset(nodesetID);
+                    if (string.IsNullOrEmpty(nodeset2.Item1))
+                    {
+                        NodesetResultTextBox.Text = nodeset2.Item2.NodesetXml;
+                    }
+                    else
+                    {
+                        NodesetResultTextBox.Text = nodeset2.Item1;
+                    }
+                    FilePanel.Enabled = true;
                 }
-                m_AddressSpacePageInfo = await client.GetAddressSpaces(pageSize: 10, after: "-1", new List<AddressSpaceWhereExpression> { ex });
-                QueryComboBox.SelectedItem = "AddressSpaces";
+                else
+                {
+                    // Get addressspaces with selected contributor or category
+                    AddressSpaceWhereExpression ex = new AddressSpaceWhereExpression();
+                    switch (QueryComboBox.SelectedItem)
+                    {
+                        case "Categories":
+                            {
+                                ex.Value = m_AddressSpaceCategoryPageInfo.Item2.Items[currentRow].Item.ID;
+                                ex.Path = AddressSpaceSearchField.categoryID;
+                                break;
+                            }
+                        case "Organisations":
+                            {
+                                ex.Value = m_OrganisationPageInfo.Item2.Items[currentRow].Item.ID;
+                                ex.Path = AddressSpaceSearchField.contributorID;
+                                break;
+                            }
+                        default:
+                            {
+                                break;
+                            }
+                    }
+                    m_AddressSpacePageInfo = await client.GetAddressSpaces(pageSize: 10, after: "-1", new List<AddressSpaceWhereExpression> { ex }).ConfigureAwait(false);
+                    QueryComboBox.SelectedItem = "AddressSpaces";
+                }
             }
 
-            DataGridMethods.FillAddressSpaceView(ResultView, m_AddressSpacePageInfo);
+            DataGridMethods.FillAddressSpaceView(ResultView, m_AddressSpacePageInfo.Item2);
         }
 
         private void CrossBtn_Click(object sender, EventArgs e)

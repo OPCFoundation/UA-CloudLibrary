@@ -1,9 +1,5 @@
 ﻿using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace UACloudLibClientLibrary
 {
@@ -19,7 +15,7 @@ namespace UACloudLibClientLibrary
         Custom
     }
 
-    
+
     /// <summary>
     /// Contains the metadata of the nodeset and the nodeset itself
     /// </summary>
@@ -27,27 +23,36 @@ namespace UACloudLibClientLibrary
     {
         [JsonProperty("iD")]
         public string ID {
-            get; 
-            set; 
+            get;
+            set;
         }
         [JsonProperty("title")]
         public string Title { get; set; }
+
         [JsonProperty("version")]
         public string Version { get; set; }
+
         [JsonProperty("license")]
         public AddressSpaceLicense License { get; set; }
+
         [JsonProperty("copyrightText")]
         public string CopyrightText { get; set; }
+
         [JsonProperty("creationTime")]
         public DateTime CreationTimeStamp { get; set; }
+
         [JsonProperty("lastModificationTime")]
         public DateTime LastModification { get; set; }
+
         [JsonProperty("contributor")]
         public Organisation Contributor{ get; set; }
+
         [JsonProperty("description")]
         public string Description { get; set; }
+
         [JsonProperty("category")]
         public AddressSpaceCategory Category { get; set; }
+
         [JsonProperty("nodeset")]
         public AddressSpaceNodeset2 Nodeset { get; set; }
 
@@ -56,16 +61,22 @@ namespace UACloudLibClientLibrary
         /// </summary>
         [JsonProperty("documentationUrl")]
         public Uri DocumentationUrl { get; set; }
+
         [JsonProperty("iconUrl")]
         public Uri IconUrl { get; set; }
+
         [JsonProperty("licenseUrl")]
         public Uri LicenseUrl { get; set; }
+
         [JsonProperty("keywords")]
         public string[] KeyWords { get; set; }
+
         [JsonProperty("purchasingInformationUrl")]
         public Uri PurchasingInformationUrl { get; set; }
+
         [JsonProperty("releaseNotesUrl")]
         public Uri ReleaseNotesUrl { get; set; }
+
         [JsonProperty("testSpecificationUrl")]
         public Uri TestSpecificationUrl { get; set; }
 
@@ -74,10 +85,13 @@ namespace UACloudLibClientLibrary
         /// </summary>
         [JsonProperty("supportedLocales")]
         public string[] SupportedLocales { get; set; }
+
         [JsonProperty("numberOfDownloads")]
         public uint NumberOfDownloads { get; set; }
+
         [JsonProperty("additionalProperties")]
         public Tuple<string, string>[] AdditionalProperties { get; set; }
+
         public string PropertiesToString()
         {
             string strTemp = $"ID: {ID}\n";
@@ -91,7 +105,7 @@ namespace UACloudLibClientLibrary
             return strTemp;
         }
     }
- 
+
     /// <summary>
     /// Contains the metadata for the contributor/organisation
     /// </summary>
@@ -100,18 +114,25 @@ namespace UACloudLibClientLibrary
     {
         [JsonProperty("iD")]
         public string ID { get; set; }
+
         [JsonProperty("name")]
         public string Name { get; set; }
+
         [JsonProperty("description")]
         public string Description { get; set; }
+
         [JsonProperty("logoUrl")]
         public Uri LogoUrl { get; set; }
+
         [JsonProperty("contactEmail")]
         public string ContactEmail { get; set; }
+
         [JsonProperty("website")]
         public Uri Website { get; set; }
+
         [JsonProperty("creationTime")]
         public DateTime CreationTimeStamp { get; set; }
+
         [JsonProperty("lastModificationTime")]
         public DateTime LastModification { get; set; }
 
@@ -128,7 +149,7 @@ namespace UACloudLibClientLibrary
             return strTemp;
         }
     }
-    
+
     /// <summary>
     /// Defines the category
     /// </summary>
@@ -137,14 +158,19 @@ namespace UACloudLibClientLibrary
     {
         [JsonProperty("iD")]
         public string ID { get; set; }
+
         [JsonProperty("name")]
         public string Name { get; set; }
+
         [JsonProperty("description")]
         public string Description { get; set; }
+
         [JsonProperty("iconUrl")]
         public Uri IconUrl { get; set; }
+
         [JsonProperty("creationTime")]
         public DateTime CreationTimeStamp { get; set; }
+
         [JsonProperty("lastModificationTime")]
         public DateTime LastModificationTime { get; set; }
 
@@ -159,7 +185,7 @@ namespace UACloudLibClientLibrary
             return strTemp;
         }
     }
-    
+
     /// <summary>
     /// Contains the nodeset and timestamps
     /// </summary>
@@ -168,10 +194,13 @@ namespace UACloudLibClientLibrary
     {
         [JsonProperty("addressSpaceID")]
         public string AddressSpaceID { get; set; }
+
         [JsonProperty("nodesetXml")]
         public string NodesetXml { get; set; }
+
         [JsonProperty("creationTime")]
         public DateTime CreationTimeStamp { get; set; }
+
         [JsonProperty("lastModificationTime")]
         public DateTime LastModification { get; set; }
     }

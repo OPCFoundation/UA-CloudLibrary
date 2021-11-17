@@ -1,8 +1,5 @@
 ﻿using GraphQL.Types;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using UA_CloudLibrary.GraphQL.GraphTypes;
 using UACloudLibrary;
 
@@ -12,7 +9,7 @@ namespace UA_CloudLibrary.GraphQL
     {
         public Mutations()
         {
-            PostgresSQLDB postgres = new PostgresSQLDB();
+            PostgreSQLDB postgres = new PostgreSQLDB();
 
             #region Specification Mutations
 
@@ -37,7 +34,7 @@ namespace UA_CloudLibrary.GraphQL
                 resolve: async context => {
                     int nodesetID = (int)context.Arguments["nodesetID"];
                     Dictionary<string, object> metaTag = (Dictionary<string, object>)context.Arguments["metaTag"];
-                    return await postgres.AddMetaDataToNodeSet(nodesetID, metaTag["name"].ToString(), metaTag["value"].ToString());
+                    return await postgres.AddMetaDataToNodeSet(nodesetID, metaTag["name"].ToString(), metaTag["value"].ToString()).ConfigureAwait(false);
                     }
                 );
 
