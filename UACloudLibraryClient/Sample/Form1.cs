@@ -1,11 +1,6 @@
 ﻿using SampleForm;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using UACloudLibClientLibrary;
@@ -15,7 +10,7 @@ namespace Sample
 {
     public partial class Form1 : Form
     {
-        
+
 
         // Switch with factory pattern
         PageInfo<AddressSpace> m_AddressSpacePageInfo = null;
@@ -103,10 +98,13 @@ namespace Sample
                         // request the addressspaces with given attributes and the data in the grid
                         m_AddressSpacePageInfo = await client.GetAddressSpaces(10, "-1", AddressExpressions);
                         DataGridMethods.FillAddressSpaceView(ResultView, m_AddressSpacePageInfo);
-                        
-                        NextPageBtn.Visible = m_AddressSpacePageInfo.Page.hasNext;
-                        PrevPageBtn.Visible = m_AddressSpacePageInfo.Page.hasPrev;
-                        
+
+                        if ((m_AddressSpacePageInfo != null) && (m_AddressSpacePageInfo.Page != null))
+                        {
+                            NextPageBtn.Visible = m_AddressSpacePageInfo.Page.hasNext;
+                            PrevPageBtn.Visible = m_AddressSpacePageInfo.Page.hasPrev;
+                        }
+
                         // remove attributes from list
                         AddressExpressions.Clear();
                         FillCriteriaComboBox(typeof(AddressSpaceSearchField));
@@ -116,10 +114,13 @@ namespace Sample
                     {
                         m_OrganisationPageInfo = await client.GetOrganisations(10, "-1", OrgExpressions);
                         DataGridMethods.FillOrganisationView(ResultView, m_OrganisationPageInfo);
-                        
-                        NextPageBtn.Visible = m_OrganisationPageInfo.Page.hasNext;
-                        PrevPageBtn.Visible = m_OrganisationPageInfo.Page.hasPrev;
-                        
+
+                        if ((m_OrganisationPageInfo != null) && (m_OrganisationPageInfo.Page != null))
+                        {
+                            NextPageBtn.Visible = m_OrganisationPageInfo.Page.hasNext;
+                            PrevPageBtn.Visible = m_OrganisationPageInfo.Page.hasPrev;
+                        }
+
                         OrgExpressions.Clear();
                         FillCriteriaComboBox(typeof(OrganisationSearchField));
                         break;
@@ -128,10 +129,13 @@ namespace Sample
                     {
                         m_AddressSpaceCategoryPageInfo = await client.GetAddressSpaceCategories(10, "-1", CategoryExpressions);
                         DataGridMethods.FillCategoriesView(ResultView, m_AddressSpaceCategoryPageInfo);
-                        
-                        NextPageBtn.Visible = m_AddressSpaceCategoryPageInfo.Page.hasNext;
-                        PrevPageBtn.Visible = m_AddressSpaceCategoryPageInfo.Page.hasPrev;
-                        
+
+                        if ((m_AddressSpaceCategoryPageInfo != null) && (m_AddressSpaceCategoryPageInfo.Page != null))
+                        {
+                            NextPageBtn.Visible = m_AddressSpaceCategoryPageInfo.Page.hasNext;
+                            PrevPageBtn.Visible = m_AddressSpaceCategoryPageInfo.Page.hasPrev;
+                        }
+
                         CategoryExpressions.Clear();
                         FillCriteriaComboBox(typeof(CategorySearchField));
                         break;

@@ -98,13 +98,21 @@ namespace UACloudLibClientLibrary
         }
 
         // Sends the query and converts it
-        private async Task<T> SendAndConvert<T>(GraphQLRequest request)
+        private async Task<T> SendAndConvert<T>(GraphQLRequest request) where T : new()
         {
-            GraphQLResponse<JObject> response = await m_client.SendQueryAsync<JObject>(request);
+            try
+            {
+                GraphQLResponse<JObject> response = await m_client.SendQueryAsync<JObject>(request);
 
-            string dataJson = response.Data.First?.First?.ToString();
+                string dataJson = response.Data.First?.First?.ToString();
 
-            return JsonConvert.DeserializeObject<T>(dataJson);
+                return JsonConvert.DeserializeObject<T>(dataJson);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("GraphQL exception: " + ex.Message);
+                return new T();
+            }
         }
     }
 }
