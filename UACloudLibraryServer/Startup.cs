@@ -126,15 +126,19 @@ namespace UACloudLibrary
                     DBname,
                     Port,
                     Password);
+
                 o.UseNpgsql(connectionString);
             });
 
             services.AddSingleton<IDocumentExecuter, EfDocumentExecuter>();
             services.AddSingleton<GraphQL.Types.ISchema, Schema>();
+
             var mvc = services.AddMvc(option => option.EnableEndpointRouting = false);
             mvc.SetCompatibilityVersion(CompatibilityVersion.Latest);
 
             services.Configure<IISServerOptions>(options => options.AllowSynchronousIO = true);
+
+            services.AddControllers().AddNewtonsoftJson();
         }
 
         static IEnumerable<Type> GetGraphQlTypes()

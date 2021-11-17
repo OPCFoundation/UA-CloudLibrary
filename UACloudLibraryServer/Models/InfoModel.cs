@@ -37,7 +37,7 @@ namespace UACloudLibrary
             TestSpecificationUrl = null;
             SupportedLocales = null;
             NumberOfDownloads = 0;
-            //AdditionalProperties = null;
+            AdditionalProperties = new Tuple<string, string>[0];
         }
 
         [Key]

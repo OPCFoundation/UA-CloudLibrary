@@ -1,9 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
-using UACloudLibrary;
-using System.Linq;
 using System;
 using UA_CloudLibrary.DbContextModels;
+using UACloudLibrary;
 
 namespace UA_CloudLibrary.GraphQL
 {
