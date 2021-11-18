@@ -19,6 +19,7 @@ namespace UACloudLibrary
     using Microsoft.AspNetCore.Mvc;
     using System.Collections.Generic;
     using System.Linq;
+    using Microsoft.AspNetCore.Server.Kestrel.Core;
 
     public class Startup
     {
@@ -51,7 +52,7 @@ namespace UACloudLibrary
                         Name = "OPC Foundation",
                         Email = string.Empty,
                         Url = new Uri("https://opcfoundation.org/"),
-                    },
+                    }
                 });
 
                 options.AddSecurityDefinition("basic", new OpenApiSecurityScheme
@@ -77,6 +78,10 @@ namespace UACloudLibrary
                             new string[] {}
                     }
                 });
+
+                options.CustomSchemaIds(type => type.ToString());
+
+                options.EnableAnnotations();
             });
 
             // Defining which dotnet class represents which GraphQL type class
@@ -136,7 +141,15 @@ namespace UACloudLibrary
             var mvc = services.AddMvc(option => option.EnableEndpointRouting = false);
             mvc.SetCompatibilityVersion(CompatibilityVersion.Latest);
 
-            services.Configure<IISServerOptions>(options => options.AllowSynchronousIO = true);
+            services.Configure<IISServerOptions>(options =>
+            {
+                options.AllowSynchronousIO = true;
+            });
+
+            services.Configure<KestrelServerOptions>(options =>
+            {
+                options.AllowSynchronousIO = true;
+            });
 
             services.AddControllers().AddNewtonsoftJson();
         }

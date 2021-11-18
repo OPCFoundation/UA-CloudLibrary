@@ -6,21 +6,28 @@ namespace UACloudLibrary.Controllers
     using Microsoft.Extensions.Logging;
     using Opc.Ua;
     using Opc.Ua.Export;
+    using Swashbuckle.AspNetCore.Annotations;
     using System;
     using System.Collections.Generic;
+    using System.ComponentModel.DataAnnotations;
     using System.IO;
+    using System.Net;
     using System.Text;
     using System.Threading.Tasks;
-    using UACloudLibrary.Interfaces;
     using UACloudLibrary;
+    using UACloudLibrary.Interfaces;
     using UACloudLibrary.Models;
-    using System.Net;
 
     [Authorize]
     [ApiController]
-    [Route("[controller]")]
     public class InfoModelController : ControllerBase
     {
+        private IFileStorage _storage;
+
+        private PostgreSQLDB _database;
+
+        private readonly ILogger<InfoModelController> _logger;
+
         public InfoModelController(ILogger<InfoModelController> logger)
         {
             _logger = logger;
@@ -39,8 +46,11 @@ namespace UACloudLibrary.Controllers
             }
         }
 
-        [HttpGet("find")]
-        public async Task<IActionResult> FindAddressSpaceAsync([FromQuery] string[] keywords)
+        [HttpGet]
+        [Route("/infomodel/find/{keywords}")]
+        [SwaggerResponse(statusCode: 200, type: typeof(List<string>), description: "Discovered OPC UA Information Model identifiers of the models found in the UA Cloud Library matching the keywords provided. If no keywords are provided, all identifiers are returned.")]
+        public async Task<IActionResult> FindAddressSpaceAsync(
+            [FromRoute][SwaggerParameter("An optional list of keywords to search for.")] string[] keywords)
         {
             string result = await _database.FindNodesetsAsync(keywords).ConfigureAwait(false);
             if (string.IsNullOrEmpty(result))
@@ -53,12 +63,15 @@ namespace UACloudLibrary.Controllers
             }
         }
 
-        [HttpGet("download")]
-        public async Task<IActionResult> DownloadAdressSpaceAsync(string name)
+        [HttpGet]
+        [Route("/infomodel/download/{identifier}")]
+        [SwaggerResponse(statusCode: 200, type: typeof(AddressSpace), description: "The OPC UA Information model and its metadata, if found.")]
+        public async Task<IActionResult> DownloadAdressSpaceAsync(
+            [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier)
         {
             AddressSpace result = new AddressSpace();
 
-            result.Nodeset.NodesetXml = await _storage.DownloadFileAsync(name).ConfigureAwait(false);
+            result.Nodeset.NodesetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
             if (string.IsNullOrEmpty(result.Nodeset.NodesetXml))
             {
                 return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
@@ -69,8 +82,12 @@ namespace UACloudLibrary.Controllers
             return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.OK };
         }
 
-        [HttpPut("upload")]
-        public async Task<IActionResult> UploadAddressSpaceAsync(AddressSpace uaAddressSpace, bool overwrite = false)
+        [HttpPut]
+        [Route("/infomodel/upload")]
+        [SwaggerResponse(statusCode: 200, type: typeof(AddressSpace), description: "The uploaded OPC UA Information model and its metadata.")]
+        public async Task<IActionResult> UploadAddressSpaceAsync(
+            [FromBody][Required][SwaggerParameter("The OPC UA Information model to upload.")] AddressSpace uaAddressSpace,
+            [FromQuery][SwaggerParameter("An optional flag if existing OPC UA Information models in the library should be overwritten.")] bool overwrite = false)
         {
             // check if the nodeset already exists in the database
             // TODO: Change this to checking a hash including all the metadata (filecontent + keywords)
@@ -351,9 +368,5 @@ namespace UACloudLibrary.Controllers
                 return string.Empty;
             }
         }
-
-        private IFileStorage _storage;
-        private PostgreSQLDB _database;
-        private readonly ILogger<InfoModelController> _logger;
     }
 }

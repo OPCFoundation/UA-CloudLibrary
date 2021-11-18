@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Newtonsoft.Json.Linq;
+using Swashbuckle.AspNetCore.Annotations;
 using System;
+using System.ComponentModel.DataAnnotations;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,7 +16,6 @@ namespace UA_CloudLibrary.GraphQL
 {
     [Authorize]
     [ApiController]
-    [Route("[controller]")]
     public class GraphQlController : ControllerBase
     {
 #nullable enable
@@ -29,11 +30,13 @@ namespace UA_CloudLibrary.GraphQL
         }
 
         [HttpGet]
+        [Route("/graphql")]
+        [SwaggerResponse(statusCode: 200, description: "The result of the executed GraphQL query.")]
         public async Task Get(
-            [FromQuery] string query,
-            [FromQuery] string? variables,
-            [FromQuery] string? operationName,
-            CancellationToken cancellation)
+            [FromQuery][Required][SwaggerParameter("The GraphQL query.")] string query,
+            [FromQuery][SwaggerParameter("An optional set of variables.")] string? variables,
+            [FromQuery][SwaggerParameter("An optional operation name.")] string? operationName,
+            [SwaggerParameter("An optional cancellation token.")] CancellationToken cancellation)
         {
             if (!string.IsNullOrEmpty(query))
             {
@@ -46,9 +49,11 @@ namespace UA_CloudLibrary.GraphQL
         }
 
         [HttpPost]
+        [Route("/graphql")]
+        [SwaggerResponse(statusCode: 200, description: "The result of the executed GraphQL query.")]
         public async Task Post(
-            [BindRequired, FromBody] PostBody body,
-            CancellationToken cancellation)
+            [BindRequired, FromBody][SwaggerParameter("The GraphQL query.")] PostBody body,
+            [SwaggerParameter("An optional cancellation token.")] CancellationToken cancellation)
         {
             if ((body != null) && (body.Query != null))
             {
