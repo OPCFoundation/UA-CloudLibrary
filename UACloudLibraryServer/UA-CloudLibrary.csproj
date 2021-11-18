@@ -9,8 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="AWSSDK.S3" Version="3.7.4.6" />
-	<PackageReference Include="AWSSDK.SecurityToken" Version="3.7.1.89" />
+    <PackageReference Include="AWSSDK.S3" Version="3.7.4.7" />
+	<PackageReference Include="AWSSDK.SecurityToken" Version="3.7.1.90" />
     <PackageReference Include="Azure.Storage.Blobs" Version="12.10.0" />
     <PackageReference Include="Google.Cloud.Storage.V1" Version="3.6.0" />
 	<PackageReference Include="GraphQL" Version="3.3.2" />
@@ -28,6 +28,7 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="5.0.10" />
     <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Core" Version="1.4.367.42" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.2.3" />
+    <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="6.2.3" />
   </ItemGroup>
 
 

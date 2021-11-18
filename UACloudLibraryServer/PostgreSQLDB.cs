@@ -104,6 +104,7 @@ namespace UACloudLibrary
             {
                 Console.WriteLine(ex);
             }
+
             return Task.FromResult(retVal);
         }
 
@@ -125,8 +126,8 @@ namespace UACloudLibrary
                     sqlCommand.Parameters.AddWithValue("displayname", UATypeDisplayName);
                     sqlCommand.Parameters.AddWithValue("namespace", UATypeNamespace);
                     sqlCommand.Parameters.AddWithValue("nodesetid", NodesetId);
-
                     sqlCommand.ExecuteNonQuery();
+
                     return Task.FromResult(true);
                 }
             }
@@ -134,6 +135,7 @@ namespace UACloudLibrary
             {
                 Console.WriteLine(ex);
             }
+
             return Task.FromResult(false);
         }
 
@@ -156,6 +158,7 @@ namespace UACloudLibrary
                     sqlCommand.Parameters.AddWithValue("metadatavalue", MetaDataValue);
                     sqlCommand.Parameters.AddWithValue("nodesetid", NodesetId);
                     sqlCommand.ExecuteNonQuery();
+
                     return Task.FromResult(true);
                 }
             }
@@ -163,6 +166,7 @@ namespace UACloudLibrary
             {
                 Console.WriteLine(ex);
             }
+
             return Task.FromResult(false);
         }
 
