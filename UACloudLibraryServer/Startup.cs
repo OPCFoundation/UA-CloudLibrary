@@ -1,25 +1,26 @@
 
 namespace UACloudLibrary
 {
+    using GraphQL;
+    using GraphQL.EntityFramework;
+    using GraphQL.Utilities;
+    using Microsoft.AspNetCore.Authentication;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.Hosting;
-    using Microsoft.Extensions.DependencyInjection;
-    using Microsoft.AspNetCore.Authentication;
+    using Microsoft.AspNetCore.DataProtection;
+    using Microsoft.AspNetCore.Mvc;
+    using Microsoft.AspNetCore.Server.Kestrel.Core;
+    using Microsoft.EntityFrameworkCore;
     using Microsoft.Extensions.Configuration;
+    using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Hosting;
     using Microsoft.OpenApi.Models;
     using System;
-    using UACloudLibrary.Interfaces;
-    using UA_CloudLibrary.GraphQL;
-    using Microsoft.EntityFrameworkCore;
-    using GraphQL;
-    using GraphQL.Utilities;
-    using GraphQL.EntityFramework;
-    using UA_CloudLibrary.GraphQL.GraphTypes;
-    using Microsoft.AspNetCore.Mvc;
     using System.Collections.Generic;
     using System.Linq;
-    using Microsoft.AspNetCore.Server.Kestrel.Core;
+    using UA_CloudLibrary.GraphQL;
+    using UA_CloudLibrary.GraphQL.GraphTypes;
+    using UACloudLibrary.Interfaces;
 
     public class Startup
     {
@@ -100,6 +101,28 @@ namespace UACloudLibrary
             {
                 services.AddSingleton(type);
             }
+
+            switch (Configuration["HostingPlatform"])
+            {
+                case "Azure": services.AddSingleton<IFileStorage, AzureFileStorage>(); break;
+                case "AWS": services.AddSingleton<IFileStorage, AWSFileStorage>(); break;
+                case "GCP": services.AddSingleton<IFileStorage, GCPFileStorage>(); break;
+#if DEBUG
+                default:
+                    services.AddSingleton<IFileStorage, LocalFileStorage>(); break;
+#else
+                default: throw new Exception("Invalid HostingPlatform specified in environment! Valid variables are Azure, AWS and GCP");
+#endif
+            }
+
+            services.AddSingleton<IDatabase, PostgreSQLDB>();
+
+            services.AddAuthentication();
+
+            services.AddAuthorization();
+
+            services.AddDataProtection()
+                .PersistKeysToAzureBlobStorage(Configuration["BlobStorageConnectionString"], "keys", "keys");
 
             services.AddSingleton<AddressSpace>();
             services.AddSingleton<AddressSpaceCategory>();

@@ -4,9 +4,6 @@ namespace UACloudLibrary.Interfaces
     using System.Threading;
     using System.Threading.Tasks;
 
-    /// <summary>
-    /// Azure storage interface
-    /// </summary>
     public interface IFileStorage
     {
         /// <summary>

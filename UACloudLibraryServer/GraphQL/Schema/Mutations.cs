@@ -7,10 +7,8 @@ namespace UA_CloudLibrary.GraphQL
 {
     public class Mutations : ObjectGraphType<object>
     {
-        public Mutations()
+        public Mutations(IDatabase database)
         {
-            PostgreSQLDB postgres = new PostgreSQLDB();
-
             #region Specification Mutations
 
             FieldAsync<AddressSpaceType>(
@@ -25,16 +23,16 @@ namespace UA_CloudLibrary.GraphQL
                     }
                 );
 
-            FieldAsync<BooleanGraphType>(
+            Field<BooleanGraphType>(
                 name: "AddAddressSpaceMetadata",
                 arguments: new QueryArguments(
                     new QueryArgument<MetadataInput> { Name = "metaTag" },
                     new QueryArgument<IntGraphType> { Name = "nodesetID" }
                     ),
-                resolve: async context => {
-                    int nodesetID = (int)context.Arguments["nodesetID"];
+                resolve: context => {
+                    uint nodesetID = (uint)context.Arguments["nodesetID"];
                     Dictionary<string, object> metaTag = (Dictionary<string, object>)context.Arguments["metaTag"];
-                    return await postgres.AddMetaDataToNodeSet(nodesetID, metaTag["name"].ToString(), metaTag["value"].ToString()).ConfigureAwait(false);
+                    return database.AddMetaDataToNodeSet(nodesetID, metaTag["name"].ToString(), metaTag["value"].ToString());
                     }
                 );
 
@@ -76,7 +74,7 @@ namespace UA_CloudLibrary.GraphQL
     {
         public AddressSpaceCategoryInput()
         {
-            Field<StringGraphType>("id", resolve: context => context.Source.ID);
+            Field<StringGraphType>("id", resolve: context => context.Source.Name);
         }
     }
 

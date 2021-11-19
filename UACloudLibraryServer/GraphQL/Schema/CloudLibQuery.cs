@@ -2,7 +2,6 @@
 using GraphQL.EntityFramework;
 using GraphQL.Types;
 using Microsoft.EntityFrameworkCore;
-using System;
 using System.Linq;
 using UA_CloudLibrary.GraphQL.GraphTypes;
 using UACloudLibrary;
@@ -12,24 +11,8 @@ namespace UA_CloudLibrary.GraphQL
 {
     public class CloudLibQuery : QueryGraphType<AppDbContext>
     {
-        IFileStorage _storage;
-        public CloudLibQuery(IEfGraphQLService<AppDbContext> efGraphQlService) : base(efGraphQlService)
+        public CloudLibQuery(IEfGraphQLService<AppDbContext> efGraphQlService, IFileStorage storage, IDatabase database) : base(efGraphQlService)
         {
-            PostgreSQLDB postgres = new PostgreSQLDB();
-
-            switch (Environment.GetEnvironmentVariable("HostingPlatform"))
-            {
-                case "Azure": _storage = new AzureFileStorage(); break;
-                case "AWS": _storage = new AWSFileStorage(); break;
-                case "GCP": _storage = new GCPFileStorage(); break;
-#if DEBUG
-                default: _storage = new LocalFileStorage(); break;
-#else
-                default: throw new Exception("Invalid HostingPlatform specified in environment! Valid variables are Azure, AWS and GCP");
-#endif
-            }
-
-
             AddQueryConnectionField(
                 name: "addressSpaces",
                 resolve: context => context.DbContext.AddressSpaces
@@ -74,8 +57,7 @@ namespace UA_CloudLibrary.GraphQL
                                 p => EF.Functions
                                         .ToTsVector("english", p.Title + " " + p.Description)
                                         .Matches(searchtext));
-                }
-                );
+                });
 
             AddSingleField(
                 name: "Nodeset",
@@ -93,19 +75,19 @@ namespace UA_CloudLibrary.GraphQL
                 {
                     string name = context.GetArgument<string>("name");
                     AddressSpace result = new AddressSpace();
-                    result.Nodeset.NodesetXml = await _storage.DownloadFileAsync(name).ConfigureAwait(false);
+                    result.Nodeset.NodesetXml = await storage.DownloadFileAsync(name).ConfigureAwait(false);
 
                     // TODO: Lookup and add additional metadata
                     return result;
                 }
               );
 
-            FieldAsync<StringGraphType>(
+            Field<StringGraphType>(
                 name: "FindNodeset",
                 arguments: new QueryArguments(new QueryArgument(typeof(StringGraphType)) { Name = "keywords" }),
-                resolve: async context =>
+                resolve: context =>
                 {
-                    return await postgres.FindNodesetsAsync(context.GetArgument<string[]>("keywords")).ConfigureAwait(false);
+                    return database.FindNodesets(context.GetArgument<string[]>("keywords"));
                 });
             #endregion
 

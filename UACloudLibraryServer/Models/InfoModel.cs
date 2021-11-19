@@ -17,7 +17,6 @@ namespace UACloudLibrary
     {
         public AddressSpace()
         {
-            ID = string.Empty;
             Title = string.Empty;
             Version = "1.0.0";
             License = AddressSpaceLicense.Custom;
@@ -35,24 +34,22 @@ namespace UACloudLibrary
             PurchasingInformationUrl = null;
             ReleaseNotesUrl = null;
             TestSpecificationUrl = null;
-            SupportedLocales = null;
+            SupportedLocales = new string[0];
             NumberOfDownloads = 0;
             AdditionalProperties = new Tuple<string, string>[0];
         }
 
         [Key]
         [Required]
-        public string ID { get; set; }
-
-        [Required]
         public string Title { get; set; }
 
-
+        [Required]
         public string Version { get; set; }
 
         [Required]
         public AddressSpaceLicense License { get; set; }
 
+        [Required]
         public string CopyrightText {get; set;}
 
         public DateTime CreationTime { get; set; }
@@ -66,6 +63,7 @@ namespace UACloudLibrary
         [Required]
         public Organisation Contributor { get; set; }
 
+        [Required]
         public string Description { get; set; }
 
         // Specifically used for efcore related data loading
@@ -111,7 +109,6 @@ namespace UACloudLibrary
     {
         public Organisation()
         {
-            ID = string.Empty;
             Name = string.Empty;
             Description = null;
             LogoUrl = null;
@@ -122,9 +119,6 @@ namespace UACloudLibrary
         }
 
         [Key]
-        [Required]
-        public string ID { get; set; }
-
         [Required]
         public string Name { get; set; }
 
@@ -146,7 +140,6 @@ namespace UACloudLibrary
     {
         public AddressSpaceCategory()
         {
-            ID = string.Empty;
             Name = string.Empty;
             Description = null;
             IconUrl = null;
@@ -155,9 +148,6 @@ namespace UACloudLibrary
         }
 
         [Key]
-        [Required]
-        public string ID { get; set; }
-
         [Required]
         public string Name { get; set; }
 
@@ -175,16 +165,14 @@ namespace UACloudLibrary
     {
         public AddressSpaceNodeset2()
         {
-            AddressSpaceID = string.Empty;
             NodesetXml = string.Empty;
             CreationTime = DateTime.UtcNow;
             LastModificationTime = DateTime.UtcNow;
         }
 
         [Key]
+        [Required]
         [ForeignKey("AddressSpace")]
-        public string AddressSpaceID { get; set; }
-
         public string NodesetXml { get; set; }
 
         public DateTime CreationTime { get; set; }

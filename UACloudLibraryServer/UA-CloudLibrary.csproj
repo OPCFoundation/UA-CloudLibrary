@@ -9,8 +9,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="AWSSDK.S3" Version="3.7.4.7" />
-	<PackageReference Include="AWSSDK.SecurityToken" Version="3.7.1.90" />
+    <PackageReference Include="AWSSDK.S3" Version="3.7.4.9" />
+	<PackageReference Include="AWSSDK.SecurityToken" Version="3.7.1.92" />
+	<PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.2.1" />
     <PackageReference Include="Azure.Storage.Blobs" Version="12.10.0" />
     <PackageReference Include="Google.Cloud.Storage.V1" Version="3.6.0" />
 	<PackageReference Include="GraphQL" Version="3.3.2" />

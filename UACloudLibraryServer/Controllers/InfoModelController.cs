@@ -1,9 +1,9 @@
 ﻿
 namespace UACloudLibrary.Controllers
 {
+    using Extensions;
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
-    using Microsoft.Extensions.Logging;
     using Opc.Ua;
     using Opc.Ua.Export;
     using Swashbuckle.AspNetCore.Annotations;
@@ -24,35 +24,21 @@ namespace UACloudLibrary.Controllers
     {
         private IFileStorage _storage;
 
-        private PostgreSQLDB _database;
+        private IDatabase _database;
 
-        private readonly ILogger<InfoModelController> _logger;
-
-        public InfoModelController(ILogger<InfoModelController> logger)
+        public InfoModelController(IFileStorage storage, IDatabase database)
         {
-            _logger = logger;
-            _database = new PostgreSQLDB();
-
-            switch (Environment.GetEnvironmentVariable("HostingPlatform"))
-            {
-                case "Azure": _storage = new AzureFileStorage(); break;
-                case "AWS": _storage = new AWSFileStorage(); break;
-                case "GCP": _storage = new GCPFileStorage(); break;
-#if DEBUG
-                default: _storage = new LocalFileStorage(); break;
-#else
-                default: throw new Exception("Invalid HostingPlatform specified in environment! Valid variables are Azure, AWS and GCP");
-#endif
-            }
+            _storage = storage;
+            _database = database;
         }
 
         [HttpGet]
         [Route("/infomodel/find/{keywords}")]
         [SwaggerResponse(statusCode: 200, type: typeof(List<string>), description: "Discovered OPC UA Information Model identifiers of the models found in the UA Cloud Library matching the keywords provided.")]
-        public async Task<IActionResult> FindAddressSpaceAsync(
+        public IActionResult FindAddressSpaceAsync(
             [FromRoute][SwaggerParameter("A list of keywords to search for in the information models. Specify * to return everything.")] string[] keywords)
         {
-            string result = await _database.FindNodesetsAsync(keywords).ConfigureAwait(false);
+            string result = _database.FindNodesets(keywords);
             return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -77,16 +63,20 @@ namespace UACloudLibrary.Controllers
 
         [HttpPut]
         [Route("/infomodel/upload")]
-        [SwaggerResponse(statusCode: 200, type: typeof(AddressSpace), description: "The uploaded OPC UA Information model and its metadata.")]
+        [SwaggerResponse(statusCode: 200, type: typeof(string), description: "A status message.")]
         public async Task<IActionResult> UploadAddressSpaceAsync(
             [FromBody][Required][SwaggerParameter("The OPC UA Information model to upload.")] AddressSpace uaAddressSpace,
             [FromQuery][SwaggerParameter("An optional flag if existing OPC UA Information models in the library should be overwritten.")] bool overwrite = false)
         {
-            string[] keywords = new string[1];
-            keywords[0] = uaAddressSpace.Title;
+            // generate a unique hash code
+            uint nodesetHashCode = GenerateHashCode(uaAddressSpace);
+            if (nodesetHashCode == 0)
+            {
+                return new ObjectResult("Nodeset invalid. Please make sure it includes a unique NodesetURI!") { StatusCode = (int)HttpStatusCode.BadRequest };
+            }
 
             // check if the nodeset already exists in the database
-            string result = await _database.FindNodesetsAsync(keywords).ConfigureAwait(false);
+            string result = await _storage.FindFileAsync(nodesetHashCode.ToString()).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(result) && !overwrite)
             {
                 // nodeset already exists
@@ -94,91 +84,114 @@ namespace UACloudLibrary.Controllers
             }
 
             // upload the new file to the storage service, and get the file handle that the storage service returned
-            uaAddressSpace.Nodeset.AddressSpaceID = await _storage.UploadFileAsync(Guid.NewGuid().ToString(), uaAddressSpace.Nodeset.NodesetXml).ConfigureAwait(false);
-            if (uaAddressSpace.Nodeset.AddressSpaceID == string.Empty)
+            string storedFilename = await _storage.UploadFileAsync(nodesetHashCode.ToString(), uaAddressSpace.Nodeset.NodesetXml).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(storedFilename) || (storedFilename != nodesetHashCode.ToString()))
             {
                 string message = "Error: Nodeset file could not be stored.";
                 Console.WriteLine(message);
                 return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
-            // add a record of the new file to the index table, and get back the database ID for the new nodeset
-            int newNodeSetID = await _database.AddNodeSetToDatabaseAsync(uaAddressSpace.Nodeset.AddressSpaceID).ConfigureAwait(false);
-            if (newNodeSetID == -1)
+            // delete any existing records for this nodeset in the database
+            if (!_database.DeleteAllRecordsForNodeset(nodesetHashCode))
             {
-                string message = "Error: Could not store record of new nodeset in database.";
+                string message = "Error: Could not delete existing records for nodeset!";
                 Console.WriteLine(message);
                 return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
-            else
-            {
-                // update our address space ID
-                uaAddressSpace.ID = newNodeSetID.ToString();
-            }
+
             // parse nodeset XML, extract metadata and store in our database
-            string error = await StoreNodesetMetaDataInDatabaseAsync(newNodeSetID, uaAddressSpace).ConfigureAwait(false);
+            string error = StoreNodesetMetaDataInDatabase(nodesetHashCode, uaAddressSpace);
             if (!string.IsNullOrEmpty(error))
             {
                 Console.WriteLine(error);
                 return new ObjectResult(error) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
-            if (!await StoreUserMetaDataInDatabaseAsync(newNodeSetID, uaAddressSpace))
+            if (!StoreUserMetaDataInDatabase(nodesetHashCode, uaAddressSpace))
             {
                 string message = "Error: User metadata could not be stored.";
                 Console.WriteLine(message);
                 return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
-            return new ObjectResult(uaAddressSpace) { StatusCode = (int)HttpStatusCode.OK };
+            return new ObjectResult("Upload successful!") { StatusCode = (int)HttpStatusCode.OK };
         }
 
-        private async Task<bool> StoreUserMetaDataInDatabaseAsync(int newNodeSetID, AddressSpace uaAddressSpace)
+        private uint GenerateHashCode(AddressSpace uaAddressSpace)
+        {
+            // generate a hash from the NamespaceURIs in the nodeset
+            int hashCode = 0;
+            List<string> namespaces = new List<string>();
+            using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+            {
+                try
+                {
+                    UANodeSet nodeSet = UANodeSet.Read(stream);
+                    foreach (string namespaceUri in nodeSet.NamespaceUris)
+                    {
+                        if (!namespaces.Contains(namespaceUri))
+                        {
+                            namespaces.Add(namespaceUri);
+                            hashCode ^= namespaceUri.GetDeterministicHashCode();
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                    return 0;
+                }
+            }
+
+            return (uint)hashCode;
+        }
+
+        private bool StoreUserMetaDataInDatabase(uint newNodeSetID, AddressSpace uaAddressSpace)
         {
             uaAddressSpace.CreationTime = DateTime.UtcNow;
-            if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "adressspacecreationtime", uaAddressSpace.CreationTime.ToString()).ConfigureAwait(false))
+            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "adressspacecreationtime", uaAddressSpace.CreationTime.ToString()))
             {
                 return false;
             }
 
             uaAddressSpace.LastModificationTime = uaAddressSpace.CreationTime;
-            if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "adressspacemodifiedtime", uaAddressSpace.LastModificationTime.ToString()).ConfigureAwait(false))
+            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "adressspacemodifiedtime", uaAddressSpace.LastModificationTime.ToString()))
             {
                 return false;
             }
 
             uaAddressSpace.Category.CreationTime = uaAddressSpace.CreationTime;
-            if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "categorycreationtime", uaAddressSpace.Category.CreationTime.ToString()).ConfigureAwait(false))
+            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "categorycreationtime", uaAddressSpace.Category.CreationTime.ToString()))
             {
                 return false;
             }
 
             uaAddressSpace.Category.LastModificationTime = uaAddressSpace.CreationTime;
-            if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "categorymodifiedtime", uaAddressSpace.Category.LastModificationTime.ToString()).ConfigureAwait(false))
+            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "categorymodifiedtime", uaAddressSpace.Category.LastModificationTime.ToString()))
             {
                 return false;
             }
 
             uaAddressSpace.Contributor.CreationTime = uaAddressSpace.CreationTime;
-            if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "contributorcreationtime", uaAddressSpace.Contributor.CreationTime.ToString()).ConfigureAwait(false))
+            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "contributorcreationtime", uaAddressSpace.Contributor.CreationTime.ToString()))
             {
                 return false;
             }
 
             uaAddressSpace.Contributor.LastModificationTime = uaAddressSpace.CreationTime;
-            if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "contributormodifiedtime", uaAddressSpace.Contributor.LastModificationTime.ToString()).ConfigureAwait(false))
+            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "contributormodifiedtime", uaAddressSpace.Contributor.LastModificationTime.ToString()))
             {
                 return false;
             }
 
             uaAddressSpace.Nodeset.CreationTime = uaAddressSpace.CreationTime;
-            if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "nodesetcreationtime", uaAddressSpace.Nodeset.CreationTime.ToString()).ConfigureAwait(false))
+            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "nodesetcreationtime", uaAddressSpace.Nodeset.CreationTime.ToString()))
             {
                 return false;
             }
 
             uaAddressSpace.Nodeset.LastModificationTime = uaAddressSpace.CreationTime;
-            if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "nodesetmodifiedtime", uaAddressSpace.Nodeset.LastModificationTime.ToString()).ConfigureAwait(false))
+            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "nodesetmodifiedtime", uaAddressSpace.Nodeset.LastModificationTime.ToString()))
             {
                 return false;
             }
@@ -186,7 +199,7 @@ namespace UACloudLibrary.Controllers
             // add nodeset metadata provided by the user to the database
             if (!string.IsNullOrWhiteSpace(uaAddressSpace.Title))
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "nodesettitle", uaAddressSpace.Title).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "nodesettitle", uaAddressSpace.Title))
                 {
                     return false;
                 }
@@ -194,20 +207,20 @@ namespace UACloudLibrary.Controllers
 
             if (!string.IsNullOrWhiteSpace(uaAddressSpace.Version))
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "version", new Version(uaAddressSpace.Version).ToString()).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "version", new Version(uaAddressSpace.Version).ToString()))
                 {
                     return false;
                 }
             }
 
-            if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "license", uaAddressSpace.License.ToString()).ConfigureAwait(false))
+            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "license", uaAddressSpace.License.ToString()))
             {
                 return false;
             }
 
             if (!string.IsNullOrWhiteSpace(uaAddressSpace.CopyrightText))
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "copyright", uaAddressSpace.CopyrightText).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "copyright", uaAddressSpace.CopyrightText))
                 {
                     return false;
                 }
@@ -215,7 +228,7 @@ namespace UACloudLibrary.Controllers
 
             if (!string.IsNullOrWhiteSpace(uaAddressSpace.Description))
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "description", uaAddressSpace.Description).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "description", uaAddressSpace.Description))
                 {
                     return false;
                 }
@@ -223,7 +236,7 @@ namespace UACloudLibrary.Controllers
 
             if (!string.IsNullOrWhiteSpace(uaAddressSpace.Category.Name))
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "addressspacename", uaAddressSpace.Category.Name).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "addressspacename", uaAddressSpace.Category.Name))
                 {
                     return false;
                 }
@@ -231,7 +244,7 @@ namespace UACloudLibrary.Controllers
 
             if (!string.IsNullOrWhiteSpace(uaAddressSpace.Category.Description))
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "addressspacedescription", uaAddressSpace.Category.Description).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "addressspacedescription", uaAddressSpace.Category.Description))
                 {
                     return false;
                 }
@@ -239,7 +252,7 @@ namespace UACloudLibrary.Controllers
 
             if (uaAddressSpace.Category.IconUrl != null)
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "addressspaceiconurl", uaAddressSpace.Category.IconUrl.ToString()).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "addressspaceiconurl", uaAddressSpace.Category.IconUrl.ToString()))
                 {
                     return false;
                 }
@@ -247,7 +260,7 @@ namespace UACloudLibrary.Controllers
 
             if (uaAddressSpace.DocumentationUrl != null)
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "documentationurl", uaAddressSpace.DocumentationUrl.ToString()).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "documentationurl", uaAddressSpace.DocumentationUrl.ToString()))
                 {
                     return false;
                 }
@@ -255,7 +268,7 @@ namespace UACloudLibrary.Controllers
 
             if (uaAddressSpace.IconUrl != null)
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "iconurl", uaAddressSpace.IconUrl.ToString()).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "iconurl", uaAddressSpace.IconUrl.ToString()))
                 {
                     return false;
                 }
@@ -263,15 +276,15 @@ namespace UACloudLibrary.Controllers
 
             if (uaAddressSpace.LicenseUrl != null)
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "licenseurl", uaAddressSpace.LicenseUrl.ToString()).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "licenseurl", uaAddressSpace.LicenseUrl.ToString()))
                 {
                     return false;
                 }
             }
 
-            if (uaAddressSpace.Keywords.Length > 0)
+            if ((uaAddressSpace.Keywords != null) && (uaAddressSpace.Keywords.Length > 0))
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "keywords", string.Join(',', uaAddressSpace.Keywords)).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "keywords", string.Join(',', uaAddressSpace.Keywords)))
                 {
                     return false;
                 }
@@ -279,7 +292,7 @@ namespace UACloudLibrary.Controllers
 
             if (uaAddressSpace.PurchasingInformationUrl != null)
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "purchasinginfo", uaAddressSpace.PurchasingInformationUrl.ToString()).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "purchasinginfo", uaAddressSpace.PurchasingInformationUrl.ToString()))
                 {
                     return false;
                 }
@@ -287,7 +300,7 @@ namespace UACloudLibrary.Controllers
 
             if (uaAddressSpace.ReleaseNotesUrl != null)
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "releasenotes", uaAddressSpace.ReleaseNotesUrl.ToString()).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "releasenotes", uaAddressSpace.ReleaseNotesUrl.ToString()))
                 {
                     return false;
                 }
@@ -295,15 +308,15 @@ namespace UACloudLibrary.Controllers
 
             if (uaAddressSpace.TestSpecificationUrl != null)
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "testspecification", uaAddressSpace.TestSpecificationUrl.ToString()).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "testspecification", uaAddressSpace.TestSpecificationUrl.ToString()))
                 {
                     return false;
                 }
             }
 
-            if (uaAddressSpace.SupportedLocales.Length > 0)
+            if ((uaAddressSpace.SupportedLocales != null) && (uaAddressSpace.SupportedLocales.Length > 0))
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "locales", string.Join(',', uaAddressSpace.SupportedLocales)).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "locales", string.Join(',', uaAddressSpace.SupportedLocales)))
                 {
                     return false;
                 }
@@ -311,7 +324,7 @@ namespace UACloudLibrary.Controllers
 
             if (!string.IsNullOrWhiteSpace(uaAddressSpace.Contributor.Name))
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "orgname", uaAddressSpace.Contributor.Name).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "orgname", uaAddressSpace.Contributor.Name))
                 {
                     return false;
                 }
@@ -319,7 +332,7 @@ namespace UACloudLibrary.Controllers
 
             if (!string.IsNullOrWhiteSpace(uaAddressSpace.Contributor.Description))
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "orgdescription", uaAddressSpace.Contributor.Description).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "orgdescription", uaAddressSpace.Contributor.Description))
                 {
                     return false;
                 }
@@ -327,7 +340,7 @@ namespace UACloudLibrary.Controllers
 
             if (uaAddressSpace.Contributor.LogoUrl != null)
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "orglogo", uaAddressSpace.Contributor.LogoUrl.ToString()).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "orglogo", uaAddressSpace.Contributor.LogoUrl.ToString()))
                 {
                     return false;
                 }
@@ -335,7 +348,7 @@ namespace UACloudLibrary.Controllers
 
             if (!string.IsNullOrWhiteSpace(uaAddressSpace.Contributor.ContactEmail))
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "orgcontact", uaAddressSpace.Contributor.ContactEmail).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "orgcontact", uaAddressSpace.Contributor.ContactEmail))
                 {
                     return false;
                 }
@@ -343,24 +356,27 @@ namespace UACloudLibrary.Controllers
 
             if (uaAddressSpace.Contributor.Website != null)
             {
-                if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "orgwebsite", uaAddressSpace.Contributor.Website.ToString()).ConfigureAwait(false))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "orgwebsite", uaAddressSpace.Contributor.Website.ToString()))
                 {
                     return false;
                 }
             }
 
-            if (!await _database.AddMetaDataToNodeSet(newNodeSetID, "numdownloads", "0").ConfigureAwait(false))
+            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "numdownloads", "0"))
             {
                 return false;
             }
 
-            foreach (Tuple<string, string> additionalProperty in uaAddressSpace.AdditionalProperties)
+            if (uaAddressSpace.AdditionalProperties != null)
             {
-                if (!string.IsNullOrWhiteSpace(additionalProperty.Item1) && !string.IsNullOrWhiteSpace(additionalProperty.Item2))
+                foreach (Tuple<string, string> additionalProperty in uaAddressSpace.AdditionalProperties)
                 {
-                    if (!await _database.AddMetaDataToNodeSet(newNodeSetID, additionalProperty.Item1, additionalProperty.Item2).ConfigureAwait(false))
+                    if (!string.IsNullOrWhiteSpace(additionalProperty.Item1) && !string.IsNullOrWhiteSpace(additionalProperty.Item2))
                     {
-                        return false;
+                        if (!_database.AddMetaDataToNodeSet(newNodeSetID, additionalProperty.Item1, additionalProperty.Item2))
+                        {
+                            return false;
+                        }
                     }
                 }
             }
@@ -368,7 +384,7 @@ namespace UACloudLibrary.Controllers
             return true;
         }
 
-        private async Task<string> StoreNodesetMetaDataInDatabaseAsync(int newNodeSetID, AddressSpace uaAddressSpace)
+        private string StoreNodesetMetaDataInDatabase(uint newNodeSetID, AddressSpace uaAddressSpace)
         {
             // iterate through the incoming namespace
             List<string> namespaces = new List<string>();
@@ -422,9 +438,14 @@ namespace UACloudLibrary.Controllers
                         UAObjectType objectType = uaNode as UAObjectType;
                         if (objectType != null)
                         {
-                            if (!await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.ObjectType, uaNode.BrowseName, uaNode.DisplayName.ToString(), FindNameSpaceStringForNode(uaNode.NodeId, namespaces)).ConfigureAwait(false))
+                            string displayName = objectType.NodeId.ToString();
+                            if ((objectType.DisplayName != null) && (objectType.DisplayName.Length > 0))
                             {
-                                throw new ArgumentException(objectType.DisplayName + "could not be stored in database!");
+                                displayName = objectType.DisplayName[0].Value;
+                            }
+                            if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.ObjectType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
+                            {
+                                throw new ArgumentException(displayName + " could not be stored in database!");
                             }
 
                             continue;
@@ -433,9 +454,14 @@ namespace UACloudLibrary.Controllers
                         UAVariableType variableType = uaNode as UAVariableType;
                         if (variableType != null)
                         {
-                            if (!await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.VariableType, uaNode.BrowseName, uaNode.DisplayName.ToString(), FindNameSpaceStringForNode(uaNode.NodeId, namespaces)).ConfigureAwait(false))
+                            string displayName = variableType.NodeId.ToString();
+                            if ((variableType.DisplayName != null) && (variableType.DisplayName.Length > 0))
                             {
-                                throw new ArgumentException(variableType.DisplayName + "could not be stored in database!");
+                                displayName = variableType.DisplayName[0].Value;
+                            }
+                            if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.VariableType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
+                            {
+                                throw new ArgumentException(displayName + " could not be stored in database!");
                             }
                             continue;
                         }
@@ -443,9 +469,14 @@ namespace UACloudLibrary.Controllers
                         UADataType dataType = uaNode as UADataType;
                         if (dataType != null)
                         {
-                            if (!await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.DataType, uaNode.BrowseName, uaNode.DisplayName.ToString(), FindNameSpaceStringForNode(uaNode.NodeId, namespaces)).ConfigureAwait(false))
+                            string displayName = dataType.NodeId.ToString();
+                            if ((dataType.DisplayName != null) && (dataType.DisplayName.Length > 0))
                             {
-                                throw new ArgumentException(dataType.DisplayName + "could not be stored in database!");
+                                displayName = dataType.DisplayName[0].Value;
+                            }
+                            if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.DataType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
+                            {
+                                throw new ArgumentException(displayName + " could not be stored in database!");
                             }
 
                             continue;
@@ -454,9 +485,14 @@ namespace UACloudLibrary.Controllers
                         UAReferenceType referenceType = uaNode as UAReferenceType;
                         if (referenceType != null)
                         {
-                            if (!await _database.AddUATypeToNodesetAsync(newNodeSetID, UATypes.ReferenceType, uaNode.BrowseName, uaNode.DisplayName.ToString(), FindNameSpaceStringForNode(uaNode.NodeId, namespaces)).ConfigureAwait(false))
+                            string displayName = referenceType.NodeId.ToString();
+                            if (referenceType.DisplayName.Length > 0)
                             {
-                                throw new ArgumentException(referenceType.DisplayName + "could not be stored in database!");
+                                displayName = referenceType.DisplayName[0].Value;
+                            }
+                            if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.ReferenceType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
+                            {
+                                throw new ArgumentException(displayName + " could not be stored in database!");
                             }
 
                             continue;

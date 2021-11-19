@@ -7,16 +7,10 @@ namespace UACloudLibrary
     using System.Threading.Tasks;
     using UACloudLibrary.Models;
 
-    /// <summary>
-    /// PostgresSQL storage class
-    /// </summary>
-    public class PostgreSQLDB
+    public class PostgreSQLDB : IDatabase
     {
         private string _connectionString;
 
-        /// <summary>
-        /// Default constructor
-        /// </summary>
         public PostgreSQLDB()
         {
             // Obtain connection string information from the environment
@@ -36,14 +30,13 @@ namespace UACloudLibrary
                 Port,
                 Password);
 
-            // Setup the database
+            // Setup the database tables
             string[] dbInitCommands = {
-                "CREATE TABLE IF NOT EXISTS Nodesets(Nodeset_id serial PRIMARY KEY, Nodeset_Filename TEXT)",
-                "CREATE TABLE IF NOT EXISTS Metadata(Metadata_id serial PRIMARY KEY, Nodeset_id INT, Metadata_Name TEXT, Metadata_Value TEXT, CONSTRAINT fk_Nodeset FOREIGN KEY(Nodeset_id) REFERENCES Nodesets(Nodeset_id))",
-                "CREATE TABLE IF NOT EXISTS ObjectTypes(ObjectType_id serial PRIMARY KEY, Nodeset_id INT, ObjectType_BrowseName TEXT, ObjectType_DisplayName TEXT, ObjectType_Namespace TEXT, CONSTRAINT fk_Nodeset FOREIGN KEY(Nodeset_id) REFERENCES Nodesets(Nodeset_id))",
-                "CREATE TABLE IF NOT EXISTS VariableTypes(VariableType_id serial PRIMARY KEY, Nodeset_id INT, VariableType_BrowseName TEXT, VariableType_DisplayName TEXT, VariableType_Namespace TEXT, CONSTRAINT fk_Nodeset FOREIGN KEY(Nodeset_id) REFERENCES Nodesets(Nodeset_id))",
-                "CREATE TABLE IF NOT EXISTS DataTypes(DataType_id serial PRIMARY KEY, Nodeset_id INT, DataType_BrowseName TEXT, DataType_DisplayName TEXT, DataType_Namespace TEXT, CONSTRAINT fk_Nodeset FOREIGN KEY(Nodeset_id) REFERENCES Nodesets(Nodeset_id))",
-                "CREATE TABLE IF NOT EXISTS ReferenceTypes(ReferenceType_id serial PRIMARY KEY, Nodeset_id INT, ReferenceType_BrowseName TEXT, ReferenceType_DisplayName TEXT, ReferenceType_Namespace TEXT, CONSTRAINT fk_Nodeset FOREIGN KEY(Nodeset_id) REFERENCES Nodesets(Nodeset_id))"
+                "CREATE TABLE IF NOT EXISTS Metadata(Metadata_id serial PRIMARY KEY, Nodeset_id BIGINT, Metadata_Name TEXT, Metadata_Value TEXT)",
+                "CREATE TABLE IF NOT EXISTS ObjectTypes(ObjectType_id serial PRIMARY KEY, Nodeset_id BIGINT, ObjectType_BrowseName TEXT, ObjectType_DisplayName TEXT, ObjectType_Namespace TEXT)",
+                "CREATE TABLE IF NOT EXISTS VariableTypes(VariableType_id serial PRIMARY KEY, Nodeset_id BIGINT, VariableType_BrowseName TEXT, VariableType_DisplayName TEXT, VariableType_Namespace TEXT)",
+                "CREATE TABLE IF NOT EXISTS DataTypes(DataType_id serial PRIMARY KEY, Nodeset_id BIGINT, DataType_BrowseName TEXT, DataType_DisplayName TEXT, DataType_Namespace TEXT)",
+                "CREATE TABLE IF NOT EXISTS ReferenceTypes(ReferenceType_id serial PRIMARY KEY, Nodeset_id BIGINT, ReferenceType_BrowseName TEXT, ReferenceType_DisplayName TEXT, ReferenceType_Namespace TEXT)"
             };
 
             try
@@ -64,40 +57,24 @@ namespace UACloudLibrary
             }
         }
 
-        /// <summary>
-        /// Create a record for a newly uploaded nodeset file. This is the first step in database ingestion.
-        /// </summary>
-        /// <param name="filename">Path to where the nodeset file was stored</param>
-        /// <param name="cancellationToken"></param>
-        /// <returns>The database record ID for the new nodeset</returns>
-        public Task<int> AddNodeSetToDatabaseAsync(string filename, CancellationToken cancellationToken = default)
+        public bool AddUATypeToNodeset(uint nodesetId, UATypes uaType, string browseName, string displayName, string nameSpace)
         {
-            int retVal = -1;
             try
             {
                 using (var connection = new NpgsqlConnection(_connectionString))
                 {
                     connection.Open();
 
-                    // insert the record
-                    var sqlInsert = String.Format("INSERT INTO public.nodesets (nodeset_filename) VALUES(@filename)");
+                    // DELETE FROM Customers WHERE CustomerName='Alfreds Futterkiste';
+                    var sqlInsert = String.Format("INSERT INTO public.{0}s (Nodeset_id, {0}_browsename, {0}_displayname, {0}_namespace) VALUES(@nodesetid, @browsename, @displayname, @namespace)", uaType);
                     var sqlCommand = new NpgsqlCommand(sqlInsert, connection);
-                    sqlCommand.Parameters.AddWithValue("filename", filename);
+                    sqlCommand.Parameters.AddWithValue("nodesetid", (long)nodesetId);
+                    sqlCommand.Parameters.AddWithValue("browsename", browseName);
+                    sqlCommand.Parameters.AddWithValue("displayname", displayName);
+                    sqlCommand.Parameters.AddWithValue("namespace", nameSpace);
                     sqlCommand.ExecuteNonQuery();
 
-                    // query for the id of the record
-                    var sqlQuery = String.Format("SELECT nodeset_id from public.nodesets where nodeset_filename = @filename");
-                    sqlCommand = new NpgsqlCommand(sqlQuery, connection);
-                    sqlCommand.Parameters.AddWithValue("filename", filename);
-                    var result = sqlCommand.ExecuteScalar();
-                    if (int.TryParse(result.ToString(), out retVal))
-                    {
-                        return Task.FromResult(retVal);
-                    }
-                    else
-                    {
-                        Console.WriteLine("Record could be inserted or found!");
-                    }
+                    return true;
                 }
             }
             catch (Exception ex)
@@ -105,13 +82,10 @@ namespace UACloudLibrary
                 Console.WriteLine(ex);
             }
 
-            return Task.FromResult(retVal);
+            return false;
         }
 
-        /// <summary>
-        /// Add a record of an ObjectType to a Nodeset Record in the DB. Call this foreach ObjectType discovered in an uploaded Nodeset
-        /// </summary>
-        public Task<bool> AddUATypeToNodesetAsync(int NodesetId, UATypes UAType, string UATypeBrowseName, string UATypeDisplayName, string UATypeNamespace, CancellationToken cancellationToken = default)
+        public bool AddMetaDataToNodeSet(uint nodesetId, string name, string value)
         {
             try
             {
@@ -120,15 +94,14 @@ namespace UACloudLibrary
                     connection.Open();
 
                     // insert the record
-                    var sqlInsert = String.Format("INSERT INTO public.{0}s ({0}_browsename, {0}_displayname, {0}_namespace) VALUES('@browsename, @displayname, @namespace') WHERE nodeset_id = @nodesetid");
+                    var sqlInsert = String.Format("INSERT INTO public.Metadata (Nodeset_id, metadata_name, metadata_value) VALUES(@nodesetid, @metadataname, @metadatavalue)");
                     var sqlCommand = new NpgsqlCommand(sqlInsert, connection);
-                    sqlCommand.Parameters.AddWithValue("browsename", UATypeBrowseName);
-                    sqlCommand.Parameters.AddWithValue("displayname", UATypeDisplayName);
-                    sqlCommand.Parameters.AddWithValue("namespace", UATypeNamespace);
-                    sqlCommand.Parameters.AddWithValue("nodesetid", NodesetId);
+                    sqlCommand.Parameters.AddWithValue("nodesetid", (long)nodesetId);
+                    sqlCommand.Parameters.AddWithValue("metadataname", name);
+                    sqlCommand.Parameters.AddWithValue("metadatavalue", value);
                     sqlCommand.ExecuteNonQuery();
 
-                    return Task.FromResult(true);
+                    return true;
                 }
             }
             catch (Exception ex)
@@ -136,14 +109,40 @@ namespace UACloudLibrary
                 Console.WriteLine(ex);
             }
 
-            return Task.FromResult(false);
+            return false;
         }
 
-        /// <summary>
-        /// Add a record of an arbitrary MetaData field to a Nodeset Record in the DB. You can insert any metadata field at any time, as long as you know the ID of the NodeSet you want to attach it to
-        /// Note these metadata fields are what are used in the FindNodeSet method
-        /// </summary>
-        public Task<bool> AddMetaDataToNodeSet(int NodesetId, string MetaDataName, string MetaDataValue, CancellationToken cancellationToken = default)
+        public bool DeleteAllRecordsForNodeset(uint nodesetId)
+        {
+            if (!DeleteAllTableRecordsForNodeset(nodesetId, "Metadata"))
+            {
+                return false;
+            }
+
+            if (!DeleteAllTableRecordsForNodeset(nodesetId, "ObjectTypes"))
+            {
+                return false;
+            }
+
+            if (!DeleteAllTableRecordsForNodeset(nodesetId, "VariableTypes"))
+            {
+                return false;
+            }
+
+            if (!DeleteAllTableRecordsForNodeset(nodesetId, "DataTypes"))
+            {
+                return false;
+            }
+
+            if (!DeleteAllTableRecordsForNodeset(nodesetId, "ReferenceTypes"))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool DeleteAllTableRecordsForNodeset(uint nodesetId, string tableName)
         {
             try
             {
@@ -151,15 +150,12 @@ namespace UACloudLibrary
                 {
                     connection.Open();
 
-                    // insert the record
-                    var sqlInsert = String.Format("INSERT INTO public.objecttypes (metadata_name, metadata_value) VALUES(@metadataname, @metadatavalue) WHERE nodeset_id = @nodesetid");
+                    // DELETE FROM Customers WHERE CustomerName='Alfreds Futterkiste';
+                    var sqlInsert = String.Format("DELETE FROM {1} WHERE Nodeset_id='{0}'", (long)nodesetId, tableName);
                     var sqlCommand = new NpgsqlCommand(sqlInsert, connection);
-                    sqlCommand.Parameters.AddWithValue("metadataname", MetaDataName);
-                    sqlCommand.Parameters.AddWithValue("metadatavalue", MetaDataValue);
-                    sqlCommand.Parameters.AddWithValue("nodesetid", NodesetId);
                     sqlCommand.ExecuteNonQuery();
 
-                    return Task.FromResult(true);
+                    return true;
                 }
             }
             catch (Exception ex)
@@ -167,13 +163,10 @@ namespace UACloudLibrary
                 Console.WriteLine(ex);
             }
 
-            return Task.FromResult(false);
+            return false;
         }
 
-        /// <summary>
-        /// Find an existing nodeset based on keywords
-        /// </summary>
-        public Task<string> FindNodesetsAsync(string[] keywords, CancellationToken cancellationToken = default)
+        public string FindNodesets(string[] keywords)
         {
             try
             {
@@ -183,8 +176,8 @@ namespace UACloudLibrary
                     var mySqlCmd = new NpgsqlCommand();
                     mySqlCmd.Connection = connection;
 
-                    //Search for matching metadata fields
-                    //  Add keywords as parameters
+                    // Search for matching metadata fields
+                    // Add keywords as parameters
                     string sqlParams = string.Empty;
                     int i = 0;
                     foreach (string keyword in keywords)
@@ -198,7 +191,7 @@ namespace UACloudLibrary
                     }
 
                     sqlParams = sqlParams.Substring(0, sqlParams.Length - 2);
-                    //  Build parameterized query string
+                    // Build parameterized query string
                     var sqlQuery = String.Format(@"
                         SELECT public.nodesets.nodeset_filename
                         FROM public.nodesets
@@ -206,8 +199,8 @@ namespace UACloudLibrary
                         WHERE {0}", sqlParams);
 
                     // Search for matching objecttype fields
-                    //     TODO: This can be done in a loop with the other tables (variabletypes, referencetypes) since their naming convention is similar
-                    //  Re-use existing parameters
+                    // TODO: This can be done in a loop with the other tables (variabletypes, referencetypes) since their naming convention is similar
+                    // Re-use existing parameters
                     sqlParams = string.Empty;
                     foreach (NpgsqlParameter param in mySqlCmd.Parameters)
                     {
@@ -219,7 +212,7 @@ namespace UACloudLibrary
                     }
 
                     sqlParams = sqlParams.Substring(0, sqlParams.Length - 2);
-                    //  Update parameterized query string
+                    // Update parameterized query string
                     sqlQuery += String.Format(@"
                         UNION
                         SELECT public.nodesets.nodeset_filename
@@ -236,12 +229,12 @@ namespace UACloudLibrary
                         debugSQL = debugSQL.Replace(("@" + param.ParameterName), "'" + param.Value.ToString() + "'");
                     }
                     Console.WriteLine(debugSQL);
- #endif
+#endif
 
                     var result = mySqlCmd.ExecuteScalar();
                     if (result != null)
                     {
-                        return Task.FromResult(result.ToString());
+                        return result.ToString();
                     }
                 }
             }
@@ -250,7 +243,7 @@ namespace UACloudLibrary
                 Console.WriteLine(ex);
             }
 
-            return Task.FromResult(string.Empty);
+            return string.Empty;
         }
     }
 }
