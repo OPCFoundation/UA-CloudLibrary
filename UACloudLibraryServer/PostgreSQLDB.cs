@@ -142,6 +142,32 @@ namespace UACloudLibrary
             return true;
         }
 
+        public string RetrieveMetaData(uint nodesetId, string metaDataTag)
+        {
+            try
+            {
+                using (var connection = new NpgsqlConnection(_connectionString))
+                {
+                    connection.Open();
+
+                    var sqlInsert = String.Format("SELECT metadata_value FROM Metadata WHERE (Nodeset_id='{0}' AND Metadata_Name='{1}')", (long)nodesetId, metaDataTag);
+                    var sqlCommand = new NpgsqlCommand(sqlInsert, connection);
+                    var result = sqlCommand.ExecuteScalar();
+                    if (result != null)
+                    {
+                        return result.ToString();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
+
+
+            return string.Empty;
+        }
+
         private bool DeleteAllTableRecordsForNodeset(uint nodesetId, string tableName)
         {
             try
@@ -150,7 +176,6 @@ namespace UACloudLibrary
                 {
                     connection.Open();
 
-                    // DELETE FROM Customers WHERE CustomerName='Alfreds Futterkiste';
                     var sqlInsert = String.Format("DELETE FROM {1} WHERE Nodeset_id='{0}'", (long)nodesetId, tableName);
                     var sqlCommand = new NpgsqlCommand(sqlInsert, connection);
                     sqlCommand.ExecuteNonQuery();

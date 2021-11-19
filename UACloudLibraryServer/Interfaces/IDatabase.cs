@@ -1,4 +1,5 @@
-﻿using UACloudLibrary.Models;
+﻿using System;
+using UACloudLibrary.Models;
 
 namespace UACloudLibrary
 {
@@ -11,5 +12,7 @@ namespace UACloudLibrary
         bool AddUATypeToNodeset(uint nodesetId, UATypes uaType, string browseName, string displayName, string nameSpace);
 
         bool DeleteAllRecordsForNodeset(uint nodesetId);
+
+        string RetrieveMetaData(uint nodesetId, string metaDataTag);
     }
 }

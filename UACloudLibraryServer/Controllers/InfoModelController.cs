@@ -56,7 +56,13 @@ namespace UACloudLibrary.Controllers
                 return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
             }
 
-            // TODO: Lookup and add additional metadata
+            uint nodeSetID = 0;
+            if (!uint.TryParse(identifier, out nodeSetID))
+            {
+                return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
+            }
+
+            AddUserMetadataFromDatabase(nodeSetID, result);
 
             return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.OK };
         }
@@ -144,6 +150,157 @@ namespace UACloudLibrary.Controllers
             }
 
             return (uint)hashCode;
+        }
+
+        private void AddUserMetadataFromDatabase(uint nodeSetID, AddressSpace uaAddressSpace)
+        {
+            DateTime parsedDateTime;
+
+            if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "adressspacecreationtime"), out parsedDateTime))
+            {
+                uaAddressSpace.CreationTime = parsedDateTime;
+            }
+
+            if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "adressspacemodifiedtime"), out parsedDateTime))
+            {
+                uaAddressSpace.LastModificationTime = parsedDateTime;
+            }
+
+            if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "categorycreationtime"), out parsedDateTime))
+            {
+                uaAddressSpace.Category.CreationTime = parsedDateTime;
+            }
+
+            if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "categorymodifiedtime"), out parsedDateTime))
+            {
+                uaAddressSpace.Category.LastModificationTime = parsedDateTime;
+            }
+
+            if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "contributorcreationtime"), out parsedDateTime))
+            {
+                uaAddressSpace.Contributor.CreationTime = parsedDateTime;
+            }
+
+            if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "contributormodifiedtime"), out parsedDateTime))
+            {
+                uaAddressSpace.Contributor.LastModificationTime = parsedDateTime;
+            }
+
+            if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "nodesetcreationtime"), out parsedDateTime))
+            {
+                uaAddressSpace.Nodeset.CreationTime = parsedDateTime;
+            }
+
+            if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "nodesetmodifiedtime"), out parsedDateTime))
+            {
+                uaAddressSpace.Nodeset.LastModificationTime = parsedDateTime;
+            }
+
+            uaAddressSpace.Title = _database.RetrieveMetaData(nodeSetID, "nodesettitle");
+
+            uaAddressSpace.Version = _database.RetrieveMetaData(nodeSetID, "version");
+
+            switch (_database.RetrieveMetaData(nodeSetID, "license"))
+            {
+                case "MIT":
+                    uaAddressSpace.License = AddressSpaceLicense.MIT;
+                break;
+                case "ApacheLicense20":
+                    uaAddressSpace.License = AddressSpaceLicense.ApacheLicense20;
+                break;
+                case "Custom":
+                    uaAddressSpace.License = AddressSpaceLicense.Custom;
+                break;
+                default:
+                    uaAddressSpace.License = AddressSpaceLicense.Custom;
+                break;
+            }
+
+            uaAddressSpace.CopyrightText = _database.RetrieveMetaData(nodeSetID, "copyright");
+
+            uaAddressSpace.Description = _database.RetrieveMetaData(nodeSetID, "description");
+
+            uaAddressSpace.Category.Name = _database.RetrieveMetaData(nodeSetID, "addressspacename");
+
+            uaAddressSpace.Category.Description = _database.RetrieveMetaData(nodeSetID, "addressspacedescription");
+
+            string uri = _database.RetrieveMetaData(nodeSetID, "addressspaceiconurl");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                uaAddressSpace.Category.IconUrl = new Uri(uri);
+            }
+
+            uri = _database.RetrieveMetaData(nodeSetID, "documentationurl");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                uaAddressSpace.DocumentationUrl = new Uri(uri);
+            }
+
+            uri = _database.RetrieveMetaData(nodeSetID, "iconurl");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                uaAddressSpace.IconUrl = new Uri(uri);
+            }
+
+            uri = _database.RetrieveMetaData(nodeSetID, "licenseurl");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                uaAddressSpace.LicenseUrl = new Uri(uri);
+            }
+
+            uri = _database.RetrieveMetaData(nodeSetID, "purchasinginfo");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                uaAddressSpace.PurchasingInformationUrl = new Uri(uri);
+            }
+
+            uri = _database.RetrieveMetaData(nodeSetID, "releasenotes");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                uaAddressSpace.ReleaseNotesUrl = new Uri(uri);
+            }
+
+            uri = _database.RetrieveMetaData(nodeSetID, "testspecification");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                uaAddressSpace.TestSpecificationUrl = new Uri(uri);
+            }
+
+            string keywords = _database.RetrieveMetaData(nodeSetID, "keywords");
+            if (!string.IsNullOrEmpty(keywords))
+            {
+                uaAddressSpace.Keywords = keywords.Split(',');
+            }
+
+            string locales = _database.RetrieveMetaData(nodeSetID, "locales");
+            if (!string.IsNullOrEmpty(locales))
+            {
+                uaAddressSpace.SupportedLocales = locales.Split(',');
+            }
+
+            uaAddressSpace.Contributor.Name = _database.RetrieveMetaData(nodeSetID, "orgname");
+
+            uaAddressSpace.Contributor.Description = _database.RetrieveMetaData(nodeSetID, "orgdescription");
+
+            uri = _database.RetrieveMetaData(nodeSetID, "orglogo");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                uaAddressSpace.Contributor.LogoUrl = new Uri(uri);
+            }
+
+            uaAddressSpace.Contributor.ContactEmail = _database.RetrieveMetaData(nodeSetID, "orgcontact");
+
+            uri = _database.RetrieveMetaData(nodeSetID, "orgwebsite");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                uaAddressSpace.Contributor.Website = new Uri(uri);
+            }
+
+            uint parsedDownloads;
+            if (uint.TryParse(_database.RetrieveMetaData(nodeSetID, "numdownloads"), out parsedDownloads))
+            {
+                uaAddressSpace.NumberOfDownloads = parsedDownloads;
+            }
         }
 
         private bool StoreUserMetaDataInDatabase(uint newNodeSetID, AddressSpace uaAddressSpace)
@@ -282,14 +439,6 @@ namespace UACloudLibrary.Controllers
                 }
             }
 
-            if ((uaAddressSpace.Keywords != null) && (uaAddressSpace.Keywords.Length > 0))
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "keywords", string.Join(',', uaAddressSpace.Keywords)))
-                {
-                    return false;
-                }
-            }
-
             if (uaAddressSpace.PurchasingInformationUrl != null)
             {
                 if (!_database.AddMetaDataToNodeSet(newNodeSetID, "purchasinginfo", uaAddressSpace.PurchasingInformationUrl.ToString()))
@@ -309,6 +458,14 @@ namespace UACloudLibrary.Controllers
             if (uaAddressSpace.TestSpecificationUrl != null)
             {
                 if (!_database.AddMetaDataToNodeSet(newNodeSetID, "testspecification", uaAddressSpace.TestSpecificationUrl.ToString()))
+                {
+                    return false;
+                }
+            }
+
+            if ((uaAddressSpace.Keywords != null) && (uaAddressSpace.Keywords.Length > 0))
+            {
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "keywords", string.Join(',', uaAddressSpace.Keywords)))
                 {
                     return false;
                 }
