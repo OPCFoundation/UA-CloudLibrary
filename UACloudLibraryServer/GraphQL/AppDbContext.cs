@@ -42,7 +42,7 @@ namespace UA_CloudLibrary.GraphQL
             string DBname = "uacloudlib";
             string Port = "5432";
 
-            string _connectionString = string.Format(
+            string connectionString = string.Format(
                 "Server={0};Username={1};Database={2};Port={3};Password={4};SSLMode=Prefer",
                 Host,
                 User,
@@ -51,7 +51,7 @@ namespace UA_CloudLibrary.GraphQL
                 Password);
 
             DbContextOptionsBuilder builder = new DbContextOptionsBuilder();
-            builder.UseNpgsql(_connectionString);
+            builder.UseNpgsql(connectionString);
             using AppDbContext context = new AppDbContext(builder.Options);
 
             return context.Model;
