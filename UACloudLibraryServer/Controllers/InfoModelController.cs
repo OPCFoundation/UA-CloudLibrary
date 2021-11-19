@@ -34,12 +34,12 @@ namespace UACloudLibrary.Controllers
 
         [HttpGet]
         [Route("/infomodel/find/{keywords}")]
-        [SwaggerResponse(statusCode: 200, type: typeof(List<string>), description: "Discovered OPC UA Information Model identifiers of the models found in the UA Cloud Library matching the keywords provided.")]
+        [SwaggerResponse(statusCode: 200, type: typeof(string[]), description: "Discovered OPC UA Information Model identifiers of the models found in the UA Cloud Library matching the keywords provided.")]
         public IActionResult FindAddressSpaceAsync(
             [FromRoute][SwaggerParameter("A list of keywords to search for in the information models. Specify * to return everything.")] string[] keywords)
         {
-            string result = _database.FindNodesets(keywords);
-            return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.OK };
+            string[] results = _database.FindNodesets(keywords);
+            return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
         [HttpGet]

@@ -5,7 +5,7 @@ namespace UACloudLibrary
 {
     public interface IDatabase
     {
-        string FindNodesets(string[] keywords);
+        string[] FindNodesets(string[] keywords);
 
         bool AddMetaDataToNodeSet(uint nodesetId, string name, string value);
 

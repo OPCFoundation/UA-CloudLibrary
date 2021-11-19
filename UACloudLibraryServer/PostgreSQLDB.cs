@@ -3,13 +3,12 @@ namespace UACloudLibrary
 {
     using Npgsql;
     using System;
-    using System.Threading;
-    using System.Threading.Tasks;
+    using System.Collections.Generic;
     using UACloudLibrary.Models;
 
     public class PostgreSQLDB : IDatabase
     {
-        private string _connectionString;
+        private NpgsqlConnection _connection = null;
 
         public PostgreSQLDB()
         {
@@ -22,7 +21,7 @@ namespace UACloudLibrary
             string Port = "5432";
 
             // Build connection string using parameters from portal
-            _connectionString = string.Format(
+            string connectionString = string.Format(
                 "Server={0};Username={1};Database={2};Port={3};Password={4};SSLMode=Prefer",
                 Host,
                 User,
@@ -33,22 +32,21 @@ namespace UACloudLibrary
             // Setup the database tables
             string[] dbInitCommands = {
                 "CREATE TABLE IF NOT EXISTS Metadata(Metadata_id serial PRIMARY KEY, Nodeset_id BIGINT, Metadata_Name TEXT, Metadata_Value TEXT)",
-                "CREATE TABLE IF NOT EXISTS ObjectTypes(ObjectType_id serial PRIMARY KEY, Nodeset_id BIGINT, ObjectType_BrowseName TEXT, ObjectType_DisplayName TEXT, ObjectType_Namespace TEXT)",
-                "CREATE TABLE IF NOT EXISTS VariableTypes(VariableType_id serial PRIMARY KEY, Nodeset_id BIGINT, VariableType_BrowseName TEXT, VariableType_DisplayName TEXT, VariableType_Namespace TEXT)",
-                "CREATE TABLE IF NOT EXISTS DataTypes(DataType_id serial PRIMARY KEY, Nodeset_id BIGINT, DataType_BrowseName TEXT, DataType_DisplayName TEXT, DataType_Namespace TEXT)",
-                "CREATE TABLE IF NOT EXISTS ReferenceTypes(ReferenceType_id serial PRIMARY KEY, Nodeset_id BIGINT, ReferenceType_BrowseName TEXT, ReferenceType_DisplayName TEXT, ReferenceType_Namespace TEXT)"
+                "CREATE TABLE IF NOT EXISTS ObjectType(ObjectType_id serial PRIMARY KEY, Nodeset_id BIGINT, ObjectType_BrowseName TEXT, ObjectType_Value TEXT, ObjectType_Namespace TEXT)",
+                "CREATE TABLE IF NOT EXISTS VariableType(VariableType_id serial PRIMARY KEY, Nodeset_id BIGINT, VariableType_BrowseName TEXT, VariableType_Value TEXT, VariableType_Namespace TEXT)",
+                "CREATE TABLE IF NOT EXISTS DataType(DataType_id serial PRIMARY KEY, Nodeset_id BIGINT, DataType_BrowseName TEXT, DataType_Value TEXT, DataType_Namespace TEXT)",
+                "CREATE TABLE IF NOT EXISTS ReferenceType(ReferenceType_id serial PRIMARY KEY, Nodeset_id BIGINT, ReferenceType_BrowseName TEXT, ReferenceType_Value TEXT, ReferenceType_Namespace TEXT)"
             };
 
             try
             {
-                using (var connection = new NpgsqlConnection(_connectionString))
+                _connection = new NpgsqlConnection(connectionString);
+                _connection.Open();
+
+                foreach (string initCommand in dbInitCommands)
                 {
-                    connection.Open();
-                    foreach (string initCommand in dbInitCommands)
-                    {
-                        var sqlCommand = new NpgsqlCommand(initCommand, connection);
-                        sqlCommand.ExecuteNonQuery();
-                    }
+                    NpgsqlCommand sqlCommand = new NpgsqlCommand(initCommand, _connection);
+                    sqlCommand.ExecuteNonQuery();
                 }
             }
             catch (Exception ex)
@@ -57,25 +55,28 @@ namespace UACloudLibrary
             }
         }
 
+        ~PostgreSQLDB()
+        {
+            if (_connection != null)
+            {
+                _connection.Close();
+                _connection = null;
+            }
+        }
+
         public bool AddUATypeToNodeset(uint nodesetId, UATypes uaType, string browseName, string displayName, string nameSpace)
         {
             try
             {
-                using (var connection = new NpgsqlConnection(_connectionString))
-                {
-                    connection.Open();
+                string sqlInsert = string.Format("INSERT INTO public.{0} (Nodeset_id, {0}_browsename, {0}_value, {0}_namespace) VALUES(@nodesetid, @browsename, @displayname, @namespace)", uaType);
+                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
+                sqlCommand.Parameters.AddWithValue("nodesetid", (long)nodesetId);
+                sqlCommand.Parameters.AddWithValue("browsename", browseName);
+                sqlCommand.Parameters.AddWithValue("displayname", displayName);
+                sqlCommand.Parameters.AddWithValue("namespace", nameSpace);
+                sqlCommand.ExecuteNonQuery();
 
-                    // DELETE FROM Customers WHERE CustomerName='Alfreds Futterkiste';
-                    var sqlInsert = String.Format("INSERT INTO public.{0}s (Nodeset_id, {0}_browsename, {0}_displayname, {0}_namespace) VALUES(@nodesetid, @browsename, @displayname, @namespace)", uaType);
-                    var sqlCommand = new NpgsqlCommand(sqlInsert, connection);
-                    sqlCommand.Parameters.AddWithValue("nodesetid", (long)nodesetId);
-                    sqlCommand.Parameters.AddWithValue("browsename", browseName);
-                    sqlCommand.Parameters.AddWithValue("displayname", displayName);
-                    sqlCommand.Parameters.AddWithValue("namespace", nameSpace);
-                    sqlCommand.ExecuteNonQuery();
-
-                    return true;
-                }
+                return true;
             }
             catch (Exception ex)
             {
@@ -89,20 +90,14 @@ namespace UACloudLibrary
         {
             try
             {
-                using (var connection = new NpgsqlConnection(_connectionString))
-                {
-                    connection.Open();
+                string sqlInsert = string.Format("INSERT INTO public.Metadata (Nodeset_id, metadata_name, metadata_value) VALUES(@nodesetid, @metadataname, @metadatavalue)");
+                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
+                sqlCommand.Parameters.AddWithValue("nodesetid", (long)nodesetId);
+                sqlCommand.Parameters.AddWithValue("metadataname", name);
+                sqlCommand.Parameters.AddWithValue("metadatavalue", value);
+                sqlCommand.ExecuteNonQuery();
 
-                    // insert the record
-                    var sqlInsert = String.Format("INSERT INTO public.Metadata (Nodeset_id, metadata_name, metadata_value) VALUES(@nodesetid, @metadataname, @metadatavalue)");
-                    var sqlCommand = new NpgsqlCommand(sqlInsert, connection);
-                    sqlCommand.Parameters.AddWithValue("nodesetid", (long)nodesetId);
-                    sqlCommand.Parameters.AddWithValue("metadataname", name);
-                    sqlCommand.Parameters.AddWithValue("metadatavalue", value);
-                    sqlCommand.ExecuteNonQuery();
-
-                    return true;
-                }
+                return true;
             }
             catch (Exception ex)
             {
@@ -119,22 +114,22 @@ namespace UACloudLibrary
                 return false;
             }
 
-            if (!DeleteAllTableRecordsForNodeset(nodesetId, "ObjectTypes"))
+            if (!DeleteAllTableRecordsForNodeset(nodesetId, "ObjectType"))
             {
                 return false;
             }
 
-            if (!DeleteAllTableRecordsForNodeset(nodesetId, "VariableTypes"))
+            if (!DeleteAllTableRecordsForNodeset(nodesetId, "VariableType"))
             {
                 return false;
             }
 
-            if (!DeleteAllTableRecordsForNodeset(nodesetId, "DataTypes"))
+            if (!DeleteAllTableRecordsForNodeset(nodesetId, "DataType"))
             {
                 return false;
             }
 
-            if (!DeleteAllTableRecordsForNodeset(nodesetId, "ReferenceTypes"))
+            if (!DeleteAllTableRecordsForNodeset(nodesetId, "ReferenceType"))
             {
                 return false;
             }
@@ -146,24 +141,18 @@ namespace UACloudLibrary
         {
             try
             {
-                using (var connection = new NpgsqlConnection(_connectionString))
+                string sqlInsert = string.Format("SELECT metadata_value FROM public.Metadata WHERE (Nodeset_id='{0}' AND Metadata_Name='{1}')", (long)nodesetId, metaDataTag);
+                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
+                object result = sqlCommand.ExecuteScalar();
+                if (result != null)
                 {
-                    connection.Open();
-
-                    var sqlInsert = String.Format("SELECT metadata_value FROM Metadata WHERE (Nodeset_id='{0}' AND Metadata_Name='{1}')", (long)nodesetId, metaDataTag);
-                    var sqlCommand = new NpgsqlCommand(sqlInsert, connection);
-                    var result = sqlCommand.ExecuteScalar();
-                    if (result != null)
-                    {
-                        return result.ToString();
-                    }
+                    return result.ToString();
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
             }
-
 
             return string.Empty;
         }
@@ -172,16 +161,11 @@ namespace UACloudLibrary
         {
             try
             {
-                using (var connection = new NpgsqlConnection(_connectionString))
-                {
-                    connection.Open();
+                string sqlInsert = string.Format("DELETE FROM public.{1} WHERE Nodeset_id='{0}'", (long)nodesetId, tableName);
+                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
+                sqlCommand.ExecuteNonQuery();
 
-                    var sqlInsert = String.Format("DELETE FROM {1} WHERE Nodeset_id='{0}'", (long)nodesetId, tableName);
-                    var sqlCommand = new NpgsqlCommand(sqlInsert, connection);
-                    sqlCommand.ExecuteNonQuery();
-
-                    return true;
-                }
+                return true;
             }
             catch (Exception ex)
             {
@@ -191,84 +175,88 @@ namespace UACloudLibrary
             return false;
         }
 
-        public string FindNodesets(string[] keywords)
+        public string[] FindNodesets(string[] keywords)
         {
+            List<string> results = new List<string>();
+
+            foreach (string result in FindNodesetsInTable(keywords, "Metadata"))
+            {
+                if (!results.Contains(result))
+                {
+                    results.Add(result);
+                }
+            }
+
+            foreach (string result in FindNodesetsInTable(keywords, "ObjectType"))
+            {
+                if (!results.Contains(result))
+                {
+                    results.Add(result);
+                }
+            }
+
+            foreach (string result in FindNodesetsInTable(keywords, "VariableType"))
+            {
+                if (!results.Contains(result))
+                {
+                    results.Add(result);
+                }
+            }
+
+            foreach (string result in FindNodesetsInTable(keywords, "DataType"))
+            {
+                if (!results.Contains(result))
+                {
+                    results.Add(result);
+                }
+            }
+
+            foreach (string result in FindNodesetsInTable(keywords, "ReferenceType"))
+            {
+                if (!results.Contains(result))
+                {
+                    results.Add(result);
+                }
+            }
+
+            return results.ToArray();
+        }
+
+        private string[] FindNodesetsInTable(string[] keywords, string tableName)
+        {
+            List<string> results = new List<string>();
+
             try
             {
-                using (var connection = new NpgsqlConnection(_connectionString))
+                foreach (string keyword in keywords)
                 {
-                    connection.Open();
-                    var mySqlCmd = new NpgsqlCommand();
-                    mySqlCmd.Connection = connection;
-
-                    // Search for matching metadata fields
-                    // Add keywords as parameters
-                    string sqlParams = string.Empty;
-                    int i = 0;
-                    foreach (string keyword in keywords)
+                    // special case: * is a wildecard and will return everything
+                    string sqlInsert;
+                    if (keyword == "*")
                     {
-                        string paramName = string.Format("keyword{0}", i);
-                        mySqlCmd.Parameters.AddWithValue(paramName, "%" + keyword + "%");
-                        sqlParams += string.Format(@"
-                         LOWER(public.metadata.metadata_value)
-                         LIKE LOWER(@{0}) or", paramName);
-                        i++;
+                        sqlInsert = string.Format("SELECT Nodeset_id FROM public.{0} WHERE LOWER({0}_value) ~ ''", tableName);
+                    }
+                    else
+                    {
+                        sqlInsert = string.Format("SELECT Nodeset_id FROM public.{0} WHERE LOWER({0}_value) ~ '{1}'", tableName, keyword.ToLower());
                     }
 
-                    sqlParams = sqlParams.Substring(0, sqlParams.Length - 2);
-                    // Build parameterized query string
-                    var sqlQuery = String.Format(@"
-                        SELECT public.nodesets.nodeset_filename
-                        FROM public.nodesets
-                        NATURAL JOIN public.metadata
-                        WHERE {0}", sqlParams);
-
-                    // Search for matching objecttype fields
-                    // TODO: This can be done in a loop with the other tables (variabletypes, referencetypes) since their naming convention is similar
-                    // Re-use existing parameters
-                    sqlParams = string.Empty;
-                    foreach (NpgsqlParameter param in mySqlCmd.Parameters)
+                    NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
+                    object result = sqlCommand.ExecuteScalar();
+                    if ((result != null) && !results.Contains(result.ToString()))
                     {
-                        sqlParams += string.Format(@"
-                         LOWER(public.objecttypes.objecttype_browsename)
-                         LIKE LOWER(@{0}) or
-                         LOWER(public.objecttypes.objecttype_displayname)
-                         LIKE LOWER(@{0}) or", param.ParameterName);
-                    }
-
-                    sqlParams = sqlParams.Substring(0, sqlParams.Length - 2);
-                    // Update parameterized query string
-                    sqlQuery += String.Format(@"
-                        UNION
-                        SELECT public.nodesets.nodeset_filename
-                        FROM public.nodesets
-                        NATURAL JOIN public.objecttypes
-                        WHERE {0}", sqlParams);
-
-#if DEBUG
-                    mySqlCmd.CommandText = sqlQuery;
-                    Console.WriteLine(mySqlCmd.CommandText);
-                    string debugSQL = mySqlCmd.CommandText;
-                    foreach (NpgsqlParameter param in mySqlCmd.Parameters)
-                    {
-                        debugSQL = debugSQL.Replace(("@" + param.ParameterName), "'" + param.Value.ToString() + "'");
-                    }
-                    Console.WriteLine(debugSQL);
-#endif
-
-                    var result = mySqlCmd.ExecuteScalar();
-                    if (result != null)
-                    {
-                        return result.ToString();
+                        results.Add(result.ToString());
                     }
                 }
+
+                return results.ToArray();
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
             }
 
-            return string.Empty;
+            return new string[0];
         }
     }
 }
