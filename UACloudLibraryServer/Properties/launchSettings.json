@@ -41,8 +41,6 @@
       "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}",
       "environmentVariables": {
         "PostgreSQLUsername": "barnstee@uacloudlib",
-        "BlobStorageConnectionString": "DefaultEndpointsProtocol=https;AccountName=uacloudlib;AccountKey=HqEOSSJMbZNDTAz1q0Usc/RO6XK2T4pX/jbdhViDmFH3TpL7e53AWvPX7Rkct3umVMmf448jjRp160QShkuq/A==;EndpointSuffix=core.windows.net",
-        "PostgreSQLPassword": "UA4Ever&Beyond",
         "HostingPlatform": "Azure",
         "PostgreSQLEndpoint": "uacloudlib.postgres.database.azure.com"
       },
