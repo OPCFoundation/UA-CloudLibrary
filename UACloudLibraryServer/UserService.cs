@@ -14,19 +14,25 @@ namespace UACloudLibrary
         /// </summary>
         public bool ValidateCredentials(string username, string password)
         {
-#if DEBUG
-            return true;
-#else
-            string passwordFromEnvironment = Environment.GetEnvironmentVariable("ServicePassword");
-            if (string.IsNullOrEmpty(passwordFromEnvironment))
+            // check for admin
+            if (username == "admin")
             {
-                return false;
+                string passwordFromEnvironment = Environment.GetEnvironmentVariable("ServicePassword");
+                if (string.IsNullOrEmpty(passwordFromEnvironment))
+                {
+                    Console.WriteLine("ServicePassword env variable not set, please set it before trying to log in with admin credentials!");
+                    return false;
+                }
+                else
+                {
+                    return username.Equals("admin") && password.Equals(passwordFromEnvironment);
+                }
             }
             else
             {
-                return username.Equals("admin") && password.Equals(passwordFromEnvironment);
+                // TODO: lookup authenticated users DB
+                return false;
             }
-#endif
         }
     }
 }
