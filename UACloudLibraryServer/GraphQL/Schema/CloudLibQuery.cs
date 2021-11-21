@@ -3,11 +3,9 @@ using GraphQL.EntityFramework;
 using GraphQL.Types;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
-using UA_CloudLibrary.GraphQL.GraphTypes;
-using UACloudLibrary;
 using UACloudLibrary.Interfaces;
 
-namespace UA_CloudLibrary.GraphQL
+namespace UACloudLibrary
 {
     public class CloudLibQuery : QueryGraphType<AppDbContext>
     {

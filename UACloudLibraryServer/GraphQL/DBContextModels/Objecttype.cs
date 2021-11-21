@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿#nullable disable
 
-#nullable disable
-
-namespace UA_CloudLibrary.DbContextModels
+namespace UACloudLibrary.DbContextModels
 {
     public partial class Objecttype
     {
@@ -12,7 +9,5 @@ namespace UA_CloudLibrary.DbContextModels
         public string ObjecttypeBrowsename { get; set; }
         public string ObjecttypeDisplayname { get; set; }
         public string ObjecttypeNamespace { get; set; }
-
-        //public virtual Nodeset Nodeset { get; set; }
     }
 }

@@ -1,13 +1,9 @@
 ﻿using GraphQL;
 using GraphQL.EntityFramework;
 using GraphQL.Types;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using UACloudLibrary;
 
-namespace UA_CloudLibrary.GraphQL.GraphTypes
+namespace UACloudLibrary
 {
     [GraphQLMetadata(nameof(AddressSpace))]
     public class AddressSpaceType : EfObjectGraphType<AppDbContext, AddressSpace>

@@ -1,11 +1,6 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Threading;
-using UA_CloudLibrary.GraphQL;
-using UA_CloudLibrary.GraphQL.GraphTypes;
-using UACloudLibrary;
+﻿using System;
 
-namespace UA_CloudLibrary.GraphQL
+namespace UACloudLibrary
 {
     public class Schema : global::GraphQL.Types.Schema
     {
@@ -14,7 +9,6 @@ namespace UA_CloudLibrary.GraphQL
             // Defining the schema
             Query = query;
             Mutation = mutation;
-            //Subscription = new Subscription();
         }
     }
 }

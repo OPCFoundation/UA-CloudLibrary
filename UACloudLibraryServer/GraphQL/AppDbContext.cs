@@ -1,15 +1,36 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
-using System;
-using UA_CloudLibrary.DbContextModels;
-using UACloudLibrary;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using System.IO;
+using UACloudLibrary.DbContextModels;
 
-namespace UA_CloudLibrary.GraphQL
+namespace UACloudLibrary
 {
-    public class AppDbContext : DbContext
+    public class AppDbContext : IdentityDbContext
     {
-        public AppDbContext(DbContextOptions options) : base(options)
+        public AppDbContext(DbContextOptions options)
+        : base(options)
         {
+        }
+
+        // Needed for design-time DB migration
+        public AppDbContext()
+        {
+        }
+
+        // Needed for design-time DB migration
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            if (!optionsBuilder.IsConfigured)
+            {
+                IConfigurationRoot configuration = new ConfigurationBuilder()
+                   .SetBasePath(Directory.GetCurrentDirectory())
+                   .AddJsonFile("appsettings.json")
+                   .Build();
+
+                string connectionString = "need to set connection string here during design time migration as env variables not available";
+                optionsBuilder.UseNpgsql(connectionString);
+            }
         }
 
         public DbSet<Organisation> Organisations { get; set; }
@@ -24,39 +45,11 @@ namespace UA_CloudLibrary.GraphQL
 
         public DbSet<Referencetype> ReferenceTypes { get; set; }
 
-        public DbSet<Nodeset> Nodeset { get; set; }
-
         public DbSet<Datatype> DataTypes { get; set; }
 
         public DbSet<Variabletype> VariableTypes { get; set; }
 
         public DbSet<Metadata> Metadata { get; set; }
-
-
-        public static IModel GetInstance()
-        {
-            string Host = Environment.GetEnvironmentVariable("PostgreSQLEndpoint");
-            string User = Environment.GetEnvironmentVariable("PostgreSQLUsername");
-            string Password = Environment.GetEnvironmentVariable("PostgreSQLPassword");
-
-            string DBname = "uacloudlib";
-            string Port = "5432";
-
-            string connectionString = string.Format(
-                "Server={0};Username={1};Database={2};Port={3};Password={4};SSLMode=Prefer",
-                Host,
-                User,
-                DBname,
-                Port,
-                Password);
-
-            DbContextOptionsBuilder builder = new DbContextOptionsBuilder();
-            builder.UseNpgsql(connectionString);
-            using AppDbContext context = new AppDbContext(builder.Options);
-
-            return context.Model;
-        }
-
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -10,7 +10,7 @@ namespace UACloudLibrary
     {
         private NpgsqlConnection _connection = null;
 
-        public PostgreSQLDB()
+        public static string CreateConnectionString()
         {
             // Obtain connection string information from the environment
             string Host = Environment.GetEnvironmentVariable("PostgreSQLEndpoint");
@@ -21,14 +21,18 @@ namespace UACloudLibrary
             string Port = "5432";
 
             // Build connection string using parameters from portal
-            string connectionString = string.Format(
+            return string.Format(
                 "Server={0};Username={1};Database={2};Port={3};Password={4};SSLMode=Prefer",
                 Host,
                 User,
                 DBname,
                 Port,
                 Password);
+        }
 
+        public PostgreSQLDB()
+        {
+            
             // Setup the database tables
             string[] dbInitCommands = {
                 "CREATE TABLE IF NOT EXISTS Metadata(Metadata_id serial PRIMARY KEY, Nodeset_id BIGINT, Metadata_Name TEXT, Metadata_Value TEXT)",
@@ -40,7 +44,7 @@ namespace UACloudLibrary
 
             try
             {
-                _connection = new NpgsqlConnection(connectionString);
+                _connection = new NpgsqlConnection(PostgreSQLDB.CreateConnectionString());
                 _connection.Open();
 
                 foreach (string initCommand in dbInitCommands)

@@ -1,9 +1,7 @@
 ﻿using GraphQL.Types;
 using System.Collections.Generic;
-using UA_CloudLibrary.GraphQL.GraphTypes;
-using UACloudLibrary;
 
-namespace UA_CloudLibrary.GraphQL
+namespace UACloudLibrary
 {
     public class Mutations : ObjectGraphType<object>
     {

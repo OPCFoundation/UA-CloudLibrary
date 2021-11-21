@@ -12,7 +12,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace UA_CloudLibrary.GraphQL
+namespace UACloudLibrary
 {
     [Authorize]
     [ApiController]

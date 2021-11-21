@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿#nullable disable
 
-#nullable disable
-
-namespace UA_CloudLibrary.DbContextModels
+namespace UACloudLibrary.DbContextModels
 {
     public partial class Referencetype
     {
@@ -12,7 +9,5 @@ namespace UA_CloudLibrary.DbContextModels
         public string ReferencetypeBrowsename { get; set; }
         public string ReferencetypeDisplayname { get; set; }
         public string ReferencetypeNamespace { get; set; }
-
-        //public virtual Nodeset Nodeset { get; set; }
     }
 }

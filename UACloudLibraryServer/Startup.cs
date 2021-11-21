@@ -6,11 +6,12 @@ namespace UACloudLibrary
     using GraphQL.Utilities;
     using Microsoft.AspNetCore.Authentication;
     using Microsoft.AspNetCore.Builder;
-    using Microsoft.AspNetCore.Hosting;
     using Microsoft.AspNetCore.DataProtection;
-    using Microsoft.AspNetCore.Mvc;
+    using Microsoft.AspNetCore.Hosting;
+    using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Server.Kestrel.Core;
     using Microsoft.EntityFrameworkCore;
+    using Microsoft.EntityFrameworkCore.Metadata;
     using Microsoft.Extensions.Configuration;
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Hosting;
@@ -18,8 +19,6 @@ namespace UACloudLibrary
     using System;
     using System.Collections.Generic;
     using System.Linq;
-    using UA_CloudLibrary.GraphQL;
-    using UA_CloudLibrary.GraphQL.GraphTypes;
     using UACloudLibrary.Interfaces;
 
     public class Startup
@@ -34,9 +33,20 @@ namespace UACloudLibrary
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddControllers();
+            services.AddControllersWithViews().AddNewtonsoftJson();
+
+            // Setup database context for ASP.NetCore Identity Scaffolding
+            services.AddDbContext<AppDbContext>(o =>
+            {
+                o.UseNpgsql(PostgreSQLDB.CreateConnectionString());
+            });
+            
+            services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
+                .AddEntityFrameworkStores<AppDbContext>();
 
             services.AddScoped<IUserService, UserService>();
+
+            services.AddSingleton<IDatabase, PostgreSQLDB>();
 
             services.AddAuthentication("BasicAuthentication")
                 .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null);
@@ -52,7 +62,7 @@ namespace UACloudLibrary
                     {
                         Name = "OPC Foundation",
                         Email = string.Empty,
-                        Url = new Uri("https://opcfoundation.org/"),
+                        Url = new Uri("https://opcfoundation.org/")
                     }
                 });
 
@@ -85,18 +95,22 @@ namespace UACloudLibrary
                 options.EnableAnnotations();
             });
 
-            // Defining which dotnet class represents which GraphQL type class
+            // Setup GraphQL
             GraphTypeTypeRegistry.Register<AddressSpaceCategory, AddressSpaceCategoryType>();
             GraphTypeTypeRegistry.Register<AddressSpaceNodeset2, AddressSpaceNodeset2Type>();
             GraphTypeTypeRegistry.Register<Organisation, OrganisationType>();
             GraphTypeTypeRegistry.Register<AddressSpace, AddressSpaceType>();
             GraphTypeTypeRegistry.Register<AddressSpaceLicense, AddressSpaceLicenseType>();
 
-            EfGraphQLConventions.RegisterInContainer<AppDbContext>(
-                    services,
-                    model: AppDbContext.GetInstance());
+            services.AddSingleton<AddressSpace>();
+            services.AddSingleton<AddressSpaceCategory>();
+            services.AddSingleton<AddressSpaceNodeset2>();
+            services.AddSingleton<AddressSpaceLicenseType>();
+  
+            EfGraphQLConventions.RegisterInContainer<AppDbContext>(services, null, GetGraphQLDBContext());
             EfGraphQLConventions.RegisterConnectionTypesInContainer(services);
 
+            // Setup file storage
             foreach (var type in GetGraphQlTypes())
             {
                 services.AddSingleton(type);
@@ -115,54 +129,14 @@ namespace UACloudLibrary
 #endif
             }
 
-            services.AddSingleton<IDatabase, PostgreSQLDB>();
-
             services.AddAuthentication();
 
             services.AddAuthorization();
 
-            services.AddDataProtection()
-                .PersistKeysToAzureBlobStorage(Configuration["BlobStorageConnectionString"], "keys", "keys");
-
-            services.AddSingleton<AddressSpace>();
-            services.AddSingleton<AddressSpaceCategory>();
-            services.AddSingleton<AddressSpaceNodeset2>();
-            services.AddSingleton<AddressSpaceLicenseType>();
-            services.AddSingleton<DatatypeGQL>();
-            services.AddSingleton<MetadataGQL>();
-            services.AddSingleton<NodesetGQL>();
-            services.AddSingleton<ObjecttypeGQL>();
-            services.AddSingleton<ReferencetypeGQL>();
-            services.AddSingleton<VariabletypeGQL>();
-
-            // Setting up database context
-            services.AddDbContext<AppDbContext>(o =>
-            {
-                // Obtain connection string information from the environment
-                string Host = Environment.GetEnvironmentVariable("PostgreSQLEndpoint");
-                string User = Environment.GetEnvironmentVariable("PostgreSQLUsername");
-                string Password = Environment.GetEnvironmentVariable("PostgreSQLPassword");
-
-                string DBname = "uacloudlib";
-                string Port = "5432";
-
-                // Build connection string using parameters from portal
-                string connectionString = string.Format(
-                    "Server={0};Username={1};Database={2};Port={3};Password={4};SSLMode=Prefer",
-                    Host,
-                    User,
-                    DBname,
-                    Port,
-                    Password);
-
-                o.UseNpgsql(connectionString);
-            });
+            services.AddDataProtection().PersistKeysToAzureBlobStorage(Configuration["BlobStorageConnectionString"], "keys", "keys");
 
             services.AddSingleton<IDocumentExecuter, EfDocumentExecuter>();
             services.AddSingleton<GraphQL.Types.ISchema, Schema>();
-
-            var mvc = services.AddMvc(option => option.EnableEndpointRouting = false);
-            mvc.SetCompatibilityVersion(CompatibilityVersion.Latest);
 
             services.Configure<IISServerOptions>(options =>
             {
@@ -173,11 +147,17 @@ namespace UACloudLibrary
             {
                 options.AllowSynchronousIO = true;
             });
-
-            services.AddControllers().AddNewtonsoftJson();
         }
 
-        static IEnumerable<Type> GetGraphQlTypes()
+        private static IModel GetGraphQLDBContext()
+        {
+            DbContextOptionsBuilder builder = new DbContextOptionsBuilder();
+            builder.UseNpgsql(PostgreSQLDB.CreateConnectionString());
+            using AppDbContext context = new AppDbContext(builder.Options);
+            return context.Model;
+        }
+
+        private static IEnumerable<Type> GetGraphQlTypes()
         {
             return typeof(Startup).Assembly
                 .GetTypes()
