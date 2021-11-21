@@ -1,5 +1,5 @@
 ﻿
-namespace UACloudLibrary.Controllers
+namespace UACloudLibrary
 {
     using Extensions;
     using Microsoft.AspNetCore.Authorization;
@@ -14,7 +14,6 @@ namespace UACloudLibrary.Controllers
     using System.Net;
     using System.Text;
     using System.Threading.Tasks;
-    using UACloudLibrary;
     using UACloudLibrary.Interfaces;
     using UACloudLibrary.Models;
 

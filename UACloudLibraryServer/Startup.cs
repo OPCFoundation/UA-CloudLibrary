@@ -9,6 +9,7 @@ namespace UACloudLibrary
     using Microsoft.AspNetCore.DataProtection;
     using Microsoft.AspNetCore.Hosting;
     using Microsoft.AspNetCore.Identity;
+    using Microsoft.AspNetCore.Identity.UI.Services;
     using Microsoft.AspNetCore.Server.Kestrel.Core;
     using Microsoft.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore.Metadata;
@@ -35,12 +36,14 @@ namespace UACloudLibrary
         {
             services.AddControllersWithViews().AddNewtonsoftJson();
 
+            services.AddRazorPages();
+
             // Setup database context for ASP.NetCore Identity Scaffolding
             services.AddDbContext<AppDbContext>(o =>
             {
                 o.UseNpgsql(PostgreSQLDB.CreateConnectionString());
             });
-            
+
             services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
                 .AddEntityFrameworkStores<AppDbContext>();
 
@@ -48,8 +51,10 @@ namespace UACloudLibrary
 
             services.AddSingleton<IDatabase, PostgreSQLDB>();
 
-            services.AddAuthentication("BasicAuthentication")
-                .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null);
+            services.AddTransient<IEmailSender, EmailSender>();
+
+            //services.AddAuthentication("BasicAuthentication")
+            //    .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null);
 
             services.AddSwaggerGen(options =>
             {
@@ -106,7 +111,7 @@ namespace UACloudLibrary
             services.AddSingleton<AddressSpaceCategory>();
             services.AddSingleton<AddressSpaceNodeset2>();
             services.AddSingleton<AddressSpaceLicenseType>();
-  
+
             EfGraphQLConventions.RegisterInContainer<AppDbContext>(services, null, GetGraphQLDBContext());
             EfGraphQLConventions.RegisterConnectionTypesInContainer(services);
 
@@ -183,6 +188,8 @@ namespace UACloudLibrary
 
             app.UseHttpsRedirection();
 
+            app.UseStaticFiles();
+
             app.UseRouting();
 
             app.UseAuthentication();
@@ -191,7 +198,11 @@ namespace UACloudLibrary
 
             app.UseEndpoints(endpoints =>
             {
-                endpoints.MapControllers();
+                endpoints.MapControllerRoute(
+                    name: "default",
+                    pattern: "{controller=Home}/{action=Index}/{id?}");
+
+                endpoints.MapRazorPages();
             });
         }
     }
