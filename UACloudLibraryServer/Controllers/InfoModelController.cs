@@ -17,7 +17,7 @@ namespace UACloudLibrary
     using UACloudLibrary.Interfaces;
     using UACloudLibrary.Models;
 
-    [Authorize]
+    [Authorize(AuthenticationSchemes = "BasicAuthentication")]
     [ApiController]
     public class InfoModelController : ControllerBase
     {

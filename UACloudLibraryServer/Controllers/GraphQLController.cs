@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 
 namespace UACloudLibrary
 {
-    [Authorize]
+    [Authorize(AuthenticationSchemes = "BasicAuthentication")]
     [ApiController]
     public class GraphQlController : ControllerBase
     {
