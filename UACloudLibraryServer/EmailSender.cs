@@ -13,7 +13,8 @@ namespace UACloudLibrary
             var client = new SendGridClient(Environment.GetEnvironmentVariable("APIKey"));
             var msg = new SendGridMessage()
             {
-                From = new EmailAddress("no-reply@opcfoundation.org"),
+                From = new EmailAddress("stefan.hoppe@opcfoundation.org"),
+                ReplyTo = new EmailAddress("no-reply@opcfoundation.org"),
                 Subject = subject,
                 PlainTextContent = htmlMessage,
                 HtmlContent = htmlMessage
