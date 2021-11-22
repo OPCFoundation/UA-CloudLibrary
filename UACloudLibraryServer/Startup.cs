@@ -101,26 +101,14 @@ namespace UACloudLibrary
             });
 
             // Setup GraphQL
-            GraphTypeTypeRegistry.Register<AddressSpaceCategory, AddressSpaceCategoryType>();
-            GraphTypeTypeRegistry.Register<AddressSpaceNodeset2, AddressSpaceNodeset2Type>();
-            GraphTypeTypeRegistry.Register<Organisation, OrganisationType>();
-            GraphTypeTypeRegistry.Register<AddressSpace, AddressSpaceType>();
-            GraphTypeTypeRegistry.Register<AddressSpaceLicense, AddressSpaceLicenseType>();
-
-            services.AddSingleton<AddressSpace>();
-            services.AddSingleton<AddressSpaceCategory>();
-            services.AddSingleton<AddressSpaceNodeset2>();
-            services.AddSingleton<AddressSpaceLicenseType>();
-
             EfGraphQLConventions.RegisterInContainer<AppDbContext>(services, null, GetGraphQLDBContext());
             EfGraphQLConventions.RegisterConnectionTypesInContainer(services);
-
-            // Setup file storage
             foreach (var type in GetGraphQlTypes())
             {
                 services.AddSingleton(type);
             }
 
+            // Setup file storage
             switch (Configuration["HostingPlatform"])
             {
                 case "Azure": services.AddSingleton<IFileStorage, AzureFileStorage>(); break;

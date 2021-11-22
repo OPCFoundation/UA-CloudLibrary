@@ -1,13 +1,16 @@
-﻿#nullable disable
-
+﻿
 namespace UACloudLibrary.DbContextModels
 {
     public partial class Referencetype
     {
-        public int ReferencetypeId { get; set; }
-        public int? NodesetId { get; set; }
-        public string ReferencetypeBrowsename { get; set; }
-        public string ReferencetypeDisplayname { get; set; }
-        public string ReferencetypeNamespace { get; set; }
+        public int Referencetype_id { get; set; }
+
+        public long Nodeset_id { get; set; }
+        
+        public string Referencetype_BrowseName { get; set; }
+        
+        public string Referencetype_Value { get; set; }
+        
+        public string Referencetype_Namespace { get; set; }
     }
 }

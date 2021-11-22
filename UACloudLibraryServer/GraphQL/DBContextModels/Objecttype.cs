@@ -1,13 +1,16 @@
-﻿#nullable disable
-
+﻿
 namespace UACloudLibrary.DbContextModels
 {
     public partial class Objecttype
     {
-        public int ObjecttypeId { get; set; }
-        public int? NodesetId { get; set; }
-        public string ObjecttypeBrowsename { get; set; }
-        public string ObjecttypeDisplayname { get; set; }
-        public string ObjecttypeNamespace { get; set; }
+        public int Objecttype_id { get; set; }
+
+        public long Nodeset_id { get; set; }
+
+        public string Objecttype_BrowseName { get; set; }
+
+        public string Objecttype_Value { get; set; }
+
+        public string Objecttype_Namespace { get; set; }
     }
 }

@@ -7,22 +7,8 @@ namespace UACloudLibrary
     {
         public Mutations(IDatabase database)
         {
-            #region Specification Mutations
-
-            FieldAsync<AddressSpaceType>(
-                name: "SubmitAddressSpace",
-                arguments: new QueryArguments(
-                    new QueryArgument<AddressSpaceInput> { Name = "addressSpace"}
-                    ),
-                resolve: context => {
-                    // TODO: handle upload
-                    Dictionary<string, object> space = (Dictionary<string, object>)context.Arguments["addressSpace"];
-                    return null;
-                    }
-                );
-
             Field<BooleanGraphType>(
-                name: "AddAddressSpaceMetadata",
+                name: "Metadata",
                 arguments: new QueryArguments(
                     new QueryArgument<MetadataInput> { Name = "metaTag" },
                     new QueryArgument<IntGraphType> { Name = "nodesetID" }
@@ -33,25 +19,6 @@ namespace UACloudLibrary
                     return database.AddMetaDataToNodeSet(nodesetID, metaTag["name"].ToString(), metaTag["value"].ToString());
                     }
                 );
-
-            Field<AddressSpaceType>(
-                name: "AddAddressSpaceRelationship",
-                arguments: new QueryArguments(
-                    new QueryArgument<StringGraphType> { Name="targetAddressSpaceID"},
-                    new QueryArgument<StringGraphType> { Name="sourceAddressSpaceID"},
-                    new QueryArgument<StringGraphType> { Name="relationshipType"}
-                    ),
-                resolve: context =>
-                {
-                    string target = (string)context.Arguments["targetAddressSpaceID"];
-                    string source = (string)context.Arguments["sourceAddressSpaceID"];
-                    string type = (string)context.Arguments["relationshipType"];
-
-                    // TODO: Handle relationship creation
-                    return null;
-                    }
-                );
-            #endregion
         }
     }
 

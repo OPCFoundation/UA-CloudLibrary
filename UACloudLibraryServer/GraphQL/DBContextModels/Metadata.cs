@@ -1,15 +1,14 @@
-﻿#nullable disable
-
+﻿
 namespace UACloudLibrary.DbContextModels
 {
     public partial class Metadata
     {
-        public int MetadataId { get; set; }
+        public int Metadata_id { get; set; }
 
-        public int? NodesetId { get; set; }
+        public long Nodeset_id { get; set; }
 
-        public string MetadataName { get; set; }
+        public string Metadata_Name { get; set; }
 
-        public string MetadataValue { get; set; }
+        public string Metadata_Value { get; set; }
     }
 }

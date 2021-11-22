@@ -28,38 +28,31 @@ namespace UACloudLibrary
                    .AddJsonFile("appsettings.json")
                    .Build();
 
-                string connectionString = "need to set connection string here during design time migration as env variables not available";
+                string connectionString = "Please set connection string here during design time migration as env variables are not available!";
                 optionsBuilder.UseNpgsql(connectionString);
             }
         }
 
-        public DbSet<Organisation> Organisations { get; set; }
-
-        public DbSet<AddressSpace> AddressSpaces { get; set; }
-
-        public DbSet<AddressSpaceCategory> AddressSpaceCategories { get; set; }
-
-        public DbSet<AddressSpaceNodeset2> AddressSpaceNodesets { get; set; }
-
-        public DbSet<Objecttype> ObjectTypes { get; set; }
-
-        public DbSet<Referencetype> ReferenceTypes { get; set; }
-
-        public DbSet<Datatype> DataTypes { get; set; }
-
-        public DbSet<Variabletype> VariableTypes { get; set; }
-
+        // map to our tables
+        public DbSet<Datatype> DataType { get; set; }
+        
         public DbSet<Metadata> Metadata { get; set; }
+        
+        public DbSet<Objecttype> ObjectType { get; set; }
 
+        public DbSet<Referencetype> ReferenceType { get; set; }
+         
+        public DbSet<Variabletype> VariableType { get; set; }
+                
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.Entity<AddressSpace>().Ignore(c => c.AdditionalProperties);
-
-            modelBuilder.Entity<AddressSpace>()
-                .HasIndex(b => new { b.Title, b.Description, b.Keywords, b.SupportedLocales })
-                .IsTsVectorExpressionIndex("english");
+            modelBuilder.Entity<Datatype>();
+            modelBuilder.Entity<Metadata>();
+            modelBuilder.Entity<Objecttype>();
+            modelBuilder.Entity<Referencetype>();
+            modelBuilder.Entity<Variabletype>();
         }
     }
 }
