@@ -1,8 +1,11 @@
 ﻿
+using System.ComponentModel.DataAnnotations;
+
 namespace UACloudLibrary.DbContextModels
 {
     public partial class Datatype
     {
+        [Key]
         public int Datatype_id { get; set; }
 
         public long Nodeset_id { get; set; }

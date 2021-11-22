@@ -16,14 +16,8 @@ namespace UACloudLibrary
 
     public class BasicAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
     {
-        /// <summary>
-        /// Constructor
-        /// </summary>
-        /// <param name="userService"></param>
-        /// <param name="options"></param>
-        /// <param name="logger"></param>
-        /// <param name="encoder"></param>
-        /// <param name="clock"></param>
+        private readonly IUserService _userService;
+
         public BasicAuthenticationHandler(
             IUserService userService,
             IOptionsMonitor<AuthenticationSchemeOptions> options,
@@ -35,11 +29,7 @@ namespace UACloudLibrary
             _userService = userService;
         }
 
-        /// <summary>
-        /// Auth handler
-        /// </summary>
-        /// <returns></returns>
-        protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+        protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
         {
             string username = null;
             try
@@ -54,14 +44,14 @@ namespace UACloudLibrary
                 username = credentials.FirstOrDefault();
                 string password = credentials.LastOrDefault();
 
-                if (!_userService.ValidateCredentials(username, password))
+                if (!await _userService.ValidateCredentials(username, password).ConfigureAwait(false))
                 {
                     throw new ArgumentException("Invalid credentials");
                 }
             }
             catch (Exception ex)
             {
-                return Task.FromResult(AuthenticateResult.Fail($"Authentication failed: {ex.Message}"));
+                return AuthenticateResult.Fail($"Authentication failed: {ex.Message}");
             }
 
             Claim[] claims = new[] {
@@ -72,9 +62,7 @@ namespace UACloudLibrary
             ClaimsPrincipal principal = new ClaimsPrincipal(identity);
             AuthenticationTicket ticket = new AuthenticationTicket(principal, Scheme.Name);
 
-            return Task.FromResult(AuthenticateResult.Success(ticket));
+            return AuthenticateResult.Success(ticket);
         }
-
-        private readonly IUserService _userService;
     }
 }
