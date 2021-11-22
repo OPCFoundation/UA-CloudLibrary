@@ -1,7 +1,6 @@
 
 using System;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace UACloudLibrary
 {
@@ -12,7 +11,6 @@ namespace UACloudLibrary
         Custom
     }
 
-    [Table("AddressSpaces")]
     public class AddressSpace
     {
         public AddressSpace()
@@ -39,7 +37,6 @@ namespace UACloudLibrary
             AdditionalProperties = new Tuple<string, string>[0];
         }
 
-        [Key]
         [Required]
         public string Title { get; set; }
 
@@ -56,19 +53,11 @@ namespace UACloudLibrary
 
         public DateTime LastModificationTime { get; set; }
 
-        // Specifically used for efcore related data loading
-        [ForeignKey("Contributor")]
-        public string ContributorID { get; set; }
-
         [Required]
         public Organisation Contributor { get; set; }
 
         [Required]
         public string Description { get; set; }
-
-        // Specifically used for efcore related data loading
-        [ForeignKey("Category")]
-        public string CategoryID { get; set; }
 
         [Required]
         public AddressSpaceCategory Category { get; set; }
@@ -104,7 +93,6 @@ namespace UACloudLibrary
         public Tuple<string, string>[] AdditionalProperties { get; set; }
     }
 
-    [Table("Organisations")]
     public class Organisation
     {
         public Organisation()
@@ -118,7 +106,6 @@ namespace UACloudLibrary
             LastModificationTime = DateTime.UtcNow;
         }
 
-        [Key]
         [Required]
         public string Name { get; set; }
 
@@ -135,7 +122,6 @@ namespace UACloudLibrary
         public DateTime LastModificationTime { get; set; }
     }
 
-    [Table("AddressSpaceCategories")]
     public class AddressSpaceCategory
     {
         public AddressSpaceCategory()
@@ -147,7 +133,6 @@ namespace UACloudLibrary
             LastModificationTime = DateTime.UtcNow;
         }
 
-        [Key]
         [Required]
         public string Name { get; set; }
 
@@ -160,7 +145,6 @@ namespace UACloudLibrary
         public DateTime LastModificationTime { get; set; }
     }
 
-    [Table("AddressSpaceNodesets")]
     public class AddressSpaceNodeset2
     {
         public AddressSpaceNodeset2()
@@ -170,9 +154,7 @@ namespace UACloudLibrary
             LastModificationTime = DateTime.UtcNow;
         }
 
-        [Key]
         [Required]
-        [ForeignKey("AddressSpace")]
         public string NodesetXml { get; set; }
 
         public DateTime CreationTime { get; set; }
