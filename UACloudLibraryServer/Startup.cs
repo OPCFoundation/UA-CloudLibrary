@@ -1,26 +1,27 @@
 
 namespace UACloudLibrary
 {
-    using GraphQL;
-    using GraphQL.EntityFramework;
-    using GraphQL.Utilities;
+    using global::GraphQL.Server;
+    using global::GraphQL.Server.Ui.Playground;
     using Microsoft.AspNetCore.Authentication;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.DataProtection;
+    using AspNetCore.DataProtection.Aws.S3;
+    using GoogleCloudStorage.AspNetCore.DataProtection;
     using Microsoft.AspNetCore.Hosting;
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Identity.UI.Services;
     using Microsoft.AspNetCore.Server.Kestrel.Core;
     using Microsoft.EntityFrameworkCore;
-    using Microsoft.EntityFrameworkCore.Metadata;
     using Microsoft.Extensions.Configuration;
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Hosting;
+    using Microsoft.Extensions.Logging;
     using Microsoft.OpenApi.Models;
     using System;
-    using System.Collections.Generic;
-    using System.Linq;
+    using UACloudLibrary.DbContextModels;
     using UACloudLibrary.Interfaces;
+    using System.IO;
 
     public class Startup
     {
@@ -52,6 +53,8 @@ namespace UACloudLibrary
             services.AddSingleton<IDatabase, PostgreSQLDB>();
 
             services.AddTransient<IEmailSender, EmailSender>();
+
+            services.AddLogging(builder => builder.AddConsole());
 
             services.AddAuthentication()
                 .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null);
@@ -100,14 +103,6 @@ namespace UACloudLibrary
                 options.EnableAnnotations();
             });
 
-            // Setup GraphQL
-            EfGraphQLConventions.RegisterInContainer<AppDbContext>(services, null, GetGraphQLDBContext());
-            EfGraphQLConventions.RegisterConnectionTypesInContainer(services);
-            foreach (var type in GetGraphQlTypes())
-            {
-                services.AddSingleton(type);
-            }
-
             // Setup file storage
             switch (Configuration["HostingPlatform"])
             {
@@ -115,8 +110,7 @@ namespace UACloudLibrary
                 case "AWS": services.AddSingleton<IFileStorage, AWSFileStorage>(); break;
                 case "GCP": services.AddSingleton<IFileStorage, GCPFileStorage>(); break;
 #if DEBUG
-                default:
-                    services.AddSingleton<IFileStorage, LocalFileStorage>(); break;
+                default: services.AddSingleton<IFileStorage, LocalFileStorage>(); break;
 #else
                 default: throw new Exception("Invalid HostingPlatform specified in environment! Valid variables are Azure, AWS and GCP");
 #endif
@@ -126,10 +120,53 @@ namespace UACloudLibrary
 
             services.AddAuthorization();
 
-            services.AddDataProtection().PersistKeysToAzureBlobStorage(Configuration["BlobStorageConnectionString"], "keys", "keys");
+            // setup data protection
+            switch (Configuration["HostingPlatform"])
+            {
+                case "Azure": services.AddDataProtection().PersistKeysToAzureBlobStorage(Configuration["BlobStorageConnectionString"], "keys", "keys"); break;
+                case "AWS": //TODO: Configure services.AddDataProtection().PersistKeysToAwsS3(); break;
+                case "GCP": //TODO: Configure services.AddDataProtection().PersistKeysToGoogleCloudStorage(); break;
+#if DEBUG
+                default: services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Directory.GetCurrentDirectory())); break;
+#else
+                default: throw new Exception("Invalid HostingPlatform specified in environment! Valid variables are Azure, AWS and GCP");
+#endif
+            }
 
-            services.AddSingleton<IDocumentExecuter, EfDocumentExecuter>();
-            services.AddSingleton<GraphQL.Types.ISchema, Schema>();
+            // setup GrapQL interface
+            services.AddScoped<DatatypeModel>();
+            services.AddScoped<DatatypeType>();
+
+            services.AddScoped<MetadataModel>();
+            services.AddScoped<MetadataType>();
+
+            services.AddScoped<ObjecttypeModel>();
+            services.AddScoped<ObjecttypeType>();
+
+            services.AddScoped<ReferencetypeModel>();
+            services.AddScoped<ReferencetypeType>();
+
+            services.AddScoped<VariabletypeModel>();
+            services.AddScoped<VariabletypeType>();
+
+            services.AddScoped<UaCloudLibRepo>();
+            services.AddScoped<UaCloudLibQuery>();
+            services.AddScoped<UaCloudLibSchema>();
+
+            services.AddHttpContextAccessor();
+
+            services.AddGraphQL(options =>
+            {
+                options.EnableMetrics = true;
+            })
+            .AddErrorInfoProvider(opt => opt.ExposeExceptionStackTrace = true)
+            .AddNewtonsoftJson()
+            .AddUserContextBuilder(httpContext =>
+                new GraphQLUserContext
+                {
+                    User = httpContext.User
+                }
+            );
 
             services.Configure<IISServerOptions>(options =>
             {
@@ -140,23 +177,6 @@ namespace UACloudLibrary
             {
                 options.AllowSynchronousIO = true;
             });
-        }
-
-        private static IModel GetGraphQLDBContext()
-        {
-            DbContextOptionsBuilder builder = new DbContextOptionsBuilder();
-            builder.UseNpgsql(PostgreSQLDB.CreateConnectionString());
-            using AppDbContext context = new AppDbContext(builder.Options);
-            return context.Model;
-        }
-
-        private static IEnumerable<Type> GetGraphQlTypes()
-        {
-            return typeof(Startup).Assembly
-                .GetTypes()
-                .Where(x => !x.IsAbstract &&
-                            (typeof(GraphQL.Types.IObjectGraphType).IsAssignableFrom(x) ||
-                             typeof(GraphQL.Types.IInputObjectGraphType).IsAssignableFrom(x)));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -183,6 +203,14 @@ namespace UACloudLibrary
             app.UseAuthentication();
 
             app.UseAuthorization();
+
+            app.UseGraphQL<UaCloudLibSchema>();
+
+            app.UseGraphQLPlayground(new PlaygroundOptions()
+            {
+                RequestCredentials = RequestCredentials.Include
+            },
+            "/graphqlui");
 
             app.UseEndpoints(endpoints =>
             {

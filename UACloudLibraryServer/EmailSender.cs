@@ -10,8 +10,8 @@ namespace UACloudLibrary
     {
         public Task SendEmailAsync(string email, string subject, string htmlMessage)
         {
-            var client = new SendGridClient(Environment.GetEnvironmentVariable("APIKey"));
-            var msg = new SendGridMessage()
+            SendGridClient client = new SendGridClient(Environment.GetEnvironmentVariable("SendGridAPIKey"));
+            SendGridMessage msg = new SendGridMessage()
             {
                 From = new EmailAddress("stefan.hoppe@opcfoundation.org"),
                 ReplyTo = new EmailAddress("no-reply@opcfoundation.org"),

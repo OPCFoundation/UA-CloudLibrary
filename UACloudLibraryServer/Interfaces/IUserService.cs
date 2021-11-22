@@ -5,7 +5,9 @@ namespace UACloudLibrary.Interfaces
 {
     public interface IUserService
     {
-        Task<bool> ValidateCredentials(string username, string password);
+        Task<bool> ValidateCredentialsAsync(string username, string password);
+
+        Task<bool> ValidateCookieAsync(string cookie);
     }
 }
 

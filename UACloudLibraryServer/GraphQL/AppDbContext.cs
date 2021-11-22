@@ -34,25 +34,25 @@ namespace UACloudLibrary
         }
 
         // map to our tables
-        public DbSet<Datatype> DataType { get; set; }
+        public DbSet<DatatypeModel> datatype { get; set; }
 
-        public DbSet<Metadata> Metadata { get; set; }
+        public DbSet<MetadataModel> metadata { get; set; }
 
-        public DbSet<Objecttype> ObjectType { get; set; }
+        public DbSet<ObjecttypeModel> objecttype { get; set; }
 
-        public DbSet<Referencetype> ReferenceType { get; set; }
+        public DbSet<ReferencetypeModel> referencetype { get; set; }
 
-        public DbSet<Variabletype> VariableType { get; set; }
+        public DbSet<VariabletypeModel> variabletype { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.Entity<Datatype>();
-            modelBuilder.Entity<Metadata>();
-            modelBuilder.Entity<Objecttype>();
-            modelBuilder.Entity<Referencetype>();
-            modelBuilder.Entity<Variabletype>();
+            modelBuilder.Entity<DatatypeModel>();
+            modelBuilder.Entity<MetadataModel>();
+            modelBuilder.Entity<ObjecttypeModel>();
+            modelBuilder.Entity<ReferencetypeModel>();
+            modelBuilder.Entity<VariabletypeModel>();
         }
     }
 }

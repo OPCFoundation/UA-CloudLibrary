@@ -74,7 +74,7 @@ namespace UACloudLibClientLibrary
                         break;
                     }
             }
-                
+
             asString += "}";
             return asString;
         }

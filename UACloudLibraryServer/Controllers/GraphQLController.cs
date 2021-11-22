@@ -18,15 +18,14 @@ namespace UACloudLibrary
     [ApiController]
     public class GraphQlController : ControllerBase
     {
-#nullable enable
-        IDocumentExecuter executer;
-        ISchema schema;
-        static DocumentWriter writer = new DocumentWriter(true);
+        IDocumentExecuter _executer;
+        ISchema _schema;
+        static DocumentWriter _writer = new DocumentWriter(true);
 
         public GraphQlController(ISchema schema, IDocumentExecuter executer)
         {
-            this.schema = schema;
-            this.executer = executer;
+            _schema = schema;
+            _executer = executer;
         }
 
         [HttpGet]
@@ -34,8 +33,8 @@ namespace UACloudLibrary
         [SwaggerResponse(statusCode: 200, description: "The result of the executed GraphQL query.")]
         public async Task Get(
             [FromQuery][Required][SwaggerParameter("The GraphQL query.")] string query,
-            [FromQuery][SwaggerParameter("An optional set of variables.")] string? variables,
-            [FromQuery][SwaggerParameter("An optional operation name.")] string? operationName,
+            [FromQuery][SwaggerParameter("An optional set of variables.")] string variables,
+            [FromQuery][SwaggerParameter("An optional operation name.")] string operationName,
             [SwaggerParameter("An optional cancellation token.")] CancellationToken cancellation)
         {
             if (!string.IsNullOrEmpty(query))
@@ -67,23 +66,23 @@ namespace UACloudLibrary
 
         public class PostBody
         {
-            public string? OperationName { get; set; }
+            public string OperationName { get; set; }
 
-            public string? Query { get; set; }
+            public string Query { get; set; }
 
-            public JObject? Variables { get; set; }
+            public JObject Variables { get; set; }
         }
 
         async Task Execute(string query,
-            string? operationName,
-            JObject? variables,
+            string operationName,
+            JObject variables,
             CancellationToken cancellation)
         {
             try
             {
                 ExecutionOptions options = new ExecutionOptions()
                 {
-                    Schema = schema,
+                    Schema = _schema,
                     Query = query,
                     OperationName = operationName,
                     Inputs = variables?.ToInputs(),
@@ -94,19 +93,19 @@ namespace UACloudLibrary
 #endif
                 };
 
-                ExecutionResult result = await executer.ExecuteAsync(options).ConfigureAwait(false);
-                await writer.WriteAsync(Response.Body, result, cancellation).ConfigureAwait(false);
+                ExecutionResult result = await _executer.ExecuteAsync(options).ConfigureAwait(false);
+                await _writer.WriteAsync(Response.Body, result, cancellation).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 ExecutionResult result = new ExecutionResult();
                 result.Errors = new ExecutionErrors();
                 result.Errors.Add(new ExecutionError(ex.Message));
-                await writer.WriteAsync(Response.Body, result, cancellation).ConfigureAwait(false);
+                await _writer.WriteAsync(Response.Body, result, cancellation).ConfigureAwait(false);
             }
         }
 
-        static JObject? ParseVariables(string? variables)
+        static JObject ParseVariables(string variables)
         {
             if (variables == null)
             {

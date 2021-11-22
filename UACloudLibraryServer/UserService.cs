@@ -1,27 +1,34 @@
 ﻿
 namespace UACloudLibrary
 {
-    using UACloudLibrary.Interfaces;
-    using System;
     using Microsoft.AspNetCore.Identity;
+    using System;
+    using System.Security.Claims;
     using System.Threading.Tasks;
+    using UACloudLibrary.Interfaces;
 
-    /// <summary>
-    /// User credentials validation class
-    /// </summary>
     public class UserService : IUserService
     {
         private UserManager<IdentityUser> _userManager;
 
-        public UserService(UserManager<IdentityUser> userManager)
+        private SignInManager<IdentityUser> _signInManager;
+
+        public UserService(UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager)
         {
             _userManager = userManager;
+            _signInManager = signInManager;
         }
 
-        /// <summary>
-        /// Validates user credentials based on username and password
-        /// </summary>
-        public async Task<bool> ValidateCredentials(string username, string password)
+        public Task<bool> ValidateCookieAsync(string cookie)
+        {
+            //TODO: properly validate cookie
+            return Task.FromResult(true);
+
+            //IdentityUser currentUser = await _userManager.GetUserAsync(ClaimsPrincipal.Current);
+            //string token = await _userManager.GetAuthenticationTokenAsync(currentUser, "Microsoft", "access_token").ConfigureAwait(false);
+        }
+
+        public async Task<bool> ValidateCredentialsAsync(string username, string password)
         {
             // check for admin
             if (username == "admin")
@@ -49,7 +56,7 @@ namespace UACloudLibrary
 
                     if (user != null)
                     {
-                        var result = _userManager.PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
+                        PasswordVerificationResult result = _userManager.PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
                         if (result == PasswordVerificationResult.Success)
                         {
                             return true;
