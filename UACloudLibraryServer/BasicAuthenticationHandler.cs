@@ -44,7 +44,7 @@ namespace UACloudLibrary
 
     public class BasicAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
     {
-        private readonly IUserService _userService;
+        private IUserService _userService;
 
         public BasicAuthenticationHandler(
             IUserService userService,
@@ -64,48 +64,22 @@ namespace UACloudLibrary
             {
                 if (StringValues.IsNullOrEmpty(Request.Headers["Authorization"]))
                 {
-                    // check if we got a cookie instead
-                    if (!StringValues.IsNullOrEmpty(Request.Headers["Cookie"]))
-                    {
-                        // fall back to cookie auth
-                        foreach (string cookie in Request.Headers["Cookie"].ToList<string>())
-                        {
-                            if (cookie.StartsWith(".AspNetCore.Identity.Application="))
-                            {
-                                if (!await _userService.ValidateCookieAsync(cookie).ConfigureAwait(false))
-                                {
-                                    throw new ArgumentException("Invalid credentials");
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        throw new ArgumentException("Authentication header missing in request!");
-                    }
+                    throw new ArgumentException("Authentication header missing in request!");
                 }
-                else
+
+                AuthenticationHeaderValue authHeader = AuthenticationHeaderValue.Parse(Request.Headers["Authorization"]);
+                string[] credentials = Encoding.UTF8.GetString(Convert.FromBase64String(authHeader.Parameter)).Split(':');
+                username = credentials.FirstOrDefault();
+                string password = credentials.LastOrDefault();
+
+                if (!await _userService.ValidateCredentialsAsync(username, password).ConfigureAwait(false))
                 {
-
-                    AuthenticationHeaderValue authHeader = AuthenticationHeaderValue.Parse(Request.Headers["Authorization"]);
-                    string[] credentials = Encoding.UTF8.GetString(Convert.FromBase64String(authHeader.Parameter)).Split(':');
-                    username = credentials.FirstOrDefault();
-                    string password = credentials.LastOrDefault();
-
-                    if (!await _userService.ValidateCredentialsAsync(username, password).ConfigureAwait(false))
-                    {
-                        throw new ArgumentException("Invalid credentials");
-                    }
+                    throw new ArgumentException("Invalid credentials");
                 }
             }
             catch (Exception ex)
             {
                 return AuthenticateResult.Fail($"Authentication failed: {ex.Message}");
-            }
-
-            if (username == null)
-            {
-                username = "anonymous";
             }
 
             Claim[] claims = new[] {

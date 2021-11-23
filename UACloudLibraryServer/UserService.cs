@@ -31,7 +31,6 @@ namespace UACloudLibrary
 {
     using Microsoft.AspNetCore.Identity;
     using System;
-    using System.Security.Claims;
     using System.Threading.Tasks;
     using UACloudLibrary.Interfaces;
 
@@ -39,21 +38,9 @@ namespace UACloudLibrary
     {
         private UserManager<IdentityUser> _userManager;
 
-        private SignInManager<IdentityUser> _signInManager;
-
-        public UserService(UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager)
+        public UserService(UserManager<IdentityUser> userManager)
         {
             _userManager = userManager;
-            _signInManager = signInManager;
-        }
-
-        public Task<bool> ValidateCookieAsync(string cookie)
-        {
-            //TODO: properly validate cookie
-            return Task.FromResult(true);
-
-            //IdentityUser currentUser = await _userManager.GetUserAsync(ClaimsPrincipal.Current);
-            //string token = await _userManager.GetAuthenticationTokenAsync(currentUser, "Microsoft", "access_token").ConfigureAwait(false);
         }
 
         public async Task<bool> ValidateCredentialsAsync(string username, string password)

@@ -232,7 +232,7 @@ namespace UACloudLibrary
 
             app.UseAuthorization();
 
-            app.UseGraphQL<UaCloudLibSchema>();
+            app.UseGraphQL<UaCloudLibSchema, GraphQLUACloudLibMiddleware<UaCloudLibSchema>>();
 
             app.UseGraphQLPlayground(new PlaygroundOptions()
             {

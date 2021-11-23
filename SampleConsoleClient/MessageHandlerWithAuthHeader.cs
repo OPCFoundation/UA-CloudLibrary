@@ -27,13 +27,32 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary.Interfaces
+namespace SampleConsoleClient
 {
+    using System;
+    using System.Net.Http;
+    using System.Text;
+    using System.Threading;
     using System.Threading.Tasks;
 
-    public interface IUserService
+    class MessageHandlerWithAuthHeader : DelegatingHandler
     {
-        Task<bool> ValidateCredentialsAsync(string username, string password);
+        private string _username = string.Empty;
+        private string _password = string.Empty;
+
+        public MessageHandlerWithAuthHeader(string username, string password)
+        {
+            _username = username;
+            _password = password;
+
+            InnerHandler = new HttpClientHandler();
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            request.Headers.Add("Authorization", "basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(_username + ":" + _password)));
+
+            return base.SendAsync(request, cancellationToken);
+        }
     }
 }
-

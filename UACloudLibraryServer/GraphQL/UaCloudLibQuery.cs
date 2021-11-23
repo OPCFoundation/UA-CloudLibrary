@@ -48,7 +48,7 @@ namespace UACloudLibrary
             );
 
             Field<ListGraphType<ObjecttypeType>>(
-                "objectype",
+                "objecttype",
                 resolve: context => cloudLibRepo.GetObjectTypes()
             );
 

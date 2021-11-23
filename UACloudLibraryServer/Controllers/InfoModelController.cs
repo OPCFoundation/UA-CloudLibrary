@@ -59,11 +59,11 @@ namespace UACloudLibrary
             _database = database;
         }
 
-        [HttpGet]
-        [Route("/infomodel/find/{keywords}")]
+        [HttpPut]
+        [Route("/infomodel/find")]
         [SwaggerResponse(statusCode: 200, type: typeof(string[]), description: "Discovered OPC UA Information Model identifiers of the models found in the UA Cloud Library matching the keywords provided.")]
         public IActionResult FindAddressSpaceAsync(
-            [FromRoute][SwaggerParameter("A list of keywords to search for in the information models. Specify * to return everything.")] string[] keywords)
+            [FromBody][SwaggerParameter("A list of keywords to search for in the information models. Specify * to return everything.")] string[] keywords)
         {
             string[] results = _database.FindNodesets(keywords);
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };

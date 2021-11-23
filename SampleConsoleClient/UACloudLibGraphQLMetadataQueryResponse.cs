@@ -27,13 +27,21 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary.Interfaces
+namespace SampleConsoleClient
 {
-    using System.Threading.Tasks;
+    using System.Collections.Generic;
 
-    public interface IUserService
+    public class UACloudLibGraphQLMetadataQueryResponse
     {
-        Task<bool> ValidateCredentialsAsync(string username, string password);
+        public List<MetaData> metadata { get; set; }
+
+        public class MetaData
+        {
+            public string metadata_name { get; set; }
+
+            public string metadata_value { get; set; }
+
+            public string nodeset_id { get; set; }
+        }
     }
 }
-

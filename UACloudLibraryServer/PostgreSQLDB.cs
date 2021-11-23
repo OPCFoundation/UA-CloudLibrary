@@ -32,6 +32,7 @@ namespace UACloudLibrary
     using Npgsql;
     using System;
     using System.Collections.Generic;
+    using System.Data;
     using UACloudLibrary.Models;
 
     public class PostgreSQLDB : IDatabase
@@ -60,7 +61,6 @@ namespace UACloudLibrary
 
         public PostgreSQLDB()
         {
-            
             // Setup the database tables
             string[] dbInitCommands = {
                 "CREATE TABLE IF NOT EXISTS Metadata(Metadata_id serial PRIMARY KEY, Nodeset_id BIGINT, Metadata_Name TEXT, Metadata_Value TEXT)",
@@ -100,6 +100,12 @@ namespace UACloudLibrary
         {
             try
             {
+                if (_connection.State != ConnectionState.Open)
+                {
+                    _connection.Close();
+                    _connection.Open();
+                }
+
                 string sqlInsert = string.Format("INSERT INTO public.{0} (Nodeset_id, {0}_browsename, {0}_value, {0}_namespace) VALUES(@nodesetid, @browsename, @displayname, @namespace)", uaType);
                 NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
                 sqlCommand.Parameters.AddWithValue("nodesetid", (long)nodesetId);
@@ -122,6 +128,12 @@ namespace UACloudLibrary
         {
             try
             {
+                if (_connection.State != ConnectionState.Open)
+                {
+                    _connection.Close();
+                    _connection.Open();
+                }
+
                 string sqlInsert = string.Format("INSERT INTO public.Metadata (Nodeset_id, metadata_name, metadata_value) VALUES(@nodesetid, @metadataname, @metadatavalue)");
                 NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
                 sqlCommand.Parameters.AddWithValue("nodesetid", (long)nodesetId);
@@ -173,6 +185,12 @@ namespace UACloudLibrary
         {
             try
             {
+                if (_connection.State != ConnectionState.Open)
+                {
+                    _connection.Close();
+                    _connection.Open();
+                }
+
                 string sqlInsert = string.Format("SELECT metadata_value FROM public.Metadata WHERE (Nodeset_id='{0}' AND Metadata_Name='{1}')", (long)nodesetId, metaDataTag);
                 NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
                 object result = sqlCommand.ExecuteScalar();
@@ -193,6 +211,12 @@ namespace UACloudLibrary
         {
             try
             {
+                if (_connection.State != ConnectionState.Open)
+                {
+                    _connection.Close();
+                    _connection.Open();
+                }
+
                 string sqlInsert = string.Format("DELETE FROM public.{1} WHERE Nodeset_id='{0}'", (long)nodesetId, tableName);
                 NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
                 sqlCommand.ExecuteNonQuery();
@@ -271,6 +295,12 @@ namespace UACloudLibrary
                     else
                     {
                         sqlInsert = string.Format("SELECT Nodeset_id FROM public.{0} WHERE LOWER({0}_value) ~ '{1}'", tableName, keyword.ToLower());
+                    }
+
+                    if (_connection.State != ConnectionState.Open)
+                    {
+                        _connection.Close();
+                        _connection.Open();
                     }
 
                     NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);

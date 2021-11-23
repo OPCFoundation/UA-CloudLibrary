@@ -27,13 +27,23 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary.Interfaces
+namespace SampleConsoleClient
 {
-    using System.Threading.Tasks;
+    using System.Collections.Generic;
 
-    public interface IUserService
+    public class UACloudLibGraphQLObjecttypeQueryResponse
     {
-        Task<bool> ValidateCredentialsAsync(string username, string password);
+        public List<Objecttype> objecttype { get; set; }
+
+        public class Objecttype
+        {
+            public string objecttype_browsename { get; set; }
+
+            public string objecttype_value { get; set; }
+
+            public string objecttype_namespace { get; set; }
+
+            public string nodeset_id { get; set; }
+        }
     }
 }
-
