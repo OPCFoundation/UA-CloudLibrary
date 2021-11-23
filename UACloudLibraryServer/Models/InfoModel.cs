@@ -1,10 +1,37 @@
-
-using System;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+/* ========================================================================
+ * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
+ *
+ * OPC Foundation MIT License 1.00
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * The complete license agreement can be found here:
+ * http://opcfoundation.org/License/MIT/1.00/
+ * ======================================================================*/
 
 namespace UACloudLibrary
 {
+    using System;
+    using System.ComponentModel.DataAnnotations;
+
     public enum AddressSpaceLicense
     {
         MIT,
@@ -12,7 +39,6 @@ namespace UACloudLibrary
         Custom
     }
 
-    [Table("AddressSpaces")]
     public class AddressSpace
     {
         public AddressSpace()
@@ -39,7 +65,6 @@ namespace UACloudLibrary
             AdditionalProperties = new Tuple<string, string>[0];
         }
 
-        [Key]
         [Required]
         public string Title { get; set; }
 
@@ -56,19 +81,11 @@ namespace UACloudLibrary
 
         public DateTime LastModificationTime { get; set; }
 
-        // Specifically used for efcore related data loading
-        [ForeignKey("Contributor")]
-        public string ContributorID { get; set; }
-
         [Required]
         public Organisation Contributor { get; set; }
 
         [Required]
         public string Description { get; set; }
-
-        // Specifically used for efcore related data loading
-        [ForeignKey("Category")]
-        public string CategoryID { get; set; }
 
         [Required]
         public AddressSpaceCategory Category { get; set; }
@@ -104,7 +121,6 @@ namespace UACloudLibrary
         public Tuple<string, string>[] AdditionalProperties { get; set; }
     }
 
-    [Table("Organisations")]
     public class Organisation
     {
         public Organisation()
@@ -118,7 +134,6 @@ namespace UACloudLibrary
             LastModificationTime = DateTime.UtcNow;
         }
 
-        [Key]
         [Required]
         public string Name { get; set; }
 
@@ -135,7 +150,6 @@ namespace UACloudLibrary
         public DateTime LastModificationTime { get; set; }
     }
 
-    [Table("AddressSpaceCategories")]
     public class AddressSpaceCategory
     {
         public AddressSpaceCategory()
@@ -147,7 +161,6 @@ namespace UACloudLibrary
             LastModificationTime = DateTime.UtcNow;
         }
 
-        [Key]
         [Required]
         public string Name { get; set; }
 
@@ -160,7 +173,6 @@ namespace UACloudLibrary
         public DateTime LastModificationTime { get; set; }
     }
 
-    [Table("AddressSpaceNodesets")]
     public class AddressSpaceNodeset2
     {
         public AddressSpaceNodeset2()
@@ -170,9 +182,7 @@ namespace UACloudLibrary
             LastModificationTime = DateTime.UtcNow;
         }
 
-        [Key]
         [Required]
-        [ForeignKey("AddressSpace")]
         public string NodesetXml { get; set; }
 
         public DateTime CreationTime { get; set; }

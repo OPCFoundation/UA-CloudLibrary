@@ -1,72 +1,87 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
-using System;
-using UA_CloudLibrary.DbContextModels;
-using UACloudLibrary;
+﻿/* ========================================================================
+ * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
+ *
+ * OPC Foundation MIT License 1.00
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * The complete license agreement can be found here:
+ * http://opcfoundation.org/License/MIT/1.00/
+ * ======================================================================*/
 
-namespace UA_CloudLibrary.GraphQL
+namespace UACloudLibrary
 {
-    public class AppDbContext : DbContext
+    using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+    using Microsoft.EntityFrameworkCore;
+    using Microsoft.Extensions.Configuration;
+    using System.IO;
+    using UACloudLibrary.DbContextModels;
+
+    public class AppDbContext : IdentityDbContext
     {
-        public AppDbContext(DbContextOptions options) : base(options)
+        public AppDbContext(DbContextOptions options)
+        : base(options)
         {
         }
 
-        public DbSet<Organisation> Organisations { get; set; }
-
-        public DbSet<AddressSpace> AddressSpaces { get; set; }
-
-        public DbSet<AddressSpaceCategory> AddressSpaceCategories { get; set; }
-
-        public DbSet<AddressSpaceNodeset2> AddressSpaceNodesets { get; set; }
-
-        public DbSet<Objecttype> ObjectTypes { get; set; }
-
-        public DbSet<Referencetype> ReferenceTypes { get; set; }
-
-        public DbSet<Nodeset> Nodeset { get; set; }
-
-        public DbSet<Datatype> DataTypes { get; set; }
-
-        public DbSet<Variabletype> VariableTypes { get; set; }
-
-        public DbSet<Metadata> Metadata { get; set; }
-
-
-        public static IModel GetInstance()
+        // Needed for design-time DB migration
+        public AppDbContext()
         {
-            string Host = Environment.GetEnvironmentVariable("PostgreSQLEndpoint");
-            string User = Environment.GetEnvironmentVariable("PostgreSQLUsername");
-            string Password = Environment.GetEnvironmentVariable("PostgreSQLPassword");
-
-            string DBname = "uacloudlib";
-            string Port = "5432";
-
-            string connectionString = string.Format(
-                "Server={0};Username={1};Database={2};Port={3};Password={4};SSLMode=Prefer",
-                Host,
-                User,
-                DBname,
-                Port,
-                Password);
-
-            DbContextOptionsBuilder builder = new DbContextOptionsBuilder();
-            builder.UseNpgsql(connectionString);
-            using AppDbContext context = new AppDbContext(builder.Options);
-
-            return context.Model;
         }
 
+        // Needed for design-time DB migration
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            if (!optionsBuilder.IsConfigured)
+            {
+                IConfigurationRoot configuration = new ConfigurationBuilder()
+                   .SetBasePath(Directory.GetCurrentDirectory())
+                   .AddJsonFile("appsettings.json")
+                   .Build();
+
+                string connectionString = "Please set connection string here during design time migration as env variables are not available!";
+                optionsBuilder.UseNpgsql(connectionString);
+            }
+        }
+
+        // map to our tables
+        public DbSet<DatatypeModel> datatype { get; set; }
+
+        public DbSet<MetadataModel> metadata { get; set; }
+
+        public DbSet<ObjecttypeModel> objecttype { get; set; }
+
+        public DbSet<ReferencetypeModel> referencetype { get; set; }
+
+        public DbSet<VariabletypeModel> variabletype { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.Entity<AddressSpace>().Ignore(c => c.AdditionalProperties);
-
-            modelBuilder.Entity<AddressSpace>()
-                .HasIndex(b => new { b.Title, b.Description, b.Keywords, b.SupportedLocales })
-                .IsTsVectorExpressionIndex("english");
+            modelBuilder.Entity<DatatypeModel>();
+            modelBuilder.Entity<MetadataModel>();
+            modelBuilder.Entity<ObjecttypeModel>();
+            modelBuilder.Entity<ReferencetypeModel>();
+            modelBuilder.Entity<VariabletypeModel>();
         }
     }
 }

@@ -1,16 +1,45 @@
+/* ========================================================================
+ * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
+ *
+ * OPC Foundation MIT License 1.00
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * The complete license agreement can be found here:
+ * http://opcfoundation.org/License/MIT/1.00/
+ * ======================================================================*/
 
 namespace UACloudLibrary
 {
     using Npgsql;
     using System;
     using System.Collections.Generic;
+    using System.Data;
     using UACloudLibrary.Models;
 
     public class PostgreSQLDB : IDatabase
     {
         private NpgsqlConnection _connection = null;
 
-        public PostgreSQLDB()
+        public static string CreateConnectionString()
         {
             // Obtain connection string information from the environment
             string Host = Environment.GetEnvironmentVariable("PostgreSQLEndpoint");
@@ -21,14 +50,17 @@ namespace UACloudLibrary
             string Port = "5432";
 
             // Build connection string using parameters from portal
-            string connectionString = string.Format(
+            return string.Format(
                 "Server={0};Username={1};Database={2};Port={3};Password={4};SSLMode=Prefer",
                 Host,
                 User,
                 DBname,
                 Port,
                 Password);
+        }
 
+        public PostgreSQLDB()
+        {
             // Setup the database tables
             string[] dbInitCommands = {
                 "CREATE TABLE IF NOT EXISTS Metadata(Metadata_id serial PRIMARY KEY, Nodeset_id BIGINT, Metadata_Name TEXT, Metadata_Value TEXT)",
@@ -40,7 +72,7 @@ namespace UACloudLibrary
 
             try
             {
-                _connection = new NpgsqlConnection(connectionString);
+                _connection = new NpgsqlConnection(PostgreSQLDB.CreateConnectionString());
                 _connection.Open();
 
                 foreach (string initCommand in dbInitCommands)
@@ -68,6 +100,12 @@ namespace UACloudLibrary
         {
             try
             {
+                if (_connection.State != ConnectionState.Open)
+                {
+                    _connection.Close();
+                    _connection.Open();
+                }
+
                 string sqlInsert = string.Format("INSERT INTO public.{0} (Nodeset_id, {0}_browsename, {0}_value, {0}_namespace) VALUES(@nodesetid, @browsename, @displayname, @namespace)", uaType);
                 NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
                 sqlCommand.Parameters.AddWithValue("nodesetid", (long)nodesetId);
@@ -90,6 +128,12 @@ namespace UACloudLibrary
         {
             try
             {
+                if (_connection.State != ConnectionState.Open)
+                {
+                    _connection.Close();
+                    _connection.Open();
+                }
+
                 string sqlInsert = string.Format("INSERT INTO public.Metadata (Nodeset_id, metadata_name, metadata_value) VALUES(@nodesetid, @metadataname, @metadatavalue)");
                 NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
                 sqlCommand.Parameters.AddWithValue("nodesetid", (long)nodesetId);
@@ -141,6 +185,12 @@ namespace UACloudLibrary
         {
             try
             {
+                if (_connection.State != ConnectionState.Open)
+                {
+                    _connection.Close();
+                    _connection.Open();
+                }
+
                 string sqlInsert = string.Format("SELECT metadata_value FROM public.Metadata WHERE (Nodeset_id='{0}' AND Metadata_Name='{1}')", (long)nodesetId, metaDataTag);
                 NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
                 object result = sqlCommand.ExecuteScalar();
@@ -161,6 +211,12 @@ namespace UACloudLibrary
         {
             try
             {
+                if (_connection.State != ConnectionState.Open)
+                {
+                    _connection.Close();
+                    _connection.Open();
+                }
+
                 string sqlInsert = string.Format("DELETE FROM public.{1} WHERE Nodeset_id='{0}'", (long)nodesetId, tableName);
                 NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
                 sqlCommand.ExecuteNonQuery();
@@ -239,6 +295,12 @@ namespace UACloudLibrary
                     else
                     {
                         sqlInsert = string.Format("SELECT Nodeset_id FROM public.{0} WHERE LOWER({0}_value) ~ '{1}'", tableName, keyword.ToLower());
+                    }
+
+                    if (_connection.State != ConnectionState.Open)
+                    {
+                        _connection.Close();
+                        _connection.Open();
                     }
 
                     NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);

@@ -28,8 +28,9 @@
     "Docker": {
       "commandName": "Docker",
       "launchBrowser": true,
-      "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}/swagger",
+      "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}",
       "environmentVariables": {
+        "PostgreSQLUsername": "barnstee@uacloudlib",
         "PostgreSQLEndpoint": "uacloudlib.postgres.database.azure.com"
       },
       "publishAllPorts": true,

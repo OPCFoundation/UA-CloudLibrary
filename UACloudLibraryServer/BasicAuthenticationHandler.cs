@@ -1,10 +1,38 @@
-﻿
+﻿/* ========================================================================
+ * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
+ *
+ * OPC Foundation MIT License 1.00
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * The complete license agreement can be found here:
+ * http://opcfoundation.org/License/MIT/1.00/
+ * ======================================================================*/
+
 namespace UACloudLibrary
 {
     using Microsoft.AspNetCore.Authentication;
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Options;
-    using UACloudLibrary.Interfaces;
+    using Microsoft.Extensions.Primitives;
     using System;
     using System.Linq;
     using System.Net.Http.Headers;
@@ -12,18 +40,12 @@ namespace UACloudLibrary
     using System.Text;
     using System.Text.Encodings.Web;
     using System.Threading.Tasks;
-    using Microsoft.Extensions.Primitives;
+    using UACloudLibrary.Interfaces;
 
     public class BasicAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
     {
-        /// <summary>
-        /// Constructor
-        /// </summary>
-        /// <param name="userService"></param>
-        /// <param name="options"></param>
-        /// <param name="logger"></param>
-        /// <param name="encoder"></param>
-        /// <param name="clock"></param>
+        private IUserService _userService;
+
         public BasicAuthenticationHandler(
             IUserService userService,
             IOptionsMonitor<AuthenticationSchemeOptions> options,
@@ -35,11 +57,7 @@ namespace UACloudLibrary
             _userService = userService;
         }
 
-        /// <summary>
-        /// Auth handler
-        /// </summary>
-        /// <returns></returns>
-        protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+        protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
         {
             string username = null;
             try
@@ -54,14 +72,14 @@ namespace UACloudLibrary
                 username = credentials.FirstOrDefault();
                 string password = credentials.LastOrDefault();
 
-                if (!_userService.ValidateCredentials(username, password))
+                if (!await _userService.ValidateCredentialsAsync(username, password).ConfigureAwait(false))
                 {
                     throw new ArgumentException("Invalid credentials");
                 }
             }
             catch (Exception ex)
             {
-                return Task.FromResult(AuthenticateResult.Fail($"Authentication failed: {ex.Message}"));
+                return AuthenticateResult.Fail($"Authentication failed: {ex.Message}");
             }
 
             Claim[] claims = new[] {
@@ -72,9 +90,7 @@ namespace UACloudLibrary
             ClaimsPrincipal principal = new ClaimsPrincipal(identity);
             AuthenticationTicket ticket = new AuthenticationTicket(principal, Scheme.Name);
 
-            return Task.FromResult(AuthenticateResult.Success(ticket));
+            return AuthenticateResult.Success(ticket);
         }
-
-        private readonly IUserService _userService;
     }
 }
