@@ -290,11 +290,11 @@ namespace UACloudLibrary
                     string sqlInsert;
                     if (keyword == "*")
                     {
-                        sqlInsert = string.Format("SELECT Nodeset_id FROM public.{0} WHERE LOWER({0}_value) ~ ''", tableName);
+                        sqlInsert = string.Format("SELECT DISTINCT Nodeset_id FROM public.{0}", tableName);
                     }
                     else
                     {
-                        sqlInsert = string.Format("SELECT Nodeset_id FROM public.{0} WHERE LOWER({0}_value) ~ '{1}'", tableName, keyword.ToLower());
+                        sqlInsert = string.Format("SELECT DISTINCT Nodeset_id FROM public.{0} WHERE LOWER({0}_value) ~ '{1}'", tableName, keyword.ToLower());
                     }
 
                     if (_connection.State != ConnectionState.Open)
@@ -304,10 +304,17 @@ namespace UACloudLibrary
                     }
 
                     NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
-                    object result = sqlCommand.ExecuteScalar();
-                    if ((result != null) && !results.Contains(result.ToString()))
+                    NpgsqlDataReader reader = sqlCommand.ExecuteReader();
+                    if (reader.HasRows)
                     {
-                        results.Add(result.ToString());
+                        while (reader.Read())
+                        {
+                            string result = reader.GetInt64(0).ToString();
+                            if (!results.Contains(result))
+                            {
+                                results.Add(result);
+                            }
+                        }
                     }
                 }
 
