@@ -1,6 +1,15 @@
 # UA-CloudLibrary
 
-Reference implementation of the UA Cloud Library.
+The reference implementation of the UA Cloud Library. The UA Cloud Library enables the storage and querying of OPC UA Information Models from the Cloud.
+
+## Features
+
+* REST interface
+* GraphQL interface
+* Swagger UI
+* GraphQL UI
+* User management UI
+* Cross-platform: Runs on Microsoft Azure, Amazon Web Services, Google Cloud Platform
 
 
 ## Setup
@@ -21,3 +30,4 @@ Additional optional environment variables that can be defined when hosting on AW
 * AWS_REGION: The AWS region used for the cloud storage instance.
 * AWSRoleArn: The AWS role to use to log in to the cloud storage instance.
 
+[![Docker Image CI](https://github.com/OPCFoundation/UA-CloudLibrary/actions/workflows/docker.yml/badge.svg)](https://github.com/OPCFoundation/UA-CloudLibrary/actions/workflows/docker.yml)
