@@ -1,6 +1,6 @@
 # UA-CloudLibrary
 
-The reference implementation of the UA Cloud Library. The UA Cloud Library enables the storage and querying of OPC UA Information Models from the Cloud.
+The reference implementation of the UA Cloud Library. The UA Cloud Library enables the storage in and querying of OPC UA Information Models from anywhere in the world.
 
 ## Features
 
