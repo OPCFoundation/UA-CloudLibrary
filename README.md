@@ -11,7 +11,11 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
 * User management UI
 * Cross-platform: Runs on Microsoft Azure, Amazon Web Services and Google Cloud Platform
 
-## Setup
+## Getting Started (Client Access)
+
+If you want to access the globally hosted instance from the OPC Foundation at http://uacloudlibrary.opcfoundation.org from our software, you can integrate the source code from the SampleConsoleClient found in this repo. It exercises both the GraphQL and REST API, so you have the choice.
+
+## Cloud Hosting Setup
 
 Environment variables that must be defined:
 
