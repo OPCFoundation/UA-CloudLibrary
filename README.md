@@ -9,7 +9,7 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
 * Swagger UI
 * GraphQL UI
 * User management UI
-* Cross-platform: Runs on Microsoft Azure, Amazon Web Services, Google Cloud Platform
+* Cross-platform: Runs on Microsoft Azure, Amazon Web Services and Google Cloud Platform
 
 
 ## Setup
@@ -24,10 +24,14 @@ Environment variables that must be defined:
 * ServicePassword: The administration password for the REST service (username admin).
 * SendGridAPIKey: The API key for the Sendgrid service
 
-
 Additional optional environment variables that can be defined when hosting on AWS:
 
 * AWS_REGION: The AWS region used for the cloud storage instance.
 * AWSRoleArn: The AWS role to use to log in to the cloud storage instance.
 
+## Build status
+
 [![Docker Image CI](https://github.com/OPCFoundation/UA-CloudLibrary/actions/workflows/docker.yml/badge.svg)](https://github.com/OPCFoundation/UA-CloudLibrary/actions/workflows/docker.yml)
+
+[![.NET](https://github.com/OPCFoundation/UA-CloudLibrary/actions/workflows/dotnet.yml/badge.svg)](https://github.com/OPCFoundation/UA-CloudLibrary/actions/workflows/dotnet.yml)
+
