@@ -11,7 +11,6 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
 * User management UI
 * Cross-platform: Runs on Microsoft Azure, Amazon Web Services and Google Cloud Platform
 
-
 ## Setup
 
 Environment variables that must be defined:
@@ -28,6 +27,11 @@ Additional optional environment variables that can be defined when hosting on AW
 
 * AWS_REGION: The AWS region used for the cloud storage instance.
 * AWSRoleArn: The AWS role to use to log in to the cloud storage instance.
+
+## Deployment
+
+Docker containers are automatically built for the UA Cloud Library. The latest version is always available via:
+docker pull ghcr.io/opcfoundation/ua-cloudlibrary:latest
 
 ## Build status
 
