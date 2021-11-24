@@ -34,7 +34,7 @@ Docker containers are automatically built for the UA Cloud Library. The latest v
 
 docker pull ghcr.io/opcfoundation/ua-cloudlibrary:latest
 
-## Build status
+## Build Status
 
 [![Docker Image CI](https://github.com/OPCFoundation/UA-CloudLibrary/actions/workflows/docker.yml/badge.svg)](https://github.com/OPCFoundation/UA-CloudLibrary/actions/workflows/docker.yml)
 
