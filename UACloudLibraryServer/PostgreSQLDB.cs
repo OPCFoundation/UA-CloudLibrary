@@ -191,8 +191,8 @@ namespace UACloudLibrary
                     _connection.Open();
                 }
 
-                string sqlInsert = string.Format("SELECT metadata_value FROM public.Metadata WHERE (Nodeset_id='{0}' AND Metadata_Name='{1}')", (long)nodesetId, metaDataTag);
-                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
+                string sqlSelect = string.Format("SELECT metadata_value FROM public.Metadata WHERE (Nodeset_id='{0}' AND Metadata_Name='{1}')", (long)nodesetId, metaDataTag);
+                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlSelect, _connection);
                 object result = sqlCommand.ExecuteScalar();
                 if (result != null)
                 {
@@ -217,8 +217,8 @@ namespace UACloudLibrary
                     _connection.Open();
                 }
 
-                string sqlInsert = string.Format("DELETE FROM public.{1} WHERE Nodeset_id='{0}'", (long)nodesetId, tableName);
-                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
+                string sqlDelete = string.Format("DELETE FROM public.{1} WHERE Nodeset_id='{0}'", (long)nodesetId, tableName);
+                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlDelete, _connection);
                 sqlCommand.ExecuteNonQuery();
 
                 return true;
@@ -287,14 +287,14 @@ namespace UACloudLibrary
                 foreach (string keyword in keywords)
                 {
                     // special case: * is a wildecard and will return everything
-                    string sqlInsert;
+                    string sqlSelect;
                     if (keyword == "*")
                     {
-                        sqlInsert = string.Format("SELECT DISTINCT Nodeset_id FROM public.{0}", tableName);
+                        sqlSelect = string.Format("SELECT DISTINCT Nodeset_id FROM public.{0}", tableName);
                     }
                     else
                     {
-                        sqlInsert = string.Format("SELECT DISTINCT Nodeset_id FROM public.{0} WHERE LOWER({0}_value) ~ '{1}'", tableName, keyword.ToLower());
+                        sqlSelect = string.Format("SELECT DISTINCT Nodeset_id FROM public.{0} WHERE LOWER({0}_value) ~ '{1}'", tableName, keyword.ToLower());
                     }
 
                     if (_connection.State != ConnectionState.Open)
@@ -303,7 +303,7 @@ namespace UACloudLibrary
                         _connection.Open();
                     }
 
-                    NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
+                    NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlSelect, _connection);
                     using (NpgsqlDataReader reader = sqlCommand.ExecuteReader())
                     {
                         if (reader.HasRows)
@@ -316,6 +316,42 @@ namespace UACloudLibrary
                                     results.Add(result);
                                 }
                             }
+                        }
+                    }
+                }
+
+                return results.ToArray();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
+
+            return new string[0];
+        }
+
+        public string[] GetAllNamespacesAndNodesets()
+        {
+            List<string> results = new List<string>();
+
+            try
+            {
+                string sqlSelect = string.Format("SELECT DISTINCT objecttype_namespace, nodeset_id FROM public.objecttype");
+
+                if (_connection.State != ConnectionState.Open)
+                {
+                    _connection.Close();
+                    _connection.Open();
+                }
+
+                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlSelect, _connection);
+                using (NpgsqlDataReader reader = sqlCommand.ExecuteReader())
+                {
+                    if (reader.HasRows)
+                    {
+                        while (reader.Read())
+                        {
+                            results.Add(reader.GetString(0) + "," + reader.GetInt64(1).ToString());
                         }
                     }
                 }

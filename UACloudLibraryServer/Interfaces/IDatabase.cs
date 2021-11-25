@@ -42,5 +42,7 @@ namespace UACloudLibrary
         bool DeleteAllRecordsForNodeset(uint nodesetId);
 
         string RetrieveMetaData(uint nodesetId, string metaDataTag);
+
+        string[] GetAllNamespacesAndNodesets();
     }
 }
