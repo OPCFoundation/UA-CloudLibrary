@@ -304,15 +304,17 @@ namespace UACloudLibrary
                     }
 
                     NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
-                    NpgsqlDataReader reader = sqlCommand.ExecuteReader();
-                    if (reader.HasRows)
+                    using (NpgsqlDataReader reader = sqlCommand.ExecuteReader())
                     {
-                        while (reader.Read())
+                        if (reader.HasRows)
                         {
-                            string result = reader.GetInt64(0).ToString();
-                            if (!results.Contains(result))
+                            while (reader.Read())
                             {
-                                results.Add(result);
+                                string result = reader.GetInt64(0).ToString();
+                                if (!results.Contains(result))
+                                {
+                                    results.Add(result);
+                                }
                             }
                         }
                     }
