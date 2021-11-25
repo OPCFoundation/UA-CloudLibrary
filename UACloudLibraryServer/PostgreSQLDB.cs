@@ -336,7 +336,7 @@ namespace UACloudLibrary
 
             try
             {
-                string sqlSelect = string.Format("SELECT DISTINCT objecttype_namespace, nodeset_id FROM public.objecttype");
+                string sqlSelect = "SELECT DISTINCT objecttype_namespace, nodeset_id FROM public.objecttype";
 
                 if (_connection.State != ConnectionState.Open)
                 {
