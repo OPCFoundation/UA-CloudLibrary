@@ -365,5 +365,41 @@ namespace UACloudLibrary
 
             return new string[0];
         }
+
+        public string[] GetAllNamesAndNodesets()
+        {
+            List<string> results = new List<string>();
+
+            try
+            {
+                string sqlSelect = "SELECT metadata_value, nodeset_id FROM public.metadata WHERE metadata_name = 'addressspacename'";
+
+                if (_connection.State != ConnectionState.Open)
+                {
+                    _connection.Close();
+                    _connection.Open();
+                }
+
+                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlSelect, _connection);
+                using (NpgsqlDataReader reader = sqlCommand.ExecuteReader())
+                {
+                    if (reader.HasRows)
+                    {
+                        while (reader.Read())
+                        {
+                            results.Add(reader.GetString(0) + "," + reader.GetInt64(1).ToString());
+                        }
+                    }
+                }
+
+                return results.ToArray();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
+
+            return new string[0];
+        }
     }
 }

@@ -44,5 +44,7 @@ namespace UACloudLibrary
         string RetrieveMetaData(uint nodesetId, string metaDataTag);
 
         string[] GetAllNamespacesAndNodesets();
+
+        string[] GetAllNamesAndNodesets();
     }
 }
