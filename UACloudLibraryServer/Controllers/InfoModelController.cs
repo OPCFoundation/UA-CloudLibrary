@@ -79,6 +79,15 @@ namespace UACloudLibrary
         }
 
         [HttpGet]
+        [Route("/infomodel/names")]
+        [SwaggerResponse(statusCode: 200, type: typeof(string[]), description: "All OPC UA Information Model names and associated identifiers of the models found in the UA Cloud Library.")]
+        public IActionResult GetAllNamesandAddressSpacesAsync()
+        {
+            string[] results = _database.GetAllNamesAndNodesets();
+            return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
+        }
+
+        [HttpGet]
         [Route("/infomodel/download/{identifier}")]
         [SwaggerResponse(statusCode: 200, type: typeof(AddressSpace), description: "The OPC UA Information model and its metadata, if found.")]
         public async Task<IActionResult> DownloadAdressSpaceAsync(
