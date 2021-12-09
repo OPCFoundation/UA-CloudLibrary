@@ -38,5 +38,18 @@ namespace SampleForm
             PasswordTextBox.Text = "";
             HostTextBox.Text = "";
         }
+
+        private void ContinueLoginBtn_Click(object sender, EventArgs e)
+        {
+            if(!string.IsNullOrEmpty(UsernameTextBox.Text) && !string.IsNullOrEmpty(PasswordTextBox.Text) && !string.IsNullOrEmpty(HostTextBox.Text))
+            {
+                this.DialogResult = DialogResult.OK;
+            }
+            else
+            {
+                MessageBox.Show("Please fill every field");
+                this.DialogResult = DialogResult.None;
+            }
+        }
     }
 }

@@ -76,6 +76,7 @@ namespace SampleForm
             this.ContinueLoginBtn.TabIndex = 8;
             this.ContinueLoginBtn.Text = "Login";
             this.ContinueLoginBtn.UseVisualStyleBackColor = true;
+            this.ContinueLoginBtn.Click += new System.EventHandler(this.ContinueLoginBtn_Click);
             // 
             // HostTextBox
             // 

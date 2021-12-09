@@ -12,7 +12,7 @@ using UACloudLibClientLibrary;
 
 namespace Sample
 {
-    
+
     public partial class Form1 : Form
     {
         public int m_SelectedAddressSpaceID;
@@ -23,11 +23,11 @@ namespace Sample
         {
             InitializeComponent();
 
-            LoginForm form = new LoginForm();
-            BrowserPanel.Enabled = true;
-            FilePanel.Enabled = true;
+            BrowserPanel.Enabled = false;
+            FilePanel.Enabled = false;
             DownloadBtn.Enabled = true;
 
+            LoginForm form = new LoginForm();
             if (form.ShowDialog() == DialogResult.OK)
             {
                 string endpoint = form.HostTextBox.Text;
@@ -39,6 +39,7 @@ namespace Sample
             }
             else
             {
+                this.DialogResult = DialogResult.Cancel;
                 this.Close();
             }
 
@@ -47,21 +48,46 @@ namespace Sample
 
         private async void SearchBtn_Click(object sender, EventArgs e)
         {
-            var test = await client.GetCombinedResult();
-            DataGridMethods.FillCombinedView(ResultView, test);
+            try
+            {
+                var test = await client.GetCombinedResult();
+                DataGridMethods.FillCombinedView(ResultView, test);
+            }
+            catch (Exception f)
+            {
+                MessageBox.Show(f.Message, "Error");
+            }
         }
 
-        private async void DownloadBtn_Click(object sender, EventArgs e)
+        private void DownloadBtn_Click(object sender, EventArgs e)
         {
-            downloaded = await client.DownloadNodeset(DataGridMethods.GetNodesetId(ResultView.CurrentCell.RowIndex).ToString());
-            NodesetResultTextBox.Text = downloaded.Nodeset.NodesetXml;
+            Download();
         }
 
-        private async void ResultView_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        private async void Download()
         {
             int currentRow = ResultView.CurrentCell.RowIndex;
-            await client.DownloadNodeset(DataGridMethods.GetNodesetId(currentRow).ToString());
-            NodesetResultTextBox.Text = downloaded.Nodeset.NodesetXml;
+            if (currentRow >= 0)
+            {
+                try
+                {
+                    downloaded = await client.DownloadNodeset(DataGridMethods.GetNodesetId(currentRow).ToString());
+                    if (!string.IsNullOrEmpty(downloaded.Nodeset.NodesetXml))
+                    {
+                        NodesetResultTextBox.Text = downloaded.Nodeset.NodesetXml;
+                        FilePanel.Enabled = true;
+                    }
+                }
+                catch (Exception e)
+                {
+
+                }
+            }
+        }
+
+        private void ResultView_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            Download();
         }
 
         private void CrossBtn_Click(object sender, EventArgs e)
