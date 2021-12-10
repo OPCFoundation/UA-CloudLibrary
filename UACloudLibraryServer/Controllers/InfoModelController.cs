@@ -123,7 +123,7 @@ namespace UACloudLibrary
             uint nodesetHashCode = GenerateHashCode(uaAddressSpace);
             if (nodesetHashCode == 0)
             {
-                return new ObjectResult("Nodeset invalid. Please make sure it includes a valid Model URI and version!") { StatusCode = (int)HttpStatusCode.BadRequest };
+                return new ObjectResult("Nodeset invalid. Please make sure it includes a valid Model URI and publication date!") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
             // check if the nodeset already exists in the database (including checking our legacy hashcode)
@@ -199,10 +199,10 @@ namespace UACloudLibrary
                         {
                             if (model != null)
                             {
-                                if (Uri.IsWellFormedUriString(model.ModelUri, UriKind.Absolute))
+                                if (Uri.IsWellFormedUriString(model.ModelUri, UriKind.Absolute) && model.PublicationDateSpecified)
                                 {
                                     hashCode ^= model.ModelUri.GetDeterministicHashCode();
-                                    hashCode ^= model.Version.GetDeterministicHashCode();
+                                    hashCode ^= model.PublicationDate.ToString().GetDeterministicHashCode();
                                 }
                                 else
                                 {
