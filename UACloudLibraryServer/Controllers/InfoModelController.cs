@@ -158,12 +158,16 @@ namespace UACloudLibrary
             // delete any existing records for this nodeset in the database
             if (!_database.DeleteAllRecordsForNodeset(nodesetHashCode))
             {
-                if (!_database.DeleteAllRecordsForNodeset(legacyNodesetHashCode))
-                {
-                    string message = "Error: Could not delete existing records for nodeset!";
-                    Console.WriteLine(message);
-                    return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
-                }
+                string message = "Error: Could not delete existing records for nodeset!";
+                Console.WriteLine(message);
+                return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
+            }
+
+            if (!_database.DeleteAllRecordsForNodeset(legacyNodesetHashCode))
+            {
+                string message = "Error: Could not delete existing legacy records for nodeset!";
+                Console.WriteLine(message);
+                return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
             // parse nodeset XML, extract metadata and store in our database
@@ -188,9 +192,9 @@ namespace UACloudLibrary
         {
             // generate a hash from the Model URIs and their version info in the nodeset
             int hashCode = 0;
-            using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+            try
             {
-                try
+                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
                 {
                     UANodeSet nodeSet = UANodeSet.Read(stream);
                     if ((nodeSet.Models != null) && (nodeSet.Models.Length > 0))
@@ -216,10 +220,10 @@ namespace UACloudLibrary
                         return 0;
                     }
                 }
-                catch (Exception)
-                {
-                    return 0;
-                }
+            }
+            catch (Exception)
+            {
+                return 0;
             }
 
             return (uint)hashCode;
@@ -229,10 +233,10 @@ namespace UACloudLibrary
         {
             // generate a hash from the NamespaceURIs in the nodeset
             int hashCode = 0;
-            List<string> namespaces = new List<string>();
-            using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+            try
             {
-                try
+                List<string> namespaces = new List<string>();
+                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
                 {
                     UANodeSet nodeSet = UANodeSet.Read(stream);
                     foreach (string namespaceUri in nodeSet.NamespaceUris)
@@ -244,10 +248,10 @@ namespace UACloudLibrary
                         }
                     }
                 }
-                catch (Exception)
-                {
-                    return 0;
-                }
+            }
+            catch (Exception)
+            {
+                return 0;
             }
 
             return (uint)hashCode;
