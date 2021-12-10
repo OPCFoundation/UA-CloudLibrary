@@ -135,7 +135,7 @@ namespace UACloudLibrary
                 if (!string.IsNullOrEmpty(result) && !overwrite)
                 {
                     // nodeset already exists
-                    return new ObjectResult("Noset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
+                    return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
                 }
             }
 
@@ -143,7 +143,7 @@ namespace UACloudLibrary
             if (!string.IsNullOrEmpty(result) && !overwrite)
             {
                 // nodeset already exists
-                return new ObjectResult("Noset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
+                return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
             }
 
             // upload the new file to the storage service, and get the file handle that the storage service returned
