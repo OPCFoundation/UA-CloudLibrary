@@ -123,11 +123,23 @@ namespace UACloudLibrary
             uint nodesetHashCode = GenerateHashCode(uaAddressSpace);
             if (nodesetHashCode == 0)
             {
-                return new ObjectResult("Nodeset invalid. Please make sure it includes a unique NodesetURI!") { StatusCode = (int)HttpStatusCode.BadRequest };
+                return new ObjectResult("Nodeset invalid. Please make sure it includes a valid Model URI and version!") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            // check if the nodeset already exists in the database
-            string result = await _storage.FindFileAsync(nodesetHashCode.ToString()).ConfigureAwait(false);
+            // check if the nodeset already exists in the database (including checking our legacy hashcode)
+            string result;
+            uint legacyNodesetHashCode = GenerateHashCodeLegacy(uaAddressSpace);
+            if (legacyNodesetHashCode != 0)
+            {
+                result = await _storage.FindFileAsync(legacyNodesetHashCode.ToString()).ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(result) && !overwrite)
+                {
+                    // nodeset already exists
+                    return new ObjectResult("Noset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
+                }
+            }
+
+            result = await _storage.FindFileAsync(nodesetHashCode.ToString()).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(result) && !overwrite)
             {
                 // nodeset already exists
@@ -146,9 +158,12 @@ namespace UACloudLibrary
             // delete any existing records for this nodeset in the database
             if (!_database.DeleteAllRecordsForNodeset(nodesetHashCode))
             {
-                string message = "Error: Could not delete existing records for nodeset!";
-                Console.WriteLine(message);
-                return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
+                if (!_database.DeleteAllRecordsForNodeset(legacyNodesetHashCode))
+                {
+                    string message = "Error: Could not delete existing records for nodeset!";
+                    Console.WriteLine(message);
+                    return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
+                }
             }
 
             // parse nodeset XML, extract metadata and store in our database
@@ -170,6 +185,47 @@ namespace UACloudLibrary
         }
 
         private uint GenerateHashCode(AddressSpace uaAddressSpace)
+        {
+            // generate a hash from the Model URIs and their version info in the nodeset
+            int hashCode = 0;
+            using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+            {
+                try
+                {
+                    UANodeSet nodeSet = UANodeSet.Read(stream);
+                    if ((nodeSet.Models != null) && (nodeSet.Models.Length > 0))
+                    {
+                        foreach (ModelTableEntry model in nodeSet.Models)
+                        {
+                            if (model != null)
+                            {
+                                if (Uri.IsWellFormedUriString(model.ModelUri, UriKind.Absolute))
+                                {
+                                    hashCode ^= model.ModelUri.GetDeterministicHashCode();
+                                    hashCode ^= model.Version.GetDeterministicHashCode();
+                                }
+                                else
+                                {
+                                    return 0;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        return 0;
+                    }
+                }
+                catch (Exception)
+                {
+                    return 0;
+                }
+            }
+
+            return (uint)hashCode;
+        }
+
+        private uint GenerateHashCodeLegacy(AddressSpace uaAddressSpace)
         {
             // generate a hash from the NamespaceURIs in the nodeset
             int hashCode = 0;
