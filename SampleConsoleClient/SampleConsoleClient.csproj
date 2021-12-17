@@ -10,4 +10,8 @@
     <PackageReference Include="GraphQL.Client.Serializer.Newtonsoft" Version="4.0.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\UACloudLibraryGraphQLClient\UACloudLibClientLibrary\UACloudLibClientLibrary.csproj" />
+  </ItemGroup>
+
 </Project>
