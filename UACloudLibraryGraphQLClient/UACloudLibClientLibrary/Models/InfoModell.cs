@@ -19,6 +19,12 @@ namespace UACloudLibClientLibrary
     /// </summary>
     public class AddressSpace
     {
+        public AddressSpace()
+        {
+            this.Nodeset = new AddressSpaceNodeset2();
+            this.Contributor = new Organisation();
+            this.Category = new AddressSpaceCategory();
+        }
         public string ID {get; set; }
         public string Title { get; set; }
         public string Version { get; set; }
