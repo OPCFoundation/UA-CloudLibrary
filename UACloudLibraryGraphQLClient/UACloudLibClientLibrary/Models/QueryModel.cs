@@ -6,7 +6,7 @@ using System.Text;
 namespace UACloudLibClientLibrary.Models
 {
     [JsonObject("datatype")]
-    public class DatatypeType
+    public class DatatypeResult
     {
         [JsonProperty("datatype_id")]
         public int ID { get; set; }
@@ -20,7 +20,7 @@ namespace UACloudLibClientLibrary.Models
         public string Namespace { get; set; }
     }
     [JsonObject("metadata")]
-    public class MetadataType
+    public class MetadataResult
     {
         [JsonProperty("metadata_id")]
         public int ID { get; set; }
@@ -32,7 +32,7 @@ namespace UACloudLibClientLibrary.Models
         public string Value { get; set; }
     }
     [JsonObject("objecttype")]
-    public class ObjectType
+    public class ObjectResult
     {
         [JsonProperty("objecttype_id")]
         public int ID { get; set; }
@@ -46,7 +46,7 @@ namespace UACloudLibClientLibrary.Models
         public string Namespace { get; set; }
     }
     [JsonObject("reference")]
-    public class ReferenceType
+    public class ReferenceResult
     {
         [JsonProperty("reference_id")]
         public int ID { get; set; }
@@ -60,7 +60,7 @@ namespace UACloudLibClientLibrary.Models
         public string Namespace { get; set; }
     }
     [JsonObject("variabletype")]
-    public class VariableType
+    public class VariableResult
     {
         [JsonProperty("variabletype_id")]
         public int ID { get; set; }

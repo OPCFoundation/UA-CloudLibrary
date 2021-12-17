@@ -18,7 +18,7 @@ namespace UACloudLibClientLibrary
             return test;
         }
 
-        static IQuery<DatatypeType> _DatatypeQuery = new Query<DatatypeType>("datatype")
+        static IQuery<DatatypeResult> _DatatypeQuery = new Query<DatatypeResult>("datatype")
            .AddField(f => f.ID)
            .AddField(f => f.NodesetID)
            .AddField(f => f.Namespace)
@@ -27,7 +27,7 @@ namespace UACloudLibClientLibrary
 
         public static string DatatypeQuery { get { return QueryWrapper(_DatatypeQuery.Build().ToString()); } }
 
-        static IQuery<MetadataType> _MetadataQuery = new Query<MetadataType>("metadata")
+        static IQuery<MetadataResult> _MetadataQuery = new Query<MetadataResult>("metadata")
             .AddField(f => f.ID)
             .AddField(f => f.NodesetID)
             .AddField(f => f.Name)
@@ -35,7 +35,7 @@ namespace UACloudLibClientLibrary
 
         public static string MetadataQuery { get { return QueryWrapper(_MetadataQuery.Build().ToString()); } }
 
-        static IQuery<ObjectType> _ObjectQuery = new Query<ObjectType>("objecttype")
+        static IQuery<ObjectResult> _ObjectQuery = new Query<ObjectResult>("objecttype")
             .AddField(f => f.ID)
             .AddField(f => f.NodesetID)
             .AddField(f => f.Browsename)
@@ -44,7 +44,7 @@ namespace UACloudLibClientLibrary
 
         public static string ObjectQuery { get { return QueryWrapper(_ObjectQuery.Build().ToString()); } }
 
-        static IQuery<ReferenceType> _ReferenceQuery = new Query<ReferenceType>("referencetype")
+        static IQuery<ReferenceResult> _ReferenceQuery = new Query<ReferenceResult>("referencetype")
             .AddField(f => f.ID)
             .AddField(f => f.Namespace)
             .AddField(f => f.Browsename)
@@ -52,7 +52,7 @@ namespace UACloudLibClientLibrary
 
         public static string ReferenceQuery { get { return QueryWrapper(_ReferenceQuery.Build().ToString()); } }
 
-        static IQuery<VariableType> _VariableQuery = new Query<VariableType>("variabletype")
+        static IQuery<VariableResult> _VariableQuery = new Query<VariableResult>("variabletype")
             .AddField(f => f.ID)
             .AddField(f => f.NodesetID)
             .AddField(f => f.Browsename)

@@ -67,46 +67,46 @@ namespace UACloudLibClientLibrary
         /// Retrieves a list of ObjectTypes
         /// </summary>
         /// <returns></returns>
-        public async Task<List<ObjectType>> GetObjectTypes()
+        public async Task<List<ObjectResult>> GetObjectTypes()
         {
             request.Query = PrebuiltQueries.ObjectQuery;
-            return await SendAndConvert<List<ObjectType>>(request);
+            return await SendAndConvert<List<ObjectResult>>(request);
         }
         /// <summary>
         /// Retrieves a list of metadata
         /// </summary>
         /// <returns></returns>
-        public async Task<List<MetadataType>> GetMetadata()
+        public async Task<List<MetadataResult>> GetMetadata()
         {
             request.Query = PrebuiltQueries.MetadataQuery;
-            return await SendAndConvert<List<MetadataType>>(request);            
+            return await SendAndConvert<List<MetadataResult>>(request);            
         }
         /// <summary>
         /// Retrieves a list of variabletypes
         /// </summary>
         /// <returns></returns>
-        public async Task<List<VariableType>> GetVariables()
+        public async Task<List<VariableResult>> GetVariables()
         {
             request.Query = PrebuiltQueries.VariableQuery;
-            return await SendAndConvert<List<VariableType>>(request);
+            return await SendAndConvert<List<VariableResult>>(request);
         }
         /// <summary>
         /// Retrieves a list of referencetype
         /// </summary>
         /// <returns></returns>
-        public async Task<List<ReferenceType>> GetReferencetype()
+        public async Task<List<ReferenceResult>> GetReferencetype()
         {
             request.Query = PrebuiltQueries.ReferenceQuery;
-            return await SendAndConvert<List<ReferenceType>>(request);
+            return await SendAndConvert<List<ReferenceResult>>(request);
         }
         /// <summary>
         /// Retrieves a list of datatype
         /// </summary>
         /// <returns></returns>
-        public async Task<List<DatatypeType>> GetDatatype()
+        public async Task<List<DatatypeResult>> GetDatatype()
         {
             request.Query = PrebuiltQueries.DatatypeQuery;
-            return await SendAndConvert<List<DatatypeType>>(request);
+            return await SendAndConvert<List<DatatypeResult>>(request);
         }
         /// <summary>
         /// Retrieves a list of metadata and converts it to a list of addressspaces

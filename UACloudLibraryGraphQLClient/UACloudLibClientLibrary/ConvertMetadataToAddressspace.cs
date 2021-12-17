@@ -13,11 +13,11 @@ namespace UACloudLibClientLibrary
         /// </summary>
         /// <param name="response"></param>
         /// <returns></returns>
-        public static List<CombinatedTypes> Convert(List<MetadataType> response)
+        public static List<CombinatedTypes> Convert(List<MetadataResult> response)
         {
             List<CombinatedTypes> combinatedTypes = new List<CombinatedTypes>();
 
-            foreach(MetadataType metadata in response)
+            foreach(MetadataResult metadata in response)
             {
                 CombinatedTypes combinatedType = combinatedTypes?.FirstOrDefault(e => e.NodesetID == metadata.NodesetID);
 
@@ -35,7 +35,7 @@ namespace UACloudLibClientLibrary
         /// </summary>
         /// <param name="type"></param>
         /// <param name="metadata"></param>
-        private static void ConvertCases(CombinatedTypes type, MetadataType metadata)
+        private static void ConvertCases(CombinatedTypes type, MetadataResult metadata)
         {
             switch (metadata.Name)
             {
