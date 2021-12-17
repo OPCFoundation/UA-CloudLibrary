@@ -13,81 +13,83 @@ namespace UACloudLibClientLibrary
         /// </summary>
         /// <param name="response"></param>
         /// <returns></returns>
-        public static List<CombinatedTypes> Convert(List<MetadataResult> response)
+        public static List<AddressSpace> Convert(List<MetadataResult> response)
         {
-            List<CombinatedTypes> combinatedTypes = new List<CombinatedTypes>();
+            List<AddressSpace> listAddressSpaces = new List<AddressSpace>();
 
             foreach(MetadataResult metadata in response)
             {
-                CombinatedTypes combinatedType = combinatedTypes?.FirstOrDefault(e => e.NodesetID == metadata.NodesetID);
+                string id = metadata.NodesetID.ToString();
+                AddressSpace addressspace = listAddressSpaces?.FirstOrDefault(e => e.ID == id);
 
-                if (combinatedType == null)
+                if (addressspace == null)
                 {
-                    combinatedType = new CombinatedTypes(metadata.NodesetID);
-                    combinatedTypes.Add(combinatedType);
+                    addressspace = new AddressSpace();
+                    addressspace.ID = id;
+                    listAddressSpaces.Add(addressspace);
                 }
-                ConvertCases(combinatedType, metadata);
+                ConvertCases(addressspace, metadata);
             }
-            return combinatedTypes;
+            return listAddressSpaces;
         }
         /// <summary>
         /// Switch case with all the names for the members
         /// </summary>
-        /// <param name="type"></param>
+        /// <param name="addressspace"></param>
         /// <param name="metadata"></param>
-        private static void ConvertCases(CombinatedTypes type, MetadataResult metadata)
+        private static void ConvertCases(AddressSpace addressspace, MetadataResult metadata)
         {
             switch (metadata.Name)
             {
                 #region AdressSpace Cases
                 case "adressspacemodifiedtime":
                     {
-                        type.AddressSpace.LastModification = System.Convert.ToDateTime(metadata.Value);
+                        addressspace.LastModification = System.Convert.ToDateTime(metadata.Value);
                         break;
                     }
                 case "addressspacedescription":
                     {
-                        type.AddressSpace.Description = metadata.Value;
+                        addressspace.Description = metadata.Value;
                         break;
                     }
                 case "copyright":
                     {
-                        type.AddressSpace.CopyrightText = metadata.Value;
+                        addressspace.CopyrightText = metadata.Value;
                         break;
                     }
                 case "documentationurl":
                     {
-                        type.AddressSpace.DocumentationUrl = new Uri(metadata.Value);
+                        addressspace.DocumentationUrl = new Uri(metadata.Value);
                         break;
                     }
                 case "licenseurl":
                     {
-                        type.AddressSpace.LicenseUrl = new Uri(metadata.Value);
+                        addressspace.LicenseUrl = new Uri(metadata.Value);
                         break;
                     }
                 case "purchasinginfo":
                     {
-                        type.AddressSpace.PurchasingInformationUrl = new Uri(metadata.Value);
+                        addressspace.PurchasingInformationUrl = new Uri(metadata.Value);
                         break;
                     }
                 case "keywords":
                     {
-                        type.AddressSpace.KeyWords = metadata.Value.Split(",");
+                        addressspace.KeyWords = metadata.Value.Split(",");
                         break;
                     }
                 case "locales":
                     {
-                        type.AddressSpace.SupportedLocales = metadata.Value.Split(",");
+                        addressspace.SupportedLocales = metadata.Value.Split(",");
                         break;
                     }
                 case "numdownloads":
                     {
-                        type.AddressSpace.NumberOfDownloads = System.Convert.ToUInt32(metadata.Value);
+                        addressspace.NumberOfDownloads = System.Convert.ToUInt32(metadata.Value);
                         break;
                     }
                 case "addressspacename":
                     {
-                        type.AddressSpace.Title = metadata.Value;
+                        addressspace.Title = metadata.Value;
                         break;
                     }
                 case "license":
@@ -97,22 +99,22 @@ namespace UACloudLibClientLibrary
                         {
                             case "MIT":
                                 {
-                                    type.AddressSpace.License = AddressSpaceLicense.MIT;
+                                    addressspace.License = AddressSpaceLicense.MIT;
                                     break;
                                 }
                             case "ApacheLicense20":
                                 {
-                                    type.AddressSpace.License = AddressSpaceLicense.ApacheLicense20;
+                                    addressspace.License = AddressSpaceLicense.ApacheLicense20;
                                     break;
                                 }
                             case "Custom":
                                 {
-                                    type.AddressSpace.License = AddressSpaceLicense.Custom;
+                                    addressspace.License = AddressSpaceLicense.Custom;
                                     break;
                                 }
                             default:
                                 {
-                                    type.AddressSpace.License = (AddressSpaceLicense)Enum.Parse(typeof(AddressSpaceLicense), metadata.Value);
+                                    addressspace.License = (AddressSpaceLicense)Enum.Parse(typeof(AddressSpaceLicense), metadata.Value);
                                     break;
                                 }
                         }
@@ -120,50 +122,50 @@ namespace UACloudLibClientLibrary
                     }
                 case "version":
                     {
-                        type.AddressSpace.Version = metadata.Value;
+                        addressspace.Version = metadata.Value;
                         break;
                     }
                 case "releasenotes":
                     {
-                        type.AddressSpace.ReleaseNotesUrl = new Uri(metadata.Value);
+                        addressspace.ReleaseNotesUrl = new Uri(metadata.Value);
                         break;
                     }
                 case "testspecification":
                     {
-                        type.AddressSpace.TestSpecificationUrl = new Uri(metadata.Value);
+                        addressspace.TestSpecificationUrl = new Uri(metadata.Value);
                         break;
                     }
                 #endregion
                 #region Organistion Cases
                 case "orgname":
                     {
-                        type.Organisation.Name = metadata.Value;
+                        addressspace.Contributor.Name = metadata.Value;
                         break;
                     }
                 case "orgdesciption":
                     {
-                        type.Organisation.Description = metadata.Value;
+                        addressspace.Contributor.Description = metadata.Value;
                         break;
                     }
                 case "orgcontact":
                     {
-                        type.Organisation.ContactEmail = metadata.Value;
+                        addressspace.Contributor.ContactEmail = metadata.Value;
                         break;
                     }
                 case "orgwebsite":
                     {
-                        type.Organisation.Website = new Uri(metadata.Value);
+                        addressspace.Contributor.Website = new Uri(metadata.Value);
                         break;
                     }
                 case "orglogo":
                     {
-                        type.Organisation.LogoUrl = new Uri(metadata.Value);
+                        addressspace.Contributor.LogoUrl = new Uri(metadata.Value);
                         break;
                     }
                 #endregion
                 case "nodesetmodifiedtime":
                     {
-                        type.Nodeset.LastModification = System.Convert.ToDateTime(metadata.Value);
+                        addressspace.Nodeset.LastModification = System.Convert.ToDateTime(metadata.Value);
                         break;
                     }
                 default:
@@ -171,28 +173,6 @@ namespace UACloudLibClientLibrary
                         break;
                     }
             }
-        }
-    }
-
-    public class CombinatedTypes
-    {
-        public long NodesetID { get; set; }
-        public AddressSpace AddressSpace = new AddressSpace();
-        public AddressSpaceCategory Category = new AddressSpaceCategory();
-        public Organisation Organisation = new Organisation();
-        public AddressSpaceNodeset2 Nodeset = new AddressSpaceNodeset2();
-
-        public CombinatedTypes(long nodesetid)
-        {
-            NodesetID = nodesetid;
-            AddressSpace.Contributor = Organisation;
-            AddressSpace.Category = Category;
-            AddressSpace.Nodeset = Nodeset;
-        }
-
-        public CombinatedTypes()
-        {
-
         }
     }
 }
