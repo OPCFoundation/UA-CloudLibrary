@@ -29,13 +29,11 @@
 
 namespace UACloudLibrary
 {
-    using Amazon;
-    using Amazon.Runtime;
     using Amazon.S3;
     using Amazon.S3.Model;
     using Amazon.S3.Util;
-    using Amazon.SecurityToken;
-    using Amazon.SecurityToken.Model;
+    using Microsoft.Extensions.Configuration;
+    using Microsoft.Extensions.Logging;
     using System;
     using System.IO;
     using System.Net;
@@ -51,13 +49,18 @@ namespace UACloudLibrary
     {
         private readonly string _bucket;
         private readonly string _prefix;
-        private readonly RegionEndpoint _region;
+      
+        private readonly IAmazonS3 _s3Client;
+        private readonly ILogger _logger;
+      
         /// <summary>
         /// Default constructor
         /// </summary>
-        public AWSFileStorage()
+        public AWSFileStorage(IAmazonS3 s3Client, IConfiguration config, ILoggerFactory logger)
         {
-            var connStr = Environment.GetEnvironmentVariable("BlobStorageConnectionString");
+            _s3Client = s3Client;
+            _logger = logger.CreateLogger("AWSFileStorage");
+            var connStr = config["BlobStorageConnectionString"];
             if (connStr != null)
             {
                 try
@@ -66,90 +69,44 @@ namespace UACloudLibrary
 
                     _bucket = uri.Bucket;
                     _prefix = uri.Key;
-                    if (uri.Region != null) _region = uri.Region;
+                 //   if (uri.Region != null) _region = uri.Region;
                 }
                 catch (Exception ex1)
                 {
-                    Console.WriteLine($"{connStr} is not a valid S3 Url: {ex1.Message}");
+                    _logger.LogError($"{connStr} is not a valid S3 Url: {ex1.Message}");
                 }
             }
-
-            if (_region == null)
+            else
             {
-                var regionName = Environment.GetEnvironmentVariable("AWS_REGION");
-                if (!string.IsNullOrEmpty(regionName))
-                {
-                    try
-                    {
-                        _region = RegionEndpoint.GetBySystemName(regionName);
-                    }
-                    catch (Exception)
-                    {
-                        Console.WriteLine($"{regionName} is not a valid AWS region");
-                    }
-                }
+                _logger.LogError($"S3 Url <BlobStorageConnectionString> not provided for file storage");
+                _bucket = string.Empty;
+                _prefix = string.Empty;
             }
         }
 
-        private async Task<AmazonS3Client> ConnectToS3(CancellationToken cancellationToken)
-        {
-            var cred = await GetTemporaryCredentialsAsync(cancellationToken).ConfigureAwait(false);
-            var config = _region == null ? new AmazonS3Config() : new AmazonS3Config { RegionEndpoint = _region };
-
-            return new AmazonS3Client(cred, config);
-
-        }
-
-        private static async Task<AWSCredentials> GetTemporaryCredentialsAsync(CancellationToken cancellationToken)
-        {
-            Credentials credentials = null;
-
-            var roleArn = Environment.GetEnvironmentVariable("AWSRoleArn");
-            if (string.IsNullOrEmpty(roleArn))
-            {
-                return FallbackCredentialsFactory.GetCredentials();
-            }
-
-            using (var stsClient = new AmazonSecurityTokenServiceClient())
-            {
-                var request = new AssumeRoleRequest
-                {
-                    RoleArn = roleArn,
-                    DurationSeconds = 1200,
-                    RoleSessionName = "S3AccessRole"
-                };
-
-                var response = await stsClient.AssumeRoleAsync(request, cancellationToken).ConfigureAwait(false);
-                credentials = response.Credentials;
-            }
-
-            var sessionCredentials =
-                        new SessionAWSCredentials(credentials.AccessKeyId,
-                                                  credentials.SecretAccessKey,
-                                                  credentials.SessionToken);
-            return sessionCredentials;
-
-        }
+        
         /// <summary>
         /// Find a file based on a unique name
         /// </summary>
         public async Task<string> FindFileAsync(string name, CancellationToken cancellationToken = default)
         {
+            if (string.IsNullOrEmpty(_bucket))
+            {
+                _logger.LogError($"Error finding file {name} - S3 Bucket not specified");
+                return null;
+            }
+
             try
             {
-                using (var s3Client = await ConnectToS3(cancellationToken).ConfigureAwait(false))
-                {
-                    var key = string.IsNullOrEmpty(_prefix) ? name : _prefix + name;
+                var key = string.IsNullOrEmpty(_prefix) ? name : _prefix + name;
 
-                    await s3Client.GetObjectMetadataAsync(_bucket, key, cancellationToken).ConfigureAwait(false);
-
-                }
+                await _s3Client.GetObjectMetadataAsync(_bucket, key, cancellationToken).ConfigureAwait(false);
 
                 return name;
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex, $"Error finding file {name}");
                 return null;
             }
         }
@@ -159,37 +116,40 @@ namespace UACloudLibrary
         /// </summary>
         public async Task<string> UploadFileAsync(string name, string content, CancellationToken cancellationToken = default)
         {
+            if (string.IsNullOrEmpty(_bucket))
+            {
+                _logger.LogError($"Error updating file {name} - S3 Bucket not specified");
+                return null;
+            }
+
             try
             {
-                using (var s3 = await ConnectToS3(cancellationToken).ConfigureAwait(false))
+                var key = string.IsNullOrEmpty(_prefix) ? name : _prefix + name;
+
+                var ms = new MemoryStream(Encoding.UTF8.GetBytes(content));
+
+                var putRequest = new PutObjectRequest
                 {
-                    var key = string.IsNullOrEmpty(_prefix) ? name : _prefix + name;
+                    BucketName = _bucket,
+                    Key = key,
+                    InputStream = ms
+                };
 
-                    var ms = new MemoryStream(Encoding.UTF8.GetBytes(content));
-
-                    var putRequest = new PutObjectRequest
-                    {
-                        BucketName = _bucket,
-                        Key = key,
-                        InputStream = ms
-                    };
-
-                    var response = await s3.PutObjectAsync(putRequest, cancellationToken).ConfigureAwait(false);
-                    if (response.HttpStatusCode == HttpStatusCode.OK)
-                    {
-                        return name;
-                    }
-                    else
-                    {
-                        Console.WriteLine($"File upload failed!");
-                        return string.Empty;
-                    }
-
+                var response = await _s3Client.PutObjectAsync(putRequest, cancellationToken).ConfigureAwait(false);
+                if (response.HttpStatusCode == HttpStatusCode.OK)
+                {
+                    return name;
                 }
+                else
+                {
+                    _logger.LogError($"File upload failed!");
+                    return string.Empty;
+                }
+
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex, $"Failed to upload file {name}");
                 return string.Empty;
             }
         }
@@ -199,30 +159,34 @@ namespace UACloudLibrary
         /// </summary>
         public async Task<string> DownloadFileAsync(string name, CancellationToken cancellationToken = default)
         {
+            if (string.IsNullOrEmpty(_bucket))
+            {
+                _logger.LogError($"Error downloading file {name} - S3 Bucket not specified");
+                return null;
+            }
+
             try
             {
-                using (var s3 = await ConnectToS3(cancellationToken).ConfigureAwait(false))
+                var key = string.IsNullOrEmpty(_prefix) ? name : _prefix + name;
+
+                var req = new GetObjectRequest
                 {
-                    var key = string.IsNullOrEmpty(_prefix) ? name : _prefix + name;
+                    BucketName = _bucket,
+                    Key = key
+                };
 
-                    var req = new GetObjectRequest
-                    {
-                        BucketName = _bucket,
-                        Key = key
-                    };
+                var res = await _s3Client.GetObjectAsync(req, cancellationToken).ConfigureAwait(false);
 
-                    var res = await s3.GetObjectAsync(req, cancellationToken).ConfigureAwait(false);
-
-                    using (var reader = new StreamReader(res.ResponseStream))
-                    {
-                        return reader.ReadToEnd();
-                    }
-
+                using (var reader = new StreamReader(res.ResponseStream))
+                {
+                    return reader.ReadToEnd();
                 }
+
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex, $"Failed to download file {name}, {_s3Client.Config.ServiceURL}");
+
                 return string.Empty;
             }
         }

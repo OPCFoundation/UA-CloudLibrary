@@ -34,7 +34,6 @@ namespace UACloudLibrary
     using Microsoft.AspNetCore.Authentication;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.DataProtection;
-    using AspNetCore.DataProtection.Aws.S3;
     using GoogleCloudStorage.AspNetCore.DataProtection;
     using Microsoft.AspNetCore.Hosting;
     using Microsoft.AspNetCore.Identity;
@@ -50,6 +49,8 @@ namespace UACloudLibrary
     using UACloudLibrary.DbContextModels;
     using UACloudLibrary.Interfaces;
     using System.IO;
+    using Amazon.S3;
+
 
     public class Startup
     {
@@ -86,6 +87,8 @@ namespace UACloudLibrary
 
             services.AddAuthentication()
                 .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null);
+
+            services.AddAuthorization();
 
             services.AddSwaggerGen(options =>
             {
@@ -131,11 +134,17 @@ namespace UACloudLibrary
                 options.EnableAnnotations();
             });
 
+
             // Setup file storage
             switch (Configuration["HostingPlatform"])
             {
                 case "Azure": services.AddSingleton<IFileStorage, AzureFileStorage>(); break;
-                case "AWS": services.AddSingleton<IFileStorage, AWSFileStorage>(); break;
+                case "AWS":
+                    var awsOptions = Configuration.GetAWSOptions();
+                    services.AddDefaultAWSOptions(awsOptions);
+                    services.AddAWSService<IAmazonS3>();
+                    services.AddSingleton<IFileStorage, AWSFileStorage>();
+                    break;
                 case "GCP": services.AddSingleton<IFileStorage, GCPFileStorage>(); break;
 #if DEBUG
                 default: services.AddSingleton<IFileStorage, LocalFileStorage>(); break;
@@ -144,15 +153,15 @@ namespace UACloudLibrary
 #endif
             }
 
-            services.AddAuthentication();
-
-            services.AddAuthorization();
+            var serviceName = Configuration["Application"] ?? "UACloudLibrary";
 
             // setup data protection
             switch (Configuration["HostingPlatform"])
             {
                 case "Azure": services.AddDataProtection().PersistKeysToAzureBlobStorage(Configuration["BlobStorageConnectionString"], "keys", "keys"); break;
-                case "AWS": //TODO: Configure services.AddDataProtection().PersistKeysToAwsS3(); break;
+                case "AWS":
+                    services.AddDataProtection().PersistKeysToAWSSystemsManager($"/{serviceName}/DataProtection"); 
+                    break;
                 case "GCP": //TODO: Configure services.AddDataProtection().PersistKeysToGoogleCloudStorage(); break;
 #if DEBUG
                 default: services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Directory.GetCurrentDirectory())); break;

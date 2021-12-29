@@ -9,7 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="AspNetCore.DataProtection.Aws.S3" Version="2.2.0" />
+    <PackageReference Include="Amazon.AspNetCore.DataProtection.SSM" Version="2.1.0" />
+    <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="3.7.1" />
     <PackageReference Include="AWSSDK.S3" Version="3.7.4.9" />
 	<PackageReference Include="AWSSDK.SecurityToken" Version="3.7.1.92" />
 	<PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.2.1" />
