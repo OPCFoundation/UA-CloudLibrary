@@ -69,7 +69,6 @@ namespace UACloudLibrary
 
                     _bucket = uri.Bucket;
                     _prefix = uri.Key;
-                 //   if (uri.Region != null) _region = uri.Region;
                 }
                 catch (Exception ex1)
                 {
