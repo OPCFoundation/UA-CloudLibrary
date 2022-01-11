@@ -169,13 +169,13 @@ namespace SampleConsoleClient
             List<AddressSpace> finalResult = client.GetConvertedResult().GetAwaiter().GetResult();
             foreach(AddressSpace result in finalResult)
             {
-                Console.WriteLine($"{result.Title} by {result.Contributor.Name} last update on {result.LastModification}");
+                Console.WriteLine($"{result.Title} by {result.Contributor.Name} last update on {result.LastModificationTime}");
             }
 
             if(finalResult.Count > 0)
             {
                 Console.WriteLine("Testing download of nodeset");
-                AddressSpace result = client.DownloadNodeset(finalResult[0].ID.ToString());
+                AddressSpace result = client.DownloadNodeset(finalResult[0].MetadataID);
                 if (!string.IsNullOrEmpty(result.Nodeset.NodesetXml))
                 {
                     Console.WriteLine("Nodeset Downloaded");

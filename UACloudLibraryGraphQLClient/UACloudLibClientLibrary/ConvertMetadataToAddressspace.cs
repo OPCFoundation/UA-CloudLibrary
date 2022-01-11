@@ -20,12 +20,12 @@ namespace UACloudLibClientLibrary
             foreach(MetadataResult metadata in response)
             {
                 string id = metadata.NodesetID.ToString();
-                AddressSpace addressspace = listAddressSpaces?.FirstOrDefault(e => e.ID == id);
+                AddressSpace addressspace = listAddressSpaces?.FirstOrDefault(e => e.MetadataID == id);
 
                 if (addressspace == null)
                 {
                     addressspace = new AddressSpace();
-                    addressspace.ID = id;
+                    addressspace.MetadataID = id;
                     listAddressSpaces.Add(addressspace);
                 }
                 ConvertCases(addressspace, metadata);
@@ -44,7 +44,7 @@ namespace UACloudLibClientLibrary
                 #region AdressSpace Cases
                 case "adressspacemodifiedtime":
                     {
-                        addressspace.LastModification = System.Convert.ToDateTime(metadata.Value);
+                        addressspace.LastModificationTime = System.Convert.ToDateTime(metadata.Value);
                         break;
                     }
                 case "addressspacedescription":
