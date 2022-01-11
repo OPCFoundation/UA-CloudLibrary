@@ -124,7 +124,7 @@ namespace UACloudLibClientLibrary
         /// </summary>
         /// <param name="identifier"></param>
         /// <returns></returns>
-        public async Task<AddressSpace> DownloadNodeset(string identifier)
+        public AddressSpace DownloadNodeset(string identifier)
         {
             WebClient webClient = new WebClient
             {
