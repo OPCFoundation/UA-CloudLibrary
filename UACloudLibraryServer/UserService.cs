@@ -30,17 +30,20 @@
 namespace UACloudLibrary
 {
     using Microsoft.AspNetCore.Identity;
+    using Microsoft.Extensions.Logging;
     using System;
     using System.Threading.Tasks;
     using UACloudLibrary.Interfaces;
 
     public class UserService : IUserService
     {
-        private UserManager<IdentityUser> _userManager;
+        private readonly UserManager<IdentityUser> _userManager;
+        private readonly ILogger _logger;
 
-        public UserService(UserManager<IdentityUser> userManager)
+        public UserService(UserManager<IdentityUser> userManager, ILoggerFactory logger)
         {
             _userManager = userManager;
+            _logger = logger.CreateLogger("UserService");
         }
 
         public async Task<bool> ValidateCredentialsAsync(string username, string password)
@@ -51,7 +54,7 @@ namespace UACloudLibrary
                 string passwordFromEnvironment = Environment.GetEnvironmentVariable("ServicePassword");
                 if (string.IsNullOrEmpty(passwordFromEnvironment))
                 {
-                    Console.WriteLine("ServicePassword env variable not set, please set it before trying to log in with admin credentials!");
+                    _logger.LogError("ServicePassword env variable not set, please set it before trying to log in with admin credentials!");
                     return false;
                 }
                 else

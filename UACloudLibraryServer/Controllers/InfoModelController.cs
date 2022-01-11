@@ -32,6 +32,7 @@ namespace UACloudLibrary
     using Extensions;
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
+    using Microsoft.Extensions.Logging;
     using Opc.Ua;
     using Opc.Ua.Export;
     using Swashbuckle.AspNetCore.Annotations;
@@ -49,14 +50,15 @@ namespace UACloudLibrary
     [ApiController]
     public class InfoModelController : ControllerBase
     {
-        private IFileStorage _storage;
+        private readonly IFileStorage _storage;
+        private readonly IDatabase _database;
+        private readonly ILogger _logger;
 
-        private IDatabase _database;
-
-        public InfoModelController(IFileStorage storage, IDatabase database)
+        public InfoModelController(IFileStorage storage, IDatabase database, ILoggerFactory logger)
         {
             _storage = storage;
             _database = database;
+            _logger = logger.CreateLogger("InfoModelController");
         }
 
         [HttpPut]
@@ -151,7 +153,7 @@ namespace UACloudLibrary
             if (string.IsNullOrEmpty(storedFilename) || (storedFilename != nodesetHashCode.ToString()))
             {
                 string message = "Error: Nodeset file could not be stored.";
-                Console.WriteLine(message);
+                _logger.LogError(message);
                 return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
@@ -159,14 +161,14 @@ namespace UACloudLibrary
             if (!_database.DeleteAllRecordsForNodeset(nodesetHashCode))
             {
                 string message = "Error: Could not delete existing records for nodeset!";
-                Console.WriteLine(message);
+                _logger.LogError(message);
                 return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
             if (!_database.DeleteAllRecordsForNodeset(legacyNodesetHashCode))
             {
                 string message = "Error: Could not delete existing legacy records for nodeset!";
-                Console.WriteLine(message);
+                _logger.LogError(message);
                 return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
@@ -174,14 +176,14 @@ namespace UACloudLibrary
             string error = StoreNodesetMetaDataInDatabase(nodesetHashCode, uaAddressSpace);
             if (!string.IsNullOrEmpty(error))
             {
-                Console.WriteLine(error);
+                _logger.LogError(error);
                 return new ObjectResult(error) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
             if (!StoreUserMetaDataInDatabase(nodesetHashCode, uaAddressSpace))
             {
                 string message = "Error: User metadata could not be stored.";
-                Console.WriteLine(message);
+                _logger.LogError(message);
                 return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 

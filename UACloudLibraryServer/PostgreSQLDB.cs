@@ -29,6 +29,7 @@
 
 namespace UACloudLibrary
 {
+    using Microsoft.Extensions.Logging;
     using Npgsql;
     using System;
     using System.Collections.Generic;
@@ -38,6 +39,7 @@ namespace UACloudLibrary
     public class PostgreSQLDB : IDatabase
     {
         private NpgsqlConnection _connection = null;
+        private readonly ILogger _logger;
 
         public static string CreateConnectionString()
         {
@@ -59,8 +61,10 @@ namespace UACloudLibrary
                 Password);
         }
 
-        public PostgreSQLDB()
+        public PostgreSQLDB(ILoggerFactory logger)
         {
+            _logger = logger.CreateLogger("PostgreSQLDB");
+
             // Setup the database tables
             string[] dbInitCommands = {
                 "CREATE TABLE IF NOT EXISTS Metadata(Metadata_id serial PRIMARY KEY, Nodeset_id BIGINT, Metadata_Name TEXT, Metadata_Value TEXT)",
@@ -83,7 +87,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex.Message);
             }
         }
 
@@ -118,7 +122,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex.Message);
             }
 
             return false;
@@ -145,7 +149,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex.Message);
             }
 
             return false;
@@ -201,7 +205,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex.Message);
             }
 
             return string.Empty;
@@ -225,7 +229,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex.Message);
             }
 
             return false;
@@ -324,7 +328,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex.Message);
             }
 
             return new string[0];
@@ -360,7 +364,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex.Message);
             }
 
             return new string[0];
@@ -396,7 +400,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex.Message);
             }
 
             return new string[0];
