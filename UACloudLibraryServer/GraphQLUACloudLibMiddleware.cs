@@ -34,6 +34,7 @@ namespace UACloudLibrary
     using Microsoft.AspNetCore.Http;
     using Microsoft.AspNetCore.Identity;
     using Microsoft.Extensions.DependencyInjection;
+    using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Primitives;
     using System;
     using System.Linq;
@@ -44,15 +45,18 @@ namespace UACloudLibrary
 
     public class GraphQLUACloudLibMiddleware<TSchema> : GraphQLHttpMiddleware<TSchema> where TSchema: ISchema
     {
-        private IServiceProvider _provider;
+        private readonly IServiceProvider _provider;
+        private readonly ILogger _logger;
 
         public GraphQLUACloudLibMiddleware(
             IServiceProvider provider,
             RequestDelegate next,
-            IGraphQLRequestDeserializer requestDeserializer)
+            IGraphQLRequestDeserializer requestDeserializer,
+            ILoggerFactory logger)
             : base(next, requestDeserializer)
         {
             _provider = provider;
+            _logger = logger.CreateLogger("GraphQLUACloudLibMiddleware");
         }
 
         protected override CancellationToken GetCancellationToken(HttpContext context)
@@ -106,7 +110,7 @@ namespace UACloudLibrary
             {
                 // cancel request
                 cts.Cancel();
-                Console.WriteLine("Cancelling request due to exception: " + ex.Message);
+                _logger.LogError("Cancelling request due to exception: " + ex.Message);
                 return cts.Token;
             }
         }

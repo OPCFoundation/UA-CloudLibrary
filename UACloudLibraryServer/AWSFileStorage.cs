@@ -49,10 +49,10 @@ namespace UACloudLibrary
     {
         private readonly string _bucket;
         private readonly string _prefix;
-      
+
         private readonly IAmazonS3 _s3Client;
         private readonly ILogger _logger;
-      
+
         /// <summary>
         /// Default constructor
         /// </summary>
@@ -83,7 +83,6 @@ namespace UACloudLibrary
             }
         }
 
-        
         /// <summary>
         /// Find a file based on a unique name
         /// </summary>

@@ -31,6 +31,7 @@ namespace UACloudLibrary
 {
     using Azure.Storage.Blobs;
     using Azure.Storage.Blobs.Models;
+    using Microsoft.Extensions.Logging;
     using System;
     using System.IO;
     using System.Text;
@@ -43,12 +44,14 @@ namespace UACloudLibrary
     /// </summary>
     public class AzureFileStorage : IFileStorage
     {
+        private readonly ILogger _logger;
+
         /// <summary>
         /// Default constructor
         /// </summary>
-        public AzureFileStorage()
+        public AzureFileStorage(ILoggerFactory logger)
         {
-            // nothing to do
+            _logger = logger.CreateLogger("AzureFileStorage");
         }
 
         /// <summary>
@@ -78,7 +81,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex.Message);
                 return null;
             }
         }
@@ -120,7 +123,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex.Message);
                 return string.Empty;
             }
         }
@@ -169,7 +172,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex.Message);
                 return string.Empty;
             }
         }
