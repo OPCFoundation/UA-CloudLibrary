@@ -29,6 +29,7 @@
 
 namespace UACloudLibrary
 {
+    using Microsoft.Extensions.Logging;
     using System;
     using System.Threading;
     using System.Threading.Tasks;
@@ -39,12 +40,14 @@ namespace UACloudLibrary
     /// </summary>
     public class GCPFileStorage : IFileStorage
     {
+        private readonly ILogger _logger;
+
         /// <summary>
         /// Default constructor
         /// </summary>
-        public GCPFileStorage()
+        public GCPFileStorage(ILoggerFactory logger)
         {
-            // TODO!
+            _logger = logger.CreateLogger("GCPFileStorage");
         }
 
         /// <summary>
@@ -60,7 +63,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex.Message);
                 return null;
             }
         }
@@ -78,7 +81,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex.Message);
                 return Task.FromResult(string.Empty);
             }
         }
@@ -96,7 +99,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex.Message);
                 return Task.FromResult(string.Empty);
             }
         }

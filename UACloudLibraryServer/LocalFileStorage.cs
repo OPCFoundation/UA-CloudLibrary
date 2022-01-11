@@ -29,6 +29,7 @@
 
 namespace UACloudLibrary
 {
+    using Microsoft.Extensions.Logging;
     using System;
     using System.IO;
     using System.Threading;
@@ -40,12 +41,14 @@ namespace UACloudLibrary
     /// </summary>
     public class LocalFileStorage : IFileStorage
     {
+        private readonly ILogger _logger;
+
         /// <summary>
         /// Default constructor
         /// </summary>
-        public LocalFileStorage()
+        public LocalFileStorage(ILoggerFactory logger)
         {
-            // nothing to do
+            _logger = logger.CreateLogger("LocalFileStorage");
         }
 
         /// <summary>
@@ -66,7 +69,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex.Message);
                 return null;
             }
         }
@@ -83,7 +86,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex.Message);
                 return null;
             }
         }
@@ -99,7 +102,7 @@ namespace UACloudLibrary
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex.Message);
                 return null;
             }
         }
