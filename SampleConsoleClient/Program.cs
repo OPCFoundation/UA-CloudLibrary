@@ -166,7 +166,7 @@ namespace SampleConsoleClient
             }
 
             Console.WriteLine("\nTesting query and convertion of metadata");
-            List<AddressSpace> finalResult = client.GetCombinedResult().GetAwaiter().GetResult();
+            List<AddressSpace> finalResult = client.GetConvertedResult().GetAwaiter().GetResult();
             foreach(AddressSpace result in finalResult)
             {
                 Console.WriteLine($"{result.Title} by {result.Contributor.Name} last update on {result.LastModification}");

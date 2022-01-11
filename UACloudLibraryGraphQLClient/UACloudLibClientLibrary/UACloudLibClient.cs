@@ -112,7 +112,7 @@ namespace UACloudLibClientLibrary
         /// Retrieves a list of metadata and converts it to a list of addressspaces
         /// </summary>
         /// <returns></returns>
-        public async Task<List<AddressSpace>> GetCombinedResult()
+        public async Task<List<AddressSpace>> GetConvertedResult()
         {
             var result = await GetMetadata();
 
