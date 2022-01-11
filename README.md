@@ -27,10 +27,7 @@ Environment variables that must be defined:
 * ServicePassword: The administration password for the REST service (username admin).
 * SendGridAPIKey: The API key for the Sendgrid service
 
-Additional optional environment variables that can be defined when hosting on AWS:
-
-* AWS_REGION: The AWS region used for the cloud storage instance.
-* AWSRoleArn: The AWS role to use to log in to the cloud storage instance.
+Hosting on AWS requires the identity/role used to have policies allowing access to the S3 bucket and SSM Parameter Store.  
 
 ## Deployment
 
