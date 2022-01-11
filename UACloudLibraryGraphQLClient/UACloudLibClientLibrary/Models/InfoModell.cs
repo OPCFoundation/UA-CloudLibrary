@@ -14,6 +14,8 @@ namespace UACloudLibClientLibrary
         Custom
     }
     
+ 
+
     /// <summary>
     /// Contains the metadata of the nodeset and the nodeset itself
     /// </summary>
@@ -25,13 +27,16 @@ namespace UACloudLibClientLibrary
             this.Contributor = new Organisation();
             this.Category = new AddressSpaceCategory();
         }
-        public string ID {get; set; }
+        /// <summary>
+        /// Used for identifying during conversion and when trying to download the nodeset
+        /// </summary>
+        public string MetadataID { get; set; }
         public string Title { get; set; }
         public string Version { get; set; }
         public AddressSpaceLicense License { get; set; }
         public string CopyrightText { get; set; }
-        public DateTime CreationTimeStamp { get; set; }
-        public DateTime LastModification { get; set; }
+        public DateTime CreationTime { get; set; }
+        public DateTime LastModificationTime { get; set; }
         public Organisation Contributor{ get; set; }
         public string Description { get; set; }
         public AddressSpaceCategory Category { get; set; }
@@ -59,14 +64,13 @@ namespace UACloudLibClientLibrary
     /// </summary>
     public class Organisation 
     {
-        public string ID { get; set; }
         public string Name { get; set; }
         public string Description { get; set; }
         public Uri LogoUrl { get; set; }
         public string ContactEmail { get; set; }
         public Uri Website { get; set; }
-        public DateTime CreationTimeStamp { get; set; }
-        public DateTime LastModification { get; set; }
+        public DateTime CreationTime { get; set; }
+        public DateTime LastModificationTime { get; set; }
     }
     
     /// <summary>
@@ -74,7 +78,6 @@ namespace UACloudLibClientLibrary
     /// </summary>
     public class AddressSpaceCategory
     {
-        public string ID { get; set; }
         public string Name { get; set; }
         public string Description { get; set; }
         public Uri IconUrl { get; set; }
@@ -87,7 +90,6 @@ namespace UACloudLibClientLibrary
     /// </summary>
     public class AddressSpaceNodeset2
     {
-        public string AddressSpaceID { get; set; }
         public string NodesetXml { get; set; }
         public DateTime CreationTimeStamp { get; set; }
         public DateTime LastModification { get; set; }
