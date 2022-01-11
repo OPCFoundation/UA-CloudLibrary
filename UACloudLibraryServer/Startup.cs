@@ -34,7 +34,7 @@ namespace UACloudLibrary
     using Microsoft.AspNetCore.Authentication;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.DataProtection;
-    using GoogleCloudStorage.AspNetCore.DataProtection;
+    using Google.Cloud.AspNetCore.DataProtection.Storage;
     using Microsoft.AspNetCore.Hosting;
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Identity.UI.Services;
@@ -162,7 +162,11 @@ namespace UACloudLibrary
                 case "AWS":
                     services.AddDataProtection().PersistKeysToAWSSystemsManager($"/{serviceName}/DataProtection"); 
                     break;
-                case "GCP": //TODO: Configure services.AddDataProtection().PersistKeysToGoogleCloudStorage(); break;
+                case "GCP":
+                    services.AddDataProtection().PersistKeysToGoogleCloudStorage(
+                            Configuration["BlobStorageConnectionString"],
+                            "DataProtectionProviderKeys.xml");
+                     break;
 #if DEBUG
                 default: services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Directory.GetCurrentDirectory())); break;
 #else

@@ -27,7 +27,10 @@ Environment variables that must be defined:
 * ServicePassword: The administration password for the REST service (username admin).
 * SendGridAPIKey: The API key for the Sendgrid service
 
-Hosting on AWS requires the identity/role used to have policies allowing access to the S3 bucket and SSM Parameter Store.  
+Hosting on AWS requires the identity/role used to have policies allowing access to the S3 bucket and SSM Parameter Store.
+
+Hosting on GCP requires an identity used to have policies allowing access to the GCS bucket.
+In case file based authentication is used, please set the envionment variable GOOGLE_APPLICATION_CREDENTIALS pointing to the SA-Key.
 
 ## Deployment
 
