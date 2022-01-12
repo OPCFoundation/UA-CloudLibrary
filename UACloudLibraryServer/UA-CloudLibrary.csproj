@@ -8,6 +8,7 @@
     <DockerfileContext>.</DockerfileContext>
   </PropertyGroup>
 
+  <PropertyGroup Condition=" '$(RunConfiguration)' == 'UA_CloudLibrary' " />
   <ItemGroup>
     <PackageReference Include="Amazon.AspNetCore.DataProtection.SSM" Version="2.1.0" />
     <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="3.7.1" />
@@ -15,8 +16,8 @@
 	<PackageReference Include="AWSSDK.SecurityToken" Version="3.7.1.92" />
 	<PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.2.1" />
     <PackageReference Include="Azure.Storage.Blobs" Version="12.10.0" />
-    <PackageReference Include="Google.Cloud.Storage.V1" Version="3.6.0" />
-    <PackageReference Include="GoogleCloudStorage.AspNetCore.DataProtection" Version="0.0.2" />
+        <PackageReference Include="Google.Cloud.Storage.V1" Version="3.6.0" />
+        <PackageReference Include="Google.Cloud.AspNetCore.DataProtection.Storage" Version="1.0.0-alpha03" />
 	<PackageReference Include="GraphQL" Version="4.6.1" />
 	<PackageReference Include="GraphQL.NewtonsoftJson" Version="4.6.1" />
 	<PackageReference Include="GraphQL.Server.Transports.AspNetCore" Version="5.0.2" />
