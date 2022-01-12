@@ -29,12 +29,12 @@
 
 namespace UACloudLibrary
 {
+    using Amazon.S3;
     using GraphQL.Server;
     using GraphQL.Server.Ui.Playground;
     using Microsoft.AspNetCore.Authentication;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.DataProtection;
-    using Google.Cloud.AspNetCore.DataProtection.Storage;
     using Microsoft.AspNetCore.Hosting;
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Identity.UI.Services;
@@ -46,10 +46,9 @@ namespace UACloudLibrary
     using Microsoft.Extensions.Logging;
     using Microsoft.OpenApi.Models;
     using System;
+    using System.IO;
     using UACloudLibrary.DbContextModels;
     using UACloudLibrary.Interfaces;
-    using System.IO;
-    using Amazon.S3;
 
 
     public class Startup
@@ -159,14 +158,8 @@ namespace UACloudLibrary
             switch (Configuration["HostingPlatform"])
             {
                 case "Azure": services.AddDataProtection().PersistKeysToAzureBlobStorage(Configuration["BlobStorageConnectionString"], "keys", "keys"); break;
-                case "AWS":
-                    services.AddDataProtection().PersistKeysToAWSSystemsManager($"/{serviceName}/DataProtection"); 
-                    break;
-                case "GCP":
-                    services.AddDataProtection().PersistKeysToGoogleCloudStorage(
-                            Configuration["BlobStorageConnectionString"],
-                            "DataProtectionProviderKeys.xml");
-                     break;
+                case "AWS": services.AddDataProtection().PersistKeysToAWSSystemsManager($"/{serviceName}/DataProtection"); break;
+                case "GCP": services.AddDataProtection().PersistKeysToGoogleCloudStorage(Configuration["BlobStorageConnectionString"], "DataProtectionProviderKeys.xml"); break;
 #if DEBUG
                 default: services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Directory.GetCurrentDirectory())); break;
 #else

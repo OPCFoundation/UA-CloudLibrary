@@ -52,14 +52,14 @@ namespace UACloudLibrary
         /// Default constructor
         /// </summary>
         public GCPFileStorage(ILoggerFactory logger)
-        {            
+        {
             _gcsClient = StorageClient.Create();
             _logger = logger.CreateLogger("GCPFileStorage");
             _bucket = Environment.GetEnvironmentVariable("BlobStorageConnectionString");
             if (_bucket == null)
             {
                 _logger.LogError($"GCS Url <BlobStorageConnectionString> not provided for file storage");
-                _bucket = string.Empty;         
+                _bucket = string.Empty;
             }
         }
 
@@ -101,7 +101,7 @@ namespace UACloudLibrary
             try
             {
                 var ms = new MemoryStream(Encoding.UTF8.GetBytes(content));
-               
+
                 var response = await _gcsClient.UploadObjectAsync(_bucket, name, "text/plain", ms, cancellationToken: cancellationToken).ConfigureAwait(false);
 
                 if (response.Size > 0)
