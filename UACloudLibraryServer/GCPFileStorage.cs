@@ -76,7 +76,7 @@ namespace UACloudLibrary
 
             try
             {
-                await _gcsClient.GetObjectAsync(_bucket, name, cancellationToken: cancellationToken);
+                await _gcsClient.GetObjectAsync(_bucket, name, cancellationToken: cancellationToken).ConfigureAwait(false);
                 return name;
 
             }
@@ -102,7 +102,7 @@ namespace UACloudLibrary
             {
                 var ms = new MemoryStream(Encoding.UTF8.GetBytes(content));
                
-                var response = await _gcsClient.UploadObjectAsync(_bucket, name, "text/plain", ms, cancellationToken: cancellationToken);
+                var response = await _gcsClient.UploadObjectAsync(_bucket, name, "text/plain", ms, cancellationToken: cancellationToken).ConfigureAwait(false);
 
                 if (response.Size > 0)
                 {
@@ -137,7 +137,7 @@ namespace UACloudLibrary
             try
             {
                 using MemoryStream file = new MemoryStream();
-                await _gcsClient.DownloadObjectAsync(_bucket, name, file, cancellationToken: cancellationToken);
+                await _gcsClient.DownloadObjectAsync(_bucket, name, file, cancellationToken: cancellationToken).ConfigureAwait(false);
                 return Encoding.UTF8.GetString(file.ToArray());
 
             }
