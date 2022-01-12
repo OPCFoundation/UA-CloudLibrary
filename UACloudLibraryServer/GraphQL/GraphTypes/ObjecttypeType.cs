@@ -29,12 +29,13 @@
 
 namespace UACloudLibrary
 {
+    using GraphQL.EntityFramework;
     using GraphQL.Types;
     using UACloudLibrary.DbContextModels;
 
-    public class ObjecttypeType : ObjectGraphType<ObjecttypeModel>
+    public class ObjecttypeType : EfObjectGraphType<AppDbContext, ObjecttypeModel>
     {
-        public ObjecttypeType()
+        public ObjecttypeType(IEfGraphQLService<AppDbContext> graphQLService) : base(graphQLService)
         {
             Field(a => a.objecttype_id);
             Field(a => a.nodeset_id);

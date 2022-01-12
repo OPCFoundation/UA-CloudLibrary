@@ -29,12 +29,13 @@
 
 namespace UACloudLibrary
 {
+    using GraphQL.EntityFramework;
     using GraphQL.Types;
     using UACloudLibrary.DbContextModels;
 
-    public class MetadataType : ObjectGraphType<MetadataModel>
+    public class MetadataType : EfObjectGraphType<AppDbContext, MetadataModel>
     {
-        public MetadataType()
+        public MetadataType(IEfGraphQLService<AppDbContext> graphQLService) : base(graphQLService)
         {
             Field(a => a.metadata_id);
             Field(a => a.nodeset_id);
