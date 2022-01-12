@@ -50,7 +50,11 @@ namespace UACloudLibrary
     using UACloudLibrary.Interfaces;
     using System.IO;
     using Amazon.S3;
-
+    using GraphQL.EntityFramework;
+    using GraphQL.Utilities;
+    using GraphQL;
+    using GraphQL.Types;
+    using Microsoft.AspNetCore.Mvc;
 
     public class Startup
     {
@@ -170,40 +174,60 @@ namespace UACloudLibrary
 #endif
             }
 
+
+            #region GraphQLEntitityFramework
+            GraphTypeTypeRegistry.Register<MetadataModel, MetadataType>();
+            GraphTypeTypeRegistry.Register<DatatypeModel, DatatypeType>();
+            GraphTypeTypeRegistry.Register<ObjecttypeModel, ObjecttypeType>();
+            GraphTypeTypeRegistry.Register<ReferencetypeModel, ReferencetypeType>();
+            GraphTypeTypeRegistry.Register<VariabletypeModel, VariabletypeType>();
+            GraphTypeTypeRegistry.Register<AddressSpaceLicense, AddressSpaceLicenseType>();
+
+            EfGraphQLConventions.RegisterInContainer<AppDbContext>(
+                    services,
+                    model: AppDbContext.GetInstance());
+            EfGraphQLConventions.RegisterConnectionTypesInContainer(services);
+            #endregion
+
             // setup GrapQL interface
-            services.AddScoped<DatatypeModel>();
-            services.AddScoped<DatatypeType>();
+            services.AddSingleton<DatatypeModel>();
+            services.AddSingleton<DatatypeType>();
 
-            services.AddScoped<MetadataModel>();
-            services.AddScoped<MetadataType>();
+            services.AddSingleton<MetadataModel>();
+            services.AddSingleton<MetadataType>();
 
-            services.AddScoped<ObjecttypeModel>();
-            services.AddScoped<ObjecttypeType>();
+            services.AddSingleton<ObjecttypeModel>();
+            services.AddSingleton<ObjecttypeType>();
 
-            services.AddScoped<ReferencetypeModel>();
-            services.AddScoped<ReferencetypeType>();
+            services.AddSingleton<ReferencetypeModel>();
+            services.AddSingleton<ReferencetypeType>();
 
-            services.AddScoped<VariabletypeModel>();
-            services.AddScoped<VariabletypeType>();
+            services.AddSingleton<VariabletypeModel>();
+            services.AddSingleton<VariabletypeType>();
 
             services.AddScoped<UaCloudLibRepo>();
-            services.AddScoped<UaCloudLibQuery>();
-            services.AddScoped<UaCloudLibSchema>();
+            services.AddSingleton<UaCloudLibQuery>();
+            //services.AddScoped<UaCloudLibSchema>();
+
+            services.AddSingleton<IDocumentExecuter, EfDocumentExecuter>();
+            services.AddSingleton<GraphQL.Types.ISchema, UaCloudLibSchema>();
+            var mvc = services.AddMvc(option => option.EnableEndpointRouting = false);
+            mvc.SetCompatibilityVersion(CompatibilityVersion.Latest);
 
             services.AddHttpContextAccessor();
 
-            services.AddGraphQL(options =>
-            {
-                options.EnableMetrics = true;
-            })
-            .AddErrorInfoProvider(opt => opt.ExposeExceptionStackTrace = true)
-            .AddNewtonsoftJson()
-            .AddUserContextBuilder(httpContext =>
-                new GraphQLUserContext
-                {
-                    User = httpContext.User
-                }
-            );
+            //services.AddGraphQL(options =>
+            //{
+            //    options.EnableMetrics = true;
+            //})
+            //.AddErrorInfoProvider(opt => opt.ExposeExceptionStackTrace = true)
+            //.AddNewtonsoftJson()
+            //.AddUserContextBuilder(httpContext =>
+            //    new GraphQLUserContext
+            //    {
+            //        User = httpContext.User
+            //    }
+            //);
 
             services.Configure<IISServerOptions>(options =>
             {
@@ -241,7 +265,7 @@ namespace UACloudLibrary
 
             app.UseAuthorization();
 
-            app.UseGraphQL<UaCloudLibSchema, GraphQLUACloudLibMiddleware<UaCloudLibSchema>>();
+            //app.UseGraphQL<UaCloudLibSchema, GraphQLUACloudLibMiddleware<UaCloudLibSchema>>(path: "/graphql");
 
             app.UseGraphQLPlayground(new PlaygroundOptions()
             {
@@ -255,6 +279,7 @@ namespace UACloudLibrary
                     name: "default",
                     pattern: "{controller=Home}/{action=Index}/{id?}");
 
+                //endpoints.MapControllers();
                 endpoints.MapRazorPages();
             });
         }
