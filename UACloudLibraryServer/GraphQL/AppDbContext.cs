@@ -31,6 +31,7 @@ namespace UACloudLibrary
 {
     using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore;
+    using Microsoft.EntityFrameworkCore.Metadata;
     using Microsoft.Extensions.Configuration;
     using System.IO;
     using UACloudLibrary.DbContextModels;
@@ -45,6 +46,14 @@ namespace UACloudLibrary
         // Needed for design-time DB migration
         public AppDbContext()
         {
+        }
+
+        public static IModel GetInstance()
+        {
+            DbContextOptionsBuilder builder = new DbContextOptionsBuilder();
+            builder.UseNpgsql(PostgreSQLDB.CreateConnectionString());
+            using AppDbContext context = new AppDbContext(builder.Options);
+            return context.Model;
         }
 
         // Needed for design-time DB migration
