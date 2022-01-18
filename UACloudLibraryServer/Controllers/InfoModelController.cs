@@ -141,7 +141,7 @@ namespace UACloudLibrary
                 }
 
                 // check contributors match if nodeset already exists
-                if (!string.IsNullOrEmpty(result) && (string.Compare(uaAddressSpace.Contributor.Name, _database.RetrieveMetaData(legacyNodesetHashCode, "orgname"), true) == 0))
+                if (!string.IsNullOrEmpty(result) && (string.Compare(uaAddressSpace.Contributor.Name, _database.RetrieveMetaData(legacyNodesetHashCode, "orgname"), true) != 0))
                 {
                     return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
                 }
@@ -156,7 +156,7 @@ namespace UACloudLibrary
             }
 
             // check contributors match if nodeset already exists
-            if (!string.IsNullOrEmpty(result) && (string.Compare(uaAddressSpace.Contributor.Name, _database.RetrieveMetaData(nodesetHashCode, "orgname"), true) == 0))
+            if (!string.IsNullOrEmpty(result) && (string.Compare(uaAddressSpace.Contributor.Name, _database.RetrieveMetaData(nodesetHashCode, "orgname"), true) != 0))
             {
                 return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
             }
