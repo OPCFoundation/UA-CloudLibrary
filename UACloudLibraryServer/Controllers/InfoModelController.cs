@@ -128,7 +128,7 @@ namespace UACloudLibrary
                 return new ObjectResult("Nodeset invalid. Please make sure it includes a valid Model URI and publication date!") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            // check if the nodeset already exists in the database (including checking our legacy hashcode)
+            // check if the nodeset already exists in the database for the legacy hashcode algorithm
             string result;
             uint legacyNodesetHashCode = GenerateHashCodeLegacy(uaAddressSpace);
             if (legacyNodesetHashCode != 0)
@@ -139,13 +139,26 @@ namespace UACloudLibrary
                     // nodeset already exists
                     return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
                 }
+
+                // check contributors match if nodeset already exists
+                if (!string.IsNullOrEmpty(result) && (string.Compare(uaAddressSpace.Contributor.Name, _database.RetrieveMetaData(legacyNodesetHashCode, "orgname"), true) == 0))
+                {
+                    return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
+                }
             }
 
+            // check if the nodeset already exists in the database for the new hashcode algorithm
             result = await _storage.FindFileAsync(nodesetHashCode.ToString()).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(result) && !overwrite)
             {
                 // nodeset already exists
                 return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
+            }
+
+            // check contributors match if nodeset already exists
+            if (!string.IsNullOrEmpty(result) && (string.Compare(uaAddressSpace.Contributor.Name, _database.RetrieveMetaData(nodesetHashCode, "orgname"), true) == 0))
+            {
+                return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
             }
 
             // upload the new file to the storage service, and get the file handle that the storage service returned
