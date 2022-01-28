@@ -67,56 +67,99 @@ namespace UACloudLibClientLibrary
         /// Retrieves a list of ObjectTypes
         /// </summary>
         /// <returns></returns>
-        public async Task<List<ObjectResult>> GetObjectTypes()
+        public async Task<PageInfo<ObjectResult>> GetObjectTypes()
         {
-            request.Query = PrebuiltQueries.ObjectQuery;
-            return await SendAndConvert<List<ObjectResult>>(request);
+            request.Query = QueryMethods.QueryObjectType();
+            return await SendAndConvert<PageInfo<ObjectResult>>(request);
         }
         /// <summary>
         /// Retrieves a list of metadata
         /// </summary>
         /// <returns></returns>
-        public async Task<List<MetadataResult>> GetMetadata()
+        public async Task<PageInfo<MetadataResult>> GetMetadata()
         {
-            request.Query = PrebuiltQueries.MetadataQuery;
-            return await SendAndConvert<List<MetadataResult>>(request);            
+            request.Query = QueryMethods.QueryMetadata(); ;
+            return await SendAndConvert<PageInfo<MetadataResult>>(request);            
         }
         /// <summary>
         /// Retrieves a list of variabletypes
         /// </summary>
         /// <returns></returns>
-        public async Task<List<VariableResult>> GetVariables()
+        public async Task<PageInfo<VariableResult>> GetVariables()
         {
-            request.Query = PrebuiltQueries.VariableQuery;
-            return await SendAndConvert<List<VariableResult>>(request);
+            request.Query = QueryMethods.QueryVariables();
+            return await SendAndConvert<PageInfo<VariableResult>>(request);
         }
+
         /// <summary>
         /// Retrieves a list of referencetype
         /// </summary>
         /// <returns></returns>
-        public async Task<List<ReferenceResult>> GetReferencetype()
+        public async Task<PageInfo<ReferenceResult>> GetReferencetype()
         {
-            request.Query = PrebuiltQueries.ReferenceQuery;
-            return await SendAndConvert<List<ReferenceResult>>(request);
+            request.Query = QueryMethods.QueryReferences();
+            return await SendAndConvert<PageInfo<ReferenceResult>>(request);
         }
+
         /// <summary>
         /// Retrieves a list of datatype
         /// </summary>
         /// <returns></returns>
-        public async Task<List<DatatypeResult>> GetDatatype()
+        public async Task<PageInfo<DatatypeResult>> GetDatatype()
         {
-            request.Query = PrebuiltQueries.DatatypeQuery;
-            return await SendAndConvert<List<DatatypeResult>>(request);
+            request.Query = QueryMethods.QueryDatatypes();
+            return await SendAndConvert<PageInfo<DatatypeResult>>(request);
         }
+
         /// <summary>
         /// Retrieves a list of metadata and converts it to a list of addressspaces
         /// </summary>
         /// <returns></returns>
-        public async Task<List<AddressSpace>> GetConvertedResult()
-        {
-            var result = await GetMetadata();
+        //public async Task<List<AddressSpace>> GetConvertedResult()
+        //{
+        //    var result = await GetMetadata();
 
-            return ConvertMetadataToAddressspace.Convert(result);
+        //    return ConvertMetadataToAddressspace.Convert(result);
+        //}
+
+        /// <summary>
+        /// Queries the organisations with the given filters.
+        /// </summary>
+        /// <param name="pageSize"></param>
+        /// <param name="after"></param>
+        /// <param name="filter"></param>
+        /// <returns>The converted JSON result</returns>
+        public async Task<PageInfo<Organisation>> GetOrganisations(int pageSize = 10, string after = "-1", List<OrganisationWhereExpression> filter = null)
+        {
+            request.Query = QueryMethods.QueryOrganisations(pageSize, after, filter);
+            return await SendAndConvert<PageInfo<Organisation>>(request);
+        }
+
+        /// <summary>
+        /// Queries the addressspaces with the given filters and converts the result
+        /// </summary>
+        /// <param name="pageSize"></param>
+        /// <param name="after"></param>
+        /// <param name="filter"></param>
+        /// <param name="groupedExpression"></param>
+        /// <returns>The converted JSON result</returns>
+        public async Task<PageInfo<AddressSpace>> GetAddressSpaces(int pageSize = 10, string after = "-1", List<AddressSpaceWhereExpression> filter = null, GroupedOrExpression<AddressSpaceSearchField> groupedExpression = null)
+        {
+            request.Query = QueryMethods.AddressSpacesQuery(after, pageSize, filter, groupedExpression);
+            return await SendAndConvert<PageInfo<AddressSpace>>(request);
+        }
+
+        /// <summary>
+        /// Queries the categories with the given filters
+        /// </summary>
+        /// <param name="pageSize"></param>
+        /// <param name="after"></param>
+        /// <param name="filter"></param>
+        /// <returns>The converted JSON result</returns>
+        public async Task<PageInfo<AddressSpaceCategory>> GetAddressSpaceCategories(int pageSize = 10, string after = "-1", List<CategoryWhereExpression> filter = null)
+        {
+            request.Query = QueryMethods.QueryCategories(pageSize, after, filter);
+            return await SendAndConvert<PageInfo<AddressSpaceCategory>>(request);
         }
 
         /// <summary>
