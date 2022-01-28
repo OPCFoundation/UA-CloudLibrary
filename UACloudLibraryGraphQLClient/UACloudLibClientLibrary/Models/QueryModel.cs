@@ -19,6 +19,7 @@ namespace UACloudLibClientLibrary.Models
         [JsonProperty("datatype_namespace")]
         public string Namespace { get; set; }
     }
+
     [JsonObject("metadata")]
     public class MetadataResult
     {
@@ -31,6 +32,7 @@ namespace UACloudLibClientLibrary.Models
         [JsonProperty("metadata_value")]
         public string Value { get; set; }
     }
+
     [JsonObject("objecttype")]
     public class ObjectResult
     {
@@ -45,20 +47,22 @@ namespace UACloudLibClientLibrary.Models
         [JsonProperty("objecttype_namespace")]
         public string Namespace { get; set; }
     }
+
     [JsonObject("reference")]
     public class ReferenceResult
     {
-        [JsonProperty("reference_id")]
+        [JsonProperty("referencetype_id")]
         public int ID { get; set; }
         [JsonProperty("nodeset_id")]
         public long NodesetID { get; set; }
-        [JsonProperty("reference_browsename")]
+        [JsonProperty("referencetype_browsename")]
         public string Browsename { get; set; }
-        [JsonProperty("reference_value")]
+        [JsonProperty("referencetype_value")]
         public string Value { get; set; }
-        [JsonProperty("reference_namespace")]
+        [JsonProperty("referencetype_namespace")]
         public string Namespace { get; set; }
     }
+
     [JsonObject("variabletype")]
     public class VariableResult
     {
@@ -70,7 +74,7 @@ namespace UACloudLibClientLibrary.Models
         public string Browsename { get; set; }
         [JsonProperty("variabletype_value")]
         public string Value { get; set; }
-        [JsonProperty("vaiabletype_namespace")]
+        [JsonProperty("variabletype_namespace")]
         public string Namespace { get; set; }
     }
 }
