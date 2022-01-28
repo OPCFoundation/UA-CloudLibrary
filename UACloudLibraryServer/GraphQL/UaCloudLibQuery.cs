@@ -36,43 +36,14 @@ namespace UACloudLibrary
     {
         public UaCloudLibQuery(IEfGraphQLService<AppDbContext> efGraphQLService) : base(efGraphQLService)
         {
-            //AddSingleField(name: "datatype", resolve: context => context.DbContext.datatype);
             AddQueryConnectionField(name: "datatypes", resolve: context => context.DbContext.datatype);
             AddQueryConnectionField(name: "metadata", resolve: context => context.DbContext.metadata);
             AddQueryConnectionField(name: "objecttype", resolve: context => context.DbContext.objecttype);
             AddQueryConnectionField(name: "referencetype", resolve: context => context.DbContext.referencetype);
             AddQueryConnectionField(name: "variabletype", resolve: context => context.DbContext.variabletype);
-            Name = "query";
+            AddQueryConnectionField(name: "organisation", resolve: context => context.DbContext.organisation);
+            AddQueryConnectionField(name: "addressspace", resolve: context => context.DbContext.addressSpace);
+            AddQueryConnectionField(name: "category", resolve: context => context.DbContext.category);
         }
-
-        //public UaCloudLibQuery(UaCloudLibRepo cloudLibRepo)
-        //{
-        //    Name = "UACloudLibraryQuery";
-
-        //    Field<ListGraphType<DatatypeType>>(
-        //        "datatype",
-        //        resolve: context => cloudLibRepo.GetDataTypes()
-        //    );
-
-        //    Field<ListGraphType<MetadataType>>(
-        //        "metadata",
-        //        resolve: context => cloudLibRepo.GetMetaData()
-        //    );
-
-        //    Field<ListGraphType<ObjecttypeType>>(
-        //        "objecttype",
-        //        resolve: context => cloudLibRepo.GetObjectTypes()
-        //    );
-
-        //    Field<ListGraphType<ReferencetypeType>>(
-        //        "referencetype",
-        //        resolve: context => cloudLibRepo.GetReferenceTypes()
-        //    );
-
-        //    Field<ListGraphType<VariabletypeType>>(
-        //        "variabletype",
-        //        resolve: context => cloudLibRepo.GetVariableTypes()
-        //    );
-        //}
     }
 }
