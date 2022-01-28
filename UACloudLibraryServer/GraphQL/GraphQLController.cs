@@ -1,21 +1,23 @@
-﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
-using GraphQL;
-using GraphQL.NewtonsoftJson;
-using GraphQL.Types;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
-using Newtonsoft.Json.Linq;
-using GraphQL.EntityFramework;
-
-namespace UA_CloudLibrary.GraphQL
+﻿namespace UA_CloudLibrary
 {
-    
+    using System;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using GraphQL;
+    using GraphQL.NewtonsoftJson;
+    using GraphQL.Types;
+    using Microsoft.AspNetCore.Mvc;
+    using Microsoft.AspNetCore.Mvc.ModelBinding;
+    using Newtonsoft.Json.Linq;
+    using GraphQL.EntityFramework;
+    using UACloudLibrary;
+    using Microsoft.AspNetCore.Authorization;
+    using System.Diagnostics.CodeAnalysis;
 
     #region GraphQlController
     [Route("[controller]")]
     [ApiController]
+    [Authorize(AuthenticationSchemes = "BasicAuthentication")]
     public class GraphQlController :
         Controller
     {
@@ -41,7 +43,9 @@ namespace UA_CloudLibrary.GraphQL
         public class PostBody
         {
             public string? OperationName { get; set; }
-            public string Query { get; set; }
+            // removes warning cs8618
+            [NotNull]
+            public string? Query { get; set; }
             public JObject? Variables { get; set; }
         }
 
