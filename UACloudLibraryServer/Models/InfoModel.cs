@@ -29,8 +29,10 @@
 
 namespace UACloudLibrary
 {
+    using Microsoft.EntityFrameworkCore;
     using System;
     using System.ComponentModel.DataAnnotations;
+    using System.ComponentModel.DataAnnotations.Schema;
 
     public enum AddressSpaceLicense
     {
@@ -39,6 +41,7 @@ namespace UACloudLibrary
         Custom
     }
 
+    [Keyless]
     public class AddressSpace
     {
         public AddressSpace()
@@ -65,26 +68,37 @@ namespace UACloudLibrary
             AdditionalProperties = new Tuple<string, string>[0];
         }
 
+        [Key]
+        [Column("addressspaceid")]
+        public int AddressSpaceId { get; set; }
+
         [Required]
+        [Column("title")]
         public string Title { get; set; }
 
         [Required]
+        [Column("versionnumber")]
         public string Version { get; set; }
 
         [Required]
+        [Column("license")]
         public AddressSpaceLicense License { get; set; }
 
         [Required]
+        [Column("copyrighttext")]
         public string CopyrightText {get; set;}
 
+        [Column("creationtime")]
         public DateTime CreationTime { get; set; }
 
+        [Column("lastmodificationtime")]
         public DateTime LastModificationTime { get; set; }
 
         [Required]
         public Organisation Contributor { get; set; }
 
         [Required]
+        [Column("description")]
         public string Description { get; set; }
 
         [Required]
@@ -97,25 +111,34 @@ namespace UACloudLibrary
         /// Link to additional documentation, specifications, GitHub, etc.
         /// For example, If the address space is based on a standard or official UA Information Model, this links to the standard or the OPC specification URL.
         /// </summary>
+        [Column("documentationurl")]
         public Uri DocumentationUrl { get; set; }
 
+        [Column("iconurl")]
         public Uri IconUrl { get; set; }
 
+        [Column("licenseurl")]
         public Uri LicenseUrl { get; set; }
 
+        [Column("keywords")]
         public string[] Keywords { get; set; }
 
+        [Column("purchasinginformationurl")]
         public Uri PurchasingInformationUrl { get; set; }
 
+        [Column("releasenotesurl")]
         public Uri ReleaseNotesUrl { get; set; }
 
+        [Column("testspecificationurl")]
         public Uri TestSpecificationUrl { get; set; }
 
         /// <summary>
         /// Supported ISO language codes
         /// </summary>
+        [Column("supportedlocales")]
         public string[] SupportedLocales { get; set; }
 
+        [Column("numberofdownloads")]
         public uint NumberOfDownloads { get; set; }
 
         public Tuple<string, string>[] AdditionalProperties { get; set; }
@@ -134,19 +157,30 @@ namespace UACloudLibrary
             LastModificationTime = DateTime.UtcNow;
         }
 
+        [Key]
+        [Column("contributorid")]
+        public int ContributorId { get; set; }
+
         [Required]
+        [Column("name")]
         public string Name { get; set; }
 
+        [Column("description")]
         public string Description { get; set; }
 
+        [Column("logourl")]
         public Uri LogoUrl { get; set; }
 
+        [Column("contactemail")]
         public string ContactEmail { get; set; }
 
+        [Column("website")]
         public Uri Website { get; set; }
 
+        [Column("creationtime")]
         public DateTime CreationTime { get; set; }
 
+        [Column("lastmodificationtime")]
         public DateTime LastModificationTime { get; set; }
     }
 
@@ -160,16 +194,24 @@ namespace UACloudLibrary
             CreationTime = DateTime.UtcNow;
             LastModificationTime = DateTime.UtcNow;
         }
+        [Key]
+        [Column("categoryid")]
+        public int CategoryId { get; set; }
 
         [Required]
+        [Column("name")]
         public string Name { get; set; }
 
+        [Column("description")]
         public string Description { get; set; }
 
+        [Column("iconurl")]
         public Uri IconUrl { get; set; }
 
+        [Column("creationtime")]
         public DateTime CreationTime { get; set; }
 
+        [Column("lastmodificationtime")]
         public DateTime LastModificationTime { get; set; }
     }
 
