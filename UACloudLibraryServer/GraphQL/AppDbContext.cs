@@ -82,6 +82,12 @@ namespace UACloudLibrary
 
         public DbSet<VariabletypeModel> variabletype { get; set; }
 
+        public DbSet<AddressSpaceModel> addressSpace { get; set; }
+        
+        public DbSet<Organisation> organisation { get; set; }
+
+        public DbSet<AddressSpaceCategory> category { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -91,6 +97,15 @@ namespace UACloudLibrary
             modelBuilder.Entity<ObjecttypeModel>();
             modelBuilder.Entity<ReferencetypeModel>();
             modelBuilder.Entity<VariabletypeModel>();
+
+            modelBuilder.Entity<Organisation>().ToTable("organisation");
+            modelBuilder.Entity<AddressSpaceCategory>().ToTable("category");
+            modelBuilder.Entity<AddressSpaceModel>()
+                .Ignore(e => e.AdditionalProperties)
+                .Ignore(e => e.Nodeset)
+                .ToTable("addressspace");
+            modelBuilder.Entity<AddressSpaceModel>().HasOne(e => e.Contributor).WithMany();
+            modelBuilder.Entity<AddressSpaceModel>().HasOne(e => e.Category).WithMany();
         }
     }
 }
