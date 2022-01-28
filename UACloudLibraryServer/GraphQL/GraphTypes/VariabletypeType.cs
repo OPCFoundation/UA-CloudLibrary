@@ -30,7 +30,6 @@
 namespace UACloudLibrary
 {
     using GraphQL.EntityFramework;
-    using GraphQL.Types;
     using UACloudLibrary.DbContextModels;
 
     public class VariabletypeType : EfObjectGraphType<AppDbContext, VariabletypeModel>
