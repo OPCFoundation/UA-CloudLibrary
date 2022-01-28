@@ -31,6 +31,7 @@ namespace UACloudLibrary
 {
     using Microsoft.Extensions.Logging;
     using Npgsql;
+    using NpgsqlTypes;
     using System;
     using System.Collections.Generic;
     using System.Data;
@@ -71,7 +72,10 @@ namespace UACloudLibrary
                 "CREATE TABLE IF NOT EXISTS ObjectType(ObjectType_id serial PRIMARY KEY, Nodeset_id BIGINT, ObjectType_BrowseName TEXT, ObjectType_Value TEXT, ObjectType_Namespace TEXT)",
                 "CREATE TABLE IF NOT EXISTS VariableType(VariableType_id serial PRIMARY KEY, Nodeset_id BIGINT, VariableType_BrowseName TEXT, VariableType_Value TEXT, VariableType_Namespace TEXT)",
                 "CREATE TABLE IF NOT EXISTS DataType(DataType_id serial PRIMARY KEY, Nodeset_id BIGINT, DataType_BrowseName TEXT, DataType_Value TEXT, DataType_Namespace TEXT)",
-                "CREATE TABLE IF NOT EXISTS ReferenceType(ReferenceType_id serial PRIMARY KEY, Nodeset_id BIGINT, ReferenceType_BrowseName TEXT, ReferenceType_Value TEXT, ReferenceType_Namespace TEXT)"
+                "CREATE TABLE IF NOT EXISTS ReferenceType(ReferenceType_id serial PRIMARY KEY, Nodeset_id BIGINT, ReferenceType_BrowseName TEXT, ReferenceType_Value TEXT, ReferenceType_Namespace TEXT)",
+                "CREATE TABLE IF NOT EXISTS Organisation(ContributorId serial PRIMARY KEY, Name TEXT, Description TEXT, LogoUrl TEXT, ContactEmail TEXT, Website TEXT, CreationTime TIMESTAMP, LastModificationTime TIMESTAMP)",
+                "CREATE TABLE IF NOT EXISTS Category(CategoryId serial PRIMARY KEY, Name TEXT, Description TEXT, IconUrl TEXT, CreationTime TIMESTAMP, LastModificationTime TIMESTAMP)",
+                "CREATE TABLE IF NOT EXISTS AddressSpace(AddressSpaceid serial PRIMARY KEY, Title TEXT, VersionNumber Text, CopyrightText TEXT, CreationTime TIMESTAMP, LastModificationTime TIMESTAMP, Description TEXT, DocumentationUrl TEXT, IconUrl TEXT, LicenseUrl TEXT, License INTEGER, PurchasingInformationUrl TEXT, TestSpecificationUrl TEXT, ReleaseNotesUrl TEXT, Keywords TEXT[], SupportedLocales TEXT[], NumberOfDownloads BIGINT, ContributorId INTEGER, CategoryId INTEGER, Nodesetid BIGINT, CONSTRAINT ContributorId FOREIGN KEY (Contributorid) REFERENCES Organisation(contributorid),CONSTRAINT CategoryId FOREIGN KEY (CategoryId) REFERENCES Category(Categoryid))"
             };
 
             try
