@@ -6,7 +6,6 @@
     {
         public CategoryType(IEfGraphQLService<AppDbContext> graphQlService) : base(graphQlService)
         {
-            //Field<IntGraphType, int>("category_id");
             Field(e => e.CategoryId);
             Field(e => e.Name);
             AddNavigationField(name: "IconUrl", resolve: e => e.Source.IconUrl, graphType: typeof(UriGraphType));
