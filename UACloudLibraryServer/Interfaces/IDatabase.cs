@@ -46,5 +46,7 @@ namespace UACloudLibrary
         string[] GetAllNamespacesAndNodesets();
 
         string[] GetAllNamesAndNodesets();
+
+        bool AddAddressSpace(uint nodesetId, AddressSpace addressSpace, bool overwrite);
     }
 }

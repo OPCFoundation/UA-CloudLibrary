@@ -409,5 +409,262 @@ namespace UACloudLibrary
 
             return new string[0];
         }
+
+        public bool AddAddressSpace(uint nodesetId, AddressSpace addressSpace, bool overwrite)
+        {
+            bool result = false;
+            long orgindex = -1;
+            long categoryindex = -1;
+            if (overwrite)
+            {
+                OverwriteOldAddressspace(nodesetId, addressSpace, ref orgindex, ref categoryindex);
+            }
+
+            if (orgindex == -1)
+            {
+                orgindex = AddOrganisation(addressSpace.Contributor, overwrite);
+            }
+
+            if (categoryindex == -1)
+            {
+                categoryindex = AddCategory(addressSpace.Category, overwrite);
+            }
+
+            if (orgindex >= 0 && categoryindex >= 0)
+            {
+                try
+                {
+                    if (_connection.State != ConnectionState.Open)
+                    {
+                        _connection.Close();
+                        _connection.Open();
+                    }
+
+                    string sqlQuery = @$"INSERT INTO addressspace 
+(title, versionnumber, iconurl, license, licenseurl, description, copyrighttext, creationtime, lastmodificationtime, contributor, category, nodeset, numberofdownloads) 
+VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @copyright, @creationtime, @lastmodified, @orgindex, @categoryindex, @nodesetid, 0)";
+
+                    NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlQuery, _connection);
+                    sqlCommand.Parameters.AddWithValue("title", addressSpace.Title);
+                    sqlCommand.Parameters.AddWithValue("versionnumber", addressSpace.Version);
+                    sqlCommand.Parameters.AddWithValue("iconurl", addressSpace.IconUrl.ToString());
+                    sqlCommand.Parameters.AddWithValue("license", (int)addressSpace.License);
+                    sqlCommand.Parameters.AddWithValue("licenseurl", addressSpace.LicenseUrl.ToString());
+                    sqlCommand.Parameters.AddWithValue("description", addressSpace.Description);
+                    sqlCommand.Parameters.AddWithValue("copyright", addressSpace.CopyrightText);
+                    sqlCommand.Parameters.AddWithValue("creationtime", addressSpace.CreationTime);
+                    sqlCommand.Parameters.AddWithValue("lastmodified", addressSpace.LastModificationTime);
+                    sqlCommand.Parameters.AddWithValue("orgindex", orgindex);
+                    sqlCommand.Parameters.AddWithValue("categoryindex", categoryindex);
+                    sqlCommand.Parameters.AddWithValue("nodesetid", (long)nodesetId);
+                    sqlCommand.CommandText = sqlQuery;
+                    sqlCommand.ExecuteNonQuery();
+                    sqlCommand.Parameters.Clear();
+                    result = true;
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e.Message);
+                    result = false;
+                }
+            }
+            return result;
+        }
+
+        private long AddOrganisation(Organisation org, bool overwrite)
+        {
+            long result = -1;
+            try
+            {
+                if (_connection.State != ConnectionState.Open)
+                {
+                    _connection.Close();
+                    _connection.Open();
+                }
+
+                string sqlQuery = $"INSERT INTO organisation (name, website, logourl, creationtime, lastmodificationtime, description, contactemail) VALUES (@name, @website, @logourl, @creationtime, @lastmodification, @description, @contactemail); SELECT currval(pg_get_serial_sequence('organisation', 'organisation_id'))";
+                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlQuery, _connection);
+                sqlCommand.CommandText = sqlQuery;
+                sqlCommand.Parameters.AddWithValue("name", org.Name);
+                sqlCommand.Parameters.AddWithValue("website", org.Website.ToString());
+                sqlCommand.Parameters.AddWithValue("logourl", org.LogoUrl.ToString());
+                sqlCommand.Parameters.AddWithValue("creationtime", org.CreationTime);
+                sqlCommand.Parameters.AddWithValue("lastmodification", org.LastModificationTime);
+                sqlCommand.Parameters.AddWithValue("description", org.Description);
+                sqlCommand.Parameters.AddWithValue("contactemail", org.ContactEmail);
+                result = (long)sqlCommand.ExecuteScalar();
+                sqlCommand.Parameters.Clear();
+
+
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e.Message);
+            }
+            return result;
+        }
+
+        private long AddCategory(AddressSpaceCategory category, bool overwrite)
+        {
+            long result = -1;
+            try
+            {
+                if (_connection.State != ConnectionState.Open)
+                {
+                    _connection.Close();
+                    _connection.Open();
+                }
+
+                string sqlQuery = "INSERT INTO category (name, description, iconurl, creationtime, lastmodificationtime) VALUES (@name, @description, @iconurl, @creationtime, @lastmodification); SELECT currval(pg_get_serial_sequence('category', 'category_id'))";
+                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlQuery, _connection);
+                sqlCommand.CommandText = sqlQuery;
+                sqlCommand.Parameters.AddWithValue("name", category.Name);
+                sqlCommand.Parameters.AddWithValue("description", category.Description);
+                sqlCommand.Parameters.AddWithValue("iconurl", category.IconUrl.ToString());
+                sqlCommand.Parameters.AddWithValue("creationtime", category.CreationTime);
+                sqlCommand.Parameters.AddWithValue("lastmodification", category.LastModificationTime);
+                result = (long)sqlCommand.ExecuteScalar();
+                sqlCommand.Parameters.Clear();
+
+                return result;
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e.Message);
+            }
+            return result;
+        }
+
+        #region Overwriting AddressSpace
+        private bool OverwriteOldAddressspace(uint nodesetid, AddressSpace newAddressSpace, ref long orgId, ref long categoryId)
+        {
+            bool result = false;
+            try
+            {
+                if (_connection.State != ConnectionState.Open)
+                {
+                    _connection.Close();
+                    _connection.Open();
+                }
+                string sqlQuery = "SELECT addressspace_id, contributor, category FROM addressspace WHERE nodeset = @id";
+                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlQuery, _connection);
+                sqlCommand.Parameters.AddWithValue("id", (long)nodesetid);
+
+                long addressspace_id = -1;
+
+                using (NpgsqlDataReader reader = sqlCommand.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        addressspace_id = reader.GetInt64("addressspace_id");
+                        orgId = reader.GetInt64("contributor");
+                        categoryId = reader.GetInt64("category");
+                    }
+                }
+
+                // Check if organisation info changed
+                OverwriteOrganisation(newAddressSpace.Contributor, orgId, sqlCommand);
+
+                // Check if category info changed
+                OverwriteCategory(newAddressSpace.Category, categoryId, sqlCommand);
+
+                sqlCommand.Parameters.Clear();
+                if (addressspace_id >= 0)
+                {
+                    sqlQuery = string.Format("INSERT INTO addressspace { title, lastmodificationtime, versionnumber, copyrighttext, description, documentationurl, iconurl, licenseurl, license, purchasinginformationurl, testspecificationurl, releasenotesurl, keywords, supportedlocales } VALUES { @title, @lastmod, @version, @copyright, @description, @docurl, @iconurl, @licenseurl, @license, @purchasingurl, @testurl, @releaseurl, @keywords, @locales } WHERE addressspace_id = {0}", addressspace_id);
+                    sqlCommand.CommandText = sqlQuery;
+                    sqlCommand.Parameters.AddWithValue("title", newAddressSpace.Title);
+                    sqlCommand.Parameters.AddWithValue("lastmod", newAddressSpace.LastModificationTime);
+                    sqlCommand.Parameters.AddWithValue("version", newAddressSpace.Version);
+                    sqlCommand.Parameters.AddWithValue("copyright", newAddressSpace.CopyrightText);
+                    sqlCommand.Parameters.AddWithValue("description", newAddressSpace.Description);
+                    sqlCommand.Parameters.AddWithValue("docurl", newAddressSpace.DocumentationUrl);
+                    sqlCommand.Parameters.AddWithValue("iconurl", newAddressSpace.IconUrl);
+                    sqlCommand.Parameters.AddWithValue("licenseurl", newAddressSpace.LicenseUrl);
+                    sqlCommand.Parameters.AddWithValue("license", (int)newAddressSpace.License);
+                    sqlCommand.Parameters.AddWithValue("purchasingurl", newAddressSpace.PurchasingInformationUrl);
+                    sqlCommand.Parameters.AddWithValue("testurl", newAddressSpace.TestSpecificationUrl);
+                    sqlCommand.Parameters.AddWithValue("releaseurl", newAddressSpace.ReleaseNotesUrl);
+                    sqlCommand.Parameters.AddWithValue("keywords", newAddressSpace.Keywords);
+                    sqlCommand.Parameters.AddWithValue("locales", newAddressSpace.SupportedLocales);
+                    sqlCommand.ExecuteNonQuery();
+                    sqlCommand.Parameters.Clear();
+                }
+                result = true;
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e.Message);
+                result = false;
+            }
+            return result;
+        }
+
+        private void OverwriteCategory(AddressSpaceCategory category, long category_id, NpgsqlCommand sqlCommand)
+        {
+            string sqlQuery = string.Format("SELECT name, logourl, description FROM category WHERE category_id = {0}", category_id);
+            sqlCommand.CommandText = sqlQuery;
+            using (NpgsqlDataReader reader = sqlCommand.ExecuteReader())
+            {
+                if (reader.Read())
+                {
+                    string name = reader.GetString("name");
+                    string description = reader.GetString("description");
+                    string logourl = reader.GetString("logourl");
+
+                    if (name != category.Name
+                        || description != category.Description
+                        || logourl != category.IconUrl.ToString())
+                    {
+                        sqlQuery = "INSERT INTO category { name, description, logourl, lastmodificationtime } VALUES {@name, @description, @logourl, @lastmodification } WHERE category_id = @id";
+                        sqlCommand.CommandText = sqlQuery;
+                        sqlCommand.Parameters.AddWithValue("name", category.Name);
+                        sqlCommand.Parameters.AddWithValue("description", category.Description);
+                        sqlCommand.Parameters.AddWithValue("logourl", category.IconUrl);
+                        sqlCommand.Parameters.AddWithValue("lastmodification", category.LastModificationTime);
+                        sqlCommand.Parameters.AddWithValue("id", category_id);
+                        sqlCommand.ExecuteNonQuery();
+                        sqlCommand.Parameters.Clear();
+                    }
+                }
+            }
+        }
+
+        private void OverwriteOrganisation(Organisation organisation, long organisation_id, NpgsqlCommand sqlCommand)
+        {
+            string sqlQuery = string.Format("SELECT name, contactemail, website, description, logourl FROM organisation WHERE organisation_id = {0}", organisation_id);
+            sqlCommand.CommandText = sqlQuery;
+            using (NpgsqlDataReader reader = sqlCommand.ExecuteReader())
+            {
+                if (reader.Read())
+                {
+                    string name = reader.GetString("name");
+                    string contactemail = reader.GetString("contactemail");
+                    string website = reader.GetString("website");
+                    string description = reader.GetString("description");
+                    string logourl = reader.GetString("logourl");
+
+                    if (name != organisation.Name
+                        || contactemail != organisation.ContactEmail
+                        || website != organisation.Website.ToString()
+                        || description != organisation.Description
+                        || logourl != organisation.LogoUrl.ToString())
+                    {
+                        sqlQuery = "INSERT INTO organisation { name, contactemail, website, description, logourl, lastmodificationtime } VALUES {@name, @mail, @website, @description, @logourl, @lastmodification } WHERE organisation_id = @id";
+                        sqlCommand.CommandText = sqlQuery;
+                        sqlCommand.Parameters.AddWithValue("name", organisation.Name);
+                        sqlCommand.Parameters.AddWithValue("mail", organisation.ContactEmail);
+                        sqlCommand.Parameters.AddWithValue("website", organisation.Website);
+                        sqlCommand.Parameters.AddWithValue("description", organisation.Description);
+                        sqlCommand.Parameters.AddWithValue("logourl", organisation.LogoUrl);
+                        sqlCommand.Parameters.AddWithValue("lastmodification", organisation.LastModificationTime);
+                        sqlCommand.Parameters.AddWithValue("id", organisation_id);
+                        sqlCommand.ExecuteNonQuery();
+                        sqlCommand.Parameters.Clear();
+                    }
+                }
+            }
+        }
     }
+    #endregion
 }
