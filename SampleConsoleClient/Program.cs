@@ -84,12 +84,14 @@ namespace SampleConsoleClient
                 query {
                     objecttype
                     {
+                        items{
                         objecttype_browsename objecttype_value objecttype_namespace nodeset_id
+                    }
                     }
                 }"
 
             };
-            var response = graphQLClient.SendQueryAsync<UACloudLibGraphQLObjecttypeQueryResponse>(request).GetAwaiter().GetResult();
+            var response = graphQLClient.SendQueryAsync<ObjectResult>(request).GetAwaiter().GetResult();
             Console.WriteLine(JsonSerializer.Serialize(response, new JsonSerializerOptions { WriteIndented = true }));
 
             Console.WriteLine();
@@ -100,7 +102,9 @@ namespace SampleConsoleClient
                 query {
                     metadata
                     {
+                        items{
                         metadata_name metadata_value nodeset_id
+                    }
                     }
                 }"
 
@@ -151,31 +155,38 @@ namespace SampleConsoleClient
 
             UACloudLibClient client = new UACloudLibClient(args[0], args[1], args[2]);
 
-            Console.WriteLine("\nTesting object query");
-            List<ObjectResult> test = client.GetObjectTypes().GetAwaiter().GetResult();
-            foreach(ObjectResult result in test)
+            Console.WriteLine("\nTesting AddressSpace query");
+            PageInfo<AddressSpace> addressSpaces = client.GetAddressSpaces(20, "-1").GetAwaiter().GetResult();
+            Console.WriteLine("Total Count: {0}", addressSpaces.TotalCount);
+            foreach (PageItem<AddressSpace> space in addressSpaces.Items)
             {
-                Console.WriteLine($"{result.ID}, {result.Namespace}, {result.Browsename}, {result.Value}");
+                Console.WriteLine("Title: {0}", space.Item.Title);
             }
 
-            Console.WriteLine("\nTesting metadata query");
-            List<MetadataResult> metadatas = client.GetMetadata().GetAwaiter().GetResult();
-            foreach(MetadataResult metadata in metadatas)
+            Console.WriteLine("\nTesting Organisation query");
+            PageInfo<Organisation> organisations = client.GetOrganisations(20, "-1").GetAwaiter().GetResult();
+            Console.WriteLine("Total Count: {0}", organisations.TotalCount);
+            foreach (PageItem<Organisation> organisation in organisations.Items)
             {
-                Console.WriteLine($"{metadata.ID}, {metadata.Name}, {metadata.Value}");
+                Console.WriteLine("Name: {0}", organisation.Item.Name);
             }
 
-            Console.WriteLine("\nTesting query and convertion of metadata");
-            List<AddressSpace> finalResult = client.GetConvertedResult().GetAwaiter().GetResult();
-            foreach(AddressSpace result in finalResult)
-            {
-                Console.WriteLine($"{result.Title} by {result.Contributor.Name} last update on {result.LastModificationTime}");
-            }
+            Console.WriteLine("\nTesting datatype query");
+            client.GetDatatype().GetAwaiter().GetResult();
 
-            if(finalResult.Count > 0)
+            Console.WriteLine("\nTesting referencetype query");
+            client.GetReferencetype().GetAwaiter().GetResult();
+
+            Console.WriteLine("\nTesting variables query");
+            client.GetVariables().GetAwaiter().GetResult();
+
+            Console.WriteLine("\nTesting objecttype query");
+            client.GetObjectTypes().GetAwaiter().GetResult();
+
+            if (addressSpaces.Items.Count > 0)
             {
                 Console.WriteLine("Testing download of nodeset");
-                AddressSpace result = client.DownloadNodeset(finalResult[0].MetadataID);
+                AddressSpace result = client.DownloadNodeset(addressSpaces.Items[0].Item.NodesetId.ToString());
                 if (!string.IsNullOrEmpty(result.Nodeset.NodesetXml))
                 {
                     Console.WriteLine("Nodeset Downloaded");
