@@ -182,52 +182,33 @@ namespace UACloudLibrary
             GraphTypeTypeRegistry.Register<ReferencetypeModel, ReferencetypeType>();
             GraphTypeTypeRegistry.Register<VariabletypeModel, VariabletypeType>();
             GraphTypeTypeRegistry.Register<AddressSpaceLicense, AddressSpaceLicenseType>();
+            GraphTypeTypeRegistry.Register<AddressSpaceModel, AddressSpaceType> ();
+            GraphTypeTypeRegistry.Register<AddressSpaceCategory, CategoryType> ();
+            GraphTypeTypeRegistry.Register<Organisation, OrganisationType> ();
 
             EfGraphQLConventions.RegisterInContainer<AppDbContext>(
                     services,
                     model: AppDbContext.GetInstance());
             EfGraphQLConventions.RegisterConnectionTypesInContainer(services);
-            #endregion
-
-            // setup GrapQL interface
-            services.AddSingleton<DatatypeModel>();
-            services.AddSingleton<DatatypeType>();
-
-            services.AddSingleton<MetadataModel>();
-            services.AddSingleton<MetadataType>();
-
-            services.AddSingleton<ObjecttypeModel>();
-            services.AddSingleton<ObjecttypeType>();
-
-            services.AddSingleton<ReferencetypeModel>();
-            services.AddSingleton<ReferencetypeType>();
-
-            services.AddSingleton<VariabletypeModel>();
-            services.AddSingleton<VariabletypeType>();
-
-            services.AddScoped<UaCloudLibRepo>();
-            services.AddSingleton<UaCloudLibQuery>();
-            //services.AddScoped<UaCloudLibSchema>();
 
             services.AddSingleton<IDocumentExecuter, EfDocumentExecuter>();
-            services.AddSingleton<GraphQL.Types.ISchema, UaCloudLibSchema>();
+            services.AddSingleton<ISchema, UaCloudLibSchema>();
             var mvc = services.AddMvc(option => option.EnableEndpointRouting = false);
             mvc.SetCompatibilityVersion(CompatibilityVersion.Latest);
+            #endregion
+
+            services.AddSingleton<AddressSpaceLicenseType>();
+            services.AddSingleton<AddressSpaceType>();
+            services.AddSingleton<CategoryType>();
+            services.AddSingleton<OrganisationType>();
+            services.AddSingleton<DatatypeType>();
+            services.AddSingleton<MetadataType>();
+            services.AddSingleton<ObjecttypeType>();
+            services.AddSingleton<ReferencetypeType>();
+            services.AddSingleton<VariabletypeType>();
+            services.AddSingleton<UaCloudLibQuery>();
 
             services.AddHttpContextAccessor();
-
-            //services.AddGraphQL(options =>
-            //{
-            //    options.EnableMetrics = true;
-            //})
-            //.AddErrorInfoProvider(opt => opt.ExposeExceptionStackTrace = true)
-            //.AddNewtonsoftJson()
-            //.AddUserContextBuilder(httpContext =>
-            //    new GraphQLUserContext
-            //    {
-            //        User = httpContext.User
-            //    }
-            //);
 
             services.Configure<IISServerOptions>(options =>
             {
