@@ -27,24 +27,18 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary
+namespace UACloudLibrary.Models
 {
-    using UACloudLibrary.Models;
-
-    public interface IDatabase
+    /// <summary>
+    /// Defines the structure of a Nodeset Result
+    /// </summary>
+    public class UANodesetResult
     {
-        UANodesetResult[] FindNodesets(string[] keywords);
-
-        bool AddMetaDataToNodeSet(uint nodesetId, string name, string value);
-
-        bool AddUATypeToNodeset(uint nodesetId, UATypes uaType, string browseName, string displayName, string nameSpace);
-
-        bool DeleteAllRecordsForNodeset(uint nodesetId);
-
-        string RetrieveMetaData(uint nodesetId, string metaDataTag);
-
-        string[] GetAllNamespacesAndNodesets();
-
-        string[] GetAllNamesAndNodesets();
+        public uint NodesetResultId;
+        public string NodesetResultTitle;
+        public string NodesetResultOrganization;
+        public string NodesetResultLicense;
+        public string NodesetResultVersion;
+        public System.DateTime ? NodesetResultPublicationDate;
     }
 }

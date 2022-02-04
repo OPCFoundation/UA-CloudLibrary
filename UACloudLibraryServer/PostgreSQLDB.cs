@@ -235,51 +235,68 @@ namespace UACloudLibrary
             return false;
         }
 
-        public string[] FindNodesets(string[] keywords)
+        public UANodesetResult[] FindNodesets(string[] keywords)
         {
-            List<string> results = new List<string>();
+            List<string> matches = new List<string>();
+            List<UANodesetResult> nodesetResults = new List<UANodesetResult>();
 
             foreach (string result in FindNodesetsInTable(keywords, "Metadata"))
             {
-                if (!results.Contains(result))
+                if (!matches.Contains(result))
                 {
-                    results.Add(result);
+                    matches.Add(result);
                 }
             }
 
             foreach (string result in FindNodesetsInTable(keywords, "ObjectType"))
             {
-                if (!results.Contains(result))
+                if (!matches.Contains(result))
                 {
-                    results.Add(result);
+                    matches.Add(result);
                 }
             }
 
             foreach (string result in FindNodesetsInTable(keywords, "VariableType"))
             {
-                if (!results.Contains(result))
+                if (!matches.Contains(result))
                 {
-                    results.Add(result);
+                    matches.Add(result);
                 }
             }
 
             foreach (string result in FindNodesetsInTable(keywords, "DataType"))
             {
-                if (!results.Contains(result))
+                if (!matches.Contains(result))
                 {
-                    results.Add(result);
+                    matches.Add(result);
                 }
             }
 
             foreach (string result in FindNodesetsInTable(keywords, "ReferenceType"))
             {
-                if (!results.Contains(result))
+                if (!matches.Contains(result))
                 {
-                    results.Add(result);
+                    matches.Add(result);
                 }
             }
-
-            return results.ToArray();
+            //Get additional metadata (if present and valid) for each match
+            foreach (string match in matches)
+            {
+                if (uint.TryParse(match, out uint matchId))
+                {
+                    var thisResult = new UANodesetResult();
+                    thisResult.NodesetResultId = matchId;
+                    thisResult.NodesetResultTitle = RetrieveMetaData(matchId, "nodesettitle") ?? string.Empty;
+                    thisResult.NodesetResultOrganization = RetrieveMetaData(matchId, "orgname") ?? string.Empty;
+                    thisResult.NodesetResultLicense = RetrieveMetaData(matchId, "license") ?? string.Empty;
+                    thisResult.NodesetResultVersion = RetrieveMetaData(matchId, "version") ?? string.Empty;
+                    var pubDate = RetrieveMetaData(matchId, "nodesetcreationtime");
+                    if (DateTime.TryParse(pubDate, out DateTime useDate))
+                        thisResult.NodesetResultPublicationDate = useDate;
+                    nodesetResults.Add(thisResult);
+                }
+            }
+            return nodesetResults.ToArray();
         }
 
         private string[] FindNodesetsInTable(string[] keywords, string tableName)
