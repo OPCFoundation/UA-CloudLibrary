@@ -31,8 +31,8 @@ jobs:
     - name: Build and Push Docker Image
       uses: docker/build-push-action@v2
       with:
-        push: ${{ github.event_name != 'pull_request' }} # Will only build if this is not here
+        push: ${{ github.event_name != 'pull_request' }} # Will only push image, when not in pull_request
         file: UACloudLibraryServer/Dockerfile
         tags: |
-          ghcr.io/${{  steps.get_repo.outputs.lowercase }}:${{ steps.get_version.outputs.VERSION }}
+          ghcr.io/${{ steps.get_repo.outputs.lowercase }}:${{ steps.get_version.outputs.VERSION }}
           ghcr.io/${{ steps.get_repo.outputs.lowercase }}:latest
