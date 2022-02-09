@@ -32,7 +32,7 @@ jobs:
       uses: docker/build-push-action@v2
       with:
         push: true # Will only build if this is not here
-        file: Dockerfile
+        file: UACloudLibraryServer/Dockerfile
         tags: |
           ghcr.io/${{  steps.get_repo.outputs.lowercase }}:${{ steps.get_version.outputs.VERSION }}
           ghcr.io/${{ steps.get_repo.outputs.lowercase }}:latest

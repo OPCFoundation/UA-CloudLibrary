@@ -5,7 +5,7 @@
     <RootNamespace>UACloudLibrary</RootNamespace>
     <UserSecretsId>ee5a630a-263e-4334-b590-b77013c2af56</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
-    <DockerfileContext>.</DockerfileContext>
+    <DockerfileContext>./..</DockerfileContext>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(RunConfiguration)' == 'UA_CloudLibrary' " />
