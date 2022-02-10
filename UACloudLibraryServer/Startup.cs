@@ -260,7 +260,6 @@ namespace UACloudLibrary
                     name: "default",
                     pattern: "{controller=Home}/{action=Index}/{id?}");
 
-                //endpoints.MapControllers();
                 endpoints.MapRazorPages();
             });
         }
