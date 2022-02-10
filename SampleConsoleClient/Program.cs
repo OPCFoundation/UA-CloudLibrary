@@ -32,6 +32,7 @@ namespace SampleConsoleClient
     using GraphQL;
     using GraphQL.Client.Http;
     using GraphQL.Client.Serializer.Newtonsoft;
+    using Newtonsoft.Json;
     using System;
     using System.Collections.Generic;
     using System.Net;
@@ -39,6 +40,7 @@ namespace SampleConsoleClient
     using System.Text.Json;
     using UACloudLibClientLibrary;
     using UACloudLibClientLibrary.Models;
+    using UACloudLibrary.Models;
 
     class Program
     {
@@ -90,7 +92,7 @@ namespace SampleConsoleClient
 
             };
             var response = graphQLClient.SendQueryAsync<UACloudLibGraphQLObjecttypeQueryResponse>(request).GetAwaiter().GetResult();
-            Console.WriteLine(JsonSerializer.Serialize(response, new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(response, new JsonSerializerOptions { WriteIndented = true }));
 
             Console.WriteLine();
             Console.WriteLine("Testing metadata query");
@@ -106,7 +108,7 @@ namespace SampleConsoleClient
 
             };
             var response2 = graphQLClient.SendQueryAsync<UACloudLibGraphQLMetadataQueryResponse>(request).GetAwaiter().GetResult();
-            Console.WriteLine(JsonSerializer.Serialize(response2, new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(response2, new JsonSerializerOptions { WriteIndented = true }));
 
             graphQLClient.Dispose();
         }
@@ -128,13 +130,16 @@ namespace SampleConsoleClient
             string[] keywords = { "*" }; // return everything
             string address = webClient.BaseAddress + "infomodel/find";
             webClient.Headers.Add("Content-Type", "application/json");
-            string response = webClient.UploadString(address, "PUT", JsonSerializer.Serialize(keywords));
-            Console.WriteLine(response);
+            var response = webClient.UploadString(address, "PUT", System.Text.Json.JsonSerializer.Serialize(keywords));
+            UANodesetResult[] identifiers = JsonConvert.DeserializeObject<UANodesetResult[]>(response);
+            for (var i = 0; i < identifiers.Length; i++)
+            {
+                Console.WriteLine(JsonConvert.SerializeObject(identifiers[i], Formatting.Indented));
+            }
 
             Console.WriteLine();
             Console.WriteLine("Testing /infomodel/download/{identifier}");
-            string[] identifiers = JsonSerializer.Deserialize<string[]>(response);
-            string identifier = identifiers[0]; // pick the first identifier returned previously
+            string identifier = identifiers[0].Id.ToString(); // pick the first identifier returned previously
             address = webClient.BaseAddress + "infomodel/download/" + Uri.EscapeDataString(identifier);
             response = webClient.DownloadString(address);
             Console.WriteLine(response);
