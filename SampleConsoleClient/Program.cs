@@ -40,7 +40,6 @@ namespace SampleConsoleClient
     using System.Text.Json;
     using UACloudLibClientLibrary;
     using UACloudLibClientLibrary.Models;
-    using UACloudLibrary.Models;
 
     class Program
     {

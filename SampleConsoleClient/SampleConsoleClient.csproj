@@ -12,7 +12,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\UACloudLibraryGraphQLClient\UACloudLibClientLibrary\UACloudLibClientLibrary.csproj" />
-    <ProjectReference Include="..\UACloudLibraryServer\UA-CloudLibrary.csproj" />
   </ItemGroup>
 
 </Project>
