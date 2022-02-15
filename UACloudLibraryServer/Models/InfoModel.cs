@@ -95,17 +95,19 @@ namespace UACloudLibrary
         public DateTime LastModificationTime { get; set; }
 
         [Required]
-        public Organisation Contributor { get; set; }
-
-        [Required]
         [Column("description")]
         public string Description { get; set; }
+
+#nullable enable
+        [Required]
+        public Organisation Contributor { get; set; }
 
         [Required]
         public AddressSpaceCategory Category { get; set; }
 
         [Required]
         public AddressSpaceNodeset2 Nodeset { get; set; }
+#nullable disable
 
         /// <summary>
         /// Link to additional documentation, specifications, GitHub, etc.
