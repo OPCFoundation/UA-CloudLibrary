@@ -41,7 +41,6 @@ namespace UACloudLibrary
         Custom
     }
 
-    [Keyless]
     public class AddressSpace
     {
         public AddressSpace()

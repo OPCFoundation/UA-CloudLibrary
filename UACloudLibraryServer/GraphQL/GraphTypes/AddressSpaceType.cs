@@ -55,7 +55,6 @@ namespace UACloudLibrary
             AddNavigationField(name: "purchasinginformationUrl", resolve: e => e.Source.PurchasingInformationUrl, graphType: typeof(UriGraphType));
             AddNavigationField(name: "releaseNotesUrl", resolve: e => e.Source.ReleaseNotesUrl, graphType: typeof(UriGraphType));
             AddNavigationField(name: "testSpecificationUrl", resolve: e => e.Source.TestSpecificationUrl, graphType: typeof(UriGraphType));
-            //Field<LongGraphType, long>("nodesetid");
         }
     }
 }
