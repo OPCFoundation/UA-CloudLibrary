@@ -29,12 +29,12 @@
 
 namespace UACloudLibrary
 {
+    using Amazon.S3;
     using GraphQL.Server;
     using GraphQL.Server.Ui.Playground;
     using Microsoft.AspNetCore.Authentication;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.DataProtection;
-    using GoogleCloudStorage.AspNetCore.DataProtection;
     using Microsoft.AspNetCore.Hosting;
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Identity.UI.Services;
@@ -46,15 +46,10 @@ namespace UACloudLibrary
     using Microsoft.Extensions.Logging;
     using Microsoft.OpenApi.Models;
     using System;
+    using System.IO;
     using UACloudLibrary.DbContextModels;
     using UACloudLibrary.Interfaces;
-    using System.IO;
-    using Amazon.S3;
-    using GraphQL.EntityFramework;
-    using GraphQL.Utilities;
-    using GraphQL;
-    using GraphQL.Types;
-    using Microsoft.AspNetCore.Mvc;
+
 
     public class Startup
     {
@@ -163,10 +158,8 @@ namespace UACloudLibrary
             switch (Configuration["HostingPlatform"])
             {
                 case "Azure": services.AddDataProtection().PersistKeysToAzureBlobStorage(Configuration["BlobStorageConnectionString"], "keys", "keys"); break;
-                case "AWS":
-                    services.AddDataProtection().PersistKeysToAWSSystemsManager($"/{serviceName}/DataProtection"); 
-                    break;
-                case "GCP": //TODO: Configure services.AddDataProtection().PersistKeysToGoogleCloudStorage(); break;
+                case "AWS": services.AddDataProtection().PersistKeysToAWSSystemsManager($"/{serviceName}/DataProtection"); break;
+                case "GCP": services.AddDataProtection().PersistKeysToGoogleCloudStorage(Configuration["BlobStorageConnectionString"], "DataProtectionProviderKeys.xml"); break;
 #if DEBUG
                 default: services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Directory.GetCurrentDirectory())); break;
 #else
@@ -174,41 +167,40 @@ namespace UACloudLibrary
 #endif
             }
 
+            // setup GrapQL interface
+            services.AddScoped<DatatypeModel>();
+            services.AddScoped<DatatypeType>();
 
-            #region GraphQLEntitityFramework
-            GraphTypeTypeRegistry.Register<MetadataModel, MetadataType>();
-            GraphTypeTypeRegistry.Register<DatatypeModel, DatatypeType>();
-            GraphTypeTypeRegistry.Register<ObjecttypeModel, ObjecttypeType>();
-            GraphTypeTypeRegistry.Register<ReferencetypeModel, ReferencetypeType>();
-            GraphTypeTypeRegistry.Register<VariabletypeModel, VariabletypeType>();
-            GraphTypeTypeRegistry.Register<AddressSpaceLicense, AddressSpaceLicenseType>();
-            GraphTypeTypeRegistry.Register<AddressSpaceModel, AddressSpaceType> ();
-            GraphTypeTypeRegistry.Register<AddressSpaceCategory, CategoryType> ();
-            GraphTypeTypeRegistry.Register<Organisation, OrganisationType> ();
+            services.AddScoped<MetadataModel>();
+            services.AddScoped<MetadataType>();
 
-            EfGraphQLConventions.RegisterInContainer<AppDbContext>(
-                    services,
-                    model: AppDbContext.GetInstance());
-            EfGraphQLConventions.RegisterConnectionTypesInContainer(services);
+            services.AddScoped<ObjecttypeModel>();
+            services.AddScoped<ObjecttypeType>();
 
-            services.AddSingleton<IDocumentExecuter, EfDocumentExecuter>();
-            services.AddSingleton<ISchema, UaCloudLibSchema>();
-            var mvc = services.AddMvc(option => option.EnableEndpointRouting = false);
-            mvc.SetCompatibilityVersion(CompatibilityVersion.Latest);
-            #endregion
+            services.AddScoped<ReferencetypeModel>();
+            services.AddScoped<ReferencetypeType>();
 
-            services.AddSingleton<AddressSpaceLicenseType>();
-            services.AddSingleton<AddressSpaceType>();
-            services.AddSingleton<CategoryType>();
-            services.AddSingleton<OrganisationType>();
-            services.AddSingleton<DatatypeType>();
-            services.AddSingleton<MetadataType>();
-            services.AddSingleton<ObjecttypeType>();
-            services.AddSingleton<ReferencetypeType>();
-            services.AddSingleton<VariabletypeType>();
-            services.AddSingleton<UaCloudLibQuery>();
+            services.AddScoped<VariabletypeModel>();
+            services.AddScoped<VariabletypeType>();
+
+            services.AddScoped<UaCloudLibRepo>();
+            services.AddScoped<UaCloudLibQuery>();
+            services.AddScoped<UaCloudLibSchema>();
 
             services.AddHttpContextAccessor();
+
+            services.AddGraphQL(options =>
+            {
+                options.EnableMetrics = true;
+            })
+            .AddErrorInfoProvider(opt => opt.ExposeExceptionStackTrace = true)
+            .AddNewtonsoftJson()
+            .AddUserContextBuilder(httpContext =>
+                new GraphQLUserContext
+                {
+                    User = httpContext.User
+                }
+            );
 
             services.Configure<IISServerOptions>(options =>
             {
@@ -246,7 +238,7 @@ namespace UACloudLibrary
 
             app.UseAuthorization();
 
-            //app.UseGraphQL<UaCloudLibSchema, GraphQLUACloudLibMiddleware<UaCloudLibSchema>>(path: "/graphql");
+            app.UseGraphQL<UaCloudLibSchema, GraphQLUACloudLibMiddleware<UaCloudLibSchema>>();
 
             app.UseGraphQLPlayground(new PlaygroundOptions()
             {
