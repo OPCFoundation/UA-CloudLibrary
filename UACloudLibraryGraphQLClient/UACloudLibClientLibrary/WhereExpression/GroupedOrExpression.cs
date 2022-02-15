@@ -38,11 +38,11 @@ namespace UACloudLibClientLibrary
                 expression += "{";
                 if (clause.Equals(last))
                 {
-                    expression += clause.GetExpression();
+                    expression += clause.Expression;
                 }
                 else
                 {
-                    expression += clause.GetExpression();
+                    expression += clause.Expression;
                     expression += "connector: \"or\"";
                 }
                 expression += "}";
