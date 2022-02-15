@@ -111,16 +111,12 @@ namespace UACloudLibClientLibrary
             return await SendAndConvert<PageInfo<DatatypeResult>>(request);
         }
 
-        /// <summary>
-        /// Retrieves a list of metadata and converts it to a list of addressspaces
-        /// </summary>
-        /// <returns></returns>
-        //public async Task<List<AddressSpace>> GetConvertedResult()
-        //{
-        //    var result = await GetMetadata();
-
-        //    return ConvertMetadataToAddressspace.Convert(result);
-        //}
+        public async Task<List<AddressSpace>> GetConvertedMetadata()
+        {
+            request.Query = QueryMethods.QueryMetadata();
+            PageInfo<MetadataResult> result = await SendAndConvert<PageInfo<MetadataResult>>(request);
+            return ConvertMetadataToAddressspace.Convert(result);
+        }
 
         /// <summary>
         /// Queries the organisations with the given filters.

@@ -6,32 +6,37 @@ using UACloudLibClientLibrary.Models;
 
 namespace UACloudLibClientLibrary
 {
-    static class ConvertMetadataToAddressspace
+    internal static class ConvertMetadataToAddressspace
     {
         /// <summary>
         /// Converts metadata to a list of combinedtypes, taking the nodeset id from the metadata as a combination point
         /// </summary>
-        /// <param name="response"></param>
+        /// <param name="pageInfo"></param>
         /// <returns></returns>
-        public static List<AddressSpace> Convert(List<MetadataResult> response)
+        public static List<AddressSpace> Convert(PageInfo<MetadataResult> pageInfo)
         {
-            List<AddressSpace> listAddressSpaces = new List<AddressSpace>();
-
-            foreach(MetadataResult metadata in response)
+            List<AddressSpace> addressSpaces = new List<AddressSpace>();
+            
+            if (pageInfo.Items != null)
             {
-                string id = metadata.NodesetID.ToString();
-                AddressSpace addressspace = listAddressSpaces?.FirstOrDefault(e => e.MetadataID == id);
-
-                if (addressspace == null)
+                foreach (PageItem<MetadataResult> item in pageInfo.Items)
                 {
-                    addressspace = new AddressSpace();
-                    addressspace.MetadataID = id;
-                    listAddressSpaces.Add(addressspace);
+                    string id = item.Item.NodesetID.ToString();
+                    AddressSpace addressspace = addressSpaces?.FirstOrDefault(e => e.MetadataID == id);
+
+                    if (addressspace == null)
+                    {
+                        addressspace = new AddressSpace();
+                        addressspace.MetadataID = id;
+                        addressSpaces.Add(addressspace);
+                    }
+                    ConvertCases(addressspace, item.Item);
                 }
-                ConvertCases(addressspace, metadata);
             }
-            return listAddressSpaces;
+
+            return new List<AddressSpace>();
         }
+
         /// <summary>
         /// Switch case with all the names for the members
         /// </summary>
@@ -45,6 +50,11 @@ namespace UACloudLibClientLibrary
                 case "adressspacemodifiedtime":
                     {
                         addressspace.LastModificationTime = System.Convert.ToDateTime(metadata.Value);
+                        break;
+                    }
+                case "adressspacecreationtime":
+                    {
+                        addressspace.CreationTime = System.Convert.ToDateTime(metadata.Value);
                         break;
                     }
                 case "addressspacedescription":
