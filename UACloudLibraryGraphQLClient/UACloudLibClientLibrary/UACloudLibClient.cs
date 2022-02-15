@@ -20,6 +20,8 @@ namespace UACloudLibClientLibrary
     /// </summary>
     public partial class UACloudLibClient : IDisposable
     {
+        public static Uri StandardEndpoint = new Uri("https://uacloudlibrary.opcfoundation.org");
+
         private GraphQLHttpClient m_client = null;
         private GraphQLRequest request = new GraphQLRequest();
         public List<string> errors = new List<string>();
@@ -39,6 +41,28 @@ namespace UACloudLibClientLibrary
         public string Password
         {
             set { m_strPassword = value; }
+        }
+
+        /// <summary>
+        /// This Constructor uses the standard endpoint with no authorization
+        /// </summary>
+        public UACloudLibClient()
+        {
+            BaseEndpoint = StandardEndpoint;
+            m_client = new GraphQLHttpClient(new Uri(BaseEndpoint + "/graphql"), new NewtonsoftJsonSerializer());
+        }
+
+        /// <summary>
+        /// This constructor uses the standard endpoint with authorization
+        /// </summary>
+        /// <param name="strUsername"></param>
+        /// <param name="strPassword"></param>
+        public UACloudLibClient(string strUsername, string strPassword)
+        {
+            BaseEndpoint = StandardEndpoint;
+            m_client = new GraphQLHttpClient(new Uri(BaseEndpoint + "/graphql"), new NewtonsoftJsonSerializer());
+            string temp = Convert.ToBase64String(Encoding.UTF8.GetBytes(strUsername + ":" + strPassword));
+            m_client.HttpClient.DefaultRequestHeaders.Add("Authorization", "basic " + temp);
         }
 
         public UACloudLibClient(string strEndpoint, string strUsername, string strPassword)
