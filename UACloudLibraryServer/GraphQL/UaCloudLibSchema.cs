@@ -32,12 +32,22 @@ namespace UACloudLibrary
     using GraphQL.Types;
     using Microsoft.Extensions.DependencyInjection;
     using System;
+    using UACloudLibrary.DbContextModels;
 
     public class UaCloudLibSchema : Schema
     {
         public UaCloudLibSchema(IServiceProvider provider)
             : base(provider)
         {
+            RegisterTypeMapping(typeof(DatatypeModel), typeof(DatatypeType));
+            RegisterTypeMapping(typeof(MetadataModel), typeof(MetadataType));
+            RegisterTypeMapping(typeof(VariabletypeModel), typeof(VariabletypeType));
+            RegisterTypeMapping(typeof(ReferencetypeModel), typeof(ReferencetypeType));
+            RegisterTypeMapping(typeof(ObjecttypeModel), typeof(ObjecttypeType));
+            RegisterTypeMapping(typeof(Organisation), typeof(OrganisationType));
+            RegisterTypeMapping(typeof(AddressSpaceModel), typeof(AddressSpaceType));
+            RegisterTypeMapping(typeof(AddressSpaceCategory), typeof(CategoryType));
+            RegisterTypeMapping(typeof(AddressSpaceLicense), typeof(AddressSpaceLicenseType));
             Query = provider.GetRequiredService<UaCloudLibQuery>();
         }
     }
