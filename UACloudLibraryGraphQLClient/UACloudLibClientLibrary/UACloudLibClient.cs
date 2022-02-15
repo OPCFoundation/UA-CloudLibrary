@@ -18,7 +18,7 @@ namespace UACloudLibClientLibrary
     /// <summary>
     /// This class handles the quering and conversion of the response
     /// </summary>
-    public partial class UACloudLibClient
+    public partial class UACloudLibClient : IDisposable
     {
         private GraphQLHttpClient m_client = null;
         private GraphQLRequest request = new GraphQLRequest();
@@ -187,6 +187,9 @@ namespace UACloudLibClientLibrary
             return resultType;
         }
 
+        public void Dispose()
+        {
+            m_client.Dispose();
         }
     }
 }
