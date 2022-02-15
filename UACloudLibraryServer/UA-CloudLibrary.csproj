@@ -19,6 +19,7 @@
         <PackageReference Include="Google.Cloud.Storage.V1" Version="3.7.0" />
         <PackageReference Include="Google.Cloud.AspNetCore.DataProtection.Storage" Version="1.0.0-alpha03" />
 	<PackageReference Include="GraphQL" Version="4.7.1" />
+	<PackageReference Include="GraphQL.EntityFramework" Version="15.2.0" />
 	<PackageReference Include="GraphQL.NewtonsoftJson" Version="4.7.1" />
 	<PackageReference Include="GraphQL.Server.Transports.AspNetCore" Version="5.2.0" />
 	<PackageReference Include="GraphQL.Server.Transports.AspNetCore.NewtonsoftJson" Version="5.2.0" />
