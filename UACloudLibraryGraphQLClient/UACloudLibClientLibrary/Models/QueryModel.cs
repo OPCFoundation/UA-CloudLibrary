@@ -48,7 +48,7 @@ namespace UACloudLibClientLibrary.Models
         public string Namespace { get; set; }
     }
 
-    [JsonObject("reference")]
+    [JsonObject("referencetype")]
     public class ReferenceResult
     {
         [JsonProperty("referencetype_id")]
