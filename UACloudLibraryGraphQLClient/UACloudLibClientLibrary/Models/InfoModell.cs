@@ -1,20 +1,16 @@
-﻿using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace UACloudLibClientLibrary
+﻿namespace UACloudLibClientLibrary
 {
+    using Newtonsoft.Json;
+    using System;
+
     public enum AddressSpaceLicense
     {
         MIT,
         ApacheLicense20,
         Custom
     }
-    
- 
+
+
 
     /// <summary>
     /// Contains the metadata of the nodeset and the nodeset itself
@@ -44,7 +40,7 @@ namespace UACloudLibClientLibrary
         [JsonProperty("lastModificationTime")]
         public DateTime LastModificationTime { get; set; }
         [JsonProperty("contributor")]
-        public Organisation Contributor{ get; set; }
+        public Organisation Contributor { get; set; }
         [JsonProperty("description")]
         public string Description { get; set; }
         [JsonProperty("category")]
@@ -78,12 +74,12 @@ namespace UACloudLibClientLibrary
         [JsonProperty("nodesetId")]
         public long NodesetId { get; set; }
     }
- 
+
     /// <summary>
     /// Contains the metadata for the contributor/organisation
     /// </summary>
     [JsonObject("contributor")]
-    public class Organisation 
+    public class Organisation
     {
         [JsonProperty("name")]
         public string Name { get; set; }
@@ -118,7 +114,7 @@ namespace UACloudLibClientLibrary
         [JsonProperty("lastModificationTime")]
         public DateTime LastModificationTime { get; set; }
     }
-    
+
     /// <summary>
     /// Contains the nodeset and timestamps
     /// </summary>

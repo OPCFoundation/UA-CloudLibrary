@@ -1,10 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using System.Text;
-
-namespace UACloudLibClientLibrary
+﻿namespace UACloudLibClientLibrary
 {
+    using System;
+    using System.Runtime.InteropServices;
+
     public enum ComparisonType
     {
         Equal,
@@ -24,6 +22,6 @@ namespace UACloudLibClientLibrary
         /// Returns a string that is formatted so that it can be used in a where expression in a query
         /// </summary>
         /// <returns>A String formatted like this: {path: "---", comparison: ---, value: "---"}</returns>
-        public bool SetExpression(T path, string value, ComparisonType comparison, [Optional]bool connector);
+        public bool SetExpression(T path, string value, ComparisonType comparison, [Optional] bool connector);
     }
 }

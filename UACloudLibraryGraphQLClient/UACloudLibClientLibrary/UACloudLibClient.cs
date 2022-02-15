@@ -1,20 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Net;
-using System.Net.Http;
-using System.Text;
-using System.Threading.Tasks;
-using GraphQL;
-using GraphQL.Client;
-using GraphQL.Client.Http;
-using GraphQL.Client.Serializer.Newtonsoft;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using UACloudLibClientLibrary.Models;
-
-namespace UACloudLibClientLibrary
+﻿namespace UACloudLibClientLibrary
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Net;
+    using System.Net.Http;
+    using System.Text;
+    using System.Threading.Tasks;
+    using GraphQL;
+    using GraphQL.Client.Http;
+    using GraphQL.Client.Serializer.Newtonsoft;
+    using Newtonsoft.Json;
+    using Newtonsoft.Json.Linq;
+    using UACloudLibClientLibrary.Models;
+
     /// <summary>
     /// This class handles the quering and conversion of the response
     /// </summary>
@@ -104,7 +102,7 @@ namespace UACloudLibClientLibrary
         public async Task<PageInfo<MetadataResult>> GetMetadata()
         {
             request.Query = QueryMethods.QueryMetadata(); ;
-            return await SendAndConvert<PageInfo<MetadataResult>>(request);            
+            return await SendAndConvert<PageInfo<MetadataResult>>(request);
         }
         /// <summary>
         /// Retrieves a list of variabletypes
@@ -202,7 +200,7 @@ namespace UACloudLibClientLibrary
             request.RequestUri = new Uri(address);
             HttpResponseMessage response = webClient.Send(request);
             dynamic resultType = null;
-            if(response.StatusCode == HttpStatusCode.OK)
+            if (response.StatusCode == HttpStatusCode.OK)
             {
                 resultType = JsonConvert.DeserializeObject<dynamic>(response.Content.ToString());
 

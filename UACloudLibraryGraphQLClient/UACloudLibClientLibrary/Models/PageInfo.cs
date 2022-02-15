@@ -1,16 +1,14 @@
-﻿using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace UACloudLibClientLibrary
+﻿namespace UACloudLibClientLibrary
 {
+    using Newtonsoft.Json;
+    using System.Collections.Generic;
+
     /// <summary>
     /// Contains a List of T, the total count of T available and if a next and/or previous page is available
     /// </summary>
     /// <typeparam name="T"></typeparam>
     public class PageInfo<T> where T : class
-    {        
+    {
         [JsonProperty("edges")]
         public List<PageItem<T>> Items { get; set; }
 

@@ -1,12 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using GraphQL.Query.Builder;
-using UACloudLibClientLibrary.Models;
-
-
-namespace UACloudLibClientLibrary
+﻿namespace UACloudLibClientLibrary
 {
+    using GraphQL.Query.Builder;
+    using UACloudLibClientLibrary.Models;
     /// <summary>
     /// Defines which fields are returned
     /// </summary>

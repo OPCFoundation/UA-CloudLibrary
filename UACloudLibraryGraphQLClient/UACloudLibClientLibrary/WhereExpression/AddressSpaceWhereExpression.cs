@@ -1,13 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Reflection;
-using Newtonsoft.Json;
-
-namespace UACloudLibClientLibrary
+﻿namespace UACloudLibClientLibrary
 {
+    using System;
+    
     public enum AddressSpaceSearchField
     {
         addressspaceid,
@@ -50,7 +44,7 @@ namespace UACloudLibClientLibrary
             bool success = false;
             if (string.IsNullOrEmpty(value) && Enum.IsDefined(path) && Enum.IsDefined(comparison))
             {
-                if(comparison == ComparisonType.Like)
+                if (comparison == ComparisonType.Like)
                 {
                     value = InternalMethods.LikeComparisonCompatibleString(value);
                 }

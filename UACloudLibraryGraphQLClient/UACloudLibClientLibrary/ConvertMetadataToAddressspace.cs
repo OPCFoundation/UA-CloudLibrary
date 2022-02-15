@@ -1,11 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Linq;
-using UACloudLibClientLibrary.Models;
-
-namespace UACloudLibClientLibrary
+﻿namespace UACloudLibClientLibrary
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using UACloudLibClientLibrary.Models;
+
     internal static class ConvertMetadataToAddressspace
     {
         /// <summary>
@@ -16,7 +15,7 @@ namespace UACloudLibClientLibrary
         public static List<AddressSpace> Convert(PageInfo<MetadataResult> pageInfo)
         {
             List<AddressSpace> addressSpaces = new List<AddressSpace>();
-            
+
             if (pageInfo.Items != null)
             {
                 foreach (PageItem<MetadataResult> item in pageInfo.Items)

@@ -1,7 +1,7 @@
-﻿using Newtonsoft.Json;
-
-namespace UACloudLibClientLibrary
+﻿namespace UACloudLibClientLibrary
 {
+    using Newtonsoft.Json;
+
     /// <summary>
     /// Contains T and its cursor
     /// </summary>
@@ -11,6 +11,6 @@ namespace UACloudLibClientLibrary
         [JsonProperty("cursor")]
         public string Cursor { get; set; }
         [JsonProperty("node")]
-        public T Item {  get; set; }
+        public T Item { get; set; }
     }
 }

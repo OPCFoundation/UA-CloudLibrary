@@ -1,10 +1,7 @@
-﻿using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace UACloudLibClientLibrary.Models
+﻿namespace UACloudLibClientLibrary.Models
 {
+    using Newtonsoft.Json;
+
     [JsonObject("datatype")]
     public class DatatypeResult
     {

@@ -1,13 +1,10 @@
-﻿using GraphQL.Query.Builder;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace UACloudLibClientLibrary
+﻿namespace UACloudLibClientLibrary
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Text;
+
     /// <summary>
     /// Finalizes the queries
     /// </summary>
@@ -135,7 +132,7 @@ namespace UACloudLibClientLibrary
         {
             StringBuilder query = new StringBuilder();
             query.AppendLine("query{metadata");
-            if(andFilter != null)
+            if (andFilter != null)
             {
                 query.Append("(");
                 query.Append(WhereExpressionBuilder(andFilter));
@@ -160,7 +157,7 @@ namespace UACloudLibClientLibrary
 
             query.AppendLine("{edges{cursor");
             query.Append(PrebuiltQueries.ObjectQuery);
-            query.Append(strEndQuery); 
+            query.Append(strEndQuery);
             return query.ToString();
         }
 
