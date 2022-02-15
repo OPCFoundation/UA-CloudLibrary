@@ -187,6 +187,14 @@ namespace UACloudLibrary
                 return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
+            if (uaAddressSpace != null)
+            {
+                if (!_database.AddAddressSpace(nodesetHashCode, uaAddressSpace, overwrite))
+                {
+                    // ToDo: Add fitting failure message
+                }
+            }
+
             return new ObjectResult("Upload successful!") { StatusCode = (int)HttpStatusCode.OK };
         }
 
