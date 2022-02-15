@@ -141,7 +141,9 @@ namespace UACloudLibClientLibrary
                 query.Append(WhereExpressionBuilder(andFilter));
                 query.Append(")");
             }
-            query.Append("{" + PrebuiltQueries.MetadataQuery + "}}");
+            query.AppendLine("{edges{cursor");
+            query.Append(PrebuiltQueries.MetadataQuery);
+            query.Append(strEndQuery);
             return query.ToString();
         }
 
@@ -155,7 +157,10 @@ namespace UACloudLibClientLibrary
                 query.Append(WhereExpressionBuilder(andFilter));
                 query.Append(")");
             }
-            query.Append("{" + PrebuiltQueries.ObjectQuery + "}}");
+
+            query.AppendLine("{edges{cursor");
+            query.Append(PrebuiltQueries.ObjectQuery);
+            query.Append(strEndQuery); 
             return query.ToString();
         }
 
@@ -163,7 +168,10 @@ namespace UACloudLibClientLibrary
         {
             StringBuilder query = new StringBuilder();
             query.AppendLine("query{referencetype");
-            query.Append("{" + PrebuiltQueries.ReferenceQuery + "}}");
+
+            query.AppendLine("{edges{cursor");
+            query.Append(PrebuiltQueries.ReferenceQuery);
+            query.Append(strEndQuery);
             return query.ToString();
         }
 
@@ -171,7 +179,10 @@ namespace UACloudLibClientLibrary
         {
             StringBuilder query = new StringBuilder();
             query.AppendLine("query{variabletype");
-            query.Append("{" + PrebuiltQueries.VariableQuery + "}}");
+
+            query.AppendLine("{edges{cursor");
+            query.Append(PrebuiltQueries.VariableQuery);
+            query.Append(strEndQuery);
             return query.ToString();
         }
 
@@ -179,7 +190,10 @@ namespace UACloudLibClientLibrary
         {
             StringBuilder query = new StringBuilder();
             query.AppendLine("query{datatypes");
-            query.Append("{" + PrebuiltQueries.DatatypeQuery + "}}");
+
+            query.AppendLine("{edges{cursor");
+            query.Append(PrebuiltQueries.DatatypeQuery);
+            query.Append(strEndQuery);
             return query.ToString();
         }
 
