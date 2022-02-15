@@ -129,7 +129,7 @@ namespace UACloudLibClientLibrary
         /// <param name="after"></param>
         /// <param name="filter"></param>
         /// <returns>The converted JSON result</returns>
-        public async Task<PageInfo<Organisation>> GetOrganisations(int pageSize = 10, string after = "-1", List<OrganisationWhereExpression> filter = null)
+        public async Task<PageInfo<Organisation>> GetOrganisations(int pageSize = 10, string after = "-1", IEnumerable<OrganisationWhereExpression> filter = null)
         {
             request.Query = QueryMethods.QueryOrganisations(pageSize, after, filter);
             return await SendAndConvert<PageInfo<Organisation>>(request);
@@ -143,9 +143,9 @@ namespace UACloudLibClientLibrary
         /// <param name="filter"></param>
         /// <param name="groupedExpression"></param>
         /// <returns>The converted JSON result</returns>
-        public async Task<PageInfo<AddressSpace>> GetAddressSpaces(int pageSize = 10, string after = "-1", List<AddressSpaceWhereExpression> filter = null, GroupedOrExpression<AddressSpaceSearchField> groupedExpression = null)
+        public async Task<PageInfo<AddressSpace>> GetAddressSpaces(int pageSize = 10, string after = "-1", IEnumerable<AddressSpaceWhereExpression> filter = null)
         {
-            request.Query = QueryMethods.AddressSpacesQuery(after, pageSize, filter, groupedExpression);
+            request.Query = QueryMethods.AddressSpacesQuery(after, pageSize, filter);
             return await SendAndConvert<PageInfo<AddressSpace>>(request);
         }
 
@@ -156,7 +156,7 @@ namespace UACloudLibClientLibrary
         /// <param name="after"></param>
         /// <param name="filter"></param>
         /// <returns>The converted JSON result</returns>
-        public async Task<PageInfo<AddressSpaceCategory>> GetAddressSpaceCategories(int pageSize = 10, string after = "-1", List<CategoryWhereExpression> filter = null)
+        public async Task<PageInfo<AddressSpaceCategory>> GetAddressSpaceCategories(int pageSize = 10, string after = "-1", IEnumerable<CategoryWhereExpression> filter = null)
         {
             request.Query = QueryMethods.QueryCategories(pageSize, after, filter);
             return await SendAndConvert<PageInfo<AddressSpaceCategory>>(request);

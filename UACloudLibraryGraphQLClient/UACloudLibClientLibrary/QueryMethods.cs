@@ -27,9 +27,9 @@ namespace UACloudLibClientLibrary
         /// <param name="after"></param>
         /// <param name="first"></param>
         /// <param name="orFilter"></param>
-        /// <param name="andFilter"></param>
+        /// <param name="filter"></param>
         /// <returns>The finalized query</returns>
-        public static string AddressSpacesQuery(string after, int first, List<AddressSpaceWhereExpression> andFilter = null, GroupedOrExpression<AddressSpaceSearchField> orFilter = null)
+        public static string AddressSpacesQuery(string after, int first, IEnumerable<AddressSpaceWhereExpression> filter = null, GroupedOrExpression<AddressSpaceSearchField> orFilter = null)
         {
             StringBuilder query = new StringBuilder();
             query.AppendLine("query{");
@@ -37,7 +37,7 @@ namespace UACloudLibClientLibrary
 
             if (orFilter != null)
             {
-                query.Append(WhereExpressionBuilder(andFilter, orFilter));
+                query.Append(WhereExpressionBuilder(filter));
             }
 
             query.AppendLine("){" +
@@ -82,13 +82,13 @@ namespace UACloudLibClientLibrary
         /// <param name="andFilter"></param>
         /// <param name="orFilter"></param>
         /// <returns></returns>
-        public static string QueryCategories(int pageSize, string after, List<CategoryWhereExpression> andFilter = null, GroupedOrExpression<CategorySearchField> orFilter = null)
+        public static string QueryCategories(int pageSize, string after, IEnumerable<CategoryWhereExpression> andFilter = null)
         {
             StringBuilder query = new StringBuilder();
             query.AppendLine("query{");
             query.AppendLine($"category(after: \"{after}\", first: {pageSize}");
 
-            query.Append(WhereExpressionBuilder(andFilter, orFilter));
+            query.Append(WhereExpressionBuilder(andFilter));
 
             query.AppendLine("){" +
                 "edges{" +
@@ -109,14 +109,14 @@ namespace UACloudLibClientLibrary
         /// <param name="andFilter"></param>
         /// <param name="orFilter"></param>
         /// <returns></returns>
-        public static string QueryOrganisations(int pageSize, string after, List<OrganisationWhereExpression> andFilter = null, GroupedOrExpression<OrganisationSearchField> orFilter = null)
+        public static string QueryOrganisations(int pageSize, string after, IEnumerable<OrganisationWhereExpression> andFilter = null)
         {
             StringBuilder query = new StringBuilder();
             query.AppendLine("query{");
             query.AppendLine($"organisation(after: \"{after}\", first: {pageSize}");
-            if (andFilter != null || orFilter != null)
+            if (andFilter != null)
             {
-                query.Append(WhereExpressionBuilder(andFilter, orFilter));
+                query.Append(WhereExpressionBuilder(andFilter));
             }
 
             query.AppendLine("){" +
@@ -131,28 +131,28 @@ namespace UACloudLibClientLibrary
             return query.ToString();
         }
 
-        public static string QueryMetadata(List<MetadataWhereExpression> andFilter = null, GroupedOrExpression<MetadataField> orFilter = null)
+        public static string QueryMetadata(IEnumerable<MetadataWhereExpression> andFilter = null)
         {
             StringBuilder query = new StringBuilder();
             query.AppendLine("query{metadata");
-            if(andFilter != null || orFilter != null)
+            if(andFilter != null)
             {
                 query.Append("(");
-                query.Append(WhereExpressionBuilder(andFilter, orFilter));
+                query.Append(WhereExpressionBuilder(andFilter));
                 query.Append(")");
             }
             query.Append("{" + PrebuiltQueries.MetadataQuery + "}}");
             return query.ToString();
         }
 
-        public static string QueryObjectType(List<ObjectTypeWhereExpression> andFilter = null, GroupedOrExpression<ObjectTypeFields> orFilter = null)
+        public static string QueryObjectType(IEnumerable<ObjectTypeWhereExpression> andFilter = null)
         {
             StringBuilder query = new StringBuilder();
             query.AppendLine("query{objecttype");
-            if (andFilter != null || orFilter != null)
+            if (andFilter != null)
             {
                 query.Append("(");
-                query.Append(WhereExpressionBuilder(andFilter, orFilter));
+                query.Append(WhereExpressionBuilder(andFilter));
                 query.Append(")");
             }
             query.Append("{" + PrebuiltQueries.ObjectQuery + "}}");
@@ -188,47 +188,23 @@ namespace UACloudLibClientLibrary
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <typeparam name="U"></typeparam>
-        /// <param name="andFilter"></param>
+        /// <param name="filter"></param>
         /// <param name="orFilter"></param>
         /// <returns>Returns an empty string when no clause was transfered, otherwise the finalized where statement</returns>
-        private static string WhereExpressionBuilder<T, U>(T andFilter, GroupedOrExpression<U> orFilter = null)
-                                where U : Enum
-                                where T : IEnumerable<IWhereExpression<U>>
+        private static string WhereExpressionBuilder<T>(IEnumerable<IWhereExpression<T>> filter)
+            where T : Enum
         {
             StringBuilder query = new StringBuilder();
-            if (andFilter.Count() == 0 && orFilter == null)
+            if (filter.Count() == 0)
             {
                 return "";
             }
             else
             {
                 query.Append(", where: [");
-                if (andFilter != null && orFilter != null)
+                if (filter != null)
                 {
-                    foreach (IWhereExpression<U> clause in andFilter)
-                    {
-                        query.Append(clause.GetExpression() + ",");
-                    }
-                    query.Append(orFilter.GetGroupedExpression());
-                }
-                else if (andFilter != null)
-                {
-                    IWhereExpression<U> last = andFilter.Last();
-                    foreach (IWhereExpression<U> clause in andFilter)
-                    {
-                        if (clause.Equals(last))
-                        {
-                            query.Append(clause.GetExpression());
-                        }
-                        else
-                        {
-                            query.Append(clause.GetExpression() + ",");
-                        }
-                    }
-                }
-                else
-                {
-                    query.Append(orFilter.GetGroupedExpression());
+                    query.Append(string.Format(",", filter));
                 }
                 query.Append("]");
                 return query.ToString();
