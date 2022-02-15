@@ -155,44 +155,44 @@ namespace SampleConsoleClient
 
             using (UACloudLibClient client = new UACloudLibClient(args[0], args[1], args[2]))
             {
-            Console.WriteLine("\nTesting AddressSpace query");
-            PageInfo<AddressSpace> addressSpaces = client.GetAddressSpaces(20, "-1").GetAwaiter().GetResult();
-            Console.WriteLine("Total Count: {0}", addressSpaces.TotalCount);
-            foreach (PageItem<AddressSpace> space in addressSpaces.Items)
-            {
-                Console.WriteLine("Title: {0}", space.Item.Title);
-            }
-
-            Console.WriteLine("\nTesting Organisation query");
-            PageInfo<Organisation> organisations = client.GetOrganisations(20, "-1").GetAwaiter().GetResult();
-            Console.WriteLine("Total Count: {0}", organisations.TotalCount);
-            foreach (PageItem<Organisation> organisation in organisations.Items)
-            {
-                Console.WriteLine("Name: {0}", organisation.Item.Name);
-            }
-
-            Console.WriteLine("\nTesting datatype query");
-            client.GetDatatype().GetAwaiter().GetResult();
-
-            Console.WriteLine("\nTesting referencetype query");
-            client.GetReferencetype().GetAwaiter().GetResult();
-
-            Console.WriteLine("\nTesting variables query");
-            client.GetVariables().GetAwaiter().GetResult();
-
-            Console.WriteLine("\nTesting objecttype query");
-            client.GetObjectTypes().GetAwaiter().GetResult();
-
-            if (addressSpaces.Items.Count > 0)
-            {
-                Console.WriteLine("Testing download of nodeset");
-                AddressSpace result = client.DownloadNodeset(addressSpaces.Items[0].Item.NodesetId.ToString());
-                if (!string.IsNullOrEmpty(result.Nodeset.NodesetXml))
+                Console.WriteLine("\nTesting AddressSpace query");
+                PageInfo<AddressSpace> addressSpaces = client.GetAddressSpaces(20, "-1").GetAwaiter().GetResult();
+                Console.WriteLine("Total Count: {0}", addressSpaces.TotalCount);
+                foreach (PageItem<AddressSpace> space in addressSpaces.Items)
                 {
-                    Console.WriteLine("Nodeset Downloaded");
+                    Console.WriteLine("Title: {0}", space.Item.Title);
+                }
+
+                Console.WriteLine("\nTesting Organisation query");
+                PageInfo<Organisation> organisations = client.GetOrganisations(20, "-1").GetAwaiter().GetResult();
+                Console.WriteLine("Total Count: {0}", organisations.TotalCount);
+                foreach (PageItem<Organisation> organisation in organisations.Items)
+                {
+                    Console.WriteLine("Name: {0}", organisation.Item.Name);
+                }
+
+                Console.WriteLine("\nTesting datatype query");
+                client.GetDatatype().GetAwaiter().GetResult();
+
+                Console.WriteLine("\nTesting referencetype query");
+                client.GetReferencetype().GetAwaiter().GetResult();
+
+                Console.WriteLine("\nTesting variables query");
+                client.GetVariables().GetAwaiter().GetResult();
+
+                Console.WriteLine("\nTesting objecttype query");
+                client.GetObjectTypes().GetAwaiter().GetResult();
+
+                if (addressSpaces.Items.Count > 0)
+                {
+                    Console.WriteLine("Testing download of nodeset");
+                    AddressSpace result = client.DownloadNodeset(addressSpaces.Items[0].Item.NodesetId.ToString());
+                    if (result != null)
+                    {
+                        Console.WriteLine("Nodeset Downloaded");
+                    }
                 }
             }
         }
     }
-}
 }
