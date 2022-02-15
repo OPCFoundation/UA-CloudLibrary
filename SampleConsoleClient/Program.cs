@@ -153,8 +153,8 @@ namespace SampleConsoleClient
         {
             Console.WriteLine("\n\nTesting the client library");
 
-            UACloudLibClient client = new UACloudLibClient(args[0], args[1], args[2]);
-
+            using (UACloudLibClient client = new UACloudLibClient(args[0], args[1], args[2]))
+            {
             Console.WriteLine("\nTesting AddressSpace query");
             PageInfo<AddressSpace> addressSpaces = client.GetAddressSpaces(20, "-1").GetAwaiter().GetResult();
             Console.WriteLine("Total Count: {0}", addressSpaces.TotalCount);
@@ -194,4 +194,5 @@ namespace SampleConsoleClient
             }
         }
     }
+}
 }
