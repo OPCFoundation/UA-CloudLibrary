@@ -18,9 +18,7 @@ namespace UACloudLibClientLibrary
     /// </summary>
     public class CategoryWhereExpression : IWhereExpression<CategorySearchField>
     {
-        public CategorySearchField Path { get; set; }
-        public string Value { get; set; }
-        public ComparisonType Comparison { get; set; }
+        public string Expression { get; private set; }
 
         public CategoryWhereExpression()
         {
@@ -29,17 +27,41 @@ namespace UACloudLibClientLibrary
 
         public CategoryWhereExpression(CategorySearchField path, string value, ComparisonType comparison = 0)
         {
-            Path = path;
-            Value = value;
-            Comparison = comparison;
+            if (SetExpression(path, value, comparison))
+            {
+                // succeeded
+            }
+            else
+            {
+                throw new Exception("One or more arguments was incorrect");
+            }
         }
 
-        public string GetExpression()
+        public bool SetExpression(CategorySearchField path, string value, ComparisonType comparison, bool AndConnector = true)
         {
-            string asString = "{";
-            asString += $"path: \"{Path}\", comparison: {Comparison}, value: \"{Value}\"";
-            asString += "}";
-            return asString;
+            bool success = false;
+            if (string.IsNullOrEmpty(value) && Enum.IsDefined(path) && Enum.IsDefined(comparison))
+            {
+                if (comparison == ComparisonType.Like)
+                {
+                    value = InternalMethods.LikeComparisonCompatibleString(value);
+                }
+
+                if (AndConnector)
+                {
+                    Expression = string.Format("{path: \"{0}\", comparison: {1}, value: \"{2}\", connector: and}", path, comparison, value);
+                }
+                else
+                {
+                    Expression = string.Format("{path: \"{0}\", comparison: {1}, value: \"{2}\", connector: or}", path, comparison, value);
+                }
+                success = true;
+            }
+            else
+            {
+                success = false;
+            }
+            return success;
         }
     }
 }

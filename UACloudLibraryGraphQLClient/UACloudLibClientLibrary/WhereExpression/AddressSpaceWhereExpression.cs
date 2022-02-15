@@ -26,57 +26,73 @@ namespace UACloudLibClientLibrary
     /// </summary>
     public class AddressSpaceWhereExpression : IWhereExpression<AddressSpaceSearchField>
     {
-        public AddressSpaceSearchField Path { get; set; }
-        public string Value { get; set; }
-        public ComparisonType Comparison { get; set; }
+        public string Expression { get; private set; }
 
         public AddressSpaceWhereExpression()
         {
 
         }
 
-        public AddressSpaceWhereExpression(AddressSpaceSearchField propertyName, string value, ComparisonType comparison = 0)
+        public AddressSpaceWhereExpression(AddressSpaceSearchField path, string value, ComparisonType comparison = 0)
         {
-            this.Path = propertyName;
-            this.Comparison = comparison;
-            this.Value = value;
+            if (SetExpression(path, value, comparison))
+            {
+                // succeeded
+            }
+            else
+            {
+                throw new Exception("One or more arguments was incorrect");
+            }
         }
 
-        public string GetExpression()
+        public bool SetExpression(AddressSpaceSearchField path, string value, ComparisonType comparison, bool AndConnector = true)
         {
-            string asString = "{";
-
-            switch (Path)
+            bool success = false;
+            if (string.IsNullOrEmpty(value) && Enum.IsDefined(path) && Enum.IsDefined(comparison))
             {
-                case AddressSpaceSearchField.contributorId:
-                    {
-                        asString += $"path: \"contributor.iD\", comparison: {Comparison}, value: \"{Value}\"";
-                        break;
-                    }
-                case AddressSpaceSearchField.contributorName:
-                    {
-                        asString += $"path: \"contributor.name\", comparison: {Comparison}, value: \"{Value}\"";
-                        break;
-                    }
-                case AddressSpaceSearchField.categoryId:
-                    {
-                        asString += $"path: \"category.iD\", comparison: {Comparison}, value: \"{Value}\"";
-                        break;
-                    }
-                case AddressSpaceSearchField.categoryName:
-                    {
-                        asString += $"path: \"category.name\", comparison: {Comparison}, value: \"{Value}\"";
-                        break;
-                    }
-                default:
-                    {
-                        asString += $"path: \"{Path}\", comparison: {Comparison}, value: \"{Value}\"";
-                        break;
-                    }
+                if(comparison == ComparisonType.Like)
+                {
+                    value = InternalMethods.LikeComparisonCompatibleString(value);
+                }
+
+                string asString = "{";
+                switch (path)
+                {
+                    case AddressSpaceSearchField.contributorName:
+                        {
+                            asString += $"path: \"name\", comparison: {comparison}, value: \"{value}\"";
+                            break;
+                        }
+                    case AddressSpaceSearchField.categoryName:
+                        {
+                            asString += $"path: \"name\", comparison: {comparison}, value: \"{value}\"";
+                            break;
+                        }
+                    default:
+                        {
+                            asString += $"path: \"{path}\", comparison: {comparison}, value: \"{value}\"";
+                            break;
+                        }
+                }
+
+                if (AndConnector)
+                {
+                    asString += ", connector: and";
+                }
+                else
+                {
+                    asString += ", connector: or";
+                }
+
+                asString += "}";
+                Expression = asString;
+                success = true;
             }
-                
-            asString += "}";
-            return asString;
+            else
+            {
+                success = false;
+            }
+            return success;
         }
     }
 }
