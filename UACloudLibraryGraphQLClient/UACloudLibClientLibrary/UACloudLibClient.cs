@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using GraphQL;
@@ -165,17 +166,27 @@ namespace UACloudLibClientLibrary
         /// <returns></returns>
         public AddressSpace DownloadNodeset(string identifier)
         {
-            WebClient webClient = new WebClient
+            HttpClient webClient = new HttpClient()
             {
-                BaseAddress = Endpoint.ToString()
+                BaseAddress = Endpoint
             };
 
-            webClient.Headers.Add("Authorization", "basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(m_strUsername + ":" + m_strPassword)));
+            webClient.DefaultRequestHeaders.Add("Authorization", "basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(m_strUsername + ":" + m_strPassword)));
 
-            var address = webClient.BaseAddress + "infomodel/download/" + Uri.EscapeDataString(identifier);
-            var response = webClient.DownloadString(address);
-            var converted = JsonConvert.DeserializeObject<AddressSpace>(response);
-            return converted;
+            string address = webClient.BaseAddress + "infomodel/download/" + Uri.EscapeDataString(identifier);
+            HttpRequestMessage request = new HttpRequestMessage();
+            request.RequestUri = new Uri(address);
+            HttpResponseMessage response = webClient.Send(request);
+            dynamic resultType = null;
+            if(response.StatusCode == HttpStatusCode.OK)
+            {
+                resultType = JsonConvert.DeserializeObject<dynamic>(response.Content.ToString());
+
+            }
+            webClient.Dispose();
+            return resultType;
+        }
+
         }
     }
 }
