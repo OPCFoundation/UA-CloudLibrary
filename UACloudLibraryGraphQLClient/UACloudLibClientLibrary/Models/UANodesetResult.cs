@@ -29,7 +29,7 @@
 
 using Newtonsoft.Json;
 
-namespace UACloudLibrary.Models
+namespace UACloudLibClientLibrary
 {
     /// <summary>
     /// Defines the structure of a Nodeset Result
