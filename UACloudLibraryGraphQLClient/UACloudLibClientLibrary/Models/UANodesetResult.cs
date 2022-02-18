@@ -38,14 +38,19 @@ namespace UACloudLibClientLibrary
     {
         [JsonProperty(PropertyName = "nodeset_id")]
         public uint Id;
+
         [JsonProperty(PropertyName = "nodesettitle")]
         public string Title;
+
         [JsonProperty(PropertyName = "orgname")]
         public string Contributor;
+
         [JsonProperty(PropertyName = "license")]
         public string License;
+
         [JsonProperty(PropertyName = "version")]
         public string Version;
+
         [JsonProperty(PropertyName = "adressspacecreationtime")]
         public System.DateTime ? CreationTime;
     }
