@@ -156,21 +156,21 @@ namespace SampleConsoleClient
             UACloudLibClient client = new UACloudLibClient(args[0], args[1], args[2]);
 
             Console.WriteLine("\nTesting object query");
-            List<ObjectResult> test = client.GetObjectTypes().GetAwaiter().GetResult();
-            foreach(ObjectResult result in test)
+            PageInfo<ObjectResult> test = client.GetObjectTypes().GetAwaiter().GetResult();
+            foreach(PageItem<ObjectResult> result in test.Items)
             {
-                Console.WriteLine($"{result.ID}, {result.Namespace}, {result.Browsename}, {result.Value}");
+                Console.WriteLine($"{result.Item.ID}, {result.Item.Namespace}, {result.Item.Browsename}, {result.Item.Value}");
             }
 
             Console.WriteLine("\nTesting metadata query");
-            List<MetadataResult> metadatas = client.GetMetadata().GetAwaiter().GetResult();
-            foreach(MetadataResult metadata in metadatas)
+            PageInfo<MetadataResult> metadatas = client.GetMetadata().GetAwaiter().GetResult();
+            foreach(PageItem<MetadataResult> metadata in metadatas.Items)
             {
-                Console.WriteLine($"{metadata.ID}, {metadata.Name}, {metadata.Value}");
+                Console.WriteLine($"{metadata.Item.ID}, {metadata.Item.Name}, {metadata.Item.Value}");
             }
 
             Console.WriteLine("\nTesting query and convertion of metadata");
-            List<AddressSpace> finalResult = client.GetConvertedResult().GetAwaiter().GetResult();
+            List<AddressSpace> finalResult = client.GetConvertedMetadata().GetAwaiter().GetResult();
             foreach(AddressSpace result in finalResult)
             {
                 Console.WriteLine($"{result.Title} by {result.Contributor.Name} last update on {result.LastModificationTime}");
