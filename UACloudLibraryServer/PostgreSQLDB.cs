@@ -289,14 +289,14 @@ namespace UACloudLibrary
                 if (uint.TryParse(match, out uint matchId))
                 {
                     var thisResult = new UANodesetResult();
-                    thisResult.NodesetResultId = matchId;
-                    thisResult.NodesetResultTitle = RetrieveMetaData(matchId, "nodesettitle") ?? string.Empty;
-                    thisResult.NodesetResultOrganization = RetrieveMetaData(matchId, "orgname") ?? string.Empty;
-                    thisResult.NodesetResultLicense = RetrieveMetaData(matchId, "license") ?? string.Empty;
-                    thisResult.NodesetResultVersion = RetrieveMetaData(matchId, "version") ?? string.Empty;
+                    thisResult.Id = matchId;
+                    thisResult.Title = RetrieveMetaData(matchId, "nodesettitle") ?? string.Empty;
+                    thisResult.Contributor = RetrieveMetaData(matchId, "orgname") ?? string.Empty;
+                    thisResult.License = RetrieveMetaData(matchId, "license") ?? string.Empty;
+                    thisResult.Version = RetrieveMetaData(matchId, "version") ?? string.Empty;
                     var pubDate = RetrieveMetaData(matchId, "nodesetcreationtime");
                     if (DateTime.TryParse(pubDate, out DateTime useDate))
-                        thisResult.NodesetResultPublicationDate = useDate;
+                        thisResult.CreationTime = useDate;
                     nodesetResults.Add(thisResult);
                 }
             }

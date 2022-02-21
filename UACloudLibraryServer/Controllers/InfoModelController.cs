@@ -63,7 +63,7 @@ namespace UACloudLibrary
 
         [HttpPut]
         [Route("/infomodel/find")]
-        [SwaggerResponse(statusCode: 200, type: typeof(UANodesetResult[]), description: "Discovered OPC UA Information Model identifiers of the models found in the UA Cloud Library matching the keywords provided.")]
+        [SwaggerResponse(statusCode: 200, type: typeof(UANodesetResult[]), description: "Discovered OPC UA Information Model results of the models found in the UA Cloud Library matching the keywords provided.")]
         public IActionResult FindAddressSpaceAsync(
             [FromBody][SwaggerParameter("A list of keywords to search for in the information models. Specify * to return everything.")] string[] keywords)
         {
