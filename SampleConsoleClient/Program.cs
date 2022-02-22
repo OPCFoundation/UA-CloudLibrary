@@ -35,9 +35,8 @@ namespace SampleConsoleClient
     using Newtonsoft.Json;
     using System;
     using System.Collections.Generic;
-    using System.Net;
+    using System.Net.Http;
     using System.Text;
-    using System.Text.Json;
     using UACloudLibClientLibrary;
     using UACloudLibClientLibrary.Models;
 
@@ -91,7 +90,7 @@ namespace SampleConsoleClient
 
             };
             var response = graphQLClient.SendQueryAsync<UACloudLibGraphQLObjecttypeQueryResponse>(request).GetAwaiter().GetResult();
-            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(response, new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine(JsonConvert.SerializeObject(response, Formatting.Indented));
 
             Console.WriteLine();
             Console.WriteLine("Testing metadata query");
@@ -107,7 +106,7 @@ namespace SampleConsoleClient
 
             };
             var response2 = graphQLClient.SendQueryAsync<UACloudLibGraphQLMetadataQueryResponse>(request).GetAwaiter().GetResult();
-            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(response2, new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine(JsonConvert.SerializeObject(response2.Data, Formatting.Indented));
 
             graphQLClient.Dispose();
         }
@@ -117,20 +116,20 @@ namespace SampleConsoleClient
             Console.WriteLine();
             Console.WriteLine("Testing REST interface...");
 
-            WebClient webClient = new WebClient
+            HttpClient webClient = new HttpClient
             {
-                BaseAddress = args[0]
+                BaseAddress = new Uri(args[0])
             };
 
-            webClient.Headers.Add("Authorization", "basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(args[1] + ":" + args[2])));
+            webClient.DefaultRequestHeaders.Add("Authorization", "basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(args[1] + ":" + args[2])));
 
             Console.WriteLine();
             Console.WriteLine("Testing /infomodel/find/{keywords}");
             string[] keywords = { "*" }; // return everything
-            string address = webClient.BaseAddress + "infomodel/find";
-            webClient.Headers.Add("Content-Type", "application/json");
-            var response = webClient.UploadString(address, "PUT", System.Text.Json.JsonSerializer.Serialize(keywords));
-            UANodesetResult[] identifiers = JsonConvert.DeserializeObject<UANodesetResult[]>(response);
+            string address = webClient.BaseAddress.ToString() + "infomodel/find";
+            HttpContent content = new StringContent(JsonConvert.SerializeObject(keywords), Encoding.UTF8, "application/json");
+            var response = webClient.Send(new HttpRequestMessage(HttpMethod.Put, address) { Content = content });
+            UANodesetResult[] identifiers = JsonConvert.DeserializeObject<UANodesetResult[]>(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
             for (var i = 0; i < identifiers.Length; i++)
             {
                 Console.WriteLine(JsonConvert.SerializeObject(identifiers[i], Formatting.Indented));
@@ -139,9 +138,9 @@ namespace SampleConsoleClient
             Console.WriteLine();
             Console.WriteLine("Testing /infomodel/download/{identifier}");
             string identifier = identifiers[0].Id.ToString(); // pick the first identifier returned previously
-            address = webClient.BaseAddress + "infomodel/download/" + Uri.EscapeDataString(identifier);
-            response = webClient.DownloadString(address);
-            Console.WriteLine(response);
+            address = webClient.BaseAddress.ToString() + "infomodel/download/" + Uri.EscapeDataString(identifier);
+            response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
+            Console.WriteLine(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
 
             Console.WriteLine();
             Console.WriteLine("For sample code to test /infomodel/upload, see https://github.com/digitaltwinconsortium/UANodesetWebViewer/blob/main/Applications/Controllers/UACL.cs");
