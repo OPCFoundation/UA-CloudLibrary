@@ -74,16 +74,19 @@ namespace UACloudLibClientLibrary
         private List<AddressSpace> ConvertToAddressSpace(List<BasicNodesetInformation> Info)
         {
             List<AddressSpace> result = new List<AddressSpace>();
-            foreach(BasicNodesetInformation basicNodesetInformation in Info)
+            if (Info != null)
             {
-                AddressSpace address = new AddressSpace();
-                address.Title = basicNodesetInformation.Title;
-                address.Version = basicNodesetInformation.Version;
-                address.Contributor.Name = basicNodesetInformation.Organisation;
-                address.License = basicNodesetInformation.License;
-                address.CreationTime = basicNodesetInformation.CreationTime;
-                address.MetadataID = basicNodesetInformation.ID.ToString();
-                result.Add(address);
+                foreach (BasicNodesetInformation basicNodesetInformation in Info)
+                {
+                    AddressSpace address = new AddressSpace();
+                    address.Title = basicNodesetInformation.Title;
+                    address.Version = basicNodesetInformation.Version;
+                    address.Contributor.Name = basicNodesetInformation.Organisation;
+                    address.License = basicNodesetInformation.License;
+                    address.CreationTime = basicNodesetInformation.CreationTime;
+                    address.MetadataID = basicNodesetInformation.ID.ToString();
+                    result.Add(address);
+                }
             }
             return result;
         }
