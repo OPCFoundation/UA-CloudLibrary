@@ -190,10 +190,10 @@
         public async Task<AddressSpace> DownloadNodeset(string identifier) => await restClient.DownloadNodeset(identifier);
         
         /// <summary>
-        /// Use this method if the host doesn't provide the GraphQL API
+        /// Use this method if the CloudLib instance doesn't provide the GraphQL API
         /// </summary>
         /// <returns></returns>
-        public async Task<List<AddressSpace>> GetBasicNodesetInformation() => await restClient.GetBasicInformation();
+        public async Task<List<AddressSpace>> GetBasicAddressSpaces(string keyword = null) => await restClient.GetBasicAddressSpaces(keyword);
 
         
         public void Dispose()

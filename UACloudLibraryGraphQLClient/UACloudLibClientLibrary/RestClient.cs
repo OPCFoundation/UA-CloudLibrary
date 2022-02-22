@@ -34,12 +34,19 @@ namespace UACloudLibClientLibrary
             client.Dispose();
         }
 
-        public async Task<List<AddressSpace>> GetBasicInformation()
+        public async Task<List<AddressSpace>> GetBasicAddressSpaces(string keyword = null)
         {
             string address = Path.Combine(client.BaseAddress.ToString(), "infomodel/find");
 
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, address);
-            request.Content = new StringContent("[\"*\"]");
+            if (string.IsNullOrEmpty(keyword))
+            {
+                request.Content = new StringContent("[\"*\"]");
+            }
+            else
+            {
+                request.Content = new StringContent(string.Format("[\"{0}\"]", keyword));
+            }
             request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
 
             HttpResponseMessage response = await client.SendAsync(request);
