@@ -48,7 +48,7 @@ namespace UACloudLibrary
         {
         }
 
-        public static IModel GetInstance()
+        public static IModel GetModel()
         {
             DbContextOptionsBuilder builder = new DbContextOptionsBuilder();
             builder.UseNpgsql(PostgreSQLDB.CreateConnectionString());
