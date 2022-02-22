@@ -499,16 +499,18 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                     _connection.Open();
                 }
 
+                // ToDo: Check if organisation already exists
+
                 string sqlQuery = $"INSERT INTO organisation (name, website, logourl, creationtime, lastmodificationtime, description, contactemail) VALUES (@name, @website, @logourl, @creationtime, @lastmodification, @description, @contactemail); SELECT currval(pg_get_serial_sequence('organisation', 'organisation_id'))";
                 NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlQuery, _connection);
                 sqlCommand.CommandText = sqlQuery;
-                sqlCommand.Parameters.AddWithValue("name", org.Name);
-                sqlCommand.Parameters.AddWithValue("website", org.Website.ToString());
-                sqlCommand.Parameters.AddWithValue("logourl", org.LogoUrl.ToString());
-                sqlCommand.Parameters.AddWithValue("creationtime", org.CreationTime);
-                sqlCommand.Parameters.AddWithValue("lastmodification", org.LastModificationTime);
-                sqlCommand.Parameters.AddWithValue("description", org.Description);
-                sqlCommand.Parameters.AddWithValue("contactemail", org.ContactEmail);
+                sqlCommand.Parameters.AddWithValue("name", org?.Name);
+                sqlCommand.Parameters.AddWithValue("website", org.Website?.ToString());
+                sqlCommand.Parameters.AddWithValue("logourl", org.LogoUrl?.ToString());
+                sqlCommand.Parameters.AddWithValue("creationtime", org?.CreationTime);
+                sqlCommand.Parameters.AddWithValue("lastmodification", org?.LastModificationTime);
+                sqlCommand.Parameters.AddWithValue("description", org?.Description);
+                sqlCommand.Parameters.AddWithValue("contactemail", org?.ContactEmail);
                 result = (long)sqlCommand.ExecuteScalar();
                 sqlCommand.Parameters.Clear();
 
@@ -535,11 +537,11 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                 string sqlQuery = "INSERT INTO category (name, description, iconurl, creationtime, lastmodificationtime) VALUES (@name, @description, @iconurl, @creationtime, @lastmodification); SELECT currval(pg_get_serial_sequence('category', 'category_id'))";
                 NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlQuery, _connection);
                 sqlCommand.CommandText = sqlQuery;
-                sqlCommand.Parameters.AddWithValue("name", category.Name);
-                sqlCommand.Parameters.AddWithValue("description", category.Description);
-                sqlCommand.Parameters.AddWithValue("iconurl", category.IconUrl.ToString());
-                sqlCommand.Parameters.AddWithValue("creationtime", category.CreationTime);
-                sqlCommand.Parameters.AddWithValue("lastmodification", category.LastModificationTime);
+                sqlCommand.Parameters.AddWithValue("name", category?.Name);
+                sqlCommand.Parameters.AddWithValue("description", category?.Description);
+                sqlCommand.Parameters.AddWithValue("iconurl", category.IconUrl?.ToString());
+                sqlCommand.Parameters.AddWithValue("creationtime", category?.CreationTime);
+                sqlCommand.Parameters.AddWithValue("lastmodification", category?.LastModificationTime);
                 result = (long)sqlCommand.ExecuteScalar();
                 sqlCommand.Parameters.Clear();
 
