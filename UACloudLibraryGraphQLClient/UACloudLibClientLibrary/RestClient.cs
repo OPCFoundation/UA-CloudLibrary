@@ -24,7 +24,7 @@ namespace UACloudLibClientLibrary
         {
             client = new HttpClient();
             client.BaseAddress = new Uri(address);
-            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(Username + ":" + Password)));
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(username + ":" + password)));
             Username = username;
             Password = password;
         }
