@@ -204,7 +204,9 @@ namespace UACloudLibrary
             {
                 if (!_database.AddAddressSpace(nodesetHashCode, uaAddressSpace, overwrite))
                 {
-                    // ToDo: Add fitting failure message
+                    string message = "Error: AddressSpace could not be stored.";
+                    _logger.LogError(message);
+                    return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
                 }
             }
 
