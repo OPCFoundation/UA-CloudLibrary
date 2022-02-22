@@ -32,7 +32,7 @@
                 }
             }
 
-            return new List<AddressSpace>();
+            return addressSpaces;
         }
 
         /// <summary>
