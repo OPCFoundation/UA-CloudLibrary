@@ -98,12 +98,15 @@ namespace UACloudLibrary
             modelBuilder.Entity<ReferencetypeModel>();
             modelBuilder.Entity<VariabletypeModel>();
 
-            modelBuilder.Entity<Organisation>().ToTable("organisation");
-            modelBuilder.Entity<AddressSpaceCategory>().ToTable("category");
+            modelBuilder.Entity<Organisation>().ToTable("organisation").Property<int>("contributorid");
+            modelBuilder.Entity<Organisation>().HasKey("contributorid");
+            modelBuilder.Entity<AddressSpaceCategory>().ToTable("category").Property<int>("categoryid");
+            modelBuilder.Entity<AddressSpaceCategory>().HasKey("categoryid");
+            modelBuilder.Entity<AddressSpaceModel>().Property<int>("addressspaceid");
             modelBuilder.Entity<AddressSpaceModel>()
                 .Ignore(e => e.AdditionalProperties)
                 .Ignore(e => e.Nodeset)
-                .ToTable("addressspace");
+                .ToTable("addressspace").HasKey("addressspaceid");
             modelBuilder.Entity<AddressSpaceModel>().HasOne(e => e.Contributor).WithMany();
             modelBuilder.Entity<AddressSpaceModel>().HasOne(e => e.Category).WithMany();
         }

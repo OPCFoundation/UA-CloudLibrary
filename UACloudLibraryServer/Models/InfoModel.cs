@@ -67,10 +67,6 @@ namespace UACloudLibrary
             AdditionalProperties = new Tuple<string, string>[0];
         }
 
-        [Key]
-        [Column("addressspaceid")]
-        public int AddressSpaceId { get; set; }
-
         [Required]
         [Column("title")]
         public string Title { get; set; }
@@ -158,10 +154,6 @@ namespace UACloudLibrary
             LastModificationTime = DateTime.UtcNow;
         }
 
-        [Key]
-        [Column("contributorid")]
-        public int ContributorId { get; set; }
-
         [Required]
         [Column("name")]
         public string Name { get; set; }
@@ -195,9 +187,6 @@ namespace UACloudLibrary
             CreationTime = DateTime.UtcNow;
             LastModificationTime = DateTime.UtcNow;
         }
-        [Key]
-        [Column("categoryid")]
-        public int CategoryId { get; set; }
 
         [Required]
         [Column("name")]
