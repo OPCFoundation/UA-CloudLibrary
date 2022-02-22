@@ -153,35 +153,45 @@ namespace SampleConsoleClient
             Console.WriteLine("\n\nTesting the client library");
 
             UACloudLibClient client = new UACloudLibClient(args[0], args[1], args[2]);
-
-            Console.WriteLine("\nTesting object query");
-            PageInfo<ObjectResult> test = client.GetObjectTypes().GetAwaiter().GetResult();
-            foreach(PageItem<ObjectResult> result in test.Items)
+            try
             {
-                Console.WriteLine($"{result.Item.ID}, {result.Item.Namespace}, {result.Item.Browsename}, {result.Item.Value}");
+                Console.WriteLine("\nTesting the GraphQL api");
+                Console.WriteLine("\nTesting object query");
+                PageInfo<ObjectResult> test = client.GetObjectTypes().GetAwaiter().GetResult();
+                foreach (PageItem<ObjectResult> result in test.Items)
+                {
+                    Console.WriteLine($"{result.Item.ID}, {result.Item.Namespace}, {result.Item.Browsename}, {result.Item.Value}");
+                }
+
+                Console.WriteLine("\nTesting metadata query");
+                PageInfo<MetadataResult> metadatas = client.GetMetadata().GetAwaiter().GetResult();
+                foreach (PageItem<MetadataResult> metadata in metadatas.Items)
+                {
+                    Console.WriteLine($"{metadata.Item.ID}, {metadata.Item.Name}, {metadata.Item.Value}");
+                }
+
+                Console.WriteLine("\nTesting query and convertion of metadata");
+                List<AddressSpace> finalResult = client.GetConvertedMetadata().GetAwaiter().GetResult();
+                foreach (AddressSpace result in finalResult)
+                {
+                    Console.WriteLine($"{result.Title} by {result.Contributor.Name} last update on {result.LastModificationTime}");
+                }
+            }catch (Exception ex)
+            {
+                Console.WriteLine("\nThis instance doesn't provide GraphQL");
             }
 
-            Console.WriteLine("\nTesting metadata query");
-            PageInfo<MetadataResult> metadatas = client.GetMetadata().GetAwaiter().GetResult();
-            foreach(PageItem<MetadataResult> metadata in metadatas.Items)
-            {
-                Console.WriteLine($"{metadata.Item.ID}, {metadata.Item.Name}, {metadata.Item.Value}");
-            }
+            Console.WriteLine("\nUsing the rest api");
 
-            Console.WriteLine("\nTesting query and convertion of metadata");
-            List<AddressSpace> finalResult = client.GetConvertedMetadata().GetAwaiter().GetResult();
-            foreach(AddressSpace result in finalResult)
-            {
-                Console.WriteLine($"{result.Title} by {result.Contributor.Name} last update on {result.LastModificationTime}");
-            }
-
-            if(finalResult.Count > 0)
+            List<AddressSpace> restResult = client.GetBasicAddressSpaces().GetAwaiter().GetResult();
+            if (restResult.Count > 0)
             {
                 Console.WriteLine("Testing download of nodeset");
-                AddressSpace result = client.DownloadNodeset(finalResult[0].MetadataID).GetAwaiter().GetResult();
+                AddressSpace result = client.DownloadNodeset(restResult[0].MetadataID).GetAwaiter().GetResult();
                 if (!string.IsNullOrEmpty(result.Nodeset.NodesetXml))
                 {
                     Console.WriteLine("Nodeset Downloaded");
+                    Console.WriteLine(result.Nodeset.NodesetXml);
                 }
             }
         }
