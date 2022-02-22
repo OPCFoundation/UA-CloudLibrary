@@ -2,8 +2,7 @@
 {
     using System;
     using System.Collections.Generic;
-    using System.Net;
-    using System.Net.Http;
+    using System.IO;
     using System.Text;
     using System.Threading.Tasks;
     using GraphQL;
@@ -27,6 +26,8 @@
             get { return BaseEndpoint; }
             set { BaseEndpoint = value; }
         }
+
+        private RestClient restClient;
 
         private Uri BaseEndpoint { get; set; }
 
@@ -64,6 +65,7 @@
 
         public UACloudLibClient(string strEndpoint, string strUsername, string strPassword)
         {
+            restClient = new RestClient(strEndpoint, strUsername, strPassword);
             BaseEndpoint = new Uri(strEndpoint);
             m_client = new GraphQLHttpClient(new Uri(strEndpoint + "/graphql"), new NewtonsoftJsonSerializer());
             string temp = Convert.ToBase64String(Encoding.UTF8.GetBytes(strUsername + ":" + strPassword));
@@ -185,32 +187,19 @@
         /// </summary>
         /// <param name="identifier"></param>
         /// <returns></returns>
-        public AddressSpace DownloadNodeset(string identifier)
-        {
-            HttpClient webClient = new HttpClient()
-            {
-                BaseAddress = Endpoint
-            };
+        public async Task<AddressSpace> DownloadNodeset(string identifier) => await restClient.DownloadNodeset(identifier);
+        
+        /// <summary>
+        /// Use this method if the host doesn't provide the GraphQL API
+        /// </summary>
+        /// <returns></returns>
+        public async Task<List<AddressSpace>> GetBasicNodesetInformation() => await restClient.GetBasicInformation();
 
-            webClient.DefaultRequestHeaders.Add("Authorization", "basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(m_strUsername + ":" + m_strPassword)));
-
-            string address = webClient.BaseAddress + "infomodel/download/" + Uri.EscapeDataString(identifier);
-            HttpRequestMessage request = new HttpRequestMessage();
-            request.RequestUri = new Uri(address);
-            HttpResponseMessage response = webClient.Send(request);
-            dynamic resultType = null;
-            if (response.StatusCode == HttpStatusCode.OK)
-            {
-                resultType = JsonConvert.DeserializeObject<dynamic>(response.Content.ToString());
-
-            }
-            webClient.Dispose();
-            return resultType;
-        }
-
+        
         public void Dispose()
         {
             m_client.Dispose();
+            restClient.Dispose();
         }
     }
 }

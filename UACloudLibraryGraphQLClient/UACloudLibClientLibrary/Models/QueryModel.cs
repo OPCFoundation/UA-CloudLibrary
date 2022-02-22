@@ -1,6 +1,7 @@
 ﻿namespace UACloudLibClientLibrary
 {
     using Newtonsoft.Json;
+    using System;
 
     [JsonObject("datatype")]
     public class DatatypeResult
@@ -73,5 +74,26 @@
         public string Value { get; set; }
         [JsonProperty("variabletype_namespace")]
         public string Namespace { get; set; }
+    }
+
+    public class BasicNodesetInformation
+    {
+        [JsonProperty("nodeset_id")]
+        public uint ID { get; set; }
+
+        [JsonProperty("nodesettitle")]
+        public string Title { get; set; }
+
+        [JsonProperty("orgname")]
+        public string Organisation { get; set; }
+
+        [JsonProperty("license")]
+        public AddressSpaceLicense License { get; set; }
+
+        [JsonProperty("addressspacecreationtime")]
+        public DateTime CreationTime { get; set; }
+
+        [JsonProperty("version")]
+        public string Version { get; set; }
     }
 }
