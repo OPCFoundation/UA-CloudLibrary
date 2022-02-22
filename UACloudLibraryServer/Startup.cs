@@ -174,7 +174,7 @@ namespace UACloudLibrary
             #region GraphQLEntitityFramework
             EfGraphQLConventions.RegisterInContainer<AppDbContext>(
                     services,
-                    model: AppDbContext.GetInstance());
+                    model: AppDbContext.GetModel());
             EfGraphQLConventions.RegisterConnectionTypesInContainer(services);
 
             services.AddSingleton<IDocumentExecuter, EfDocumentExecuter>();
