@@ -48,7 +48,7 @@ namespace UACloudLibClientLibrary
                 request.Content = new StringContent(string.Format("[\"{0}\"]", keyword));
             }
             request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
-
+            request.Headers.Authorization = client.DefaultRequestHeaders.Authorization;
             HttpResponseMessage response = await client.SendAsync(request);
             List<BasicNodesetInformation> info = null;
             
