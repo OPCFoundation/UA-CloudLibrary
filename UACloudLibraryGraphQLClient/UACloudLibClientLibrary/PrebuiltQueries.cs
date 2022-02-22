@@ -1,7 +1,6 @@
 ﻿namespace UACloudLibClientLibrary
 {
     using GraphQL.Query.Builder;
-    using UACloudLibClientLibrary.Models;
     /// <summary>
     /// Defines which fields are returned
     /// </summary>

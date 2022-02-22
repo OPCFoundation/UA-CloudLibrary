@@ -1,4 +1,4 @@
-﻿namespace UACloudLibClientLibrary.Models
+﻿namespace UACloudLibClientLibrary
 {
     using Newtonsoft.Json;
 

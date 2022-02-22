@@ -11,7 +11,6 @@
     using GraphQL.Client.Serializer.Newtonsoft;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
-    using UACloudLibClientLibrary.Models;
 
     /// <summary>
     /// This class handles the quering and conversion of the response
