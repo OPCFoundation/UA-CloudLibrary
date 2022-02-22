@@ -178,7 +178,7 @@ namespace SampleConsoleClient
             if(finalResult.Count > 0)
             {
                 Console.WriteLine("Testing download of nodeset");
-                AddressSpace result = client.DownloadNodeset(finalResult[0].MetadataID);
+                AddressSpace result = client.DownloadNodeset(finalResult[0].MetadataID).GetAwaiter().GetResult();
                 if (!string.IsNullOrEmpty(result.Nodeset.NodesetXml))
                 {
                     Console.WriteLine("Nodeset Downloaded");
