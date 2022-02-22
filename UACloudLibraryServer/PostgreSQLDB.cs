@@ -464,11 +464,11 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                     NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlQuery, _connection);
                     sqlCommand.Parameters.AddWithValue("title", addressSpace.Title);
                     sqlCommand.Parameters.AddWithValue("versionnumber", addressSpace.Version);
-                    sqlCommand.Parameters.AddWithValue("iconurl", addressSpace.IconUrl.ToString());
+                    sqlCommand.Parameters.AddWithValue("iconurl", addressSpace.IconUrl?.ToString());
                     sqlCommand.Parameters.AddWithValue("license", (int)addressSpace.License);
-                    sqlCommand.Parameters.AddWithValue("licenseurl", addressSpace.LicenseUrl.ToString());
+                    sqlCommand.Parameters.AddWithValue("licenseurl", addressSpace.LicenseUrl?.ToString());
                     sqlCommand.Parameters.AddWithValue("description", addressSpace.Description);
-                    sqlCommand.Parameters.AddWithValue("copyright", addressSpace.CopyrightText);
+                    sqlCommand.Parameters.AddWithValue("copyright", addressSpace?.CopyrightText);
                     sqlCommand.Parameters.AddWithValue("creationtime", addressSpace.CreationTime);
                     sqlCommand.Parameters.AddWithValue("lastmodified", addressSpace.LastModificationTime);
                     sqlCommand.Parameters.AddWithValue("orgindex", orgindex);
@@ -504,7 +504,7 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                 string sqlQuery = $"INSERT INTO organisation (name, website, logourl, creationtime, lastmodificationtime, description, contactemail) VALUES (@name, @website, @logourl, @creationtime, @lastmodification, @description, @contactemail); SELECT currval(pg_get_serial_sequence('organisation', 'organisation_id'))";
                 NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlQuery, _connection);
                 sqlCommand.CommandText = sqlQuery;
-                sqlCommand.Parameters.AddWithValue("name", org?.Name);
+                sqlCommand.Parameters.AddWithValue("name", org.Name);
                 sqlCommand.Parameters.AddWithValue("website", org.Website?.ToString());
                 sqlCommand.Parameters.AddWithValue("logourl", org.LogoUrl?.ToString());
                 sqlCommand.Parameters.AddWithValue("creationtime", org?.CreationTime);
