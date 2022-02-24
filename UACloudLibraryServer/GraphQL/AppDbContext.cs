@@ -98,15 +98,15 @@ namespace UACloudLibrary
             modelBuilder.Entity<ReferencetypeModel>();
             modelBuilder.Entity<VariabletypeModel>();
 
-            modelBuilder.Entity<Organisation>().ToTable("organisation").Property<int>("contributorid");
-            modelBuilder.Entity<Organisation>().HasKey("contributorid");
-            modelBuilder.Entity<AddressSpaceCategory>().ToTable("category").Property<int>("categoryid");
-            modelBuilder.Entity<AddressSpaceCategory>().HasKey("categoryid");
-            modelBuilder.Entity<AddressSpaceModel>().Property<int>("addressspaceid");
+            modelBuilder.Entity<Organisation>().ToTable("organisation").Property<int>("contributor_id");
+            modelBuilder.Entity<Organisation>().HasKey("contributor_id");
+            modelBuilder.Entity<AddressSpaceCategory>().ToTable("category").Property<int>("category_id");
+            modelBuilder.Entity<AddressSpaceCategory>().HasKey("category_id");
+            modelBuilder.Entity<AddressSpaceModel>().Property<int>("addressspace_id");
             modelBuilder.Entity<AddressSpaceModel>()
                 .Ignore(e => e.AdditionalProperties)
                 .Ignore(e => e.Nodeset)
-                .ToTable("addressspace").HasKey("addressspaceid");
+                .ToTable("addressspace").HasKey("addressspace_id");
             modelBuilder.Entity<AddressSpaceModel>().HasOne(e => e.Contributor).WithMany();
             modelBuilder.Entity<AddressSpaceModel>().HasOne(e => e.Category).WithMany();
         }

@@ -46,15 +46,15 @@ namespace UACloudLibrary
             Field(e => e.SupportedLocales);
             Field(e => e.Keywords);
             Field(e => e.License);
-            Field(e => e.NodesetId);
-            AddNavigationField(name: "Contributor", resolve: e => e.DbContext.organisation.Find(e.Source.ContributorId));
-            AddNavigationField(name: "Category", resolve: e => e.DbContext.category.Find(e.Source.CategoryId));
+            Field(e => e.Nodeset_Id);
+            AddNavigationField(name: "Contributor", resolve: e => e.DbContext.organisation.Find(e.Source.Contributor_Id));
+            AddNavigationField(name: "Category", resolve: e => e.DbContext.category.Find(e.Source.Category_Id));
             AddNavigationField(name: "LicenseUrl", resolve: e => e.Source.LicenseUrl, graphType: typeof(UriGraphType));
             AddNavigationField(name: "DocumentationUrl", resolve: e => e.Source.DocumentationUrl, graphType: typeof(UriGraphType));
             AddNavigationField(name: "IconUrl", resolve: e => e.Source.IconUrl, graphType: typeof(UriGraphType));
-            AddNavigationField(name: "purchasinginformationUrl", resolve: e => e.Source.PurchasingInformationUrl, graphType: typeof(UriGraphType));
-            AddNavigationField(name: "releaseNotesUrl", resolve: e => e.Source.ReleaseNotesUrl, graphType: typeof(UriGraphType));
-            AddNavigationField(name: "testSpecificationUrl", resolve: e => e.Source.TestSpecificationUrl, graphType: typeof(UriGraphType));
+            AddNavigationField(name: "PurchasingInformationUrl", resolve: e => e.Source.PurchasingInformationUrl, graphType: typeof(UriGraphType));
+            AddNavigationField(name: "ReleaseNotesUrl", resolve: e => e.Source.ReleaseNotesUrl, graphType: typeof(UriGraphType));
+            AddNavigationField(name: "TestSpecificationUrl", resolve: e => e.Source.TestSpecificationUrl, graphType: typeof(UriGraphType));
         }
     }
 }

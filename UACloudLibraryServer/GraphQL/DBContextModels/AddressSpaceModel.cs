@@ -33,12 +33,12 @@ namespace UACloudLibrary
     public class AddressSpaceModel : AddressSpace
     {
         [ForeignKey("Category")]
-        [Column("categoryid")]
-        public int CategoryId { get; set; }
+        [Column("category_id")]
+        public int Category_Id { get; set; }
         [ForeignKey("Contributor")]
-        [Column("contributorid")]
-        public int ContributorId { get; set; }
-        [Column("nodesetid")]
-        public long NodesetId { get; set; }
+        [Column("contributor_id")]
+        public int Contributor_Id { get; set; }
+        [Column("nodeset_id")]
+        public long Nodeset_Id { get; set; }
     }
 }
