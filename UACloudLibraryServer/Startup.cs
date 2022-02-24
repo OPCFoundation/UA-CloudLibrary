@@ -136,6 +136,7 @@ namespace UACloudLibrary
                 options.EnableAnnotations();
             });
 
+            services.AddSwaggerGenNewtonsoftSupport();
 
             // Setup file storage
             switch (Configuration["HostingPlatform"])

@@ -27,26 +27,28 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-using Newtonsoft.Json;
-
 namespace UACloudLibrary.Models
 {
-    /// <summary>
-    /// Defines the structure of a Nodeset Result
-    /// </summary>
+    using Newtonsoft.Json;
+
     public class UANodesetResult
     {
         [JsonProperty(PropertyName = "nodeset_id")]
-        public uint Id;
+        public uint Id { get; set; }
+
         [JsonProperty(PropertyName = "nodesettitle")]
-        public string Title;
+        public string Title { get; set; }
+
         [JsonProperty(PropertyName = "orgname")]
-        public string Contributor;
+        public string Contributor { get; set; }
+
         [JsonProperty(PropertyName = "license")]
-        public string License;
+        public string License { get; set; }
+
         [JsonProperty(PropertyName = "version")]
-        public string Version;
+        public string Version { get; set; }   
+
         [JsonProperty(PropertyName = "adressspacecreationtime")]
-        public System.DateTime ? CreationTime;
+        public System.DateTime? CreationTime { get; set; }
     }
 }

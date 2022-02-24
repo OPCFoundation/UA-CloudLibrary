@@ -1,15 +1,15 @@
-﻿namespace UACloudLibClientLibrary
+
+namespace UACloudLibClientLibrary
 {
-    using System;
-    using System.Collections.Generic;
-    using System.IO;
-    using System.Text;
-    using System.Threading.Tasks;
     using GraphQL;
     using GraphQL.Client.Http;
     using GraphQL.Client.Serializer.Newtonsoft;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
+    using System;
+    using System.Collections.Generic;
+    using System.Text;
+    using System.Threading.Tasks;
 
     /// <summary>
     /// This class handles the quering and conversion of the response
@@ -70,6 +70,8 @@
             m_client = new GraphQLHttpClient(new Uri(strEndpoint + "/graphql"), new NewtonsoftJsonSerializer());
             string temp = Convert.ToBase64String(Encoding.UTF8.GetBytes(strUsername + ":" + strPassword));
             m_client.HttpClient.DefaultRequestHeaders.Add("Authorization", "basic " + temp);
+            m_strUsername = strUsername;
+            m_strPassword = strPassword;
         }
 
         //Sends the query and converts it
@@ -188,14 +190,14 @@
         /// <param name="identifier"></param>
         /// <returns></returns>
         public async Task<AddressSpace> DownloadNodeset(string identifier) => await restClient.DownloadNodeset(identifier);
-        
+
         /// <summary>
         /// Use this method if the CloudLib instance doesn't provide the GraphQL API
         /// </summary>
         /// <returns></returns>
         public async Task<List<AddressSpace>> GetBasicAddressSpaces(string keyword = null) => await restClient.GetBasicAddressSpaces(keyword);
 
-        
+
         public void Dispose()
         {
             m_client.Dispose();

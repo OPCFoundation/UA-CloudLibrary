@@ -1,10 +1,11 @@
-﻿namespace UACloudLibClientLibrary
-{
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
+﻿using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 
-    internal static class ConvertMetadataToAddressspace
+namespace UACloudLibClientLibrary
+{
+    static class ConvertMetadataToAddressspace
     {
         /// <summary>
         /// Converts metadata to a list of combinedtypes, taking the nodeset id from the metadata as a combination point
@@ -47,12 +48,12 @@
                 #region AdressSpace Cases
                 case "adressspacemodifiedtime":
                     {
-                        addressspace.LastModificationTime = System.Convert.ToDateTime(metadata.Value);
+                        addressspace.LastModificationTime = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
                         break;
                     }
                 case "adressspacecreationtime":
                     {
-                        addressspace.CreationTime = System.Convert.ToDateTime(metadata.Value);
+                        addressspace.CreationTime = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
                         break;
                     }
                 case "addressspacedescription":
@@ -173,7 +174,7 @@
                 #endregion
                 case "nodesetmodifiedtime":
                     {
-                        addressspace.Nodeset.LastModification = System.Convert.ToDateTime(metadata.Value);
+                        addressspace.Nodeset.LastModification = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
                         break;
                     }
                 default:
