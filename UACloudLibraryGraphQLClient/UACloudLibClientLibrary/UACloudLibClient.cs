@@ -10,6 +10,7 @@ namespace UACloudLibClientLibrary
     using System.Collections.Generic;
     using System.Text;
     using System.Threading.Tasks;
+    using System.Linq;
 
     /// <summary>
     /// This class handles the quering and conversion of the response
