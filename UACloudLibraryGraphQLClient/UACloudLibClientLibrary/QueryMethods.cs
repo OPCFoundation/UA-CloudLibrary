@@ -206,7 +206,7 @@
             where T : Enum
         {
             StringBuilder query = new StringBuilder();
-            if (filter.Count() == 0)
+            if (filter.Any())
             {
                 return "";
             }
