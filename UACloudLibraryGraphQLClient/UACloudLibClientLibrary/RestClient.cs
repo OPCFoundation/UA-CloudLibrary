@@ -34,19 +34,20 @@ namespace UACloudLibClientLibrary
             client.Dispose();
         }
 
-        public async Task<List<AddressSpace>> GetBasicAddressSpaces(string keyword = null)
+        public async Task<List<AddressSpace>> GetBasicAddressSpaces(IEnumerable<string> keywords = null)
         {
             string address = Path.Combine(client.BaseAddress.ToString(), "infomodel/find");
 
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, address);
-            if (string.IsNullOrEmpty(keyword))
+            if (keywords == null)
             {
                 request.Content = new StringContent("[\"*\"]");
             }
             else
             {
-                request.Content = new StringContent(string.Format("[\"{0}\"]", keyword));
+                request.Content = new StringContent(string.Format("[{0}]", PrepareArgumentsString(keywords)));
             }
+
             request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
             request.Headers.Authorization = client.DefaultRequestHeaders.Authorization;
             HttpResponseMessage response = await client.SendAsync(request);
@@ -89,6 +90,29 @@ namespace UACloudLibClientLibrary
                 }
             }
             return result;
+        }
+
+        private static string PrepareArgumentsString(IEnumerable<string> arguments)
+        {
+            List<string> argumentsList = new List<string>();
+
+            foreach (string argument in arguments)
+            {
+                argumentsList.Add(string.Format("\"{0}\"", argument));
+            }
+
+            StringBuilder stringBuilder = new StringBuilder();
+
+            for(int i = 0; i < argumentsList.Count; i++)
+            {
+                if(i != 0)
+                {
+                    stringBuilder.Append(",");
+                }
+                stringBuilder.Append(argumentsList[i]);
+            }
+
+            return stringBuilder.ToString();
         }
     }
 }
