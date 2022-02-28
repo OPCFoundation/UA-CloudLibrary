@@ -35,6 +35,7 @@ namespace UACloudLibrary
     using System;
     using System.Collections.Generic;
     using System.Data;
+    using System.Globalization;
     using UACloudLibrary.Models;
 
     public class PostgreSQLDB : IDatabase
@@ -434,55 +435,65 @@ namespace UACloudLibrary
             long categoryindex = -1;
             if (overwrite)
             {
-                OverwriteOldAddressspace(nodesetId, addressSpace, ref orgindex, ref categoryindex);
+                result = OverwriteOldAddressspace(nodesetId, addressSpace, ref orgindex, ref categoryindex);
             }
-
-            if (orgindex == -1)
+            else
             {
-                orgindex = AddOrganisation(addressSpace.Contributor, overwrite);
-            }
-
-            if (categoryindex == -1)
-            {
-                categoryindex = AddCategory(addressSpace.Category, overwrite);
-            }
-
-            if (orgindex >= 0 && categoryindex >= 0)
-            {
-                try
+                if (orgindex == -1)
                 {
-                    if (_connection.State != ConnectionState.Open)
-                    {
-                        _connection.Close();
-                        _connection.Open();
-                    }
-
-                    string sqlQuery = @$"INSERT INTO addressspace 
-(title, versionnumber, iconurl, license, licenseurl, description, copyrighttext, creationtime, lastmodificationtime, contributor, category, nodeset, numberofdownloads) 
-VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @copyright, @creationtime, @lastmodified, @orgindex, @categoryindex, @nodesetid, 0)";
-
-                    NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlQuery, _connection);
-                    sqlCommand.Parameters.AddWithValue("title", addressSpace.Title);
-                    sqlCommand.Parameters.AddWithValue("versionnumber", addressSpace.Version);
-                    sqlCommand.Parameters.AddWithValue("iconurl", addressSpace.IconUrl?.ToString());
-                    sqlCommand.Parameters.AddWithValue("license", (int)addressSpace.License);
-                    sqlCommand.Parameters.AddWithValue("licenseurl", addressSpace.LicenseUrl?.ToString());
-                    sqlCommand.Parameters.AddWithValue("description", addressSpace.Description);
-                    sqlCommand.Parameters.AddWithValue("copyright", addressSpace?.CopyrightText);
-                    sqlCommand.Parameters.AddWithValue("creationtime", addressSpace.CreationTime);
-                    sqlCommand.Parameters.AddWithValue("lastmodified", addressSpace.LastModificationTime);
-                    sqlCommand.Parameters.AddWithValue("orgindex", orgindex);
-                    sqlCommand.Parameters.AddWithValue("categoryindex", categoryindex);
-                    sqlCommand.Parameters.AddWithValue("nodesetid", (long)nodesetId);
-                    sqlCommand.CommandText = sqlQuery;
-                    sqlCommand.ExecuteNonQuery();
-                    sqlCommand.Parameters.Clear();
-                    result = true;
+                    orgindex = AddOrganisation(addressSpace.Contributor, overwrite);
                 }
-                catch (Exception e)
+
+                if (categoryindex == -1)
                 {
-                    _logger.LogError(e.Message);
-                    result = false;
+                    categoryindex = AddCategory(addressSpace.Category, overwrite);
+                }
+
+                if (orgindex >= 0 && categoryindex >= 0)
+                {
+                    try
+                    {
+                        if (_connection.State != ConnectionState.Open)
+                        {
+                            _connection.Close();
+                            _connection.Open();
+                        }
+
+                        string sqlQuery = @$"INSERT INTO addressspace 
+(title, versionnumber, iconurl, license, licenseurl, description, copyrighttext, creationtime, lastmodificationtime, contributor_id, category_id, nodeset_id, numberofdownloads, keywords, supportedlocales, purchasinginformationurl, testspecificationurl, releasenotesurl, documentationurl) 
+VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @copyright, @creationtime, @lastmodified, @orgindex, @categoryindex, @nodesetid, @numdownloads, @keywords, @supportedlocales, @purchasingurl, @testurl, @releaseurl, @docurl)";
+
+                        NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlQuery, _connection);
+                        sqlCommand.Parameters.AddWithValue("title", addressSpace.Title);
+                        sqlCommand.Parameters.AddWithValue("versionnumber", addressSpace.Version);
+                        sqlCommand.Parameters.AddWithValue("license", (int)addressSpace.License);
+                        sqlCommand.Parameters.AddWithValue("licenseurl", addressSpace.LicenseUrl?.ToString());
+                        sqlCommand.Parameters.AddWithValue("iconurl", addressSpace.IconUrl?.ToString());
+                        sqlCommand.Parameters.AddWithValue("supportedlocales", addressSpace?.SupportedLocales);
+                        sqlCommand.Parameters.AddWithValue("purchasingurl", addressSpace.PurchasingInformationUrl?.ToString());
+                        sqlCommand.Parameters.AddWithValue("testurl", addressSpace.TestSpecificationUrl?.ToString());
+                        sqlCommand.Parameters.AddWithValue("releaseurl", addressSpace.ReleaseNotesUrl?.ToString());
+                        sqlCommand.Parameters.AddWithValue("docurl", addressSpace.DocumentationUrl?.ToString());
+                        sqlCommand.Parameters.AddWithValue("description", addressSpace?.Description);
+                        sqlCommand.Parameters.AddWithValue("copyright", addressSpace?.CopyrightText);
+                        sqlCommand.Parameters.AddWithValue("creationtime", addressSpace?.CreationTime);
+                        sqlCommand.Parameters.AddWithValue("lastmodified", addressSpace?.LastModificationTime);
+                        sqlCommand.Parameters.AddWithValue("numdownloads", (long)addressSpace?.NumberOfDownloads);
+                        sqlCommand.Parameters.AddWithValue("keywords", addressSpace?.Keywords);
+
+                        sqlCommand.Parameters.AddWithValue("orgindex", orgindex);
+                        sqlCommand.Parameters.AddWithValue("categoryindex", categoryindex);
+                        sqlCommand.Parameters.AddWithValue("nodesetid", (long)nodesetId);
+                        sqlCommand.CommandText = sqlQuery;
+                        sqlCommand.ExecuteNonQuery();
+                        sqlCommand.Parameters.Clear();
+                        result = true;
+                    }
+                    catch (Exception e)
+                    {
+                        _logger.LogError(e.Message);
+                        result = false;
+                    }
                 }
             }
             return result;
@@ -499,22 +510,34 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                     _connection.Open();
                 }
 
-                // ToDo: Check if organisation already exists
-
-                string sqlQuery = $"INSERT INTO organisation (name, website, logourl, creationtime, lastmodificationtime, description, contactemail) VALUES (@name, @website, @logourl, @creationtime, @lastmodification, @description, @contactemail); SELECT currval(pg_get_serial_sequence('organisation', 'organisation_id'))";
+                string sqlQuery = "SELECT name, contributor_id FROM organisation WHERE name = @orgname";
                 NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlQuery, _connection);
-                sqlCommand.CommandText = sqlQuery;
-                sqlCommand.Parameters.AddWithValue("name", org.Name);
-                sqlCommand.Parameters.AddWithValue("website", org.Website?.ToString());
-                sqlCommand.Parameters.AddWithValue("logourl", org.LogoUrl?.ToString());
-                sqlCommand.Parameters.AddWithValue("creationtime", org?.CreationTime);
-                sqlCommand.Parameters.AddWithValue("lastmodification", org?.LastModificationTime);
-                sqlCommand.Parameters.AddWithValue("description", org?.Description);
-                sqlCommand.Parameters.AddWithValue("contactemail", org?.ContactEmail);
-                result = (long)sqlCommand.ExecuteScalar();
+                sqlCommand.Parameters.AddWithValue("orgname", org.Name);
+                using (var reader = sqlCommand.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        result = reader.GetInt64("contributor_id");
+                    }
+                }
+
                 sqlCommand.Parameters.Clear();
+                if (result == -1)
+                {
 
-
+                    sqlQuery = $"INSERT INTO organisation (name, website, logourl, creationtime, lastmodificationtime, description, contactemail) VALUES (@name, @website, @logourl, @creationtime, @lastmodification, @description, @contactemail); SELECT currval(pg_get_serial_sequence('organisation', 'contributor_id'))";
+                    sqlCommand.CommandText = sqlQuery;
+                    sqlCommand.CommandText = sqlQuery;
+                    sqlCommand.Parameters.AddWithValue("name", org.Name);
+                    sqlCommand.Parameters.AddWithValue("website", org.Website?.ToString());
+                    sqlCommand.Parameters.AddWithValue("logourl", org.LogoUrl?.ToString());
+                    sqlCommand.Parameters.AddWithValue("creationtime", org?.CreationTime);
+                    sqlCommand.Parameters.AddWithValue("lastmodification", org?.LastModificationTime);
+                    sqlCommand.Parameters.AddWithValue("description", org?.Description);
+                    sqlCommand.Parameters.AddWithValue("contactemail", org?.ContactEmail);
+                    result = (long)sqlCommand.ExecuteScalar();
+                    sqlCommand.Parameters.Clear();
+                }
             }
             catch (Exception e)
             {
@@ -534,16 +557,30 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                     _connection.Open();
                 }
 
-                string sqlQuery = "INSERT INTO category (name, description, iconurl, creationtime, lastmodificationtime) VALUES (@name, @description, @iconurl, @creationtime, @lastmodification); SELECT currval(pg_get_serial_sequence('category', 'category_id'))";
+                string sqlQuery = "SELECT name, category_id FROM category WHERE name = @catname";
                 NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlQuery, _connection);
-                sqlCommand.CommandText = sqlQuery;
-                sqlCommand.Parameters.AddWithValue("name", category?.Name);
-                sqlCommand.Parameters.AddWithValue("description", category?.Description);
-                sqlCommand.Parameters.AddWithValue("iconurl", category.IconUrl?.ToString());
-                sqlCommand.Parameters.AddWithValue("creationtime", category?.CreationTime);
-                sqlCommand.Parameters.AddWithValue("lastmodification", category?.LastModificationTime);
-                result = (long)sqlCommand.ExecuteScalar();
+                sqlCommand.Parameters.AddWithValue("catname", category.Name);
+                using (var reader = sqlCommand.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        result = reader.GetInt64("category_id");
+                    }
+                }
+
                 sqlCommand.Parameters.Clear();
+                if (result == -1)
+                {
+                    sqlQuery = "INSERT INTO category (name, description, iconurl, creationtime, lastmodificationtime) VALUES (@name, @description, @iconurl, @creationtime, @lastmodification); SELECT currval(pg_get_serial_sequence('category', 'category_id'))";
+                    sqlCommand.CommandText = sqlQuery;
+                    sqlCommand.Parameters.AddWithValue("name", category?.Name);
+                    sqlCommand.Parameters.AddWithValue("description", category?.Description);
+                    sqlCommand.Parameters.AddWithValue("iconurl", category.IconUrl?.ToString());
+                    sqlCommand.Parameters.AddWithValue("creationtime", category?.CreationTime);
+                    sqlCommand.Parameters.AddWithValue("lastmodification", category?.LastModificationTime);
+                    result = (long)sqlCommand.ExecuteScalar();
+                    sqlCommand.Parameters.Clear();
+                }
 
                 return result;
             }
@@ -565,7 +602,7 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                     _connection.Close();
                     _connection.Open();
                 }
-                string sqlQuery = "SELECT addressspace_id, contributor, category FROM addressspace WHERE nodeset = @id";
+                string sqlQuery = "SELECT addressspace_id, contributor_id, category_id FROM addressspace WHERE nodeset_id = @id";
                 NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlQuery, _connection);
                 sqlCommand.Parameters.AddWithValue("id", (long)nodesetid);
 
@@ -576,8 +613,8 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                     if (reader.Read())
                     {
                         addressspace_id = reader.GetInt64("addressspace_id");
-                        orgId = reader.GetInt64("contributor");
-                        categoryId = reader.GetInt64("category");
+                        orgId = reader.GetInt64("contributor_id");
+                        categoryId = reader.GetInt64("category_id");
                     }
                 }
 
@@ -590,20 +627,20 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                 sqlCommand.Parameters.Clear();
                 if (addressspace_id >= 0)
                 {
-                    sqlQuery = string.Format("INSERT INTO addressspace { title, lastmodificationtime, versionnumber, copyrighttext, description, documentationurl, iconurl, licenseurl, license, purchasinginformationurl, testspecificationurl, releasenotesurl, keywords, supportedlocales } VALUES { @title, @lastmod, @version, @copyright, @description, @docurl, @iconurl, @licenseurl, @license, @purchasingurl, @testurl, @releaseurl, @keywords, @locales } WHERE addressspace_id = {0}", addressspace_id);
+                    sqlQuery = string.Format("UPDATE addressspace SET title = @title, lastmodificationtime = @lastmod, versionnumber = @version, copyrighttext = @copyright, description = @description, documentationurl = @docurl, iconurl = @iconurl, licenseurl = @licenseurl, license = @license, purchasinginformationurl = @purchasingurl, testspecificationurl = @testurl, releasenotesurl = @releaseurl, keywords = @keywords, supportedlocales = @keywords WHERE nodeset_id = {0}", nodesetid);
                     sqlCommand.CommandText = sqlQuery;
                     sqlCommand.Parameters.AddWithValue("title", newAddressSpace.Title);
                     sqlCommand.Parameters.AddWithValue("lastmod", newAddressSpace.LastModificationTime);
                     sqlCommand.Parameters.AddWithValue("version", newAddressSpace.Version);
                     sqlCommand.Parameters.AddWithValue("copyright", newAddressSpace.CopyrightText);
                     sqlCommand.Parameters.AddWithValue("description", newAddressSpace.Description);
-                    sqlCommand.Parameters.AddWithValue("docurl", newAddressSpace.DocumentationUrl);
-                    sqlCommand.Parameters.AddWithValue("iconurl", newAddressSpace.IconUrl);
-                    sqlCommand.Parameters.AddWithValue("licenseurl", newAddressSpace.LicenseUrl);
+                    sqlCommand.Parameters.AddWithValue("docurl", newAddressSpace.DocumentationUrl?.ToString());
+                    sqlCommand.Parameters.AddWithValue("iconurl", newAddressSpace.IconUrl?.ToString());
+                    sqlCommand.Parameters.AddWithValue("licenseurl", newAddressSpace.LicenseUrl?.ToString());
                     sqlCommand.Parameters.AddWithValue("license", (int)newAddressSpace.License);
-                    sqlCommand.Parameters.AddWithValue("purchasingurl", newAddressSpace.PurchasingInformationUrl);
-                    sqlCommand.Parameters.AddWithValue("testurl", newAddressSpace.TestSpecificationUrl);
-                    sqlCommand.Parameters.AddWithValue("releaseurl", newAddressSpace.ReleaseNotesUrl);
+                    sqlCommand.Parameters.AddWithValue("purchasingurl", newAddressSpace.PurchasingInformationUrl?.ToString());
+                    sqlCommand.Parameters.AddWithValue("testurl", newAddressSpace.TestSpecificationUrl?.ToString());
+                    sqlCommand.Parameters.AddWithValue("releaseurl", newAddressSpace.ReleaseNotesUrl?.ToString());
                     sqlCommand.Parameters.AddWithValue("keywords", newAddressSpace.Keywords);
                     sqlCommand.Parameters.AddWithValue("locales", newAddressSpace.SupportedLocales);
                     sqlCommand.ExecuteNonQuery();
@@ -621,7 +658,7 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
 
         private void OverwriteCategory(AddressSpaceCategory category, long category_id, NpgsqlCommand sqlCommand)
         {
-            string sqlQuery = string.Format("SELECT name, logourl, description FROM category WHERE category_id = {0}", category_id);
+            string sqlQuery = string.Format("SELECT name, iconurl, description FROM category WHERE category_id = {0}", category_id);
             sqlCommand.CommandText = sqlQuery;
             using (NpgsqlDataReader reader = sqlCommand.ExecuteReader())
             {
@@ -629,13 +666,13 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                 {
                     string name = reader.GetString("name");
                     string description = reader.GetString("description");
-                    string logourl = reader.GetString("logourl");
+                    string logourl = reader.GetString("iconurl");
 
                     if (name != category.Name
                         || description != category.Description
                         || logourl != category.IconUrl.ToString())
                     {
-                        sqlQuery = "INSERT INTO category { name, description, logourl, lastmodificationtime } VALUES {@name, @description, @logourl, @lastmodification } WHERE category_id = @id";
+                        sqlQuery = "UPDATE category SET name = @name, description = @description, iconurl = @iconurl, lastmodificationtime = @lastmodificationtime WHERE category_id = @id";
                         sqlCommand.CommandText = sqlQuery;
                         sqlCommand.Parameters.AddWithValue("name", category.Name);
                         sqlCommand.Parameters.AddWithValue("description", category.Description);
@@ -651,7 +688,7 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
 
         private void OverwriteOrganisation(Organisation organisation, long organisation_id, NpgsqlCommand sqlCommand)
         {
-            string sqlQuery = string.Format("SELECT name, contactemail, website, description, logourl FROM organisation WHERE organisation_id = {0}", organisation_id);
+            string sqlQuery = string.Format("SELECT name, contactemail, website, description, logourl FROM organisation WHERE contributor_id = {0}", organisation_id);
             sqlCommand.CommandText = sqlQuery;
             using (NpgsqlDataReader reader = sqlCommand.ExecuteReader())
             {
@@ -669,7 +706,7 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                         || description != organisation.Description
                         || logourl != organisation.LogoUrl.ToString())
                     {
-                        sqlQuery = "INSERT INTO organisation { name, contactemail, website, description, logourl, lastmodificationtime } VALUES {@name, @mail, @website, @description, @logourl, @lastmodification } WHERE organisation_id = @id";
+                        sqlQuery = "UPDATE organisation SET name = @name, contactemail = @mail, website = @website, description = @description, logourl = @logourl WHERE contributor_id = @id";
                         sqlCommand.CommandText = sqlQuery;
                         sqlCommand.Parameters.AddWithValue("name", organisation.Name);
                         sqlCommand.Parameters.AddWithValue("mail", organisation.ContactEmail);
