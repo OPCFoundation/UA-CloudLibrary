@@ -721,6 +721,93 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                 }
             }
         }
+
+        #endregion
+
+        #region MigrationTool
+        public bool TryMigrateTables()
+        {
+            bool migrationResult = false;
+            try
+            {
+                string[] result = FindNodesetsInTable(new string[] { "*" }, "Metadata");
+                foreach (string nodeset in result)
+                {
+                    if (uint.TryParse(nodeset, out uint nodesetId))
+                    {
+                        AddressSpace addressSpace = new AddressSpace();
+
+                        addressSpace.Description = RetrieveMetaData(nodesetId, "description");
+                        addressSpace.CreationTime = DateTime.ParseExact(RetrieveMetaData(nodesetId, "adressspacecreationtime"), "dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+                        addressSpace.LastModificationTime = DateTime.ParseExact(RetrieveMetaData(nodesetId, "adressspacemodifiedtime"), "dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+                        addressSpace.Version = RetrieveMetaData(nodesetId, "version");
+                        addressSpace.Title = RetrieveMetaData(nodesetId, "nodesettitle");
+                        addressSpace.CopyrightText = RetrieveMetaData(nodesetId, "copyright");
+                        addressSpace.DocumentationUrl = CreateUri(RetrieveMetaData(nodesetId, "documentationurl"));
+                        addressSpace.PurchasingInformationUrl = CreateUri(RetrieveMetaData(nodesetId, "purchasinginfo"));
+                        addressSpace.IconUrl = CreateUri(RetrieveMetaData(nodesetId, "iconurl"));
+                        addressSpace.LicenseUrl = CreateUri(RetrieveMetaData(nodesetId, "licenseurl"));
+                        addressSpace.ReleaseNotesUrl = CreateUri(RetrieveMetaData(nodesetId, "releasenotes"));
+                        addressSpace.TestSpecificationUrl = CreateUri(RetrieveMetaData(nodesetId, "testspecification"));
+                        addressSpace.NumberOfDownloads = Convert.ToUInt32(RetrieveMetaData(nodesetId, "numdownloads"));
+                        addressSpace.Keywords = RetrieveMetaData(nodesetId, "keywords").Split(',');
+                        addressSpace.SupportedLocales = RetrieveMetaData(nodesetId, "locales").Split(',');
+                        switch (RetrieveMetaData(nodesetId, "license"))
+                        {
+                            case "MIT":
+                                addressSpace.License = AddressSpaceLicense.MIT;
+                                break;
+                            case "ApacheLicense20":
+                                addressSpace.License = AddressSpaceLicense.ApacheLicense20;
+                                break;
+                            case "Custom":
+                                addressSpace.License = AddressSpaceLicense.Custom;
+                                break;
+                            default:
+                                addressSpace.License = AddressSpaceLicense.Custom;
+                                break;
+                        }
+
+                        addressSpace.Contributor.ContactEmail = RetrieveMetaData(nodesetId, "orgcontact");
+                        addressSpace.Contributor.Name = RetrieveMetaData(nodesetId, "orgname");
+                        addressSpace.Contributor.Description = RetrieveMetaData(nodesetId, "orgdescription");
+                        addressSpace.Contributor.Website = CreateUri(RetrieveMetaData(nodesetId, "orgwebsite"));
+                        addressSpace.Contributor.LogoUrl = CreateUri(RetrieveMetaData(nodesetId, "orglogo"));
+                        addressSpace.Contributor.CreationTime = DateTime.ParseExact(RetrieveMetaData(nodesetId, "contributorcreationtime"), "dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+                        addressSpace.Contributor.LastModificationTime = DateTime.ParseExact(RetrieveMetaData(nodesetId, "contributormodifiedtime"), "dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+
+                        addressSpace.Category.Name = RetrieveMetaData(nodesetId, "addressspacename");
+                        addressSpace.Category.Description = RetrieveMetaData(nodesetId, "addressspacedescription");
+                        addressSpace.Category.IconUrl = CreateUri(RetrieveMetaData(nodesetId, "addressspaceiconurl"));
+                        addressSpace.Category.CreationTime = DateTime.ParseExact(RetrieveMetaData(nodesetId, "categorycreationtime"), "dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+                        addressSpace.Category.LastModificationTime = DateTime.ParseExact(RetrieveMetaData(nodesetId, "categorymodifiedtime"), "dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+
+                        if (!AddAddressSpace(nodesetId, addressSpace, true))
+                        {
+                            throw new Exception(String.Format("Migrating Nodeset data failed for nodeset {0}", nodesetId));
+                        }
+                    }
+                }
+                migrationResult = true;
+            }
+            catch (Exception e)
+            {
+                _logger.LogError("Failed migration: {0}", e.Message);
+                migrationResult = false;
+            }
+            return migrationResult;
+        }
+
+        private Uri CreateUri(string uri)
+        {
+            Uri result = null;
+            if (!string.IsNullOrEmpty(uri))
+            {
+                result = new Uri(uri);
+            }
+            return result;
+        }
+        #endregion
     }
-    #endregion
+
 }
