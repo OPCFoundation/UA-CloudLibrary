@@ -143,11 +143,11 @@ namespace UACloudLibClientLibrary
             List<AddressSpace> convertedResult = null;
             request.Query = QueryMethods.QueryMetadata();
             PageInfo<MetadataResult> result = await SendAndConvert<PageInfo<MetadataResult>>(request);
-            if (result != null)
+            try
             {
                 convertedResult = ConvertMetadataToAddressspace.Convert(result);
             }
-            else
+            catch (Exception ex)
             {
                 convertedResult = await restClient.GetBasicAddressSpaces();
             }
