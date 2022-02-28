@@ -139,9 +139,19 @@ namespace UACloudLibClientLibrary
 
         public async Task<List<AddressSpace>> GetConvertedMetadata()
         {
+            List<AddressSpace> convertedResult = null;
             request.Query = QueryMethods.QueryMetadata();
             PageInfo<MetadataResult> result = await SendAndConvert<PageInfo<MetadataResult>>(request);
-            return ConvertMetadataToAddressspace.Convert(result);
+            if (result != null)
+            {
+                convertedResult = ConvertMetadataToAddressspace.Convert(result);
+            }
+            else
+            {
+                convertedResult = await restClient.GetBasicAddressSpaces();
+            }
+
+            return convertedResult;
         }
 
         /// <summary>
@@ -168,7 +178,19 @@ namespace UACloudLibClientLibrary
         public async Task<PageInfo<AddressSpace>> GetAddressSpaces(int pageSize = 10, string after = "-1", IEnumerable<AddressSpaceWhereExpression> filter = null)
         {
             request.Query = QueryMethods.AddressSpacesQuery(after, pageSize, filter);
-            return await SendAndConvert<PageInfo<AddressSpace>>(request);
+            PageInfo<AddressSpace> result = await SendAndConvert<PageInfo<AddressSpace>>(request);
+            if (result == null)
+            {
+                List<AddressSpace> temp = await restClient.GetBasicAddressSpaces();
+                result.TotalCount = temp.Count;
+
+            }
+            else
+            {
+                result = ConvertWithPaging(await restClient.GetBasicAddressSpaces(filter.Select(e => e.Value)), pageSize, Convert.ToInt32(after));
+            }
+
+            return result;
         }
 
         /// <summary>
@@ -195,13 +217,59 @@ namespace UACloudLibClientLibrary
         /// Use this method if the CloudLib instance doesn't provide the GraphQL API
         /// </summary>
         /// <returns></returns>
-        public async Task<List<AddressSpace>> GetBasicAddressSpaces(string keyword = null) => await restClient.GetBasicAddressSpaces(keyword);
+        public async Task<List<AddressSpace>> GetBasicAddressSpaces(IEnumerable<string> keywords = null) => await restClient.GetBasicAddressSpaces(keywords);
 
 
         public void Dispose()
         {
             m_client.Dispose();
             restClient.Dispose();
+        }
+
+        /// <summary>
+        /// Fakes paging support so the UI dev doesn't have to deal with it
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="addressSpaces"></param>
+        /// <param name="pageSize"></param>
+        /// <param name="after"></param>
+        /// <returns></returns>
+        private static PageInfo<T> ConvertWithPaging<T>(List<T> addressSpaces, int pageSize = 0, int after = -1) where T : class
+        {
+            PageInfo<T> result = new PageInfo<T>();
+            result.TotalCount = addressSpaces.Count;
+
+            after++;
+            if (pageSize == 0)
+            {
+                result.Page.hasNext = false;
+                result.Page.hasPrev = false;
+
+                for (int i = after; i < addressSpaces.Count; i++)
+                {
+                    PageItem<T> item = new PageItem<T>();
+                    item.Item = addressSpaces[i];
+                    item.Cursor = i.ToString();
+                    result.Items.Add(item);
+                }
+            }
+            else if (pageSize > 0)
+            {
+                if (after >= 0)
+                {
+                    result.Page.hasPrev = after > 0;
+                    result.Page.hasNext = after + pageSize < addressSpaces.Count;
+                    for (int i = after; i < addressSpaces.Count && i - after < pageSize; i++)
+                    {
+                        PageItem<T> item = new PageItem<T>();
+                        item.Item = addressSpaces[i];
+                        item.Cursor = i.ToString();
+                        result.Items.Add(item);
+                    }
+                }
+            }
+
+            return result; 
         }
     }
 }
