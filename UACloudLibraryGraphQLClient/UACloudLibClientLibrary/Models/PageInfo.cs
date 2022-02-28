@@ -17,6 +17,13 @@
 
         [JsonProperty("totalCount")]
         public int TotalCount { get; set; }
+
+        public PageInfo()
+        {
+            Items = new List<PageItem<T>>();
+            Page = new PageBools();
+            TotalCount = 0;
+        }
     }
     /// <summary>
     /// Contains the data if a next and/or previous page is available
