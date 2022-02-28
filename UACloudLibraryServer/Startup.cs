@@ -73,8 +73,10 @@ namespace UACloudLibrary
                 o.UseNpgsql(PostgreSQLDB.CreateConnectionString());
             });
 
-            services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
-                .AddEntityFrameworkStores<AppDbContext>();
+            services.AddDefaultIdentity<IdentityUser>(options => 
+                    //require confirmation mail if sendgrid API Key is set
+                    options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("SendGridAPIKey"))
+                    ).AddEntityFrameworkStores<AppDbContext>();
 
             services.AddScoped<IUserService, UserService>();
 
@@ -214,8 +216,10 @@ namespace UACloudLibrary
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, AppDbContext appDbContext)
         {
+            appDbContext.Database.Migrate();
+
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();

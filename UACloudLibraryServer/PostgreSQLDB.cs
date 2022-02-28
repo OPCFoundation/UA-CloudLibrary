@@ -29,6 +29,7 @@
 
 namespace UACloudLibrary
 {
+    using Microsoft.AspNetCore.Builder;
     using Microsoft.Extensions.Logging;
     using Npgsql;
     using System;
@@ -36,7 +37,7 @@ namespace UACloudLibrary
     using System.Data;
     using UACloudLibrary.Models;
 
-    public class PostgreSQLDB : IDatabase
+public class PostgreSQLDB : IDatabase
     {
         private NpgsqlConnection _connection = null;
         private readonly ILogger _logger;
