@@ -21,6 +21,7 @@
     public class AddressSpaceWhereExpression : IWhereExpression<AddressSpaceSearchField>
     {
         public string Expression { get; private set; }
+        public string Value { get; private set; }
 
         public AddressSpaceWhereExpression()
         {
@@ -29,6 +30,7 @@
 
         public AddressSpaceWhereExpression(AddressSpaceSearchField path, string value, ComparisonType comparison = 0)
         {
+            Value = value;
             if (SetExpression(path, value, comparison))
             {
                 // succeeded
