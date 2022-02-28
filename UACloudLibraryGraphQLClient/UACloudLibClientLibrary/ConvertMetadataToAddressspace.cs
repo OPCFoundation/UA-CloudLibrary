@@ -16,7 +16,7 @@ namespace UACloudLibClientLibrary
         {
             List<AddressSpace> addressSpaces = new List<AddressSpace>();
 
-            if (pageInfo.Items != null)
+            if (pageInfo?.Items != null)
             {
                 foreach (PageItem<MetadataResult> item in pageInfo.Items)
                 {
