@@ -155,7 +155,19 @@ namespace SampleConsoleClient
             try
             {
                 Console.WriteLine("\nTesting the GraphQL api");
+
+                Console.WriteLine("\nTesting the addressspace query, this should also work if graphql is not available");
+
+                List<AddressSpaceWhereExpression> expression = new List<AddressSpaceWhereExpression>();
+                PageInfo<AddressSpace> anothertest = client.GetAddressSpaces(10).GetAwaiter().GetResult();
+                if(anothertest.Items.Count > 0)
+                {
+                    Console.WriteLine("Title: {0}", anothertest.Items[0].Item.Title);
+                    Console.WriteLine("Total amount of adressspaces: {0}", anothertest.TotalCount);
+                }
+
                 Console.WriteLine("\nTesting object query");
+                
                 PageInfo<ObjectResult> test = client.GetObjectTypes().GetAwaiter().GetResult();
                 foreach (PageItem<ObjectResult> result in test.Items)
                 {
