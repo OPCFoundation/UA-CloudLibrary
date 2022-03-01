@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Threading.Tasks;
@@ -17,17 +18,19 @@ namespace UACloudLibClientLibrary
     internal class RestClient : IDisposable
     {
         private HttpClient client;
-        private string Username;
-        private string Password;
+        public AuthenticationHeaderValue Authentication { set => client.DefaultRequestHeaders.Authorization = value; get => client.DefaultRequestHeaders.Authorization; }
 
-        public RestClient(string address, string username, string password)
+        public RestClient(Uri address)
+        {
+            client = new HttpClient();
+            client.BaseAddress = address;
+        }
+
+        public RestClient(string address, AuthenticationHeaderValue authentication)
         {
             client = new HttpClient();
             client.BaseAddress = new Uri(address);
-            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(username + ":" + password)));
-            Username = username;
-            Password = password;
-        }
+            client.DefaultRequestHeaders.Authorization = authentication;        }
 
         public void Dispose()
         {
@@ -48,7 +51,7 @@ namespace UACloudLibClientLibrary
                 request.Content = new StringContent(string.Format("[{0}]", PrepareArgumentsString(keywords)));
             }
 
-            request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
             request.Headers.Authorization = client.DefaultRequestHeaders.Authorization;
             HttpResponseMessage response = await client.SendAsync(request);
             List<BasicNodesetInformation> info = null;

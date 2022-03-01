@@ -11,6 +11,8 @@ namespace UACloudLibClientLibrary
     using System.Text;
     using System.Threading.Tasks;
     using System.Linq;
+    using System.Net;
+    using System.Net.Http.Headers;
 
     /// <summary>
     /// This class handles the quering and conversion of the response
@@ -21,7 +23,12 @@ namespace UACloudLibClientLibrary
 
         private GraphQLHttpClient m_client = null;
         private GraphQLRequest request = new GraphQLRequest();
-        public List<string> errors = new List<string>();
+        private AuthenticationHeaderValue authentication 
+        { 
+            set => m_client.HttpClient.DefaultRequestHeaders.Authorization = value; 
+            get => m_client.HttpClient.DefaultRequestHeaders.Authorization; 
+        }
+
         public Uri Endpoint
         {
             get { return BaseEndpoint; }
@@ -35,11 +42,11 @@ namespace UACloudLibClientLibrary
         private string m_strUsername = "";
         private string m_strPassword = "";
 
-        public string Username { get; set; }
+        public string Username { get { return m_strUsername; } set { m_strUsername = value; UserDataChanged(); } }
 
         public string Password
         {
-            set { m_strPassword = value; }
+            set { m_strPassword = value; UserDataChanged(); }
         }
 
         /// <summary>
@@ -49,6 +56,7 @@ namespace UACloudLibClientLibrary
         {
             BaseEndpoint = StandardEndpoint;
             m_client = new GraphQLHttpClient(new Uri(BaseEndpoint + "/graphql"), new NewtonsoftJsonSerializer());
+            restClient = new RestClient(StandardEndpoint);
         }
 
         /// <summary>
@@ -58,6 +66,7 @@ namespace UACloudLibClientLibrary
         /// <param name="strPassword"></param>
         public UACloudLibClient(string strUsername, string strPassword)
         {
+            restClient = new RestClient(StandardEndpoint.ToString(), authentication);
             BaseEndpoint = StandardEndpoint;
             m_client = new GraphQLHttpClient(new Uri(BaseEndpoint + "/graphql"), new NewtonsoftJsonSerializer());
             string temp = Convert.ToBase64String(Encoding.UTF8.GetBytes(strUsername + ":" + strPassword));
@@ -66,13 +75,13 @@ namespace UACloudLibClientLibrary
 
         public UACloudLibClient(string strEndpoint, string strUsername, string strPassword)
         {
-            restClient = new RestClient(strEndpoint, strUsername, strPassword);
             BaseEndpoint = new Uri(strEndpoint);
             m_client = new GraphQLHttpClient(new Uri(strEndpoint + "/graphql"), new NewtonsoftJsonSerializer());
             string temp = Convert.ToBase64String(Encoding.UTF8.GetBytes(strUsername + ":" + strPassword));
             m_client.HttpClient.DefaultRequestHeaders.Add("Authorization", "basic " + temp);
             m_strUsername = strUsername;
             m_strPassword = strPassword;
+            restClient = new RestClient(strEndpoint, authentication);
         }
 
         //Sends the query and converts it
@@ -181,12 +190,11 @@ namespace UACloudLibClientLibrary
             request.Query = QueryMethods.AddressSpacesQuery(after, pageSize, filter);
             PageInfo<AddressSpace> result = new PageInfo<AddressSpace>();
             try
-            {                
+            {
                 result = await SendAndConvert<PageInfo<AddressSpace>>(request);
             }
             catch (Exception e)
             {
-                var test = filter.Select(e => e.Value).ToList();
                 result = ConvertWithPaging(await restClient.GetBasicAddressSpaces(filter.Select(e => e.Value)), pageSize, Convert.ToInt32(after));
             }
 
@@ -270,6 +278,12 @@ namespace UACloudLibClientLibrary
             }
 
             return result;
+        }
+
+        private void UserDataChanged()
+        {
+            authentication = new AuthenticationHeaderValue("basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(m_strUsername + ":" + m_strPassword)));
+            m_client.HttpClient.DefaultRequestHeaders.Authorization = authentication;
         }
     }
 }
