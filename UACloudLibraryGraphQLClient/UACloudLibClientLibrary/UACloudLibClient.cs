@@ -179,15 +179,14 @@ namespace UACloudLibClientLibrary
         public async Task<PageInfo<AddressSpace>> GetAddressSpaces(int pageSize = 10, string after = "-1", IEnumerable<AddressSpaceWhereExpression> filter = null)
         {
             request.Query = QueryMethods.AddressSpacesQuery(after, pageSize, filter);
-            PageInfo<AddressSpace> result = await SendAndConvert<PageInfo<AddressSpace>>(request);
-            if (result == null)
-            {
-                List<AddressSpace> temp = await restClient.GetBasicAddressSpaces();
-                result.TotalCount = temp.Count;
-
+            PageInfo<AddressSpace> result = new PageInfo<AddressSpace>();
+            try
+            {                
+                result = await SendAndConvert<PageInfo<AddressSpace>>(request);
             }
-            else
+            catch (Exception e)
             {
+                var test = filter.Select(e => e.Value).ToList();
                 result = ConvertWithPaging(await restClient.GetBasicAddressSpaces(filter.Select(e => e.Value)), pageSize, Convert.ToInt32(after));
             }
 
@@ -270,7 +269,7 @@ namespace UACloudLibClientLibrary
                 }
             }
 
-            return result; 
+            return result;
         }
     }
 }
