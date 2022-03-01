@@ -44,7 +44,7 @@
         public bool SetExpression(AddressSpaceSearchField path, string value, ComparisonType comparison, bool AndConnector = true)
         {
             bool success = false;
-            if (string.IsNullOrEmpty(value) && Enum.IsDefined(path) && Enum.IsDefined(comparison))
+            if (!string.IsNullOrEmpty(value) && Enum.IsDefined(path) && Enum.IsDefined(comparison))
             {
                 if (comparison == ComparisonType.Like)
                 {
