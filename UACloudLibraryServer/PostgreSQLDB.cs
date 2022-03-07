@@ -36,6 +36,7 @@ namespace UACloudLibrary
     using System.Collections.Generic;
     using System.Data;
     using System.Globalization;
+    using System.Linq;
     using UACloudLibrary.Models;
 
     public class PostgreSQLDB : IDatabase
@@ -731,7 +732,10 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
             try
             {
                 string[] result = FindNodesetsInTable(new string[] { "*" }, "Metadata");
-                foreach (string nodeset in result)
+                string[] otherResult = GetNodesetsFromAddressSpacesTable();
+                string[] f = result.Except(otherResult).ToArray();
+
+                foreach (string nodeset in f)
                 {
                     if (uint.TryParse(nodeset, out uint nodesetId))
                     {
@@ -796,6 +800,34 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                 migrationResult = false;
             }
             return migrationResult;
+        }
+
+        private string[] GetNodesetsFromAddressSpacesTable()
+        {
+            List<string> nodesets = new List<string>();
+            try
+            {
+
+                if (_connection.State != ConnectionState.Open)
+                {
+                    _connection.Close();
+                    _connection.Open();
+                }
+
+                string sqlQuery = "SELECT nodeset_id FROM addressspace";
+                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlQuery, _connection);
+                using (var reader = sqlCommand.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        nodesets.Add(reader.GetString("nodeset_id"));
+                    }
+                }
+            }catch (Exception e)
+            {
+
+            }
+            return nodesets.ToArray();
         }
 
         private Uri CreateUri(string uri)
