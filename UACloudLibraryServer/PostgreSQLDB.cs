@@ -731,11 +731,11 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
             bool migrationResult = false;
             try
             {
-                string[] result = FindNodesetsInTable(new string[] { "*" }, "Metadata");
-                string[] otherResult = GetNodesetsFromAddressSpacesTable();
-                string[] f = result.Except(otherResult).ToArray();
+                string[] medataResult = FindNodesetsInTable(new string[] { "*" }, "Metadata");
+                string[] addressspaceResult = GetNodesetsFromAddressSpacesTable();
+                string[] nodesetsToTransfer = medataResult.Except(addressspaceResult).ToArray();
 
-                foreach (string nodeset in f)
+                foreach (string nodeset in nodesetsToTransfer)
                 {
                     if (uint.TryParse(nodeset, out uint nodesetId))
                     {
@@ -820,12 +820,12 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                 {
                     if (reader.Read())
                     {
-                        nodesets.Add(reader.GetString("nodeset_id"));
+                        nodesets.Add(reader.GetValue("nodeset_id").ToString());
                     }
                 }
             }catch (Exception e)
             {
-
+                _logger.LogError(e, "Reading nodesets from addressspace table failed");
             }
             return nodesets.ToArray();
         }
