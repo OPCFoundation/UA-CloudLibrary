@@ -726,14 +726,16 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
         #endregion
 
         #region MigrationTool
+        /// <summary>
+        /// Gets nodesets that aren't in table addressspace and migrates them
+        /// </summary>
+        /// <returns></returns>
         public bool TryMigrateTables()
         {
             bool migrationResult = false;
             try
             {
-                string[] medataResult = FindNodesetsInTable(new string[] { "*" }, "Metadata");
-                string[] addressspaceResult = GetNodesetsFromAddressSpacesTable();
-                string[] nodesetsToTransfer = medataResult.Except(addressspaceResult).ToArray();
+                string[] nodesetsToTransfer = GetMissingNodesets();
 
                 foreach (string nodeset in nodesetsToTransfer)
                 {
@@ -802,7 +804,11 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
             return migrationResult;
         }
 
-        private string[] GetNodesetsFromAddressSpacesTable()
+        /// <summary>
+        /// Gets the nodesets from metadata that aren't in addressspace
+        /// </summary>
+        /// <returns></returns>
+        private string[] GetMissingNodesets()
         {
             List<string> nodesets = new List<string>();
             try
@@ -814,7 +820,7 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                     _connection.Open();
                 }
 
-                string sqlQuery = "SELECT nodeset_id FROM addressspace";
+                string sqlQuery = "SELECT DISTINCT(nodeset_id) FROM metadata EXCEPT SELECT nodeset_id FROM addressspace";
                 NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlQuery, _connection);
                 using (var reader = sqlCommand.ExecuteReader())
                 {
@@ -823,9 +829,10 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                         nodesets.Add(reader.GetValue("nodeset_id").ToString());
                     }
                 }
-            }catch (Exception e)
+            }
+            catch (Exception e)
             {
-                _logger.LogError(e, "Reading nodesets from addressspace table failed");
+                _logger.LogError(e, "Getting missing nodesets failed");
             }
             return nodesets.ToArray();
         }
