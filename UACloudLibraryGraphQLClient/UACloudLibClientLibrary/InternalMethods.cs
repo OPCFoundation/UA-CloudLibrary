@@ -1,17 +1,25 @@
 ﻿namespace UACloudLibClientLibrary
 {
+    using System;
     internal static class InternalMethods
     {
         public static string LikeComparisonCompatibleString(string value)
         {
             string result = "";
-            if(value.StartsWith("%") && value.EndsWith("%"))
+            if (!string.IsNullOrEmpty(value))
             {
-                result = value;
+                if (value.StartsWith("%") && value.EndsWith("%"))
+                {
+                    result = value;
+                }
+                else
+                {
+                    result = string.Format("%" + value + "%");
+                }
             }
             else
             {
-                result = string.Format("%" + value + "%");
+                throw new ArgumentNullException("Parameter 'value' is null");
             }
             return result;
         }
