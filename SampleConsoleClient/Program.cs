@@ -124,7 +124,7 @@ namespace SampleConsoleClient
             webClient.DefaultRequestHeaders.Add("Authorization", "basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(args[1] + ":" + args[2])));
 
             Console.WriteLine();
-            Console.WriteLine("Testing /infomodel/find/{keywords}");
+            Console.WriteLine("Testing /infomodel/find?keywords");
             string keywords = "*"; // return everything (other keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
             string address = webClient.BaseAddress.ToString() + "infomodel/find?keywords=" + Uri.EscapeDataString(keywords);
             HttpContent content = new StringContent(JsonConvert.SerializeObject(keywords), Encoding.UTF8, "application/json");
