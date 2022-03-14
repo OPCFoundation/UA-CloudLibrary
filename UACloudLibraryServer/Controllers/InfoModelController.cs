@@ -113,6 +113,8 @@ namespace UACloudLibrary
 
             AddUserMetadataFromDatabase(nodeSetID, result);
 
+            IncreaseNumDownloads(nodeSetID);
+
             return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -134,26 +136,27 @@ namespace UACloudLibrary
             }
 
             // check if the nodeset already exists in the database for the legacy hashcode algorithm
-            string result;
+            string legacyResult;
             uint legacyNodesetHashCode = GenerateHashCodeLegacy(uaAddressSpace);
             if (legacyNodesetHashCode != 0)
             {
-                result = await _storage.FindFileAsync(legacyNodesetHashCode.ToString()).ConfigureAwait(false);
-                if (!string.IsNullOrEmpty(result) && !overwrite)
+                legacyResult = await _storage.FindFileAsync(legacyNodesetHashCode.ToString()).ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(legacyResult) && !overwrite)
                 {
                     // nodeset already exists
                     return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
                 }
 
                 // check contributors match if nodeset already exists
-                if (!string.IsNullOrEmpty(result) && (string.Compare(uaAddressSpace.Contributor.Name, _database.RetrieveMetaData(legacyNodesetHashCode, "orgname"), true) != 0))
+                string contributorNameLegacy = _database.RetrieveMetaData(legacyNodesetHashCode, "orgname");
+                if (!string.IsNullOrEmpty(legacyResult) && !string.IsNullOrEmpty(contributorNameLegacy) && (string.Compare(uaAddressSpace.Contributor.Name, contributorNameLegacy, true) != 0))
                 {
                     return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
                 }
             }
 
             // check if the nodeset already exists in the database for the new hashcode algorithm
-            result = await _storage.FindFileAsync(nodesetHashCode.ToString()).ConfigureAwait(false);
+            string result = await _storage.FindFileAsync(nodesetHashCode.ToString()).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(result) && !overwrite)
             {
                 // nodeset already exists
@@ -161,7 +164,8 @@ namespace UACloudLibrary
             }
 
             // check contributors match if nodeset already exists
-            if (!string.IsNullOrEmpty(result) && (string.Compare(uaAddressSpace.Contributor.Name, _database.RetrieveMetaData(nodesetHashCode, "orgname"), true) != 0))
+            string contributorName = _database.RetrieveMetaData(nodesetHashCode, "orgname");
+            if (!string.IsNullOrEmpty(result) && !string.IsNullOrEmpty(contributorName) && (string.Compare(uaAddressSpace.Contributor.Name, contributorName, true) != 0))
             {
                 return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
             }
@@ -198,7 +202,10 @@ namespace UACloudLibrary
                 return new ObjectResult(error) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
-            if (!StoreUserMetaDataInDatabase(nodesetHashCode, uaAddressSpace))
+            DateTime publicationDate;
+            DateTime lastModifiedDate;
+            RetrieveDatesFromNodeset(uaAddressSpace, out publicationDate, out lastModifiedDate);
+            if (!StoreUserMetaDataInDatabase(nodesetHashCode, uaAddressSpace, publicationDate, lastModifiedDate))
             {
                 string message = "Error: User metadata could not be stored.";
                 _logger.LogError(message);
@@ -206,6 +213,42 @@ namespace UACloudLibrary
             }
 
             return new ObjectResult("Upload successful!") { StatusCode = (int)HttpStatusCode.OK };
+        }
+
+        private void RetrieveDatesFromNodeset(AddressSpace uaAddressSpace, out DateTime publicationDate, out DateTime lastModifiedDate)
+        {
+            publicationDate = DateTime.UtcNow;
+            lastModifiedDate = DateTime.UtcNow;
+
+            try
+            {
+                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+                {
+                    UANodeSet nodeSet = UANodeSet.Read(stream);
+                    if ((nodeSet.Models != null) && (nodeSet.Models.Length > 0))
+                    {
+                        foreach (ModelTableEntry model in nodeSet.Models)
+                        {
+                            if (model != null)
+                            {
+                                if (model.PublicationDateSpecified)
+                                {
+                                    publicationDate = model.PublicationDate;
+                                }
+
+                                if (nodeSet.LastModifiedSpecified)
+                                {
+                                    lastModifiedDate = nodeSet.LastModified;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // do nothing
+            }
         }
 
         private uint GenerateHashCode(AddressSpace uaAddressSpace)
@@ -281,44 +324,14 @@ namespace UACloudLibrary
         {
             DateTime parsedDateTime;
 
-            if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "adressspacecreationtime"), out parsedDateTime))
-            {
-                uaAddressSpace.CreationTime = parsedDateTime;
-            }
-
-            if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "adressspacemodifiedtime"), out parsedDateTime))
-            {
-                uaAddressSpace.LastModificationTime = parsedDateTime;
-            }
-
-            if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "categorycreationtime"), out parsedDateTime))
-            {
-                uaAddressSpace.Category.CreationTime = parsedDateTime;
-            }
-
-            if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "categorymodifiedtime"), out parsedDateTime))
-            {
-                uaAddressSpace.Category.LastModificationTime = parsedDateTime;
-            }
-
-            if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "contributorcreationtime"), out parsedDateTime))
-            {
-                uaAddressSpace.Contributor.CreationTime = parsedDateTime;
-            }
-
-            if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "contributormodifiedtime"), out parsedDateTime))
-            {
-                uaAddressSpace.Contributor.LastModificationTime = parsedDateTime;
-            }
-
             if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "nodesetcreationtime"), out parsedDateTime))
             {
-                uaAddressSpace.Nodeset.CreationTime = parsedDateTime;
+                uaAddressSpace.Nodeset.PublicationDate = parsedDateTime;
             }
 
             if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "nodesetmodifiedtime"), out parsedDateTime))
             {
-                uaAddressSpace.Nodeset.LastModificationTime = parsedDateTime;
+                uaAddressSpace.Nodeset.LastModifiedDate = parsedDateTime;
             }
 
             uaAddressSpace.Title = _database.RetrieveMetaData(nodeSetID, "nodesettitle");
@@ -428,52 +441,16 @@ namespace UACloudLibrary
             }
         }
 
-        private bool StoreUserMetaDataInDatabase(uint newNodeSetID, AddressSpace uaAddressSpace)
+        private bool StoreUserMetaDataInDatabase(uint newNodeSetID, AddressSpace uaAddressSpace, DateTime publicationDate, DateTime lastModifiedDate)
         {
-            uaAddressSpace.CreationTime = DateTime.UtcNow;
-            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "adressspacecreationtime", uaAddressSpace.CreationTime.ToString()))
+            uaAddressSpace.Nodeset.PublicationDate = publicationDate;
+            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "nodesetcreationtime", uaAddressSpace.Nodeset.PublicationDate.ToString()))
             {
                 return false;
             }
 
-            uaAddressSpace.LastModificationTime = uaAddressSpace.CreationTime;
-            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "adressspacemodifiedtime", uaAddressSpace.LastModificationTime.ToString()))
-            {
-                return false;
-            }
-
-            uaAddressSpace.Category.CreationTime = uaAddressSpace.CreationTime;
-            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "categorycreationtime", uaAddressSpace.Category.CreationTime.ToString()))
-            {
-                return false;
-            }
-
-            uaAddressSpace.Category.LastModificationTime = uaAddressSpace.CreationTime;
-            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "categorymodifiedtime", uaAddressSpace.Category.LastModificationTime.ToString()))
-            {
-                return false;
-            }
-
-            uaAddressSpace.Contributor.CreationTime = uaAddressSpace.CreationTime;
-            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "contributorcreationtime", uaAddressSpace.Contributor.CreationTime.ToString()))
-            {
-                return false;
-            }
-
-            uaAddressSpace.Contributor.LastModificationTime = uaAddressSpace.CreationTime;
-            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "contributormodifiedtime", uaAddressSpace.Contributor.LastModificationTime.ToString()))
-            {
-                return false;
-            }
-
-            uaAddressSpace.Nodeset.CreationTime = uaAddressSpace.CreationTime;
-            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "nodesetcreationtime", uaAddressSpace.Nodeset.CreationTime.ToString()))
-            {
-                return false;
-            }
-
-            uaAddressSpace.Nodeset.LastModificationTime = uaAddressSpace.CreationTime;
-            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "nodesetmodifiedtime", uaAddressSpace.Nodeset.LastModificationTime.ToString()))
+            uaAddressSpace.Nodeset.LastModifiedDate = lastModifiedDate;
+            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "nodesetmodifiedtime", uaAddressSpace.Nodeset.LastModifiedDate.ToString()))
             {
                 return false;
             }
@@ -664,6 +641,23 @@ namespace UACloudLibrary
             }
 
             return true;
+        }
+
+        private void IncreaseNumDownloads(uint nodeSetID)
+        {
+            try
+            {
+                uint parsedDownloads;
+                if (uint.TryParse(_database.RetrieveMetaData(nodeSetID, "numdownloads"), out parsedDownloads))
+                {
+                    parsedDownloads++;
+                    _database.UpdateMetaDataForNodeSet(nodeSetID, "numdownloads", parsedDownloads.ToString());
+                }
+            }
+            catch (Exception)
+            {
+                // do nothing
+            }
         }
 
         private string StoreNodesetMetaDataInDatabase(uint newNodeSetID, AddressSpace uaAddressSpace)

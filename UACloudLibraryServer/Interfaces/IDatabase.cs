@@ -37,6 +37,8 @@ namespace UACloudLibrary
 
         bool AddMetaDataToNodeSet(uint nodesetId, string name, string value);
 
+        bool UpdateMetaDataForNodeSet(uint nodesetId, string name, string value);
+
         bool AddUATypeToNodeset(uint nodesetId, UATypes uaType, string browseName, string displayName, string nameSpace);
 
         bool DeleteAllRecordsForNodeset(uint nodesetId);
