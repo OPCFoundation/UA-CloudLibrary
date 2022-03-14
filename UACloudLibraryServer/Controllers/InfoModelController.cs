@@ -651,11 +651,11 @@ namespace UACloudLibrary
 
             if (uaAddressSpace.AdditionalProperties != null)
             {
-                foreach (Tuple<string, string> additionalProperty in uaAddressSpace.AdditionalProperties)
+                foreach (NodesetProperty additionalProperty in uaAddressSpace.AdditionalProperties)
                 {
-                    if (!string.IsNullOrWhiteSpace(additionalProperty.Item1) && !string.IsNullOrWhiteSpace(additionalProperty.Item2))
+                    if (!string.IsNullOrWhiteSpace(additionalProperty.Name) && !string.IsNullOrWhiteSpace(additionalProperty.Value))
                     {
-                        if (!_database.AddMetaDataToNodeSet(newNodeSetID, additionalProperty.Item1, additionalProperty.Item2))
+                        if (!_database.AddMetaDataToNodeSet(newNodeSetID, additionalProperty.Name, additionalProperty.Value))
                         {
                             return false;
                         }

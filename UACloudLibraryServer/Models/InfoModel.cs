@@ -62,7 +62,7 @@ namespace UACloudLibrary
             TestSpecificationUrl = null;
             SupportedLocales = new string[0];
             NumberOfDownloads = 0;
-            AdditionalProperties = new Tuple<string, string>[0];
+            AdditionalProperties = null;
         }
 
         [Required]
@@ -118,7 +118,14 @@ namespace UACloudLibrary
 
         public uint NumberOfDownloads { get; set; }
 
-        public Tuple<string, string>[] AdditionalProperties { get; set; }
+        public NodesetProperty[] AdditionalProperties { get; set; }
+    }
+
+    public class NodesetProperty
+    {
+        public string Name { get; set; }
+
+        public string Value { get; set; }
     }
 
     public class Organisation
