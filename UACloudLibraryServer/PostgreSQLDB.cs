@@ -155,6 +155,33 @@ namespace UACloudLibrary
             return false;
         }
 
+        public bool UpdateMetaDataForNodeSet(uint nodesetId, string name, string value)
+        {
+            try
+            {
+                if (_connection.State != ConnectionState.Open)
+                {
+                    _connection.Close();
+                    _connection.Open();
+                }
+
+                string sqlInsert = string.Format("UPDATE public.Metadata SET metadata_value=@metadatavalue WHERE Nodeset_id=@nodesetid AND metadata_name=@metadataname");
+                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
+                sqlCommand.Parameters.AddWithValue("nodesetid", (long)nodesetId);
+                sqlCommand.Parameters.AddWithValue("metadataname", name);
+                sqlCommand.Parameters.AddWithValue("metadatavalue", value);
+                sqlCommand.ExecuteNonQuery();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.Message);
+            }
+
+            return false;
+        }
+
         public bool DeleteAllRecordsForNodeset(uint nodesetId)
         {
             if (!DeleteAllTableRecordsForNodeset(nodesetId, "Metadata"))

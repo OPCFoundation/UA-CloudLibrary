@@ -47,8 +47,6 @@ namespace UACloudLibrary
             Version = "1.0.0";
             License = AddressSpaceLicense.Custom;
             CopyrightText = string.Empty;
-            CreationTime = DateTime.UtcNow;
-            LastModificationTime = DateTime.UtcNow;
             Contributor = new Organisation();
             Description = string.Empty;
             Category = new AddressSpaceCategory();
@@ -76,10 +74,6 @@ namespace UACloudLibrary
 
         [Required]
         public string CopyrightText {get; set;}
-
-        public DateTime CreationTime { get; set; }
-
-        public DateTime LastModificationTime { get; set; }
 
         [Required]
         public Organisation Contributor { get; set; }
@@ -137,8 +131,6 @@ namespace UACloudLibrary
             LogoUrl = null;
             ContactEmail = null;
             Website = null;
-            CreationTime = DateTime.UtcNow;
-            LastModificationTime = DateTime.UtcNow;
         }
 
         [Required]
@@ -151,10 +143,6 @@ namespace UACloudLibrary
         public string ContactEmail { get; set; }
 
         public Uri Website { get; set; }
-
-        public DateTime CreationTime { get; set; }
-
-        public DateTime LastModificationTime { get; set; }
     }
 
     public class AddressSpaceCategory
@@ -164,8 +152,6 @@ namespace UACloudLibrary
             Name = string.Empty;
             Description = null;
             IconUrl = null;
-            CreationTime = DateTime.UtcNow;
-            LastModificationTime = DateTime.UtcNow;
         }
 
         [Required]
@@ -174,10 +160,6 @@ namespace UACloudLibrary
         public string Description { get; set; }
 
         public Uri IconUrl { get; set; }
-
-        public DateTime CreationTime { get; set; }
-
-        public DateTime LastModificationTime { get; set; }
     }
 
     public class AddressSpaceNodeset2
@@ -185,15 +167,15 @@ namespace UACloudLibrary
         public AddressSpaceNodeset2()
         {
             NodesetXml = string.Empty;
-            CreationTime = DateTime.UtcNow;
-            LastModificationTime = DateTime.UtcNow;
+            PublicationDate = DateTime.MinValue;
+            LastModifiedDate = DateTime.MinValue;
         }
 
         [Required]
         public string NodesetXml { get; set; }
 
-        public DateTime CreationTime { get; set; }
+        public DateTime PublicationDate { get; set; }
 
-        public DateTime LastModificationTime { get; set; }
+        public DateTime LastModifiedDate { get; set; }
     }
 }
