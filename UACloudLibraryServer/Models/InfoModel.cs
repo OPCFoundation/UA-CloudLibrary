@@ -49,8 +49,6 @@ namespace UACloudLibrary
             Version = "1.0.0";
             License = AddressSpaceLicense.Custom;
             CopyrightText = string.Empty;
-            CreationTime = DateTime.UtcNow;
-            LastModificationTime = DateTime.UtcNow;
             Contributor = new Organisation();
             Description = string.Empty;
             Category = new AddressSpaceCategory();
@@ -64,7 +62,7 @@ namespace UACloudLibrary
             TestSpecificationUrl = null;
             SupportedLocales = new string[0];
             NumberOfDownloads = 0;
-            AdditionalProperties = new Tuple<string, string>[0];
+            AdditionalProperties = null;
         }
 
         [Required]
@@ -82,12 +80,6 @@ namespace UACloudLibrary
         [Required]
         [Column("copyrighttext")]
         public string CopyrightText {get; set;}
-
-        [Column("creationtime")]
-        public DateTime CreationTime { get; set; }
-
-        [Column("lastmodificationtime")]
-        public DateTime LastModificationTime { get; set; }
 
         [Required]
         [Column("description")]
@@ -138,7 +130,14 @@ namespace UACloudLibrary
         [Column("numberofdownloads")]
         public uint NumberOfDownloads { get; set; }
 
-        public Tuple<string, string>[] AdditionalProperties { get; set; }
+        public NodesetProperty[] AdditionalProperties { get; set; }
+    }
+
+    public class NodesetProperty
+    {
+        public string Name { get; set; }
+
+        public string Value { get; set; }
     }
 
     public class Organisation
@@ -150,8 +149,6 @@ namespace UACloudLibrary
             LogoUrl = null;
             ContactEmail = null;
             Website = null;
-            CreationTime = DateTime.UtcNow;
-            LastModificationTime = DateTime.UtcNow;
         }
 
         [Required]
@@ -169,12 +166,6 @@ namespace UACloudLibrary
 
         [Column("website")]
         public Uri Website { get; set; }
-
-        [Column("creationtime")]
-        public DateTime CreationTime { get; set; }
-
-        [Column("lastmodificationtime")]
-        public DateTime LastModificationTime { get; set; }
     }
 
     public class AddressSpaceCategory
@@ -184,8 +175,6 @@ namespace UACloudLibrary
             Name = string.Empty;
             Description = null;
             IconUrl = null;
-            CreationTime = DateTime.UtcNow;
-            LastModificationTime = DateTime.UtcNow;
         }
 
         [Required]
@@ -197,12 +186,6 @@ namespace UACloudLibrary
 
         [Column("iconurl")]
         public Uri IconUrl { get; set; }
-
-        [Column("creationtime")]
-        public DateTime CreationTime { get; set; }
-
-        [Column("lastmodificationtime")]
-        public DateTime LastModificationTime { get; set; }
     }
 
     public class AddressSpaceNodeset2
@@ -210,15 +193,15 @@ namespace UACloudLibrary
         public AddressSpaceNodeset2()
         {
             NodesetXml = string.Empty;
-            CreationTime = DateTime.UtcNow;
-            LastModificationTime = DateTime.UtcNow;
+            PublicationDate = DateTime.MinValue;
+            LastModifiedDate = DateTime.MinValue;
         }
 
         [Required]
         public string NodesetXml { get; set; }
 
-        public DateTime CreationTime { get; set; }
+        public DateTime PublicationDate { get; set; }
 
-        public DateTime LastModificationTime { get; set; }
+        public DateTime LastModifiedDate { get; set; }
     }
 }

@@ -102,7 +102,7 @@ namespace UACloudLibrary
                     Contact = new OpenApiContact
                     {
                         Name = "OPC Foundation",
-                        Email = string.Empty,
+                        Email = "office@opcfoundation.org",
                         Url = new Uri("https://opcfoundation.org/")
                     }
                 });

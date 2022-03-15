@@ -123,11 +123,12 @@ namespace SampleConsoleClient
             webClient.DefaultRequestHeaders.Add("Authorization", "basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(args[1] + ":" + args[2])));
 
             Console.WriteLine();
-            Console.WriteLine("Testing /infomodel/find/{keywords}");
-            string[] keywords = { "*" }; // return everything
-            string address = webClient.BaseAddress.ToString() + "infomodel/find";
+            Console.WriteLine("Testing /infomodel/find?keywords");
+            string keywords = "*"; // return everything (other keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
+            string address = webClient.BaseAddress.ToString() + "infomodel/find?keywords=" + Uri.EscapeDataString(keywords);
             HttpContent content = new StringContent(JsonConvert.SerializeObject(keywords), Encoding.UTF8, "application/json");
-            var response = webClient.Send(new HttpRequestMessage(HttpMethod.Put, address) { Content = content });
+            var response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
+            Console.WriteLine("Response: " + response.StatusCode.ToString());
             UANodesetResult[] identifiers = JsonConvert.DeserializeObject<UANodesetResult[]>(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
             for (var i = 0; i < identifiers.Length; i++)
             {
@@ -139,6 +140,7 @@ namespace SampleConsoleClient
             string identifier = identifiers[0].Id.ToString(); // pick the first identifier returned previously
             address = webClient.BaseAddress.ToString() + "infomodel/download/" + Uri.EscapeDataString(identifier);
             response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
+            Console.WriteLine("Response: " + response.StatusCode.ToString());
             Console.WriteLine(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
 
             Console.WriteLine();
