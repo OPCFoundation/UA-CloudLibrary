@@ -27,46 +27,28 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary
+namespace UACloudLibClientLibrary
 {
-    using GraphQL.Types;
-    using Microsoft.EntityFrameworkCore;
-    using System.Collections.Generic;
-    using System.Threading.Tasks;
-    using UACloudLibrary.DbContextModels;
+    using Newtonsoft.Json;
 
-    public class UaCloudLibRepo : ObjectGraphType
+    public class UANodesetResult
     {
-        private AppDbContext _context;
+        [JsonProperty(PropertyName = "nodeset_id")]
+        public uint Id { get; set; }
 
-        public UaCloudLibRepo(AppDbContext context)
-        {
-            _context = context;
-        }
+        [JsonProperty(PropertyName = "nodesettitle")]
+        public string Title { get; set; }
 
-        public Task<List<DatatypeModel>> GetDataTypes()
-        {
-            return _context.datatype.ToListAsync();
-        }
+        [JsonProperty(PropertyName = "orgname")]
+        public string Contributor { get; set; }
 
-        public Task<List<MetadataModel>> GetMetaData()
-        {
-            return _context.metadata.ToListAsync();
-        }
+        [JsonProperty(PropertyName = "license")]
+        public string License { get; set; }
 
-        public Task<List<ObjecttypeModel>> GetObjectTypes()
-        {
-            return _context.objecttype.ToListAsync();
-        }
+        [JsonProperty(PropertyName = "version")]
+        public string Version { get; set; }
 
-        public Task<List<ReferencetypeModel>> GetReferenceTypes()
-        {
-            return _context.referencetype.ToListAsync();
-        }
-
-        public Task<List<VariabletypeModel>> GetVariableTypes()
-        {
-            return _context.variabletype.ToListAsync();
-        }
+        [JsonProperty(PropertyName = "adressspacecreationtime")]
+        public System.DateTime? CreationTime { get; set; }    
     }
 }

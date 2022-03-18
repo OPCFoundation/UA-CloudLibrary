@@ -30,8 +30,12 @@
 namespace UACloudLibrary
 {
     using Amazon.S3;
+    using GraphQL;
+    using GraphQL.DataLoader;
+    using GraphQL.Execution;
     using GraphQL.Server;
     using GraphQL.Server.Ui.Playground;
+    using GraphQL.SystemReactive;
     using Microsoft.AspNetCore.Authentication;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.DataProtection;
@@ -47,18 +51,19 @@ namespace UACloudLibrary
     using Microsoft.OpenApi.Models;
     using System;
     using System.IO;
-    using UACloudLibrary.DbContextModels;
     using UACloudLibrary.Interfaces;
-
 
     public class Startup
     {
-        public Startup(IConfiguration configuration)
+        public Startup(IConfiguration configuration, IWebHostEnvironment environment)
         {
             Configuration = configuration;
+            Environment = environment;
         }
 
         public IConfiguration Configuration { get; }
+
+        public IWebHostEnvironment Environment { get; }
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
@@ -101,7 +106,7 @@ namespace UACloudLibrary
                     Contact = new OpenApiContact
                     {
                         Name = "OPC Foundation",
-                        Email = string.Empty,
+                        Email = "office@opcfoundation.org",
                         Url = new Uri("https://opcfoundation.org/")
                     }
                 });
@@ -135,6 +140,7 @@ namespace UACloudLibrary
                 options.EnableAnnotations();
             });
 
+            services.AddSwaggerGenNewtonsoftSupport();
 
             // Setup file storage
             switch (Configuration["HostingPlatform"])
@@ -169,39 +175,29 @@ namespace UACloudLibrary
 #endif
             }
 
-            // setup GrapQL interface
-            services.AddScoped<DatatypeModel>();
-            services.AddScoped<DatatypeType>();
-
-            services.AddScoped<MetadataModel>();
-            services.AddScoped<MetadataType>();
-
-            services.AddScoped<ObjecttypeModel>();
-            services.AddScoped<ObjecttypeType>();
-
-            services.AddScoped<ReferencetypeModel>();
-            services.AddScoped<ReferencetypeType>();
-
-            services.AddScoped<VariabletypeModel>();
-            services.AddScoped<VariabletypeType>();
-
-            services.AddScoped<UaCloudLibRepo>();
-            services.AddScoped<UaCloudLibQuery>();
-            services.AddScoped<UaCloudLibSchema>();
-
             services.AddHttpContextAccessor();
 
-            services.AddGraphQL(options =>
-            {
-                options.EnableMetrics = true;
-            })
-            .AddErrorInfoProvider(opt => opt.ExposeExceptionStackTrace = true)
-            .AddNewtonsoftJson()
-            .AddUserContextBuilder(httpContext =>
-                new GraphQLUserContext
+            // setup GrapQL interface
+            GraphQL.MicrosoftDI.GraphQLBuilderExtensions.AddGraphQL(services)
+                .AddSubscriptionDocumentExecuter()
+                .AddServer(true)
+                .AddSchema<UaCloudLibSchema>(GraphQL.DI.ServiceLifetime.Scoped)
+                .ConfigureExecution(options =>
                 {
-                    User = httpContext.User
-                }
+                    options.EnableMetrics = Environment.IsDevelopment();
+                    var logger = options.RequestServices.GetRequiredService<ILogger<Startup>>();
+                    options.UnhandledExceptionDelegate = context => logger.LogError("{Error} occurred", context.OriginalException.Message);
+                })
+                .AddNewtonsoftJson()
+                .AddErrorInfoProvider()
+                .Configure<ErrorInfoProviderOptions>(options => options.ExposeExceptionStackTrace = Environment.IsDevelopment())
+                .AddDataLoader()
+                .AddGraphTypes(typeof(UaCloudLibSchema).Assembly)
+                .AddUserContextBuilder(httpContext =>
+                    new GraphQLUserContext
+                    {
+                        User = httpContext.User
+                    }
             );
 
             services.Configure<IISServerOptions>(options =>

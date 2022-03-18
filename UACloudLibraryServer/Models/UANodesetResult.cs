@@ -29,16 +29,26 @@
 
 namespace UACloudLibrary.Models
 {
-    /// <summary>
-    /// Defines the structure of a Nodeset Result
-    /// </summary>
+    using Newtonsoft.Json;
+
     public class UANodesetResult
     {
-        public uint NodesetResultId;
-        public string NodesetResultTitle;
-        public string NodesetResultOrganization;
-        public string NodesetResultLicense;
-        public string NodesetResultVersion;
-        public System.DateTime ? NodesetResultPublicationDate;
+        [JsonProperty(PropertyName = "nodeset_id")]
+        public uint Id { get; set; }
+
+        [JsonProperty(PropertyName = "nodesettitle")]
+        public string Title { get; set; }
+
+        [JsonProperty(PropertyName = "orgname")]
+        public string Contributor { get; set; }
+
+        [JsonProperty(PropertyName = "license")]
+        public string License { get; set; }
+
+        [JsonProperty(PropertyName = "version")]
+        public string Version { get; set; }   
+
+        [JsonProperty(PropertyName = "adressspacecreationtime")]
+        public System.DateTime? CreationTime { get; set; }
     }
 }

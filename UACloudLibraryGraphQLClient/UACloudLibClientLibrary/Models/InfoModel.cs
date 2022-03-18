@@ -15,7 +15,6 @@ namespace UACloudLibClientLibrary
     }
     
  
-
     /// <summary>
     /// Contains the metadata of the nodeset and the nodeset itself
     /// </summary>

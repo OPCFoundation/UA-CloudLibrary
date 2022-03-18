@@ -1,15 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Net;
-using System.Text;
-using System.Threading.Tasks;
-using GraphQL;
-using GraphQL.Client;
+﻿using GraphQL;
 using GraphQL.Client.Http;
 using GraphQL.Client.Serializer.Newtonsoft;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Text;
+using System.Threading.Tasks;
 using UACloudLibClientLibrary.Models;
 
 namespace UACloudLibClientLibrary
@@ -46,6 +44,8 @@ namespace UACloudLibClientLibrary
             m_client = new GraphQLHttpClient(new Uri(strEndpoint + "/graphql"), new NewtonsoftJsonSerializer());
             string temp = Convert.ToBase64String(Encoding.UTF8.GetBytes(strUsername + ":" + strPassword));
             m_client.HttpClient.DefaultRequestHeaders.Add("Authorization", "basic " + temp);
+            m_strUsername = strUsername;
+            m_strPassword = strPassword;
         }
 
         //Sends the query and converts it
@@ -126,16 +126,16 @@ namespace UACloudLibClientLibrary
         /// <returns></returns>
         public AddressSpace DownloadNodeset(string identifier)
         {
-            WebClient webClient = new WebClient
+            HttpClient webClient = new HttpClient
             {
-                BaseAddress = Endpoint.ToString()
+                BaseAddress = new Uri(Endpoint.ToString())
             };
 
-            webClient.Headers.Add("Authorization", "basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(m_strUsername + ":" + m_strPassword)));
+            webClient.DefaultRequestHeaders.Add("Authorization", "basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(m_strUsername + ":" + m_strPassword)));
 
-            var address = webClient.BaseAddress + "infomodel/download/" + Uri.EscapeDataString(identifier);
-            var response = webClient.DownloadString(address);
-            var converted = JsonConvert.DeserializeObject<AddressSpace>(response);
+            var address = webClient.BaseAddress.ToString() + "infomodel/download/" + Uri.EscapeDataString(identifier);
+            var response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
+            var converted = JsonConvert.DeserializeObject<AddressSpace>(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
             return converted;
         }
     }

@@ -156,6 +156,33 @@ public class PostgreSQLDB : IDatabase
             return false;
         }
 
+        public bool UpdateMetaDataForNodeSet(uint nodesetId, string name, string value)
+        {
+            try
+            {
+                if (_connection.State != ConnectionState.Open)
+                {
+                    _connection.Close();
+                    _connection.Open();
+                }
+
+                string sqlInsert = string.Format("UPDATE public.Metadata SET metadata_value=@metadatavalue WHERE Nodeset_id=@nodesetid AND metadata_name=@metadataname");
+                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
+                sqlCommand.Parameters.AddWithValue("nodesetid", (long)nodesetId);
+                sqlCommand.Parameters.AddWithValue("metadataname", name);
+                sqlCommand.Parameters.AddWithValue("metadatavalue", value);
+                sqlCommand.ExecuteNonQuery();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.Message);
+            }
+
+            return false;
+        }
+
         public bool DeleteAllRecordsForNodeset(uint nodesetId)
         {
             if (!DeleteAllTableRecordsForNodeset(nodesetId, "Metadata"))
@@ -286,14 +313,14 @@ public class PostgreSQLDB : IDatabase
                 if (uint.TryParse(match, out uint matchId))
                 {
                     var thisResult = new UANodesetResult();
-                    thisResult.NodesetResultId = matchId;
-                    thisResult.NodesetResultTitle = RetrieveMetaData(matchId, "nodesettitle") ?? string.Empty;
-                    thisResult.NodesetResultOrganization = RetrieveMetaData(matchId, "orgname") ?? string.Empty;
-                    thisResult.NodesetResultLicense = RetrieveMetaData(matchId, "license") ?? string.Empty;
-                    thisResult.NodesetResultVersion = RetrieveMetaData(matchId, "version") ?? string.Empty;
+                    thisResult.Id = matchId;
+                    thisResult.Title = RetrieveMetaData(matchId, "nodesettitle") ?? string.Empty;
+                    thisResult.Contributor = RetrieveMetaData(matchId, "orgname") ?? string.Empty;
+                    thisResult.License = RetrieveMetaData(matchId, "license") ?? string.Empty;
+                    thisResult.Version = RetrieveMetaData(matchId, "version") ?? string.Empty;
                     var pubDate = RetrieveMetaData(matchId, "nodesetcreationtime");
                     if (DateTime.TryParse(pubDate, out DateTime useDate))
-                        thisResult.NodesetResultPublicationDate = useDate;
+                        thisResult.CreationTime = useDate;
                     nodesetResults.Add(thisResult);
                 }
             }

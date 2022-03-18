@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Globalization;
 using System.Linq;
 using UACloudLibClientLibrary.Models;
 
@@ -44,7 +44,7 @@ namespace UACloudLibClientLibrary
                 #region AdressSpace Cases
                 case "adressspacemodifiedtime":
                     {
-                        addressspace.LastModificationTime = System.Convert.ToDateTime(metadata.Value);
+                        addressspace.LastModificationTime = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
                         break;
                     }
                 case "addressspacedescription":
@@ -165,7 +165,7 @@ namespace UACloudLibClientLibrary
                 #endregion
                 case "nodesetmodifiedtime":
                     {
-                        addressspace.Nodeset.LastModification = System.Convert.ToDateTime(metadata.Value);
+                        addressspace.Nodeset.LastModification = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
                         break;
                     }
                 default:
