@@ -80,7 +80,7 @@ namespace UACloudLibrary
 
             services.AddDefaultIdentity<IdentityUser>(options => 
                     //require confirmation mail if sendgrid API Key is set
-                    options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["SendGridAPIKey"] ?? Environment.GetEnvironmentVariable("SendGridAPIKey"))
+                    options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["SendGridAPIKey"] ?? System.Environment.GetEnvironmentVariable("SendGridAPIKey"))
                     ).AddEntityFrameworkStores<AppDbContext>();
 
             services.AddScoped<IUserService, UserService>();
