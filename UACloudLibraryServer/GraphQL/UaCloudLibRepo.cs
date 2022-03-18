@@ -29,12 +29,13 @@
 
 namespace UACloudLibrary
 {
+    using GraphQL.Types;
     using Microsoft.EntityFrameworkCore;
     using System.Collections.Generic;
     using System.Threading.Tasks;
     using UACloudLibrary.DbContextModels;
 
-    public class UaCloudLibRepo
+    public class UaCloudLibRepo : ObjectGraphType
     {
         private AppDbContext _context;
 
