@@ -29,15 +29,16 @@
 
 namespace UACloudLibrary
 {
-    using GraphQL.Types;
-
-    public class AddressSpaceLicenseType : EnumerationGraphType
+    using System.ComponentModel.DataAnnotations.Schema;
+    public class AddressSpaceModel : AddressSpace
     {
-        public AddressSpaceLicenseType()
-        {
-            AddValue("MIT", "", 0);
-            AddValue("ApacheLicense20", "", 1);
-            AddValue("Custom", "", 2);
-        }
+        [ForeignKey("Category")]
+        [Column("category_id")]
+        public int Category_Id { get; set; }
+        [ForeignKey("Contributor")]
+        [Column("contributor_id")]
+        public int Contributor_Id { get; set; }
+        [Column("nodeset_id")]
+        public long Nodeset_Id { get; set; }
     }
 }

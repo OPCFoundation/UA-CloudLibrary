@@ -27,17 +27,19 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary
+namespace UACloudLibClientLibrary
 {
-    using GraphQL.Types;
+    using Newtonsoft.Json;
 
-    public class AddressSpaceLicenseType : EnumerationGraphType
+    /// <summary>
+    /// Contains T and its cursor
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    public class PageItem<T> where T : class
     {
-        public AddressSpaceLicenseType()
-        {
-            AddValue("MIT", "", 0);
-            AddValue("ApacheLicense20", "", 1);
-            AddValue("Custom", "", 2);
-        }
+        [JsonProperty("cursor")]
+        public string Cursor { get; set; }
+        [JsonProperty("node")]
+        public T Item { get; set; }
     }
 }

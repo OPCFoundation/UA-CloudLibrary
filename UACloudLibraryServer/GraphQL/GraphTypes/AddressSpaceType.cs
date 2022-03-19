@@ -31,13 +31,27 @@ namespace UACloudLibrary
 {
     using GraphQL.Types;
 
-    public class AddressSpaceLicenseType : EnumerationGraphType
+    public class AddressSpaceType : ObjectGraphType<AddressSpaceModel>
     {
-        public AddressSpaceLicenseType()
+        public AddressSpaceType()
         {
-            AddValue("MIT", "", 0);
-            AddValue("ApacheLicense20", "", 1);
-            AddValue("Custom", "", 2);
+            Field(e => e.Title);
+            Field(e => e.Version);
+            Field(e => e.Description);
+            Field(e => e.CopyrightText);
+            Field(e => e.NumberOfDownloads);
+            Field(e => e.SupportedLocales);
+            Field(e => e.Keywords);
+            Field(e => e.License);
+            Field(e => e.Nodeset_Id);
+            Field(e => e.DbContext.organisation.Find(e.Source.Contributor_Id));
+            Field(e => e.DbContext.category.Find(e.Source.Category_Id));
+            Field(e => e.LicenseUrl);
+            Field(e => e.DocumentationUrl);
+            Field(e => e.IconUrl);
+            Field(e => e.PurchasingInformationUrl);
+            Field(e => e.ReleaseNotesUrl);
+            Field(e => e.TestSpecificationUrl);
         }
     }
 }

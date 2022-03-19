@@ -27,17 +27,42 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary
+namespace UACloudLibClientLibrary
 {
-    using GraphQL.Types;
+    using Newtonsoft.Json;
+    using System.Collections.Generic;
 
-    public class AddressSpaceLicenseType : EnumerationGraphType
+    /// <summary>
+    /// Contains a List of T, the total count of T available and if a next and/or previous page is available
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    public class PageInfo<T> where T : class
     {
-        public AddressSpaceLicenseType()
+        [JsonProperty("edges")]
+        public List<PageItem<T>> Items { get; set; }
+
+        [JsonProperty("pageInfo")]
+        public PageBools Page { get; set; }
+
+        [JsonProperty("totalCount")]
+        public int TotalCount { get; set; }
+
+        public PageInfo()
         {
-            AddValue("MIT", "", 0);
-            AddValue("ApacheLicense20", "", 1);
-            AddValue("Custom", "", 2);
+            Items = new List<PageItem<T>>();
+            Page = new PageBools();
+            TotalCount = 0;
         }
+    }
+    /// <summary>
+    /// Contains the data if a next and/or previous page is available
+    /// </summary>
+    public class PageBools
+    {
+        [JsonProperty("hasNextPage")]
+        public bool hasNext { get; set; }
+
+        [JsonProperty("hasPreviousPage")]
+        public bool hasPrev { get; set; }
     }
 }

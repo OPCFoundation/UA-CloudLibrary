@@ -27,17 +27,30 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary
+namespace UACloudLibClientLibrary
 {
-    using GraphQL.Types;
+    using System;
+    using System.Runtime.InteropServices;
 
-    public class AddressSpaceLicenseType : EnumerationGraphType
+    public enum ComparisonType
     {
-        public AddressSpaceLicenseType()
-        {
-            AddValue("MIT", "", 0);
-            AddValue("ApacheLicense20", "", 1);
-            AddValue("Custom", "", 2);
-        }
+        Equal,
+        GreaterThan,
+        GreaterThanOrEqual,
+        LessThan,
+        LessThanEqual,
+        Contains,
+        StartsWith,
+        EndsWith,
+        Like
+    }
+    public interface IWhereExpression<T> where T : Enum
+    {
+        public string Expression { get; }
+        /// <summary>
+        /// Returns a string that is formatted so that it can be used in a where expression in a query
+        /// </summary>
+        /// <returns>A String formatted like this: {path: "---", comparison: ---, value: "---"}</returns>
+        public bool SetExpression(T path, string value, ComparisonType comparison, [Optional] bool connector);
     }
 }

@@ -27,17 +27,30 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary
+namespace UACloudLibClientLibrary
 {
-    using GraphQL.Types;
-
-    public class AddressSpaceLicenseType : EnumerationGraphType
+    using System;
+    internal static class InternalMethods
     {
-        public AddressSpaceLicenseType()
+        public static string LikeComparisonCompatibleString(string value)
         {
-            AddValue("MIT", "", 0);
-            AddValue("ApacheLicense20", "", 1);
-            AddValue("Custom", "", 2);
+            string result = "";
+            if (!string.IsNullOrEmpty(value))
+            {
+                if (value.StartsWith("%") && value.EndsWith("%"))
+                {
+                    result = value;
+                }
+                else
+                {
+                    result = string.Format("%" + value + "%");
+                }
+            }
+            else
+            {
+                throw new ArgumentNullException("Parameter 'value' is null");
+            }
+            return result;
         }
     }
 }

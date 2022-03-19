@@ -29,10 +29,12 @@
 
 namespace SampleConsoleClient
 {
+    using Newtonsoft.Json;
     using System.Collections.Generic;
-
+    [JsonObject("metadata")]
     public class UACloudLibGraphQLMetadataQueryResponse
     {
+        [JsonProperty("items")]
         public List<MetaData> metadata { get; set; }
 
         public class MetaData

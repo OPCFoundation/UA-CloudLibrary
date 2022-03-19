@@ -31,13 +31,15 @@ namespace UACloudLibrary
 {
     using GraphQL.Types;
 
-    public class AddressSpaceLicenseType : EnumerationGraphType
+    public class OrganisationType : ObjectGraphType<Organisation>
     {
-        public AddressSpaceLicenseType()
+        public OrganisationType()
         {
-            AddValue("MIT", "", 0);
-            AddValue("ApacheLicense20", "", 1);
-            AddValue("Custom", "", 2);
+            Field(e => e.Name);
+            Field(e => e.ContactEmail);
+            Field(e => e.Description);
+            Field(e => e.LogoUrl);
+            Field(e => e.Website);
         }
     }
 }
