@@ -29,16 +29,60 @@
 
 namespace UACloudLibrary
 {
-    using System.ComponentModel.DataAnnotations.Schema;
-    public class AddressSpaceModel : AddressSpace
+    using GraphQL.Types;
+    using Microsoft.EntityFrameworkCore;
+    using System;
+    using System.Collections.Generic;
+    using System.Threading.Tasks;
+    using UACloudLibrary.DbContextModels;
+
+    public class UaCloudLibDatabase : ObjectGraphType
     {
-        [ForeignKey("Category")]
-        [Column("category_id")]
-        public int Category_Id { get; set; }
-        [ForeignKey("Contributor")]
-        [Column("contributor_id")]
-        public int Contributor_Id { get; set; }
-        [Column("nodeset_id")]
-        public long Nodeset_Id { get; set; }
+        private AppDbContext _context;
+
+        public UaCloudLibDatabase(AppDbContext context)
+        {
+            _context = context;
+        }
+
+        public Task<List<DatatypeModel>> GetDataTypes()
+        {
+            return _context.datatype.ToListAsync();
+        }
+
+        public Task<List<MetadataModel>> GetMetaData()
+        {
+            return _context.metadata.ToListAsync();
+        }
+
+        public Task<List<ObjecttypeModel>> GetObjectTypes()
+        {
+            return _context.objecttype.ToListAsync();
+        }
+
+        public Task<List<ReferencetypeModel>> GetReferenceTypes()
+        {
+            return _context.referencetype.ToListAsync();
+        }
+
+        public Task<List<VariabletypeModel>> GetVariableTypes()
+        {
+            return _context.variabletype.ToListAsync();
+        }
+
+        public Task<List<AddressSpace>> GetAdressSpaceTypes()
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<AddressSpaceCategory>> GetCategoryTypes()
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<Organisation>> GetOrganisationTypes()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

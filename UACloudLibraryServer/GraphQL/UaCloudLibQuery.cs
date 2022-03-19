@@ -33,34 +33,18 @@ namespace UACloudLibrary
 
     public class UaCloudLibQuery : ObjectGraphType
     {
-        public UaCloudLibQuery(UaCloudLibRepo cloudLibRepo)
+        public UaCloudLibQuery(UaCloudLibDatabase cloudLibDB)
         {
             Name = "UACloudLibraryQuery";
 
-            Field<ListGraphType<DatatypeType>>(
-                "datatype",
-                resolve: context => cloudLibRepo.GetDataTypes()
-            );
-
-            Field<ListGraphType<MetadataType>>(
-                "metadata",
-                resolve: context => cloudLibRepo.GetMetaData()
-            );
-
-            Field<ListGraphType<ObjecttypeType>>(
-                "objecttype",
-                resolve: context => cloudLibRepo.GetObjectTypes()
-            );
-
-            Field<ListGraphType<ReferencetypeType>>(
-                "referencetype",
-                resolve: context => cloudLibRepo.GetReferenceTypes()
-            );
-
-            Field<ListGraphType<VariabletypeType>>(
-                "variabletype",
-                resolve: context => cloudLibRepo.GetVariableTypes()
-            );
+            Field<ListGraphType<DatatypeType>>("datatype", resolve: context => cloudLibDB.GetDataTypes());
+            Field<ListGraphType<MetadataType>>("metadata", resolve: context => cloudLibDB.GetMetaData());
+            Field<ListGraphType<ObjecttypeType>>("objecttype", resolve: context => cloudLibDB.GetObjectTypes());
+            Field<ListGraphType<ReferencetypeType>>("referencetype", resolve: context => cloudLibDB.GetReferenceTypes());
+            Field<ListGraphType<VariabletypeType>>("variabletype", resolve: context => cloudLibDB.GetVariableTypes());
+            Field<ListGraphType<AddressSpaceType>>("addressspacetype", resolve: context => cloudLibDB.GetAdressSpaceTypes());
+            Field<ListGraphType<CategoryType>>("categorytype", resolve: context => cloudLibDB.GetCategoryTypes());
+            Field<ListGraphType<OrganisationType>>("organisationtype", resolve: context => cloudLibDB.GetOrganisationTypes());
         }
     }
 }

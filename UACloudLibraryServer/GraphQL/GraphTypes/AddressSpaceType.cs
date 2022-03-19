@@ -31,7 +31,7 @@ namespace UACloudLibrary
 {
     using GraphQL.Types;
 
-    public class AddressSpaceType : ObjectGraphType<AddressSpaceModel>
+    public class AddressSpaceType : ObjectGraphType<AddressSpace>
     {
         public AddressSpaceType()
         {
@@ -43,9 +43,8 @@ namespace UACloudLibrary
             Field(e => e.SupportedLocales);
             Field(e => e.Keywords);
             Field(e => e.License);
-            Field(e => e.Nodeset_Id);
-            Field(e => e.DbContext.organisation.Find(e.Source.Contributor_Id));
-            Field(e => e.DbContext.category.Find(e.Source.Category_Id));
+            Field(e => e.Contributor);
+            Field(e => e.Category);
             Field(e => e.LicenseUrl);
             Field(e => e.DocumentationUrl);
             Field(e => e.IconUrl);
