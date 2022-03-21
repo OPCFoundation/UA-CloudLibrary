@@ -43,8 +43,8 @@ namespace UACloudLibrary
             Field(e => e.SupportedLocales);
             Field(e => e.Keywords);
             Field(e => e.License);
-            Field(e => e.Contributor);
-            Field(e => e.Category);
+            Field(e => e.Contributor, type: typeof(OrganisationType));
+            Field(e => e.Category, type: typeof(CategoryType));
             Field(e => e.LicenseUrl);
             Field(e => e.DocumentationUrl);
             Field(e => e.IconUrl);

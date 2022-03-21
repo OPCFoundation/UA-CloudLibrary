@@ -79,50 +79,58 @@ namespace UACloudLibrary
             List<AddressSpace> result = new List<AddressSpace>();
             foreach (string name in names)
             {
-                if (uint.TryParse(name, out uint nodesetId))
+                try
                 {
-                    AddressSpace addressSpace = new AddressSpace();
-
-                    addressSpace.Description = _database.RetrieveMetaData(nodesetId, "description");
-                    addressSpace.Version = _database.RetrieveMetaData(nodesetId, "version");
-                    addressSpace.Title = _database.RetrieveMetaData(nodesetId, "nodesettitle");
-                    addressSpace.CopyrightText = _database.RetrieveMetaData(nodesetId, "copyright");
-                    addressSpace.DocumentationUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "documentationurl"));
-                    addressSpace.PurchasingInformationUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "purchasinginfo"));
-                    addressSpace.IconUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "iconurl"));
-                    addressSpace.LicenseUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "licenseurl"));
-                    addressSpace.ReleaseNotesUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "releasenotes"));
-                    addressSpace.TestSpecificationUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "testspecification"));
-                    addressSpace.NumberOfDownloads = Convert.ToUInt32(_database.RetrieveMetaData(nodesetId, "numdownloads"));
-                    addressSpace.Keywords = _database.RetrieveMetaData(nodesetId, "keywords").Split(',');
-                    addressSpace.SupportedLocales = _database.RetrieveMetaData(nodesetId, "locales").Split(',');
-                    switch (_database.RetrieveMetaData(nodesetId, "license"))
+                    string[] tuple = name.Split(',');
+                    if (uint.TryParse(tuple[1], out uint nodesetId))
                     {
-                        case "MIT":
-                            addressSpace.License = AddressSpaceLicense.MIT;
-                            break;
-                        case "ApacheLicense20":
-                            addressSpace.License = AddressSpaceLicense.ApacheLicense20;
-                            break;
-                        case "Custom":
-                            addressSpace.License = AddressSpaceLicense.Custom;
-                            break;
-                        default:
-                            addressSpace.License = AddressSpaceLicense.Custom;
-                            break;
+                        AddressSpace addressSpace = new AddressSpace();
+
+                        addressSpace.Description = _database.RetrieveMetaData(nodesetId, "description");
+                        addressSpace.Version = _database.RetrieveMetaData(nodesetId, "version");
+                        addressSpace.Title = _database.RetrieveMetaData(nodesetId, "nodesettitle");
+                        addressSpace.CopyrightText = _database.RetrieveMetaData(nodesetId, "copyright");
+                        addressSpace.DocumentationUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "documentationurl"));
+                        addressSpace.PurchasingInformationUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "purchasinginfo"));
+                        addressSpace.IconUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "iconurl"));
+                        addressSpace.LicenseUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "licenseurl"));
+                        addressSpace.ReleaseNotesUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "releasenotes"));
+                        addressSpace.TestSpecificationUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "testspecification"));
+                        addressSpace.NumberOfDownloads = Convert.ToUInt32(_database.RetrieveMetaData(nodesetId, "numdownloads"));
+                        addressSpace.Keywords = _database.RetrieveMetaData(nodesetId, "keywords").Split(',');
+                        addressSpace.SupportedLocales = _database.RetrieveMetaData(nodesetId, "locales").Split(',');
+                        switch (_database.RetrieveMetaData(nodesetId, "license"))
+                        {
+                            case "MIT":
+                                addressSpace.License = AddressSpaceLicense.MIT;
+                                break;
+                            case "ApacheLicense20":
+                                addressSpace.License = AddressSpaceLicense.ApacheLicense20;
+                                break;
+                            case "Custom":
+                                addressSpace.License = AddressSpaceLicense.Custom;
+                                break;
+                            default:
+                                addressSpace.License = AddressSpaceLicense.Custom;
+                                break;
+                        }
+
+                        addressSpace.Contributor.ContactEmail = _database.RetrieveMetaData(nodesetId, "orgcontact");
+                        addressSpace.Contributor.Name = _database.RetrieveMetaData(nodesetId, "orgname");
+                        addressSpace.Contributor.Description = _database.RetrieveMetaData(nodesetId, "orgdescription");
+                        addressSpace.Contributor.Website = CreateUri(_database.RetrieveMetaData(nodesetId, "orgwebsite"));
+                        addressSpace.Contributor.LogoUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "orglogo"));
+
+                        addressSpace.Category.Name = _database.RetrieveMetaData(nodesetId, "addressspacename");
+                        addressSpace.Category.Description = _database.RetrieveMetaData(nodesetId, "addressspacedescription");
+                        addressSpace.Category.IconUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "addressspaceiconurl"));
+
+                        result.Add(addressSpace);
                     }
-
-                    addressSpace.Contributor.ContactEmail = _database.RetrieveMetaData(nodesetId, "orgcontact");
-                    addressSpace.Contributor.Name = _database.RetrieveMetaData(nodesetId, "orgname");
-                    addressSpace.Contributor.Description = _database.RetrieveMetaData(nodesetId, "orgdescription");
-                    addressSpace.Contributor.Website = CreateUri(_database.RetrieveMetaData(nodesetId, "orgwebsite"));
-                    addressSpace.Contributor.LogoUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "orglogo"));
-
-                    addressSpace.Category.Name = _database.RetrieveMetaData(nodesetId, "addressspacename");
-                    addressSpace.Category.Description = _database.RetrieveMetaData(nodesetId, "addressspacedescription");
-                    addressSpace.Category.IconUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "addressspaceiconurl"));
-
-                    result.Add(addressSpace);
+                }
+                catch (Exception)
+                {
+                    // ignore this entity
                 }
             }
 
@@ -136,15 +144,23 @@ namespace UACloudLibrary
             List<AddressSpaceCategory> result = new List<AddressSpaceCategory>();
             foreach (string name in names)
             {
-                if (uint.TryParse(name, out uint nodesetId))
+                try
                 {
-                    AddressSpaceCategory category = new AddressSpaceCategory();
+                    string[] tuple = name.Split(',');
+                    if (uint.TryParse(tuple[1], out uint nodesetId))
+                    {
+                        AddressSpaceCategory category = new AddressSpaceCategory();
 
-                    category.Name = _database.RetrieveMetaData(nodesetId, "addressspacename");
-                    category.Description = _database.RetrieveMetaData(nodesetId, "addressspacedescription");
-                    category.IconUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "addressspaceiconurl"));
+                        category.Name = tuple[0];
+                        category.Description = _database.RetrieveMetaData(nodesetId, "addressspacedescription");
+                        category.IconUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "addressspaceiconurl"));
 
-                    result.Add(category);
+                        result.Add(category);
+                    }
+                }
+                catch (Exception)
+                {
+                    // ignire this entity
                 }
             }
 
@@ -158,17 +174,25 @@ namespace UACloudLibrary
             List<Organisation> result = new List<Organisation>();
             foreach (string name in names)
             {
-                if (uint.TryParse(name, out uint nodesetId))
+                try
                 {
-                    Organisation organisation = new Organisation();
+                    string[] tuple = name.Split(',');
+                    if (uint.TryParse(tuple[1], out uint nodesetId))
+                    {
+                        Organisation organisation = new Organisation();
 
-                    organisation.ContactEmail = _database.RetrieveMetaData(nodesetId, "orgcontact");
-                    organisation.Name = _database.RetrieveMetaData(nodesetId, "orgname");
-                    organisation.Description = _database.RetrieveMetaData(nodesetId, "orgdescription");
-                    organisation.Website = CreateUri(_database.RetrieveMetaData(nodesetId, "orgwebsite"));
-                    organisation.LogoUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "orglogo"));
+                        organisation.ContactEmail = _database.RetrieveMetaData(nodesetId, "orgcontact");
+                        organisation.Name = _database.RetrieveMetaData(nodesetId, "orgname");
+                        organisation.Description = _database.RetrieveMetaData(nodesetId, "orgdescription");
+                        organisation.Website = CreateUri(_database.RetrieveMetaData(nodesetId, "orgwebsite"));
+                        organisation.LogoUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "orglogo"));
 
-                    result.Add(organisation);
+                        result.Add(organisation);
+                    }
+                }
+                catch (Exception)
+                {
+                    // ignore this entity
                 }
             }
 
@@ -177,13 +201,14 @@ namespace UACloudLibrary
 
         private Uri CreateUri(string uri)
         {
-            Uri result = null;
             if (!string.IsNullOrEmpty(uri))
             {
-                result = new Uri(uri);
+                return new Uri(uri);
             }
-
-            return result;
+            else
+            {
+                return null;
+            }
         }
     }
 }
