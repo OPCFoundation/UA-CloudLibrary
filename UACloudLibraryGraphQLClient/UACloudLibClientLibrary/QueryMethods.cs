@@ -39,13 +39,7 @@ namespace UACloudLibClientLibrary
     /// </summary>
     static class QueryMethods
     {
-        const string strEndQuery = "}" +
-                "pageInfo{" +
-                "hasNextPage " +
-                "hasPreviousPage" +
-                "}" +
-                "totalCount" +
-                "}}";
+        const string strEndQuery = "}";
 
         /// <summary>
         /// Prepares and finalizes the AddressSpace query
@@ -55,20 +49,18 @@ namespace UACloudLibClientLibrary
         /// <param name="orFilter"></param>
         /// <param name="filter"></param>
         /// <returns>The finalized query</returns>
-        public static string AddressSpacesQuery(string after, int first, IEnumerable<AddressSpaceWhereExpression> filter = null, GroupedOrExpression<AddressSpaceSearchField> orFilter = null)
+        public static string AddressSpacesQuery(int limit, int offset, IEnumerable<AddressSpaceWhereExpression> filter = null, GroupedOrExpression<AddressSpaceSearchField> orFilter = null)
         {
             StringBuilder query = new StringBuilder();
+
             query.AppendLine("query{");
-            query.AppendLine($"addressspace(after: \"{after}\", first: {first}");
+
+            query.AppendLine($"addressspacetype(limit: {limit}, offset: {offset})");
 
             if (orFilter != null)
             {
                 query.Append(WhereExpressionBuilder(filter));
             }
-
-            query.AppendLine("){" +
-                "edges{" +
-                "cursor ");
 
             query.AppendLine(PrebuiltQueries.AddressSpaceQuery);
 
@@ -84,15 +76,13 @@ namespace UACloudLibClientLibrary
         /// <param name="first"></param>
         /// <param name="searchtext"></param>
         /// <returns>The finalized query</returns>
-        public static string AddressSpaceQuery(string after, int first, string searchtext)
+        public static string AddressSpaceQuery(int limit, int offset, string searchtext)
         {
             StringBuilder query = new StringBuilder();
-            query.AppendLine("query{");
-            query.AppendLine($"addressspace(after: \"{after}\", first: {first}, searchtext: \"{searchtext}\"");
 
-            query.AppendLine("){" +
-                "edges{" +
-                "cursor ");
+            query.AppendLine("query{");
+
+            query.AppendLine($"addressspacetype(limit: {limit}, offset: {offset})");
 
             query.AppendLine(PrebuiltQueries.AddressSpaceQuery);
 
@@ -108,17 +98,15 @@ namespace UACloudLibClientLibrary
         /// <param name="andFilter"></param>
         /// <param name="orFilter"></param>
         /// <returns></returns>
-        public static string QueryCategories(int pageSize, string after, IEnumerable<CategoryWhereExpression> andFilter = null)
+        public static string QueryCategories(int limit, int offset, IEnumerable<CategoryWhereExpression> andFilter = null)
         {
             StringBuilder query = new StringBuilder();
+
             query.AppendLine("query{");
-            query.AppendLine($"category(after: \"{after}\", first: {pageSize}");
+
+            query.AppendLine($"categorytype(limit: {limit}, offset: {offset})");
 
             query.Append(WhereExpressionBuilder(andFilter));
-
-            query.AppendLine("){" +
-                "edges{" +
-                "cursor ");
 
             query.AppendLine(PrebuiltQueries.CategoryQuery);
 
@@ -135,19 +123,18 @@ namespace UACloudLibClientLibrary
         /// <param name="andFilter"></param>
         /// <param name="orFilter"></param>
         /// <returns></returns>
-        public static string QueryOrganisations(int pageSize, string after, IEnumerable<OrganisationWhereExpression> andFilter = null)
+        public static string QueryOrganisations(int limit, int offset, IEnumerable<OrganisationWhereExpression> andFilter = null)
         {
             StringBuilder query = new StringBuilder();
+
             query.AppendLine("query{");
-            query.AppendLine($"organisation(after: \"{after}\", first: {pageSize}");
+
+            query.AppendLine($"organisationtype(limit: {limit}, offset: {offset})");
+
             if (andFilter != null)
             {
                 query.Append(WhereExpressionBuilder(andFilter));
             }
-
-            query.AppendLine("){" +
-                "edges{" +
-                "cursor ");
 
             // Fills the query with the requested properties
             query.AppendLine(PrebuiltQueries.OrganisationsQuery);
@@ -160,23 +147,29 @@ namespace UACloudLibClientLibrary
         public static string QueryMetadata(IEnumerable<MetadataWhereExpression> andFilter = null)
         {
             StringBuilder query = new StringBuilder();
+
             query.AppendLine("query{metadata");
+
             if (andFilter != null)
             {
                 query.Append("(");
                 query.Append(WhereExpressionBuilder(andFilter));
                 query.Append(")");
             }
-            query.AppendLine("{edges{cursor");
+
             query.Append(PrebuiltQueries.MetadataQuery);
+
             query.Append(strEndQuery);
+
             return query.ToString();
         }
 
         public static string QueryObjectType(IEnumerable<ObjectTypeWhereExpression> andFilter = null)
         {
             StringBuilder query = new StringBuilder();
+
             query.AppendLine("query{objecttype");
+ 
             if (andFilter != null)
             {
                 query.Append("(");
@@ -184,42 +177,49 @@ namespace UACloudLibClientLibrary
                 query.Append(")");
             }
 
-            query.AppendLine("{edges{cursor");
             query.Append(PrebuiltQueries.ObjectQuery);
+
             query.Append(strEndQuery);
+
             return query.ToString();
         }
 
         public static string QueryReferences()
         {
             StringBuilder query = new StringBuilder();
+
             query.AppendLine("query{referencetype");
 
-            query.AppendLine("{edges{cursor");
             query.Append(PrebuiltQueries.ReferenceQuery);
+
             query.Append(strEndQuery);
+
             return query.ToString();
         }
 
         public static string QueryVariables()
         {
             StringBuilder query = new StringBuilder();
+
             query.AppendLine("query{variabletype");
 
-            query.AppendLine("{edges{cursor");
             query.Append(PrebuiltQueries.VariableQuery);
+
             query.Append(strEndQuery);
+
             return query.ToString();
         }
 
         public static string QueryDatatypes()
         {
             StringBuilder query = new StringBuilder();
+
             query.AppendLine("query{datatypes");
 
-            query.AppendLine("{edges{cursor");
             query.Append(PrebuiltQueries.DatatypeQuery);
+
             query.Append(strEndQuery);
+
             return query.ToString();
         }
 
@@ -235,6 +235,7 @@ namespace UACloudLibClientLibrary
             where T : Enum
         {
             StringBuilder query = new StringBuilder();
+
             if (filter.Any())
             {
                 return "";
@@ -242,11 +243,14 @@ namespace UACloudLibClientLibrary
             else
             {
                 query.Append(", where: [");
+
                 if (filter != null)
                 {
                     query.Append(string.Format(",", filter));
                 }
+
                 query.Append("]");
+
                 return query.ToString();
             }
         }

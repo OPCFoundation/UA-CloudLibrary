@@ -53,12 +53,12 @@ namespace SampleConsoleClient
 
             Console.WriteLine("OPC Foundation UA Cloud Library Console Client Application");
 
+            TestClientLibrary(args); 
+            
             TestGraphQLInterface(args);
 
             TestRESTInterface(args);
-
-            TestClientLibrary(args);
-
+            
             Console.WriteLine();
             Console.WriteLine("Done!");
         }
@@ -125,9 +125,9 @@ namespace SampleConsoleClient
 
             Console.WriteLine();
             Console.WriteLine("Testing /infomodel/find?keywords");
-            string keywords = "*"; // return everything (other keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
-            string address = webClient.BaseAddress.ToString() + "infomodel/find?keywords=" + Uri.EscapeDataString(keywords);
-            HttpContent content = new StringContent(JsonConvert.SerializeObject(keywords), Encoding.UTF8, "application/json");
+
+            // return everything (keywords=*, other keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
+            string address = webClient.BaseAddress.ToString() + "infomodel/find?keywords=" + Uri.EscapeDataString("*");
             var response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
             Console.WriteLine("Response: " + response.StatusCode.ToString());
             UANodesetResult[] identifiers = JsonConvert.DeserializeObject<UANodesetResult[]>(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
@@ -138,9 +138,12 @@ namespace SampleConsoleClient
 
             Console.WriteLine();
             Console.WriteLine("Testing /infomodel/download/{identifier}");
-            string identifier = identifiers[0].Id.ToString(); // pick the first identifier returned previously
+
+            // pick the first identifier returned previously
+            string identifier = identifiers[0].Id.ToString(); 
             address = webClient.BaseAddress.ToString() + "infomodel/download/" + Uri.EscapeDataString(identifier);
             response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
+
             Console.WriteLine("Response: " + response.StatusCode.ToString());
             Console.WriteLine(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
 
@@ -159,7 +162,7 @@ namespace SampleConsoleClient
             {
                 Console.WriteLine("\nTesting the GraphQL api");
 
-                Console.WriteLine("\nTesting the addressspace query, this should also work if graphql is not available");
+                Console.WriteLine("\nTesting the address space query, this will fall back to the REST interface if GraphQL is not available.");
                 List<AddressSpaceWhereExpression> expression = new List<AddressSpaceWhereExpression>();
                 PageInfo<AddressSpace> anothertest = client.GetAddressSpaces(10).GetAwaiter().GetResult();
                 if(anothertest.Items.Count > 0)
@@ -167,29 +170,31 @@ namespace SampleConsoleClient
                     Console.WriteLine("Title: {0}", anothertest.Items[0].Item.Title);
                     Console.WriteLine("Total amount of adressspaces: {0}", anothertest.TotalCount);
                 }
-            Console.WriteLine("\nTesting object query");
+
+                Console.WriteLine("\nTesting object query");
                 PageInfo<ObjectResult> test = client.GetObjectTypes().GetAwaiter().GetResult();
                 foreach (PageItem<ObjectResult> result in test.Items)
-            {
+                {
                     Console.WriteLine($"{result.Item.ID}, {result.Item.Namespace}, {result.Item.Browsename}, {result.Item.Value}");
-            }
+                }
 
-            Console.WriteLine("\nTesting metadata query");
+                Console.WriteLine("\nTesting metadata query");
                 PageInfo<MetadataResult> metadatas = client.GetMetadata().GetAwaiter().GetResult();
                 foreach (PageItem<MetadataResult> metadata in metadatas.Items)
-            {
+                {
                     Console.WriteLine($"{metadata.Item.ID}, {metadata.Item.Name}, {metadata.Item.Value}");
-            }
-
-            Console.WriteLine("\nTesting query and convertion of metadata");
-                List<AddressSpace> finalResult = client.GetConvertedMetadata().GetAwaiter().GetResult();
-            foreach(AddressSpace result in finalResult)
-            {
-                Console.WriteLine($"{result.Title} by {result.Contributor.Name} last update on {result.LastModificationTime}");
                 }
-            }catch (Exception)
+
+                Console.WriteLine("\nTesting query and convertion of metadata");
+                List<AddressSpace> finalResult = client.GetConvertedMetadata().GetAwaiter().GetResult();
+                foreach(AddressSpace result in finalResult)
+                {
+                    Console.WriteLine($"{result.Title} by {result.Contributor.Name} last update on {result.LastModificationTime}");
+                }
+            }
+            catch (Exception ex)
             {
-                Console.WriteLine("\nThis instance doesn't provide GraphQL");
+                Console.WriteLine(ex.Message);
             }
 
             Console.WriteLine("\nUsing the rest api");

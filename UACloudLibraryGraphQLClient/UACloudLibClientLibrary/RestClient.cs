@@ -46,7 +46,12 @@ namespace UACloudLibClientLibrary
     internal class RestClient : IDisposable
     {
         private HttpClient client;
-        public AuthenticationHeaderValue Authentication { set => client.DefaultRequestHeaders.Authorization = value; get => client.DefaultRequestHeaders.Authorization; }
+
+        public AuthenticationHeaderValue Authentication
+        {
+            set => client.DefaultRequestHeaders.Authorization = value;
+            get => client.DefaultRequestHeaders.Authorization;
+        }
 
         public RestClient(Uri address)
         {
@@ -58,36 +63,32 @@ namespace UACloudLibClientLibrary
         {
             client = new HttpClient();
             client.BaseAddress = new Uri(address);
-            client.DefaultRequestHeaders.Authorization = authentication;        }
+            client.DefaultRequestHeaders.Authorization = authentication;
+        }
 
         public void Dispose()
         {
             client.Dispose();
         }
 
-        public async Task<List<AddressSpace>> GetBasicAddressSpaces(IEnumerable<string> keywords = null)
+        public async Task<List<AddressSpace>> GetBasicAddressSpaces(List<string> keywords = null)
         {
-            string address = Path.Combine(client.BaseAddress.ToString(), "infomodel/find");
-
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, address);
             if (keywords == null)
             {
-                request.Content = new StringContent("[\"*\"]");
+                keywords = new List<string>() { "*" };
             }
-            else
-            {
-                request.Content = new StringContent(string.Format("[{0}]", PrepareArgumentsString(keywords)));
-            }
+            
+            // keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
+            string address = client.BaseAddress.ToString() + "infomodel/find" + PrepareArgumentsString(keywords);
 
-            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-            request.Headers.Authorization = client.DefaultRequestHeaders.Authorization;
-            HttpResponseMessage response = await client.SendAsync(request);
+            HttpResponseMessage response = await client.GetAsync(address);
             List<BasicNodesetInformation> info = null;
             
             if(response.StatusCode == HttpStatusCode.OK)
             {
                 info = JsonConvert.DeserializeObject<List<BasicNodesetInformation>>(await response.Content.ReadAsStringAsync());
             }
+
             return ConvertToAddressSpace(info);
         }
 
@@ -100,6 +101,7 @@ namespace UACloudLibClientLibrary
             {
                 resultType = JsonConvert.DeserializeObject<AddressSpace>(await response.Content.ReadAsStringAsync());
             }
+
             return resultType;
         }
 
@@ -120,27 +122,26 @@ namespace UACloudLibClientLibrary
                     result.Add(address);
                 }
             }
+
             return result;
         }
 
-        private static string PrepareArgumentsString(IEnumerable<string> arguments)
+        private static string PrepareArgumentsString(List<string> arguments)
         {
-            List<string> argumentsList = new List<string>();
-
-            foreach (string argument in arguments)
-            {
-                argumentsList.Add(string.Format("\"{0}\"", argument));
-            }
-
             StringBuilder stringBuilder = new StringBuilder();
 
-            for(int i = 0; i < argumentsList.Count; i++)
+            for (int i = 0; i < arguments.Count; i++)
             {
-                if(i != 0)
+                if (i == 0)
                 {
-                    stringBuilder.Append(",");
+                    stringBuilder.Append("?");
                 }
-                stringBuilder.Append(argumentsList[i]);
+                else
+                {
+                    stringBuilder.Append("&");
+                }
+
+                stringBuilder.Append("keywords=" + Uri.EscapeDataString(arguments[i]));
             }
 
             return stringBuilder.ToString();

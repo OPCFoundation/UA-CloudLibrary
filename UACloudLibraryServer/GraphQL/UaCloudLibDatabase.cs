@@ -68,20 +68,30 @@ namespace UACloudLibrary
         }
 
         public Task<List<VariabletypeModel>> GetVariableTypes()
-        {
+        {   
             return _context.variabletype.ToListAsync();
         }
 
-        public Task<List<AddressSpace>> GetAdressSpaceTypes()
+        public Task<List<AddressSpace>> GetAdressSpaceTypes(int limit, int offset)
         {
             string[] names = _database.GetAllNamesAndNodesets();
 
+            // input validation
+            if ((offset < 0) || (limit < 0) || (offset > names.Length))
+            {
+                return Task.FromResult(new List<AddressSpace>());
+            }
+            if ((offset + limit) > names.Length)
+            {
+                limit = names.Length - offset;
+            }
+
             List<AddressSpace> result = new List<AddressSpace>();
-            foreach (string name in names)
+            for (int i = offset; i < (offset + limit); i++)
             {
                 try
                 {
-                    string[] tuple = name.Split(',');
+                    string[] tuple = names[i].Split(',');
                     if (uint.TryParse(tuple[1], out uint nodesetId))
                     {
                         AddressSpace addressSpace = new AddressSpace();
@@ -137,16 +147,26 @@ namespace UACloudLibrary
             return Task.FromResult(result);
         }
 
-        public Task<List<AddressSpaceCategory>> GetCategoryTypes()
+        public Task<List<AddressSpaceCategory>> GetCategoryTypes(int limit, int offset)
         {
             string[] names = _database.GetAllNamesAndNodesets();
 
+            // input validation
+            if ((offset < 0) || (limit < 0) || (offset > names.Length))
+            {
+                return Task.FromResult(new List<AddressSpaceCategory>());
+            }
+            if ((offset + limit) > names.Length)
+            {
+                limit = names.Length - offset;
+            }
+
             List<AddressSpaceCategory> result = new List<AddressSpaceCategory>();
-            foreach (string name in names)
+            for (int i = offset; i < (offset + limit); i++)
             {
                 try
                 {
-                    string[] tuple = name.Split(',');
+                    string[] tuple = names[i].Split(',');
                     if (uint.TryParse(tuple[1], out uint nodesetId))
                     {
                         AddressSpaceCategory category = new AddressSpaceCategory();
@@ -167,16 +187,26 @@ namespace UACloudLibrary
             return Task.FromResult(result);
         }
 
-        public Task<List<Organisation>> GetOrganisationTypes()
+        public Task<List<Organisation>> GetOrganisationTypes(int limit, int offset)
         {
             string[] names = _database.GetAllNamesAndNodesets();
 
+            // input validation
+            if ((offset < 0) || (limit < 0) || (offset > names.Length))
+            {
+                return Task.FromResult(new List<Organisation>());
+            }
+            if ((offset + limit) > names.Length)
+            {
+                limit = names.Length - offset;
+            }
+
             List<Organisation> result = new List<Organisation>();
-            foreach (string name in names)
+            for (int i = offset; i < (offset + limit); i++)
             {
                 try
                 {
-                    string[] tuple = name.Split(',');
+                    string[] tuple = names[i].Split(',');
                     if (uint.TryParse(tuple[1], out uint nodesetId))
                     {
                         Organisation organisation = new Organisation();

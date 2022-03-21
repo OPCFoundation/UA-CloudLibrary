@@ -115,16 +115,15 @@ namespace UACloudLibClientLibrary
         //Sends the query and converts it
         private async Task<T> SendAndConvert<T>(GraphQLRequest request)
         {
-            try
+            GraphQLResponse<JObject> response = await m_client.SendQueryAsync<JObject>(request);
+
+            if (response?.Errors.Count() > 0)
             {
-                GraphQLResponse<JObject> response = await m_client.SendQueryAsync<JObject>(request);
-                string dataJson = response.Data.First?.First?.ToString();
-                return JsonConvert.DeserializeObject<T>(dataJson);
+                throw new Exception(response.Errors[0].Message);
             }
-            catch (Exception e)
-            {
-                throw new Exception(e.Message);
-            }
+
+            string dataJson = response.Data?.First?.First?.ToString();
+            return JsonConvert.DeserializeObject<T>(dataJson);
         }
 
         /// <summary>
@@ -199,9 +198,9 @@ namespace UACloudLibClientLibrary
         /// <param name="after"></param>
         /// <param name="filter"></param>
         /// <returns>The converted JSON result</returns>
-        public async Task<PageInfo<Organisation>> GetOrganisations(int pageSize = 10, string after = "-1", IEnumerable<OrganisationWhereExpression> filter = null)
+        public async Task<PageInfo<Organisation>> GetOrganisations(int limit = 10, int offset = 1, IEnumerable<OrganisationWhereExpression> filter = null)
         {
-            request.Query = QueryMethods.QueryOrganisations(pageSize, after, filter);
+            request.Query = QueryMethods.QueryOrganisations(limit, offset, filter);
             return await SendAndConvert<PageInfo<Organisation>>(request);
         }
 
@@ -213,17 +212,18 @@ namespace UACloudLibClientLibrary
         /// <param name="filter"></param>
         /// <param name="groupedExpression"></param>
         /// <returns>The converted JSON result</returns>
-        public async Task<PageInfo<AddressSpace>> GetAddressSpaces(int pageSize = 10, string after = "-1", IEnumerable<AddressSpaceWhereExpression> filter = null)
+        public async Task<PageInfo<AddressSpace>> GetAddressSpaces(int limit = 10, int offset = 1, IEnumerable<AddressSpaceWhereExpression> filter = null)
         {
-            request.Query = QueryMethods.AddressSpacesQuery(after, pageSize, filter);
+            request.Query = QueryMethods.AddressSpacesQuery(limit, offset, filter);
             PageInfo<AddressSpace> result = new PageInfo<AddressSpace>();
             try
             {
                 result = await SendAndConvert<PageInfo<AddressSpace>>(request);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                result = ConvertWithPaging(await restClient.GetBasicAddressSpaces(filter.Select(e => e.Value)), pageSize, Convert.ToInt32(after));
+                Console.WriteLine("Error: " + ex.Message + " Falling back to REST interface...");
+                result = ConvertWithPaging(await restClient.GetBasicAddressSpaces((List<string>)(filter?.Select(e => e.Value))), limit, Convert.ToInt32(offset));
             }
 
             return result;
@@ -236,9 +236,9 @@ namespace UACloudLibClientLibrary
         /// <param name="after"></param>
         /// <param name="filter"></param>
         /// <returns>The converted JSON result</returns>
-        public async Task<PageInfo<AddressSpaceCategory>> GetAddressSpaceCategories(int pageSize = 10, string after = "-1", IEnumerable<CategoryWhereExpression> filter = null)
+        public async Task<PageInfo<AddressSpaceCategory>> GetAddressSpaceCategories(int limit = 10, int offset = 1, IEnumerable<CategoryWhereExpression> filter = null)
         {
-            request.Query = QueryMethods.QueryCategories(pageSize, after, filter);
+            request.Query = QueryMethods.QueryCategories(limit, offset, filter);
             return await SendAndConvert<PageInfo<AddressSpaceCategory>>(request);
         }
 
@@ -253,7 +253,7 @@ namespace UACloudLibClientLibrary
         /// Use this method if the CloudLib instance doesn't provide the GraphQL API
         /// </summary>
         /// <returns></returns>
-        public async Task<List<AddressSpace>> GetBasicAddressSpaces(IEnumerable<string> keywords = null) => await restClient.GetBasicAddressSpaces(keywords);
+        public async Task<List<AddressSpace>> GetBasicAddressSpaces(List<string> keywords = null) => await restClient.GetBasicAddressSpaces(keywords);
 
 
         public void Dispose()

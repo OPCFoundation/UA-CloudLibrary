@@ -29,6 +29,7 @@
 
 namespace UACloudLibrary
 {
+    using GraphQL;
     using GraphQL.Types;
 
     public class UaCloudLibQuery : ObjectGraphType
@@ -42,9 +43,48 @@ namespace UACloudLibrary
             Field<ListGraphType<ObjecttypeType>>("objecttype", resolve: context => cloudLibDB.GetObjectTypes());
             Field<ListGraphType<ReferencetypeType>>("referencetype", resolve: context => cloudLibDB.GetReferenceTypes());
             Field<ListGraphType<VariabletypeType>>("variabletype", resolve: context => cloudLibDB.GetVariableTypes());
-            Field<ListGraphType<AddressSpaceType>>("addressspacetype", resolve: context => cloudLibDB.GetAdressSpaceTypes());
-            Field<ListGraphType<CategoryType>>("categorytype", resolve: context => cloudLibDB.GetCategoryTypes());
-            Field<ListGraphType<OrganisationType>>("organisationtype", resolve: context => cloudLibDB.GetOrganisationTypes());
+
+            Field<ListGraphType<CategoryType>>(
+                "categorytype",
+                arguments: new QueryArguments(
+                    new QueryArgument<IntGraphType> { Name = "limit" },
+                    new QueryArgument<IntGraphType> { Name = "offset" }
+                ),
+                resolve: context =>
+                {
+                    int limit = context.GetArgument("limit", 10);
+                    int offset = context.GetArgument("offset", 0);
+                    return cloudLibDB.GetCategoryTypes(limit, offset);
+                }
+            );
+
+            Field<ListGraphType<OrganisationType>>(
+                "organisationtype",
+                arguments: new QueryArguments(
+                    new QueryArgument<IntGraphType> { Name = "limit" },
+                    new QueryArgument<IntGraphType> { Name = "offset" }
+                ),
+                resolve: context =>
+                {
+                    int limit = context.GetArgument("limit", 10);
+                    int offset = context.GetArgument("offset", 0);
+                    return cloudLibDB.GetOrganisationTypes(limit, offset);
+                }
+            );
+
+            Field<ListGraphType<AddressSpaceType>>(
+                "addressspacetype",
+                arguments: new QueryArguments(
+                    new QueryArgument<IntGraphType> { Name = "limit" },
+                    new QueryArgument<IntGraphType> { Name = "offset" }
+                ),
+                resolve: context =>
+                {
+                    int limit = context.GetArgument("limit", 10);
+                    int offset = context.GetArgument("offset", 0);
+                    return cloudLibDB.GetAdressSpaceTypes(limit, offset);
+                }
+            );
         }
     }
 }
