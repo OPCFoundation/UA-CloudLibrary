@@ -1,0 +1,38 @@
+version: '3.4'
+
+services:
+  ua-cloudlibrary:
+    image: ${DOCKER_REGISTRY-}uacloudlibrary
+    ports:
+      - 8443:443
+    build:
+      context: .
+      dockerfile: UACloudLibraryServer/Dockerfile
+    environment:
+        PostgreSQLUsername: uacloudlib
+        PostgreSQLPassword: uacloudlib
+        ServicePassword: uacloudlib
+        PostgreSQLEndpoint: db
+  db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: uacloudlib
+      POSTGRES_USER: uacloudlib
+      POSTGRES_DB: uacloudlib
+  pgadmin:
+    image: "dpage/pgadmin4"
+    ports:
+      - 8080:80
+    environment:
+      PGADMIN_DEFAULT_EMAIL: uacloudlib
+      PGADMIN_DEFAULT_PASSWORD: uacloudlib
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    volumes:
+      - ./local-dev-docker/docker_pgadmin_servers.json:/pgadmin4/servers.json
+    entrypoint:
+      - "/bin/sh"
+      - "-c"
+      - "/bin/echo 'db:5432:*:uacloudlib:uacloudlib' > /tmp/pgpassfile && chmod 600 /tmp/pgpassfile && /entrypoint.sh"
+    restart: unless-stopped

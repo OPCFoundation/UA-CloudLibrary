@@ -6,6 +6,7 @@
     <UserSecretsId>ee5a630a-263e-4334-b590-b77013c2af56</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>./..</DockerfileContext>
+    <DockerComposeProjectPath>..\docker-compose.dcproj</DockerComposeProjectPath>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(RunConfiguration)' == 'UA_CloudLibrary' " />
