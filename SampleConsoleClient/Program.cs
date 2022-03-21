@@ -39,6 +39,7 @@ namespace SampleConsoleClient
     using System.Text;
     using UACloudLibClientLibrary;
     using UACloudLibClientLibrary.Models;
+    using UACloudLibrary;
 
     class Program
     {
@@ -189,7 +190,7 @@ namespace SampleConsoleClient
                 List<AddressSpace> finalResult = client.GetConvertedMetadata().GetAwaiter().GetResult();
                 foreach(AddressSpace result in finalResult)
                 {
-                    Console.WriteLine($"{result.Title} by {result.Contributor.Name} last update on {result.LastModificationTime}");
+                    Console.WriteLine($"{result.Title} by {result.Contributor.Name}");
                 }
             }
             catch (Exception ex)

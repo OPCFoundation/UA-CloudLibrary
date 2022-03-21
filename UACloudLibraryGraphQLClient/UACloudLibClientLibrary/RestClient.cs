@@ -39,7 +39,8 @@ namespace UACloudLibClientLibrary
     using System.Text;
     using System.Threading.Tasks;
     using UACloudLibClientLibrary.Models;
-    
+    using UACloudLibrary;
+
     /// <summary>
     /// For use when the provider doesn't have a GraphQL interface and the downloading of nodesets
     /// </summary>
@@ -117,8 +118,7 @@ namespace UACloudLibClientLibrary
                     address.Version = basicNodesetInformation.Version;
                     address.Contributor.Name = basicNodesetInformation.Organisation;
                     address.License = basicNodesetInformation.License;
-                    address.Nodeset.CreationTimeStamp = basicNodesetInformation.CreationTime;
-                    address.MetadataID = basicNodesetInformation.ID.ToString();
+                    address.Nodeset.PublicationDate = basicNodesetInformation.CreationTime;
                     result.Add(address);
                 }
             }

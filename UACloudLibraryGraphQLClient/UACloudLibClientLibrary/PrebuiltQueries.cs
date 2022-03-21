@@ -31,6 +31,7 @@ namespace UACloudLibClientLibrary
 {
     using GraphQL.Query.Builder;
     using UACloudLibClientLibrary.Models;
+    using UACloudLibrary;
 
     /// <summary>
     /// Defines which fields are returned
@@ -107,7 +108,7 @@ namespace UACloudLibClientLibrary
             .AddField(
                 h => h.Category,
                 sq => sq.AddField(h => h.Name)
-                        .AddField(h => h.LastModificationTime)
+                        .AddField(h => h.Description)
                         .AddField(h => h.IconUrl)
                 )
             .AddField(h => h.Description)
@@ -115,9 +116,8 @@ namespace UACloudLibClientLibrary
             .AddField(h => h.PurchasingInformationUrl)
             .AddField(h => h.Version)
             .AddField(h => h.ReleaseNotesUrl)
-            .AddField(h => h.KeyWords)
-            .AddField(h => h.SupportedLocales)
-            .AddField(h => h.LastModificationTime);
+            .AddField(h => h.Keywords)
+            .AddField(h => h.SupportedLocales);
         #endregion
 
         public static string OrganisationsQuery { get { return _OrgQuery.Build().ToString(); } }
@@ -137,8 +137,7 @@ namespace UACloudLibClientLibrary
         static IQuery<AddressSpaceCategory> _CategoryQuery = new Query<AddressSpaceCategory>("node")
             .AddField(f => f.Name)
             .AddField(f => f.Description)
-            .AddField(f => f.IconUrl)
-            .AddField(f => f.LastModificationTime);
+            .AddField(f => f.IconUrl);
         #endregion
     }
 }

@@ -34,6 +34,7 @@ namespace UACloudLibClientLibrary
     using System.Globalization;
     using System.Linq;
     using UACloudLibClientLibrary.Models;
+    using UACloudLibrary;
 
     static class ConvertMetadataToAddressspace
     {
@@ -49,19 +50,20 @@ namespace UACloudLibClientLibrary
             if (pageInfo?.Items != null)
             {
                 foreach (PageItem<MetadataResult> item in pageInfo.Items)
-            {
+                {
                     string id = item.Item.NodesetID.ToString();
                     AddressSpace addressspace = addressSpaces?.FirstOrDefault(e => e.MetadataID == id);
 
-                if (addressspace == null)
-                {
-                    addressspace = new AddressSpace();
-                    addressspace.MetadataID = id;
+                    if (addressspace == null)
+                    {
+                        addressspace = new AddressSpace();
                         addressSpaces.Add(addressspace);
-                }
+                    }
+
                     ConvertCases(addressspace, item.Item);
                 }
             }
+
             return addressSpaces;
         }
         /// <summary>
@@ -74,16 +76,6 @@ namespace UACloudLibClientLibrary
             switch (metadata.Name)
             {
                 #region AdressSpace Cases
-                case "adressspacemodifiedtime":
-                    {
-                        addressspace.LastModificationTime = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
-                        break;
-                    }
-                case "adressspacecreationtime":
-                    {
-                        addressspace.CreationTime = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
-                        break;
-                    }
                 case "addressspacedescription":
                     {
                         addressspace.Description = metadata.Value;
@@ -111,7 +103,7 @@ namespace UACloudLibClientLibrary
                     }
                 case "keywords":
                     {
-                        addressspace.KeyWords = metadata.Value.Split(",");
+                        addressspace.Keywords = metadata.Value.Split(",");
                         break;
                     }
                 case "locales":
@@ -200,9 +192,9 @@ namespace UACloudLibClientLibrary
                         break;
                     }
                 #endregion
-                case "nodesetmodifiedtime":
+                case "adressspacecreationtime":
                     {
-                        addressspace.Nodeset.LastModification = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+                        addressspace.Nodeset.PublicationDate = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
                         break;
                     }
                 default:

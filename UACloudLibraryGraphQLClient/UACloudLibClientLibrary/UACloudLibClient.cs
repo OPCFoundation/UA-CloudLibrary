@@ -41,6 +41,7 @@ namespace UACloudLibClientLibrary
     using System.Text;
     using System.Threading.Tasks;
     using UACloudLibClientLibrary.Models;
+    using UACloudLibrary;
 
     /// <summary>
     /// This class handles the quering and conversion of the response

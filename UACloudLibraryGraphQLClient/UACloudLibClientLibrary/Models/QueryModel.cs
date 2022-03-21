@@ -31,18 +31,23 @@ namespace UACloudLibClientLibrary.Models
 {
     using Newtonsoft.Json;
     using System;
+    using UACloudLibrary;
 
     [JsonObject("datatype")]
     public class DatatypeResult
     {
         [JsonProperty("datatype_id")]
         public int ID { get; set; }
+
         [JsonProperty("nodeset_id")]
         public long NodesetID { get; set; }
+
         [JsonProperty("datatype_browsename")]
         public string Browsename { get; set; }
+
         [JsonProperty("datatype_value")]
         public string Value { get; set; }
+
         [JsonProperty("datatype_namespace")]
         public string Namespace { get; set; }
     }
@@ -51,10 +56,13 @@ namespace UACloudLibClientLibrary.Models
     {
         [JsonProperty("metadata_id")]
         public int ID { get; set; }
+
         [JsonProperty("nodeset_id")]
         public long NodesetID { get; set; }
+
         [JsonProperty("metadata_name")]
         public string Name { get; set; }
+
         [JsonProperty("metadata_value")]
         public string Value { get; set; }
     }
@@ -63,12 +71,16 @@ namespace UACloudLibClientLibrary.Models
     {
         [JsonProperty("objecttype_id")]
         public int ID { get; set; }
+
         [JsonProperty("nodeset_id")]
         public long NodesetID { get; set; }
+
         [JsonProperty("objecttype_browsename")]
         public string Browsename { get; set; }
+
         [JsonProperty("objecttype_value")]
         public string Value { get; set; }
+
         [JsonProperty("objecttype_namespace")]
         public string Namespace { get; set; }
     }
@@ -81,8 +93,10 @@ namespace UACloudLibClientLibrary.Models
         public long NodesetID { get; set; }
         [JsonProperty("referencetype_browsename")]
         public string Browsename { get; set; }
+
         [JsonProperty("referencetype_value")]
         public string Value { get; set; }
+
         [JsonProperty("referencetype_namespace")]
         public string Namespace { get; set; }
     }
@@ -91,12 +105,16 @@ namespace UACloudLibClientLibrary.Models
     {
         [JsonProperty("variabletype_id")]
         public int ID { get; set; }
+
         [JsonProperty("nodeset_id")]
         public long NodesetID { get; set; }
+
         [JsonProperty("variabletype_browsename")]
         public string Browsename { get; set; }
+
         [JsonProperty("variabletype_value")]
         public string Value { get; set; }
+
         [JsonProperty("variabletype_namespace")]
         public string Namespace { get; set; }
     }
@@ -104,14 +122,19 @@ namespace UACloudLibClientLibrary.Models
     {
         [JsonProperty("nodeset_id")]
         public uint ID { get; set; }
+
         [JsonProperty("nodesettitle")]
         public string Title { get; set; }
+
         [JsonProperty("orgname")]
         public string Organisation { get; set; }
+
         [JsonProperty("license")]
         public AddressSpaceLicense License { get; set; }
+
         [JsonProperty("addressspacecreationtime")]
         public DateTime CreationTime { get; set; }
+
         [JsonProperty("version")]
         public string Version { get; set; }
     }

@@ -27,94 +27,155 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibClientLibrary
+namespace UACloudLibrary
 {
     using System;
-    
+    using System.ComponentModel.DataAnnotations;
+
     public enum AddressSpaceLicense
     {
         MIT,
         ApacheLicense20,
         Custom
     }
-    
- 
-    /// <summary>
-    /// Contains the metadata of the nodeset and the nodeset itself
-    /// </summary>
+
     public class AddressSpace
     {
         public AddressSpace()
         {
-            this.Nodeset = new AddressSpaceNodeset2();
-            this.Contributor = new Organisation();
-            this.Category = new AddressSpaceCategory();
+            Title = string.Empty;
+            Version = "1.0.0";
+            License = AddressSpaceLicense.Custom;
+            CopyrightText = string.Empty;
+            Contributor = new Organisation();
+            Description = string.Empty;
+            Category = new AddressSpaceCategory();
+            Nodeset = new AddressSpaceNodeset2();
+            DocumentationUrl = null;
+            IconUrl = null;
+            LicenseUrl = null;
+            Keywords = new string[0];
+            PurchasingInformationUrl = null;
+            ReleaseNotesUrl = null;
+            TestSpecificationUrl = null;
+            SupportedLocales = new string[0];
+            NumberOfDownloads = 0;
+            AdditionalProperties = null;
         }
-        /// <summary>
-        /// Used for identifying during conversion and when trying to download the nodeset
-        /// </summary>
-        public string MetadataID { get; set; }
+
+        [Required]
         public string Title { get; set; }
+
+        [Required]
         public string Version { get; set; }
+
+        [Required]
         public AddressSpaceLicense License { get; set; }
+
+        [Required]
         public string CopyrightText { get; set; }
-        public DateTime CreationTime { get; set; }
-        public DateTime LastModificationTime { get; set; }
-        public Organisation Contributor{ get; set; }
+
+        [Required]
+        public Organisation Contributor { get; set; }
+
+        [Required]
         public string Description { get; set; }
+
+        [Required]
         public AddressSpaceCategory Category { get; set; }
+
+        [Required]
         public AddressSpaceNodeset2 Nodeset { get; set; }
+
         /// <summary>
-        /// If the address space is a official UA Information Model this refers to the OPC XYZ number of the published document. E.g. "OPC 40001-1" for the "UA CS for Machinery Part 1 - Basic Building Blocks"
+        /// Link to additional documentation, specifications, GitHub, etc.
+        /// For example, If the address space is based on a standard or official UA Information Model, this links to the standard or the OPC specification URL.
         /// </summary>
         public Uri DocumentationUrl { get; set; }
+
         public Uri IconUrl { get; set; }
+
         public Uri LicenseUrl { get; set; }
-        public string[] KeyWords { get; set; }
+
+        public string[] Keywords { get; set; }
+
         public Uri PurchasingInformationUrl { get; set; }
+
         public Uri ReleaseNotesUrl { get; set; }
+
         public Uri TestSpecificationUrl { get; set; }
+
         /// <summary>
         /// Supported ISO language codes
         /// </summary>
         public string[] SupportedLocales { get; set; }
+
         public uint NumberOfDownloads { get; set; }
-        public Tuple<string, string>[] AdditionalProperties { get; set; }
+
+        public NodesetProperty[] AdditionalProperties { get; set; }
     }
- 
-    /// <summary>
-    /// Contains the metadata for the contributor/organisation
-    /// </summary>
-    public class Organisation 
+
+    public class NodesetProperty
     {
         public string Name { get; set; }
-        public string Description { get; set; }
-        public Uri LogoUrl { get; set; }
-        public string ContactEmail { get; set; }
-        public Uri Website { get; set; }
-        public DateTime CreationTime { get; set; }
-        public DateTime LastModificationTime { get; set; }
+
+        public string Value { get; set; }
     }
-    
-    /// <summary>
-    /// Defines the category
-    /// </summary>
+
+    public class Organisation
+    {
+        public Organisation()
+        {
+            Name = string.Empty;
+            Description = null;
+            LogoUrl = null;
+            ContactEmail = null;
+            Website = null;
+        }
+
+        [Required]
+        public string Name { get; set; }
+
+        public string Description { get; set; }
+
+        public Uri LogoUrl { get; set; }
+
+        public string ContactEmail { get; set; }
+
+        public Uri Website { get; set; }
+    }
+
     public class AddressSpaceCategory
     {
+        public AddressSpaceCategory()
+        {
+            Name = string.Empty;
+            Description = null;
+            IconUrl = null;
+        }
+
+        [Required]
         public string Name { get; set; }
+
         public string Description { get; set; }
+
         public Uri IconUrl { get; set; }
-        public DateTime CreationTimeStamp { get; set; }
-        public DateTime LastModificationTime { get; set; }
     }
-    
-    /// <summary>
-    /// Contains the nodeset and timestamps
-    /// </summary>
+
     public class AddressSpaceNodeset2
     {
+        public AddressSpaceNodeset2()
+        {
+            NodesetXml = string.Empty;
+            PublicationDate = DateTime.MinValue;
+            LastModifiedDate = DateTime.MinValue;
+        }
+
+        [Required]
         public string NodesetXml { get; set; }
-        public DateTime CreationTimeStamp { get; set; }
-        public DateTime LastModification { get; set; }
+
+        public DateTime PublicationDate { get; set; }
+
+        public DateTime LastModifiedDate { get; set; }
     }
 }
