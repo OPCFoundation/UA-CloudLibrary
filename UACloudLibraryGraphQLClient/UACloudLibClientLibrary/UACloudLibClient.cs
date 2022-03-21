@@ -156,7 +156,7 @@ namespace UACloudLibClientLibrary
             {
                 convertedResult = ConvertMetadataToAddressspace.Convert(result);
             }
-            catch (Exception ex)
+            catch
             {
                 convertedResult = await restClient.GetBasicAddressSpaces();
             }
@@ -193,7 +193,7 @@ namespace UACloudLibClientLibrary
             {
                 result = await SendAndConvert<PageInfo<AddressSpace>>(request);
             }
-            catch (Exception e)
+            catch
             {
                 result = ConvertWithPaging(await restClient.GetBasicAddressSpaces(filter.Select(e => e.Value)), pageSize, Convert.ToInt32(after));
             }

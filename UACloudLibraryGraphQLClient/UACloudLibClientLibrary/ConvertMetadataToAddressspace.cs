@@ -46,16 +46,6 @@ namespace UACloudLibClientLibrary
             switch (metadata.Name)
             {
                 #region AdressSpace Cases
-                case "adressspacemodifiedtime":
-                    {
-                        addressspace.LastModificationTime = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
-                        break;
-                    }
-                case "adressspacecreationtime":
-                    {
-                        addressspace.CreationTime = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
-                        break;
-                    }
                 case "addressspacedescription":
                     {
                         addressspace.Description = metadata.Value;
@@ -174,7 +164,12 @@ namespace UACloudLibClientLibrary
                 #endregion
                 case "nodesetmodifiedtime":
                     {
-                        addressspace.Nodeset.LastModification = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+                        addressspace.Nodeset.LastModifiedTime = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+                        break;
+                    }
+                case "nodesetpublication":
+                    {
+                        addressspace.Nodeset.NodesetPublication = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
                         break;
                     }
                 default:

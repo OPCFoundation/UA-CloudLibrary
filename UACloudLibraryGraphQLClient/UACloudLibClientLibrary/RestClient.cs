@@ -87,7 +87,7 @@ namespace UACloudLibClientLibrary
                     address.Version = basicNodesetInformation.Version;
                     address.Contributor.Name = basicNodesetInformation.Organisation;
                     address.License = basicNodesetInformation.License;
-                    address.Nodeset.CreationTimeStamp = basicNodesetInformation.CreationTime;
+                    address.Nodeset.NodesetPublication = basicNodesetInformation.CreationTime;
                     address.MetadataID = basicNodesetInformation.ID.ToString();
                     result.Add(address);
                 }

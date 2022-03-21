@@ -11,9 +11,7 @@
         contributorName,
         categoryId,
         categoryName,
-        license,
-        lastModified,
-        creationTimeStamp
+        license
     }
     /// <summary>
     /// Defining the attributes the AddressSpace must have

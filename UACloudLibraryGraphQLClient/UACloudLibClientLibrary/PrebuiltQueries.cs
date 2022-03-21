@@ -75,7 +75,6 @@
             .AddField(
                 h => h.Category,
                 sq => sq.AddField(h => h.Name)
-                        .AddField(h => h.LastModificationTime)
                         .AddField(h => h.IconUrl)
                 )
             .AddField(h => h.Description)
@@ -85,7 +84,8 @@
             .AddField(h => h.ReleaseNotesUrl)
             .AddField(h => h.KeyWords)
             .AddField(h => h.SupportedLocales)
-            .AddField(h => h.LastModificationTime);
+            .AddField("lastModified")
+            .AddField("nodesetPublication");
         #endregion
 
         public static string OrganisationsQuery { get { return _OrgQuery.Build().ToString(); } }
@@ -103,8 +103,7 @@
         static IQuery<AddressSpaceCategory> _CategoryQuery = new Query<AddressSpaceCategory>("node")
             .AddField(f => f.Name)
             .AddField(f => f.Description)
-            .AddField(f => f.IconUrl)
-            .AddField(f => f.LastModificationTime);
+            .AddField(f => f.IconUrl);
         #endregion
     }
 }

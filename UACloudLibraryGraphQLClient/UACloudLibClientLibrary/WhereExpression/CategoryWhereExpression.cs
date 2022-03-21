@@ -5,8 +5,6 @@
     {
         iD,
         name,
-        lastModification,
-        creationTimeStamp,
         description
     }
     /// <summary>
