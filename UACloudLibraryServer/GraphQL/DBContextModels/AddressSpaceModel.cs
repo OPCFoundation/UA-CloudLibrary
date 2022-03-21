@@ -29,6 +29,7 @@
 
 namespace UACloudLibrary
 {
+    using System;
     using System.ComponentModel.DataAnnotations.Schema;
     public class AddressSpaceModel : AddressSpace
     {
@@ -40,5 +41,10 @@ namespace UACloudLibrary
         public int Contributor_Id { get; set; }
         [Column("nodeset_id")]
         public long Nodeset_Id { get; set; }
+        [Column("nodesetpublication")]
+        public DateTime NodesetPublication { get; set; }
+        [Column("lastmodified")]
+        public DateTime LastModified { get; set; }
+
     }
 }

@@ -38,8 +38,6 @@ namespace UACloudLibrary
             Field(e => e.Name);
             AddNavigationField(name: "IconUrl", resolve: e => e.Source.IconUrl, graphType: typeof(UriGraphType));
             Field(e => e.Description);
-            Field(e => e.CreationTime);
-            Field(e => e.LastModificationTime);
         }
     }
 }

@@ -41,12 +41,12 @@ namespace UACloudLibrary
             Field(e => e.Description);
             Field(e => e.CopyrightText);
             Field(e => e.NumberOfDownloads);
-            Field(e => e.CreationTime);
-            Field(e => e.LastModificationTime);
             Field(e => e.SupportedLocales);
             Field(e => e.Keywords);
             Field(e => e.License);
             Field(e => e.Nodeset_Id);
+            Field(e => e.LastModified);
+            Field(e => e.NodesetPublication);
             AddNavigationField(name: "Contributor", resolve: e => e.DbContext.organisation.Find(e.Source.Contributor_Id));
             AddNavigationField(name: "Category", resolve: e => e.DbContext.category.Find(e.Source.Category_Id));
             AddNavigationField(name: "LicenseUrl", resolve: e => e.Source.LicenseUrl, graphType: typeof(UriGraphType));
