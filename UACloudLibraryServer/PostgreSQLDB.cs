@@ -75,9 +75,9 @@ namespace UACloudLibrary
                 "CREATE TABLE IF NOT EXISTS VariableType(VariableType_id serial PRIMARY KEY, Nodeset_id BIGINT, VariableType_BrowseName TEXT, VariableType_Value TEXT, VariableType_Namespace TEXT)",
                 "CREATE TABLE IF NOT EXISTS DataType(DataType_id serial PRIMARY KEY, Nodeset_id BIGINT, DataType_BrowseName TEXT, DataType_Value TEXT, DataType_Namespace TEXT)",
                 "CREATE TABLE IF NOT EXISTS ReferenceType(ReferenceType_id serial PRIMARY KEY, Nodeset_id BIGINT, ReferenceType_BrowseName TEXT, ReferenceType_Value TEXT, ReferenceType_Namespace TEXT)",
-                "CREATE TABLE IF NOT EXISTS Organisation(Contributor_Id serial PRIMARY KEY, Name TEXT, Description TEXT, LogoUrl TEXT, ContactEmail TEXT, Website TEXT, CreationTime TIMESTAMP, LastModificationTime TIMESTAMP)",
-                "CREATE TABLE IF NOT EXISTS Category(Category_Id serial PRIMARY KEY, Name TEXT, Description TEXT, IconUrl TEXT, CreationTime TIMESTAMP, LastModificationTime TIMESTAMP)",
-                "CREATE TABLE IF NOT EXISTS AddressSpace(AddressSpace_Id serial PRIMARY KEY, Title TEXT, VersionNumber Text, CopyrightText TEXT, CreationTime TIMESTAMP, LastModificationTime TIMESTAMP, Description TEXT, DocumentationUrl TEXT, IconUrl TEXT, LicenseUrl TEXT, License INTEGER, PurchasingInformationUrl TEXT, TestSpecificationUrl TEXT, ReleaseNotesUrl TEXT, Keywords TEXT[], SupportedLocales TEXT[], NumberOfDownloads BIGINT, Contributor_Id INTEGER, Category_Id INTEGER, Nodeset_Id BIGINT, CONSTRAINT ContributorId FOREIGN KEY (Contributor_id) REFERENCES Organisation(contributor_id),CONSTRAINT CategoryId FOREIGN KEY (Category_Id) REFERENCES Category(Category_Id))"
+                "CREATE TABLE IF NOT EXISTS Organisation(Contributor_Id serial PRIMARY KEY, Name TEXT, Description TEXT, LogoUrl TEXT, ContactEmail TEXT, Website TEXT)",
+                "CREATE TABLE IF NOT EXISTS Category(Category_Id serial PRIMARY KEY, Name TEXT, Description TEXT, IconUrl TEXT)",
+                "CREATE TABLE IF NOT EXISTS AddressSpace(AddressSpace_Id serial PRIMARY KEY, Title TEXT, VersionNumber Text, CopyrightText TEXT, NodesetPublication TIMESTAMP, LastModified TIMESTAMP, Description TEXT, DocumentationUrl TEXT, IconUrl TEXT, LicenseUrl TEXT, License INTEGER, PurchasingInformationUrl TEXT, TestSpecificationUrl TEXT, ReleaseNotesUrl TEXT, Keywords TEXT[], SupportedLocales TEXT[], NumberOfDownloads BIGINT, Contributor_Id INTEGER, Category_Id INTEGER, Nodeset_Id BIGINT, CONSTRAINT ContributorId FOREIGN KEY (Contributor_id) REFERENCES Organisation(contributor_id),CONSTRAINT CategoryId FOREIGN KEY (Category_Id) REFERENCES Category(Category_Id))"
             };
 
             try
@@ -488,9 +488,9 @@ namespace UACloudLibrary
                         }
 
                         string sqlQuery = @$"INSERT INTO addressspace 
-(title, versionnumber, iconurl, license, licenseurl, description, copyrighttext, creationtime, lastmodificationtime, contributor_id, category_id, nodeset_id, numberofdownloads, keywords, supportedlocales, purchasinginformationurl, testspecificationurl, releasenotesurl, documentationurl) 
-VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @copyright, @creationtime, @lastmodified, @orgindex, @categoryindex, @nodesetid, @numdownloads, @keywords, @supportedlocales, @purchasingurl, @testurl, @releaseurl, @docurl)";
-
+(title, versionnumber, iconurl, license, licenseurl, description, copyrighttext, contributor_id, category_id, nodeset_id, numberofdownloads, keywords, supportedlocales, purchasinginformationurl, testspecificationurl, releasenotesurl, documentationurl, NodesetPublication, LastModified) 
+VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @copyright, @orgindex, @categoryindex, @nodesetid, @numdownloads, @keywords, @supportedlocales, @purchasingurl, @testurl, @releaseurl, @docurl, @publication, @modified)";
+                        
                         NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlQuery, _connection);
                         sqlCommand.Parameters.AddWithValue("title", addressSpace.Title);
                         sqlCommand.Parameters.AddWithValue("versionnumber", addressSpace.Version);
@@ -504,10 +504,10 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                         sqlCommand.Parameters.AddWithValue("docurl", addressSpace.DocumentationUrl?.ToString());
                         sqlCommand.Parameters.AddWithValue("description", addressSpace?.Description);
                         sqlCommand.Parameters.AddWithValue("copyright", addressSpace?.CopyrightText);
-                        sqlCommand.Parameters.AddWithValue("creationtime", addressSpace?.CreationTime);
-                        sqlCommand.Parameters.AddWithValue("lastmodified", addressSpace?.LastModificationTime);
                         sqlCommand.Parameters.AddWithValue("numdownloads", (long)addressSpace?.NumberOfDownloads);
                         sqlCommand.Parameters.AddWithValue("keywords", addressSpace?.Keywords);
+                        sqlCommand.Parameters.AddWithValue("publication", addressSpace?.Nodeset?.PublicationDate);
+                        sqlCommand.Parameters.AddWithValue("modified", addressSpace?.Nodeset?.LastModifiedDate);
 
                         sqlCommand.Parameters.AddWithValue("orgindex", orgindex);
                         sqlCommand.Parameters.AddWithValue("categoryindex", categoryindex);
@@ -553,14 +553,12 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                 if (result == -1)
                 {
 
-                    sqlQuery = $"INSERT INTO organisation (name, website, logourl, creationtime, lastmodificationtime, description, contactemail) VALUES (@name, @website, @logourl, @creationtime, @lastmodification, @description, @contactemail); SELECT currval(pg_get_serial_sequence('organisation', 'contributor_id'))";
+                    sqlQuery = $"INSERT INTO organisation (name, website, logourl, description, contactemail) VALUES (@name, @website, @logourl, @creationtime, @lastmodification, @description, @contactemail); SELECT currval(pg_get_serial_sequence('organisation', 'contributor_id'))";
                     sqlCommand.CommandText = sqlQuery;
                     sqlCommand.CommandText = sqlQuery;
                     sqlCommand.Parameters.AddWithValue("name", org.Name);
                     sqlCommand.Parameters.AddWithValue("website", org.Website?.ToString());
                     sqlCommand.Parameters.AddWithValue("logourl", org.LogoUrl?.ToString());
-                    sqlCommand.Parameters.AddWithValue("creationtime", org?.CreationTime);
-                    sqlCommand.Parameters.AddWithValue("lastmodification", org?.LastModificationTime);
                     sqlCommand.Parameters.AddWithValue("description", org?.Description);
                     sqlCommand.Parameters.AddWithValue("contactemail", org?.ContactEmail);
                     result = (long)sqlCommand.ExecuteScalar();
@@ -599,13 +597,11 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                 sqlCommand.Parameters.Clear();
                 if (result == -1)
                 {
-                    sqlQuery = "INSERT INTO category (name, description, iconurl, creationtime, lastmodificationtime) VALUES (@name, @description, @iconurl, @creationtime, @lastmodification); SELECT currval(pg_get_serial_sequence('category', 'category_id'))";
+                    sqlQuery = "INSERT INTO category (name, description, iconurl) VALUES (@name, @description, @iconurl); SELECT currval(pg_get_serial_sequence('category', 'category_id'))";
                     sqlCommand.CommandText = sqlQuery;
                     sqlCommand.Parameters.AddWithValue("name", category?.Name);
                     sqlCommand.Parameters.AddWithValue("description", category?.Description);
                     sqlCommand.Parameters.AddWithValue("iconurl", category.IconUrl?.ToString());
-                    sqlCommand.Parameters.AddWithValue("creationtime", category?.CreationTime);
-                    sqlCommand.Parameters.AddWithValue("lastmodification", category?.LastModificationTime);
                     result = (long)sqlCommand.ExecuteScalar();
                     sqlCommand.Parameters.Clear();
                 }
@@ -655,10 +651,9 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                 sqlCommand.Parameters.Clear();
                 if (addressspace_id >= 0)
                 {
-                    sqlQuery = string.Format("UPDATE addressspace SET title = @title, lastmodificationtime = @lastmod, versionnumber = @version, copyrighttext = @copyright, description = @description, documentationurl = @docurl, iconurl = @iconurl, licenseurl = @licenseurl, license = @license, purchasinginformationurl = @purchasingurl, testspecificationurl = @testurl, releasenotesurl = @releaseurl, keywords = @keywords, supportedlocales = @keywords WHERE nodeset_id = {0}", nodesetid);
+                    sqlQuery = string.Format("UPDATE addressspace SET title = @title, versionnumber = @version, copyrighttext = @copyright, description = @description, documentationurl = @docurl, iconurl = @iconurl, licenseurl = @licenseurl, license = @license, purchasinginformationurl = @purchasingurl, testspecificationurl = @testurl, releasenotesurl = @releaseurl, keywords = @keywords, supportedlocales = @locales, lastmodified = @modified WHERE nodeset_id = {0}", nodesetid);
                     sqlCommand.CommandText = sqlQuery;
                     sqlCommand.Parameters.AddWithValue("title", newAddressSpace.Title);
-                    sqlCommand.Parameters.AddWithValue("lastmod", newAddressSpace.LastModificationTime);
                     sqlCommand.Parameters.AddWithValue("version", newAddressSpace.Version);
                     sqlCommand.Parameters.AddWithValue("copyright", newAddressSpace.CopyrightText);
                     sqlCommand.Parameters.AddWithValue("description", newAddressSpace.Description);
@@ -671,6 +666,7 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                     sqlCommand.Parameters.AddWithValue("releaseurl", newAddressSpace.ReleaseNotesUrl?.ToString());
                     sqlCommand.Parameters.AddWithValue("keywords", newAddressSpace.Keywords);
                     sqlCommand.Parameters.AddWithValue("locales", newAddressSpace.SupportedLocales);
+                    sqlCommand.Parameters.AddWithValue("modified", newAddressSpace?.Nodeset?.LastModifiedDate);
                     sqlCommand.ExecuteNonQuery();
                     sqlCommand.Parameters.Clear();
                 }
@@ -700,12 +696,11 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                         || description != category.Description
                         || logourl != category.IconUrl.ToString())
                     {
-                        sqlQuery = "UPDATE category SET name = @name, description = @description, iconurl = @iconurl, lastmodificationtime = @lastmodificationtime WHERE category_id = @id";
+                        sqlQuery = "UPDATE category SET name = @name, description = @description, iconurl = @iconurl WHERE category_id = @id";
                         sqlCommand.CommandText = sqlQuery;
                         sqlCommand.Parameters.AddWithValue("name", category.Name);
                         sqlCommand.Parameters.AddWithValue("description", category.Description);
                         sqlCommand.Parameters.AddWithValue("logourl", category.IconUrl);
-                        sqlCommand.Parameters.AddWithValue("lastmodification", category.LastModificationTime);
                         sqlCommand.Parameters.AddWithValue("id", category_id);
                         sqlCommand.ExecuteNonQuery();
                         sqlCommand.Parameters.Clear();
@@ -741,7 +736,6 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                         sqlCommand.Parameters.AddWithValue("website", organisation.Website);
                         sqlCommand.Parameters.AddWithValue("description", organisation.Description);
                         sqlCommand.Parameters.AddWithValue("logourl", organisation.LogoUrl);
-                        sqlCommand.Parameters.AddWithValue("lastmodification", organisation.LastModificationTime);
                         sqlCommand.Parameters.AddWithValue("id", organisation_id);
                         sqlCommand.ExecuteNonQuery();
                         sqlCommand.Parameters.Clear();
@@ -771,8 +765,6 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                         AddressSpace addressSpace = new AddressSpace();
 
                         addressSpace.Description = RetrieveMetaData(nodesetId, "description");
-                        addressSpace.CreationTime = DateTime.ParseExact(RetrieveMetaData(nodesetId, "adressspacecreationtime"), "dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture);
-                        addressSpace.LastModificationTime = DateTime.ParseExact(RetrieveMetaData(nodesetId, "adressspacemodifiedtime"), "dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture);
                         addressSpace.Version = RetrieveMetaData(nodesetId, "version");
                         addressSpace.Title = RetrieveMetaData(nodesetId, "nodesettitle");
                         addressSpace.CopyrightText = RetrieveMetaData(nodesetId, "copyright");
@@ -806,14 +798,10 @@ VALUES (@title, @versionnumber, @iconurl, @license, @licenseurl, @description, @
                         addressSpace.Contributor.Description = RetrieveMetaData(nodesetId, "orgdescription");
                         addressSpace.Contributor.Website = CreateUri(RetrieveMetaData(nodesetId, "orgwebsite"));
                         addressSpace.Contributor.LogoUrl = CreateUri(RetrieveMetaData(nodesetId, "orglogo"));
-                        addressSpace.Contributor.CreationTime = DateTime.ParseExact(RetrieveMetaData(nodesetId, "contributorcreationtime"), "dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture);
-                        addressSpace.Contributor.LastModificationTime = DateTime.ParseExact(RetrieveMetaData(nodesetId, "contributormodifiedtime"), "dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture);
 
                         addressSpace.Category.Name = RetrieveMetaData(nodesetId, "addressspacename");
                         addressSpace.Category.Description = RetrieveMetaData(nodesetId, "addressspacedescription");
                         addressSpace.Category.IconUrl = CreateUri(RetrieveMetaData(nodesetId, "addressspaceiconurl"));
-                        addressSpace.Category.CreationTime = DateTime.ParseExact(RetrieveMetaData(nodesetId, "categorycreationtime"), "dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture);
-                        addressSpace.Category.LastModificationTime = DateTime.ParseExact(RetrieveMetaData(nodesetId, "categorymodifiedtime"), "dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture);
 
                         if (!AddAddressSpace(nodesetId, addressSpace, true))
                         {
