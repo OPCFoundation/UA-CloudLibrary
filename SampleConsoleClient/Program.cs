@@ -189,7 +189,7 @@ namespace SampleConsoleClient
                 {
                     Console.WriteLine($"{result.Title} by {result.Contributor.Name}");
                 }
-            }catch (Exception ex)
+            }catch
             {
                 Console.WriteLine("\nThis instance doesn't provide GraphQL");
             }
