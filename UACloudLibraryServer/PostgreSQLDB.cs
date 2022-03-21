@@ -39,7 +39,7 @@ namespace UACloudLibrary
     using System.Linq;
     using UACloudLibrary.Models;
 
-    public class PostgreSQLDB : IDatabase
+public class PostgreSQLDB : IDatabase
     {
         private NpgsqlConnection _connection = null;
         private readonly ILogger _logger;

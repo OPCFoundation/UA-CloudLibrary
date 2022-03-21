@@ -29,6 +29,7 @@
 
 namespace UACloudLibrary
 {
+    using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore.Metadata;
@@ -83,7 +84,7 @@ namespace UACloudLibrary
         public DbSet<VariabletypeModel> variabletype { get; set; }
 
         public DbSet<AddressSpaceModel> addressSpace { get; set; }
-        
+
         public DbSet<Organisation> organisation { get; set; }
 
         public DbSet<AddressSpaceCategory> category { get; set; }
@@ -110,5 +111,5 @@ namespace UACloudLibrary
             modelBuilder.Entity<AddressSpaceModel>().HasOne(e => e.Contributor).WithMany();
             modelBuilder.Entity<AddressSpaceModel>().HasOne(e => e.Category).WithMany();
         }
-    }
+    } 
 }

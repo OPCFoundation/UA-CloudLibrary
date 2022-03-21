@@ -39,22 +39,31 @@ namespace UACloudLibrary
     {
         public Task SendEmailAsync(string email, string subject, string htmlMessage)
         {
-            SendGridClient client = new SendGridClient(Environment.GetEnvironmentVariable("SendGridAPIKey"));
-            SendGridMessage msg = new SendGridMessage()
+            var apiKey = Environment.GetEnvironmentVariable("SendGridAPIKey");
+            if (!string.IsNullOrEmpty(apiKey))
             {
-                From = new EmailAddress("stefan.hoppe@opcfoundation.org"),
-                ReplyTo = new EmailAddress("no-reply@opcfoundation.org"),
-                Subject = subject,
-                PlainTextContent = htmlMessage,
-                HtmlContent = htmlMessage
-            };
-            msg.AddTo(new EmailAddress(email));
+                SendGridClient client = new SendGridClient(apiKey);
+                SendGridMessage msg = new SendGridMessage()
+                {
+                    From = new EmailAddress("stefan.hoppe@opcfoundation.org"),
+                    ReplyTo = new EmailAddress("no-reply@opcfoundation.org"),
+                    Subject = subject,
+                    PlainTextContent = htmlMessage,
+                    HtmlContent = htmlMessage
+                };
+                msg.AddTo(new EmailAddress(email));
 
-            // Disable click tracking.
-            // See https://sendgrid.com/docs/User_Guide/Settings/tracking.html
-            msg.SetClickTracking(false, false);
+                // Disable click tracking.
+                // See https://sendgrid.com/docs/User_Guide/Settings/tracking.html
+                msg.SetClickTracking(false, false);
 
-            return client.SendEmailAsync(msg);
+                return client.SendEmailAsync(msg);
+            }
+            else
+            {
+                Console.WriteLine($"Mail sending is disabled due to missing API-Key for sendgrid (email: ${email}, subject: ${subject})");
+                return Task.CompletedTask;
+            }
         }
     }
 }

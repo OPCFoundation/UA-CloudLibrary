@@ -15,6 +15,19 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
 
 If you want to access the globally hosted instance from the OPC Foundation at https://uacloudlibrary.opcfoundation.org from our software, you can integrate the source code from the SampleConsoleClient found in this repo. It exercises both the GraphQL and REST API, so you have the choice.
 
+## Develpment Setup
+
+Start development in three simple steps:
+
+1. Checkout ``git clone https://github.com/OPCFoundation/UA-CloudLibrary.git``
+2. Open with Visual Studio 2019+
+3. Select ``docker-compose`` as startup project and hit F5 or the "play button"
+
+The OPC UA CloudLib Website should open in the browser.
+
+If you want to access the admin to the develpoment database instance open http://localhost:8080/ in your browser
+
+
 ## Cloud Hosting Setup
 
 Environment variables that must be defined:

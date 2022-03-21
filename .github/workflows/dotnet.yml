@@ -17,9 +17,13 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 6.0.x
-    - name: Restore dependencies
-      run: dotnet restore
+    - name: Restore dependencies UA-CloudLibrary
+      run: dotnet restore UACloudLibraryServer\UA-CloudLibrary.csproj
+    - name: Restore dependencies UACloudLibClientLibrary
+      run: dotnet restore UACloudLibraryGraphQLClient\UACloudLibClientLibrary\UACloudLibClientLibrary.csproj
+    - name: Restore dependencies SampleConsoleClient
+      run: dotnet restore SampleConsoleClient\SampleConsoleClient.csproj
     - name: Build
-      run: dotnet build --no-restore
+      run: dotnet build UA-CloudLibrary.sln --no-restore
     - name: Test
-      run: dotnet test --no-build --verbosity normal
+      run: dotnet test UA-CloudLibrary.sln --no-build --verbosity normal
