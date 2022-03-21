@@ -29,17 +29,20 @@
 
 namespace UACloudLibrary
 {
+    using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore;
     using Microsoft.Extensions.Configuration;
     using System.IO;
     using UACloudLibrary.DbContextModels;
 
+
     public class AppDbContext : IdentityDbContext
     {
         public AppDbContext(DbContextOptions options)
         : base(options)
         {
+            
         }
 
         // Needed for design-time DB migration
@@ -57,7 +60,7 @@ namespace UACloudLibrary
                    .AddJsonFile("appsettings.json")
                    .Build();
 
-                string connectionString = "Please set connection string here during design time migration as env variables are not available!";
+                string connectionString = PostgreSQLDB.CreateConnectionString();
                 optionsBuilder.UseNpgsql(connectionString);
             }
         }
