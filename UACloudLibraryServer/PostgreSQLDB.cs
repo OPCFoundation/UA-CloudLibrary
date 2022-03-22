@@ -212,6 +212,129 @@ public class PostgreSQLDB : IDatabase
             return true;
         }
 
+        public void RetrieveAllMetadata(uint nodesetId, AddressSpace uaAddressSpace)
+        {
+            // TODO: Improve perf by retrieving all the metadata for a given nodeset Id at ONCE, instead of piece by piece
+
+            DateTime parsedDateTime;
+
+            if (DateTime.TryParse(RetrieveMetaData(nodesetId, "nodesetcreationtime"), out parsedDateTime))
+            {
+                uaAddressSpace.Nodeset.PublicationDate = parsedDateTime;
+            }
+
+            if (DateTime.TryParse(RetrieveMetaData(nodesetId, "nodesetmodifiedtime"), out parsedDateTime))
+            {
+                uaAddressSpace.Nodeset.LastModifiedDate = parsedDateTime;
+            }
+
+            uaAddressSpace.Title = RetrieveMetaData(nodesetId, "nodesettitle");
+
+            uaAddressSpace.Version = RetrieveMetaData(nodesetId, "version");
+
+            switch (RetrieveMetaData(nodesetId, "license"))
+            {
+                case "MIT":
+                    uaAddressSpace.License = AddressSpaceLicense.MIT;
+                    break;
+                case "ApacheLicense20":
+                    uaAddressSpace.License = AddressSpaceLicense.ApacheLicense20;
+                    break;
+                case "Custom":
+                    uaAddressSpace.License = AddressSpaceLicense.Custom;
+                    break;
+                default:
+                    uaAddressSpace.License = AddressSpaceLicense.Custom;
+                    break;
+            }
+
+            uaAddressSpace.CopyrightText = RetrieveMetaData(nodesetId, "copyright");
+
+            uaAddressSpace.Description = RetrieveMetaData(nodesetId, "description");
+
+            uaAddressSpace.Category.Name = RetrieveMetaData(nodesetId, "addressspacename");
+
+            uaAddressSpace.Category.Description = RetrieveMetaData(nodesetId, "addressspacedescription");
+
+            string uri = RetrieveMetaData(nodesetId, "addressspaceiconurl");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                uaAddressSpace.Category.IconUrl = new Uri(uri);
+            }
+
+            uri = RetrieveMetaData(nodesetId, "documentationurl");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                uaAddressSpace.DocumentationUrl = new Uri(uri);
+            }
+
+            uri = RetrieveMetaData(nodesetId, "iconurl");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                uaAddressSpace.IconUrl = new Uri(uri);
+            }
+
+            uri = RetrieveMetaData(nodesetId, "licenseurl");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                uaAddressSpace.LicenseUrl = new Uri(uri);
+            }
+
+            uri = RetrieveMetaData(nodesetId, "purchasinginfo");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                uaAddressSpace.PurchasingInformationUrl = new Uri(uri);
+            }
+
+            uri = RetrieveMetaData(nodesetId, "releasenotes");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                uaAddressSpace.ReleaseNotesUrl = new Uri(uri);
+            }
+
+            uri = RetrieveMetaData(nodesetId, "testspecification");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                uaAddressSpace.TestSpecificationUrl = new Uri(uri);
+            }
+
+            string keywords = RetrieveMetaData(nodesetId, "keywords");
+            if (!string.IsNullOrEmpty(keywords))
+            {
+                uaAddressSpace.Keywords = keywords.Split(',');
+            }
+
+            string locales = RetrieveMetaData(nodesetId, "locales");
+            if (!string.IsNullOrEmpty(locales))
+            {
+                uaAddressSpace.SupportedLocales = locales.Split(',');
+            }
+
+            uaAddressSpace.Contributor.Name = RetrieveMetaData(nodesetId, "orgname");
+
+            uaAddressSpace.Contributor.Description = RetrieveMetaData(nodesetId, "orgdescription");
+
+            uri = RetrieveMetaData(nodesetId, "orglogo");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                uaAddressSpace.Contributor.LogoUrl = new Uri(uri);
+            }
+
+            uaAddressSpace.Contributor.ContactEmail = RetrieveMetaData(nodesetId, "orgcontact");
+
+            uri = RetrieveMetaData(nodesetId, "orgwebsite");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                uaAddressSpace.Contributor.Website = new Uri(uri);
+            }
+
+            uint parsedDownloads;
+            if (uint.TryParse(RetrieveMetaData(nodesetId, "numdownloads"), out parsedDownloads))
+            {
+                uaAddressSpace.NumberOfDownloads = parsedDownloads;
+            }
+        }
+
         public string RetrieveMetaData(uint nodesetId, string metaDataTag)
         {
             try

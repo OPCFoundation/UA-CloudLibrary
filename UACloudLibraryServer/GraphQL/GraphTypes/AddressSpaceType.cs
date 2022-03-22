@@ -45,12 +45,12 @@ namespace UACloudLibrary
             Field(e => e.License);
             Field(e => e.Contributor, type: typeof(OrganisationType));
             Field(e => e.Category, type: typeof(CategoryType));
-            Field(e => e.LicenseUrl);
-            Field(e => e.DocumentationUrl);
-            Field(e => e.IconUrl);
-            Field(e => e.PurchasingInformationUrl);
-            Field(e => e.ReleaseNotesUrl);
-            Field(e => e.TestSpecificationUrl);
+            Field(e => e.LicenseUrl, type: typeof(UriGraphType));
+            Field(e => e.DocumentationUrl, type: typeof(UriGraphType));
+            Field(e => e.IconUrl, type: typeof(UriGraphType));
+            Field(e => e.PurchasingInformationUrl, type: typeof(UriGraphType));
+            Field(e => e.ReleaseNotesUrl, type: typeof(UriGraphType));
+            Field(e => e.TestSpecificationUrl, type: typeof(UriGraphType));
         }
     }
 }

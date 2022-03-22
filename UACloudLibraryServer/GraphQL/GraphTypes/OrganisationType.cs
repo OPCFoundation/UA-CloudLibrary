@@ -38,8 +38,8 @@ namespace UACloudLibrary
             Field(e => e.Name);
             Field(e => e.ContactEmail);
             Field(e => e.Description);
-            Field(e => e.LogoUrl);
-            Field(e => e.Website);
+            Field(e => e.LogoUrl, type: typeof(UriGraphType));
+            Field(e => e.Website, type: typeof(UriGraphType));
         }
     }
 }

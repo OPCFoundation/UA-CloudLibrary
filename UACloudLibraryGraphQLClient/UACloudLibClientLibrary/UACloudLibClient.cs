@@ -91,15 +91,13 @@ namespace UACloudLibClientLibrary
         /// <summary>
         /// This constructor uses the standard endpoint with authorization
         /// </summary>
-        /// <param name="strUsername"></param>
-        /// <param name="strPassword"></param>
         public UACloudLibClient(string strUsername, string strPassword)
         {
             restClient = new RestClient(StandardEndpoint.ToString(), authentication);
             BaseEndpoint = StandardEndpoint;
             m_client = new GraphQLHttpClient(new Uri(BaseEndpoint + "/graphql"), new NewtonsoftJsonSerializer());
-            string temp = Convert.ToBase64String(Encoding.UTF8.GetBytes(strUsername + ":" + strPassword));
-            m_client.HttpClient.DefaultRequestHeaders.Add("Authorization", "basic " + temp);
+            string auth = Convert.ToBase64String(Encoding.UTF8.GetBytes(strUsername + ":" + strPassword));
+            m_client.HttpClient.DefaultRequestHeaders.Add("Authorization", "basic " + auth);
         }
 
         public UACloudLibClient(string strEndpoint, string strUsername, string strPassword)
@@ -116,77 +114,81 @@ namespace UACloudLibClientLibrary
         //Sends the query and converts it
         private async Task<T> SendAndConvert<T>(GraphQLRequest request)
         {
-            GraphQLResponse<JObject> response = await m_client.SendQueryAsync<JObject>(request);
+            GraphQLResponse<JObject> response = await m_client.SendQueryAsync<JObject>(request).ConfigureAwait(false);
 
-            if (response?.Errors.Count() > 0)
+            if (response?.Errors?.Count() > 0)
             {
                 throw new Exception(response.Errors[0].Message);
             }
 
             string dataJson = response.Data?.First?.First?.ToString();
+            
             return JsonConvert.DeserializeObject<T>(dataJson);
         }
 
         /// <summary>
         /// Retrieves a list of ObjectTypes
         /// </summary>
-        /// <returns></returns>
-        public async Task<PageInfo<ObjectResult>> GetObjectTypes()
+        public async Task<List<ObjectResult>> GetObjectTypes()
         {
-            request.Query = QueryMethods.QueryObjectType();
-            return await SendAndConvert<PageInfo<ObjectResult>>(request);
+            request.Query = "query{" + GraphQueries.ObjectQuery.Build() + "}";
+            
+            return await SendAndConvert<List<ObjectResult>>(request).ConfigureAwait(false);
         }
         /// <summary>
         /// Retrieves a list of metadata
         /// </summary>
-        /// <returns></returns>
-        public async Task<PageInfo<MetadataResult>> GetMetadata()
+        public async Task<List<MetadataResult>> GetMetadata()
         {
-            request.Query = QueryMethods.QueryMetadata(); ;
-            return await SendAndConvert<PageInfo<MetadataResult>>(request);
+            request.Query = "query{" + GraphQueries.MetadataQuery.Build() + "}";
+            
+            return await SendAndConvert<List<MetadataResult>>(request).ConfigureAwait(false);
         }
         /// <summary>
         /// Retrieves a list of variabletypes
         /// </summary>
-        /// <returns></returns>
-        public async Task<PageInfo<VariableResult>> GetVariables()
+        public async Task<List<VariableResult>> GetVariables()
         {
-            request.Query = QueryMethods.QueryVariables();
-            return await SendAndConvert<PageInfo<VariableResult>>(request);
+            request.Query = "query{" + GraphQueries.VariableQuery.Build() + "}";
+            
+            return await SendAndConvert<List<VariableResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Retrieves a list of referencetype
         /// </summary>
-        /// <returns></returns>
-        public async Task<PageInfo<ReferenceResult>> GetReferencetype()
+        public async Task<List<ReferenceResult>> GetReferencetype()
         {
-            request.Query = QueryMethods.QueryReferences();
-            return await SendAndConvert<PageInfo<ReferenceResult>>(request);
+            request.Query = "query{" + GraphQueries.ReferenceQuery.Build() + "}";
+            
+            return await SendAndConvert<List<ReferenceResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Retrieves a list of datatype
         /// </summary>
-        /// <returns></returns>
-        public async Task<PageInfo<DatatypeResult>> GetDatatype()
+        public async Task<List<DataResult>> GetDatatype()
         {
-            request.Query = QueryMethods.QueryDatatypes();
-            return await SendAndConvert<PageInfo<DatatypeResult>>(request);
+            request.Query = "query{" + GraphQueries.DataQuery.Build() + "}";
+            
+            return await SendAndConvert<List<DataResult>>(request).ConfigureAwait(false);
         }
 
         public async Task<List<AddressSpace>> GetConvertedMetadata()
         {
             List<AddressSpace> convertedResult = null;
-            request.Query = QueryMethods.QueryMetadata();
-            PageInfo<MetadataResult> result = await SendAndConvert<PageInfo<MetadataResult>>(request);
+
+            request.Query = "query{" + GraphQueries.MetadataQuery.Build() + "}";
+            List<MetadataResult> result = await SendAndConvert<List<MetadataResult>>(request).ConfigureAwait(false);
             try
             {
-                convertedResult = ConvertMetadataToAddressspace.Convert(result);
+                convertedResult = MetadataConverter.Convert(result);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                convertedResult = await restClient.GetBasicAddressSpaces();
+                Console.WriteLine("Error: " + ex.Message + " Falling back to REST interface...");
+                List<BasicNodesetInformation> infos = await restClient.GetBasicNodesetInformation().ConfigureAwait(false);
+                convertedResult.AddRange(MetadataConverter.Convert(infos));
             }
 
             return convertedResult;
@@ -195,36 +197,46 @@ namespace UACloudLibClientLibrary
         /// <summary>
         /// Queries the organisations with the given filters.
         /// </summary>
-        /// <param name="pageSize"></param>
-        /// <param name="after"></param>
-        /// <param name="filter"></param>
-        /// <returns>The converted JSON result</returns>
-        public async Task<PageInfo<Organisation>> GetOrganisations(int limit = 10, int offset = 1, IEnumerable<OrganisationWhereExpression> filter = null)
+        public async Task<List<Organisation>> GetOrganisations(int limit = 10, int offset = 0, IEnumerable<OrganisationWhereExpression> filter = null)
         {
-            request.Query = QueryMethods.QueryOrganisations(limit, offset, filter);
-            return await SendAndConvert<PageInfo<Organisation>>(request);
+            GraphQueries.OrganisationQuery.AddArgument("limit", limit);
+            GraphQueries.OrganisationQuery.AddArgument("offset", offset);
+            
+            if (filter != null)
+            {
+                GraphQueries.CategoryQuery.AddArgument("where", WhereExpressionBuilder(filter));
+            }
+
+            request.Query = "query{" + GraphQueries.OrganisationQuery.Build() + "}";
+
+            return await SendAndConvert<List<Organisation>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Queries the addressspaces with the given filters and converts the result
         /// </summary>
-        /// <param name="pageSize"></param>
-        /// <param name="after"></param>
-        /// <param name="filter"></param>
-        /// <param name="groupedExpression"></param>
-        /// <returns>The converted JSON result</returns>
-        public async Task<PageInfo<AddressSpace>> GetAddressSpaces(int limit = 10, int offset = 1, IEnumerable<AddressSpaceWhereExpression> filter = null)
+        public async Task<List<AddressSpace>> GetAddressSpaces(int limit = 10, int offset = 0, IEnumerable<AddressSpaceWhereExpression> filter = null)
         {
-            request.Query = QueryMethods.AddressSpacesQuery(limit, offset, filter);
-            PageInfo<AddressSpace> result = new PageInfo<AddressSpace>();
+            GraphQueries.AddressSpaceQuery.AddArgument("limit", limit);
+            GraphQueries.AddressSpaceQuery.AddArgument("offset", offset);
+            
+            if (filter != null)
+            {
+                GraphQueries.CategoryQuery.AddArgument("where", WhereExpressionBuilder(filter));
+            }
+
+            request.Query = "query{" + GraphQueries.AddressSpaceQuery.Build() + "}";
+
+            List<AddressSpace> result = new List<AddressSpace>();
             try
             {
-                result = await SendAndConvert<PageInfo<AddressSpace>>(request);
+                result = await SendAndConvert<List<AddressSpace>>(request).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Error: " + ex.Message + " Falling back to REST interface...");
-                result = ConvertWithPaging(await restClient.GetBasicAddressSpaces((List<string>)(filter?.Select(e => e.Value))), limit, Convert.ToInt32(offset));
+                List<BasicNodesetInformation> infos = await restClient.GetBasicNodesetInformation((List<string>)(filter?.Select(e => e.Value))).ConfigureAwait(false);
+                result = MetadataConverter.ConvertWithPaging(infos, limit, offset);
             }
 
             return result;
@@ -233,80 +245,68 @@ namespace UACloudLibClientLibrary
         /// <summary>
         /// Queries the categories with the given filters
         /// </summary>
-        /// <param name="pageSize"></param>
-        /// <param name="after"></param>
-        /// <param name="filter"></param>
-        /// <returns>The converted JSON result</returns>
-        public async Task<PageInfo<AddressSpaceCategory>> GetAddressSpaceCategories(int limit = 10, int offset = 1, IEnumerable<CategoryWhereExpression> filter = null)
+        public async Task<List<AddressSpaceCategory>> GetAddressSpaceCategories(int limit = 10, int offset = 0, IEnumerable<CategoryWhereExpression> filter = null)
         {
-            request.Query = QueryMethods.QueryCategories(limit, offset, filter);
-            return await SendAndConvert<PageInfo<AddressSpaceCategory>>(request);
+            GraphQueries.CategoryQuery.AddArgument("limit", limit);
+            GraphQueries.CategoryQuery.AddArgument("offset", offset);
+
+            if (filter != null)
+            {
+                GraphQueries.CategoryQuery.AddArgument("where", WhereExpressionBuilder(filter));
+            }
+
+            request.Query = "query{" + GraphQueries.CategoryQuery.Build() + "}";
+
+            return await SendAndConvert<List<AddressSpaceCategory>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
-        /// Download chosen Nodeset with a https call
+        /// Checks if a clause is available and finalizes the statement
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="U"></typeparam>
+        /// <param name="filter"></param>
+        /// <param name="orFilter"></param>
+        /// <returns>Returns an empty string when no clause was transfered, otherwise the finalized where statement</returns>
+        private string WhereExpressionBuilder<T>(IEnumerable<IWhereExpression<T>> filter) where T : Enum
+        {
+            StringBuilder query = new StringBuilder();
+
+            if (filter.Any())
+            {
+                return "";
+            }
+            else
+            {
+                query.Append("[");
+
+                if (filter != null)
+                {
+                    query.Append(string.Format(",", filter));
+                }
+
+                query.Append("]");
+
+                return query.ToString();
+            }
+        }
+
+        /// <summary>
+        /// Download chosen Nodeset with a REST call
         /// </summary>
         /// <param name="identifier"></param>
-        /// <returns></returns>
-        public async Task<AddressSpace> DownloadNodeset(string identifier) => await restClient.DownloadNodeset(identifier);
+        public async Task<AddressSpace> DownloadNodeset(string identifier) => await restClient.DownloadNodeset(identifier).ConfigureAwait(false);
 
         /// <summary>
         /// Use this method if the CloudLib instance doesn't provide the GraphQL API
         /// </summary>
-        /// <returns></returns>
-        public async Task<List<AddressSpace>> GetBasicAddressSpaces(List<string> keywords = null) => await restClient.GetBasicAddressSpaces(keywords);
+        public async Task<List<BasicNodesetInformation>> GetBasicNodesetInformation(List<string> keywords = null) => await restClient.GetBasicNodesetInformation(keywords).ConfigureAwait(false);
 
 
         public void Dispose()
         {
             m_client.Dispose();
             restClient.Dispose();
-        }
-
-        /// <summary>
-        /// Fakes paging support so the UI dev doesn't have to deal with it
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="addressSpaces"></param>
-        /// <param name="pageSize"></param>
-        /// <param name="after"></param>
-        /// <returns></returns>
-        private static PageInfo<T> ConvertWithPaging<T>(List<T> addressSpaces, int pageSize = 0, int after = -1) where T : class
-        {
-            PageInfo<T> result = new PageInfo<T>();
-            result.TotalCount = addressSpaces.Count;
-
-            after++;
-            if (pageSize == 0)
-            {
-                result.Page.hasNext = false;
-                result.Page.hasPrev = false;
-
-                for (int i = after; i < addressSpaces.Count; i++)
-                {
-                    PageItem<T> item = new PageItem<T>();
-                    item.Item = addressSpaces[i];
-                    item.Cursor = i.ToString();
-                    result.Items.Add(item);
-                }
-            }
-            else if (pageSize > 0)
-            {
-                if (after >= 0)
-                {
-                    result.Page.hasPrev = after > 0;
-                    result.Page.hasNext = after + pageSize < addressSpaces.Count;
-                    for (int i = after; i < addressSpaces.Count && i - after < pageSize; i++)
-                    {
-                        PageItem<T> item = new PageItem<T>();
-                        item.Item = addressSpaces[i];
-                        item.Cursor = i.ToString();
-                        result.Items.Add(item);
-                    }
-                }
-            }
-
-            return result;
         }
 
         private void UserDataChanged()

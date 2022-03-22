@@ -33,8 +33,24 @@ namespace UACloudLibClientLibrary.Models
     using System;
     using UACloudLibrary;
 
+    [JsonObject("metadata")]
+    public class MetadataResult
+    {
+        [JsonProperty("metadata_id")]
+        public int ID { get; set; }
+
+        [JsonProperty("nodeset_id")]
+        public long NodesetID { get; set; }
+
+        [JsonProperty("metadata_name")]
+        public string Name { get; set; }
+
+        [JsonProperty("metadata_value")]
+        public string Value { get; set; }
+    }
+
     [JsonObject("datatype")]
-    public class DatatypeResult
+    public class DataResult
     {
         [JsonProperty("datatype_id")]
         public int ID { get; set; }
@@ -51,21 +67,7 @@ namespace UACloudLibClientLibrary.Models
         [JsonProperty("datatype_namespace")]
         public string Namespace { get; set; }
     }
-    [JsonObject("metadata")]
-    public class MetadataResult
-    {
-        [JsonProperty("metadata_id")]
-        public int ID { get; set; }
 
-        [JsonProperty("nodeset_id")]
-        public long NodesetID { get; set; }
-
-        [JsonProperty("metadata_name")]
-        public string Name { get; set; }
-
-        [JsonProperty("metadata_value")]
-        public string Value { get; set; }
-    }
     [JsonObject("objecttype")]
     public class ObjectResult
     {
@@ -84,13 +86,16 @@ namespace UACloudLibClientLibrary.Models
         [JsonProperty("objecttype_namespace")]
         public string Namespace { get; set; }
     }
+
     [JsonObject("referencetype")]
     public class ReferenceResult
     {
         [JsonProperty("referencetype_id")]
         public int ID { get; set; }
+
         [JsonProperty("nodeset_id")]
         public long NodesetID { get; set; }
+
         [JsonProperty("referencetype_browsename")]
         public string Browsename { get; set; }
 
@@ -100,6 +105,7 @@ namespace UACloudLibClientLibrary.Models
         [JsonProperty("referencetype_namespace")]
         public string Namespace { get; set; }
     }
+
     [JsonObject("variabletype")]
     public class VariableResult
     {
@@ -118,6 +124,7 @@ namespace UACloudLibClientLibrary.Models
         [JsonProperty("variabletype_namespace")]
         public string Namespace { get; set; }
     }
+
     public class BasicNodesetInformation
     {
         [JsonProperty("nodeset_id")]

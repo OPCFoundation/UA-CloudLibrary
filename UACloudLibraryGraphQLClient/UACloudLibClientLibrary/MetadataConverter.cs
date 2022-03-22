@@ -36,41 +36,92 @@ namespace UACloudLibClientLibrary
     using UACloudLibClientLibrary.Models;
     using UACloudLibrary;
 
-    static class ConvertMetadataToAddressspace
+    static class MetadataConverter
     {
         /// <summary>
         /// Converts metadata to a list of combinedtypes, taking the nodeset id from the metadata as a combination point
         /// </summary>
-        /// <param name="response"></param>
-        /// <returns></returns>
-        public static List<AddressSpace> Convert(PageInfo<MetadataResult> pageInfo)
+        public static List<AddressSpace> Convert(List<MetadataResult> pageInfo)
         {
-            List<AddressSpace> addressSpaces = new List<AddressSpace>();
+            Dictionary<string, AddressSpace> addressSpaces = new Dictionary<string, AddressSpace>();
 
-            if (pageInfo?.Items != null)
+            if (pageInfo != null)
             {
-                foreach (PageItem<MetadataResult> item in pageInfo.Items)
+                foreach (MetadataResult item in pageInfo)
                 {
-                    string id = item.Item.NodesetID.ToString();
-                    AddressSpace addressspace = addressSpaces?.FirstOrDefault(e => e.MetadataID == id);
-
-                    if (addressspace == null)
+                    string id = item.NodesetID.ToString();
+                    if (!addressSpaces.ContainsKey(id))
                     {
-                        addressspace = new AddressSpace();
-                        addressSpaces.Add(addressspace);
+                        addressSpaces.Add(id, new AddressSpace());
                     }
-
-                    ConvertCases(addressspace, item.Item);
+                    
+                    ConvertCases(addressSpaces[id], item);
                 }
             }
 
-            return addressSpaces;
+            return addressSpaces.Values.ToList();
         }
+
+        public static List<AddressSpace> Convert(List<BasicNodesetInformation> infos)
+        {
+            List<AddressSpace> result = new List<AddressSpace>();
+
+            if (infos != null)
+            {
+                foreach (BasicNodesetInformation info in infos)
+                {
+                    result.Add(Convert(info));
+                }
+            }
+
+            return result;
+        }
+
+        public static AddressSpace Convert(BasicNodesetInformation info)
+        {
+            AddressSpace addressSpace = new AddressSpace();
+
+            addressSpace.Title = info.Title;
+            addressSpace.Version = info.Version;
+            addressSpace.Contributor.Name = info.Organisation;
+            addressSpace.License = info.License;
+            addressSpace.Nodeset.PublicationDate = info.CreationTime;
+
+            return addressSpace;
+        }
+
+        /// <summary>
+        /// Converts with paging support so the UI dev doesn't have to deal with it
+        /// </summary>
+        public static List<AddressSpace> ConvertWithPaging(List<BasicNodesetInformation> infos, int limit = 10, int offset = 0)
+        {
+            List<AddressSpace> result = new List<AddressSpace>();
+            
+            if (limit == 0)
+            {
+                // return everything at once
+                for (int i = offset; i < infos.Count; i++)
+                {
+                    result.Add(Convert(infos[i]));
+                }
+            }
+            else if (limit > 0)
+            {
+                if (offset >= 0)
+                {
+                    for (int i = offset; (i < infos.Count) && ((i - offset) < limit); i++)
+                    {
+                        result.Add(Convert(infos[i]));
+                    }
+                }
+            }
+
+            return result;
+        }
+
         /// <summary>
         /// Switch case with all the names for the members
         /// </summary>
-        /// <param name="addressspace"></param>
-        /// <param name="metadata"></param>
         private static void ConvertCases(AddressSpace addressspace, MetadataResult metadata)
         {
             switch (metadata.Name)

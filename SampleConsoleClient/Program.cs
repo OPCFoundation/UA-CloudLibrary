@@ -165,25 +165,25 @@ namespace SampleConsoleClient
 
                 Console.WriteLine("\nTesting the address space query, this will fall back to the REST interface if GraphQL is not available.");
                 List<AddressSpaceWhereExpression> expression = new List<AddressSpaceWhereExpression>();
-                PageInfo<AddressSpace> anothertest = client.GetAddressSpaces(10).GetAwaiter().GetResult();
-                if(anothertest.Items.Count > 0)
+                List<AddressSpace> anothertest = client.GetAddressSpaces(10).GetAwaiter().GetResult();
+                if(anothertest.Count > 0)
                 {
-                    Console.WriteLine("Title: {0}", anothertest.Items[0].Item.Title);
-                    Console.WriteLine("Total amount of adressspaces: {0}", anothertest.TotalCount);
+                    Console.WriteLine("Title: {0}", anothertest[0].Title);
+                    Console.WriteLine("Total amount of adressspaces: {0}", anothertest.Count);
                 }
 
                 Console.WriteLine("\nTesting object query");
-                PageInfo<ObjectResult> test = client.GetObjectTypes().GetAwaiter().GetResult();
-                foreach (PageItem<ObjectResult> result in test.Items)
+                List<ObjectResult> test = client.GetObjectTypes().GetAwaiter().GetResult();
+                foreach (ObjectResult result in test)
                 {
-                    Console.WriteLine($"{result.Item.ID}, {result.Item.Namespace}, {result.Item.Browsename}, {result.Item.Value}");
+                    Console.WriteLine($"{result.ID}, {result.Namespace}, {result.Browsename}, {result.Value}");
                 }
 
                 Console.WriteLine("\nTesting metadata query");
-                PageInfo<MetadataResult> metadatas = client.GetMetadata().GetAwaiter().GetResult();
-                foreach (PageItem<MetadataResult> metadata in metadatas.Items)
+                List<MetadataResult> metadatas = client.GetMetadata().GetAwaiter().GetResult();
+                foreach (MetadataResult metadata in metadatas)
                 {
-                    Console.WriteLine($"{metadata.Item.ID}, {metadata.Item.Name}, {metadata.Item.Value}");
+                    Console.WriteLine($"{metadata.ID}, {metadata.Name}, {metadata.Value}");
                 }
 
                 Console.WriteLine("\nTesting query and convertion of metadata");
@@ -199,11 +199,11 @@ namespace SampleConsoleClient
             }
 
             Console.WriteLine("\nUsing the rest api");
-            List<AddressSpace> restResult = client.GetBasicAddressSpaces().GetAwaiter().GetResult();
+            List<BasicNodesetInformation> restResult = client.GetBasicNodesetInformation().GetAwaiter().GetResult();
             if (restResult.Count > 0)
             {
                 Console.WriteLine("Testing download of nodeset");
-                AddressSpace result = client.DownloadNodeset(restResult[0].MetadataID).GetAwaiter().GetResult();
+                AddressSpace result = client.DownloadNodeset(restResult[0].ID.ToString()).GetAwaiter().GetResult();
                 if (!string.IsNullOrEmpty(result.Nodeset.NodesetXml))
                 {
                     Console.WriteLine("Nodeset Downloaded");

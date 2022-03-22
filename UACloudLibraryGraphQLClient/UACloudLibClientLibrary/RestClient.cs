@@ -72,7 +72,7 @@ namespace UACloudLibClientLibrary
             client.Dispose();
         }
 
-        public async Task<List<AddressSpace>> GetBasicAddressSpaces(List<string> keywords = null)
+        public async Task<List<BasicNodesetInformation>> GetBasicNodesetInformation(List<string> keywords = null)
         {
             if (keywords == null)
             {
@@ -81,49 +81,28 @@ namespace UACloudLibClientLibrary
             
             // keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
             string address = client.BaseAddress.ToString() + "infomodel/find" + PrepareArgumentsString(keywords);
-
-            HttpResponseMessage response = await client.GetAsync(address);
-            List<BasicNodesetInformation> info = null;
+            HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
             
+            List<BasicNodesetInformation> info = null;
             if(response.StatusCode == HttpStatusCode.OK)
             {
-                info = JsonConvert.DeserializeObject<List<BasicNodesetInformation>>(await response.Content.ReadAsStringAsync());
+                info = JsonConvert.DeserializeObject<List<BasicNodesetInformation>>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
             }
 
-            return ConvertToAddressSpace(info);
+            return info;
         }
 
         public async Task<AddressSpace> DownloadNodeset(string identifier)
         {
             string address = Path.Combine(client.BaseAddress.ToString(), "infomodel/download/", Uri.EscapeDataString(identifier));
-            HttpResponseMessage response = await client.GetAsync(address);
+            HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
             AddressSpace resultType = null;
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                resultType = JsonConvert.DeserializeObject<AddressSpace>(await response.Content.ReadAsStringAsync());
+                resultType = JsonConvert.DeserializeObject<AddressSpace>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
             }
 
             return resultType;
-        }
-
-        private List<AddressSpace> ConvertToAddressSpace(List<BasicNodesetInformation> Info)
-        {
-            List<AddressSpace> result = new List<AddressSpace>();
-            if (Info != null)
-            {
-                foreach (BasicNodesetInformation basicNodesetInformation in Info)
-                {
-                    AddressSpace address = new AddressSpace();
-                    address.Title = basicNodesetInformation.Title;
-                    address.Version = basicNodesetInformation.Version;
-                    address.Contributor.Name = basicNodesetInformation.Organisation;
-                    address.License = basicNodesetInformation.License;
-                    address.Nodeset.PublicationDate = basicNodesetInformation.CreationTime;
-                    result.Add(address);
-                }
-            }
-
-            return result;
         }
 
         private static string PrepareArgumentsString(List<string> arguments)

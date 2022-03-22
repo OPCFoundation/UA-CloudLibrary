@@ -96,44 +96,7 @@ namespace UACloudLibrary
                     {
                         AddressSpace addressSpace = new AddressSpace();
 
-                        addressSpace.Description = _database.RetrieveMetaData(nodesetId, "description");
-                        addressSpace.Version = _database.RetrieveMetaData(nodesetId, "version");
-                        addressSpace.Title = _database.RetrieveMetaData(nodesetId, "nodesettitle");
-                        addressSpace.CopyrightText = _database.RetrieveMetaData(nodesetId, "copyright");
-                        addressSpace.DocumentationUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "documentationurl"));
-                        addressSpace.PurchasingInformationUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "purchasinginfo"));
-                        addressSpace.IconUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "iconurl"));
-                        addressSpace.LicenseUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "licenseurl"));
-                        addressSpace.ReleaseNotesUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "releasenotes"));
-                        addressSpace.TestSpecificationUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "testspecification"));
-                        addressSpace.NumberOfDownloads = Convert.ToUInt32(_database.RetrieveMetaData(nodesetId, "numdownloads"));
-                        addressSpace.Keywords = _database.RetrieveMetaData(nodesetId, "keywords").Split(',');
-                        addressSpace.SupportedLocales = _database.RetrieveMetaData(nodesetId, "locales").Split(',');
-                        switch (_database.RetrieveMetaData(nodesetId, "license"))
-                        {
-                            case "MIT":
-                                addressSpace.License = AddressSpaceLicense.MIT;
-                                break;
-                            case "ApacheLicense20":
-                                addressSpace.License = AddressSpaceLicense.ApacheLicense20;
-                                break;
-                            case "Custom":
-                                addressSpace.License = AddressSpaceLicense.Custom;
-                                break;
-                            default:
-                                addressSpace.License = AddressSpaceLicense.Custom;
-                                break;
-                        }
-
-                        addressSpace.Contributor.ContactEmail = _database.RetrieveMetaData(nodesetId, "orgcontact");
-                        addressSpace.Contributor.Name = _database.RetrieveMetaData(nodesetId, "orgname");
-                        addressSpace.Contributor.Description = _database.RetrieveMetaData(nodesetId, "orgdescription");
-                        addressSpace.Contributor.Website = CreateUri(_database.RetrieveMetaData(nodesetId, "orgwebsite"));
-                        addressSpace.Contributor.LogoUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "orglogo"));
-
-                        addressSpace.Category.Name = _database.RetrieveMetaData(nodesetId, "addressspacename");
-                        addressSpace.Category.Description = _database.RetrieveMetaData(nodesetId, "addressspacedescription");
-                        addressSpace.Category.IconUrl = CreateUri(_database.RetrieveMetaData(nodesetId, "addressspaceiconurl"));
+                        _database.RetrieveAllMetadata(nodesetId, addressSpace);
 
                         result.Add(addressSpace);
                     }
@@ -228,7 +191,7 @@ namespace UACloudLibrary
 
             return Task.FromResult(result);
         }
-
+        
         private Uri CreateUri(string uri)
         {
             if (!string.IsNullOrEmpty(uri))

@@ -36,7 +36,7 @@ namespace UACloudLibrary
         public CategoryType()
         {
             Field(e => e.Name);
-            Field(e => e.IconUrl);
+            Field(e => e.IconUrl, type: typeof(UriGraphType));
             Field(e => e.Description);
         }
     }
