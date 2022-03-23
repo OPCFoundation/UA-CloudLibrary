@@ -35,9 +35,9 @@ namespace UACloudLibrary
     {
         public CategoryType()
         {
-            Field(e => e.Name);
+            Field(e => e.Name, type: typeof(StringGraphType));
             Field(e => e.IconUrl, type: typeof(UriGraphType));
-            Field(e => e.Description);
+            Field(e => e.Description, type: typeof(StringGraphType));
         }
     }
 }

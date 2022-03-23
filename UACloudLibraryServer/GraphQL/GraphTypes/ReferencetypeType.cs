@@ -36,11 +36,11 @@ namespace UACloudLibrary
     {
         public ReferencetypeType()
         {
-            Field(a => a.referencetype_id);
-            Field(a => a.nodeset_id);
-            Field(a => a.referencetype_browsename);
-            Field(a => a.referencetype_value);
-            Field(a => a.referencetype_namespace);
+            Field(a => a.referencetype_id, type: typeof(IntGraphType));
+            Field(a => a.nodeset_id, type: typeof(LongGraphType));
+            Field(a => a.referencetype_browsename, type: typeof(StringGraphType));
+            Field(a => a.referencetype_value, type: typeof(StringGraphType));
+            Field(a => a.referencetype_namespace, type: typeof(StringGraphType));
         }
     }
 }

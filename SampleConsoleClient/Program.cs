@@ -33,6 +33,7 @@ namespace SampleConsoleClient
     using GraphQL.Client.Http;
     using GraphQL.Client.Serializer.Newtonsoft;
     using Newtonsoft.Json;
+    using Newtonsoft.Json.Linq;
     using System;
     using System.Collections.Generic;
     using System.Net.Http;
@@ -54,11 +55,11 @@ namespace SampleConsoleClient
 
             Console.WriteLine("OPC Foundation UA Cloud Library Console Client Application");
 
-            TestClientLibrary(args); 
-            
+            TestRESTInterface(args);
+
             TestGraphQLInterface(args);
 
-            TestRESTInterface(args);
+            TestClientLibrary(args); 
             
             Console.WriteLine();
             Console.WriteLine("Done!");
@@ -81,33 +82,21 @@ namespace SampleConsoleClient
             Console.WriteLine("Testing objecttype query (the other OPC UA types are very similar!)");
             GraphQLRequest request = new GraphQLRequest
             {
-                Query = @"
-                query {
-                    objecttype
-                    {
-                        objecttype_browsename objecttype_value objecttype_namespace nodeset_id
-                    }
-                }"
-
+                Query = "query { objecttype { objecttype_browsename objecttype_value objecttype_namespace nodeset_id } }"
             };
-            var response = graphQLClient.SendQueryAsync<UACloudLibGraphQLObjecttypeQueryResponse>(request).GetAwaiter().GetResult();
-            Console.WriteLine(JsonConvert.SerializeObject(response, Formatting.Indented));
+
+            GraphQLResponse<JObject> response = graphQLClient.SendQueryAsync<JObject>(request).GetAwaiter().GetResult();
+            Console.WriteLine(JsonConvert.SerializeObject(response.Data, Formatting.Indented));
 
             Console.WriteLine();
             Console.WriteLine("Testing metadata query");
             request = new GraphQLRequest
             {
-                Query = @"
-                query {
-                    metadata
-                    {
-                        metadata_name metadata_value nodeset_id
-                    }
-                }"
-
+                Query = "query { metadata { metadata_name metadata_value nodeset_id } }"
             };
-            var response2 = graphQLClient.SendQueryAsync<UACloudLibGraphQLMetadataQueryResponse>(request).GetAwaiter().GetResult();
-            Console.WriteLine(JsonConvert.SerializeObject(response2.Data, Formatting.Indented));
+
+            response = graphQLClient.SendQueryAsync<JObject>(request).GetAwaiter().GetResult();
+            Console.WriteLine(JsonConvert.SerializeObject(response.Data, Formatting.Indented));
 
             graphQLClient.Dispose();
         }
