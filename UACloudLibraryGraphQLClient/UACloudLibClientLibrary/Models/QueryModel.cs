@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace UACloudLibClientLibrary.Models
+namespace Opc.Ua.CloudLib.Client.Models
 {
     [JsonObject("datatype")]
     public class DatatypeResult

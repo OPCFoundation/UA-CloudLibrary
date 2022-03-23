@@ -8,9 +8,9 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-using UACloudLibClientLibrary.Models;
+using Opc.Ua.CloudLib.Client.Models;
 
-namespace UACloudLibClientLibrary
+namespace Opc.Ua.CloudLib.Client
 {
     /// <summary>
     /// This class handles the quering and conversion of the response
@@ -124,7 +124,7 @@ namespace UACloudLibClientLibrary
         /// </summary>
         /// <param name="identifier"></param>
         /// <returns></returns>
-        public AddressSpace DownloadNodeset(string identifier)
+        public async Task<AddressSpace> DownloadNodeset(string identifier)
         {
             HttpClient webClient = new HttpClient
             {
@@ -134,8 +134,8 @@ namespace UACloudLibClientLibrary
             webClient.DefaultRequestHeaders.Add("Authorization", "basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(m_strUsername + ":" + m_strPassword)));
 
             var address = webClient.BaseAddress.ToString() + "infomodel/download/" + Uri.EscapeDataString(identifier);
-            var response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
-            var converted = JsonConvert.DeserializeObject<AddressSpace>(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+            var response = await webClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, address));
+            var converted = JsonConvert.DeserializeObject<AddressSpace>(await response.Content.ReadAsStringAsync());
             return converted;
         }
     }

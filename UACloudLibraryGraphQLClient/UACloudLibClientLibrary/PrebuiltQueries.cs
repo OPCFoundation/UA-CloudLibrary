@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Text;
 using GraphQL.Query.Builder;
-using UACloudLibClientLibrary.Models;
+using Opc.Ua.CloudLib.Client.Models;
 
 
-namespace UACloudLibClientLibrary
+namespace Opc.Ua.CloudLib.Client
 {
     /// <summary>
     /// Defines which fields are returned

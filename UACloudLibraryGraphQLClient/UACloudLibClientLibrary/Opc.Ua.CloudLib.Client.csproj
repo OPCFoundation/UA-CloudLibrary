@@ -1,0 +1,46 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Opc.Ua.CloudLib.Client</AssemblyName>
+    <PackageId>OPCFoundation.NetStandard.Opc.Ua.CloudLib.Client</PackageId>
+    <TargetFrameworks>net6.0;netstandard2.0</TargetFrameworks>
+    <RootNamespace>Opc.Ua.CloudLib.Client</RootNamespace>
+    <Description>OPC UA CloudLib Client Class Library</Description>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <PackageId>$(PackageId).Debug</PackageId>
+  </PropertyGroup>
+
+  <Target Name="PopulateNETSDKAssemblyVersion" BeforeTargets="PrepareForBuild;GetAssemblyVersion;GetPackageMetadata;GenerateNuspec;Pack" DependsOnTargets="GitVersion">
+    <PropertyGroup>
+      <Version>$(GitBaseVersionMajor).$(GitBaseVersionMinor).$(GitBaseVersionPatch).0</Version>
+      <FileVersion>$(GitBaseVersionMajor).$(GitBaseVersionMinor).$(GitBaseVersionPatch).$(GitCommits)</FileVersion>
+      <PackageVersion>$(FileVersion)</PackageVersion>
+      <InformationalVersion>$(FileVersion)+branch.$(GitBranch).commit.$(GitCommit)</InformationalVersion>
+    </PropertyGroup>
+    <Message Importance="high" Text="PackageVersion: $(PackageVersion)" />
+  </Target>
+
+
+    <ItemGroup>
+		<PackageReference Include="GitInfo" Version="2.2.0" />
+		<PackageReference Include="GraphQL.Client" Version="4.0.2" />
+		<PackageReference Include="GraphQL.Client.Serializer.Newtonsoft" Version="4.0.2" />
+		<PackageReference Include="GraphQL.Query.Builder" Version="1.2.1" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+	</ItemGroup>
+
+  <PropertyGroup Condition="'$(SignAssembly)' == 'true'">
+    <DefineConstants>$(DefineConstants);SIGNASSEMBLY</DefineConstants>
+  </PropertyGroup>
+
+  <Target Name="GetPackagingOutputs" />
+  
+</Project>

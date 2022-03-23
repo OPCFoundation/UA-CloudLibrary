@@ -37,12 +37,13 @@ namespace SampleConsoleClient
     using System.Collections.Generic;
     using System.Net.Http;
     using System.Text;
-    using UACloudLibClientLibrary;
-    using UACloudLibClientLibrary.Models;
+    using Opc.Ua.CloudLib.Client;
+    using Opc.Ua.CloudLib.Client.Models;
+    using System.Threading.Tasks;
 
     class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             if (args.Length < 3)
             {
@@ -53,17 +54,17 @@ namespace SampleConsoleClient
 
             Console.WriteLine("OPC Foundation UA Cloud Library Console Client Application");
 
-            TestGraphQLInterface(args);
+            await TestGraphQLInterface(args);
 
             TestRESTInterface(args);
 
-            TestClientLibrary(args);
+            await TestClientLibrary(args);
 
             Console.WriteLine();
             Console.WriteLine("Done!");
         }
 
-        private static void TestGraphQLInterface(string[] args)
+        private static async Task TestGraphQLInterface(string[] args)
         {
             Console.WriteLine();
             Console.WriteLine("Testing GraphQL interface (see https://graphql.org/learn/ for details)...");
@@ -89,7 +90,7 @@ namespace SampleConsoleClient
                 }"
 
             };
-            var response = graphQLClient.SendQueryAsync<UACloudLibGraphQLObjecttypeQueryResponse>(request).GetAwaiter().GetResult();
+            var response =await graphQLClient.SendQueryAsync<UACloudLibGraphQLObjecttypeQueryResponse>(request);
             Console.WriteLine(JsonConvert.SerializeObject(response, Formatting.Indented));
 
             Console.WriteLine();
@@ -105,7 +106,7 @@ namespace SampleConsoleClient
                 }"
 
             };
-            var response2 = graphQLClient.SendQueryAsync<UACloudLibGraphQLMetadataQueryResponse>(request).GetAwaiter().GetResult();
+            var response2 = await graphQLClient.SendQueryAsync<UACloudLibGraphQLMetadataQueryResponse>(request);
             Console.WriteLine(JsonConvert.SerializeObject(response2.Data, Formatting.Indented));
 
             graphQLClient.Dispose();
@@ -150,28 +151,28 @@ namespace SampleConsoleClient
             webClient.Dispose();
         }
 
-        private static void TestClientLibrary(string[] args)
+        private static async Task TestClientLibrary(string[] args)
         {
             Console.WriteLine("\n\nTesting the client library");
 
             UACloudLibClient client = new UACloudLibClient(args[0], args[1], args[2]);
 
             Console.WriteLine("\nTesting object query");
-            List<ObjectResult> test = client.GetObjectTypes().GetAwaiter().GetResult();
+            List<ObjectResult> test = await client.GetObjectTypes();
             foreach(ObjectResult result in test)
             {
                 Console.WriteLine($"{result.ID}, {result.Namespace}, {result.Browsename}, {result.Value}");
             }
 
             Console.WriteLine("\nTesting metadata query");
-            List<MetadataResult> metadatas = client.GetMetadata().GetAwaiter().GetResult();
+            List<MetadataResult> metadatas = await client.GetMetadata();
             foreach(MetadataResult metadata in metadatas)
             {
                 Console.WriteLine($"{metadata.ID}, {metadata.Name}, {metadata.Value}");
             }
 
             Console.WriteLine("\nTesting query and convertion of metadata");
-            List<AddressSpace> finalResult = client.GetConvertedResult().GetAwaiter().GetResult();
+            List<AddressSpace> finalResult = await client.GetConvertedResult();
             foreach(AddressSpace result in finalResult)
             {
                 Console.WriteLine($"{result.Title} by {result.Contributor.Name} last update on {result.LastModificationTime}");
@@ -180,7 +181,7 @@ namespace SampleConsoleClient
             if(finalResult.Count > 0)
             {
                 Console.WriteLine("Testing download of nodeset");
-                AddressSpace result = client.DownloadNodeset(finalResult[0].MetadataID);
+                AddressSpace result = await client.DownloadNodeset(finalResult[0].MetadataID);
                 if (!string.IsNullOrEmpty(result.Nodeset.NodesetXml))
                 {
                     Console.WriteLine("Nodeset Downloaded");

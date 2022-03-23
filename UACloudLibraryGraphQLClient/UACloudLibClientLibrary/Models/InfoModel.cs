@@ -5,12 +5,24 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace UACloudLibClientLibrary
+namespace Opc.Ua.CloudLib.Client
 {
+    /// <summary>
+    /// The license under which the AddressSpace was published
+    /// </summary>
     public enum AddressSpaceLicense
     {
+        /// <summary>
+        /// MIT License
+        /// </summary>
         MIT,
+        /// <summary>
+        /// Apache 2.0 License
+        /// </summary>
         ApacheLicense20,
+        /// <summary>
+        /// Custom License model <see cref="AddressSpace.LicenseUrl"/>
+        /// </summary>
         Custom
     }
     
@@ -20,6 +32,9 @@ namespace UACloudLibClientLibrary
     /// </summary>
     public class AddressSpace
     {
+        /// <summary>
+        /// Create a new AddressSpace metadata
+        /// </summary>
         public AddressSpace()
         {
             this.Nodeset = new AddressSpaceNodeset2();

@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using UACloudLibClientLibrary.Models;
+using Opc.Ua.CloudLib.Client.Models;
 
-namespace UACloudLibClientLibrary
+namespace Opc.Ua.CloudLib.Client
 {
     static class ConvertMetadataToAddressspace
     {
@@ -74,12 +74,12 @@ namespace UACloudLibClientLibrary
                     }
                 case "keywords":
                     {
-                        addressspace.KeyWords = metadata.Value.Split(",");
+                        addressspace.KeyWords = metadata.Value.Split(',');
                         break;
                     }
                 case "locales":
                     {
-                        addressspace.SupportedLocales = metadata.Value.Split(",");
+                        addressspace.SupportedLocales = metadata.Value.Split(',');
                         break;
                     }
                 case "numdownloads":
