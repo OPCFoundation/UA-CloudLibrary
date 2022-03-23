@@ -34,15 +34,15 @@ namespace UACloudLibrary
 
     public class UaCloudLibQuery : ObjectGraphType
     {
-        public UaCloudLibQuery(UaCloudLibDatabase cloudLibDB)
+        public UaCloudLibQuery(UaCloudLibResolver cloudLibResolver)
         {
             Name = "UACloudLibraryQuery";
 
-            Field<ListGraphType<DatatypeType>>("datatype", resolve: context => cloudLibDB.GetDataTypes());
-            Field<ListGraphType<MetadataType>>("metadata", resolve: context => cloudLibDB.GetMetaData());
-            Field<ListGraphType<ObjecttypeType>>("objecttype", resolve: context => cloudLibDB.GetObjectTypes());
-            Field<ListGraphType<ReferencetypeType>>("referencetype", resolve: context => cloudLibDB.GetReferenceTypes());
-            Field<ListGraphType<VariabletypeType>>("variabletype", resolve: context => cloudLibDB.GetVariableTypes());
+            Field<ListGraphType<DatatypeType>>("datatype", resolve: context => cloudLibResolver.GetDataTypes());
+            Field<ListGraphType<MetadataType>>("metadata", resolve: context => cloudLibResolver.GetMetaData());
+            Field<ListGraphType<ObjecttypeType>>("objecttype", resolve: context => cloudLibResolver.GetObjectTypes());
+            Field<ListGraphType<ReferencetypeType>>("referencetype", resolve: context => cloudLibResolver.GetReferenceTypes());
+            Field<ListGraphType<VariabletypeType>>("variabletype", resolve: context => cloudLibResolver.GetVariableTypes());
 
             Field<ListGraphType<CategoryType>>(
                 "categorytype",
@@ -54,7 +54,7 @@ namespace UACloudLibrary
                 {
                     int limit = context.GetArgument("limit", 10);
                     int offset = context.GetArgument("offset", 0);
-                    return cloudLibDB.GetCategoryTypes(limit, offset);
+                    return cloudLibResolver.GetCategoryTypes(limit, offset);
                 }
             );
 
@@ -68,7 +68,7 @@ namespace UACloudLibrary
                 {
                     int limit = context.GetArgument("limit", 10);
                     int offset = context.GetArgument("offset", 0);
-                    return cloudLibDB.GetOrganisationTypes(limit, offset);
+                    return cloudLibResolver.GetOrganisationTypes(limit, offset);
                 }
             );
 
@@ -82,7 +82,7 @@ namespace UACloudLibrary
                 {
                     int limit = context.GetArgument("limit", 10);
                     int offset = context.GetArgument("offset", 0);
-                    return cloudLibDB.GetAdressSpaceTypes(limit, offset);
+                    return cloudLibResolver.GetAdressSpaceTypes(limit, offset);
                 }
             );
         }

@@ -41,13 +41,13 @@ namespace UACloudLibClientLibrary
         /// <summary>
         /// Converts metadata to a list of combinedtypes, taking the nodeset id from the metadata as a combination point
         /// </summary>
-        public static List<AddressSpace> Convert(List<MetadataResult> pageInfo)
+        public static List<AddressSpace> Convert(List<MetadataResult> metadata)
         {
             Dictionary<string, AddressSpace> addressSpaces = new Dictionary<string, AddressSpace>();
 
-            if (pageInfo != null)
+            if (metadata != null)
             {
-                foreach (MetadataResult item in pageInfo)
+                foreach (MetadataResult item in metadata)
                 {
                     string id = item.NodesetID.ToString();
                     if (!addressSpaces.ContainsKey(id))

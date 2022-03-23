@@ -214,11 +214,7 @@ public class PostgreSQLDB : IDatabase
 
         public void RetrieveAllMetadata(uint nodesetId, AddressSpace uaAddressSpace)
         {
-            // TODO: Improve perf by retrieving all the metadata for a given nodeset Id at ONCE, instead of piece by piece
-
-            DateTime parsedDateTime;
-
-            if (DateTime.TryParse(RetrieveMetaData(nodesetId, "nodesetcreationtime"), out parsedDateTime))
+            if (DateTime.TryParse(RetrieveMetaData(nodesetId, "nodesetcreationtime"), out DateTime parsedDateTime))
             {
                 uaAddressSpace.Nodeset.PublicationDate = parsedDateTime;
             }
@@ -328,8 +324,7 @@ public class PostgreSQLDB : IDatabase
                 uaAddressSpace.Contributor.Website = new Uri(uri);
             }
 
-            uint parsedDownloads;
-            if (uint.TryParse(RetrieveMetaData(nodesetId, "numdownloads"), out parsedDownloads))
+            if (uint.TryParse(RetrieveMetaData(nodesetId, "numdownloads"), out uint parsedDownloads))
             {
                 uaAddressSpace.NumberOfDownloads = parsedDownloads;
             }

@@ -164,26 +164,25 @@ namespace SampleConsoleClient
                 Console.WriteLine("\nTesting the GraphQL api");
 
                 Console.WriteLine("\nTesting the address space query, this will fall back to the REST interface if GraphQL is not available.");
-                List<AddressSpaceWhereExpression> expression = new List<AddressSpaceWhereExpression>();
-                List<AddressSpace> anothertest = client.GetAddressSpaces(10).GetAwaiter().GetResult();
-                if(anothertest.Count > 0)
+                List<AddressSpace> addressSpaces = client.GetAddressSpaces(10).GetAwaiter().GetResult();
+                if(addressSpaces.Count > 0)
                 {
-                    Console.WriteLine("Title: {0}", anothertest[0].Title);
-                    Console.WriteLine("Total amount of adressspaces: {0}", anothertest.Count);
+                    Console.WriteLine("Title: {0}", addressSpaces[0].Title);
+                    Console.WriteLine("Total amount of adressspaces: {0}", addressSpaces.Count);
                 }
 
                 Console.WriteLine("\nTesting object query");
-                List<ObjectResult> test = client.GetObjectTypes().GetAwaiter().GetResult();
-                foreach (ObjectResult result in test)
+                List<ObjectResult> objects = client.GetObjectTypes().GetAwaiter().GetResult();
+                foreach (ObjectResult result in objects)
                 {
                     Console.WriteLine($"{result.ID}, {result.Namespace}, {result.Browsename}, {result.Value}");
                 }
 
                 Console.WriteLine("\nTesting metadata query");
-                List<MetadataResult> metadatas = client.GetMetadata().GetAwaiter().GetResult();
-                foreach (MetadataResult metadata in metadatas)
+                List<MetadataResult> metadata = client.GetMetadata().GetAwaiter().GetResult();
+                foreach (MetadataResult entry in metadata)
                 {
-                    Console.WriteLine($"{metadata.ID}, {metadata.Name}, {metadata.Value}");
+                    Console.WriteLine($"{entry.ID}, {entry.Name}, {entry.Value}");
                 }
 
                 Console.WriteLine("\nTesting query and convertion of metadata");

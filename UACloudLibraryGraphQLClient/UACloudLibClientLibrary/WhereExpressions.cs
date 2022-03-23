@@ -30,46 +30,86 @@
 namespace UACloudLibClientLibrary
 {
     using System;
-    public enum CategorySearchField
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Text;
+
+    public enum SearchField
     {
+        metadata_name,
+        metadata_value,
+        objecttype_name,
+        objecttype_value,
         iD,
         name,
         lastModification,
         creationTimeStamp,
         description
     }
-    /// <summary>
-    /// Defining the attributes the category must have
-    /// </summary>
-    public class CategoryWhereExpression : IWhereExpression<CategorySearchField>
+
+    public enum ComparisonType
+    {
+        Equal,
+        GreaterThan,
+        GreaterThanOrEqual,
+        LessThan,
+        LessThanOrEqual,
+        Contains,
+        StartsWith,
+        EndsWith,
+        Like
+    }
+
+    public class WhereExpression
     {
         public string Expression { get; private set; }
 
-        public CategoryWhereExpression()
-        {
+        public string Value { get; private set; }
 
-        }
-
-        public CategoryWhereExpression(CategorySearchField path, string value, ComparisonType comparison = 0)
+        public WhereExpression(SearchField path, string value, ComparisonType comparison = 0)
         {
-            if (SetExpression(path, value, comparison))
-            {
-                // succeeded
-            }
-            else
+            Value = value;
+
+            if (!SetExpression(path, value, comparison))
             {
                 throw new Exception("One or more arguments was incorrect");
             }
         }
 
-        public bool SetExpression(CategorySearchField path, string value, ComparisonType comparison, bool AndConnector = true)
+        /// <summary>
+        /// Checks if a clause is available and finalizes the statement
+        /// </summary>
+        /// <returns>Returns an empty string when no clause was transfered, otherwise the finalized where statement</returns>
+        public static string Build(IEnumerable<WhereExpression> filter)
         {
-            bool success = false;
+            StringBuilder query = new StringBuilder();
+
+            if (!filter.Any())
+            {
+                return "";
+            }
+            else
+            {
+                query.Append("[");
+
+                if (filter != null)
+                {
+                    query.Append(string.Format(",", filter));
+                }
+
+                query.Append("]");
+
+                return query.ToString();
+            }
+        }
+
+        public bool SetExpression(SearchField path, string value, ComparisonType comparison, bool AndConnector = true)
+        {
             if (string.IsNullOrEmpty(value) && Enum.IsDefined(path) && Enum.IsDefined(comparison))
             {
                 if (comparison == ComparisonType.Like)
                 {
-                    value = InternalMethods.LikeComparisonCompatibleString(value);
+                    value = LikeComparisonCompatibleString(value);
                 }
 
                 if (AndConnector)
@@ -80,13 +120,32 @@ namespace UACloudLibClientLibrary
                 {
                     Expression = string.Format("{path: \"{0}\", comparison: {1}, value: \"{2}\", connector: or}", path, comparison, value);
                 }
-                success = true;
+
+                return true;
             }
             else
             {
-                success = false;
+                return false;
             }
-            return success;
+        }
+
+        private string LikeComparisonCompatibleString(string value)
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                if (value.StartsWith("%") && value.EndsWith("%"))
+                {
+                    return value;
+                }
+                else
+                {
+                    return string.Format("%" + value + "%");
+                }
+            }
+            else
+            {
+                throw new ArgumentNullException("Parameter 'value' is null!");
+            }
         }
     }
 }

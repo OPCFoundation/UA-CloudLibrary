@@ -197,14 +197,14 @@ namespace UACloudLibClientLibrary
         /// <summary>
         /// Queries the organisations with the given filters.
         /// </summary>
-        public async Task<List<Organisation>> GetOrganisations(int limit = 10, int offset = 0, IEnumerable<OrganisationWhereExpression> filter = null)
+        public async Task<List<Organisation>> GetOrganisations(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
             GraphQueries.OrganisationQuery.AddArgument("limit", limit);
             GraphQueries.OrganisationQuery.AddArgument("offset", offset);
             
             if (filter != null)
             {
-                GraphQueries.CategoryQuery.AddArgument("where", WhereExpressionBuilder(filter));
+                GraphQueries.CategoryQuery.AddArgument("where", WhereExpression.Build(filter));
             }
 
             request.Query = "query{" + GraphQueries.OrganisationQuery.Build() + "}";
@@ -215,14 +215,14 @@ namespace UACloudLibClientLibrary
         /// <summary>
         /// Queries the addressspaces with the given filters and converts the result
         /// </summary>
-        public async Task<List<AddressSpace>> GetAddressSpaces(int limit = 10, int offset = 0, IEnumerable<AddressSpaceWhereExpression> filter = null)
+        public async Task<List<AddressSpace>> GetAddressSpaces(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
             GraphQueries.AddressSpaceQuery.AddArgument("limit", limit);
             GraphQueries.AddressSpaceQuery.AddArgument("offset", offset);
             
             if (filter != null)
             {
-                GraphQueries.CategoryQuery.AddArgument("where", WhereExpressionBuilder(filter));
+                GraphQueries.CategoryQuery.AddArgument("where", WhereExpression.Build(filter));
             }
 
             request.Query = "query{" + GraphQueries.AddressSpaceQuery.Build() + "}";
@@ -245,50 +245,19 @@ namespace UACloudLibClientLibrary
         /// <summary>
         /// Queries the categories with the given filters
         /// </summary>
-        public async Task<List<AddressSpaceCategory>> GetAddressSpaceCategories(int limit = 10, int offset = 0, IEnumerable<CategoryWhereExpression> filter = null)
+        public async Task<List<AddressSpaceCategory>> GetAddressSpaceCategories(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
             GraphQueries.CategoryQuery.AddArgument("limit", limit);
             GraphQueries.CategoryQuery.AddArgument("offset", offset);
 
             if (filter != null)
             {
-                GraphQueries.CategoryQuery.AddArgument("where", WhereExpressionBuilder(filter));
+                GraphQueries.CategoryQuery.AddArgument("where", WhereExpression.Build(filter));
             }
 
             request.Query = "query{" + GraphQueries.CategoryQuery.Build() + "}";
 
             return await SendAndConvert<List<AddressSpaceCategory>>(request).ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// Checks if a clause is available and finalizes the statement
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <typeparam name="U"></typeparam>
-        /// <param name="filter"></param>
-        /// <param name="orFilter"></param>
-        /// <returns>Returns an empty string when no clause was transfered, otherwise the finalized where statement</returns>
-        private string WhereExpressionBuilder<T>(IEnumerable<IWhereExpression<T>> filter) where T : Enum
-        {
-            StringBuilder query = new StringBuilder();
-
-            if (filter.Any())
-            {
-                return "";
-            }
-            else
-            {
-                query.Append("[");
-
-                if (filter != null)
-                {
-                    query.Append(string.Format(",", filter));
-                }
-
-                query.Append("]");
-
-                return query.ToString();
-            }
         }
 
         /// <summary>
