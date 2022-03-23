@@ -1,0 +1,16 @@
+{
+  "profiles": {
+    "Docker Compose": {
+      "commandName": "DockerCompose",
+      "composeLaunchAction": "LaunchBrowser",
+      "composeLaunchServiceName": "ua-cloudlibrary",
+      "composeLaunchUrl": "{Scheme}://localhost:{ServicePort}/",
+      "commandVersion": "1.0",
+      "serviceActions": {
+        "db": "StartWithoutDebugging",
+        "pgadmin": "StartWithoutDebugging",
+        "ua-cloudlibrary": "StartDebugging"
+      }
+    }
+  }
+}

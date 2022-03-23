@@ -36,7 +36,7 @@ namespace UACloudLibrary
     using System.Data;
     using UACloudLibrary.Models;
 
-    public class PostgreSQLDB : IDatabase
+public class PostgreSQLDB : IDatabase
     {
         private NpgsqlConnection _connection = null;
         private readonly ILogger _logger;
@@ -139,6 +139,33 @@ namespace UACloudLibrary
                 }
 
                 string sqlInsert = string.Format("INSERT INTO public.Metadata (Nodeset_id, metadata_name, metadata_value) VALUES(@nodesetid, @metadataname, @metadatavalue)");
+                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
+                sqlCommand.Parameters.AddWithValue("nodesetid", (long)nodesetId);
+                sqlCommand.Parameters.AddWithValue("metadataname", name);
+                sqlCommand.Parameters.AddWithValue("metadatavalue", value);
+                sqlCommand.ExecuteNonQuery();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.Message);
+            }
+
+            return false;
+        }
+
+        public bool UpdateMetaDataForNodeSet(uint nodesetId, string name, string value)
+        {
+            try
+            {
+                if (_connection.State != ConnectionState.Open)
+                {
+                    _connection.Close();
+                    _connection.Open();
+                }
+
+                string sqlInsert = string.Format("UPDATE public.Metadata SET metadata_value=@metadatavalue WHERE Nodeset_id=@nodesetid AND metadata_name=@metadataname");
                 NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
                 sqlCommand.Parameters.AddWithValue("nodesetid", (long)nodesetId);
                 sqlCommand.Parameters.AddWithValue("metadataname", name);

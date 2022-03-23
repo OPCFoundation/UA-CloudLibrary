@@ -6,33 +6,36 @@
     <UserSecretsId>ee5a630a-263e-4334-b590-b77013c2af56</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>./..</DockerfileContext>
+    <DockerComposeProjectPath>..\docker-compose.dcproj</DockerComposeProjectPath>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(RunConfiguration)' == 'UA_CloudLibrary' " />
   <ItemGroup>
     <PackageReference Include="Amazon.AspNetCore.DataProtection.SSM" Version="2.1.0" />
-    <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="3.7.1" />
-    <PackageReference Include="AWSSDK.S3" Version="3.7.7.19" />
-    <PackageReference Include="AWSSDK.SecurityToken" Version="3.7.1.112" />
-    <PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.2.1" />
-    <PackageReference Include="Azure.Storage.Blobs" Version="12.10.0" />
-    <PackageReference Include="Google.Cloud.Storage.V1" Version="3.7.0" />
-    <PackageReference Include="Google.Cloud.AspNetCore.DataProtection.Storage" Version="1.0.0-alpha03" />
-    <PackageReference Include="GraphQL" Version="4.7.1" />
-    <PackageReference Include="GraphQL.NewtonsoftJson" Version="4.7.1" />
-    <PackageReference Include="GraphQL.Server.Transports.AspNetCore" Version="5.2.0" />
-    <PackageReference Include="GraphQL.Server.Transports.AspNetCore.NewtonsoftJson" Version="5.2.0" />
-    <PackageReference Include="GraphQL.Server.Ui.Playground" Version="5.2.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="6.0.2" />
-    <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="6.0.2" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="6.0.2" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.2" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.2">
+    <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="3.7.2" />
+    <PackageReference Include="AWSSDK.S3" Version="3.7.8.10" />
+	<PackageReference Include="AWSSDK.SecurityToken" Version="3.7.1.130" />
+	<PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.2.1" />
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.11.0" />
+        <PackageReference Include="Google.Cloud.Storage.V1" Version="3.7.0" />
+        <PackageReference Include="Google.Cloud.AspNetCore.DataProtection.Storage" Version="1.0.0-alpha03" />
+	<PackageReference Include="GraphQL" Version="4.7.1" />
+	<PackageReference Include="GraphQL.MicrosoftDI" Version="4.7.1" />
+	<PackageReference Include="GraphQL.NewtonsoftJson" Version="4.7.1" />
+	<PackageReference Include="GraphQL.Server.Authorization.AspNetCore" Version="5.2.0" />
+	<PackageReference Include="GraphQL.Server.Transports.AspNetCore" Version="5.2.0" />
+	<PackageReference Include="GraphQL.Server.Transports.AspNetCore.NewtonsoftJson" Version="5.2.0" />
+	<PackageReference Include="GraphQL.Server.Ui.Playground" Version="5.2.0" />
+	<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="6.0.3" />
+	<PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="6.0.3" />
+	<PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="6.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.3">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Proxies" Version="6.0.2" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="6.0.2">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Proxies" Version="6.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="6.0.3">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -41,15 +44,15 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.14.0" />
+    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.15.0" />
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="6.0.2" />
     <PackageReference Include="Npgsql" Version="6.0.3" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="6.0.3" />
-    <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Core" Version="1.4.367.95" />
-    <PackageReference Include="SendGrid" Version="9.25.2" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.2.3" />
-    <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="6.2.3" />
-    <PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="6.2.3" />
+    <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Core" Version="1.4.368.33" />
+    <PackageReference Include="SendGrid" Version="9.26.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.3.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="6.3.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="6.3.0" />
   </ItemGroup>
 
 
