@@ -39,9 +39,13 @@ namespace UACloudLibrary
             Name = "UACloudLibraryQuery";
 
             Field<ListGraphType<DatatypeType>>("datatype", resolve: context => cloudLibResolver.GetDataTypes());
+
             Field<ListGraphType<MetadataType>>("metadata", resolve: context => cloudLibResolver.GetMetaData());
+
             Field<ListGraphType<ObjecttypeType>>("objecttype", resolve: context => cloudLibResolver.GetObjectTypes());
+
             Field<ListGraphType<ReferencetypeType>>("referencetype", resolve: context => cloudLibResolver.GetReferenceTypes());
+
             Field<ListGraphType<VariabletypeType>>("variabletype", resolve: context => cloudLibResolver.GetVariableTypes());
 
             Field<ListGraphType<CategoryType>>(
