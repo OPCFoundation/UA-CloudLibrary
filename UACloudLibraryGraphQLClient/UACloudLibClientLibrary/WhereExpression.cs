@@ -81,7 +81,7 @@ namespace UACloudLibClientLibrary
 
             if (!filter.Any())
             {
-                return "";
+                return string.Empty;
             }
             else
             {
@@ -120,7 +120,7 @@ namespace UACloudLibClientLibrary
                     }
                 }
 
-                Expression = "{" + field.ToString() + ": {" + comparison.ToString() + ": " + value + "}}";
+                Expression = "{'" + field.ToString() + "': {'" + comparison.ToString() + "': '" + value + "'}}";
 
                 Value = value;
             }

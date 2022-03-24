@@ -53,13 +53,13 @@ namespace UACloudLibrary
                 arguments: new QueryArguments(
                     new QueryArgument<IntGraphType> { Name = "limit" },
                     new QueryArgument<IntGraphType> { Name = "offset" },
-                    new QueryArgument<ListGraphType<JsonGraphType>> { Name = "where" }
+                    new QueryArgument<StringGraphType> { Name = "where" }
                 ),
                 resolve: context =>
                 {
                     int limit = context.GetArgument("limit", 10);
                     int offset = context.GetArgument("offset", 0);
-                    object where = context.GetArgument< ListGraphType<JsonGraphType>>("where");
+                    string where = context.GetArgument("where", string.Empty);
                     return cloudLibResolver.GetCategoryTypes(limit, offset, where);
                 }
             );
@@ -69,13 +69,13 @@ namespace UACloudLibrary
                 arguments: new QueryArguments(
                     new QueryArgument<IntGraphType> { Name = "limit" },
                     new QueryArgument<IntGraphType> { Name = "offset" },
-                    new QueryArgument<ListGraphType<JsonGraphType>> { Name = "where" }
+                    new QueryArgument<StringGraphType> { Name = "where" }
                 ),
                 resolve: context =>
                 {
                     int limit = context.GetArgument("limit", 10);
                     int offset = context.GetArgument("offset", 0);
-                    object where = context.GetArgument<ListGraphType<JsonGraphType>>("where");
+                    string where = context.GetArgument("where", string.Empty);
                     return cloudLibResolver.GetOrganisationTypes(limit, offset, where);
                 }
             );
@@ -85,13 +85,13 @@ namespace UACloudLibrary
                 arguments: new QueryArguments(
                     new QueryArgument<IntGraphType> { Name = "limit" },
                     new QueryArgument<IntGraphType> { Name = "offset" },
-                    new QueryArgument<ListGraphType<JsonGraphType>> { Name = "where" }
+                    new QueryArgument<StringGraphType> { Name = "where" }
                 ),
                 resolve: context =>
                 {
                     int limit = context.GetArgument("limit", 10);
                     int offset = context.GetArgument("offset", 0);
-                    object where = context.GetArgument<ListGraphType<JsonGraphType>>("where");
+                    string where = context.GetArgument("where", string.Empty);
                     return cloudLibResolver.GetAdressSpaceTypes(limit, offset, where);
                 }
             );

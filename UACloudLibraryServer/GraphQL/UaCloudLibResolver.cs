@@ -72,7 +72,7 @@ namespace UACloudLibrary
             return _context.variabletype.ToListAsync();
         }
 
-        public Task<List<AddressSpace>> GetAdressSpaceTypes(int limit, int offset, object where)
+        public Task<List<AddressSpace>> GetAdressSpaceTypes(int limit, int offset, string where)
         {
             List<long> nodesetIds = _context.metadata.Select(p => p.nodeset_id).Distinct().ToList();
 
@@ -86,10 +86,10 @@ namespace UACloudLibrary
                 limit = nodesetIds.Count - offset;
             }
 
-            string whereExpression;
+            object whereExpression;
             try
             {
-                whereExpression = JsonConvert.SerializeObject(where);
+                whereExpression = JsonConvert.DeserializeObject(where);
             }
             catch (Exception)
             {
@@ -304,7 +304,7 @@ namespace UACloudLibrary
             return Task.FromResult(result);
         }
 
-        public Task<List<AddressSpaceCategory>> GetCategoryTypes(int limit, int offset, object where)
+        public Task<List<AddressSpaceCategory>> GetCategoryTypes(int limit, int offset, string where)
         {
             List<long> nodesetIds = _context.metadata.Select(p => p.nodeset_id).Distinct().ToList();
 
@@ -358,7 +358,7 @@ namespace UACloudLibrary
             return Task.FromResult(result);
         }
 
-        public Task<List<Organisation>> GetOrganisationTypes(int limit, int offset, object where)
+        public Task<List<Organisation>> GetOrganisationTypes(int limit, int offset, string where)
         {
             List<long> nodesetIds = _context.metadata.Select(p => p.nodeset_id).Distinct().ToList();
 
