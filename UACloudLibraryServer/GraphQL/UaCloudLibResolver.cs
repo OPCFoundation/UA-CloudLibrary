@@ -31,6 +31,7 @@ namespace UACloudLibrary
 {
     using GraphQL.Types;
     using Microsoft.EntityFrameworkCore;
+    using Newtonsoft.Json;
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -71,7 +72,7 @@ namespace UACloudLibrary
             return _context.variabletype.ToListAsync();
         }
 
-        public Task<List<AddressSpace>> GetAdressSpaceTypes(int limit, int offset)
+        public Task<List<AddressSpace>> GetAdressSpaceTypes(int limit, int offset, object where)
         {
             List<long> nodesetIds = _context.metadata.Select(p => p.nodeset_id).Distinct().ToList();
 
@@ -83,6 +84,16 @@ namespace UACloudLibrary
             if ((offset + limit) > nodesetIds.Count)
             {
                 limit = nodesetIds.Count - offset;
+            }
+
+            string whereExpression;
+            try
+            {
+                whereExpression = JsonConvert.SerializeObject(where);
+            }
+            catch (Exception)
+            {
+                whereExpression = null;
             }
 
             List<AddressSpace> result = new List<AddressSpace>();
@@ -293,7 +304,7 @@ namespace UACloudLibrary
             return Task.FromResult(result);
         }
 
-        public Task<List<AddressSpaceCategory>> GetCategoryTypes(int limit, int offset)
+        public Task<List<AddressSpaceCategory>> GetCategoryTypes(int limit, int offset, object where)
         {
             List<long> nodesetIds = _context.metadata.Select(p => p.nodeset_id).Distinct().ToList();
 
@@ -347,7 +358,7 @@ namespace UACloudLibrary
             return Task.FromResult(result);
         }
 
-        public Task<List<Organisation>> GetOrganisationTypes(int limit, int offset)
+        public Task<List<Organisation>> GetOrganisationTypes(int limit, int offset, object where)
         {
             List<long> nodesetIds = _context.metadata.Select(p => p.nodeset_id).Distinct().ToList();
 

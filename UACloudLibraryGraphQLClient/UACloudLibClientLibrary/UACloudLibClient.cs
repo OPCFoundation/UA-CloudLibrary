@@ -32,6 +32,7 @@ namespace UACloudLibClientLibrary
     using GraphQL;
     using GraphQL.Client.Http;
     using GraphQL.Client.Serializer.Newtonsoft;
+    using GraphQL.Query.Builder;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
     using System;
@@ -52,6 +53,7 @@ namespace UACloudLibClientLibrary
 
         private GraphQLHttpClient m_client = null;
         private GraphQLRequest request = new GraphQLRequest();
+
         private AuthenticationHeaderValue authentication 
         { 
             set => m_client.HttpClient.DefaultRequestHeaders.Authorization = value; 
@@ -111,7 +113,7 @@ namespace UACloudLibClientLibrary
             restClient = new RestClient(strEndpoint, authentication);
         }
 
-        //Sends the query and converts it
+        // Sends the query and converts it
         private async Task<T> SendAndConvert<T>(GraphQLRequest request)
         {
             GraphQLResponse<JObject> response = await m_client.SendQueryAsync<JObject>(request).ConfigureAwait(false);
@@ -131,25 +133,47 @@ namespace UACloudLibClientLibrary
         /// </summary>
         public async Task<List<ObjectResult>> GetObjectTypes()
         {
-            request.Query = "query{" + GraphQueries.ObjectQuery.Build() + "}";
+            IQuery<ObjectResult> objectQuery = new Query<ObjectResult>("objecttype")
+                .AddField(f => f.ID)
+                .AddField(f => f.NodesetID)
+                .AddField(f => f.Namespace)
+                .AddField(f => f.Browsename)
+                .AddField(f => f.Value);
+        
+            request.Query = "query{" + objectQuery.Build() + "}";
             
             return await SendAndConvert<List<ObjectResult>>(request).ConfigureAwait(false);
         }
+
         /// <summary>
         /// Retrieves a list of metadata
         /// </summary>
         public async Task<List<MetadataResult>> GetMetadata()
         {
-            request.Query = "query{" + GraphQueries.MetadataQuery.Build() + "}";
+            IQuery<MetadataResult> metadataQuery = new Query<MetadataResult>("metadata")
+                .AddField(f => f.ID)
+                .AddField(f => f.NodesetID)
+                .AddField(f => f.Name)
+                .AddField(f => f.Value);
+
+            request.Query = "query{" + metadataQuery.Build() + "}";
             
             return await SendAndConvert<List<MetadataResult>>(request).ConfigureAwait(false);
         }
+
         /// <summary>
         /// Retrieves a list of variabletypes
         /// </summary>
         public async Task<List<VariableResult>> GetVariables()
         {
-            request.Query = "query{" + GraphQueries.VariableQuery.Build() + "}";
+            IQuery<VariableResult> variableQuery = new Query<VariableResult>("variabletype")
+            .AddField(f => f.ID)
+            .AddField(f => f.NodesetID)
+            .AddField(f => f.Namespace)
+            .AddField(f => f.Browsename)
+            .AddField(f => f.Value);
+        
+            request.Query = "query{" + variableQuery.Build() + "}";
             
             return await SendAndConvert<List<VariableResult>>(request).ConfigureAwait(false);
         }
@@ -159,7 +183,14 @@ namespace UACloudLibClientLibrary
         /// </summary>
         public async Task<List<ReferenceResult>> GetReferencetype()
         {
-            request.Query = "query{" + GraphQueries.ReferenceQuery.Build() + "}";
+            IQuery<ReferenceResult> referenceQuery = new Query<ReferenceResult>("referencetype")
+                .AddField(f => f.ID)
+                .AddField(f => f.NodesetID)
+                .AddField(f => f.Namespace)
+                .AddField(f => f.Browsename)
+                .AddField(f => f.Value);
+        
+            request.Query = "query{" + referenceQuery.Build() + "}";
             
             return await SendAndConvert<List<ReferenceResult>>(request).ConfigureAwait(false);
         }
@@ -169,7 +200,14 @@ namespace UACloudLibClientLibrary
         /// </summary>
         public async Task<List<DataResult>> GetDatatype()
         {
-            request.Query = "query{" + GraphQueries.DataQuery.Build() + "}";
+            IQuery<DataResult> dataQuery = new Query<DataResult>("datatype")
+               .AddField(f => f.ID)
+               .AddField(f => f.NodesetID)
+               .AddField(f => f.Namespace)
+               .AddField(f => f.Browsename)
+               .AddField(f => f.Value);
+        
+            request.Query = "query{" + dataQuery.Build() + "}";
             
             return await SendAndConvert<List<DataResult>>(request).ConfigureAwait(false);
         }
@@ -178,7 +216,13 @@ namespace UACloudLibClientLibrary
         {
             List<AddressSpace> convertedResult = null;
 
-            request.Query = "query{" + GraphQueries.MetadataQuery.Build() + "}";
+            IQuery<MetadataResult> metadataQuery = new Query<MetadataResult>("metadata")
+                .AddField(f => f.ID)
+                .AddField(f => f.NodesetID)
+                .AddField(f => f.Name)
+                .AddField(f => f.Value);
+        
+            request.Query = "query{" + metadataQuery.Build() + "}";
             List<MetadataResult> result = await SendAndConvert<List<MetadataResult>>(request).ConfigureAwait(false);
             try
             {
@@ -199,15 +243,22 @@ namespace UACloudLibClientLibrary
         /// </summary>
         public async Task<List<Organisation>> GetOrganisations(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
-            GraphQueries.OrganisationQuery.AddArgument("limit", limit);
-            GraphQueries.OrganisationQuery.AddArgument("offset", offset);
+            IQuery<Organisation> organisationQuery = new Query<Organisation>("organisationtype")
+                .AddField(f => f.Name)
+                .AddField(f => f.Website)
+                .AddField(f => f.ContactEmail)
+                .AddField(f => f.Description)
+                .AddField(f => f.LogoUrl);
+        
+            organisationQuery.AddArgument("limit", limit);
+            organisationQuery.AddArgument("offset", offset);
             
             if (filter != null)
             {
-                GraphQueries.CategoryQuery.AddArgument("where", WhereExpression.Build(filter));
+                organisationQuery.AddArgument("where", WhereExpression.Build(filter));
             }
 
-            request.Query = "query{" + GraphQueries.OrganisationQuery.Build() + "}";
+            request.Query = "query{" + organisationQuery.Build() + "}";
 
             return await SendAndConvert<List<Organisation>>(request).ConfigureAwait(false);
         }
@@ -217,15 +268,40 @@ namespace UACloudLibClientLibrary
         /// </summary>
         public async Task<List<AddressSpace>> GetAddressSpaces(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
-            GraphQueries.AddressSpaceQuery.AddArgument("limit", limit);
-            GraphQueries.AddressSpaceQuery.AddArgument("offset", offset);
+            IQuery<AddressSpace> addressSpaceQuery = new Query<AddressSpace>("addressspacetype")
+                .AddField(h => h.Title)
+                .AddField(
+                    h => h.Contributor,
+                    sq => sq.AddField(h => h.Name)
+                            .AddField(h => h.ContactEmail)
+                            .AddField(h => h.Website)
+                            .AddField(h => h.LogoUrl)
+                            .AddField(h => h.Description)
+                    )
+                .AddField(h => h.License)
+                .AddField(
+                    h => h.Category,
+                    sq => sq.AddField(h => h.Name)
+                            .AddField(h => h.Description)
+                            .AddField(h => h.IconUrl)
+                    )
+                .AddField(h => h.Description)
+                .AddField(h => h.DocumentationUrl)
+                .AddField(h => h.PurchasingInformationUrl)
+                .AddField(h => h.Version)
+                .AddField(h => h.ReleaseNotesUrl)
+                .AddField(h => h.Keywords)
+                .AddField(h => h.SupportedLocales);
+        
+            addressSpaceQuery.AddArgument("limit", limit);
+            addressSpaceQuery.AddArgument("offset", offset);
             
             if (filter != null)
             {
-                GraphQueries.CategoryQuery.AddArgument("where", WhereExpression.Build(filter));
+                addressSpaceQuery.AddArgument("where", WhereExpression.Build(filter));
             }
 
-            request.Query = "query{" + GraphQueries.AddressSpaceQuery.Build() + "}";
+            request.Query = "query{" + addressSpaceQuery.Build() + "}";
 
             List<AddressSpace> result = new List<AddressSpace>();
             try
@@ -247,15 +323,20 @@ namespace UACloudLibClientLibrary
         /// </summary>
         public async Task<List<AddressSpaceCategory>> GetAddressSpaceCategories(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
-            GraphQueries.CategoryQuery.AddArgument("limit", limit);
-            GraphQueries.CategoryQuery.AddArgument("offset", offset);
+            IQuery<AddressSpaceCategory> categoryQuery = new Query<AddressSpaceCategory>("categorytype")
+                .AddField(f => f.Name)
+                .AddField(f => f.Description)
+                .AddField(f => f.IconUrl);
+
+            categoryQuery.AddArgument("limit", limit);
+            categoryQuery.AddArgument("offset", offset);
 
             if (filter != null)
             {
-                GraphQueries.CategoryQuery.AddArgument("where", WhereExpression.Build(filter));
+                categoryQuery.AddArgument("where", WhereExpression.Build(filter));
             }
 
-            request.Query = "query{" + GraphQueries.CategoryQuery.Build() + "}";
+            request.Query = "query{" + categoryQuery.Build() + "}";
 
             return await SendAndConvert<List<AddressSpaceCategory>>(request).ConfigureAwait(false);
         }

@@ -55,11 +55,11 @@ namespace SampleConsoleClient
 
             Console.WriteLine("OPC Foundation UA Cloud Library Console Client Application");
 
+            TestClientLibrary(args);
+
             TestRESTInterface(args);
 
             TestGraphQLInterface(args);
-
-            TestClientLibrary(args); 
             
             Console.WriteLine();
             Console.WriteLine("Done!");
@@ -150,10 +150,12 @@ namespace SampleConsoleClient
             UACloudLibClient client = new UACloudLibClient(args[0], args[1], args[2]);
             try
             {
-                Console.WriteLine("\nTesting the GraphQL api");
+                Console.WriteLine("\nTesting the GraphQL API");
 
                 Console.WriteLine("\nTesting the address space query, this will fall back to the REST interface if GraphQL is not available.");
-                List<AddressSpace> addressSpaces = client.GetAddressSpaces(10).GetAwaiter().GetResult();
+                List<WhereExpression> filter = new List<WhereExpression>();
+                filter.Add(new WhereExpression(SearchField.name, "Microsoft", ComparisonType.Equal));
+                List<AddressSpace> addressSpaces = client.GetAddressSpaces(10, 0, filter).GetAwaiter().GetResult();
                 if(addressSpaces.Count > 0)
                 {
                     Console.WriteLine("Title: {0}", addressSpaces[0].Title);
@@ -186,7 +188,7 @@ namespace SampleConsoleClient
                 Console.WriteLine(ex.Message);
             }
 
-            Console.WriteLine("\nUsing the rest api");
+            Console.WriteLine("\nUsing the rest API");
             List<BasicNodesetInformation> restResult = client.GetBasicNodesetInformation().GetAwaiter().GetResult();
             if (restResult.Count > 0)
             {

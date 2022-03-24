@@ -66,14 +66,9 @@ namespace UACloudLibClientLibrary
 
         public string Value { get; private set; }
 
-        public WhereExpression(SearchField path, string value, ComparisonType comparison = 0)
+        public WhereExpression(SearchField field, string value, ComparisonType comparison = 0)
         {
-            Value = value;
-
-            if (!SetExpression(path, value, comparison))
-            {
-                throw new Exception("One or more arguments was incorrect");
-            }
+            SetExpression(field, value, comparison);
         }
 
         /// <summary>
@@ -94,57 +89,40 @@ namespace UACloudLibClientLibrary
 
                 if (filter != null)
                 {
-                    query.Append(string.Format(",", filter));
+                    foreach (WhereExpression e in filter)
+                    {
+                        query.Append(e.Expression);
+                        query.Append(",");
+                    }
                 }
 
+                query.Remove(query.Length - 1, 1);
                 query.Append("]");
 
                 return query.ToString();
             }
         }
 
-        public bool SetExpression(SearchField path, string value, ComparisonType comparison, bool AndConnector = true)
+        public void SetExpression(SearchField field, string value, ComparisonType comparison)
         {
-            if (string.IsNullOrEmpty(value) && Enum.IsDefined(path) && Enum.IsDefined(comparison))
+            if (!string.IsNullOrEmpty(value) && Enum.IsDefined(field) && Enum.IsDefined(comparison))
             {
                 if (comparison == ComparisonType.Like)
                 {
-                    value = LikeComparisonCompatibleString(value);
+                    if (!value.StartsWith("%"))
+                    {
+                        value = "%" + value;
+                    }
+
+                    if (!value.EndsWith("%"))
+                    {
+                        value = value + "%";
+                    }
                 }
 
-                if (AndConnector)
-                {
-                    Expression = string.Format("{path: \"{0}\", comparison: {1}, value: \"{2}\", connector: and}", path, comparison, value);
-                }
-                else
-                {
-                    Expression = string.Format("{path: \"{0}\", comparison: {1}, value: \"{2}\", connector: or}", path, comparison, value);
-                }
+                Expression = "{" + field.ToString() + ": {" + comparison.ToString() + ": " + value + "}}";
 
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
-
-        private string LikeComparisonCompatibleString(string value)
-        {
-            if (!string.IsNullOrEmpty(value))
-            {
-                if (value.StartsWith("%") && value.EndsWith("%"))
-                {
-                    return value;
-                }
-                else
-                {
-                    return string.Format("%" + value + "%");
-                }
-            }
-            else
-            {
-                throw new ArgumentNullException("Parameter 'value' is null!");
+                Value = value;
             }
         }
     }
