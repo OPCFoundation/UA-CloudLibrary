@@ -36,21 +36,19 @@ namespace UACloudLibClientLibrary
         {
             client.Dispose();
         }
-
         public async Task<List<AddressSpace>> GetBasicAddressSpaces(IEnumerable<string> keywords = null)
         {
             string address = Path.Combine(client.BaseAddress.ToString(), "infomodel/find");
-
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, address);
-            if (keywords == null)
+            if (keywords != null)
             {
-                request.Content = new StringContent("[\"*\"]");
+                address += "?"+PrepareArgumentsString(keywords);
             }
             else
             {
-                request.Content = new StringContent(string.Format("[{0}]", PrepareArgumentsString(keywords)));
+                address += "?keywords=*";
             }
-
+            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, address);
+            request.Content = new StringContent("");
             request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
             request.Headers.Authorization = client.DefaultRequestHeaders.Authorization;
             HttpResponseMessage response = await client.SendAsync(request);
@@ -94,14 +92,14 @@ namespace UACloudLibClientLibrary
             }
             return result;
         }
-
+       
         private static string PrepareArgumentsString(IEnumerable<string> arguments)
         {
             List<string> argumentsList = new List<string>();
 
             foreach (string argument in arguments)
             {
-                argumentsList.Add(string.Format("\"{0}\"", argument));
+                argumentsList.Add(string.Format("keywords={0}", Uri.EscapeDataString(argument)));
             }
 
             StringBuilder stringBuilder = new StringBuilder();
@@ -110,7 +108,7 @@ namespace UACloudLibClientLibrary
             {
                 if(i != 0)
                 {
-                    stringBuilder.Append(",");
+                    stringBuilder.Append("&");
                 }
                 stringBuilder.Append(argumentsList[i]);
             }
