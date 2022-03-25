@@ -55,12 +55,12 @@ namespace SampleConsoleClient
 
             Console.WriteLine("OPC Foundation UA Cloud Library Console Client Application");
 
-            TestClientLibrary(args);
-
             TestRESTInterface(args);
 
             TestGraphQLInterface(args);
-            
+
+            TestClientLibrary(args);
+
             Console.WriteLine();
             Console.WriteLine("Done!");
         }
