@@ -20,8 +20,8 @@ jobs:
         with:
           dotnet-version: '6.0.x'
 
-      - name: ✓ ensure format UA-CloudLibrary
-        working-directory: UA-CloudLibrary
+      - name: ✓ ensure format UA-CloudLibrary Server
+        working-directory: UACloudLibraryServer
         run: dotnet format --verify-no-changes -v:diag --exclude ~/.nuget
       - name: ✓ ensure format UA-CloudLibrary .NET Client
         working-directory: UACloudLibClientLibrary
@@ -38,7 +38,7 @@ jobs:
       with:
         dotnet-version: 6.0.x
     - name: Restore dependencies UA-CloudLibrary
-      working-directory: UA-CloudLibrary
+      working-directory: UACloudLibraryServer
       run: dotnet restore
     - name: Restore dependencies UACloudLibClientLibrary
       working-directory: UACloudLibClientLibrary
