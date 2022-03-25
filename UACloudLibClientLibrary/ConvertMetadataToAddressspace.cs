@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -43,135 +43,135 @@ namespace UACloudLibClientLibrary
             {
                 #region AdressSpace Cases
                 case "adressspacemodifiedtime":
-                    {
-                        addressspace.LastModificationTime = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
-                        break;
-                    }
+                {
+                    addressspace.LastModificationTime = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+                    break;
+                }
                 case "addressspacedescription":
-                    {
-                        addressspace.Description = metadata.Value;
-                        break;
-                    }
+                {
+                    addressspace.Description = metadata.Value;
+                    break;
+                }
                 case "copyright":
-                    {
-                        addressspace.CopyrightText = metadata.Value;
-                        break;
-                    }
+                {
+                    addressspace.CopyrightText = metadata.Value;
+                    break;
+                }
                 case "documentationurl":
-                    {
-                        addressspace.DocumentationUrl = new Uri(metadata.Value);
-                        break;
-                    }
+                {
+                    addressspace.DocumentationUrl = new Uri(metadata.Value);
+                    break;
+                }
                 case "licenseurl":
-                    {
-                        addressspace.LicenseUrl = new Uri(metadata.Value);
-                        break;
-                    }
+                {
+                    addressspace.LicenseUrl = new Uri(metadata.Value);
+                    break;
+                }
                 case "purchasinginfo":
-                    {
-                        addressspace.PurchasingInformationUrl = new Uri(metadata.Value);
-                        break;
-                    }
+                {
+                    addressspace.PurchasingInformationUrl = new Uri(metadata.Value);
+                    break;
+                }
                 case "keywords":
-                    {
-                        addressspace.KeyWords = metadata.Value.Split(",");
-                        break;
-                    }
+                {
+                    addressspace.KeyWords = metadata.Value.Split(",");
+                    break;
+                }
                 case "locales":
-                    {
-                        addressspace.SupportedLocales = metadata.Value.Split(",");
-                        break;
-                    }
+                {
+                    addressspace.SupportedLocales = metadata.Value.Split(",");
+                    break;
+                }
                 case "numdownloads":
-                    {
-                        addressspace.NumberOfDownloads = System.Convert.ToUInt32(metadata.Value);
-                        break;
-                    }
+                {
+                    addressspace.NumberOfDownloads = System.Convert.ToUInt32(metadata.Value);
+                    break;
+                }
                 case "addressspacename":
-                    {
-                        addressspace.Title = metadata.Value;
-                        break;
-                    }
+                {
+                    addressspace.Title = metadata.Value;
+                    break;
+                }
                 case "license":
+                {
+                    // just for performance
+                    switch (metadata.Value)
                     {
-                        // just for performance
-                        switch (metadata.Value)
+                        case "MIT":
                         {
-                            case "MIT":
-                                {
-                                    addressspace.License = AddressSpaceLicense.MIT;
-                                    break;
-                                }
-                            case "ApacheLicense20":
-                                {
-                                    addressspace.License = AddressSpaceLicense.ApacheLicense20;
-                                    break;
-                                }
-                            case "Custom":
-                                {
-                                    addressspace.License = AddressSpaceLicense.Custom;
-                                    break;
-                                }
-                            default:
-                                {
-                                    addressspace.License = (AddressSpaceLicense)Enum.Parse(typeof(AddressSpaceLicense), metadata.Value);
-                                    break;
-                                }
+                            addressspace.License = AddressSpaceLicense.MIT;
+                            break;
                         }
-                        break;
+                        case "ApacheLicense20":
+                        {
+                            addressspace.License = AddressSpaceLicense.ApacheLicense20;
+                            break;
+                        }
+                        case "Custom":
+                        {
+                            addressspace.License = AddressSpaceLicense.Custom;
+                            break;
+                        }
+                        default:
+                        {
+                            addressspace.License = (AddressSpaceLicense)Enum.Parse(typeof(AddressSpaceLicense), metadata.Value);
+                            break;
+                        }
                     }
+                    break;
+                }
                 case "version":
-                    {
-                        addressspace.Version = metadata.Value;
-                        break;
-                    }
+                {
+                    addressspace.Version = metadata.Value;
+                    break;
+                }
                 case "releasenotes":
-                    {
-                        addressspace.ReleaseNotesUrl = new Uri(metadata.Value);
-                        break;
-                    }
+                {
+                    addressspace.ReleaseNotesUrl = new Uri(metadata.Value);
+                    break;
+                }
                 case "testspecification":
-                    {
-                        addressspace.TestSpecificationUrl = new Uri(metadata.Value);
-                        break;
-                    }
+                {
+                    addressspace.TestSpecificationUrl = new Uri(metadata.Value);
+                    break;
+                }
                 #endregion
                 #region Organistion Cases
                 case "orgname":
-                    {
-                        addressspace.Contributor.Name = metadata.Value;
-                        break;
-                    }
+                {
+                    addressspace.Contributor.Name = metadata.Value;
+                    break;
+                }
                 case "orgdesciption":
-                    {
-                        addressspace.Contributor.Description = metadata.Value;
-                        break;
-                    }
+                {
+                    addressspace.Contributor.Description = metadata.Value;
+                    break;
+                }
                 case "orgcontact":
-                    {
-                        addressspace.Contributor.ContactEmail = metadata.Value;
-                        break;
-                    }
+                {
+                    addressspace.Contributor.ContactEmail = metadata.Value;
+                    break;
+                }
                 case "orgwebsite":
-                    {
-                        addressspace.Contributor.Website = new Uri(metadata.Value);
-                        break;
-                    }
+                {
+                    addressspace.Contributor.Website = new Uri(metadata.Value);
+                    break;
+                }
                 case "orglogo":
-                    {
-                        addressspace.Contributor.LogoUrl = new Uri(metadata.Value);
-                        break;
-                    }
+                {
+                    addressspace.Contributor.LogoUrl = new Uri(metadata.Value);
+                    break;
+                }
                 #endregion
                 case "nodesetmodifiedtime":
-                    {
-                        addressspace.Nodeset.LastModification = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
-                        break;
-                    }
+                {
+                    addressspace.Nodeset.LastModification = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+                    break;
+                }
                 default:
-                    {
-                        break;
-                    }
+                {
+                    break;
+                }
             }
         }
     }

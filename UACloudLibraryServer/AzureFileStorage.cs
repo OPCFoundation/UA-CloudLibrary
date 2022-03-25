@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -67,7 +67,7 @@ namespace UACloudLibrary
                     BlobContainerClient container = new BlobContainerClient(Environment.GetEnvironmentVariable("BlobStorageConnectionString"), "uacloudlib");
                     await container.CreateIfNotExistsAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
 
-                    var resultSegment = container.GetBlobsAsync();
+                    var resultSegment = container.GetBlobsAsync(cancellationToken: cancellationToken);
                     await foreach (BlobItem blobItem in resultSegment.ConfigureAwait(false))
                     {
                         if (blobItem.Name == name)
@@ -141,7 +141,7 @@ namespace UACloudLibrary
                     BlobContainerClient container = new BlobContainerClient(Environment.GetEnvironmentVariable("BlobStorageConnectionString"), "uacloudlib");
                     await container.CreateIfNotExistsAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
 
-                    var resultSegment = container.GetBlobsAsync();
+                    var resultSegment = container.GetBlobsAsync(cancellationToken: cancellationToken);
                     await foreach (BlobItem blobItem in resultSegment.ConfigureAwait(false))
                     {
                         if (blobItem.Name.Equals(name))

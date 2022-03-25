@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -81,7 +81,7 @@ namespace UACloudLibrary
         {
             try
             {
-                await File.WriteAllTextAsync(Path.Combine(Path.GetTempPath(), name), content).ConfigureAwait(false);
+                await File.WriteAllTextAsync(Path.Combine(Path.GetTempPath(), name), content, cancellationToken).ConfigureAwait(false);
                 return name;
             }
             catch (Exception ex)
@@ -98,7 +98,7 @@ namespace UACloudLibrary
         {
             try
             {
-                return await File.ReadAllTextAsync(Path.Combine(Path.GetTempPath(), name)).ConfigureAwait(false);
+                return await File.ReadAllTextAsync(Path.Combine(Path.GetTempPath(), name), cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

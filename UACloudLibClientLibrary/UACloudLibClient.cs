@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
@@ -126,8 +126,7 @@ namespace UACloudLibClientLibrary
         /// <returns></returns>
         public AddressSpace DownloadNodeset(string identifier)
         {
-            HttpClient webClient = new HttpClient
-            {
+            HttpClient webClient = new HttpClient {
                 BaseAddress = new Uri(Endpoint.ToString())
             };
 

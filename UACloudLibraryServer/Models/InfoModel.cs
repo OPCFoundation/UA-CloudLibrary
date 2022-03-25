@@ -54,11 +54,11 @@ namespace UACloudLibrary
             DocumentationUrl = null;
             IconUrl = null;
             LicenseUrl = null;
-            Keywords = new string[0];
+            Keywords = Array.Empty<string>();
             PurchasingInformationUrl = null;
             ReleaseNotesUrl = null;
             TestSpecificationUrl = null;
-            SupportedLocales = new string[0];
+            SupportedLocales = Array.Empty<string>();
             NumberOfDownloads = 0;
             AdditionalProperties = null;
         }

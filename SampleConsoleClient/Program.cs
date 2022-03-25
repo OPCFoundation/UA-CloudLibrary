@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -68,8 +68,7 @@ namespace SampleConsoleClient
             Console.WriteLine();
             Console.WriteLine("Testing GraphQL interface (see https://graphql.org/learn/ for details)...");
 
-            GraphQLHttpClientOptions options = new GraphQLHttpClientOptions
-            {
+            GraphQLHttpClientOptions options = new GraphQLHttpClientOptions {
                 EndPoint = new Uri(args[0] + "/graphql"),
                 HttpMessageHandler = new MessageHandlerWithAuthHeader(args[1], args[2])
             };
@@ -78,8 +77,7 @@ namespace SampleConsoleClient
 
             Console.WriteLine();
             Console.WriteLine("Testing objecttype query (the other OPC UA types are very similar!)");
-            GraphQLRequest request = new GraphQLRequest
-            {
+            GraphQLRequest request = new GraphQLRequest {
                 Query = @"
                 query {
                     objecttype
@@ -94,8 +92,7 @@ namespace SampleConsoleClient
 
             Console.WriteLine();
             Console.WriteLine("Testing metadata query");
-            request = new GraphQLRequest
-            {
+            request = new GraphQLRequest {
                 Query = @"
                 query {
                     metadata
@@ -116,8 +113,7 @@ namespace SampleConsoleClient
             Console.WriteLine();
             Console.WriteLine("Testing REST interface...");
 
-            HttpClient webClient = new HttpClient
-            {
+            HttpClient webClient = new HttpClient {
                 BaseAddress = new Uri(args[0])
             };
 

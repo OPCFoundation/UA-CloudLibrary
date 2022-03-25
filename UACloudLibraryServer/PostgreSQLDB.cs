@@ -375,7 +375,7 @@ namespace UACloudLibrary
                 _logger.LogError(ex.Message);
             }
 
-            return new string[0];
+            return Array.Empty<string>();
         }
 
         public string[] GetAllNamespacesAndNodesets()
@@ -411,7 +411,7 @@ namespace UACloudLibrary
                 _logger.LogError(ex.Message);
             }
 
-            return new string[0];
+            return Array.Empty<string>();
         }
 
         public string[] GetAllNamesAndNodesets()
@@ -447,7 +447,7 @@ namespace UACloudLibrary
                 _logger.LogError(ex.Message);
             }
 
-            return new string[0];
+            return Array.Empty<string>();
         }
     }
 }
