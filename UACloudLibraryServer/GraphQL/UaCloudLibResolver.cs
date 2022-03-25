@@ -32,6 +32,7 @@ namespace UACloudLibrary
     using GraphQL.Types;
     using Microsoft.EntityFrameworkCore;
     using Newtonsoft.Json;
+    using Newtonsoft.Json.Linq;
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -72,9 +73,73 @@ namespace UACloudLibrary
             return _context.variabletype.ToListAsync();
         }
 
+        private List<long> ApplyWhereExpression(string where)
+        {
+            List<long> nodesetIds = null;
+
+            List<string> fields = new List<string>();
+            List<string> comparions = new List<string>();
+            List<string> values = new List<string>();
+
+            // check if there was a where expression/filter specified
+            if (!string.IsNullOrEmpty(where))
+            {
+                // parse where expression
+                try
+                {
+                    JArray whereExpression = (JArray)JsonConvert.DeserializeObject(where);
+                    foreach (JObject clause in whereExpression)
+                    {
+                        fields.Add(((JProperty)clause.First).Name);
+                        comparions.Add(((JProperty)((JObject)clause.First.First).First).Name);
+                        values.Add(((JValue)((JObject)clause.First.First).First.First).Value.ToString());
+                    }
+                }
+                catch (Exception)
+                {
+                    // do nothing
+                }
+
+                // apply where expression
+                if ((fields.Count > 0) && (fields.Count == comparions.Count) && (fields.Count == values.Count))
+                {
+                    nodesetIds = new List<long>();
+
+                    for (int i = 0; i < fields.Count; i++)
+                    {
+                        if (comparions[i] == "equals")
+                        {
+                            List<MetadataModel> results = _context.metadata.Where(p => (p.metadata_name == fields[i]) && (p.metadata_value == values[i])).ToList();
+                            nodesetIds.AddRange(results.Select(p => p.nodeset_id).Distinct().ToList());
+                        }
+
+                        if (comparions[i] == "contains")
+                        {
+                            List<MetadataModel> results = _context.metadata.Where(p => (p.metadata_name == fields[i]) && p.metadata_value.Contains(values[i])).ToList();
+                            nodesetIds.AddRange(results.Select(p => p.nodeset_id).Distinct().ToList());
+                        }
+
+                        if (comparions[i] == "like")
+                        {
+                            List<MetadataModel> results = _context.metadata.Where(p => (p.metadata_name == fields[i]) && p.metadata_value.ToLower().Contains(values[i].ToLower())).ToList();
+                            nodesetIds.AddRange(results.Select(p => p.nodeset_id).Distinct().ToList());
+                        }
+                    }
+                }
+            }
+
+            if (nodesetIds == null)
+            {
+                // where expression was invalid or not specified, so get all distinct nodeset IDs
+                nodesetIds = _context.metadata.Select(p => p.nodeset_id).Distinct().ToList();
+            }
+
+            return nodesetIds;
+        }
+
         public Task<List<AddressSpace>> GetAdressSpaceTypes(int limit, int offset, string where)
         {
-            List<long> nodesetIds = _context.metadata.Select(p => p.nodeset_id).Distinct().ToList();
+            List<long> nodesetIds = ApplyWhereExpression(where);
 
             // input validation
             if ((offset < 0) || (limit < 0) || (offset > nodesetIds.Count))
@@ -86,16 +151,6 @@ namespace UACloudLibrary
                 limit = nodesetIds.Count - offset;
             }
 
-            object whereExpression;
-            try
-            {
-                whereExpression = JsonConvert.DeserializeObject(where);
-            }
-            catch (Exception)
-            {
-                whereExpression = null;
-            }
-
             List<AddressSpace> result = new List<AddressSpace>();
 
             for (int i = offset; i < (offset + limit); i++)
@@ -105,7 +160,7 @@ namespace UACloudLibrary
                     AddressSpace addressSpace = new AddressSpace();
 
                     Dictionary<string, MetadataModel> metadataForNodeset = _context.metadata.Where(p => p.nodeset_id == nodesetIds[i]).ToDictionary(x => x.metadata_name);
-                        
+
                     if (metadataForNodeset.ContainsKey("nodesetcreationtime"))
                     {
                         if (DateTime.TryParse(metadataForNodeset["nodesetcreationtime"].metadata_value, out DateTime parsedDateTime))
@@ -306,7 +361,7 @@ namespace UACloudLibrary
 
         public Task<List<AddressSpaceCategory>> GetCategoryTypes(int limit, int offset, string where)
         {
-            List<long> nodesetIds = _context.metadata.Select(p => p.nodeset_id).Distinct().ToList();
+            List<long> nodesetIds = ApplyWhereExpression(where);
 
             // input validation
             if ((offset < 0) || (limit < 0) || (offset > nodesetIds.Count))
@@ -360,7 +415,7 @@ namespace UACloudLibrary
 
         public Task<List<Organisation>> GetOrganisationTypes(int limit, int offset, string where)
         {
-            List<long> nodesetIds = _context.metadata.Select(p => p.nodeset_id).Distinct().ToList();
+            List<long> nodesetIds = ApplyWhereExpression(where);
 
             // input validation
             if ((offset < 0) || (limit < 0) || (offset > nodesetIds.Count))

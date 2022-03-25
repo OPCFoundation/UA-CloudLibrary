@@ -40,8 +40,11 @@ namespace UACloudLibClientLibrary
         metadata_value,
         objecttype_name,
         objecttype_value,
-        iD,
-        name,
+        orgname,
+        orgcontact,
+        nodesettitle,
+        addressspacename,
+        addressspacedescription,
         lastModification,
         creationTimeStamp,
         description
@@ -49,15 +52,9 @@ namespace UACloudLibClientLibrary
 
     public enum ComparisonType
     {
-        Equal,
-        GreaterThan,
-        GreaterThanOrEqual,
-        LessThan,
-        LessThanOrEqual,
-        Contains,
-        StartsWith,
-        EndsWith,
-        Like
+        equals,
+        contains,
+        like
     }
 
     public class WhereExpression
@@ -107,19 +104,6 @@ namespace UACloudLibClientLibrary
         {
             if (!string.IsNullOrEmpty(value) && Enum.IsDefined(field) && Enum.IsDefined(comparison))
             {
-                if (comparison == ComparisonType.Like)
-                {
-                    if (!value.StartsWith("%"))
-                    {
-                        value = "%" + value;
-                    }
-
-                    if (!value.EndsWith("%"))
-                    {
-                        value = value + "%";
-                    }
-                }
-
                 Expression = "{'" + field.ToString() + "': {'" + comparison.ToString() + "': '" + value + "'}}";
 
                 Value = value;

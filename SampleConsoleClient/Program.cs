@@ -154,7 +154,7 @@ namespace SampleConsoleClient
 
                 Console.WriteLine("\nTesting the address space query, this will fall back to the REST interface if GraphQL is not available.");
                 List<WhereExpression> filter = new List<WhereExpression>();
-                filter.Add(new WhereExpression(SearchField.name, "Microsoft", ComparisonType.Equal));
+                filter.Add(new WhereExpression(SearchField.orgname, "microsoft", ComparisonType.like));
                 List<AddressSpace> addressSpaces = client.GetAddressSpaces(10, 0, filter).GetAwaiter().GetResult();
                 if(addressSpaces.Count > 0)
                 {
