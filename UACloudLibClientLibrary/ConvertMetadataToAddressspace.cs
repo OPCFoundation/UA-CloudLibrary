@@ -37,7 +37,7 @@ namespace UACloudLibClientLibrary
         /// </summary>
         /// <param name="addressspace"></param>
         /// <param name="metadata"></param>
-        private static void ConvertCases(AddressSpace addressspace, MetadataResult metadata)
+        static void ConvertCases(AddressSpace addressspace, MetadataResult metadata)
         {
             switch (metadata.Name)
             {

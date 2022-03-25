@@ -29,13 +29,6 @@
 
 namespace UACloudLibrary
 {
-    using Extensions;
-    using Microsoft.AspNetCore.Authorization;
-    using Microsoft.AspNetCore.Mvc;
-    using Microsoft.Extensions.Logging;
-    using Opc.Ua;
-    using Opc.Ua.Export;
-    using Swashbuckle.AspNetCore.Annotations;
     using System;
     using System.Collections.Generic;
     using System.ComponentModel.DataAnnotations;
@@ -43,6 +36,13 @@ namespace UACloudLibrary
     using System.Net;
     using System.Text;
     using System.Threading.Tasks;
+    using Extensions;
+    using Microsoft.AspNetCore.Authorization;
+    using Microsoft.AspNetCore.Mvc;
+    using Microsoft.Extensions.Logging;
+    using Opc.Ua;
+    using Opc.Ua.Export;
+    using Swashbuckle.AspNetCore.Annotations;
     using UACloudLibrary.Interfaces;
     using UACloudLibrary.Models;
 
@@ -50,9 +50,9 @@ namespace UACloudLibrary
     [ApiController]
     public class InfoModelController : ControllerBase
     {
-        private readonly IFileStorage _storage;
-        private readonly IDatabase _database;
-        private readonly ILogger _logger;
+        readonly IFileStorage _storage;
+        readonly IDatabase _database;
+        readonly ILogger _logger;
 
         public InfoModelController(IFileStorage storage, IDatabase database, ILoggerFactory logger)
         {
@@ -215,7 +215,7 @@ namespace UACloudLibrary
             return new ObjectResult("Upload successful!") { StatusCode = (int)HttpStatusCode.OK };
         }
 
-        private void RetrieveDatesFromNodeset(AddressSpace uaAddressSpace, out DateTime publicationDate, out DateTime lastModifiedDate)
+        void RetrieveDatesFromNodeset(AddressSpace uaAddressSpace, out DateTime publicationDate, out DateTime lastModifiedDate)
         {
             publicationDate = DateTime.UtcNow;
             lastModifiedDate = DateTime.UtcNow;
@@ -251,7 +251,7 @@ namespace UACloudLibrary
             }
         }
 
-        private uint GenerateHashCode(AddressSpace uaAddressSpace)
+        uint GenerateHashCode(AddressSpace uaAddressSpace)
         {
             // generate a hash from the Model URIs and their version info in the nodeset
             int hashCode = 0;
@@ -292,7 +292,7 @@ namespace UACloudLibrary
             return (uint)hashCode;
         }
 
-        private uint GenerateHashCodeLegacy(AddressSpace uaAddressSpace)
+        uint GenerateHashCodeLegacy(AddressSpace uaAddressSpace)
         {
             // generate a hash from the NamespaceURIs in the nodeset
             int hashCode = 0;
@@ -320,7 +320,7 @@ namespace UACloudLibrary
             return (uint)hashCode;
         }
 
-        private void AddUserMetadataFromDatabase(uint nodeSetID, AddressSpace uaAddressSpace)
+        void AddUserMetadataFromDatabase(uint nodeSetID, AddressSpace uaAddressSpace)
         {
             DateTime parsedDateTime;
 
@@ -441,7 +441,7 @@ namespace UACloudLibrary
             }
         }
 
-        private bool StoreUserMetaDataInDatabase(uint newNodeSetID, AddressSpace uaAddressSpace, DateTime publicationDate, DateTime lastModifiedDate)
+        bool StoreUserMetaDataInDatabase(uint newNodeSetID, AddressSpace uaAddressSpace, DateTime publicationDate, DateTime lastModifiedDate)
         {
             uaAddressSpace.Nodeset.PublicationDate = publicationDate;
             if (!_database.AddMetaDataToNodeSet(newNodeSetID, "nodesetcreationtime", uaAddressSpace.Nodeset.PublicationDate.ToString()))
@@ -643,7 +643,7 @@ namespace UACloudLibrary
             return true;
         }
 
-        private void IncreaseNumDownloads(uint nodeSetID)
+        void IncreaseNumDownloads(uint nodeSetID)
         {
             try
             {
@@ -660,7 +660,7 @@ namespace UACloudLibrary
             }
         }
 
-        private string StoreNodesetMetaDataInDatabase(uint newNodeSetID, AddressSpace uaAddressSpace)
+        string StoreNodesetMetaDataInDatabase(uint newNodeSetID, AddressSpace uaAddressSpace)
         {
             // iterate through the incoming namespace
             List<string> namespaces = new List<string>();
@@ -683,36 +683,31 @@ namespace UACloudLibrary
 
                     foreach (UANode uaNode in nodeSet.Items)
                     {
-                        UAVariable variable = uaNode as UAVariable;
-                        if (variable != null)
+                        if (uaNode is UAVariable variable)
                         {
                             // skip over variables
                             continue;
                         }
 
-                        UAMethod method = uaNode as UAMethod;
-                        if (method != null)
+                        if (uaNode is UAMethod method)
                         {
                             // skip over methods
                             continue;
                         }
 
-                        UAObject uaObject = uaNode as UAObject;
-                        if (uaObject != null)
+                        if (uaNode is UAObject uaObject)
                         {
                             // skip over objects
                             continue;
                         }
 
-                        UAView view = uaNode as UAView;
-                        if (view != null)
+                        if (uaNode is UAView view)
                         {
                             // skip over views
                             continue;
                         }
 
-                        UAObjectType objectType = uaNode as UAObjectType;
-                        if (objectType != null)
+                        if (uaNode is UAObjectType objectType)
                         {
                             string displayName = objectType.NodeId.ToString();
                             if ((objectType.DisplayName != null) && (objectType.DisplayName.Length > 0))
@@ -727,8 +722,7 @@ namespace UACloudLibrary
                             continue;
                         }
 
-                        UAVariableType variableType = uaNode as UAVariableType;
-                        if (variableType != null)
+                        if (uaNode is UAVariableType variableType)
                         {
                             string displayName = variableType.NodeId.ToString();
                             if ((variableType.DisplayName != null) && (variableType.DisplayName.Length > 0))
@@ -742,8 +736,7 @@ namespace UACloudLibrary
                             continue;
                         }
 
-                        UADataType dataType = uaNode as UADataType;
-                        if (dataType != null)
+                        if (uaNode is UADataType dataType)
                         {
                             string displayName = dataType.NodeId.ToString();
                             if ((dataType.DisplayName != null) && (dataType.DisplayName.Length > 0))
@@ -758,8 +751,7 @@ namespace UACloudLibrary
                             continue;
                         }
 
-                        UAReferenceType referenceType = uaNode as UAReferenceType;
-                        if (referenceType != null)
+                        if (uaNode is UAReferenceType referenceType)
                         {
                             string displayName = referenceType.NodeId.ToString();
                             if (referenceType.DisplayName.Length > 0)
@@ -792,7 +784,7 @@ namespace UACloudLibrary
         /// <param name="nodeId">The id of the node that you want to find the namespace for</param>
         /// <param name="namespaces">The list of namespaces in the nodeset</param>
         /// <returns>The string value of the matching namespace</returns>
-        private string FindNameSpaceStringForNode(string nodeId, List<string> namespaces)
+        string FindNameSpaceStringForNode(string nodeId, List<string> namespaces)
         {
             try
             {

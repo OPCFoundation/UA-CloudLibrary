@@ -29,6 +29,8 @@
 
 namespace UACloudLibrary
 {
+    using System;
+    using System.IO;
     using Amazon.S3;
     using GraphQL;
     using GraphQL.DataLoader;
@@ -49,8 +51,6 @@ namespace UACloudLibrary
     using Microsoft.Extensions.Hosting;
     using Microsoft.Extensions.Logging;
     using Microsoft.OpenApi.Models;
-    using System;
-    using System.IO;
     using UACloudLibrary.Interfaces;
 
     public class Startup

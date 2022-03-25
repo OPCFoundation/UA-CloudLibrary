@@ -29,14 +29,14 @@
 
 namespace SampleConsoleClient
 {
-    using GraphQL;
-    using GraphQL.Client.Http;
-    using GraphQL.Client.Serializer.Newtonsoft;
-    using Newtonsoft.Json;
     using System;
     using System.Collections.Generic;
     using System.Net.Http;
     using System.Text;
+    using GraphQL;
+    using GraphQL.Client.Http;
+    using GraphQL.Client.Serializer.Newtonsoft;
+    using Newtonsoft.Json;
     using UACloudLibClientLibrary;
     using UACloudLibClientLibrary.Models;
 
@@ -63,7 +63,7 @@ namespace SampleConsoleClient
             Console.WriteLine("Done!");
         }
 
-        private static void TestGraphQLInterface(string[] args)
+        static void TestGraphQLInterface(string[] args)
         {
             Console.WriteLine();
             Console.WriteLine("Testing GraphQL interface (see https://graphql.org/learn/ for details)...");
@@ -111,7 +111,7 @@ namespace SampleConsoleClient
             graphQLClient.Dispose();
         }
 
-        private static void TestRESTInterface(string[] args)
+        static void TestRESTInterface(string[] args)
         {
             Console.WriteLine();
             Console.WriteLine("Testing REST interface...");
@@ -150,7 +150,7 @@ namespace SampleConsoleClient
             webClient.Dispose();
         }
 
-        private static void TestClientLibrary(string[] args)
+        static void TestClientLibrary(string[] args)
         {
             Console.WriteLine("\n\nTesting the client library");
 

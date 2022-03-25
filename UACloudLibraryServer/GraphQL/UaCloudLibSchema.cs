@@ -29,9 +29,9 @@
 
 namespace UACloudLibrary
 {
+    using System;
     using GraphQL.Types;
     using Microsoft.Extensions.DependencyInjection;
-    using System;
 
     public class UaCloudLibSchema : Schema
     {

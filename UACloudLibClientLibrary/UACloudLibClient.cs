@@ -1,13 +1,13 @@
-﻿using GraphQL;
-using GraphQL.Client.Http;
-using GraphQL.Client.Serializer.Newtonsoft;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using GraphQL;
+using GraphQL.Client.Http;
+using GraphQL.Client.Serializer.Newtonsoft;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using UACloudLibClientLibrary.Models;
 
 namespace UACloudLibClientLibrary
@@ -17,8 +17,8 @@ namespace UACloudLibClientLibrary
     /// </summary>
     public partial class UACloudLibClient
     {
-        private GraphQLHttpClient m_client = null;
-        private GraphQLRequest request = new GraphQLRequest();
+        GraphQLHttpClient m_client = null;
+        GraphQLRequest request = new GraphQLRequest();
         public List<string> errors = new List<string>();
         public Uri Endpoint
         {
@@ -26,10 +26,10 @@ namespace UACloudLibClientLibrary
             set { BaseEndpoint = value; }
         }
 
-        private Uri BaseEndpoint { get; set; }
+        Uri BaseEndpoint { get; set; }
 
-        private string m_strUsername = "";
-        private string m_strPassword = "";
+        string m_strUsername = "";
+        string m_strPassword = "";
 
         public string Username { get; set; }
 
@@ -49,7 +49,7 @@ namespace UACloudLibClientLibrary
         }
 
         //Sends the query and converts it
-        private async Task<T> SendAndConvert<T>(GraphQLRequest request)
+        async Task<T> SendAndConvert<T>(GraphQLRequest request)
         {
             try
             {

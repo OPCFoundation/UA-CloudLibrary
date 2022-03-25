@@ -29,9 +29,9 @@
 
 namespace UACloudLibrary
 {
+    using System;
     using Microsoft.EntityFrameworkCore.Migrations;
     using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-    using System;
 
     public partial class CreateIdentitySchema : Migration
     {

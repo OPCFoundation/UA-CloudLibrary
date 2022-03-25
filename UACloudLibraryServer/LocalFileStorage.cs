@@ -29,11 +29,11 @@
 
 namespace UACloudLibrary
 {
-    using Microsoft.Extensions.Logging;
     using System;
     using System.IO;
     using System.Threading;
     using System.Threading.Tasks;
+    using Microsoft.Extensions.Logging;
     using UACloudLibrary.Interfaces;
 
     /// <summary>
@@ -41,7 +41,7 @@ namespace UACloudLibrary
     /// </summary>
     public class LocalFileStorage : IFileStorage
     {
-        private readonly ILogger _logger;
+        readonly ILogger _logger;
 
         /// <summary>
         /// Default constructor

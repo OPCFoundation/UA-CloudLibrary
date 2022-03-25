@@ -29,17 +29,17 @@
 
 namespace UACloudLibrary
 {
-    using Amazon.S3;
-    using Amazon.S3.Model;
-    using Amazon.S3.Util;
-    using Microsoft.Extensions.Configuration;
-    using Microsoft.Extensions.Logging;
     using System;
     using System.IO;
     using System.Net;
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
+    using Amazon.S3;
+    using Amazon.S3.Model;
+    using Amazon.S3.Util;
+    using Microsoft.Extensions.Configuration;
+    using Microsoft.Extensions.Logging;
     using UACloudLibrary.Interfaces;
 
     /// <summary>
@@ -47,11 +47,11 @@ namespace UACloudLibrary
     /// </summary>
     public class AWSFileStorage : IFileStorage
     {
-        private readonly string _bucket;
-        private readonly string _prefix;
+        readonly string _bucket;
+        readonly string _prefix;
 
-        private readonly IAmazonS3 _s3Client;
-        private readonly ILogger _logger;
+        readonly IAmazonS3 _s3Client;
+        readonly ILogger _logger;
 
         /// <summary>
         /// Default constructor

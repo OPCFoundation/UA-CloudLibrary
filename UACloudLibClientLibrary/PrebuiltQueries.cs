@@ -10,9 +10,9 @@ namespace UACloudLibClientLibrary
     /// <summary>
     /// Defines which fields are returned
     /// </summary>
-    internal static class PrebuiltQueries
+    static class PrebuiltQueries
     {
-        private static string QueryWrapper(string query)
+        static string QueryWrapper(string query)
         {
             string test = string.Format("query{{{0}}}", query);
             return test;

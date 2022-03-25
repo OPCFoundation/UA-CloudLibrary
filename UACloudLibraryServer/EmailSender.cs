@@ -27,11 +27,11 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using SendGrid;
 using SendGrid.Helpers.Mail;
-using System;
-using System.Threading.Tasks;
 
 namespace UACloudLibrary
 {

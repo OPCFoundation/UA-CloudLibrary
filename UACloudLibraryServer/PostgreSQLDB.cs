@@ -29,17 +29,17 @@
 
 namespace UACloudLibrary
 {
-    using Microsoft.Extensions.Logging;
-    using Npgsql;
     using System;
     using System.Collections.Generic;
     using System.Data;
+    using Microsoft.Extensions.Logging;
+    using Npgsql;
     using UACloudLibrary.Models;
 
     public class PostgreSQLDB : IDatabase
     {
-        private NpgsqlConnection _connection = null;
-        private readonly ILogger _logger;
+        NpgsqlConnection _connection = null;
+        readonly ILogger _logger;
 
         public static string CreateConnectionString()
         {
@@ -238,7 +238,7 @@ namespace UACloudLibrary
             return string.Empty;
         }
 
-        private bool DeleteAllTableRecordsForNodeset(uint nodesetId, string tableName)
+        bool DeleteAllTableRecordsForNodeset(uint nodesetId, string tableName)
         {
             try
             {
@@ -326,7 +326,7 @@ namespace UACloudLibrary
             return nodesetResults.ToArray();
         }
 
-        private string[] FindNodesetsInTable(string[] keywords, string tableName)
+        string[] FindNodesetsInTable(string[] keywords, string tableName)
         {
             List<string> results = new List<string>();
 

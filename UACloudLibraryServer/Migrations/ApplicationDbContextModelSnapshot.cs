@@ -29,10 +29,10 @@
 
 namespace UACloudLibrary
 {
+    using System;
     using Microsoft.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore.Infrastructure;
     using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-    using System;
 
     [DbContext(typeof(AppDbContext))]
     partial class ApplicationDbContextModelSnapshot : ModelSnapshot

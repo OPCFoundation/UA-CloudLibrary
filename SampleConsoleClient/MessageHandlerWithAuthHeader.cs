@@ -37,8 +37,8 @@ namespace SampleConsoleClient
 
     class MessageHandlerWithAuthHeader : DelegatingHandler
     {
-        private string _username = string.Empty;
-        private string _password = string.Empty;
+        string _username = string.Empty;
+        string _password = string.Empty;
 
         public MessageHandlerWithAuthHeader(string username, string password)
         {

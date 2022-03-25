@@ -29,14 +29,14 @@
 
 namespace UACloudLibrary
 {
-    using Azure.Storage.Blobs;
-    using Azure.Storage.Blobs.Models;
-    using Microsoft.Extensions.Logging;
     using System;
     using System.IO;
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
+    using Azure.Storage.Blobs;
+    using Azure.Storage.Blobs.Models;
+    using Microsoft.Extensions.Logging;
     using UACloudLibrary.Interfaces;
 
     /// <summary>
@@ -44,7 +44,7 @@ namespace UACloudLibrary
     /// </summary>
     public class AzureFileStorage : IFileStorage
     {
-        private readonly ILogger _logger;
+        readonly ILogger _logger;
 
         /// <summary>
         /// Default constructor

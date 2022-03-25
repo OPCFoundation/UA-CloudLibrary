@@ -29,6 +29,11 @@
 
 namespace UACloudLibrary
 {
+    using System;
+    using System.Linq;
+    using System.Net.Http.Headers;
+    using System.Text;
+    using System.Threading;
     using GraphQL.Server.Transports.AspNetCore;
     using GraphQL.Types;
     using Microsoft.AspNetCore.Http;
@@ -36,17 +41,12 @@ namespace UACloudLibrary
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Primitives;
-    using System;
-    using System.Linq;
-    using System.Net.Http.Headers;
-    using System.Text;
-    using System.Threading;
     using UACloudLibrary.Interfaces;
 
     public class GraphQLUACloudLibMiddleware<TSchema> : GraphQLHttpMiddleware<TSchema> where TSchema : ISchema
     {
-        private readonly IServiceProvider _provider;
-        private readonly ILogger _logger;
+        readonly IServiceProvider _provider;
+        readonly ILogger _logger;
 
         public GraphQLUACloudLibMiddleware(
             IServiceProvider provider,

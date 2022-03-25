@@ -29,16 +29,16 @@
 
 namespace UACloudLibrary
 {
-    using Microsoft.AspNetCore.Identity;
-    using Microsoft.Extensions.Logging;
     using System;
     using System.Threading.Tasks;
+    using Microsoft.AspNetCore.Identity;
+    using Microsoft.Extensions.Logging;
     using UACloudLibrary.Interfaces;
 
     public class UserService : IUserService
     {
-        private readonly UserManager<IdentityUser> _userManager;
-        private readonly ILogger _logger;
+        readonly UserManager<IdentityUser> _userManager;
+        readonly ILogger _logger;
 
         public UserService(UserManager<IdentityUser> userManager, ILoggerFactory logger)
         {
