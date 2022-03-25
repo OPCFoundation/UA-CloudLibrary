@@ -57,7 +57,7 @@ namespace UACloudLibrary
                 ),
                 resolve: context =>
                 {
-                    int limit = context.GetArgument("limit", 10);
+                    int limit = context.GetArgument("limit", 1000000);
                     int offset = context.GetArgument("offset", 0);
                     string where = context.GetArgument("where", string.Empty);
                     return cloudLibResolver.GetCategoryTypes(limit, offset, where);
@@ -73,7 +73,7 @@ namespace UACloudLibrary
                 ),
                 resolve: context =>
                 {
-                    int limit = context.GetArgument("limit", 10);
+                    int limit = context.GetArgument("limit", 1000000);
                     int offset = context.GetArgument("offset", 0);
                     string where = context.GetArgument("where", string.Empty);
                     return cloudLibResolver.GetOrganisationTypes(limit, offset, where);
@@ -89,7 +89,7 @@ namespace UACloudLibrary
                 ),
                 resolve: context =>
                 {
-                    int limit = context.GetArgument("limit", 10);
+                    int limit = context.GetArgument("limit", 1000000);
                     int offset = context.GetArgument("offset", 0);
                     string where = context.GetArgument("where", string.Empty);
                     return cloudLibResolver.GetAdressSpaceTypes(limit, offset, where);
