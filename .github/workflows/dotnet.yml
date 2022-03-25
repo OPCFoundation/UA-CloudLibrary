@@ -7,10 +7,30 @@ on:
     branches: [ main ]
 
 jobs:
+  dotnet-format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🤘 checkout
+        uses: actions/checkout@v2
+        with: 
+          submodules: recursive
+          fetch-depth: 0
+      - name: ⚙ dotnet
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: ✓ ensure format UA-CloudLibrary
+        working-directory: UA-CloudLibrary
+        run: dotnet format --verify-no-changes -v:diag --exclude ~/.nuget
+      - name: ✓ ensure format UA-CloudLibrary .NET Client
+        working-directory: UACloudLibClientLibrary
+        run: dotnet format --verify-no-changes -v:diag --exclude ~/.nuget
+      - name: ✓ ensure format UA-CloudLibrary SampleConsoleClient
+        working-directory: SampleConsoleClient
+        run: dotnet format --verify-no-changes -v:diag --exclude ~/.nuget
   build:
-
     runs-on: windows-latest
-
     steps:
     - uses: actions/checkout@v2
     - name: Setup .NET
@@ -18,11 +38,14 @@ jobs:
       with:
         dotnet-version: 6.0.x
     - name: Restore dependencies UA-CloudLibrary
-      run: dotnet restore UACloudLibraryServer\UA-CloudLibrary.csproj
+      working-directory: UA-CloudLibrary
+      run: dotnet restore
     - name: Restore dependencies UACloudLibClientLibrary
-      run: dotnet restore UACloudLibClientLibrary\UACloudLibClientLibrary.csproj
-    - name: Restore dependencies SampleConsoleClient
-      run: dotnet restore SampleConsoleClient\SampleConsoleClient.csproj
+      working-directory: UACloudLibClientLibrary
+      run: dotnet restore 
+    - name: Restore dependencies 
+      working-directory: SampleConsoleClient
+      run: dotnet restore
     - name: Build
       run: dotnet build UA-CloudLibrary.sln --no-restore
     - name: Test
