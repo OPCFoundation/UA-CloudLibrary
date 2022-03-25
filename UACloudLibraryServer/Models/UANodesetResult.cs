@@ -46,7 +46,7 @@ namespace UACloudLibrary.Models
         public string License { get; set; }
 
         [JsonProperty(PropertyName = "version")]
-        public string Version { get; set; }   
+        public string Version { get; set; }
 
         [JsonProperty(PropertyName = "adressspacecreationtime")]
         public System.DateTime? CreationTime { get; set; }

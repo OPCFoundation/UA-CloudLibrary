@@ -13,8 +13,8 @@ namespace UACloudLibClientLibrary
         ApacheLicense20,
         Custom
     }
-    
- 
+
+
     /// <summary>
     /// Contains the metadata of the nodeset and the nodeset itself
     /// </summary>
@@ -36,7 +36,7 @@ namespace UACloudLibClientLibrary
         public string CopyrightText { get; set; }
         public DateTime CreationTime { get; set; }
         public DateTime LastModificationTime { get; set; }
-        public Organisation Contributor{ get; set; }
+        public Organisation Contributor { get; set; }
         public string Description { get; set; }
         public AddressSpaceCategory Category { get; set; }
         public AddressSpaceNodeset2 Nodeset { get; set; }
@@ -57,11 +57,11 @@ namespace UACloudLibClientLibrary
         public uint NumberOfDownloads { get; set; }
         public Tuple<string, string>[] AdditionalProperties { get; set; }
     }
- 
+
     /// <summary>
     /// Contains the metadata for the contributor/organisation
     /// </summary>
-    public class Organisation 
+    public class Organisation
     {
         public string Name { get; set; }
         public string Description { get; set; }
@@ -71,7 +71,7 @@ namespace UACloudLibClientLibrary
         public DateTime CreationTime { get; set; }
         public DateTime LastModificationTime { get; set; }
     }
-    
+
     /// <summary>
     /// Defines the category
     /// </summary>
@@ -83,7 +83,7 @@ namespace UACloudLibClientLibrary
         public DateTime CreationTimeStamp { get; set; }
         public DateTime LastModificationTime { get; set; }
     }
-    
+
     /// <summary>
     /// Contains the nodeset and timestamps
     /// </summary>

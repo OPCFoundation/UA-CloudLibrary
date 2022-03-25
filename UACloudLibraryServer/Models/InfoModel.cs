@@ -73,7 +73,7 @@ namespace UACloudLibrary
         public AddressSpaceLicense License { get; set; }
 
         [Required]
-        public string CopyrightText {get; set;}
+        public string CopyrightText { get; set; }
 
         [Required]
         public Organisation Contributor { get; set; }

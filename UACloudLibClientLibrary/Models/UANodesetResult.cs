@@ -49,6 +49,6 @@ namespace UACloudLibClientLibrary
         public string Version { get; set; }
 
         [JsonProperty(PropertyName = "adressspacecreationtime")]
-        public System.DateTime? CreationTime { get; set; }    
+        public System.DateTime? CreationTime { get; set; }
     }
 }

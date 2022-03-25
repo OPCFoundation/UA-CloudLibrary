@@ -43,7 +43,7 @@ namespace UACloudLibrary
     using System.Threading;
     using UACloudLibrary.Interfaces;
 
-    public class GraphQLUACloudLibMiddleware<TSchema> : GraphQLHttpMiddleware<TSchema> where TSchema: ISchema
+    public class GraphQLUACloudLibMiddleware<TSchema> : GraphQLHttpMiddleware<TSchema> where TSchema : ISchema
     {
         private readonly IServiceProvider _provider;
         private readonly ILogger _logger;

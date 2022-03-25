@@ -342,16 +342,16 @@ namespace UACloudLibrary
             {
                 case "MIT":
                     uaAddressSpace.License = AddressSpaceLicense.MIT;
-                break;
+                    break;
                 case "ApacheLicense20":
                     uaAddressSpace.License = AddressSpaceLicense.ApacheLicense20;
-                break;
+                    break;
                 case "Custom":
                     uaAddressSpace.License = AddressSpaceLicense.Custom;
-                break;
+                    break;
                 default:
                     uaAddressSpace.License = AddressSpaceLicense.Custom;
-                break;
+                    break;
             }
 
             uaAddressSpace.CopyrightText = _database.RetrieveMetaData(nodeSetID, "copyright");
@@ -515,7 +515,7 @@ namespace UACloudLibrary
                 {
                     return false;
                 }
-             }
+            }
 
             if (uaAddressSpace.DocumentationUrl != null)
             {

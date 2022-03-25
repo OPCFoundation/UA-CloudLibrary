@@ -78,7 +78,7 @@ namespace UACloudLibrary
                 o.UseNpgsql(PostgreSQLDB.CreateConnectionString());
             });
 
-            services.AddDefaultIdentity<IdentityUser>(options => 
+            services.AddDefaultIdentity<IdentityUser>(options =>
                     //require confirmation mail if sendgrid API Key is set
                     options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["SendGridAPIKey"])
                     ).AddEntityFrameworkStores<AppDbContext>();

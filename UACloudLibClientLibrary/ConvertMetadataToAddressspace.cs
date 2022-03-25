@@ -17,7 +17,7 @@ namespace UACloudLibClientLibrary
         {
             List<AddressSpace> listAddressSpaces = new List<AddressSpace>();
 
-            foreach(MetadataResult metadata in response)
+            foreach (MetadataResult metadata in response)
             {
                 string id = metadata.NodesetID.ToString();
                 AddressSpace addressspace = listAddressSpaces?.FirstOrDefault(e => e.MetadataID == id);

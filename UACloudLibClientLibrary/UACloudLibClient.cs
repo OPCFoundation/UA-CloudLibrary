@@ -79,7 +79,7 @@ namespace UACloudLibClientLibrary
         public async Task<List<MetadataResult>> GetMetadata()
         {
             request.Query = PrebuiltQueries.MetadataQuery;
-            return await SendAndConvert<List<MetadataResult>>(request);            
+            return await SendAndConvert<List<MetadataResult>>(request);
         }
         /// <summary>
         /// Retrieves a list of variabletypes

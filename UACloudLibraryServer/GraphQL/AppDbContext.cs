@@ -42,7 +42,7 @@ namespace UACloudLibrary
         public AppDbContext(DbContextOptions options)
         : base(options)
         {
-            
+
         }
 
         // Needed for design-time DB migration

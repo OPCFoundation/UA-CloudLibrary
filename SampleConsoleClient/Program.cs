@@ -158,26 +158,26 @@ namespace SampleConsoleClient
 
             Console.WriteLine("\nTesting object query");
             List<ObjectResult> test = client.GetObjectTypes().GetAwaiter().GetResult();
-            foreach(ObjectResult result in test)
+            foreach (ObjectResult result in test)
             {
                 Console.WriteLine($"{result.ID}, {result.Namespace}, {result.Browsename}, {result.Value}");
             }
 
             Console.WriteLine("\nTesting metadata query");
             List<MetadataResult> metadatas = client.GetMetadata().GetAwaiter().GetResult();
-            foreach(MetadataResult metadata in metadatas)
+            foreach (MetadataResult metadata in metadatas)
             {
                 Console.WriteLine($"{metadata.ID}, {metadata.Name}, {metadata.Value}");
             }
 
             Console.WriteLine("\nTesting query and convertion of metadata");
             List<AddressSpace> finalResult = client.GetConvertedResult().GetAwaiter().GetResult();
-            foreach(AddressSpace result in finalResult)
+            foreach (AddressSpace result in finalResult)
             {
                 Console.WriteLine($"{result.Title} by {result.Contributor.Name} last update on {result.LastModificationTime}");
             }
 
-            if(finalResult.Count > 0)
+            if (finalResult.Count > 0)
             {
                 Console.WriteLine("Testing download of nodeset");
                 AddressSpace result = client.DownloadNodeset(finalResult[0].MetadataID);
