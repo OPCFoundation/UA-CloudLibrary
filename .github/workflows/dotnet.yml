@@ -24,13 +24,13 @@ jobs:
         run: dotnet tool install -g dotnet-format --version "6.*" --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/index.json
       - name: ✓ ensure format UA-CloudLibrary Server
         working-directory: UACloudLibraryServer
-        run: dotnet format --verify-no-changes -v:diag --exclude ~/.nuget
+        run: dotnet-format --verify-no-changes -v:diag --exclude ~/.nuget
       - name: ✓ ensure format UA-CloudLibrary .NET Client
         working-directory: UACloudLibClientLibrary
-        run: dotnet format --verify-no-changes -v:diag --exclude ~/.nuget
+        run: dotnet-format --verify-no-changes -v:diag --exclude ~/.nuget
       - name: ✓ ensure format UA-CloudLibrary SampleConsoleClient
         working-directory: SampleConsoleClient
-        run: dotnet format --verify-no-changes -v:diag --exclude ~/.nuget
+        run: dotnet-format --verify-no-changes -v:diag --exclude ~/.nuget
   build:
     runs-on: ubuntu-latest
     steps:
