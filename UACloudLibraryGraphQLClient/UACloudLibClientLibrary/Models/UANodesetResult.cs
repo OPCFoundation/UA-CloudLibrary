@@ -30,24 +30,36 @@
 namespace Opc.Ua.CloudLib.Client
 {
     using Newtonsoft.Json;
-
+    /// <summary>GraphQL Result for nodeset queries</summary>
     public class UANodesetResult
     {
+        /// <summary>Gets or sets the identifier.</summary>
+        /// <value>The identifier.</value>
         [JsonProperty(PropertyName = "nodeset_id")]
         public uint Id { get; set; }
 
+        /// <summary>Gets or sets the title.</summary>
+        /// <value>The title.</value>
         [JsonProperty(PropertyName = "nodesettitle")]
         public string Title { get; set; }
 
+        /// <summary>Gets or sets the contributor.</summary>
+        /// <value>The contributor.</value>
         [JsonProperty(PropertyName = "orgname")]
         public string Contributor { get; set; }
 
+        /// <summary>Gets or sets the license.</summary>
+        /// <value>The license.</value>
         [JsonProperty(PropertyName = "license")]
         public string License { get; set; }
 
+        /// <summary>Gets or sets the version.</summary>
+        /// <value>The version.</value>
         [JsonProperty(PropertyName = "version")]
         public string Version { get; set; }
 
+        /// <summary>Gets or sets the creation time.</summary>
+        /// <value>The creation time.</value>
         [JsonProperty(PropertyName = "adressspacecreationtime")]
         public System.DateTime? CreationTime { get; set; }    
     }

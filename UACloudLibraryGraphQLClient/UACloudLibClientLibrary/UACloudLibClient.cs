@@ -15,11 +15,12 @@ namespace Opc.Ua.CloudLib.Client
     /// <summary>
     /// This class handles the quering and conversion of the response
     /// </summary>
-    public partial class UACloudLibClient
+    public partial class UACloudLibClient : IDisposable
     {
-        private GraphQLHttpClient m_client = null;
+        private GraphQLHttpClient m_client;
         private GraphQLRequest request = new GraphQLRequest();
-        public List<string> errors = new List<string>();
+        /// <summary>Gets or sets the endpoint.</summary>
+        /// <value>The endpoint.</value>
         public Uri Endpoint
         {
             get { return BaseEndpoint; }
@@ -31,13 +32,21 @@ namespace Opc.Ua.CloudLib.Client
         private string m_strUsername = "";
         private string m_strPassword = "";
 
+        /// <summary>Gets or sets the username.</summary>
+        /// <value>The username.</value>
         public string Username { get; set; }
 
+        /// <summary>Sets the password.</summary>
+        /// <value>The password.</value>
         public string Password
         {
             set { m_strPassword = value; }
         }
 
+        /// <summary>Initializes a new instance of the <see cref="UACloudLibClient" /> class.</summary>
+        /// <param name="strEndpoint">The string endpoint.</param>
+        /// <param name="strUsername">The string username.</param>
+        /// <param name="strPassword">The string password.</param>
         public UACloudLibClient(string strEndpoint, string strUsername, string strPassword)
         {
             BaseEndpoint = new Uri(strEndpoint);
@@ -49,18 +58,18 @@ namespace Opc.Ua.CloudLib.Client
         }
 
         //Sends the query and converts it
+        /// <summary>Sends the GraphQL query and converts it to JSON</summary>
+        /// <typeparam name="T">the JSON target tyoe</typeparam>
+        /// <param name="request">The request.</param>
+        /// <returns>
+        ///   <br />
+        /// </returns>
+        /// <exception cref="System.Exception"></exception>
         private async Task<T> SendAndConvert<T>(GraphQLRequest request)
         {
-            try
-            {
-                GraphQLResponse<JObject> response = await m_client.SendQueryAsync<JObject>(request);
-                string dataJson = response.Data.First?.First?.ToString();
-                return JsonConvert.DeserializeObject<T>(dataJson);
-            }
-            catch (Exception e)
-            {
-                throw new Exception(e.Message);
-            }
+            GraphQLResponse<JObject> response = await m_client.SendQueryAsync<JObject>(request);
+            string dataJson = response.Data.First?.First?.ToString();
+            return JsonConvert.DeserializeObject<T>(dataJson);
         }
 
         /// <summary>
@@ -137,6 +146,32 @@ namespace Opc.Ua.CloudLib.Client
             var response = await webClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, address));
             var converted = JsonConvert.DeserializeObject<AddressSpace>(await response.Content.ReadAsStringAsync());
             return converted;
+        }
+
+
+        /// <summary>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.</summary>
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+        private bool _isDisposed;
+        // Protected implementation of Dispose pattern.
+        /// <summary>Releases unmanaged and - optionally - managed resources.</summary>
+        /// <param name="disposing">
+        ///   <c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_isDisposed)
+            {
+                if (disposing)
+                {
+                    m_client?.Dispose();
+                    m_client = null;
+                }
+
+                _isDisposed = true;
+            }
         }
     }
 }

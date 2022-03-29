@@ -14,7 +14,7 @@ namespace Opc.Ua.CloudLib.Client
     {
         private static string QueryWrapper(string query)
         {
-            string test = string.Format("query{{{0}}}", query);
+            string test = string.Concat("query{", query, "}");
             return test;
         }
 
