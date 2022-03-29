@@ -90,7 +90,7 @@
         [JsonProperty("license")]
         public AddressSpaceLicense License { get; set; }
 
-        [JsonProperty("addressspacecreationtime")]
+        [JsonProperty("adressspacecreationtime")]
         public DateTime CreationTime { get; set; }
 
         [JsonProperty("version")]
