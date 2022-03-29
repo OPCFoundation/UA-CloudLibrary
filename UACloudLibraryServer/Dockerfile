@@ -7,8 +7,9 @@ EXPOSE 443
 
 FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
 WORKDIR /src
-COPY . .
+COPY ["UACloudLibraryServer/UA-CloudLibrary.csproj", "UACloudLibraryServer/"]
 RUN dotnet restore "UACloudLibraryServer/UA-CloudLibrary.csproj"
+COPY . .
 WORKDIR "/src/UACloudLibraryServer"
 RUN dotnet build "UA-CloudLibrary.csproj" -c Release -o /app/build
 

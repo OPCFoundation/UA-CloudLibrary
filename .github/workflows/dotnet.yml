@@ -27,11 +27,13 @@ jobs:
       run: dotnet restore SampleConsoleClient\SampleConsoleClient.csproj
     - name: Build
       run: dotnet build UA-CloudLibrary.sln --configuration Release --no-restore
-    - name: pack NuGet
-      run: dotnet pack UACloudLibraryGraphQLClient\UACloudLibClientLibrary\Opc.Ua.CloudLib.Client.csproj --configuration Release
-    - name: add github nuget-feed
-      run: dotnet nuget add source --username ${{ github.repository_owner }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
-    - name: publish NuGet
-      run: dotnet nuget push "bin\Release\*.nupkg"  --source "github"
     - name: Test
       run: dotnet test UA-CloudLibrary.sln --no-build --verbosity normal
+    - name: pack NuGet
+      run: dotnet pack UACloudLibraryGraphQLClient\UACloudLibClientLibrary\Opc.Ua.CloudLib.Client.csproj --configuration Release
+    - name: add github nuget-feed#
+      if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
+      run: dotnet nuget add source --username ${{ github.repository_owner }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+    - name: publish NuGet
+      if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
+      run: dotnet nuget push "**\bin\Release\*.*nupkg"  --source "github"
