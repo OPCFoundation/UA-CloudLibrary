@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\UACloudLibraryGraphQLClient\UACloudLibClientLibrary\Opc.Ua.CloudLib.Client.csproj" />
+    <ProjectReference Include="..\Opc.Ua.CloudLib.Client\Opc.Ua.CloudLib.Client.csproj" />
   </ItemGroup>
 
 </Project>

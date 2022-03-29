@@ -16,9 +16,8 @@ jobs:
     - uses: actions/checkout@v2
       with:
         fetch-depth: 0
-    - name: Get the tags version
-      id: get_version
-      run: echo ::set-output name=VERSION::${GITHUB_REF##*/}
+    - uses: dotnet/nbgv@master
+      id: nbgv
     - name: Get the repo name (lower case)
       id: get_repo
       uses: ASzc/change-string-case-action@v1
@@ -37,5 +36,5 @@ jobs:
         push: ${{ github.event_name != 'pull_request' }} # Will only push image, when not in pull_request
         file: UACloudLibraryServer/Dockerfile
         tags: |
-          ghcr.io/${{ steps.get_repo.outputs.lowercase }}:${{ steps.get_version.outputs.VERSION }}
+          ghcr.io/${{ steps.get_repo.outputs.lowercase }}:${{ steps.nbgv.outputs.SemVer2 }}
           ghcr.io/${{ steps.get_repo.outputs.lowercase }}:latest

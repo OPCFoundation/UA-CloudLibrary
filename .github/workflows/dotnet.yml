@@ -22,7 +22,7 @@ jobs:
     - name: Restore dependencies UA-CloudLibrary
       run: dotnet restore UACloudLibraryServer\UA-CloudLibrary.csproj
     - name: Restore dependencies UACloudLibClientLibrary
-      run: dotnet restore UACloudLibraryGraphQLClient\UACloudLibClientLibrary\Opc.Ua.CloudLib.Client.csproj
+      run: dotnet restore Opc.Ua.CloudLib.Client\Opc.Ua.CloudLib.Client.csproj
     - name: Restore dependencies SampleConsoleClient
       run: dotnet restore SampleConsoleClient\SampleConsoleClient.csproj
     - name: Build
@@ -30,10 +30,13 @@ jobs:
     - name: Test
       run: dotnet test UA-CloudLibrary.sln --no-build --verbosity normal
     - name: pack NuGet
-      run: dotnet pack UACloudLibraryGraphQLClient\UACloudLibClientLibrary\Opc.Ua.CloudLib.Client.csproj --configuration Release
+      run: dotnet pack Opc.Ua.CloudLib.Client\Opc.Ua.CloudLib.Client.csproj --configuration Release
     - name: add github nuget-feed#
       #if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
       run: dotnet nuget add source --username ${{ github.repository_owner }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
     - name: publish NuGet
       #if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
-      run: dotnet nuget push "**\bin\Release\*.*nupkg"  --source "github"
+      run: dotnet nuget push "Opc.Ua.CloudLib.Client\bin\Release\*.nupkg"  --source "github"
+    - name: publish NuGet Symbols
+      #if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
+      run: dotnet nuget push "Opc.Ua.CloudLib.Client\bin\Release\*.snupkg"  --source "github"
