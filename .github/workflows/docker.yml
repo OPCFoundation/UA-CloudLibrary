@@ -18,6 +18,8 @@ jobs:
         fetch-depth: 0
     - uses: dotnet/nbgv@master
       id: nbgv
+      with:
+        setAllVars: true
     - name: Get the repo name (lower case)
       id: get_repo
       uses: ASzc/change-string-case-action@v1
@@ -29,10 +31,10 @@ jobs:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - uses: actions/checkout@v2
     - name: Build and Push Docker Image
       uses: docker/build-push-action@v2
       with:
+        context: .
         push: ${{ github.event_name != 'pull_request' }} # Will only push image, when not in pull_request
         file: UACloudLibraryServer/Dockerfile
         tags: |
