@@ -55,14 +55,16 @@ namespace UACloudLibrary
                 arguments: new QueryArguments(
                     new QueryArgument<IntGraphType> { Name = "limit" },
                     new QueryArgument<IntGraphType> { Name = "offset" },
-                    new QueryArgument<StringGraphType> { Name = "where" }
+                    new QueryArgument<StringGraphType> { Name = "where" },
+                    new QueryArgument<StringGraphType> { Name = "orderby"}
                 ),
                 resolve: context =>
                 {
                     int limit = context.GetArgument("limit", 1000000);
                     int offset = context.GetArgument("offset", 0);
                     string where = context.GetArgument("where", string.Empty);
-                    return cloudLibResolver.GetCategoryTypes(limit, offset, where);
+                    string orderby = context.GetArgument("oderby", string.Empty);
+                    return cloudLibResolver.GetCategoryTypes(limit, offset, where, orderby);
                 }
             );
                         
@@ -71,14 +73,16 @@ namespace UACloudLibrary
                 arguments: new QueryArguments(
                     new QueryArgument<IntGraphType> { Name = "limit" },
                     new QueryArgument<IntGraphType> { Name = "offset" },
-                    new QueryArgument<StringGraphType> { Name = "where" }
+                    new QueryArgument<StringGraphType> { Name = "where" },
+                    new QueryArgument<StringGraphType> { Name = "orderby" }
                 ),
                 resolve: context =>
                 {
                     int limit = context.GetArgument("limit", 1000000);
                     int offset = context.GetArgument("offset", 0);
                     string where = context.GetArgument("where", string.Empty);
-                    return cloudLibResolver.GetOrganisationTypes(limit, offset, where);
+                    string orderby = context.GetArgument("oderby", string.Empty);
+                    return cloudLibResolver.GetOrganisationTypes(limit, offset, where, orderby);
                 }
             );
 
@@ -87,14 +91,16 @@ namespace UACloudLibrary
                 arguments: new QueryArguments(
                     new QueryArgument<IntGraphType> { Name = "limit" },
                     new QueryArgument<IntGraphType> { Name = "offset" },
-                    new QueryArgument<StringGraphType> { Name = "where" }
+                    new QueryArgument<StringGraphType> { Name = "where" },
+                    new QueryArgument<StringGraphType> { Name = "orderby" }
                 ),
                 resolve: context =>
                 {
                     int limit = context.GetArgument("limit", 1000000);
                     int offset = context.GetArgument("offset", 0);
                     string where = context.GetArgument("where", string.Empty);
-                    return cloudLibResolver.GetAdressSpaceTypes(limit, offset, where);
+                    string orderby = context.GetArgument("oderby", string.Empty);
+                    return cloudLibResolver.GetAdressSpaceTypes(limit, offset, where, orderby);
                 }
             );
         }

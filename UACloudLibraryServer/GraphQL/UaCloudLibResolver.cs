@@ -178,7 +178,7 @@ namespace UACloudLibrary
             return nodesetIds;
         }
 
-        public Task<List<AddressSpace>> GetAdressSpaceTypes(int limit, int offset, string where)
+        public Task<List<AddressSpace>> GetAdressSpaceTypes(int limit, int offset, string where, string orderby)
         {
             List<long> nodesetIds = ApplyWhereExpression(where);
 
@@ -397,10 +397,19 @@ namespace UACloudLibrary
                 }
             }
 
-            return Task.FromResult(result);
+            if (string.IsNullOrEmpty(orderby))
+            {
+                // return unordered list
+                return Task.FromResult(result);
+            }
+            else
+            {
+                // return odered list
+                return Task.FromResult(result.OrderByDescending(p => p, new AddressSpaceComparer(orderby)).ToList());
+            }
         }
 
-        public Task<List<AddressSpaceCategory>> GetCategoryTypes(int limit, int offset, string where)
+        public Task<List<AddressSpaceCategory>> GetCategoryTypes(int limit, int offset, string where, string orderby)
         {
             List<long> nodesetIds = ApplyWhereExpression(where);
 
@@ -451,10 +460,19 @@ namespace UACloudLibrary
                 }
             }
 
-            return Task.FromResult(result);
+            if (string.IsNullOrEmpty(orderby))
+            {
+                // return unordered list
+                return Task.FromResult(result);
+            }
+            else
+            {
+                // return odered list
+                return Task.FromResult(result.OrderByDescending(p => p, new AddressSpaceCategoryComparer(orderby)).ToList());
+            }
         }
 
-        public Task<List<Organisation>> GetOrganisationTypes(int limit, int offset, string where)
+        public Task<List<Organisation>> GetOrganisationTypes(int limit, int offset, string where, string orderby)
         {
             List<long> nodesetIds = ApplyWhereExpression(where);
 
@@ -519,7 +537,16 @@ namespace UACloudLibrary
                 }
             }
 
-            return Task.FromResult(result);
+            if (string.IsNullOrEmpty(orderby))
+            {
+                // return unordered list
+                return Task.FromResult(result);
+            }
+            else
+            {
+                // return odered list
+                return Task.FromResult(result.OrderByDescending(p => p, new OrganisationComparer(orderby)).ToList());
+            }
         }
     }
 }
