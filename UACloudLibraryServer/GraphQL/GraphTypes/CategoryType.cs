@@ -35,7 +35,7 @@ namespace UACloudLibrary
     {
         public CategoryType()
         {
-            Field(e => e.Name, type: typeof(StringGraphType));
+            Field(e => e.Name, type: typeof(NonNullGraphType<StringGraphType>));
             Field(e => e.IconUrl, type: typeof(UriGraphType));
             Field(e => e.Description, type: typeof(StringGraphType));
         }

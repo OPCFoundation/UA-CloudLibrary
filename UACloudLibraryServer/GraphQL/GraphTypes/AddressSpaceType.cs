@@ -35,23 +35,23 @@ namespace UACloudLibrary
     {
         public AddressSpaceType()
         {
-            Field(e => e.Title, type: typeof(StringGraphType));
-            Field(e => e.Version, type: typeof(StringGraphType));
-            Field(e => e.Description, type: typeof(StringGraphType));
-            Field(e => e.CopyrightText, type: typeof(StringGraphType));
+            Field(e => e.Title, type: typeof(NonNullGraphType<StringGraphType>));
+            Field(e => e.Version, type: typeof(NonNullGraphType<StringGraphType>));
+            Field(e => e.License, type: typeof(NonNullGraphType<AddressSpaceLicenseType>));
+            Field(e => e.CopyrightText, type: typeof(NonNullGraphType<StringGraphType>));
+            Field(e => e.Contributor, type: typeof(NonNullGraphType<OrganisationType>));
+            Field(e => e.Description, type: typeof(NonNullGraphType<StringGraphType>));
+            Field(e => e.Category, type: typeof(NonNullGraphType<CategoryType>));
+            Field(e => e.Nodeset, type: typeof(NonNullGraphType<NodesetType>));
             Field(e => e.NumberOfDownloads, type: typeof(UIntGraphType));
             Field(e => e.SupportedLocales, type: typeof(ListGraphType<StringGraphType>));
             Field(e => e.Keywords, type: typeof(ListGraphType<StringGraphType>));
-            Field(e => e.License, type: typeof(AddressSpaceLicenseType));
-            Field(e => e.Contributor, type: typeof(OrganisationType));
-            Field(e => e.Category, type: typeof(CategoryType));
             Field(e => e.LicenseUrl, type: typeof(UriGraphType));
             Field(e => e.DocumentationUrl, type: typeof(UriGraphType));
             Field(e => e.IconUrl, type: typeof(UriGraphType));
             Field(e => e.PurchasingInformationUrl, type: typeof(UriGraphType));
             Field(e => e.ReleaseNotesUrl, type: typeof(UriGraphType));
             Field(e => e.TestSpecificationUrl, type: typeof(UriGraphType));
-            Field(e => e.Nodeset, type: typeof(NodesetType));
         }
     }
 }

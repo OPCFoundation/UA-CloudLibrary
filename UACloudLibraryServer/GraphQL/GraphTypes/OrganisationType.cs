@@ -35,7 +35,7 @@ namespace UACloudLibrary
     {
         public OrganisationType()
         {
-            Field(e => e.Name, type: typeof(StringGraphType));
+            Field(e => e.Name, type: typeof(NonNullGraphType<StringGraphType>));
             Field(e => e.ContactEmail, type: typeof(StringGraphType));
             Field(e => e.Description, type: typeof(StringGraphType));
             Field(e => e.LogoUrl, type: typeof(UriGraphType));
