@@ -68,6 +68,47 @@ namespace UACloudLibrary
             return _context.referencetype.ToListAsync();
         }
 
+        public Task<List<AddressSpaceNodeset2>> GetNodesetTypes()
+        {
+            List<AddressSpaceNodeset2> result = new List<AddressSpaceNodeset2>();
+
+            List<long> nodesetIds = _context.metadata.Select(p => p.nodeset_id).Distinct().ToList();
+
+            for (int i = 0; i < nodesetIds.Count; i++)
+            {
+                try
+                {
+                    AddressSpaceNodeset2 nodeset = new AddressSpaceNodeset2();
+
+                    Dictionary<string, MetadataModel> metadataForNodeset = _context.metadata.Where(p => p.nodeset_id == nodesetIds[i]).ToDictionary(x => x.metadata_name);
+
+                    if (metadataForNodeset.ContainsKey("nodesetcreationtime"))
+                    {
+                        if (DateTime.TryParse(metadataForNodeset["nodesetcreationtime"].metadata_value, out DateTime parsedDateTime))
+                        {
+                            nodeset.PublicationDate = parsedDateTime;
+                        }
+                    }
+
+                    if (metadataForNodeset.ContainsKey("nodesetmodifiedtime"))
+                    {
+                        if (DateTime.TryParse(metadataForNodeset["nodesetmodifiedtime"].metadata_value, out DateTime parsedDateTime))
+                        {
+                            nodeset.LastModifiedDate = parsedDateTime;
+                        }
+                    }
+
+                    result.Add(nodeset);
+                }
+                catch (Exception)
+                {
+                    // ignore this entity
+                }
+            }
+
+            return Task.FromResult(result);
+        }
+
         public Task<List<VariabletypeModel>> GetVariableTypes()
         {   
             return _context.variabletype.ToListAsync();

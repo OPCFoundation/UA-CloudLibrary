@@ -48,6 +48,8 @@ namespace UACloudLibrary
 
             Field<ListGraphType<VariabletypeType>>("variabletype", resolve: context => cloudLibResolver.GetVariableTypes());
 
+            Field<ListGraphType<NodesetType>>("nodesettype", resolve: context => cloudLibResolver.GetNodesetTypes());
+            
             Field<ListGraphType<CategoryType>>(
                 "categorytype",
                 arguments: new QueryArguments(
@@ -63,7 +65,7 @@ namespace UACloudLibrary
                     return cloudLibResolver.GetCategoryTypes(limit, offset, where);
                 }
             );
-
+                        
             Field<ListGraphType<OrganisationType>>(
                 "organisationtype",
                 arguments: new QueryArguments(
