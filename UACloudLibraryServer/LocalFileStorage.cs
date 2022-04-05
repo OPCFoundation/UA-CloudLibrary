@@ -54,13 +54,13 @@ namespace UACloudLibrary
         /// <summary>
         /// Find a file based on a unique name
         /// </summary>
-        public Task<string> FindFileAsync(string name, CancellationToken cancellationToken = default)
+        public async Task<string> FindFileAsync(string name, CancellationToken cancellationToken = default)
         {
             try
             {
                 if (File.Exists(Path.Combine(Path.GetTempPath(), name)))
                 {
-                    return Task.FromResult(name);
+                    return name;
                 }
                 else
                 {
