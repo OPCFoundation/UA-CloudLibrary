@@ -15,7 +15,7 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
 
 If you want to access the globally hosted instance from the OPC Foundation at https://uacloudlibrary.opcfoundation.org from our software, you can integrate the source code from the SampleConsoleClient found in this repo. It exercises both the GraphQL and REST API, so you have the choice.
 
-## Develpment Setup
+## Development Setup
 
 Start development in three simple steps:
 

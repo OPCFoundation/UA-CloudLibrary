@@ -64,13 +64,13 @@ namespace UACloudLibrary
                 }
                 else
                 {
-                    return null;
+                    return Task.FromResult<string>(null);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
-                return null;
+                return Task.FromResult<string>(null);
             }
         }
 
