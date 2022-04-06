@@ -82,7 +82,14 @@ namespace SampleConsoleClient
             Console.WriteLine("Testing objecttype query (the other OPC UA types are very similar!)");
             GraphQLRequest request = new GraphQLRequest
             {
-                Query = "query { objecttype { objecttype_browsename objecttype_value objecttype_namespace nodeset_id } }"
+                Query = @"query {
+                            objecttype {
+                                objecttype_browsename
+                                objecttype_value
+                                objecttype_namespace
+                                nodeset_id
+                            }
+                        }"
             };
 
             GraphQLResponse<JObject> response = graphQLClient.SendQueryAsync<JObject>(request).GetAwaiter().GetResult();
@@ -92,7 +99,57 @@ namespace SampleConsoleClient
             Console.WriteLine("Testing metadata query");
             request = new GraphQLRequest
             {
-                Query = "query { metadata { metadata_name metadata_value nodeset_id } }"
+                Query = @"query {
+                            metadata {
+                                metadata_name
+                                metadata_value
+                                nodeset_id
+                            }
+                        }"
+            };
+
+            response = graphQLClient.SendQueryAsync<JObject>(request).GetAwaiter().GetResult();
+            Console.WriteLine(JsonConvert.SerializeObject(response.Data, Formatting.Indented));
+
+            Console.WriteLine();
+            Console.WriteLine("Testing addressspace query");
+            request = new GraphQLRequest
+            {
+                Query = @"query {
+                            addressspacetype(
+                                limit: 10
+                                offset: 0
+                                where: ""[{ 'orgname': { 'like': 'microsoft' }}]""
+                                orderby: ""title""
+                            ) {
+                                title
+                                contributor {
+                                    name
+                                    contactEmail
+                                    website
+                                    logoUrl
+                                    description
+                                }
+                                license
+                                category {
+                                    name
+                                    description
+                                    iconUrl
+                                }
+                                description
+                                documentationUrl
+                                purchasingInformationUrl
+                                version
+                                releaseNotesUrl
+                                keywords
+                                supportedLocales
+                                nodeset
+                                {
+                                    publicationDate
+                                    lastModifiedDate
+                                }
+                            }
+                        }"
             };
 
             response = graphQLClient.SendQueryAsync<JObject>(request).GetAwaiter().GetResult();
