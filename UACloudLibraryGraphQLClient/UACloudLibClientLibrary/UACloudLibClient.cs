@@ -243,7 +243,7 @@ namespace UACloudLibClientLibrary
         /// </summary>
         public async Task<List<Organisation>> GetOrganisations(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
-            IQuery<Organisation> organisationQuery = new Query<Organisation>("organisationtype")
+            IQuery<Organisation> organisationQuery = new Query<Organisation>("organisation")
                 .AddField(f => f.Name)
                 .AddField(f => f.Website)
                 .AddField(f => f.ContactEmail)
@@ -268,7 +268,7 @@ namespace UACloudLibClientLibrary
         /// </summary>
         public async Task<List<AddressSpace>> GetAddressSpaces(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
-            IQuery<AddressSpace> addressSpaceQuery = new Query<AddressSpace>("addressspacetype")
+            IQuery<AddressSpace> addressSpaceQuery = new Query<AddressSpace>("addressspace")
                 .AddField(h => h.Title)
                 .AddField(
                     h => h.Contributor,
@@ -288,7 +288,6 @@ namespace UACloudLibClientLibrary
                 .AddField(h => h.Description)
                 .AddField(h => h.DocumentationUrl)
                 .AddField(h => h.PurchasingInformationUrl)
-                .AddField(h => h.Version)
                 .AddField(h => h.ReleaseNotesUrl)
                 .AddField(h => h.Keywords)
                 .AddField(h => h.SupportedLocales);
@@ -321,9 +320,9 @@ namespace UACloudLibClientLibrary
         /// <summary>
         /// Queries the categories with the given filters
         /// </summary>
-        public async Task<List<AddressSpaceCategory>> GetAddressSpaceCategories(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
+        public async Task<List<Category>> GetAddressSpaceCategories(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
-            IQuery<AddressSpaceCategory> categoryQuery = new Query<AddressSpaceCategory>("categorytype")
+            IQuery<Category> categoryQuery = new Query<Category>("category")
                 .AddField(f => f.Name)
                 .AddField(f => f.Description)
                 .AddField(f => f.IconUrl);
@@ -338,7 +337,7 @@ namespace UACloudLibClientLibrary
 
             request.Query = "query{" + categoryQuery.Build() + "}";
 
-            return await SendAndConvert<List<AddressSpaceCategory>>(request).ConfigureAwait(false);
+            return await SendAndConvert<List<Category>>(request).ConfigureAwait(false);
         }
 
         /// <summary>

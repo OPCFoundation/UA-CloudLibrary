@@ -45,7 +45,6 @@ namespace UACloudLibrary
             switch (Orderby)
             {
                 case "name": return string.Compare(x.Title, y.Title);
-                case "version": return string.Compare(x.Version, y.Version);
                 case "copyrighttext": return string.Compare(x.CopyrightText, y.CopyrightText);
                 case "description": return string.Compare(x.Description, y.Description);
                 default: return 0; // return unordered

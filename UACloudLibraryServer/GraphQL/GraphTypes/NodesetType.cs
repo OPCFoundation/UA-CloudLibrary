@@ -31,10 +31,13 @@ namespace UACloudLibrary
 {
     using GraphQL.Types;
 
-    public class NodesetType : ObjectGraphType<AddressSpaceNodeset2>
+    public class NodesetType : ObjectGraphType<Nodeset>
     {
         public NodesetType()
         {
+            Field(e => e.Identifier, type: typeof(UIntGraphType));
+            Field(e => e.NamespaceUri, type: typeof(UriGraphType));
+            Field(e => e.Version, type: typeof(StringGraphType));
             Field(e => e.PublicationDate, type: typeof(DateTimeGraphType));
             Field(e => e.LastModifiedDate, type: typeof(DateTimeGraphType));
         }

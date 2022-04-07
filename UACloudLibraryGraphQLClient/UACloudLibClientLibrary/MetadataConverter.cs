@@ -82,7 +82,7 @@ namespace UACloudLibClientLibrary
             AddressSpace addressSpace = new AddressSpace();
 
             addressSpace.Title = info.Title;
-            addressSpace.Version = info.Version;
+            addressSpace.Nodeset.Version = info.Version;
             addressSpace.Contributor.Name = info.Organisation;
             addressSpace.License = info.License;
             addressSpace.Nodeset.PublicationDate = info.CreationTime;
@@ -179,22 +179,22 @@ namespace UACloudLibClientLibrary
                         {
                             case "MIT":
                                 {
-                                    addressspace.License = AddressSpaceLicense.MIT;
+                                    addressspace.License = License.MIT;
                                     break;
                                 }
                             case "ApacheLicense20":
                                 {
-                                    addressspace.License = AddressSpaceLicense.ApacheLicense20;
+                                    addressspace.License = License.ApacheLicense20;
                                     break;
                                 }
                             case "Custom":
                                 {
-                                    addressspace.License = AddressSpaceLicense.Custom;
+                                    addressspace.License = License.Custom;
                                     break;
                                 }
                             default:
                                 {
-                                    addressspace.License = (AddressSpaceLicense)Enum.Parse(typeof(AddressSpaceLicense), metadata.Value);
+                                    addressspace.License = (License)Enum.Parse(typeof(License), metadata.Value);
                                     break;
                                 }
                         }
@@ -202,7 +202,7 @@ namespace UACloudLibClientLibrary
                     }
                 case "version":
                     {
-                        addressspace.Version = metadata.Value;
+                        addressspace.Nodeset.Version = metadata.Value;
                         break;
                     }
                 case "releasenotes":

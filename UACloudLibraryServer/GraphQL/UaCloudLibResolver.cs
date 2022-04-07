@@ -68,9 +68,9 @@ namespace UACloudLibrary
             return _context.referencetype.ToListAsync();
         }
 
-        public Task<List<AddressSpaceNodeset2>> GetNodesetTypes()
+        public Task<List<Nodeset>> GetNodesetTypes()
         {
-            List<AddressSpaceNodeset2> result = new List<AddressSpaceNodeset2>();
+            List<Nodeset> result = new List<Nodeset>();
 
             List<long> nodesetIds = _context.metadata.Select(p => p.nodeset_id).Distinct().ToList();
 
@@ -78,7 +78,7 @@ namespace UACloudLibrary
             {
                 try
                 {
-                    AddressSpaceNodeset2 nodeset = new AddressSpaceNodeset2();
+                    Nodeset nodeset = new Nodeset();
 
                     Dictionary<string, MetadataModel> metadataForNodeset = _context.metadata.Where(p => p.nodeset_id == nodesetIds[i]).ToDictionary(x => x.metadata_name);
 
@@ -167,11 +167,15 @@ namespace UACloudLibrary
                         }
                     }
                 }
+                else
+                {
+                    // where expression was invalid, return empty list
+                    nodesetIds = new List<long>();
+                }
             }
-
-            if (nodesetIds == null)
+            else
             {
-                // where expression was invalid or not specified, so get all distinct nodeset IDs
+                // where expression was not specified, so get all distinct nodeset IDs
                 nodesetIds = _context.metadata.Select(p => p.nodeset_id).Distinct().ToList();
             }
 
@@ -225,7 +229,15 @@ namespace UACloudLibrary
 
                     if (metadataForNodeset.ContainsKey("version"))
                     {
-                        addressSpace.Version = metadataForNodeset["version"].metadata_value;
+                        addressSpace.Nodeset.Version = metadataForNodeset["version"].metadata_value;
+                    }
+
+                    addressSpace.Nodeset.Identifier = (uint)nodesetIds[i];
+
+                    List<ObjecttypeModel> objectTypesForNodeset = _context.objecttype.Where(p => p.nodeset_id == nodesetIds[i]).ToList();
+                    if (objectTypesForNodeset.Count > 0)
+                    {
+                        addressSpace.Nodeset.NamespaceUri = new Uri(objectTypesForNodeset[0].objecttype_namespace);
                     }
 
                     if (metadataForNodeset.ContainsKey("license"))
@@ -233,16 +245,16 @@ namespace UACloudLibrary
                         switch (metadataForNodeset["license"].metadata_value)
                         {
                             case "MIT":
-                                addressSpace.License = AddressSpaceLicense.MIT;
+                                addressSpace.License = License.MIT;
                                 break;
                             case "ApacheLicense20":
-                                addressSpace.License = AddressSpaceLicense.ApacheLicense20;
+                                addressSpace.License = License.ApacheLicense20;
                                 break;
                             case "Custom":
-                                addressSpace.License = AddressSpaceLicense.Custom;
+                                addressSpace.License = License.Custom;
                                 break;
                             default:
-                                addressSpace.License = AddressSpaceLicense.Custom;
+                                addressSpace.License = License.Custom;
                                 break;
                         }
                     }
@@ -409,27 +421,27 @@ namespace UACloudLibrary
             }
         }
 
-        public Task<List<AddressSpaceCategory>> GetCategoryTypes(int limit, int offset, string where, string orderby)
+        public Task<List<Category>> GetCategoryTypes(int limit, int offset, string where, string orderby)
         {
             List<long> nodesetIds = ApplyWhereExpression(where);
 
             // input validation
             if ((offset < 0) || (limit < 0) || (offset > nodesetIds.Count))
             {
-                return Task.FromResult(new List<AddressSpaceCategory>());
+                return Task.FromResult(new List<Category>());
             }
             if ((offset + limit) > nodesetIds.Count)
             {
                 limit = nodesetIds.Count - offset;
             }
 
-            List<AddressSpaceCategory> result = new List<AddressSpaceCategory>();
+            List<Category> result = new List<Category>();
 
             for (int i = offset; i < (offset + limit); i++)
             {
                 try
                 {
-                    AddressSpaceCategory category = new AddressSpaceCategory();
+                    Category category = new Category();
 
                     Dictionary<string, MetadataModel> metadataForNodeset = _context.metadata.Where(p => p.nodeset_id == nodesetIds[i]).ToDictionary(x => x.metadata_name);
 

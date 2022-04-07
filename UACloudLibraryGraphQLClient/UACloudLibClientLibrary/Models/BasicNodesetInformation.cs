@@ -45,7 +45,7 @@ namespace UACloudLibClientLibrary.Models
         public string Organisation { get; set; }
 
         [JsonProperty("license")]
-        public AddressSpaceLicense License { get; set; }
+        public License License { get; set; }
 
         [JsonProperty("addressspacecreationtime")]
         public DateTime CreationTime { get; set; }

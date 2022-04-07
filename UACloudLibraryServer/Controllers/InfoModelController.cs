@@ -343,9 +343,9 @@ namespace UACloudLibrary
                 }
             }
 
-            if (!string.IsNullOrWhiteSpace(uaAddressSpace.Version))
+            if (!string.IsNullOrWhiteSpace(uaAddressSpace.Nodeset.Version))
             {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "version", new Version(uaAddressSpace.Version).ToString()))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "version", new Version(uaAddressSpace.Nodeset.Version).ToString()))
                 {
                     return false;
                 }
@@ -507,7 +507,7 @@ namespace UACloudLibrary
 
             if (uaAddressSpace.AdditionalProperties != null)
             {
-                foreach (NodesetProperty additionalProperty in uaAddressSpace.AdditionalProperties)
+                foreach (Property additionalProperty in uaAddressSpace.AdditionalProperties)
                 {
                     if (!string.IsNullOrWhiteSpace(additionalProperty.Name) && !string.IsNullOrWhiteSpace(additionalProperty.Value))
                     {

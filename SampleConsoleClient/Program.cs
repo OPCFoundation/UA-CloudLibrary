@@ -116,7 +116,7 @@ namespace SampleConsoleClient
             request = new GraphQLRequest
             {
                 Query = @"query {
-                            addressspacetype(
+                            addressspace(
                                 limit: 10
                                 offset: 0
                                 where: ""[{ 'orgname': { 'like': 'microsoft' }}]""
@@ -139,12 +139,14 @@ namespace SampleConsoleClient
                                 description
                                 documentationUrl
                                 purchasingInformationUrl
-                                version
                                 releaseNotesUrl
                                 keywords
                                 supportedLocales
                                 nodeset
                                 {
+                                    version
+                                    identifier
+                                    namespaceUri
                                     publicationDate
                                     lastModifiedDate
                                 }

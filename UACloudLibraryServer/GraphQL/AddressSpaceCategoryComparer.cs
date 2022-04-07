@@ -31,7 +31,7 @@ namespace UACloudLibrary
 {
     using System.Collections.Generic;
 
-    internal class AddressSpaceCategoryComparer : IComparer<AddressSpaceCategory>
+    internal class AddressSpaceCategoryComparer : IComparer<Category>
     {
         public string Orderby { get; }
 
@@ -40,7 +40,7 @@ namespace UACloudLibrary
             Orderby = oderby.ToLower();
         }
 
-        public int Compare(AddressSpaceCategory x, AddressSpaceCategory y)
+        public int Compare(Category x, Category y)
         {
             switch (Orderby)
             {

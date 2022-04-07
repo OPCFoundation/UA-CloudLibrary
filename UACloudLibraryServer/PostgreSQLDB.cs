@@ -226,21 +226,29 @@ public class PostgreSQLDB : IDatabase
 
             uaAddressSpace.Title = RetrieveMetaData(nodesetId, "nodesettitle");
 
-            uaAddressSpace.Version = RetrieveMetaData(nodesetId, "version");
+            uaAddressSpace.Nodeset.Version = RetrieveMetaData(nodesetId, "version");
+
+            uaAddressSpace.Nodeset.Identifier = nodesetId;
+
+            string uri = GetNamespaceUriForNodeset(nodesetId);
+            if (!string.IsNullOrEmpty(uri))
+            {
+                uaAddressSpace.Nodeset.NamespaceUri = new Uri(uri);
+            }
 
             switch (RetrieveMetaData(nodesetId, "license"))
             {
                 case "MIT":
-                    uaAddressSpace.License = AddressSpaceLicense.MIT;
+                    uaAddressSpace.License = License.MIT;
                     break;
                 case "ApacheLicense20":
-                    uaAddressSpace.License = AddressSpaceLicense.ApacheLicense20;
+                    uaAddressSpace.License = License.ApacheLicense20;
                     break;
                 case "Custom":
-                    uaAddressSpace.License = AddressSpaceLicense.Custom;
+                    uaAddressSpace.License = License.Custom;
                     break;
                 default:
-                    uaAddressSpace.License = AddressSpaceLicense.Custom;
+                    uaAddressSpace.License = License.Custom;
                     break;
             }
 
@@ -252,7 +260,7 @@ public class PostgreSQLDB : IDatabase
 
             uaAddressSpace.Category.Description = RetrieveMetaData(nodesetId, "addressspacedescription");
 
-            string uri = RetrieveMetaData(nodesetId, "addressspaceiconurl");
+            uri = RetrieveMetaData(nodesetId, "addressspaceiconurl");
             if (!string.IsNullOrEmpty(uri))
             {
                 uaAddressSpace.Category.IconUrl = new Uri(uri);
@@ -530,6 +538,32 @@ public class PostgreSQLDB : IDatabase
             }
 
             return new string[0];
+        }
+
+        public string GetNamespaceUriForNodeset(uint nodesetId)
+        {
+            try
+            {
+                if (_connection.State != ConnectionState.Open)
+                {
+                    _connection.Close();
+                    _connection.Open();
+                }
+
+                string sqlSelect = string.Format("SELECT objecttype_namespace FROM public.objecttype WHERE (Nodeset_id='{0}')", (long)nodesetId);
+                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlSelect, _connection);
+                object result = sqlCommand.ExecuteScalar();
+                if (result != null)
+                {
+                    return result.ToString();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.Message);
+            }
+
+            return string.Empty;
         }
 
         public string[] GetAllNamesAndNodesets()

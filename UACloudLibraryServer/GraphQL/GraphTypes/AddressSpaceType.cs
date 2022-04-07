@@ -36,7 +36,6 @@ namespace UACloudLibrary
         public AddressSpaceType()
         {
             Field(e => e.Title, type: typeof(NonNullGraphType<StringGraphType>));
-            Field(e => e.Version, type: typeof(NonNullGraphType<StringGraphType>));
             Field(e => e.License, type: typeof(NonNullGraphType<AddressSpaceLicenseType>));
             Field(e => e.CopyrightText, type: typeof(NonNullGraphType<StringGraphType>));
             Field(e => e.Contributor, type: typeof(NonNullGraphType<OrganisationType>));

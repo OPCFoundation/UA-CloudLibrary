@@ -31,7 +31,7 @@ namespace UACloudLibrary
 {
     using GraphQL.Types;
 
-    public class CategoryType : ObjectGraphType<AddressSpaceCategory>
+    public class CategoryType : ObjectGraphType<Category>
     {
         public CategoryType()
         {
