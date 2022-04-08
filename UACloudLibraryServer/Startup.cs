@@ -246,6 +246,8 @@ namespace UACloudLibrary
             },
             "/graphqlui");
 
+            app.UseGraphQLGraphiQL("/graphiql");
+
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllerRoute(
