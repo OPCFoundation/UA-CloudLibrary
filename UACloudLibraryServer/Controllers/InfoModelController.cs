@@ -216,7 +216,10 @@ namespace UACloudLibrary
         {
             try
             {
-                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+                // workaround for bug https://github.com/dotnet/runtime/issues/67622
+                string nodesetXml = uaAddressSpace.Nodeset.NodesetXml.Replace("<Value/>", "<Value xsi:nil='true' />");
+
+                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(nodesetXml)))
                 {
                     UANodeSet nodeSet = UANodeSet.Read(stream);
                     if ((nodeSet.Models != null) && (nodeSet.Models.Length > 0))
@@ -245,7 +248,10 @@ namespace UACloudLibrary
 
             try
             {
-                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+                // workaround for bug https://github.com/dotnet/runtime/issues/67622
+                string nodesetXml = uaAddressSpace.Nodeset.NodesetXml.Replace("<Value/>", "<Value xsi:nil='true' />");
+
+                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(nodesetXml)))
                 {
                     UANodeSet nodeSet = UANodeSet.Read(stream);
                     if ((nodeSet.Models != null) && (nodeSet.Models.Length > 0))
@@ -279,7 +285,10 @@ namespace UACloudLibrary
             int hashCode = 0;
             try
             {
-                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+                // workaround for bug https://github.com/dotnet/runtime/issues/67622
+                string nodesetXml = uaAddressSpace.Nodeset.NodesetXml.Replace("<Value/>", "<Value xsi:nil='true' />");
+
+                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(nodesetXml)))
                 {
                     UANodeSet nodeSet = UANodeSet.Read(stream);
                     if ((nodeSet.Models != null) && (nodeSet.Models.Length > 0))
@@ -320,8 +329,11 @@ namespace UACloudLibrary
             int hashCode = 0;
             try
             {
+                // workaround for bug https://github.com/dotnet/runtime/issues/67622
+                string nodesetXml = uaAddressSpace.Nodeset.NodesetXml.Replace("<Value/>", "<Value xsi:nil='true' />");
+
                 List<string> namespaces = new List<string>();
-                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(nodesetXml)))
                 {
                     UANodeSet nodeSet = UANodeSet.Read(stream);
                     foreach (string namespaceUri in nodeSet.NamespaceUris)
@@ -578,7 +590,10 @@ namespace UACloudLibrary
             // add the default namespace
             namespaces.Add("http://opcfoundation.org/UA/");
 
-            using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+            // workaround for bug https://github.com/dotnet/runtime/issues/67622
+            string nodesetXml = uaAddressSpace.Nodeset.NodesetXml.Replace("<Value/>", "<Value xsi:nil='true' />");
+
+            using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(nodesetXml)))
             {
                 try
                 {
