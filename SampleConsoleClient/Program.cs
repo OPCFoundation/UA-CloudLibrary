@@ -40,7 +40,7 @@ namespace SampleConsoleClient
     using System.Text;
     using UACloudLibClientLibrary;
     using UACloudLibClientLibrary.Models;
-    using UACloudLibrary;
+    using UACloudLibrary.Models;
 
     class Program
     {
@@ -79,15 +79,15 @@ namespace SampleConsoleClient
             GraphQLHttpClient graphQLClient = new GraphQLHttpClient(options, new NewtonsoftJsonSerializer());
 
             Console.WriteLine();
-            Console.WriteLine("Testing objecttype query (the other OPC UA types are very similar!)");
+            Console.WriteLine("Testing objectType query (the other OPC UA types are very similar!)");
             GraphQLRequest request = new GraphQLRequest
             {
                 Query = @"query {
-                            objecttype {
-                                objecttype_browsename
-                                objecttype_value
-                                objecttype_namespace
-                                nodeset_id
+                            objectType {
+                                browseName
+                                value
+                                nameSpace
+                                nodesetId
                             }
                         }"
             };
@@ -101,9 +101,9 @@ namespace SampleConsoleClient
             {
                 Query = @"query {
                             metadata {
-                                metadata_name
-                                metadata_value
-                                nodeset_id
+                                name
+                                value
+                                nodesetId
                             }
                         }"
             };
@@ -112,15 +112,15 @@ namespace SampleConsoleClient
             Console.WriteLine(JsonConvert.SerializeObject(response.Data, Formatting.Indented));
 
             Console.WriteLine();
-            Console.WriteLine("Testing addressspace query");
+            Console.WriteLine("Testing addressSpace query");
             request = new GraphQLRequest
             {
                 Query = @"query {
-                            addressspace(
+                            addressSpace(
                                 limit: 10
                                 offset: 0
                                 where: ""[{ 'orgname': { 'like': 'microsoft' }}]""
-                                orderby: ""title""
+                                orderBy: ""title""
                             ) {
                                 title
                                 contributor {
@@ -218,7 +218,7 @@ namespace SampleConsoleClient
                 if(addressSpaces.Count > 0)
                 {
                     Console.WriteLine("Title: {0}", addressSpaces[0].Title);
-                    Console.WriteLine("Total amount of adressspaces: {0}", addressSpaces.Count);
+                    Console.WriteLine("Total number of address spaces: {0}", addressSpaces.Count);
                 }
 
                 Console.WriteLine("\nTesting object query");
@@ -248,11 +248,11 @@ namespace SampleConsoleClient
             }
 
             Console.WriteLine("\nUsing the rest API");
-            List<BasicNodesetInformation> restResult = client.GetBasicNodesetInformation().GetAwaiter().GetResult();
+            List<UANodesetResult> restResult = client.GetBasicNodesetInformation().GetAwaiter().GetResult();
             if (restResult.Count > 0)
             {
                 Console.WriteLine("Testing download of nodeset");
-                AddressSpace result = client.DownloadNodeset(restResult[0].ID.ToString()).GetAwaiter().GetResult();
+                AddressSpace result = client.DownloadNodeset(restResult[0].Id.ToString()).GetAwaiter().GetResult();
                 if (!string.IsNullOrEmpty(result.Nodeset.NodesetXml))
                 {
                     Console.WriteLine("Nodeset Downloaded");

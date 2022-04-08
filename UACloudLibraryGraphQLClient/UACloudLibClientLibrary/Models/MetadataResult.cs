@@ -34,16 +34,16 @@ namespace UACloudLibClientLibrary.Models
     [JsonObject("metadata")]
     public class MetadataResult
     {
-        [JsonProperty("metadata_id")]
+        [JsonProperty("id")]
         public int ID { get; set; }
 
-        [JsonProperty("nodeset_id")]
+        [JsonProperty("nodesetId")]
         public long NodesetID { get; set; }
 
-        [JsonProperty("metadata_name")]
+        [JsonProperty("name")]
         public string Name { get; set; }
 
-        [JsonProperty("metadata_value")]
+        [JsonProperty("value")]
         public string Value { get; set; }
     }
 }

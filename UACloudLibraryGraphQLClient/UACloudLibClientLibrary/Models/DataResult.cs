@@ -31,22 +31,22 @@ namespace UACloudLibClientLibrary.Models
 {
     using Newtonsoft.Json;
 
-    [JsonObject("datatype")]
+    [JsonObject("dataType")]
     public class DataResult
     {
-        [JsonProperty("datatype_id")]
+        [JsonProperty("id")]
         public int ID { get; set; }
 
-        [JsonProperty("nodeset_id")]
+        [JsonProperty("nodesetId")]
         public long NodesetID { get; set; }
 
-        [JsonProperty("datatype_browsename")]
+        [JsonProperty("browseName")]
         public string Browsename { get; set; }
 
-        [JsonProperty("datatype_value")]
+        [JsonProperty("value")]
         public string Value { get; set; }
 
-        [JsonProperty("datatype_namespace")]
+        [JsonProperty("nameSpace")]
         public string Namespace { get; set; }
     }
 }

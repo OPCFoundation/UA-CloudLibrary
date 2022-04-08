@@ -38,8 +38,7 @@ namespace UACloudLibClientLibrary
     using System.Net.Http.Headers;
     using System.Text;
     using System.Threading.Tasks;
-    using UACloudLibClientLibrary.Models;
-    using UACloudLibrary;
+    using UACloudLibrary.Models;
 
     /// <summary>
     /// For use when the provider doesn't have a GraphQL interface and the downloading of nodesets
@@ -72,7 +71,7 @@ namespace UACloudLibClientLibrary
             client.Dispose();
         }
 
-        public async Task<List<BasicNodesetInformation>> GetBasicNodesetInformation(List<string> keywords = null)
+        public async Task<List<UANodesetResult>> GetBasicNodesetInformation(List<string> keywords = null)
         {
             if (keywords == null)
             {
@@ -83,10 +82,10 @@ namespace UACloudLibClientLibrary
             string address = client.BaseAddress.ToString() + "infomodel/find" + PrepareArgumentsString(keywords);
             HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
             
-            List<BasicNodesetInformation> info = null;
+            List<UANodesetResult> info = null;
             if(response.StatusCode == HttpStatusCode.OK)
             {
-                info = JsonConvert.DeserializeObject<List<BasicNodesetInformation>>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+                info = JsonConvert.DeserializeObject<List<UANodesetResult>>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
             }
 
             return info;

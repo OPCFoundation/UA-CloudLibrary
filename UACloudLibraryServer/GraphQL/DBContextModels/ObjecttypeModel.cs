@@ -29,19 +29,24 @@
 
 namespace UACloudLibrary.DbContextModels
 {
-    using System.ComponentModel.DataAnnotations;
+    using System.ComponentModel.DataAnnotations.Schema;
 
+    [Table("objecttype")]
     public partial class ObjecttypeModel
     {
-        [Key]
-        public int objecttype_id { get; set; }
+        [Column("objecttype_id")]
+        public int Id { get; set; }
 
-        public long nodeset_id { get; set; }
+        [Column("nodeset_id")]
+        public long NodesetId { get; set; }
 
-        public string objecttype_browsename { get; set; }
+        [Column("objecttype_browsename")]
+        public string BrowseName { get; set; }
 
-        public string objecttype_value { get; set; }
+        [Column("objecttype_value")]
+        public string Value { get; set; }
 
-        public string objecttype_namespace { get; set; }
+        [Column("objecttype_namespace")]
+        public string NameSpace { get; set; }
     }
 }

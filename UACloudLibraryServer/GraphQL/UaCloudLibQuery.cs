@@ -38,15 +38,15 @@ namespace UACloudLibrary
         {
             Name = "UACloudLibraryQuery";
 
-            Field<ListGraphType<DatatypeType>>("datatype", resolve: context => cloudLibResolver.GetDataTypes());
+            Field<ListGraphType<DatatypeType>>("dataType", resolve: context => cloudLibResolver.GetDataTypes());
 
             Field<ListGraphType<MetadataType>>("metadata", resolve: context => cloudLibResolver.GetMetaData());
 
-            Field<ListGraphType<ObjecttypeType>>("objecttype", resolve: context => cloudLibResolver.GetObjectTypes());
+            Field<ListGraphType<ObjecttypeType>>("objectType", resolve: context => cloudLibResolver.GetObjectTypes());
 
-            Field<ListGraphType<ReferencetypeType>>("referencetype", resolve: context => cloudLibResolver.GetReferenceTypes());
+            Field<ListGraphType<ReferencetypeType>>("referenceType", resolve: context => cloudLibResolver.GetReferenceTypes());
 
-            Field<ListGraphType<VariabletypeType>>("variabletype", resolve: context => cloudLibResolver.GetVariableTypes());
+            Field<ListGraphType<VariabletypeType>>("variableType", resolve: context => cloudLibResolver.GetVariableTypes());
 
             Field<ListGraphType<NodesetType>>("nodeset", resolve: context => cloudLibResolver.GetNodesetTypes());
             
@@ -56,15 +56,15 @@ namespace UACloudLibrary
                     new QueryArgument<IntGraphType> { Name = "limit" },
                     new QueryArgument<IntGraphType> { Name = "offset" },
                     new QueryArgument<StringGraphType> { Name = "where" },
-                    new QueryArgument<StringGraphType> { Name = "orderby"}
+                    new QueryArgument<StringGraphType> { Name = "orderBy"}
                 ),
                 resolve: context =>
                 {
                     int limit = context.GetArgument("limit", 1000000);
                     int offset = context.GetArgument("offset", 0);
                     string where = context.GetArgument("where", string.Empty);
-                    string orderby = context.GetArgument("oderby", string.Empty);
-                    return cloudLibResolver.GetCategoryTypes(limit, offset, where, orderby);
+                    string orderBy = context.GetArgument("orderBy", string.Empty);
+                    return cloudLibResolver.GetCategoryTypes(limit, offset, where, orderBy);
                 }
             );
                         
@@ -74,33 +74,33 @@ namespace UACloudLibrary
                     new QueryArgument<IntGraphType> { Name = "limit" },
                     new QueryArgument<IntGraphType> { Name = "offset" },
                     new QueryArgument<StringGraphType> { Name = "where" },
-                    new QueryArgument<StringGraphType> { Name = "orderby" }
+                    new QueryArgument<StringGraphType> { Name = "orderBy" }
                 ),
                 resolve: context =>
                 {
                     int limit = context.GetArgument("limit", 1000000);
                     int offset = context.GetArgument("offset", 0);
                     string where = context.GetArgument("where", string.Empty);
-                    string orderby = context.GetArgument("oderby", string.Empty);
-                    return cloudLibResolver.GetOrganisationTypes(limit, offset, where, orderby);
+                    string orderBy = context.GetArgument("orderBy", string.Empty);
+                    return cloudLibResolver.GetOrganisationTypes(limit, offset, where, orderBy);
                 }
             );
 
             Field<ListGraphType<AddressSpaceType>>(
-                "addressspace",
+                "addressSpace",
                 arguments: new QueryArguments(
                     new QueryArgument<IntGraphType> { Name = "limit" },
                     new QueryArgument<IntGraphType> { Name = "offset" },
                     new QueryArgument<StringGraphType> { Name = "where" },
-                    new QueryArgument<StringGraphType> { Name = "orderby" }
+                    new QueryArgument<StringGraphType> { Name = "orderBy" }
                 ),
                 resolve: context =>
                 {
                     int limit = context.GetArgument("limit", 1000000);
                     int offset = context.GetArgument("offset", 0);
                     string where = context.GetArgument("where", string.Empty);
-                    string orderby = context.GetArgument("oderby", string.Empty);
-                    return cloudLibResolver.GetAdressSpaceTypes(limit, offset, where, orderby);
+                    string orderBy = context.GetArgument("orderBy", string.Empty);
+                    return cloudLibResolver.GetAdressSpaceTypes(limit, offset, where, orderBy);
                 }
             );
         }

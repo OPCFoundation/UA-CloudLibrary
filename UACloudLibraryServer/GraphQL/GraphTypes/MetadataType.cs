@@ -36,10 +36,10 @@ namespace UACloudLibrary
     {
         public MetadataType()
         {
-            Field(a => a.metadata_id, type: typeof(IntGraphType));
-            Field(a => a.nodeset_id, type: typeof(LongGraphType));
-            Field(a => a.metadata_name, type: typeof(StringGraphType));
-            Field(a => a.metadata_value, type: typeof(StringGraphType));
+            Field(a => a.Id, type: typeof(IntGraphType));
+            Field(a => a.NodesetId, type: typeof(LongGraphType));
+            Field(a => a.Name, type: typeof(StringGraphType));
+            Field(a => a.Value, type: typeof(StringGraphType));
         }
     }
 }

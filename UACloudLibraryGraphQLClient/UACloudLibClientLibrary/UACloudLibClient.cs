@@ -42,7 +42,7 @@ namespace UACloudLibClientLibrary
     using System.Text;
     using System.Threading.Tasks;
     using UACloudLibClientLibrary.Models;
-    using UACloudLibrary;
+    using UACloudLibrary.Models;
 
     /// <summary>
     /// This class handles the quering and conversion of the response
@@ -133,7 +133,7 @@ namespace UACloudLibClientLibrary
         /// </summary>
         public async Task<List<ObjectResult>> GetObjectTypes()
         {
-            IQuery<ObjectResult> objectQuery = new Query<ObjectResult>("objecttype")
+            IQuery<ObjectResult> objectQuery = new Query<ObjectResult>("objectType")
                 .AddField(f => f.ID)
                 .AddField(f => f.NodesetID)
                 .AddField(f => f.Namespace)
@@ -231,7 +231,7 @@ namespace UACloudLibClientLibrary
             catch (Exception ex)
             {
                 Console.WriteLine("Error: " + ex.Message + " Falling back to REST interface...");
-                List<BasicNodesetInformation> infos = await restClient.GetBasicNodesetInformation().ConfigureAwait(false);
+                List<UANodesetResult> infos = await restClient.GetBasicNodesetInformation().ConfigureAwait(false);
                 convertedResult.AddRange(MetadataConverter.Convert(infos));
             }
 
@@ -264,11 +264,11 @@ namespace UACloudLibClientLibrary
         }
 
         /// <summary>
-        /// Queries the addressspaces with the given filters and converts the result
+        /// Queries the address spaces with the given filters and converts the result
         /// </summary>
         public async Task<List<AddressSpace>> GetAddressSpaces(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
-            IQuery<AddressSpace> addressSpaceQuery = new Query<AddressSpace>("addressspace")
+            IQuery<AddressSpace> addressSpaceQuery = new Query<AddressSpace>("addressSpace")
                 .AddField(h => h.Title)
                 .AddField(
                     h => h.Contributor,
@@ -310,7 +310,7 @@ namespace UACloudLibClientLibrary
             catch (Exception ex)
             {
                 Console.WriteLine("Error: " + ex.Message + " Falling back to REST interface...");
-                List<BasicNodesetInformation> infos = await restClient.GetBasicNodesetInformation((List<string>)(filter?.Select(e => e.Value))).ConfigureAwait(false);
+                List<UANodesetResult> infos = await restClient.GetBasicNodesetInformation((List<string>)(filter?.Select(e => e.Value))).ConfigureAwait(false);
                 result = MetadataConverter.ConvertWithPaging(infos, limit, offset);
             }
 
@@ -349,7 +349,7 @@ namespace UACloudLibClientLibrary
         /// <summary>
         /// Use this method if the CloudLib instance doesn't provide the GraphQL API
         /// </summary>
-        public async Task<List<BasicNodesetInformation>> GetBasicNodesetInformation(List<string> keywords = null) => await restClient.GetBasicNodesetInformation(keywords).ConfigureAwait(false);
+        public async Task<List<UANodesetResult>> GetBasicNodesetInformation(List<string> keywords = null) => await restClient.GetBasicNodesetInformation(keywords).ConfigureAwait(false);
 
 
         public void Dispose()

@@ -30,19 +30,20 @@
 namespace UACloudLibrary
 {
     using System.Collections.Generic;
+    using UACloudLibrary.Models;
 
     internal class AddressSpaceComparer : IComparer<AddressSpace>
     {
-        public string Orderby { get; }
+        public string OrderBy { get; }
 
-        public AddressSpaceComparer(string oderby)
+        public AddressSpaceComparer(string orderBy)
         {
-            Orderby = oderby.ToLower();
+            OrderBy = orderBy.ToLower();
         }
 
         public int Compare(AddressSpace x, AddressSpace y)
         {
-            switch (Orderby)
+            switch (OrderBy)
             {
                 case "name": return string.Compare(x.Title, y.Title);
                 case "copyrighttext": return string.Compare(x.CopyrightText, y.CopyrightText);

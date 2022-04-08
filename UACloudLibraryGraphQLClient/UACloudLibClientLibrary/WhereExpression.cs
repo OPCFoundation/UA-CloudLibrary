@@ -36,15 +36,13 @@ namespace UACloudLibClientLibrary
 
     public enum SearchField
     {
-        metadata_name,
-        metadata_value,
-        objecttype_name,
-        objecttype_value,
+        name,
+        value,
         orgname,
-        orgcontact,
-        nodesettitle,
-        addressspacename,
-        addressspacedescription,
+        orgContact,
+        nodesetTitle,
+        addressSpaceName,
+        addressSpaceDescription,
         lastModification,
         creationTimeStamp,
         description

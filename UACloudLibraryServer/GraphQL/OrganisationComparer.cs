@@ -30,19 +30,20 @@
 namespace UACloudLibrary
 {
     using System.Collections.Generic;
+    using UACloudLibrary.Models;
 
     internal class OrganisationComparer : IComparer<Organisation>
     {
-        public string Orderby { get; }
+        public string OrderBy { get; }
 
-        public OrganisationComparer(string oderby)
+        public OrganisationComparer(string orderBy)
         {
-            Orderby = oderby.ToLower();
+            OrderBy = orderBy.ToLower();
         }
         
         public int Compare(Organisation x, Organisation y)
         {
-            switch (Orderby)
+            switch (OrderBy)
             {
                 case "name":  return string.Compare(x.Name, y.Name);
                 case "description": return string.Compare(x.Description, y.Description);

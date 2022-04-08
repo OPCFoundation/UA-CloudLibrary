@@ -34,7 +34,7 @@ namespace UACloudLibClientLibrary
     using System.Globalization;
     using System.Linq;
     using UACloudLibClientLibrary.Models;
-    using UACloudLibrary;
+    using UACloudLibrary.Models;
 
     static class MetadataConverter
     {
@@ -62,13 +62,13 @@ namespace UACloudLibClientLibrary
             return addressSpaces.Values.ToList();
         }
 
-        public static List<AddressSpace> Convert(List<BasicNodesetInformation> infos)
+        public static List<AddressSpace> Convert(List<UANodesetResult> infos)
         {
             List<AddressSpace> result = new List<AddressSpace>();
 
             if (infos != null)
             {
-                foreach (BasicNodesetInformation info in infos)
+                foreach (UANodesetResult info in infos)
                 {
                     result.Add(Convert(info));
                 }
@@ -77,15 +77,39 @@ namespace UACloudLibClientLibrary
             return result;
         }
 
-        public static AddressSpace Convert(BasicNodesetInformation info)
+        public static AddressSpace Convert(UANodesetResult info)
         {
             AddressSpace addressSpace = new AddressSpace();
 
             addressSpace.Title = info.Title;
             addressSpace.Nodeset.Version = info.Version;
-            addressSpace.Contributor.Name = info.Organisation;
-            addressSpace.License = info.License;
-            addressSpace.Nodeset.PublicationDate = info.CreationTime;
+            addressSpace.Contributor.Name = info.Contributor;
+            
+            switch (info.License)
+            {
+                case "MIT":
+                    {
+                        addressSpace.License = License.MIT;
+                        break;
+                    }
+                case "ApacheLicense20":
+                    {
+                        addressSpace.License = License.ApacheLicense20;
+                        break;
+                    }
+                case "Custom":
+                    {
+                        addressSpace.License = License.Custom;
+                        break;
+                    }
+                default:
+                    {
+                        addressSpace.License = License.Custom;
+                        break;
+                    }
+            }
+
+            addressSpace.Nodeset.PublicationDate = (info.CreationTime != null)? info.CreationTime.Value : DateTime.MinValue;
 
             return addressSpace;
         }
@@ -93,7 +117,7 @@ namespace UACloudLibClientLibrary
         /// <summary>
         /// Converts with paging support so the UI dev doesn't have to deal with it
         /// </summary>
-        public static List<AddressSpace> ConvertWithPaging(List<BasicNodesetInformation> infos, int limit = 10, int offset = 0)
+        public static List<AddressSpace> ConvertWithPaging(List<UANodesetResult> infos, int limit = 10, int offset = 0)
         {
             List<AddressSpace> result = new List<AddressSpace>();
             
@@ -122,79 +146,78 @@ namespace UACloudLibClientLibrary
         /// <summary>
         /// Switch case with all the names for the members
         /// </summary>
-        private static void ConvertCases(AddressSpace addressspace, MetadataResult metadata)
+        private static void ConvertCases(AddressSpace addressSpace, MetadataResult metadata)
         {
             switch (metadata.Name)
             {
                 #region AdressSpace Cases
                 case "addressspacedescription":
                     {
-                        addressspace.Description = metadata.Value;
+                        addressSpace.Description = metadata.Value;
                         break;
                     }
                 case "copyright":
                     {
-                        addressspace.CopyrightText = metadata.Value;
+                        addressSpace.CopyrightText = metadata.Value;
                         break;
                     }
                 case "documentationurl":
                     {
-                        addressspace.DocumentationUrl = new Uri(metadata.Value);
+                        addressSpace.DocumentationUrl = new Uri(metadata.Value);
                         break;
                     }
                 case "licenseurl":
                     {
-                        addressspace.LicenseUrl = new Uri(metadata.Value);
+                        addressSpace.LicenseUrl = new Uri(metadata.Value);
                         break;
                     }
                 case "purchasinginfo":
                     {
-                        addressspace.PurchasingInformationUrl = new Uri(metadata.Value);
+                        addressSpace.PurchasingInformationUrl = new Uri(metadata.Value);
                         break;
                     }
                 case "keywords":
                     {
-                        addressspace.Keywords = metadata.Value.Split(",");
+                        addressSpace.Keywords = metadata.Value.Split(",");
                         break;
                     }
                 case "locales":
                     {
-                        addressspace.SupportedLocales = metadata.Value.Split(",");
+                        addressSpace.SupportedLocales = metadata.Value.Split(",");
                         break;
                     }
                 case "numdownloads":
                     {
-                        addressspace.NumberOfDownloads = System.Convert.ToUInt32(metadata.Value);
+                        addressSpace.NumberOfDownloads = System.Convert.ToUInt32(metadata.Value);
                         break;
                     }
                 case "addressspacename":
                     {
-                        addressspace.Title = metadata.Value;
+                        addressSpace.Title = metadata.Value;
                         break;
                     }
                 case "license":
                     {
-                        // just for performance
                         switch (metadata.Value)
                         {
                             case "MIT":
                                 {
-                                    addressspace.License = License.MIT;
+                                    addressSpace.License = License.MIT;
                                     break;
                                 }
                             case "ApacheLicense20":
                                 {
-                                    addressspace.License = License.ApacheLicense20;
+                                    addressSpace.License = License.ApacheLicense20;
                                     break;
                                 }
                             case "Custom":
                                 {
-                                    addressspace.License = License.Custom;
+                                    addressSpace.License = License.Custom;
                                     break;
                                 }
                             default:
                                 {
-                                    addressspace.License = (License)Enum.Parse(typeof(License), metadata.Value);
+                                    addressSpace.License = License.Custom;
                                     break;
                                 }
                         }
@@ -202,50 +225,50 @@ namespace UACloudLibClientLibrary
                     }
                 case "version":
                     {
-                        addressspace.Nodeset.Version = metadata.Value;
+                        addressSpace.Nodeset.Version = metadata.Value;
                         break;
                     }
                 case "releasenotes":
                     {
-                        addressspace.ReleaseNotesUrl = new Uri(metadata.Value);
+                        addressSpace.ReleaseNotesUrl = new Uri(metadata.Value);
                         break;
                     }
                 case "testspecification":
                     {
-                        addressspace.TestSpecificationUrl = new Uri(metadata.Value);
+                        addressSpace.TestSpecificationUrl = new Uri(metadata.Value);
                         break;
                     }
                 #endregion
                 #region Organistion Cases
                 case "orgname":
                     {
-                        addressspace.Contributor.Name = metadata.Value;
+                        addressSpace.Contributor.Name = metadata.Value;
                         break;
                     }
                 case "orgdesciption":
                     {
-                        addressspace.Contributor.Description = metadata.Value;
+                        addressSpace.Contributor.Description = metadata.Value;
                         break;
                     }
                 case "orgcontact":
                     {
-                        addressspace.Contributor.ContactEmail = metadata.Value;
+                        addressSpace.Contributor.ContactEmail = metadata.Value;
                         break;
                     }
                 case "orgwebsite":
                     {
-                        addressspace.Contributor.Website = new Uri(metadata.Value);
+                        addressSpace.Contributor.Website = new Uri(metadata.Value);
                         break;
                     }
                 case "orglogo":
                     {
-                        addressspace.Contributor.LogoUrl = new Uri(metadata.Value);
+                        addressSpace.Contributor.LogoUrl = new Uri(metadata.Value);
                         break;
                     }
                 #endregion
                 case "adressspacecreationtime":
                     {
-                        addressspace.Nodeset.PublicationDate = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+                        addressSpace.Nodeset.PublicationDate = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
                         break;
                     }
                 default:

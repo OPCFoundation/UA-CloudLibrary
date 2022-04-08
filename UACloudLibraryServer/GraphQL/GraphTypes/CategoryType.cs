@@ -30,6 +30,7 @@
 namespace UACloudLibrary
 {
     using GraphQL.Types;
+    using UACloudLibrary.Models;
 
     public class CategoryType : ObjectGraphType<Category>
     {
