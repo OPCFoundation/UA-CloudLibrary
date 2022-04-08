@@ -202,10 +202,7 @@ namespace UACloudLibrary
                 return new ObjectResult(error) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
-            DateTime publicationDate;
-            DateTime lastModifiedDate;
-            RetrieveDatesFromNodeset(uaAddressSpace, out publicationDate, out lastModifiedDate);
-            if (!StoreUserMetaDataInDatabase(nodesetHashCode, uaAddressSpace, publicationDate, lastModifiedDate))
+            if (!StoreUserMetaDataInDatabase(nodesetHashCode, uaAddressSpace))
             {
                 string message = "Error: User metadata could not be stored.";
                 _logger.LogError(message);
@@ -213,6 +210,32 @@ namespace UACloudLibrary
             }
 
             return new ObjectResult("Upload successful!") { StatusCode = (int)HttpStatusCode.OK };
+        }
+
+        private string RetrieveVersionFromNodeset(AddressSpace uaAddressSpace)
+        {
+            try
+            {
+                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+                {
+                    UANodeSet nodeSet = UANodeSet.Read(stream);
+                    if ((nodeSet.Models != null) && (nodeSet.Models.Length > 0))
+                    {
+                        // take the data from the first model
+                        ModelTableEntry model = nodeSet.Models[0];
+                        if (model != null)
+                        {
+                            return model.Version;
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                return string.Empty;
+            }
+
+            return string.Empty;
         }
 
         private void RetrieveDatesFromNodeset(AddressSpace uaAddressSpace, out DateTime publicationDate, out DateTime lastModifiedDate)
@@ -227,19 +250,18 @@ namespace UACloudLibrary
                     UANodeSet nodeSet = UANodeSet.Read(stream);
                     if ((nodeSet.Models != null) && (nodeSet.Models.Length > 0))
                     {
-                        foreach (ModelTableEntry model in nodeSet.Models)
+                        // take the data from the first model
+                        ModelTableEntry model = nodeSet.Models[0];
+                        if (model != null)
                         {
-                            if (model != null)
+                            if (model.PublicationDateSpecified)
                             {
-                                if (model.PublicationDateSpecified)
-                                {
-                                    publicationDate = model.PublicationDate;
-                                }
+                                publicationDate = model.PublicationDate;
+                            }
 
-                                if (nodeSet.LastModifiedSpecified)
-                                {
-                                    lastModifiedDate = nodeSet.LastModified;
-                                }
+                            if (nodeSet.LastModifiedSpecified)
+                            {
+                                lastModifiedDate = nodeSet.LastModified;
                             }
                         }
                     }
@@ -320,8 +342,10 @@ namespace UACloudLibrary
             return (uint)hashCode;
         }
 
-        private bool StoreUserMetaDataInDatabase(uint newNodeSetID, AddressSpace uaAddressSpace, DateTime publicationDate, DateTime lastModifiedDate)
+        private bool StoreUserMetaDataInDatabase(uint newNodeSetID, AddressSpace uaAddressSpace)
         {
+            RetrieveDatesFromNodeset(uaAddressSpace, out DateTime publicationDate, out DateTime lastModifiedDate);
+            
             uaAddressSpace.Nodeset.PublicationDate = publicationDate;
             if (!_database.AddMetaDataToNodeSet(newNodeSetID, "nodesetcreationtime", uaAddressSpace.Nodeset.PublicationDate.ToString()))
             {
@@ -345,7 +369,14 @@ namespace UACloudLibrary
 
             if (!string.IsNullOrWhiteSpace(uaAddressSpace.Nodeset.Version))
             {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "version", new Version(uaAddressSpace.Nodeset.Version).ToString()))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "version", uaAddressSpace.Nodeset.Version))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "version", RetrieveVersionFromNodeset(uaAddressSpace)))
                 {
                     return false;
                 }
