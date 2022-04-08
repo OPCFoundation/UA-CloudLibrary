@@ -27,19 +27,19 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibClientLibrary
+namespace UACloudLibrary.Models
 {
     using Newtonsoft.Json;
 
     public class UANodesetResult
     {
-        [JsonProperty(PropertyName = "nodeset_id")]
+        [JsonProperty(PropertyName = "nodesetId")]
         public uint Id { get; set; }
 
-        [JsonProperty(PropertyName = "nodesettitle")]
+        [JsonProperty(PropertyName = "nodesetTitle")]
         public string Title { get; set; }
 
-        [JsonProperty(PropertyName = "orgname")]
+        [JsonProperty(PropertyName = "orgName")]
         public string Contributor { get; set; }
 
         [JsonProperty(PropertyName = "license")]
@@ -48,7 +48,7 @@ namespace UACloudLibClientLibrary
         [JsonProperty(PropertyName = "version")]
         public string Version { get; set; }
 
-        [JsonProperty(PropertyName = "adressspacecreationtime")]
-        public System.DateTime? CreationTime { get; set; }    
+        [JsonProperty(PropertyName = "addressSpaceCreationTime")]
+        public System.DateTime? CreationTime { get; set; }
     }
 }

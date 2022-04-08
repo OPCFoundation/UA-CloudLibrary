@@ -33,13 +33,13 @@ namespace UACloudLibrary.Models
 
     public class UANodesetResult
     {
-        [JsonProperty(PropertyName = "nodeset_id")]
+        [JsonProperty(PropertyName = "nodesetId")]
         public uint Id { get; set; }
 
-        [JsonProperty(PropertyName = "nodesettitle")]
+        [JsonProperty(PropertyName = "nodesetTitle")]
         public string Title { get; set; }
 
-        [JsonProperty(PropertyName = "orgname")]
+        [JsonProperty(PropertyName = "orgName")]
         public string Contributor { get; set; }
 
         [JsonProperty(PropertyName = "license")]
@@ -48,7 +48,7 @@ namespace UACloudLibrary.Models
         [JsonProperty(PropertyName = "version")]
         public string Version { get; set; }   
 
-        [JsonProperty(PropertyName = "adressspacecreationtime")]
+        [JsonProperty(PropertyName = "addressSpaceCreationTime")]
         public System.DateTime? CreationTime { get; set; }
     }
 }

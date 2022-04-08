@@ -111,7 +111,7 @@ namespace UACloudLibrary
                 return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            AddUserMetadataFromDatabase(nodeSetID, result);
+            _database.RetrieveAllMetadata(nodeSetID, result);
 
             IncreaseNumDownloads(nodeSetID);
 
@@ -320,127 +320,6 @@ namespace UACloudLibrary
             return (uint)hashCode;
         }
 
-        private void AddUserMetadataFromDatabase(uint nodeSetID, AddressSpace uaAddressSpace)
-        {
-            DateTime parsedDateTime;
-
-            if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "nodesetcreationtime"), out parsedDateTime))
-            {
-                uaAddressSpace.Nodeset.PublicationDate = parsedDateTime;
-            }
-
-            if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "nodesetmodifiedtime"), out parsedDateTime))
-            {
-                uaAddressSpace.Nodeset.LastModifiedDate = parsedDateTime;
-            }
-
-            uaAddressSpace.Title = _database.RetrieveMetaData(nodeSetID, "nodesettitle");
-
-            uaAddressSpace.Version = _database.RetrieveMetaData(nodeSetID, "version");
-
-            switch (_database.RetrieveMetaData(nodeSetID, "license"))
-            {
-                case "MIT":
-                    uaAddressSpace.License = AddressSpaceLicense.MIT;
-                break;
-                case "ApacheLicense20":
-                    uaAddressSpace.License = AddressSpaceLicense.ApacheLicense20;
-                break;
-                case "Custom":
-                    uaAddressSpace.License = AddressSpaceLicense.Custom;
-                break;
-                default:
-                    uaAddressSpace.License = AddressSpaceLicense.Custom;
-                break;
-            }
-
-            uaAddressSpace.CopyrightText = _database.RetrieveMetaData(nodeSetID, "copyright");
-
-            uaAddressSpace.Description = _database.RetrieveMetaData(nodeSetID, "description");
-
-            uaAddressSpace.Category.Name = _database.RetrieveMetaData(nodeSetID, "addressspacename");
-
-            uaAddressSpace.Category.Description = _database.RetrieveMetaData(nodeSetID, "addressspacedescription");
-
-            string uri = _database.RetrieveMetaData(nodeSetID, "addressspaceiconurl");
-            if (!string.IsNullOrEmpty(uri))
-            {
-                uaAddressSpace.Category.IconUrl = new Uri(uri);
-            }
-
-            uri = _database.RetrieveMetaData(nodeSetID, "documentationurl");
-            if (!string.IsNullOrEmpty(uri))
-            {
-                uaAddressSpace.DocumentationUrl = new Uri(uri);
-            }
-
-            uri = _database.RetrieveMetaData(nodeSetID, "iconurl");
-            if (!string.IsNullOrEmpty(uri))
-            {
-                uaAddressSpace.IconUrl = new Uri(uri);
-            }
-
-            uri = _database.RetrieveMetaData(nodeSetID, "licenseurl");
-            if (!string.IsNullOrEmpty(uri))
-            {
-                uaAddressSpace.LicenseUrl = new Uri(uri);
-            }
-
-            uri = _database.RetrieveMetaData(nodeSetID, "purchasinginfo");
-            if (!string.IsNullOrEmpty(uri))
-            {
-                uaAddressSpace.PurchasingInformationUrl = new Uri(uri);
-            }
-
-            uri = _database.RetrieveMetaData(nodeSetID, "releasenotes");
-            if (!string.IsNullOrEmpty(uri))
-            {
-                uaAddressSpace.ReleaseNotesUrl = new Uri(uri);
-            }
-
-            uri = _database.RetrieveMetaData(nodeSetID, "testspecification");
-            if (!string.IsNullOrEmpty(uri))
-            {
-                uaAddressSpace.TestSpecificationUrl = new Uri(uri);
-            }
-
-            string keywords = _database.RetrieveMetaData(nodeSetID, "keywords");
-            if (!string.IsNullOrEmpty(keywords))
-            {
-                uaAddressSpace.Keywords = keywords.Split(',');
-            }
-
-            string locales = _database.RetrieveMetaData(nodeSetID, "locales");
-            if (!string.IsNullOrEmpty(locales))
-            {
-                uaAddressSpace.SupportedLocales = locales.Split(',');
-            }
-
-            uaAddressSpace.Contributor.Name = _database.RetrieveMetaData(nodeSetID, "orgname");
-
-            uaAddressSpace.Contributor.Description = _database.RetrieveMetaData(nodeSetID, "orgdescription");
-
-            uri = _database.RetrieveMetaData(nodeSetID, "orglogo");
-            if (!string.IsNullOrEmpty(uri))
-            {
-                uaAddressSpace.Contributor.LogoUrl = new Uri(uri);
-            }
-
-            uaAddressSpace.Contributor.ContactEmail = _database.RetrieveMetaData(nodeSetID, "orgcontact");
-
-            uri = _database.RetrieveMetaData(nodeSetID, "orgwebsite");
-            if (!string.IsNullOrEmpty(uri))
-            {
-                uaAddressSpace.Contributor.Website = new Uri(uri);
-            }
-
-            uint parsedDownloads;
-            if (uint.TryParse(_database.RetrieveMetaData(nodeSetID, "numdownloads"), out parsedDownloads))
-            {
-                uaAddressSpace.NumberOfDownloads = parsedDownloads;
-            }
-        }
-
         private bool StoreUserMetaDataInDatabase(uint newNodeSetID, AddressSpace uaAddressSpace, DateTime publicationDate, DateTime lastModifiedDate)
         {
             uaAddressSpace.Nodeset.PublicationDate = publicationDate;
@@ -464,9 +343,9 @@ namespace UACloudLibrary
                 }
             }
 
-            if (!string.IsNullOrWhiteSpace(uaAddressSpace.Version))
+            if (!string.IsNullOrWhiteSpace(uaAddressSpace.Nodeset.Version))
             {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "version", new Version(uaAddressSpace.Version).ToString()))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "version", new Version(uaAddressSpace.Nodeset.Version).ToString()))
                 {
                     return false;
                 }
@@ -628,7 +507,7 @@ namespace UACloudLibrary
 
             if (uaAddressSpace.AdditionalProperties != null)
             {
-                foreach (NodesetProperty additionalProperty in uaAddressSpace.AdditionalProperties)
+                foreach (Property additionalProperty in uaAddressSpace.AdditionalProperties)
                 {
                     if (!string.IsNullOrWhiteSpace(additionalProperty.Name) && !string.IsNullOrWhiteSpace(additionalProperty.Value))
                     {

@@ -29,7 +29,6 @@
 
 namespace UACloudLibrary
 {
-    using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore;
     using Microsoft.Extensions.Configuration;
@@ -66,25 +65,25 @@ namespace UACloudLibrary
         }
 
         // map to our tables
-        public DbSet<DatatypeModel> datatype { get; set; }
+        public DbSet<DatatypeModel> DataType { get; set; }
 
-        public DbSet<MetadataModel> metadata { get; set; }
+        public DbSet<MetadataModel> Metadata { get; set; }
 
-        public DbSet<ObjecttypeModel> objecttype { get; set; }
+        public DbSet<ObjecttypeModel> ObjectType { get; set; }
 
-        public DbSet<ReferencetypeModel> referencetype { get; set; }
+        public DbSet<ReferencetypeModel> ReferenceType { get; set; }
 
-        public DbSet<VariabletypeModel> variabletype { get; set; }
+        public DbSet<VariabletypeModel> VariableType { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.Entity<DatatypeModel>();
-            modelBuilder.Entity<MetadataModel>();
-            modelBuilder.Entity<ObjecttypeModel>();
-            modelBuilder.Entity<ReferencetypeModel>();
-            modelBuilder.Entity<VariabletypeModel>();
+            modelBuilder.Entity<DatatypeModel>().HasKey(k => k.Id);
+            modelBuilder.Entity<MetadataModel>().HasKey(k => k.Id);
+            modelBuilder.Entity<ObjecttypeModel>().HasKey(k => k.Id);
+            modelBuilder.Entity<ReferencetypeModel>().HasKey(k => k.Id);
+            modelBuilder.Entity<VariabletypeModel>().HasKey(k => k.Id);
         }
     }
 }

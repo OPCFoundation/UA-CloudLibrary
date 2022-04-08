@@ -27,19 +27,26 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary
+namespace UACloudLibClientLibrary.Models
 {
-    using GraphQL.Types;
-    using UACloudLibrary.DbContextModels;
+    using Newtonsoft.Json;
 
-    public class MetadataType : ObjectGraphType<MetadataModel>
+    [JsonObject("variabletype")]
+    public class VariableResult
     {
-        public MetadataType()
-        {
-            Field(a => a.Id, type: typeof(IntGraphType));
-            Field(a => a.NodesetId, type: typeof(LongGraphType));
-            Field(a => a.Name, type: typeof(StringGraphType));
-            Field(a => a.Value, type: typeof(StringGraphType));
-        }
+        [JsonProperty("variabletype_id")]
+        public int ID { get; set; }
+
+        [JsonProperty("nodeset_id")]
+        public long NodesetID { get; set; }
+
+        [JsonProperty("variabletype_browsename")]
+        public string Browsename { get; set; }
+
+        [JsonProperty("variabletype_value")]
+        public string Value { get; set; }
+
+        [JsonProperty("variabletype_namespace")]
+        public string Namespace { get; set; }
     }
 }

@@ -30,16 +30,15 @@
 namespace UACloudLibrary
 {
     using GraphQL.Types;
-    using UACloudLibrary.DbContextModels;
+    using UACloudLibrary.Models;
 
-    public class MetadataType : ObjectGraphType<MetadataModel>
+    public class CategoryType : ObjectGraphType<Category>
     {
-        public MetadataType()
+        public CategoryType()
         {
-            Field(a => a.Id, type: typeof(IntGraphType));
-            Field(a => a.NodesetId, type: typeof(LongGraphType));
-            Field(a => a.Name, type: typeof(StringGraphType));
-            Field(a => a.Value, type: typeof(StringGraphType));
+            Field(e => e.Name, type: typeof(NonNullGraphType<StringGraphType>));
+            Field(e => e.IconUrl, type: typeof(UriGraphType));
+            Field(e => e.Description, type: typeof(StringGraphType));
         }
     }
 }
