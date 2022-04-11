@@ -54,11 +54,11 @@ namespace SampleConsoleClient
 
             Console.WriteLine("OPC Foundation UA Cloud Library Console Client Application");
 
-            await TestGraphQLInterface(args);
+            await TestGraphQLInterface(args).ConfigureAwait(false);
 
             TestRESTInterface(args);
 
-            await TestClientLibrary(args);
+            await TestClientLibrary(args).ConfigureAwait(false);
 
             Console.WriteLine();
             Console.WriteLine("Done!");
@@ -90,7 +90,7 @@ namespace SampleConsoleClient
                 }"
 
             };
-            var response =await graphQLClient.SendQueryAsync<UACloudLibGraphQLObjecttypeQueryResponse>(request);
+            var response = await graphQLClient.SendQueryAsync<UACloudLibGraphQLObjecttypeQueryResponse>(request).ConfigureAwait(false);
             Console.WriteLine(JsonConvert.SerializeObject(response, Formatting.Indented));
 
             Console.WriteLine();
@@ -106,7 +106,7 @@ namespace SampleConsoleClient
                 }"
 
             };
-            var response2 = await graphQLClient.SendQueryAsync<UACloudLibGraphQLMetadataQueryResponse>(request);
+            var response2 = await graphQLClient.SendQueryAsync<UACloudLibGraphQLMetadataQueryResponse>(request).ConfigureAwait(false);
             Console.WriteLine(JsonConvert.SerializeObject(response2.Data, Formatting.Indented));
 
             graphQLClient.Dispose();
@@ -158,30 +158,30 @@ namespace SampleConsoleClient
             UACloudLibClient client = new UACloudLibClient(args[0], args[1], args[2]);
 
             Console.WriteLine("\nTesting object query");
-            List<ObjectResult> test = await client.GetObjectTypes();
-            foreach(ObjectResult result in test)
+            List<ObjectResult> test = await client.GetObjectTypes().ConfigureAwait(false);
+            foreach (ObjectResult result in test)
             {
                 Console.WriteLine($"{result.ID}, {result.Namespace}, {result.Browsename}, {result.Value}");
             }
 
             Console.WriteLine("\nTesting metadata query");
-            List<MetadataResult> metadatas = await client.GetMetadata();
-            foreach(MetadataResult metadata in metadatas)
+            List<MetadataResult> metadatas = await client.GetMetadata().ConfigureAwait(false);
+            foreach (MetadataResult metadata in metadatas)
             {
                 Console.WriteLine($"{metadata.ID}, {metadata.Name}, {metadata.Value}");
             }
 
             Console.WriteLine("\nTesting query and convertion of metadata");
-            List<AddressSpace> finalResult = await client.GetConvertedResult();
-            foreach(AddressSpace result in finalResult)
+            List<AddressSpace> finalResult = await client.GetConvertedResult().ConfigureAwait(false);
+            foreach (AddressSpace result in finalResult)
             {
                 Console.WriteLine($"{result.Title} by {result.Contributor.Name} last update on {result.LastModificationTime}");
             }
 
-            if(finalResult.Count > 0)
+            if (finalResult.Count > 0)
             {
                 Console.WriteLine("Testing download of nodeset");
-                AddressSpace result = await client.DownloadNodeset(finalResult[0].MetadataID);
+                AddressSpace result = await client.DownloadNodeset(finalResult[0].MetadataID).ConfigureAwait(false);
                 if (!string.IsNullOrEmpty(result.Nodeset.NodesetXml))
                 {
                     Console.WriteLine("Nodeset Downloaded");
