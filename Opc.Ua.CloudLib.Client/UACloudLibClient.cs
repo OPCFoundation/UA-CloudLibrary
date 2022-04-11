@@ -143,8 +143,8 @@ namespace Opc.Ua.CloudLib.Client
             webClient.DefaultRequestHeaders.Add("Authorization", "basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(m_strUsername + ":" + m_strPassword)));
 
             var address = webClient.BaseAddress.ToString() + "infomodel/download/" + Uri.EscapeDataString(identifier);
-            var response = await webClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, address));
-            var converted = JsonConvert.DeserializeObject<AddressSpace>(await response.Content.ReadAsStringAsync());
+            var response = await webClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, address)).ConfigureAwait(false);
+            var converted = JsonConvert.DeserializeObject<AddressSpace>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
             return converted;
         }
 
