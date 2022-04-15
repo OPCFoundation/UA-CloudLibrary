@@ -33,6 +33,7 @@ namespace UACloudLibClientLibrary
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Linq;
     using System.Net;
     using System.Net.Http;
     using System.Net.Http.Headers;
@@ -101,6 +102,24 @@ namespace UACloudLibClientLibrary
                 resultType = JsonConvert.DeserializeObject<AddressSpace>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
             }
 
+            return resultType;
+        }
+
+        public async Task<(string,string)[]> GetNamespacesAsync()
+        {
+            string address = Path.Combine(client.BaseAddress.ToString(), "infomodel/namespaces/");
+            HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
+            (string,string)[] resultType = null;
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                var responseStr = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var result = JsonConvert.DeserializeObject<string[]>(responseStr);
+                resultType = result.Select(str =>
+                {
+                    var parts = str.Split(',');
+                    return (parts[0], parts[1]);
+                }).ToArray();
+            }
             return resultType;
         }
 

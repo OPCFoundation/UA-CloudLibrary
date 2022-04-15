@@ -346,6 +346,7 @@ namespace UACloudLibClientLibrary
         /// </summary>
         public async Task<List<UANodesetResult>> GetBasicNodesetInformationAsync(List<string> keywords = null) => await restClient.GetBasicNodesetInformation(keywords).ConfigureAwait(false);
 
+        public Task<(string,string)[]> GetNamespacesAsync() => restClient.GetNamespacesAsync();
 
         public void Dispose()
         {
