@@ -93,13 +93,8 @@ namespace UACloudLibClientLibrary
         /// <summary>
         /// This constructor uses the standard endpoint with authorization
         /// </summary>
-        public UACloudLibClient(string strUsername, string strPassword)
+        public UACloudLibClient(string strUsername, string strPassword) : this(StandardEndpoint.ToString(), strUsername, strPassword)
         {
-            restClient = new RestClient(StandardEndpoint.ToString(), authentication);
-            BaseEndpoint = StandardEndpoint;
-            m_client = new GraphQLHttpClient(new Uri(BaseEndpoint + "/graphql"), new NewtonsoftJsonSerializer());
-            string auth = Convert.ToBase64String(Encoding.UTF8.GetBytes(strUsername + ":" + strPassword));
-            m_client.HttpClient.DefaultRequestHeaders.Add("Authorization", "basic " + auth);
         }
 
         public UACloudLibClient(string strEndpoint, string strUsername, string strPassword)
