@@ -128,8 +128,22 @@ namespace UACloudLibrary
             [FromBody][Required][SwaggerParameter("The OPC UA Information model to upload.")] AddressSpace uaAddressSpace,
             [FromQuery][SwaggerParameter("An optional flag if existing OPC UA Information models in the library should be overwritten.")] bool overwrite = false)
         {
+            UANodeSet nodeSet = null;
+
+            try
+            {
+                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+                {
+                    nodeSet = UANodeSet.Read(stream);
+                }
+            }
+            catch (Exception ex)
+            {
+                return new ObjectResult($"Could not parse nodeset XML file: {ex.Message}") { StatusCode = (int)HttpStatusCode.BadRequest };
+            }
+
             // generate a unique hash code
-            uint nodesetHashCode = GenerateHashCode(uaAddressSpace);
+            uint nodesetHashCode = GenerateHashCode(nodeSet);
             if (nodesetHashCode == 0)
             {
                 return new ObjectResult("Nodeset invalid. Please make sure it includes a valid Model URI and publication date!") { StatusCode = (int)HttpStatusCode.BadRequest };
@@ -137,7 +151,7 @@ namespace UACloudLibrary
 
             // check if the nodeset already exists in the database for the legacy hashcode algorithm
             string legacyResult;
-            uint legacyNodesetHashCode = GenerateHashCodeLegacy(uaAddressSpace);
+            uint legacyNodesetHashCode = GenerateHashCodeLegacy(nodeSet);
             if (legacyNodesetHashCode != 0)
             {
                 legacyResult = await _storage.FindFileAsync(legacyNodesetHashCode.ToString()).ConfigureAwait(false);
@@ -195,7 +209,7 @@ namespace UACloudLibrary
             }
 
             // parse nodeset XML, extract metadata and store in our database
-            string error = StoreNodesetMetaDataInDatabase(nodesetHashCode, uaAddressSpace);
+            string error = StoreNodesetMetaDataInDatabase(nodesetHashCode, nodeSet);
             if (!string.IsNullOrEmpty(error))
             {
                 _logger.LogError(error);
@@ -204,7 +218,7 @@ namespace UACloudLibrary
 
             DateTime publicationDate;
             DateTime lastModifiedDate;
-            RetrieveDatesFromNodeset(uaAddressSpace, out publicationDate, out lastModifiedDate);
+            RetrieveDatesFromNodeset(nodeSet, out publicationDate, out lastModifiedDate);
             if (!StoreUserMetaDataInDatabase(nodesetHashCode, uaAddressSpace, publicationDate, lastModifiedDate))
             {
                 string message = "Error: User metadata could not be stored.";
@@ -215,31 +229,27 @@ namespace UACloudLibrary
             return new ObjectResult("Upload successful!") { StatusCode = (int)HttpStatusCode.OK };
         }
 
-        private void RetrieveDatesFromNodeset(AddressSpace uaAddressSpace, out DateTime publicationDate, out DateTime lastModifiedDate)
+        private void RetrieveDatesFromNodeset(UANodeSet nodeSet, out DateTime publicationDate, out DateTime lastModifiedDate)
         {
             publicationDate = DateTime.UtcNow;
             lastModifiedDate = DateTime.UtcNow;
 
             try
             {
-                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+                if ((nodeSet.Models != null) && (nodeSet.Models.Length > 0))
                 {
-                    UANodeSet nodeSet = UANodeSet.Read(stream);
-                    if ((nodeSet.Models != null) && (nodeSet.Models.Length > 0))
+                    foreach (ModelTableEntry model in nodeSet.Models)
                     {
-                        foreach (ModelTableEntry model in nodeSet.Models)
+                        if (model != null)
                         {
-                            if (model != null)
+                            if (model.PublicationDateSpecified)
                             {
-                                if (model.PublicationDateSpecified)
-                                {
-                                    publicationDate = model.PublicationDate;
-                                }
+                                publicationDate = model.PublicationDate;
+                            }
 
-                                if (nodeSet.LastModifiedSpecified)
-                                {
-                                    lastModifiedDate = nodeSet.LastModified;
-                                }
+                            if (nodeSet.LastModifiedSpecified)
+                            {
+                                lastModifiedDate = nodeSet.LastModified;
                             }
                         }
                     }
@@ -251,37 +261,33 @@ namespace UACloudLibrary
             }
         }
 
-        private uint GenerateHashCode(AddressSpace uaAddressSpace)
+        private uint GenerateHashCode(UANodeSet nodeSet)
         {
             // generate a hash from the Model URIs and their version info in the nodeset
             int hashCode = 0;
             try
             {
-                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+                if ((nodeSet.Models != null) && (nodeSet.Models.Length > 0))
                 {
-                    UANodeSet nodeSet = UANodeSet.Read(stream);
-                    if ((nodeSet.Models != null) && (nodeSet.Models.Length > 0))
+                    foreach (ModelTableEntry model in nodeSet.Models)
                     {
-                        foreach (ModelTableEntry model in nodeSet.Models)
+                        if (model != null)
                         {
-                            if (model != null)
+                            if (Uri.IsWellFormedUriString(model.ModelUri, UriKind.Absolute) && model.PublicationDateSpecified)
                             {
-                                if (Uri.IsWellFormedUriString(model.ModelUri, UriKind.Absolute) && model.PublicationDateSpecified)
-                                {
-                                    hashCode ^= model.ModelUri.GetDeterministicHashCode();
-                                    hashCode ^= model.PublicationDate.ToString().GetDeterministicHashCode();
-                                }
-                                else
-                                {
-                                    return 0;
-                                }
+                                hashCode ^= model.ModelUri.GetDeterministicHashCode();
+                                hashCode ^= model.PublicationDate.ToString().GetDeterministicHashCode();
+                            }
+                            else
+                            {
+                                return 0;
                             }
                         }
                     }
-                    else
-                    {
-                        return 0;
-                    }
+                }
+                else
+                {
+                    return 0;
                 }
             }
             catch (Exception)
@@ -292,23 +298,19 @@ namespace UACloudLibrary
             return (uint)hashCode;
         }
 
-        private uint GenerateHashCodeLegacy(AddressSpace uaAddressSpace)
+        private uint GenerateHashCodeLegacy(UANodeSet nodeSet)
         {
             // generate a hash from the NamespaceURIs in the nodeset
             int hashCode = 0;
             try
             {
                 List<string> namespaces = new List<string>();
-                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+                foreach (string namespaceUri in nodeSet.NamespaceUris)
                 {
-                    UANodeSet nodeSet = UANodeSet.Read(stream);
-                    foreach (string namespaceUri in nodeSet.NamespaceUris)
+                    if (!namespaces.Contains(namespaceUri))
                     {
-                        if (!namespaces.Contains(namespaceUri))
-                        {
-                            namespaces.Add(namespaceUri);
-                            hashCode ^= namespaceUri.GetDeterministicHashCode();
-                        }
+                        namespaces.Add(namespaceUri);
+                        hashCode ^= namespaceUri.GetDeterministicHashCode();
                     }
                 }
             }
@@ -539,7 +541,7 @@ namespace UACloudLibrary
             }
         }
 
-        private string StoreNodesetMetaDataInDatabase(uint newNodeSetID, AddressSpace uaAddressSpace)
+        private string StoreNodesetMetaDataInDatabase(uint newNodeSetID, UANodeSet nodeSet)
         {
             // iterate through the incoming namespace
             List<string> namespaces = new List<string>();
@@ -547,121 +549,117 @@ namespace UACloudLibrary
             // add the default namespace
             namespaces.Add("http://opcfoundation.org/UA/");
 
-            using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+            try
             {
-                try
+                foreach (string ns in nodeSet.NamespaceUris)
                 {
-                    UANodeSet nodeSet = UANodeSet.Read(stream);
-                    foreach (string ns in nodeSet.NamespaceUris)
+                    if (!namespaces.Contains(ns))
                     {
-                        if (!namespaces.Contains(ns))
-                        {
-                            namespaces.Add(ns);
-                        }
+                        namespaces.Add(ns);
+                    }
+                }
+
+                foreach (UANode uaNode in nodeSet.Items)
+                {
+                    UAVariable variable = uaNode as UAVariable;
+                    if (variable != null)
+                    {
+                        // skip over variables
+                        continue;
                     }
 
-                    foreach (UANode uaNode in nodeSet.Items)
+                    UAMethod method = uaNode as UAMethod;
+                    if (method != null)
                     {
-                        UAVariable variable = uaNode as UAVariable;
-                        if (variable != null)
-                        {
-                            // skip over variables
-                            continue;
-                        }
-
-                        UAMethod method = uaNode as UAMethod;
-                        if (method != null)
-                        {
-                            // skip over methods
-                            continue;
-                        }
-
-                        UAObject uaObject = uaNode as UAObject;
-                        if (uaObject != null)
-                        {
-                            // skip over objects
-                            continue;
-                        }
-
-                        UAView view = uaNode as UAView;
-                        if (view != null)
-                        {
-                            // skip over views
-                            continue;
-                        }
-
-                        UAObjectType objectType = uaNode as UAObjectType;
-                        if (objectType != null)
-                        {
-                            string displayName = objectType.NodeId.ToString();
-                            if ((objectType.DisplayName != null) && (objectType.DisplayName.Length > 0))
-                            {
-                                displayName = objectType.DisplayName[0].Value;
-                            }
-                            if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.ObjectType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
-                            {
-                                throw new ArgumentException(displayName + " could not be stored in database!");
-                            }
-
-                            continue;
-                        }
-
-                        UAVariableType variableType = uaNode as UAVariableType;
-                        if (variableType != null)
-                        {
-                            string displayName = variableType.NodeId.ToString();
-                            if ((variableType.DisplayName != null) && (variableType.DisplayName.Length > 0))
-                            {
-                                displayName = variableType.DisplayName[0].Value;
-                            }
-                            if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.VariableType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
-                            {
-                                throw new ArgumentException(displayName + " could not be stored in database!");
-                            }
-                            continue;
-                        }
-
-                        UADataType dataType = uaNode as UADataType;
-                        if (dataType != null)
-                        {
-                            string displayName = dataType.NodeId.ToString();
-                            if ((dataType.DisplayName != null) && (dataType.DisplayName.Length > 0))
-                            {
-                                displayName = dataType.DisplayName[0].Value;
-                            }
-                            if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.DataType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
-                            {
-                                throw new ArgumentException(displayName + " could not be stored in database!");
-                            }
-
-                            continue;
-                        }
-
-                        UAReferenceType referenceType = uaNode as UAReferenceType;
-                        if (referenceType != null)
-                        {
-                            string displayName = referenceType.NodeId.ToString();
-                            if (referenceType.DisplayName.Length > 0)
-                            {
-                                displayName = referenceType.DisplayName[0].Value;
-                            }
-                            if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.ReferenceType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
-                            {
-                                throw new ArgumentException(displayName + " could not be stored in database!");
-                            }
-
-                            continue;
-                        }
-
-                        throw new ArgumentException("Unknown UA Node detected!");
+                        // skip over methods
+                        continue;
                     }
 
-                    return string.Empty;
+                    UAObject uaObject = uaNode as UAObject;
+                    if (uaObject != null)
+                    {
+                        // skip over objects
+                        continue;
+                    }
+
+                    UAView view = uaNode as UAView;
+                    if (view != null)
+                    {
+                        // skip over views
+                        continue;
+                    }
+
+                    UAObjectType objectType = uaNode as UAObjectType;
+                    if (objectType != null)
+                    {
+                        string displayName = objectType.NodeId.ToString();
+                        if ((objectType.DisplayName != null) && (objectType.DisplayName.Length > 0))
+                        {
+                            displayName = objectType.DisplayName[0].Value;
+                        }
+                        if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.ObjectType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
+                        {
+                            throw new ArgumentException(displayName + " could not be stored in database!");
+                        }
+
+                        continue;
+                    }
+
+                    UAVariableType variableType = uaNode as UAVariableType;
+                    if (variableType != null)
+                    {
+                        string displayName = variableType.NodeId.ToString();
+                        if ((variableType.DisplayName != null) && (variableType.DisplayName.Length > 0))
+                        {
+                            displayName = variableType.DisplayName[0].Value;
+                        }
+                        if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.VariableType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
+                        {
+                            throw new ArgumentException(displayName + " could not be stored in database!");
+                        }
+                        continue;
+                    }
+
+                    UADataType dataType = uaNode as UADataType;
+                    if (dataType != null)
+                    {
+                        string displayName = dataType.NodeId.ToString();
+                        if ((dataType.DisplayName != null) && (dataType.DisplayName.Length > 0))
+                        {
+                            displayName = dataType.DisplayName[0].Value;
+                        }
+                        if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.DataType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
+                        {
+                            throw new ArgumentException(displayName + " could not be stored in database!");
+                        }
+
+                        continue;
+                    }
+
+                    UAReferenceType referenceType = uaNode as UAReferenceType;
+                    if (referenceType != null)
+                    {
+                        string displayName = referenceType.NodeId.ToString();
+                        if (referenceType.DisplayName.Length > 0)
+                        {
+                            displayName = referenceType.DisplayName[0].Value;
+                        }
+                        if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.ReferenceType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
+                        {
+                            throw new ArgumentException(displayName + " could not be stored in database!");
+                        }
+
+                        continue;
+                    }
+
+                    throw new ArgumentException("Unknown UA Node detected!");
                 }
-                catch (Exception ex)
-                {
-                    return "Could not parse nodeset XML file: " + ex.Message;
-                }
+
+                return string.Empty;
+            }
+            catch (Exception ex)
+            {
+                return "Could not parse nodeset XML file: " + ex.Message;
             }
         }
 
