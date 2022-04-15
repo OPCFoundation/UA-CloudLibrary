@@ -214,7 +214,7 @@ namespace SampleConsoleClient
                 Console.WriteLine("\nTesting the address space query, this will fall back to the REST interface if GraphQL is not available.");
                 List<WhereExpression> filter = new List<WhereExpression>();
                 filter.Add(new WhereExpression(SearchField.orgname, "microsoft", ComparisonType.like));
-                List<AddressSpace> addressSpaces = client.GetAddressSpaces(10, 0, filter).GetAwaiter().GetResult();
+                List<AddressSpace> addressSpaces = client.GetAddressSpacesAsync(10, 0, filter).GetAwaiter().GetResult();
                 if(addressSpaces.Count > 0)
                 {
                     Console.WriteLine("Title: {0}", addressSpaces[0].Title);
@@ -222,21 +222,21 @@ namespace SampleConsoleClient
                 }
 
                 Console.WriteLine("\nTesting object query");
-                List<ObjectResult> objects = client.GetObjectTypes().GetAwaiter().GetResult();
+                List<ObjectResult> objects = client.GetObjectTypesAsync().GetAwaiter().GetResult();
                 foreach (ObjectResult result in objects)
                 {
                     Console.WriteLine($"{result.ID}, {result.Namespace}, {result.Browsename}, {result.Value}");
                 }
 
                 Console.WriteLine("\nTesting metadata query");
-                List<MetadataResult> metadata = client.GetMetadata().GetAwaiter().GetResult();
+                List<MetadataResult> metadata = client.GetMetadataAsync().GetAwaiter().GetResult();
                 foreach (MetadataResult entry in metadata)
                 {
                     Console.WriteLine($"{entry.ID}, {entry.Name}, {entry.Value}");
                 }
 
                 Console.WriteLine("\nTesting query and convertion of metadata");
-                List<AddressSpace> finalResult = client.GetConvertedMetadata().GetAwaiter().GetResult();
+                List<AddressSpace> finalResult = client.GetConvertedMetadataAsync().GetAwaiter().GetResult();
                 foreach(AddressSpace result in finalResult)
                 {
                     Console.WriteLine($"{result.Title} by {result.Contributor.Name}");
@@ -248,11 +248,11 @@ namespace SampleConsoleClient
             }
 
             Console.WriteLine("\nUsing the rest API");
-            List<UANodesetResult> restResult = client.GetBasicNodesetInformation().GetAwaiter().GetResult();
+            List<UANodesetResult> restResult = client.GetBasicNodesetInformationAsync().GetAwaiter().GetResult();
             if (restResult.Count > 0)
             {
                 Console.WriteLine("Testing download of nodeset");
-                AddressSpace result = client.DownloadNodeset(restResult[0].Id.ToString()).GetAwaiter().GetResult();
+                AddressSpace result = client.DownloadNodesetAsync(restResult[0].Id.ToString()).GetAwaiter().GetResult();
                 if (!string.IsNullOrEmpty(result.Nodeset.NodesetXml))
                 {
                     Console.WriteLine("Nodeset Downloaded");
