@@ -100,7 +100,7 @@ namespace UACloudLibClientLibrary
 
         public void SetExpression(SearchField field, string value, ComparisonType comparison)
         {
-            if (!string.IsNullOrEmpty(value) && Enum.IsDefined(field) && Enum.IsDefined(comparison))
+            if (!string.IsNullOrEmpty(value) && Enum.IsDefined(typeof(SearchField), field) && Enum.IsDefined(typeof(ComparisonType), comparison))
             {
                 Expression = "{'" + field.ToString() + "': {'" + comparison.ToString() + "': '" + value + "'}}";
 

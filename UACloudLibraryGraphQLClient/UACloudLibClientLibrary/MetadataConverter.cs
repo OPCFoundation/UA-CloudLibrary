@@ -178,12 +178,12 @@ namespace UACloudLibClientLibrary
                     }
                 case "keywords":
                     {
-                        addressSpace.Keywords = metadata.Value.Split(",");
+                        addressSpace.Keywords = metadata.Value.Split(',');
                         break;
                     }
                 case "locales":
                     {
-                        addressSpace.SupportedLocales = metadata.Value.Split(",");
+                        addressSpace.SupportedLocales = metadata.Value.Split(',');
                         break;
                     }
                 case "numdownloads":
