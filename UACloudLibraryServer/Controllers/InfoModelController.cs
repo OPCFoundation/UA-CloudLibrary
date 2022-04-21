@@ -132,7 +132,10 @@ namespace UACloudLibrary
 
             try
             {
-                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+                // workaround for bug https://github.com/dotnet/runtime/issues/67622
+                string nodesetXml = uaAddressSpace.Nodeset.NodesetXml.Replace("<Value/>", "<Value xsi:nil='true' />");
+
+                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(nodesetXml)))
                 {
                     nodeSet = UANodeSet.Read(stream);
                 }
