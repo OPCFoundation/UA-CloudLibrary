@@ -18,7 +18,7 @@ namespace Opc.Ua.CloudLib.Client
             return test;
         }
 
-        static IQuery<DatatypeResult> _DatatypeQuery = new Query<DatatypeResult>("datatype")
+        static IQuery<DataResult> _DatatypeQuery = new Query<DataResult>("datatype")
            .AddField(f => f.ID)
            .AddField(f => f.NodesetID)
            .AddField(f => f.Namespace)

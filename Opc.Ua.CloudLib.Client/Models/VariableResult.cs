@@ -27,26 +27,33 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibClientLibrary.Models
+namespace Opc.Ua.CloudLib.Client.Models
 {
     using Newtonsoft.Json;
 
+    /// <summary>GraphQL Result for variable queries</summary>
     [JsonObject("variabletype")]
     public class VariableResult
     {
+        /// <summary>Gets or sets the identifier.</summary>
+        /// <value>The identifier.</value>
         [JsonProperty("variabletype_id")]
         public int ID { get; set; }
-
+        /// <summary>Gets or sets the nodeset identifier.</summary>
+        /// <value>The nodeset identifier.</value>
         [JsonProperty("nodeset_id")]
         public long NodesetID { get; set; }
-
+        /// <summary>Gets or sets the browsename.</summary>
+        /// <value>The browsename.</value>
         [JsonProperty("variabletype_browsename")]
         public string Browsename { get; set; }
-
+        /// <summary>Gets or sets the value.</summary>
+        /// <value>The value.</value>
         [JsonProperty("variabletype_value")]
         public string Value { get; set; }
-
-        [JsonProperty("variabletype_namespace")]
+        /// <summary>Gets or sets the namespace.</summary>
+        /// <value>The namespace.</value>
+        [JsonProperty("vaiabletype_namespace")]
         public string Namespace { get; set; }
     }
 }
