@@ -7,6 +7,8 @@
     <RootNamespace>Opc.Ua.CloudLib.Client</RootNamespace>
     <Description>OPC UA CloudLib Client Class Library</Description>
     <IsPackable>true</IsPackable>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageLicenseFile></PackageLicenseFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <!-- Highest language version supported by .NET Standard 2.0 and .NET framework -->
