@@ -78,7 +78,7 @@ namespace Opc.Ua.CloudLib.Client
 
         /// <summary>Gets or sets the username.</summary>
         /// <value>The username.</value>
-        public string Username { get; set; }
+        public string Username { get { return m_strUsername; } set { m_strUsername = value; UserDataChanged(); } }
 
         /// <summary>Sets the password.</summary>
         /// <value>The password.</value>

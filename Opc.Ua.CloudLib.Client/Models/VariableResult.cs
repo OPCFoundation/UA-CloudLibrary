@@ -53,7 +53,7 @@ namespace Opc.Ua.CloudLib.Client.Models
         public string Value { get; set; }
         /// <summary>Gets or sets the namespace.</summary>
         /// <value>The namespace.</value>
-        [JsonProperty("vaiabletype_namespace")]
+        [JsonProperty("variabletype_namespace")]
         public string Namespace { get; set; }
     }
 }

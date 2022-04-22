@@ -39,19 +39,19 @@ namespace Opc.Ua.CloudLib.Client.Models
         /// Gets or sets the identifier.
         /// </summary>
         /// <value>The identifier.</value>
-        [JsonProperty("metadata_id")]
+        [JsonProperty("id")]
         public int ID { get; set; }
         /// <summary>Gets or sets the nodeset identifier.</summary>
         /// <value>The nodeset identifier.</value>
-        [JsonProperty("nodeset_id")]
+        [JsonProperty("nodesetId")]
         public long NodesetID { get; set; }
         /// <summary>Gets or sets the name.</summary>
         /// <value>The name.</value>
-        [JsonProperty("metadata_name")]
+        [JsonProperty("name")]
         public string Name { get; set; }
         /// <summary>Gets or sets the value.</summary>
         /// <value>The value.</value>
-        [JsonProperty("metadata_value")]
+        [JsonProperty("value")]
         public string Value { get; set; }
     }
 }
