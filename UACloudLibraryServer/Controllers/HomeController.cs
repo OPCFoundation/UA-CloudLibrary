@@ -32,6 +32,7 @@ namespace UACloudLibrary.Controllers
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
     using System.Diagnostics;
+    using UACloudLibrary.Models;
 
     [Authorize]
     public class HomeController : Controller

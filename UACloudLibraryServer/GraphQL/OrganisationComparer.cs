@@ -29,17 +29,27 @@
 
 namespace UACloudLibrary
 {
-    using GraphQL.Types;
-    using UACloudLibrary.DbContextModels;
+    using System.Collections.Generic;
+    using UACloudLibrary.Models;
 
-    public class MetadataType : ObjectGraphType<MetadataModel>
+    internal class OrganisationComparer : IComparer<Organisation>
     {
-        public MetadataType()
+        public string OrderBy { get; }
+
+        public OrganisationComparer(string orderBy)
         {
-            Field(a => a.Id, type: typeof(IntGraphType));
-            Field(a => a.NodesetId, type: typeof(LongGraphType));
-            Field(a => a.Name, type: typeof(StringGraphType));
-            Field(a => a.Value, type: typeof(StringGraphType));
+            OrderBy = orderBy.ToLower();
+        }
+        
+        public int Compare(Organisation x, Organisation y)
+        {
+            switch (OrderBy)
+            {
+                case "name":  return string.Compare(x.Name, y.Name);
+                case "description": return string.Compare(x.Description, y.Description);
+                case "contactemail": return string.Compare(x.ContactEmail, y.ContactEmail);
+                default: return 0; // return unordered
+            }
         }
     }
 }

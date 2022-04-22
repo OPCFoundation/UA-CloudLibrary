@@ -36,11 +36,11 @@ namespace UACloudLibrary
     {
         public ObjecttypeType()
         {
-            Field(a => a.objecttype_id);
-            Field(a => a.nodeset_id);
-            Field(a => a.objecttype_browsename);
-            Field(a => a.objecttype_value);
-            Field(a => a.objecttype_namespace);
+            Field(a => a.Id, type: typeof(IntGraphType));
+            Field(a => a.NodesetId, type: typeof(LongGraphType));
+            Field(a => a.BrowseName, type: typeof(StringGraphType));
+            Field(a => a.Value, type: typeof(StringGraphType));
+            Field(a => a.NameSpace, type: typeof(StringGraphType));
         }
     }
 }

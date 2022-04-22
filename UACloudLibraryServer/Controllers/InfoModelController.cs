@@ -111,7 +111,7 @@ namespace UACloudLibrary
                 return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            AddUserMetadataFromDatabase(nodeSetID, result);
+            _database.RetrieveAllMetadata(nodeSetID, result);
 
             IncreaseNumDownloads(nodeSetID);
 
@@ -202,10 +202,7 @@ namespace UACloudLibrary
                 return new ObjectResult(error) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
-            DateTime publicationDate;
-            DateTime lastModifiedDate;
-            RetrieveDatesFromNodeset(uaAddressSpace, out publicationDate, out lastModifiedDate);
-            if (!StoreUserMetaDataInDatabase(nodesetHashCode, uaAddressSpace, publicationDate, lastModifiedDate))
+            if (!StoreUserMetaDataInDatabase(nodesetHashCode, uaAddressSpace))
             {
                 string message = "Error: User metadata could not be stored.";
                 _logger.LogError(message);
@@ -215,6 +212,35 @@ namespace UACloudLibrary
             return new ObjectResult("Upload successful!") { StatusCode = (int)HttpStatusCode.OK };
         }
 
+        private string RetrieveVersionFromNodeset(AddressSpace uaAddressSpace)
+        {
+            try
+            {
+                // workaround for bug https://github.com/dotnet/runtime/issues/67622
+                string nodesetXml = uaAddressSpace.Nodeset.NodesetXml.Replace("<Value/>", "<Value xsi:nil='true' />");
+
+                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(nodesetXml)))
+                {
+                    UANodeSet nodeSet = UANodeSet.Read(stream);
+                    if ((nodeSet.Models != null) && (nodeSet.Models.Length > 0))
+                    {
+                        // take the data from the first model
+                        ModelTableEntry model = nodeSet.Models[0];
+                        if (model != null)
+                        {
+                            return model.Version;
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                return string.Empty;
+            }
+
+            return string.Empty;
+        }
+
         private void RetrieveDatesFromNodeset(AddressSpace uaAddressSpace, out DateTime publicationDate, out DateTime lastModifiedDate)
         {
             publicationDate = DateTime.UtcNow;
@@ -222,24 +248,26 @@ namespace UACloudLibrary
 
             try
             {
-                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+                // workaround for bug https://github.com/dotnet/runtime/issues/67622
+                string nodesetXml = uaAddressSpace.Nodeset.NodesetXml.Replace("<Value/>", "<Value xsi:nil='true' />");
+
+                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(nodesetXml)))
                 {
                     UANodeSet nodeSet = UANodeSet.Read(stream);
                     if ((nodeSet.Models != null) && (nodeSet.Models.Length > 0))
                     {
-                        foreach (ModelTableEntry model in nodeSet.Models)
+                        // take the data from the first model
+                        ModelTableEntry model = nodeSet.Models[0];
+                        if (model != null)
                         {
-                            if (model != null)
+                            if (model.PublicationDateSpecified)
                             {
-                                if (model.PublicationDateSpecified)
-                                {
-                                    publicationDate = model.PublicationDate;
-                                }
+                                publicationDate = model.PublicationDate;
+                            }
 
-                                if (nodeSet.LastModifiedSpecified)
-                                {
-                                    lastModifiedDate = nodeSet.LastModified;
-                                }
+                            if (nodeSet.LastModifiedSpecified)
+                            {
+                                lastModifiedDate = nodeSet.LastModified;
                             }
                         }
                     }
@@ -257,7 +285,10 @@ namespace UACloudLibrary
             int hashCode = 0;
             try
             {
-                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+                // workaround for bug https://github.com/dotnet/runtime/issues/67622
+                string nodesetXml = uaAddressSpace.Nodeset.NodesetXml.Replace("<Value/>", "<Value xsi:nil='true' />");
+
+                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(nodesetXml)))
                 {
                     UANodeSet nodeSet = UANodeSet.Read(stream);
                     if ((nodeSet.Models != null) && (nodeSet.Models.Length > 0))
@@ -298,8 +329,11 @@ namespace UACloudLibrary
             int hashCode = 0;
             try
             {
+                // workaround for bug https://github.com/dotnet/runtime/issues/67622
+                string nodesetXml = uaAddressSpace.Nodeset.NodesetXml.Replace("<Value/>", "<Value xsi:nil='true' />");
+
                 List<string> namespaces = new List<string>();
-                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(nodesetXml)))
                 {
                     UANodeSet nodeSet = UANodeSet.Read(stream);
                     foreach (string namespaceUri in nodeSet.NamespaceUris)
@@ -320,129 +354,10 @@ namespace UACloudLibrary
             return (uint)hashCode;
         }
 
-        private void AddUserMetadataFromDatabase(uint nodeSetID, AddressSpace uaAddressSpace)
+        private bool StoreUserMetaDataInDatabase(uint newNodeSetID, AddressSpace uaAddressSpace)
         {
-            DateTime parsedDateTime;
-
-            if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "nodesetcreationtime"), out parsedDateTime))
-            {
-                uaAddressSpace.Nodeset.PublicationDate = parsedDateTime;
-            }
-
-            if (DateTime.TryParse(_database.RetrieveMetaData(nodeSetID, "nodesetmodifiedtime"), out parsedDateTime))
-            {
-                uaAddressSpace.Nodeset.LastModifiedDate = parsedDateTime;
-            }
-
-            uaAddressSpace.Title = _database.RetrieveMetaData(nodeSetID, "nodesettitle");
-
-            uaAddressSpace.Version = _database.RetrieveMetaData(nodeSetID, "version");
-
-            switch (_database.RetrieveMetaData(nodeSetID, "license"))
-            {
-                case "MIT":
-                    uaAddressSpace.License = AddressSpaceLicense.MIT;
-                break;
-                case "ApacheLicense20":
-                    uaAddressSpace.License = AddressSpaceLicense.ApacheLicense20;
-                break;
-                case "Custom":
-                    uaAddressSpace.License = AddressSpaceLicense.Custom;
-                break;
-                default:
-                    uaAddressSpace.License = AddressSpaceLicense.Custom;
-                break;
-            }
-
-            uaAddressSpace.CopyrightText = _database.RetrieveMetaData(nodeSetID, "copyright");
-
-            uaAddressSpace.Description = _database.RetrieveMetaData(nodeSetID, "description");
-
-            uaAddressSpace.Category.Name = _database.RetrieveMetaData(nodeSetID, "addressspacename");
-
-            uaAddressSpace.Category.Description = _database.RetrieveMetaData(nodeSetID, "addressspacedescription");
-
-            string uri = _database.RetrieveMetaData(nodeSetID, "addressspaceiconurl");
-            if (!string.IsNullOrEmpty(uri))
-            {
-                uaAddressSpace.Category.IconUrl = new Uri(uri);
-            }
-
-            uri = _database.RetrieveMetaData(nodeSetID, "documentationurl");
-            if (!string.IsNullOrEmpty(uri))
-            {
-                uaAddressSpace.DocumentationUrl = new Uri(uri);
-            }
-
-            uri = _database.RetrieveMetaData(nodeSetID, "iconurl");
-            if (!string.IsNullOrEmpty(uri))
-            {
-                uaAddressSpace.IconUrl = new Uri(uri);
-            }
-
-            uri = _database.RetrieveMetaData(nodeSetID, "licenseurl");
-            if (!string.IsNullOrEmpty(uri))
-            {
-                uaAddressSpace.LicenseUrl = new Uri(uri);
-            }
-
-            uri = _database.RetrieveMetaData(nodeSetID, "purchasinginfo");
-            if (!string.IsNullOrEmpty(uri))
-            {
-                uaAddressSpace.PurchasingInformationUrl = new Uri(uri);
-            }
-
-            uri = _database.RetrieveMetaData(nodeSetID, "releasenotes");
-            if (!string.IsNullOrEmpty(uri))
-            {
-                uaAddressSpace.ReleaseNotesUrl = new Uri(uri);
-            }
-
-            uri = _database.RetrieveMetaData(nodeSetID, "testspecification");
-            if (!string.IsNullOrEmpty(uri))
-            {
-                uaAddressSpace.TestSpecificationUrl = new Uri(uri);
-            }
-
-            string keywords = _database.RetrieveMetaData(nodeSetID, "keywords");
-            if (!string.IsNullOrEmpty(keywords))
-            {
-                uaAddressSpace.Keywords = keywords.Split(',');
-            }
-
-            string locales = _database.RetrieveMetaData(nodeSetID, "locales");
-            if (!string.IsNullOrEmpty(locales))
-            {
-                uaAddressSpace.SupportedLocales = locales.Split(',');
-            }
-
-            uaAddressSpace.Contributor.Name = _database.RetrieveMetaData(nodeSetID, "orgname");
-
-            uaAddressSpace.Contributor.Description = _database.RetrieveMetaData(nodeSetID, "orgdescription");
-
-            uri = _database.RetrieveMetaData(nodeSetID, "orglogo");
-            if (!string.IsNullOrEmpty(uri))
-            {
-                uaAddressSpace.Contributor.LogoUrl = new Uri(uri);
-            }
-
-            uaAddressSpace.Contributor.ContactEmail = _database.RetrieveMetaData(nodeSetID, "orgcontact");
-
-            uri = _database.RetrieveMetaData(nodeSetID, "orgwebsite");
-            if (!string.IsNullOrEmpty(uri))
-            {
-                uaAddressSpace.Contributor.Website = new Uri(uri);
-            }
-
-            uint parsedDownloads;
-            if (uint.TryParse(_database.RetrieveMetaData(nodeSetID, "numdownloads"), out parsedDownloads))
-            {
-                uaAddressSpace.NumberOfDownloads = parsedDownloads;
-            }
-        }
-
-        private bool StoreUserMetaDataInDatabase(uint newNodeSetID, AddressSpace uaAddressSpace, DateTime publicationDate, DateTime lastModifiedDate)
-        {
+            RetrieveDatesFromNodeset(uaAddressSpace, out DateTime publicationDate, out DateTime lastModifiedDate);
+            
             uaAddressSpace.Nodeset.PublicationDate = publicationDate;
             if (!_database.AddMetaDataToNodeSet(newNodeSetID, "nodesetcreationtime", uaAddressSpace.Nodeset.PublicationDate.ToString()))
             {
@@ -464,9 +379,16 @@ namespace UACloudLibrary
                 }
             }
 
-            if (!string.IsNullOrWhiteSpace(uaAddressSpace.Version))
+            if (!string.IsNullOrWhiteSpace(uaAddressSpace.Nodeset.Version))
             {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "version", new Version(uaAddressSpace.Version).ToString()))
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "version", uaAddressSpace.Nodeset.Version))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "version", RetrieveVersionFromNodeset(uaAddressSpace)))
                 {
                     return false;
                 }
@@ -628,7 +550,7 @@ namespace UACloudLibrary
 
             if (uaAddressSpace.AdditionalProperties != null)
             {
-                foreach (NodesetProperty additionalProperty in uaAddressSpace.AdditionalProperties)
+                foreach (Property additionalProperty in uaAddressSpace.AdditionalProperties)
                 {
                     if (!string.IsNullOrWhiteSpace(additionalProperty.Name) && !string.IsNullOrWhiteSpace(additionalProperty.Value))
                     {
@@ -668,7 +590,10 @@ namespace UACloudLibrary
             // add the default namespace
             namespaces.Add("http://opcfoundation.org/UA/");
 
-            using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(uaAddressSpace.Nodeset.NodesetXml)))
+            // workaround for bug https://github.com/dotnet/runtime/issues/67622
+            string nodesetXml = uaAddressSpace.Nodeset.NodesetXml.Replace("<Value/>", "<Value xsi:nil='true' />");
+
+            using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(nodesetXml)))
             {
                 try
                 {

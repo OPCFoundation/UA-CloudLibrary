@@ -33,19 +33,13 @@ namespace Opc.Ua.CloudLib.Client
     /// <summary>GraphQL Result for nodeset queries</summary>
     public class UANodesetResult
     {
-        /// <summary>Gets or sets the identifier.</summary>
-        /// <value>The identifier.</value>
-        [JsonProperty(PropertyName = "nodeset_id")]
+        [JsonProperty(PropertyName = "nodesetId")]
         public uint Id { get; set; }
 
-        /// <summary>Gets or sets the title.</summary>
-        /// <value>The title.</value>
-        [JsonProperty(PropertyName = "nodesettitle")]
+        [JsonProperty(PropertyName = "nodesetTitle")]
         public string Title { get; set; }
 
-        /// <summary>Gets or sets the contributor.</summary>
-        /// <value>The contributor.</value>
-        [JsonProperty(PropertyName = "orgname")]
+        [JsonProperty(PropertyName = "orgName")]
         public string Contributor { get; set; }
 
         /// <summary>Gets or sets the license.</summary>
@@ -58,9 +52,7 @@ namespace Opc.Ua.CloudLib.Client
         [JsonProperty(PropertyName = "version")]
         public string Version { get; set; }
 
-        /// <summary>Gets or sets the creation time.</summary>
-        /// <value>The creation time.</value>
-        [JsonProperty(PropertyName = "adressspacecreationtime")]
-        public System.DateTime? CreationTime { get; set; }    
+        [JsonProperty(PropertyName = "addressSpaceCreationTime")]
+        public System.DateTime? CreationTime { get; set; }
     }
 }

@@ -36,11 +36,11 @@ namespace UACloudLibrary
     {
         public VariabletypeType()
         {
-            Field(a => a.variabletype_id);
-            Field(a => a.nodeset_id);
-            Field(a => a.variabletype_browsename);
-            Field(a => a.variabletype_value);
-            Field(a => a.variabletype_namespace);
+            Field(a => a.Id, type: typeof(IntGraphType));
+            Field(a => a.NodesetId, type: typeof(LongGraphType));
+            Field(a => a.BrowseName, type: typeof(StringGraphType));
+            Field(a => a.Value, type: typeof(StringGraphType));
+            Field(a => a.NameSpace, type: typeof(StringGraphType));
         }
     }
 }
