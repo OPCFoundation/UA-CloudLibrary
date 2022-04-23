@@ -61,7 +61,7 @@ namespace UACloudLibrary
             _logger = logger.CreateLogger("InfoModelController");
         }
 
-            [HttpGet]
+        [HttpGet]
         [Route("/infomodel/find")]
         [SwaggerResponse(statusCode: 200, type: typeof(UANodesetResult[]), description: "Discovered OPC UA Information Model results of the models found in the UA Cloud Library matching the keywords provided.")]
         public IActionResult FindAddressSpaceAsync(
