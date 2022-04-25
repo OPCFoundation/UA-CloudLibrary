@@ -27,7 +27,7 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibClientLibrary
+namespace Opc.Ua.CloudLib.Client
 {
     using Newtonsoft.Json;
     using System;
@@ -39,7 +39,6 @@ namespace UACloudLibClientLibrary
     using System.Net.Http.Headers;
     using System.Text;
     using System.Threading.Tasks;
-    using UACloudLibrary.Models;
 
     /// <summary>
     /// For use when the provider doesn't have a GraphQL interface and the downloading of nodesets

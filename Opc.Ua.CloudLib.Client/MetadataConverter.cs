@@ -27,14 +27,13 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibClientLibrary
+namespace Opc.Ua.CloudLib.Client
 {
+    using global::Opc.Ua.CloudLib.Client.Models;
     using System;
     using System.Collections.Generic;
     using System.Globalization;
     using System.Linq;
-    using UACloudLibClientLibrary.Models;
-    using UACloudLibrary.Models;
 
     static class MetadataConverter
     {
@@ -108,7 +107,6 @@ namespace UACloudLibClientLibrary
                         break;
                     }
             }
-
             addressSpace.Nodeset.PublicationDate = (info.CreationTime != null)? info.CreationTime.Value : DateTime.MinValue;
 
             return addressSpace;
@@ -178,12 +176,12 @@ namespace UACloudLibClientLibrary
                     }
                 case "keywords":
                     {
-                        addressSpace.Keywords = metadata.Value.Split(',');
+                        addressSpace.Keywords = metadata.Value.Split(new char[] { ',' });
                         break;
                     }
                 case "locales":
                     {
-                        addressSpace.SupportedLocales = metadata.Value.Split(',');
+                        addressSpace.SupportedLocales = metadata.Value.Split(new char[] { ',' });
                         break;
                     }
                 case "numdownloads":
