@@ -59,7 +59,7 @@ namespace UACloudLibrary
                    .AddJsonFile("appsettings.json")
                    .Build();
 
-                string connectionString = PostgreSQLDB.CreateConnectionString();
+                string connectionString = PostgreSQLDB.CreateConnectionString(configuration);
                 optionsBuilder.UseNpgsql(connectionString);
             }
         }
