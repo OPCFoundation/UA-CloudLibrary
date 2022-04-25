@@ -75,7 +75,7 @@ namespace UACloudLibrary
             // Setup database context for ASP.NetCore Identity Scaffolding
             services.AddDbContext<AppDbContext>(o =>
             {
-                o.UseNpgsql(PostgreSQLDB.CreateConnectionString());
+                o.UseNpgsql(PostgreSQLDB.CreateConnectionString(Configuration));
             });
 
             services.AddDefaultIdentity<IdentityUser>(options => 

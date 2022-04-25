@@ -1,4 +1,4 @@
-/* ========================================================================
+﻿/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -27,8 +27,9 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibClientLibrary
+namespace Opc.Ua.CloudLib.Client
 {
+    using global::Opc.Ua.CloudLib.Client.Models;
     using GraphQL;
     using GraphQL.Client.Http;
     using GraphQL.Client.Serializer.Newtonsoft;
@@ -41,25 +42,27 @@ namespace UACloudLibClientLibrary
     using System.Net.Http.Headers;
     using System.Text;
     using System.Threading.Tasks;
-    using UACloudLibClientLibrary.Models;
-    using UACloudLibrary.Models;
+
 
     /// <summary>
     /// This class handles the quering and conversion of the response
     /// </summary>
     public partial class UACloudLibClient : IDisposable
     {
+        /// <summary>The standard endpoint</summary>
         public static Uri StandardEndpoint = new Uri("https://uacloudlibrary.opcfoundation.org");
 
         private GraphQLHttpClient m_client = null;
         private GraphQLRequest request = new GraphQLRequest();
 
-        private AuthenticationHeaderValue authentication 
-        { 
-            set => m_client.HttpClient.DefaultRequestHeaders.Authorization = value; 
-            get => m_client.HttpClient.DefaultRequestHeaders.Authorization; 
+        private AuthenticationHeaderValue authentication
+        {
+            set => m_client.HttpClient.DefaultRequestHeaders.Authorization = value;
+            get => m_client.HttpClient.DefaultRequestHeaders.Authorization;
         }
 
+        /// <summary>Gets or sets the endpoint.</summary>
+        /// <value>The endpoint.</value>
         public Uri Endpoint
         {
             get { return BaseEndpoint; }
@@ -73,8 +76,12 @@ namespace UACloudLibClientLibrary
         private string m_strUsername = "";
         private string m_strPassword = "";
 
+        /// <summary>Gets or sets the username.</summary>
+        /// <value>The username.</value>
         public string Username { get { return m_strUsername; } set { m_strUsername = value; UserDataChanged(); } }
 
+        /// <summary>Sets the password.</summary>
+        /// <value>The password.</value>
         public string Password
         {
             set { m_strPassword = value; UserDataChanged(); }
@@ -93,15 +100,14 @@ namespace UACloudLibClientLibrary
         /// <summary>
         /// This constructor uses the standard endpoint with authorization
         /// </summary>
-        public UACloudLibClient(string strUsername, string strPassword)
+        public UACloudLibClient(string strUsername, string strPassword) : this(StandardEndpoint.ToString(), strUsername, strPassword)
         {
-            restClient = new RestClient(StandardEndpoint.ToString(), authentication);
-            BaseEndpoint = StandardEndpoint;
-            m_client = new GraphQLHttpClient(new Uri(BaseEndpoint + "/graphql"), new NewtonsoftJsonSerializer());
-            string auth = Convert.ToBase64String(Encoding.UTF8.GetBytes(strUsername + ":" + strPassword));
-            m_client.HttpClient.DefaultRequestHeaders.Add("Authorization", "basic " + auth);
         }
 
+        /// <summary>Initializes a new instance of the <see cref="UACloudLibClient" /> class.</summary>
+        /// <param name="strEndpoint">The string endpoint.</param>
+        /// <param name="strUsername">The string username.</param>
+        /// <param name="strPassword">The string password.</param>
         public UACloudLibClient(string strEndpoint, string strUsername, string strPassword)
         {
             BaseEndpoint = new Uri(strEndpoint);
@@ -113,8 +119,14 @@ namespace UACloudLibClientLibrary
             restClient = new RestClient(strEndpoint, authentication);
         }
 
-        // Sends the query and converts it
-        private async Task<T> SendAndConvert<T>(GraphQLRequest request)
+        /// <summary>Sends the GraphQL query and converts it to JSON</summary>
+        /// <typeparam name="T">the JSON target tyoe</typeparam>
+        /// <param name="request">The request.</param>
+        /// <returns>
+        ///   <br />
+        /// </returns>
+        /// <exception cref="System.Exception"></exception>
+        private async Task<T> SendAndConvertAsync<T>(GraphQLRequest request)
         {
             GraphQLResponse<JObject> response = await m_client.SendQueryAsync<JObject>(request).ConfigureAwait(false);
 
@@ -124,14 +136,15 @@ namespace UACloudLibClientLibrary
             }
 
             string dataJson = response.Data?.First?.First?.ToString();
-            
+
             return JsonConvert.DeserializeObject<T>(dataJson);
         }
 
         /// <summary>
         /// Retrieves a list of ObjectTypes
         /// </summary>
-        public async Task<List<ObjectResult>> GetObjectTypes()
+        /// <returns></returns>
+        public async Task<List<ObjectResult>> GetObjectTypesAsync()
         {
             IQuery<ObjectResult> objectQuery = new Query<ObjectResult>("objectType")
                 .AddField(f => f.ID)
@@ -139,16 +152,16 @@ namespace UACloudLibClientLibrary
                 .AddField(f => f.Namespace)
                 .AddField(f => f.Browsename)
                 .AddField(f => f.Value);
-        
+
             request.Query = "query{" + objectQuery.Build() + "}";
-            
-            return await SendAndConvert<List<ObjectResult>>(request).ConfigureAwait(false);
+
+            return await SendAndConvertAsync<List<ObjectResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Retrieves a list of metadata
         /// </summary>
-        public async Task<List<MetadataResult>> GetMetadata()
+        public async Task<List<MetadataResult>> GetMetadataAsync()
         {
             IQuery<MetadataResult> metadataQuery = new Query<MetadataResult>("metadata")
                 .AddField(f => f.ID)
@@ -158,13 +171,14 @@ namespace UACloudLibClientLibrary
 
             request.Query = "query{" + metadataQuery.Build() + "}";
             
-            return await SendAndConvert<List<MetadataResult>>(request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<MetadataResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Retrieves a list of variabletypes
         /// </summary>
-        public async Task<List<VariableResult>> GetVariables()
+        /// <returns></returns>
+        public async Task<List<VariableResult>> GetVariablesAsync()
         {
             IQuery<VariableResult> variableQuery = new Query<VariableResult>("variabletype")
             .AddField(f => f.ID)
@@ -172,16 +186,17 @@ namespace UACloudLibClientLibrary
             .AddField(f => f.Namespace)
             .AddField(f => f.Browsename)
             .AddField(f => f.Value);
-        
+
             request.Query = "query{" + variableQuery.Build() + "}";
             
-            return await SendAndConvert<List<VariableResult>>(request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<VariableResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Retrieves a list of referencetype
         /// </summary>
-        public async Task<List<ReferenceResult>> GetReferencetype()
+        /// <returns></returns>
+        public async Task<List<ReferenceResult>> GetReferencetypeAsync()
         {
             IQuery<ReferenceResult> referenceQuery = new Query<ReferenceResult>("referencetype")
                 .AddField(f => f.ID)
@@ -189,16 +204,16 @@ namespace UACloudLibClientLibrary
                 .AddField(f => f.Namespace)
                 .AddField(f => f.Browsename)
                 .AddField(f => f.Value);
-        
+
             request.Query = "query{" + referenceQuery.Build() + "}";
             
-            return await SendAndConvert<List<ReferenceResult>>(request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<ReferenceResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Retrieves a list of datatype
         /// </summary>
-        public async Task<List<DataResult>> GetDatatype()
+        public async Task<List<DataResult>> GetDatatypeAsync()
         {
             IQuery<DataResult> dataQuery = new Query<DataResult>("datatype")
                .AddField(f => f.ID)
@@ -206,13 +221,15 @@ namespace UACloudLibClientLibrary
                .AddField(f => f.Namespace)
                .AddField(f => f.Browsename)
                .AddField(f => f.Value);
-        
+
             request.Query = "query{" + dataQuery.Build() + "}";
             
-            return await SendAndConvert<List<DataResult>>(request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<DataResult>>(request).ConfigureAwait(false);
         }
 
-        public async Task<List<AddressSpace>> GetConvertedMetadata()
+        /// <summary>Gets the converted metadata.</summary>
+        /// <returns>List of AddressSpace</returns>
+        public async Task<List<AddressSpace>> GetConvertedMetadataAsync()
         {
             List<AddressSpace> convertedResult = null;
 
@@ -221,9 +238,9 @@ namespace UACloudLibClientLibrary
                 .AddField(f => f.NodesetID)
                 .AddField(f => f.Name)
                 .AddField(f => f.Value);
-        
+
             request.Query = "query{" + metadataQuery.Build() + "}";
-            List<MetadataResult> result = await SendAndConvert<List<MetadataResult>>(request).ConfigureAwait(false);
+            List<MetadataResult> result = await SendAndConvertAsync<List<MetadataResult>>(request).ConfigureAwait(false);
             try
             {
                 convertedResult = MetadataConverter.Convert(result);
@@ -241,7 +258,7 @@ namespace UACloudLibClientLibrary
         /// <summary>
         /// Queries the organisations with the given filters.
         /// </summary>
-        public async Task<List<Organisation>> GetOrganisations(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
+        public async Task<List<Organisation>> GetOrganisationsAsync(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
             IQuery<Organisation> organisationQuery = new Query<Organisation>("organisation")
                 .AddField(f => f.Name)
@@ -249,10 +266,10 @@ namespace UACloudLibClientLibrary
                 .AddField(f => f.ContactEmail)
                 .AddField(f => f.Description)
                 .AddField(f => f.LogoUrl);
-        
+
             organisationQuery.AddArgument("limit", limit);
             organisationQuery.AddArgument("offset", offset);
-            
+
             if (filter != null)
             {
                 organisationQuery.AddArgument("where", WhereExpression.Build(filter));
@@ -260,13 +277,13 @@ namespace UACloudLibClientLibrary
 
             request.Query = "query{" + organisationQuery.Build() + "}";
 
-            return await SendAndConvert<List<Organisation>>(request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<Organisation>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Queries the address spaces with the given filters and converts the result
         /// </summary>
-        public async Task<List<AddressSpace>> GetAddressSpaces(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
+        public async Task<List<AddressSpace>> GetAddressSpacesAsync(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
             IQuery<AddressSpace> addressSpaceQuery = new Query<AddressSpace>("addressSpace")
                 .AddField(h => h.Title)
@@ -291,10 +308,10 @@ namespace UACloudLibClientLibrary
                 .AddField(h => h.ReleaseNotesUrl)
                 .AddField(h => h.Keywords)
                 .AddField(h => h.SupportedLocales);
-        
+
             addressSpaceQuery.AddArgument("limit", limit);
             addressSpaceQuery.AddArgument("offset", offset);
-            
+
             if (filter != null)
             {
                 addressSpaceQuery.AddArgument("where", WhereExpression.Build(filter));
@@ -305,7 +322,7 @@ namespace UACloudLibClientLibrary
             List<AddressSpace> result = new List<AddressSpace>();
             try
             {
-                result = await SendAndConvert<List<AddressSpace>>(request).ConfigureAwait(false);
+                result = await SendAndConvertAsync<List<AddressSpace>>(request).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -320,7 +337,7 @@ namespace UACloudLibClientLibrary
         /// <summary>
         /// Queries the categories with the given filters
         /// </summary>
-        public async Task<List<Category>> GetAddressSpaceCategories(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
+        public async Task<List<Category>> GetAddressSpaceCategoriesAsync(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
             IQuery<Category> categoryQuery = new Query<Category>("category")
                 .AddField(f => f.Name)
@@ -337,21 +354,27 @@ namespace UACloudLibClientLibrary
 
             request.Query = "query{" + categoryQuery.Build() + "}";
 
-            return await SendAndConvert<List<Category>>(request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<Category>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Download chosen Nodeset with a REST call
         /// </summary>
         /// <param name="identifier"></param>
-        public async Task<AddressSpace> DownloadNodeset(string identifier) => await restClient.DownloadNodeset(identifier).ConfigureAwait(false);
+        public async Task<AddressSpace> DownloadNodesetAsync(string identifier) => await restClient.DownloadNodeset(identifier).ConfigureAwait(false);
 
         /// <summary>
         /// Use this method if the CloudLib instance doesn't provide the GraphQL API
         /// </summary>
-        public async Task<List<UANodesetResult>> GetBasicNodesetInformation(List<string> keywords = null) => await restClient.GetBasicNodesetInformation(keywords).ConfigureAwait(false);
+        public async Task<List<UANodesetResult>> GetBasicNodesetInformationAsync(List<string> keywords = null) => await restClient.GetBasicNodesetInformation(keywords).ConfigureAwait(false);
 
+        /// <summary>
+        /// Gets all available namespaces and the corresponding node set identifier
+        /// </summary>
+        /// <returns></returns>
+        public Task<(string namespaceUri, string identifier)[]> GetNamespacesAsync() => restClient.GetNamespacesAsync();
 
+        /// <summary>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.</summary>
         public void Dispose()
         {
             m_client.Dispose();

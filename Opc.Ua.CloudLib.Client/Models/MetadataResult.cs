@@ -27,26 +27,31 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibClientLibrary.Models
+namespace Opc.Ua.CloudLib.Client.Models
 {
     using Newtonsoft.Json;
 
-    [JsonObject("dataType")]
-    public class DataResult
+    /// <summary>GraphQL Result for metadata queries</summary>
+    [JsonObject("metadata")]
+    public class MetadataResult
     {
+        /// <summary>
+        /// Gets or sets the identifier.
+        /// </summary>
+        /// <value>The identifier.</value>
         [JsonProperty("id")]
         public int ID { get; set; }
-
+        /// <summary>Gets or sets the nodeset identifier.</summary>
+        /// <value>The nodeset identifier.</value>
         [JsonProperty("nodesetId")]
         public long NodesetID { get; set; }
-
-        [JsonProperty("browseName")]
-        public string Browsename { get; set; }
-
+        /// <summary>Gets or sets the name.</summary>
+        /// <value>The name.</value>
+        [JsonProperty("name")]
+        public string Name { get; set; }
+        /// <summary>Gets or sets the value.</summary>
+        /// <value>The value.</value>
         [JsonProperty("value")]
         public string Value { get; set; }
-
-        [JsonProperty("nameSpace")]
-        public string Namespace { get; set; }
     }
 }

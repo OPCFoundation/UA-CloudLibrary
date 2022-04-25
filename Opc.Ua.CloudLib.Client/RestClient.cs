@@ -27,18 +27,18 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibClientLibrary
+namespace Opc.Ua.CloudLib.Client
 {
     using Newtonsoft.Json;
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Linq;
     using System.Net;
     using System.Net.Http;
     using System.Net.Http.Headers;
     using System.Text;
     using System.Threading.Tasks;
-    using UACloudLibrary.Models;
 
     /// <summary>
     /// For use when the provider doesn't have a GraphQL interface and the downloading of nodesets
@@ -101,6 +101,24 @@ namespace UACloudLibClientLibrary
                 resultType = JsonConvert.DeserializeObject<AddressSpace>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
             }
 
+            return resultType;
+        }
+
+        public async Task<(string namespaceUri,string identifier)[]> GetNamespacesAsync()
+        {
+            string address = Path.Combine(client.BaseAddress.ToString(), "infomodel/namespaces/");
+            HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
+            (string namespaceUri, string identifier)[] resultType = null;
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                var responseStr = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var result = JsonConvert.DeserializeObject<string[]>(responseStr);
+                resultType = result.Select(str =>
+                {
+                    var parts = str.Split(',');
+                    return (parts[0], parts[1]);
+                }).ToArray();
+            }
             return resultType;
         }
 
