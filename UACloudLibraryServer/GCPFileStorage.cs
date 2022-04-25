@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,13 +29,13 @@
 
 namespace UACloudLibrary
 {
-    using Google.Cloud.Storage.V1;
-    using Microsoft.Extensions.Logging;
     using System;
     using System.IO;
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
+    using Google.Cloud.Storage.V1;
+    using Microsoft.Extensions.Logging;
     using UACloudLibrary.Interfaces;
 
 

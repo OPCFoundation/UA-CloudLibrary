@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,18 +29,18 @@
 
 namespace SampleConsoleClient
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Net.Http;
+    using System.Text;
+    using System.Threading.Tasks;
     using GraphQL;
     using GraphQL.Client.Http;
     using GraphQL.Client.Serializer.Newtonsoft;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
-    using System;
-    using System.Collections.Generic;
-    using System.Net.Http;
-    using System.Text;
     using Opc.Ua.CloudLib.Client;
     using Opc.Ua.CloudLib.Client.Models;
-    using System.Threading.Tasks;
 
     class Program
     {
@@ -68,8 +68,7 @@ namespace SampleConsoleClient
             Console.WriteLine();
             Console.WriteLine("Testing GraphQL interface (see https://graphql.org/learn/ for details)...");
 
-            GraphQLHttpClientOptions options = new GraphQLHttpClientOptions
-            {
+            GraphQLHttpClientOptions options = new GraphQLHttpClientOptions {
                 EndPoint = new Uri(args[0] + "/graphql"),
                 HttpMessageHandler = new MessageHandlerWithAuthHeader(args[1], args[2])
             };
@@ -78,8 +77,7 @@ namespace SampleConsoleClient
 
             Console.WriteLine();
             Console.WriteLine("Testing objectType query (the other OPC UA types are very similar!)");
-            GraphQLRequest request = new GraphQLRequest
-            {
+            GraphQLRequest request = new GraphQLRequest {
                 Query = @"query {
                             objectType {
                                 browseName
@@ -90,13 +88,12 @@ namespace SampleConsoleClient
                         }"
             };
 
-            GraphQLResponse<JObject> response =await graphQLClient.SendQueryAsync<JObject>(request).ConfigureAwait(false);
+            GraphQLResponse<JObject> response = await graphQLClient.SendQueryAsync<JObject>(request).ConfigureAwait(false);
             Console.WriteLine(JsonConvert.SerializeObject(response.Data, Formatting.Indented));
 
             Console.WriteLine();
             Console.WriteLine("Testing metadata query");
-            request = new GraphQLRequest
-            {
+            request = new GraphQLRequest {
                 Query = @"query {
                             metadata {
                                 name
@@ -111,8 +108,7 @@ namespace SampleConsoleClient
 
             Console.WriteLine();
             Console.WriteLine("Testing addressSpace query");
-            request = new GraphQLRequest
-            {
+            request = new GraphQLRequest {
                 Query = @"query {
                             addressSpace(
                                 limit: 10
@@ -163,8 +159,7 @@ namespace SampleConsoleClient
             Console.WriteLine();
             Console.WriteLine("Testing REST interface...");
 
-            HttpClient webClient = new HttpClient
-            {
+            HttpClient webClient = new HttpClient {
                 BaseAddress = new Uri(args[0])
             };
 
@@ -187,7 +182,7 @@ namespace SampleConsoleClient
             Console.WriteLine("Testing /infomodel/download/{identifier}");
 
             // pick the first identifier returned previously
-            string identifier = identifiers[0].Id.ToString(); 
+            string identifier = identifiers[0].Id.ToString();
             address = webClient.BaseAddress.ToString() + "infomodel/download/" + Uri.EscapeDataString(identifier);
             response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
 
@@ -213,7 +208,7 @@ namespace SampleConsoleClient
                 List<WhereExpression> filter = new List<WhereExpression>();
                 filter.Add(new WhereExpression(SearchField.orgname, "microsoft", ComparisonType.like));
                 List<AddressSpace> addressSpaces = await client.GetAddressSpaces(10, 0, filter).ConfigureAwait(false);
-                if(addressSpaces.Count > 0)
+                if (addressSpaces.Count > 0)
                 {
                     Console.WriteLine("Title: {0}", addressSpaces[0].Title);
                     Console.WriteLine("Total number of address spaces: {0}", addressSpaces.Count);
@@ -235,7 +230,7 @@ namespace SampleConsoleClient
 
                 Console.WriteLine("\nTesting query and convertion of metadata");
                 List<AddressSpace> finalResult = await client.GetConvertedMetadata().ConfigureAwait(false);
-                foreach(AddressSpace result in finalResult)
+                foreach (AddressSpace result in finalResult)
                 {
                     Console.WriteLine($"{result.Title} by {result.Contributor.Name}");
                 }

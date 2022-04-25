@@ -29,6 +29,8 @@
 
 namespace UACloudLibrary
 {
+    using System;
+    using System.IO;
     using Amazon.S3;
     using GraphQL;
     using GraphQL.DataLoader;
@@ -49,8 +51,6 @@ namespace UACloudLibrary
     using Microsoft.Extensions.Hosting;
     using Microsoft.Extensions.Logging;
     using Microsoft.OpenApi.Models;
-    using System;
-    using System.IO;
     using UACloudLibrary.Interfaces;
 
     public class Startup
@@ -73,12 +73,11 @@ namespace UACloudLibrary
             services.AddRazorPages();
 
             // Setup database context for ASP.NetCore Identity Scaffolding
-            services.AddDbContext<AppDbContext>(o =>
-            {
+            services.AddDbContext<AppDbContext>(o => {
                 o.UseNpgsql(PostgreSQLDB.CreateConnectionString());
             });
 
-            services.AddDefaultIdentity<IdentityUser>(options => 
+            services.AddDefaultIdentity<IdentityUser>(options =>
                     //require confirmation mail if sendgrid API Key is set
                     options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["SendGridAPIKey"])
                     ).AddEntityFrameworkStores<AppDbContext>();
@@ -96,23 +95,19 @@ namespace UACloudLibrary
 
             services.AddAuthorization();
 
-            services.AddSwaggerGen(options =>
-            {
-                options.SwaggerDoc("v1", new OpenApiInfo
-                {
+            services.AddSwaggerGen(options => {
+                options.SwaggerDoc("v1", new OpenApiInfo {
                     Title = "UA Cloud Library REST Service",
                     Version = "v1",
                     Description = "A REST-full interface to the CESMII & OPC Foundation Cloud Library",
-                    Contact = new OpenApiContact
-                    {
+                    Contact = new OpenApiContact {
                         Name = "OPC Foundation",
                         Email = "office@opcfoundation.org",
                         Url = new Uri("https://opcfoundation.org/")
                     }
                 });
 
-                options.AddSecurityDefinition("basic", new OpenApiSecurityScheme
-                {
+                options.AddSecurityDefinition("basic", new OpenApiSecurityScheme {
                     Name = "Authorization",
                     Type = SecuritySchemeType.Http,
                     Scheme = "basic",
@@ -182,8 +177,7 @@ namespace UACloudLibrary
                 .AddSubscriptionDocumentExecuter()
                 .AddServer(true)
                 .AddSchema<UaCloudLibSchema>(GraphQL.DI.ServiceLifetime.Scoped)
-                .ConfigureExecution(options =>
-                {
+                .ConfigureExecution(options => {
                     options.EnableMetrics = Environment.IsDevelopment();
                     var logger = options.RequestServices.GetRequiredService<ILogger<Startup>>();
                     options.UnhandledExceptionDelegate = context => logger.LogError("{Error} occurred", context.OriginalException.Message);
@@ -194,19 +188,16 @@ namespace UACloudLibrary
                 .AddDataLoader()
                 .AddGraphTypes(typeof(UaCloudLibSchema).Assembly)
                 .AddUserContextBuilder(httpContext =>
-                    new GraphQLUserContext
-                    {
+                    new GraphQLUserContext {
                         User = httpContext.User
                     }
             );
 
-            services.Configure<IISServerOptions>(options =>
-            {
+            services.Configure<IISServerOptions>(options => {
                 options.AllowSynchronousIO = true;
             });
 
-            services.Configure<KestrelServerOptions>(options =>
-            {
+            services.Configure<KestrelServerOptions>(options => {
                 options.AllowSynchronousIO = true;
             });
         }
@@ -223,8 +214,7 @@ namespace UACloudLibrary
 
             app.UseSwagger();
 
-            app.UseSwaggerUI(c =>
-            {
+            app.UseSwaggerUI(c => {
                 c.SwaggerEndpoint("/swagger/v1/swagger.json", "UA Cloud Library REST Service");
             });
 
@@ -240,16 +230,14 @@ namespace UACloudLibrary
 
             app.UseGraphQL<UaCloudLibSchema, GraphQLUACloudLibMiddleware<UaCloudLibSchema>>();
 
-            app.UseGraphQLPlayground(new PlaygroundOptions()
-            {
+            app.UseGraphQLPlayground(new PlaygroundOptions() {
                 RequestCredentials = RequestCredentials.Include
             },
             "/graphqlui");
 
             app.UseGraphQLGraphiQL("/graphiql");
 
-            app.UseEndpoints(endpoints =>
-            {
+            app.UseEndpoints(endpoints => {
                 endpoints.MapControllerRoute(
                     name: "default",
                     pattern: "{controller=Home}/{action=Index}/{id?}");

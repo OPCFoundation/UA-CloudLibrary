@@ -19,18 +19,15 @@ jobs:
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: '6.0.x'
-      - name: Workaround
-        #https://github.com/dotnet/format/issues/1433#issuecomment-1055920818
-        run: dotnet tool install -g dotnet-format --version "6.*" --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/index.json
       - name: ✓ ensure format UA-CloudLibrary Server
         working-directory: UACloudLibraryServer
-        run: dotnet-format --verify-no-changes -v:diag --exclude ~/.nuget
+        run: dotnet format --verify-no-changes -v:diag --exclude ~/.nuget
       - name: ✓ ensure format UA-CloudLibrary .NET Client
         working-directory: Opc.Ua.CloudLib.Client
-        run: dotnet-format --verify-no-changes -v:diag --exclude ~/.nuget
+        run: dotnet format --verify-no-changes -v:diag --exclude ~/.nuget
       - name: ✓ ensure format UA-CloudLibrary SampleConsoleClient
         working-directory: SampleConsoleClient
-        run: dotnet-format --verify-no-changes -v:diag --exclude ~/.nuget
+        run: dotnet format --verify-no-changes -v:diag --exclude ~/.nuget
   build:
     runs-on: ubuntu-latest
     steps:

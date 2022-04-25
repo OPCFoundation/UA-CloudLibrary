@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,7 +29,6 @@
 
 namespace Opc.Ua.CloudLib.Client
 {
-    using Newtonsoft.Json;
     using System;
     using System.Collections.Generic;
     using System.IO;
@@ -38,6 +37,7 @@ namespace Opc.Ua.CloudLib.Client
     using System.Net.Http.Headers;
     using System.Text;
     using System.Threading.Tasks;
+    using Newtonsoft.Json;
 
     /// <summary>
     /// For use when the provider doesn't have a GraphQL interface and the downloading of nodesets
@@ -76,13 +76,13 @@ namespace Opc.Ua.CloudLib.Client
             {
                 keywords = new List<string>() { "*" };
             }
-            
+
             // keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
             string address = client.BaseAddress.ToString() + "infomodel/find" + PrepareArgumentsString(keywords);
             HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
-            
+
             List<UANodesetResult> info = null;
-            if(response.StatusCode == HttpStatusCode.OK)
+            if (response.StatusCode == HttpStatusCode.OK)
             {
                 info = JsonConvert.DeserializeObject<List<UANodesetResult>>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
             }
