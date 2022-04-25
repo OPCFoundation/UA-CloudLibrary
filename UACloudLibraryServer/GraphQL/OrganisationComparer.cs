@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -40,12 +40,12 @@ namespace UACloudLibrary
         {
             OrderBy = orderBy.ToLower();
         }
-        
+
         public int Compare(Organisation x, Organisation y)
         {
             switch (OrderBy)
             {
-                case "name":  return string.Compare(x.Name, y.Name);
+                case "name": return string.Compare(x.Name, y.Name);
                 case "description": return string.Compare(x.Description, y.Description);
                 case "contactemail": return string.Compare(x.ContactEmail, y.ContactEmail);
                 default: return 0; // return unordered
