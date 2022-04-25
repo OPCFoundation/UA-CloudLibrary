@@ -100,13 +100,8 @@ namespace Opc.Ua.CloudLib.Client
         /// <summary>
         /// This constructor uses the standard endpoint with authorization
         /// </summary>
-        public UACloudLibClient(string strUsername, string strPassword)
+        public UACloudLibClient(string strUsername, string strPassword) : this(StandardEndpoint.ToString(), strUsername, strPassword)
         {
-            restClient = new RestClient(StandardEndpoint.ToString(), authentication);
-            BaseEndpoint = StandardEndpoint;
-            m_client = new GraphQLHttpClient(new Uri(BaseEndpoint + "/graphql"), new NewtonsoftJsonSerializer());
-            string auth = Convert.ToBase64String(Encoding.UTF8.GetBytes(strUsername + ":" + strPassword));
-            m_client.HttpClient.DefaultRequestHeaders.Add("Authorization", "basic " + auth);
         }
 
         /// <summary>Initializes a new instance of the <see cref="UACloudLibClient" /> class.</summary>
@@ -131,7 +126,7 @@ namespace Opc.Ua.CloudLib.Client
         ///   <br />
         /// </returns>
         /// <exception cref="System.Exception"></exception>
-        private async Task<T> SendAndConvert<T>(GraphQLRequest request)
+        private async Task<T> SendAndConvertAsync<T>(GraphQLRequest request)
         {
             GraphQLResponse<JObject> response = await m_client.SendQueryAsync<JObject>(request).ConfigureAwait(false);
 
@@ -149,7 +144,7 @@ namespace Opc.Ua.CloudLib.Client
         /// Retrieves a list of ObjectTypes
         /// </summary>
         /// <returns></returns>
-        public async Task<List<ObjectResult>> GetObjectTypes()
+        public async Task<List<ObjectResult>> GetObjectTypesAsync()
         {
             IQuery<ObjectResult> objectQuery = new Query<ObjectResult>("objectType")
                 .AddField(f => f.ID)
@@ -160,14 +155,13 @@ namespace Opc.Ua.CloudLib.Client
 
             request.Query = "query{" + objectQuery.Build() + "}";
 
-            return await SendAndConvert<List<ObjectResult>>(request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<ObjectResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Retrieves a list of metadata
         /// </summary>
-        /// <returns></returns>
-        public async Task<List<MetadataResult>> GetMetadata()
+        public async Task<List<MetadataResult>> GetMetadataAsync()
         {
             IQuery<MetadataResult> metadataQuery = new Query<MetadataResult>("metadata")
                 .AddField(f => f.ID)
@@ -176,15 +170,15 @@ namespace Opc.Ua.CloudLib.Client
                 .AddField(f => f.Value);
 
             request.Query = "query{" + metadataQuery.Build() + "}";
-
-            return await SendAndConvert<List<MetadataResult>>(request).ConfigureAwait(false);
+            
+            return await SendAndConvertAsync<List<MetadataResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Retrieves a list of variabletypes
         /// </summary>
         /// <returns></returns>
-        public async Task<List<VariableResult>> GetVariables()
+        public async Task<List<VariableResult>> GetVariablesAsync()
         {
             IQuery<VariableResult> variableQuery = new Query<VariableResult>("variabletype")
             .AddField(f => f.ID)
@@ -194,15 +188,15 @@ namespace Opc.Ua.CloudLib.Client
             .AddField(f => f.Value);
 
             request.Query = "query{" + variableQuery.Build() + "}";
-
-            return await SendAndConvert<List<VariableResult>>(request).ConfigureAwait(false);
+            
+            return await SendAndConvertAsync<List<VariableResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Retrieves a list of referencetype
         /// </summary>
         /// <returns></returns>
-        public async Task<List<ReferenceResult>> GetReferencetype()
+        public async Task<List<ReferenceResult>> GetReferencetypeAsync()
         {
             IQuery<ReferenceResult> referenceQuery = new Query<ReferenceResult>("referencetype")
                 .AddField(f => f.ID)
@@ -212,14 +206,14 @@ namespace Opc.Ua.CloudLib.Client
                 .AddField(f => f.Value);
 
             request.Query = "query{" + referenceQuery.Build() + "}";
-
-            return await SendAndConvert<List<ReferenceResult>>(request).ConfigureAwait(false);
+            
+            return await SendAndConvertAsync<List<ReferenceResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Retrieves a list of datatype
         /// </summary>
-        public async Task<List<DataResult>> GetDatatype()
+        public async Task<List<DataResult>> GetDatatypeAsync()
         {
             IQuery<DataResult> dataQuery = new Query<DataResult>("datatype")
                .AddField(f => f.ID)
@@ -229,13 +223,13 @@ namespace Opc.Ua.CloudLib.Client
                .AddField(f => f.Value);
 
             request.Query = "query{" + dataQuery.Build() + "}";
-
-            return await SendAndConvert<List<DataResult>>(request).ConfigureAwait(false);
+            
+            return await SendAndConvertAsync<List<DataResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>Gets the converted metadata.</summary>
         /// <returns>List of AddressSpace</returns>
-        public async Task<List<AddressSpace>> GetConvertedMetadata()
+        public async Task<List<AddressSpace>> GetConvertedMetadataAsync()
         {
             List<AddressSpace> convertedResult = null;
 
@@ -246,7 +240,7 @@ namespace Opc.Ua.CloudLib.Client
                 .AddField(f => f.Value);
 
             request.Query = "query{" + metadataQuery.Build() + "}";
-            List<MetadataResult> result = await SendAndConvert<List<MetadataResult>>(request).ConfigureAwait(false);
+            List<MetadataResult> result = await SendAndConvertAsync<List<MetadataResult>>(request).ConfigureAwait(false);
             try
             {
                 convertedResult = MetadataConverter.Convert(result);
@@ -264,7 +258,7 @@ namespace Opc.Ua.CloudLib.Client
         /// <summary>
         /// Queries the organisations with the given filters.
         /// </summary>
-        public async Task<List<Organisation>> GetOrganisations(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
+        public async Task<List<Organisation>> GetOrganisationsAsync(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
             IQuery<Organisation> organisationQuery = new Query<Organisation>("organisation")
                 .AddField(f => f.Name)
@@ -283,13 +277,13 @@ namespace Opc.Ua.CloudLib.Client
 
             request.Query = "query{" + organisationQuery.Build() + "}";
 
-            return await SendAndConvert<List<Organisation>>(request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<Organisation>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Queries the address spaces with the given filters and converts the result
         /// </summary>
-        public async Task<List<AddressSpace>> GetAddressSpaces(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
+        public async Task<List<AddressSpace>> GetAddressSpacesAsync(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
             IQuery<AddressSpace> addressSpaceQuery = new Query<AddressSpace>("addressSpace")
                 .AddField(h => h.Title)
@@ -328,7 +322,7 @@ namespace Opc.Ua.CloudLib.Client
             List<AddressSpace> result = new List<AddressSpace>();
             try
             {
-                result = await SendAndConvert<List<AddressSpace>>(request).ConfigureAwait(false);
+                result = await SendAndConvertAsync<List<AddressSpace>>(request).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -343,7 +337,7 @@ namespace Opc.Ua.CloudLib.Client
         /// <summary>
         /// Queries the categories with the given filters
         /// </summary>
-        public async Task<List<Category>> GetAddressSpaceCategories(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
+        public async Task<List<Category>> GetAddressSpaceCategoriesAsync(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
             IQuery<Category> categoryQuery = new Query<Category>("category")
                 .AddField(f => f.Name)
@@ -360,20 +354,25 @@ namespace Opc.Ua.CloudLib.Client
 
             request.Query = "query{" + categoryQuery.Build() + "}";
 
-            return await SendAndConvert<List<Category>>(request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<Category>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Download chosen Nodeset with a REST call
         /// </summary>
         /// <param name="identifier"></param>
-        public async Task<AddressSpace> DownloadNodeset(string identifier) => await restClient.DownloadNodeset(identifier).ConfigureAwait(false);
+        public async Task<AddressSpace> DownloadNodesetAsync(string identifier) => await restClient.DownloadNodeset(identifier).ConfigureAwait(false);
 
         /// <summary>
         /// Use this method if the CloudLib instance doesn't provide the GraphQL API
         /// </summary>
-        public async Task<List<UANodesetResult>> GetBasicNodesetInformation(List<string> keywords = null) => await restClient.GetBasicNodesetInformation(keywords).ConfigureAwait(false);
+        public async Task<List<UANodesetResult>> GetBasicNodesetInformationAsync(List<string> keywords = null) => await restClient.GetBasicNodesetInformation(keywords).ConfigureAwait(false);
 
+        /// <summary>
+        /// Gets all available namespaces and the corresponding node set identifier
+        /// </summary>
+        /// <returns></returns>
+        public Task<(string namespaceUri, string identifier)[]> GetNamespacesAsync() => restClient.GetNamespacesAsync();
 
         /// <summary>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.</summary>
         public void Dispose()
