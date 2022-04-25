@@ -27,40 +27,66 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibClientLibrary
+namespace Opc.Ua.CloudLib.Client
 {
     using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Text;
 
+    /// <summary>Enum to select the search field</summary>
     public enum SearchField
     {
+        /// <summary>The name-field</summary>
         name,
+        /// <summary>The value-field</summary>
         value,
+        /// <summary>The orgname-field</summary>
         orgname,
+        /// <summary>The orgContact-field</summary>
         orgContact,
+        /// <summary>The nodesetTitle-field</summary>
         nodesetTitle,
+        /// <summary>The addressSpaceName-field</summary>
         addressSpaceName,
+        /// <summary>The addressSpaceDescription-field</summary>
         addressSpaceDescription,
+        /// <summary>The lastModification-field</summary>
         lastModification,
+        /// <summary>The creationTimeStamp-field</summary>
         creationTimeStamp,
+        /// <summary>The description-field</summary>
         description
     }
 
+    /// <summary>
+    ///   Enum to define the search comperation
+    /// </summary>
     public enum ComparisonType
     {
+        /// <summary>equals comperation</summary>
         equals,
+        /// <summary>contains comperation</summary>
         contains,
+        /// <summary>like comperation</summary>
         like
     }
 
+    /// <summary>Class to build a search-filter-expression</summary>
     public class WhereExpression
     {
+        /// <summary>Gets the expression.</summary>
+        /// <value>The expression.</value>
         public string Expression { get; private set; }
 
+        /// <summary>Gets the value.</summary>
+        /// <value>The value.</value>
         public string Value { get; private set; }
 
+        /// <summary>Initializes a new instance of the <see cref="WhereExpression" /> class.</summary>
+        /// <param name="field">The field.</param>
+        /// <param name="value">The value.</param>
+        /// <param name="comparison">The comparison.</param>
         public WhereExpression(SearchField field, string value, ComparisonType comparison = 0)
         {
             SetExpression(field, value, comparison);
@@ -98,9 +124,13 @@ namespace UACloudLibClientLibrary
             }
         }
 
+        /// <summary>Sets the expression.</summary>
+        /// <param name="field">The field.</param>
+        /// <param name="value">The value.</param>
+        /// <param name="comparison">The comparison.</param>
         public void SetExpression(SearchField field, string value, ComparisonType comparison)
         {
-            if (!string.IsNullOrEmpty(value) && Enum.IsDefined(field) && Enum.IsDefined(comparison))
+            if (!string.IsNullOrEmpty(value) && Enum.IsDefined(typeof(SearchField),field) && Enum.IsDefined(typeof(ComparisonType), comparison))
             {
                 Expression = "{'" + field.ToString() + "': {'" + comparison.ToString() + "': '" + value + "'}}";
 
