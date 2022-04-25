@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,13 +29,6 @@
 
 namespace UACloudLibrary
 {
-    using Extensions;
-    using Microsoft.AspNetCore.Authorization;
-    using Microsoft.AspNetCore.Mvc;
-    using Microsoft.Extensions.Logging;
-    using Opc.Ua;
-    using Opc.Ua.Export;
-    using Swashbuckle.AspNetCore.Annotations;
     using System;
     using System.Collections.Generic;
     using System.ComponentModel.DataAnnotations;
@@ -43,6 +36,13 @@ namespace UACloudLibrary
     using System.Net;
     using System.Text;
     using System.Threading.Tasks;
+    using Extensions;
+    using Microsoft.AspNetCore.Authorization;
+    using Microsoft.AspNetCore.Mvc;
+    using Microsoft.Extensions.Logging;
+    using Opc.Ua;
+    using Opc.Ua.Export;
+    using Swashbuckle.AspNetCore.Annotations;
     using UACloudLibrary.Interfaces;
     using UACloudLibrary.Models;
 
@@ -346,7 +346,7 @@ namespace UACloudLibrary
         private bool StoreUserMetaDataInDatabase(uint newNodeSetID, AddressSpace uaAddressSpace, UANodeSet nodeSet)
         {
             RetrieveDatesFromNodeset(nodeSet, out DateTime publicationDate, out DateTime lastModifiedDate);
-            
+
             uaAddressSpace.Nodeset.PublicationDate = publicationDate;
             if (!_database.AddMetaDataToNodeSet(newNodeSetID, "nodesetcreationtime", uaAddressSpace.Nodeset.PublicationDate.ToString()))
             {
@@ -426,7 +426,7 @@ namespace UACloudLibrary
                 {
                     return false;
                 }
-             }
+            }
 
             if (uaAddressSpace.DocumentationUrl != null)
             {

@@ -29,15 +29,15 @@
 
 namespace UACloudLibrary
 {
-    using Microsoft.Extensions.Configuration;
-    using Microsoft.Extensions.Logging;
-    using Npgsql;
     using System;
     using System.Collections.Generic;
     using System.Data;
+    using Microsoft.Extensions.Configuration;
+    using Microsoft.Extensions.Logging;
+    using Npgsql;
     using UACloudLibrary.Models;
 
-public class PostgreSQLDB : IDatabase
+    public class PostgreSQLDB : IDatabase
     {
         private NpgsqlConnection _connection = null;
         private readonly ILogger _logger;
