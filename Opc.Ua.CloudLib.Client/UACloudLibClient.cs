@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,6 +29,12 @@
 
 namespace Opc.Ua.CloudLib.Client
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Net.Http.Headers;
+    using System.Text;
+    using System.Threading.Tasks;
     using global::Opc.Ua.CloudLib.Client.Models;
     using GraphQL;
     using GraphQL.Client.Http;
@@ -36,12 +42,6 @@ namespace Opc.Ua.CloudLib.Client
     using GraphQL.Query.Builder;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Net.Http.Headers;
-    using System.Text;
-    using System.Threading.Tasks;
 
 
     /// <summary>
@@ -170,7 +170,7 @@ namespace Opc.Ua.CloudLib.Client
                 .AddField(f => f.Value);
 
             request.Query = "query{" + metadataQuery.Build() + "}";
-            
+
             return await SendAndConvertAsync<List<MetadataResult>>(request).ConfigureAwait(false);
         }
 
@@ -188,7 +188,7 @@ namespace Opc.Ua.CloudLib.Client
             .AddField(f => f.Value);
 
             request.Query = "query{" + variableQuery.Build() + "}";
-            
+
             return await SendAndConvertAsync<List<VariableResult>>(request).ConfigureAwait(false);
         }
 
@@ -206,7 +206,7 @@ namespace Opc.Ua.CloudLib.Client
                 .AddField(f => f.Value);
 
             request.Query = "query{" + referenceQuery.Build() + "}";
-            
+
             return await SendAndConvertAsync<List<ReferenceResult>>(request).ConfigureAwait(false);
         }
 
@@ -223,7 +223,7 @@ namespace Opc.Ua.CloudLib.Client
                .AddField(f => f.Value);
 
             request.Query = "query{" + dataQuery.Build() + "}";
-            
+
             return await SendAndConvertAsync<List<DataResult>>(request).ConfigureAwait(false);
         }
 

@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -27,11 +27,11 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using SendGrid;
 using SendGrid.Helpers.Mail;
-using System;
-using System.Threading.Tasks;
 
 namespace UACloudLibrary
 {
@@ -43,8 +43,7 @@ namespace UACloudLibrary
             if (!string.IsNullOrEmpty(apiKey))
             {
                 SendGridClient client = new SendGridClient(apiKey);
-                SendGridMessage msg = new SendGridMessage()
-                {
+                SendGridMessage msg = new SendGridMessage() {
                     From = new EmailAddress("stefan.hoppe@opcfoundation.org"),
                     ReplyTo = new EmailAddress("no-reply@opcfoundation.org"),
                     Subject = subject,
