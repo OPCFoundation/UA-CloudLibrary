@@ -1,4 +1,4 @@
-/* ========================================================================
+﻿/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,6 +29,10 @@
 
 namespace UACloudLibrary
 {
+    using Microsoft.AspNetCore.Authentication;
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Options;
+    using Microsoft.Extensions.Primitives;
     using System;
     using System.Linq;
     using System.Net.Http.Headers;
@@ -36,15 +40,11 @@ namespace UACloudLibrary
     using System.Text;
     using System.Text.Encodings.Web;
     using System.Threading.Tasks;
-    using Microsoft.AspNetCore.Authentication;
-    using Microsoft.Extensions.Logging;
-    using Microsoft.Extensions.Options;
-    using Microsoft.Extensions.Primitives;
     using UACloudLibrary.Interfaces;
 
     public class BasicAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
     {
-        IUserService _userService;
+        private IUserService _userService;
 
         public BasicAuthenticationHandler(
             IUserService userService,

@@ -1,4 +1,4 @@
-/* ========================================================================
+﻿/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -36,10 +36,10 @@ namespace UACloudLibrary
     {
         public MetadataType()
         {
-            Field(a => a.metadata_id);
-            Field(a => a.nodeset_id);
-            Field(a => a.metadata_name);
-            Field(a => a.metadata_value);
+            Field(a => a.Id, type: typeof(IntGraphType));
+            Field(a => a.NodesetId, type: typeof(LongGraphType));
+            Field(a => a.Name, type: typeof(StringGraphType));
+            Field(a => a.Value, type: typeof(StringGraphType));
         }
     }
 }

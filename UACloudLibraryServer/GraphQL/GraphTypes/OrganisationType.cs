@@ -1,4 +1,4 @@
-/* ========================================================================
+﻿/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -27,23 +27,20 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace SampleConsoleClient
+namespace UACloudLibrary
 {
-    using System.Collections.Generic;
+    using GraphQL.Types;
+    using UACloudLibrary.Models;
 
-    public class UACloudLibGraphQLObjecttypeQueryResponse
+    public class OrganisationType : ObjectGraphType<Organisation>
     {
-        public List<Objecttype> objecttype { get; set; }
-
-        public class Objecttype
+        public OrganisationType()
         {
-            public string objecttype_browsename { get; set; }
-
-            public string objecttype_value { get; set; }
-
-            public string objecttype_namespace { get; set; }
-
-            public string nodeset_id { get; set; }
+            Field(e => e.Name, type: typeof(NonNullGraphType<StringGraphType>));
+            Field(e => e.ContactEmail, type: typeof(StringGraphType));
+            Field(e => e.Description, type: typeof(StringGraphType));
+            Field(e => e.LogoUrl, type: typeof(UriGraphType));
+            Field(e => e.Website, type: typeof(UriGraphType));
         }
     }
 }

@@ -1,4 +1,4 @@
-/* ========================================================================
+﻿/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,14 +29,14 @@
 
 namespace UACloudLibrary
 {
+    using Azure.Storage.Blobs;
+    using Azure.Storage.Blobs.Models;
+    using Microsoft.Extensions.Logging;
     using System;
     using System.IO;
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
-    using Azure.Storage.Blobs;
-    using Azure.Storage.Blobs.Models;
-    using Microsoft.Extensions.Logging;
     using UACloudLibrary.Interfaces;
 
     /// <summary>
@@ -44,7 +44,7 @@ namespace UACloudLibrary
     /// </summary>
     public class AzureFileStorage : IFileStorage
     {
-        readonly ILogger _logger;
+        private readonly ILogger _logger;
 
         /// <summary>
         /// Default constructor
@@ -67,7 +67,7 @@ namespace UACloudLibrary
                     BlobContainerClient container = new BlobContainerClient(Environment.GetEnvironmentVariable("BlobStorageConnectionString"), "uacloudlib");
                     await container.CreateIfNotExistsAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
 
-                    var resultSegment = container.GetBlobsAsync(cancellationToken: cancellationToken);
+                    var resultSegment = container.GetBlobsAsync();
                     await foreach (BlobItem blobItem in resultSegment.ConfigureAwait(false))
                     {
                         if (blobItem.Name == name)
@@ -141,7 +141,7 @@ namespace UACloudLibrary
                     BlobContainerClient container = new BlobContainerClient(Environment.GetEnvironmentVariable("BlobStorageConnectionString"), "uacloudlib");
                     await container.CreateIfNotExistsAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
 
-                    var resultSegment = container.GetBlobsAsync(cancellationToken: cancellationToken);
+                    var resultSegment = container.GetBlobsAsync();
                     await foreach (BlobItem blobItem in resultSegment.ConfigureAwait(false))
                     {
                         if (blobItem.Name.Equals(name))

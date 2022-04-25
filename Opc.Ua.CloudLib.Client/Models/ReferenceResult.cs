@@ -1,4 +1,4 @@
-/* ========================================================================
+﻿/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -27,28 +27,33 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibClientLibrary
+namespace Opc.Ua.CloudLib.Client.Models
 {
     using Newtonsoft.Json;
 
-    public class UANodesetResult
+    /// <summary>GraphQL Result for reference queries</summary>
+    [JsonObject("referenceType")]
+    public class ReferenceResult
     {
-        [JsonProperty(PropertyName = "nodeset_id")]
-        public uint Id { get; set; }
-
-        [JsonProperty(PropertyName = "nodesettitle")]
-        public string Title { get; set; }
-
-        [JsonProperty(PropertyName = "orgname")]
-        public string Contributor { get; set; }
-
-        [JsonProperty(PropertyName = "license")]
-        public string License { get; set; }
-
-        [JsonProperty(PropertyName = "version")]
-        public string Version { get; set; }
-
-        [JsonProperty(PropertyName = "adressspacecreationtime")]
-        public System.DateTime? CreationTime { get; set; }
+        /// <summary>Gets or sets the identifier.</summary>
+        /// <value>The identifier.</value>
+        [JsonProperty("id")]
+        public int ID { get; set; }
+        /// <summary>Gets or sets the nodeset identifier.</summary>
+        /// <value>The nodeset identifier.</value>
+        [JsonProperty("nodesetId")]
+        public long NodesetID { get; set; }
+        /// <summary>Gets or sets the browsename.</summary>
+        /// <value>The browsename.</value>
+        [JsonProperty("browseName")]
+        public string Browsename { get; set; }
+        /// <summary>Gets or sets the value.</summary>
+        /// <value>The value.</value>
+        [JsonProperty("value")]
+        public string Value { get; set; }
+        /// <summary>Gets or sets the namespace.</summary>
+        /// <value>The namespace.</value>
+        [JsonProperty("nameSpace")]
+        public string Namespace { get; set; }
     }
 }

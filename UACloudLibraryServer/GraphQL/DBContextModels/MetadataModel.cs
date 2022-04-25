@@ -1,4 +1,4 @@
-/* ========================================================================
+﻿/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,17 +29,21 @@
 
 namespace UACloudLibrary.DbContextModels
 {
-    using System.ComponentModel.DataAnnotations;
+    using System.ComponentModel.DataAnnotations.Schema;
 
+    [Table("metadata")]
     public partial class MetadataModel
     {
-        [Key]
-        public int metadata_id { get; set; }
+        [Column("metadata_id")]
+        public int Id { get; set; }
 
-        public long nodeset_id { get; set; }
+        [Column("nodeset_id")]
+        public long NodesetId { get; set; }
 
-        public string metadata_name { get; set; }
+        [Column("metadata_name")]
+        public string Name { get; set; }
 
-        public string metadata_value { get; set; }
+        [Column("metadata_value")]
+        public string Value { get; set; }
     }
 }

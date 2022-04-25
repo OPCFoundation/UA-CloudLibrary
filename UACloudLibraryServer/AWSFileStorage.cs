@@ -1,4 +1,4 @@
-/* ========================================================================
+﻿/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,17 +29,17 @@
 
 namespace UACloudLibrary
 {
+    using Amazon.S3;
+    using Amazon.S3.Model;
+    using Amazon.S3.Util;
+    using Microsoft.Extensions.Configuration;
+    using Microsoft.Extensions.Logging;
     using System;
     using System.IO;
     using System.Net;
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
-    using Amazon.S3;
-    using Amazon.S3.Model;
-    using Amazon.S3.Util;
-    using Microsoft.Extensions.Configuration;
-    using Microsoft.Extensions.Logging;
     using UACloudLibrary.Interfaces;
 
     /// <summary>
@@ -47,11 +47,11 @@ namespace UACloudLibrary
     /// </summary>
     public class AWSFileStorage : IFileStorage
     {
-        readonly string _bucket;
-        readonly string _prefix;
+        private readonly string _bucket;
+        private readonly string _prefix;
 
-        readonly IAmazonS3 _s3Client;
-        readonly ILogger _logger;
+        private readonly IAmazonS3 _s3Client;
+        private readonly ILogger _logger;
 
         /// <summary>
         /// Default constructor
@@ -126,7 +126,8 @@ namespace UACloudLibrary
 
                 var ms = new MemoryStream(Encoding.UTF8.GetBytes(content));
 
-                var putRequest = new PutObjectRequest {
+                var putRequest = new PutObjectRequest
+                {
                     BucketName = _bucket,
                     Key = key,
                     InputStream = ms
@@ -166,7 +167,8 @@ namespace UACloudLibrary
             {
                 var key = string.IsNullOrEmpty(_prefix) ? name : _prefix + name;
 
-                var req = new GetObjectRequest {
+                var req = new GetObjectRequest
+                {
                     BucketName = _bucket,
                     Key = key
                 };

@@ -1,4 +1,4 @@
-/* ========================================================================
+﻿/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,37 +29,79 @@
 
 namespace UACloudLibrary
 {
+    using GraphQL;
     using GraphQL.Types;
 
     public class UaCloudLibQuery : ObjectGraphType
     {
-        public UaCloudLibQuery(UaCloudLibRepo cloudLibRepo)
+        public UaCloudLibQuery(UaCloudLibResolver cloudLibResolver)
         {
             Name = "UACloudLibraryQuery";
 
-            Field<ListGraphType<DatatypeType>>(
-                "datatype",
-                resolve: context => cloudLibRepo.GetDataTypes()
+            Field<ListGraphType<DatatypeType>>("dataType", resolve: context => cloudLibResolver.GetDataTypes());
+
+            Field<ListGraphType<MetadataType>>("metadata", resolve: context => cloudLibResolver.GetMetaData());
+
+            Field<ListGraphType<ObjecttypeType>>("objectType", resolve: context => cloudLibResolver.GetObjectTypes());
+
+            Field<ListGraphType<ReferencetypeType>>("referenceType", resolve: context => cloudLibResolver.GetReferenceTypes());
+
+            Field<ListGraphType<VariabletypeType>>("variableType", resolve: context => cloudLibResolver.GetVariableTypes());
+
+            Field<ListGraphType<NodesetType>>("nodeset", resolve: context => cloudLibResolver.GetNodesetTypes());
+            
+            Field<ListGraphType<CategoryType>>(
+                "category",
+                arguments: new QueryArguments(
+                    new QueryArgument<IntGraphType> { Name = "limit" },
+                    new QueryArgument<IntGraphType> { Name = "offset" },
+                    new QueryArgument<StringGraphType> { Name = "where" },
+                    new QueryArgument<StringGraphType> { Name = "orderBy"}
+                ),
+                resolve: context =>
+                {
+                    int limit = context.GetArgument("limit", 1000000);
+                    int offset = context.GetArgument("offset", 0);
+                    string where = context.GetArgument("where", string.Empty);
+                    string orderBy = context.GetArgument("orderBy", string.Empty);
+                    return cloudLibResolver.GetCategoryTypes(limit, offset, where, orderBy);
+                }
+            );
+                        
+            Field<ListGraphType<OrganisationType>>(
+                "organisation",
+                arguments: new QueryArguments(
+                    new QueryArgument<IntGraphType> { Name = "limit" },
+                    new QueryArgument<IntGraphType> { Name = "offset" },
+                    new QueryArgument<StringGraphType> { Name = "where" },
+                    new QueryArgument<StringGraphType> { Name = "orderBy" }
+                ),
+                resolve: context =>
+                {
+                    int limit = context.GetArgument("limit", 1000000);
+                    int offset = context.GetArgument("offset", 0);
+                    string where = context.GetArgument("where", string.Empty);
+                    string orderBy = context.GetArgument("orderBy", string.Empty);
+                    return cloudLibResolver.GetOrganisationTypes(limit, offset, where, orderBy);
+                }
             );
 
-            Field<ListGraphType<MetadataType>>(
-                "metadata",
-                resolve: context => cloudLibRepo.GetMetaData()
-            );
-
-            Field<ListGraphType<ObjecttypeType>>(
-                "objecttype",
-                resolve: context => cloudLibRepo.GetObjectTypes()
-            );
-
-            Field<ListGraphType<ReferencetypeType>>(
-                "referencetype",
-                resolve: context => cloudLibRepo.GetReferenceTypes()
-            );
-
-            Field<ListGraphType<VariabletypeType>>(
-                "variabletype",
-                resolve: context => cloudLibRepo.GetVariableTypes()
+            Field<ListGraphType<AddressSpaceType>>(
+                "addressSpace",
+                arguments: new QueryArguments(
+                    new QueryArgument<IntGraphType> { Name = "limit" },
+                    new QueryArgument<IntGraphType> { Name = "offset" },
+                    new QueryArgument<StringGraphType> { Name = "where" },
+                    new QueryArgument<StringGraphType> { Name = "orderBy" }
+                ),
+                resolve: context =>
+                {
+                    int limit = context.GetArgument("limit", 1000000);
+                    int offset = context.GetArgument("offset", 0);
+                    string where = context.GetArgument("where", string.Empty);
+                    string orderBy = context.GetArgument("orderBy", string.Empty);
+                    return cloudLibResolver.GetAdressSpaceTypes(limit, offset, where, orderBy);
+                }
             );
         }
     }

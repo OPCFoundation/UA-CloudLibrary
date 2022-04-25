@@ -1,4 +1,4 @@
-/* ========================================================================
+﻿/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,20 +29,22 @@
 
 namespace SampleConsoleClient
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Net.Http;
-    using System.Text;
     using GraphQL;
     using GraphQL.Client.Http;
     using GraphQL.Client.Serializer.Newtonsoft;
     using Newtonsoft.Json;
-    using UACloudLibClientLibrary;
-    using UACloudLibClientLibrary.Models;
+    using Newtonsoft.Json.Linq;
+    using System;
+    using System.Collections.Generic;
+    using System.Net.Http;
+    using System.Text;
+    using Opc.Ua.CloudLib.Client;
+    using Opc.Ua.CloudLib.Client.Models;
+    using System.Threading.Tasks;
 
     class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             if (args.Length < 3)
             {
@@ -53,22 +55,21 @@ namespace SampleConsoleClient
 
             Console.WriteLine("OPC Foundation UA Cloud Library Console Client Application");
 
-            TestGraphQLInterface(args);
-
-            TestRESTInterface(args);
-
-            TestClientLibrary(args);
+            await TestRESTInterface(args).ConfigureAwait(false);
+            await TestGraphQLInterface(args).ConfigureAwait(false);
+            await TestClientLibrary(args).ConfigureAwait(false);
 
             Console.WriteLine();
             Console.WriteLine("Done!");
         }
 
-        static void TestGraphQLInterface(string[] args)
+        private static async Task TestGraphQLInterface(string[] args)
         {
             Console.WriteLine();
             Console.WriteLine("Testing GraphQL interface (see https://graphql.org/learn/ for details)...");
 
-            GraphQLHttpClientOptions options = new GraphQLHttpClientOptions {
+            GraphQLHttpClientOptions options = new GraphQLHttpClientOptions
+            {
                 EndPoint = new Uri(args[0] + "/graphql"),
                 HttpMessageHandler = new MessageHandlerWithAuthHeader(args[1], args[2])
             };
@@ -76,44 +77,94 @@ namespace SampleConsoleClient
             GraphQLHttpClient graphQLClient = new GraphQLHttpClient(options, new NewtonsoftJsonSerializer());
 
             Console.WriteLine();
-            Console.WriteLine("Testing objecttype query (the other OPC UA types are very similar!)");
-            GraphQLRequest request = new GraphQLRequest {
-                Query = @"
-                query {
-                    objecttype
-                    {
-                        objecttype_browsename objecttype_value objecttype_namespace nodeset_id
-                    }
-                }"
-
+            Console.WriteLine("Testing objectType query (the other OPC UA types are very similar!)");
+            GraphQLRequest request = new GraphQLRequest
+            {
+                Query = @"query {
+                            objectType {
+                                browseName
+                                value
+                                nameSpace
+                                nodesetId
+                            }
+                        }"
             };
-            var response = graphQLClient.SendQueryAsync<UACloudLibGraphQLObjecttypeQueryResponse>(request).GetAwaiter().GetResult();
-            Console.WriteLine(JsonConvert.SerializeObject(response, Formatting.Indented));
+
+            GraphQLResponse<JObject> response =await graphQLClient.SendQueryAsync<JObject>(request).ConfigureAwait(false);
+            Console.WriteLine(JsonConvert.SerializeObject(response.Data, Formatting.Indented));
 
             Console.WriteLine();
             Console.WriteLine("Testing metadata query");
-            request = new GraphQLRequest {
-                Query = @"
-                query {
-                    metadata
-                    {
-                        metadata_name metadata_value nodeset_id
-                    }
-                }"
-
+            request = new GraphQLRequest
+            {
+                Query = @"query {
+                            metadata {
+                                name
+                                value
+                                nodesetId
+                            }
+                        }"
             };
-            var response2 = graphQLClient.SendQueryAsync<UACloudLibGraphQLMetadataQueryResponse>(request).GetAwaiter().GetResult();
-            Console.WriteLine(JsonConvert.SerializeObject(response2.Data, Formatting.Indented));
+
+            response = await graphQLClient.SendQueryAsync<JObject>(request).ConfigureAwait(false);
+            Console.WriteLine(JsonConvert.SerializeObject(response.Data, Formatting.Indented));
+
+            Console.WriteLine();
+            Console.WriteLine("Testing addressSpace query");
+            request = new GraphQLRequest
+            {
+                Query = @"query {
+                            addressSpace(
+                                limit: 10
+                                offset: 0
+                                where: ""[{ 'orgname': { 'like': 'microsoft' }}]""
+                                orderBy: ""title""
+                            ) {
+                                title
+                                contributor {
+                                    name
+                                    contactEmail
+                                    website
+                                    logoUrl
+                                    description
+                                }
+                                license
+                                category {
+                                    name
+                                    description
+                                    iconUrl
+                                }
+                                description
+                                documentationUrl
+                                purchasingInformationUrl
+                                releaseNotesUrl
+                                keywords
+                                supportedLocales
+                                nodeset
+                                {
+                                    version
+                                    identifier
+                                    namespaceUri
+                                    publicationDate
+                                    lastModifiedDate
+                                }
+                            }
+                        }"
+            };
+
+            response = await graphQLClient.SendQueryAsync<JObject>(request).ConfigureAwait(false);
+            Console.WriteLine(JsonConvert.SerializeObject(response.Data, Formatting.Indented));
 
             graphQLClient.Dispose();
         }
 
-        static void TestRESTInterface(string[] args)
+        private static async Task TestRESTInterface(string[] args)
         {
             Console.WriteLine();
             Console.WriteLine("Testing REST interface...");
 
-            HttpClient webClient = new HttpClient {
+            HttpClient webClient = new HttpClient
+            {
                 BaseAddress = new Uri(args[0])
             };
 
@@ -121,12 +172,12 @@ namespace SampleConsoleClient
 
             Console.WriteLine();
             Console.WriteLine("Testing /infomodel/find?keywords");
-            string keywords = "*"; // return everything (other keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
-            string address = webClient.BaseAddress.ToString() + "infomodel/find?keywords=" + Uri.EscapeDataString(keywords);
-            HttpContent content = new StringContent(JsonConvert.SerializeObject(keywords), Encoding.UTF8, "application/json");
+
+            // return everything (keywords=*, other keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
+            string address = webClient.BaseAddress.ToString() + "infomodel/find?keywords=" + Uri.EscapeDataString("*");
             var response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
             Console.WriteLine("Response: " + response.StatusCode.ToString());
-            UANodesetResult[] identifiers = JsonConvert.DeserializeObject<UANodesetResult[]>(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+            UANodesetResult[] identifiers = JsonConvert.DeserializeObject<UANodesetResult[]>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
             for (var i = 0; i < identifiers.Length; i++)
             {
                 Console.WriteLine(JsonConvert.SerializeObject(identifiers[i], Formatting.Indented));
@@ -134,11 +185,14 @@ namespace SampleConsoleClient
 
             Console.WriteLine();
             Console.WriteLine("Testing /infomodel/download/{identifier}");
-            string identifier = identifiers[0].Id.ToString(); // pick the first identifier returned previously
+
+            // pick the first identifier returned previously
+            string identifier = identifiers[0].Id.ToString(); 
             address = webClient.BaseAddress.ToString() + "infomodel/download/" + Uri.EscapeDataString(identifier);
             response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
+
             Console.WriteLine("Response: " + response.StatusCode.ToString());
-            Console.WriteLine(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+            Console.WriteLine(response.Content.ReadAsStringAsync().ConfigureAwait(false));
 
             Console.WriteLine();
             Console.WriteLine("For sample code to test /infomodel/upload, see https://github.com/digitaltwinconsortium/UANodesetWebViewer/blob/main/Applications/Controllers/UACL.cs");
@@ -146,40 +200,61 @@ namespace SampleConsoleClient
             webClient.Dispose();
         }
 
-        static void TestClientLibrary(string[] args)
+        private static async Task TestClientLibrary(string[] args)
         {
             Console.WriteLine("\n\nTesting the client library");
 
             UACloudLibClient client = new UACloudLibClient(args[0], args[1], args[2]);
-
-            Console.WriteLine("\nTesting object query");
-            List<ObjectResult> test = client.GetObjectTypes().GetAwaiter().GetResult();
-            foreach (ObjectResult result in test)
+            try
             {
-                Console.WriteLine($"{result.ID}, {result.Namespace}, {result.Browsename}, {result.Value}");
+                Console.WriteLine("\nTesting the GraphQL API");
+
+                Console.WriteLine("\nTesting the address space query, this will fall back to the REST interface if GraphQL is not available.");
+                List<WhereExpression> filter = new List<WhereExpression>();
+                filter.Add(new WhereExpression(SearchField.orgname, "microsoft", ComparisonType.like));
+                List<AddressSpace> addressSpaces = await client.GetAddressSpaces(10, 0, filter).ConfigureAwait(false);
+                if(addressSpaces.Count > 0)
+                {
+                    Console.WriteLine("Title: {0}", addressSpaces[0].Title);
+                    Console.WriteLine("Total number of address spaces: {0}", addressSpaces.Count);
+                }
+
+                Console.WriteLine("\nTesting object query");
+                List<ObjectResult> objects = await client.GetObjectTypes().ConfigureAwait(false);
+                foreach (ObjectResult result in objects)
+                {
+                    Console.WriteLine($"{result.ID}, {result.Namespace}, {result.Browsename}, {result.Value}");
+                }
+
+                Console.WriteLine("\nTesting metadata query");
+                List<MetadataResult> metadata = await client.GetMetadata().ConfigureAwait(false);
+                foreach (MetadataResult entry in metadata)
+                {
+                    Console.WriteLine($"{entry.ID}, {entry.Name}, {entry.Value}");
+                }
+
+                Console.WriteLine("\nTesting query and convertion of metadata");
+                List<AddressSpace> finalResult = await client.GetConvertedMetadata().ConfigureAwait(false);
+                foreach(AddressSpace result in finalResult)
+                {
+                    Console.WriteLine($"{result.Title} by {result.Contributor.Name}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
             }
 
-            Console.WriteLine("\nTesting metadata query");
-            List<MetadataResult> metadatas = client.GetMetadata().GetAwaiter().GetResult();
-            foreach (MetadataResult metadata in metadatas)
-            {
-                Console.WriteLine($"{metadata.ID}, {metadata.Name}, {metadata.Value}");
-            }
-
-            Console.WriteLine("\nTesting query and convertion of metadata");
-            List<AddressSpace> finalResult = client.GetConvertedResult().GetAwaiter().GetResult();
-            foreach (AddressSpace result in finalResult)
-            {
-                Console.WriteLine($"{result.Title} by {result.Contributor.Name} last update on {result.LastModificationTime}");
-            }
-
-            if (finalResult.Count > 0)
+            Console.WriteLine("\nUsing the rest API");
+            List<UANodesetResult> restResult = await client.GetBasicNodesetInformation().ConfigureAwait(false);
+            if (restResult.Count > 0)
             {
                 Console.WriteLine("Testing download of nodeset");
-                AddressSpace result = client.DownloadNodeset(finalResult[0].MetadataID);
+                AddressSpace result = await client.DownloadNodeset(restResult[0].Id.ToString()).ConfigureAwait(false);
                 if (!string.IsNullOrEmpty(result.Nodeset.NodesetXml))
                 {
                     Console.WriteLine("Nodeset Downloaded");
+                    Console.WriteLine(result.Nodeset.NodesetXml);
                 }
             }
         }

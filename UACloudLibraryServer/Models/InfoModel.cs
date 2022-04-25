@@ -27,12 +27,12 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary
+namespace UACloudLibrary.Models
 {
     using System;
     using System.ComponentModel.DataAnnotations;
 
-    public enum AddressSpaceLicense
+    public enum License
     {
         MIT,
         ApacheLicense20,
@@ -44,21 +44,20 @@ namespace UACloudLibrary
         public AddressSpace()
         {
             Title = string.Empty;
-            Version = "1.0.0";
-            License = AddressSpaceLicense.Custom;
+            License = License.Custom;
             CopyrightText = string.Empty;
             Contributor = new Organisation();
             Description = string.Empty;
-            Category = new AddressSpaceCategory();
-            Nodeset = new AddressSpaceNodeset2();
+            Category = new Category();
+            Nodeset = new Nodeset();
             DocumentationUrl = null;
             IconUrl = null;
             LicenseUrl = null;
-            Keywords = Array.Empty<string>();
+            Keywords = new string[0];
             PurchasingInformationUrl = null;
             ReleaseNotesUrl = null;
             TestSpecificationUrl = null;
-            SupportedLocales = Array.Empty<string>();
+            SupportedLocales = new string[0];
             NumberOfDownloads = 0;
             AdditionalProperties = null;
         }
@@ -67,13 +66,10 @@ namespace UACloudLibrary
         public string Title { get; set; }
 
         [Required]
-        public string Version { get; set; }
+        public License License { get; set; }
 
         [Required]
-        public AddressSpaceLicense License { get; set; }
-
-        [Required]
-        public string CopyrightText { get; set; }
+        public string CopyrightText {get; set;}
 
         [Required]
         public Organisation Contributor { get; set; }
@@ -82,10 +78,10 @@ namespace UACloudLibrary
         public string Description { get; set; }
 
         [Required]
-        public AddressSpaceCategory Category { get; set; }
+        public Category Category { get; set; }
 
         [Required]
-        public AddressSpaceNodeset2 Nodeset { get; set; }
+        public Nodeset Nodeset { get; set; }
 
         /// <summary>
         /// Link to additional documentation, specifications, GitHub, etc.
@@ -112,10 +108,10 @@ namespace UACloudLibrary
 
         public uint NumberOfDownloads { get; set; }
 
-        public NodesetProperty[] AdditionalProperties { get; set; }
+        public Property[] AdditionalProperties { get; set; }
     }
 
-    public class NodesetProperty
+    public class Property
     {
         public string Name { get; set; }
 
@@ -145,9 +141,9 @@ namespace UACloudLibrary
         public Uri Website { get; set; }
     }
 
-    public class AddressSpaceCategory
+    public class Category
     {
-        public AddressSpaceCategory()
+        public Category()
         {
             Name = string.Empty;
             Description = null;
@@ -162,17 +158,26 @@ namespace UACloudLibrary
         public Uri IconUrl { get; set; }
     }
 
-    public class AddressSpaceNodeset2
+    public class Nodeset
     {
-        public AddressSpaceNodeset2()
+        public Nodeset()
         {
             NodesetXml = string.Empty;
+            Identifier = 0;
+            NamespaceUri = null;
+            Version = string.Empty;
             PublicationDate = DateTime.MinValue;
             LastModifiedDate = DateTime.MinValue;
         }
 
         [Required]
         public string NodesetXml { get; set; }
+
+        public uint Identifier { get; set; }
+
+        public Uri NamespaceUri { get; set; }
+
+        public string Version { get; set; }
 
         public DateTime PublicationDate { get; set; }
 

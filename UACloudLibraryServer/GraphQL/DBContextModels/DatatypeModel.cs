@@ -1,4 +1,4 @@
-/* ========================================================================
+﻿/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,19 +29,24 @@
 
 namespace UACloudLibrary.DbContextModels
 {
-    using System.ComponentModel.DataAnnotations;
+    using System.ComponentModel.DataAnnotations.Schema;
 
+    [Table("datatype")]
     public partial class DatatypeModel
     {
-        [Key]
-        public int datatype_id { get; set; }
+        [Column("datatype_id")]
+        public int Id { get; set; }
 
-        public long nodeset_id { get; set; }
+        [Column("nodeset_id")]
+        public long NodesetId { get; set; }
 
-        public string datatype_browsename { get; set; }
+        [Column("datatype_browsename")]
+        public string BrowseName { get; set; }
 
-        public string datatype_value { get; set; }
+        [Column("datatype_value")]
+        public string Value { get; set; }
 
-        public string datatype_namespace { get; set; }
+        [Column("datatype_namespace")]
+        public string NameSpace { get; set; }
     }
 }

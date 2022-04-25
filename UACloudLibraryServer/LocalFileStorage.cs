@@ -1,4 +1,4 @@
-/* ========================================================================
+﻿/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,11 +29,11 @@
 
 namespace UACloudLibrary
 {
+    using Microsoft.Extensions.Logging;
     using System;
     using System.IO;
     using System.Threading;
     using System.Threading.Tasks;
-    using Microsoft.Extensions.Logging;
     using UACloudLibrary.Interfaces;
 
     /// <summary>
@@ -41,7 +41,7 @@ namespace UACloudLibrary
     /// </summary>
     public class LocalFileStorage : IFileStorage
     {
-        readonly ILogger _logger;
+        private readonly ILogger _logger;
 
         /// <summary>
         /// Default constructor
@@ -64,13 +64,13 @@ namespace UACloudLibrary
                 }
                 else
                 {
-                    return null;
+                    return Task.FromResult<string>(null);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
-                return null;
+                return Task.FromResult<string>(null);
             }
         }
 
@@ -81,7 +81,7 @@ namespace UACloudLibrary
         {
             try
             {
-                await File.WriteAllTextAsync(Path.Combine(Path.GetTempPath(), name), content, cancellationToken).ConfigureAwait(false);
+                await File.WriteAllTextAsync(Path.Combine(Path.GetTempPath(), name), content).ConfigureAwait(false);
                 return name;
             }
             catch (Exception ex)
@@ -98,7 +98,7 @@ namespace UACloudLibrary
         {
             try
             {
-                return await File.ReadAllTextAsync(Path.Combine(Path.GetTempPath(), name), cancellationToken).ConfigureAwait(false);
+                return await File.ReadAllTextAsync(Path.Combine(Path.GetTempPath(), name)).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

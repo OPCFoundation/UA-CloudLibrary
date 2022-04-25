@@ -1,4 +1,4 @@
-/* ========================================================================
+﻿/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -27,21 +27,18 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace SampleConsoleClient
+namespace UACloudLibrary
 {
-    using System.Collections.Generic;
+    using GraphQL.Types;
+    using UACloudLibrary.Models;
 
-    public class UACloudLibGraphQLMetadataQueryResponse
+    public class CategoryType : ObjectGraphType<Category>
     {
-        public List<MetaData> metadata { get; set; }
-
-        public class MetaData
+        public CategoryType()
         {
-            public string metadata_name { get; set; }
-
-            public string metadata_value { get; set; }
-
-            public string nodeset_id { get; set; }
+            Field(e => e.Name, type: typeof(NonNullGraphType<StringGraphType>));
+            Field(e => e.IconUrl, type: typeof(UriGraphType));
+            Field(e => e.Description, type: typeof(StringGraphType));
         }
     }
 }

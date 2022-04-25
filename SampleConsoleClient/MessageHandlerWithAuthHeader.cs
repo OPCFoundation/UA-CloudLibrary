@@ -1,4 +1,4 @@
-/* ========================================================================
+﻿/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -37,8 +37,8 @@ namespace SampleConsoleClient
 
     class MessageHandlerWithAuthHeader : DelegatingHandler
     {
-        string _username = string.Empty;
-        string _password = string.Empty;
+        private string _username = string.Empty;
+        private string _password = string.Empty;
 
         public MessageHandlerWithAuthHeader(string username, string password)
         {

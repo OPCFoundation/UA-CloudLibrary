@@ -1,4 +1,4 @@
-/* ========================================================================
+﻿/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,16 +29,16 @@
 
 namespace UACloudLibrary
 {
-    using System;
-    using System.Threading.Tasks;
     using Microsoft.AspNetCore.Identity;
     using Microsoft.Extensions.Logging;
+    using System;
+    using System.Threading.Tasks;
     using UACloudLibrary.Interfaces;
 
     public class UserService : IUserService
     {
-        readonly UserManager<IdentityUser> _userManager;
-        readonly ILogger _logger;
+        private readonly UserManager<IdentityUser> _userManager;
+        private readonly ILogger _logger;
 
         public UserService(UserManager<IdentityUser> userManager, ILoggerFactory logger)
         {

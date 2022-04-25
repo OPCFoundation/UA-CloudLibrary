@@ -1,4 +1,4 @@
-/* ========================================================================
+﻿/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -27,46 +27,33 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary
+namespace Opc.Ua.CloudLib.Client.Models
 {
-    using System.Collections.Generic;
-    using System.Threading.Tasks;
-    using GraphQL.Types;
-    using Microsoft.EntityFrameworkCore;
-    using UACloudLibrary.DbContextModels;
+    using Newtonsoft.Json;
 
-    public class UaCloudLibRepo : ObjectGraphType
+    /// <summary>GraphQL Result for object queries</summary>
+    [JsonObject("objectType")]
+    public class ObjectResult
     {
-        AppDbContext _context;
-
-        public UaCloudLibRepo(AppDbContext context)
-        {
-            _context = context;
-        }
-
-        public Task<List<DatatypeModel>> GetDataTypes()
-        {
-            return _context.datatype.ToListAsync();
-        }
-
-        public Task<List<MetadataModel>> GetMetaData()
-        {
-            return _context.metadata.ToListAsync();
-        }
-
-        public Task<List<ObjecttypeModel>> GetObjectTypes()
-        {
-            return _context.objecttype.ToListAsync();
-        }
-
-        public Task<List<ReferencetypeModel>> GetReferenceTypes()
-        {
-            return _context.referencetype.ToListAsync();
-        }
-
-        public Task<List<VariabletypeModel>> GetVariableTypes()
-        {
-            return _context.variabletype.ToListAsync();
-        }
+        /// <summary>Gets or sets the identifier.</summary>
+        /// <value>The identifier.</value>
+        [JsonProperty("id")]
+        public int ID { get; set; }
+        /// <summary>Gets or sets the nodeset identifier.</summary>
+        /// <value>The nodeset identifier.</value>
+        [JsonProperty("nodesetId")]
+        public long NodesetID { get; set; }
+        /// <summary>Gets or sets the browsename.</summary>
+        /// <value>The browsename.</value>
+        [JsonProperty("browseName")]
+        public string Browsename { get; set; }
+        /// <summary>Gets or sets the value.</summary>
+        /// <value>The value.</value>
+        [JsonProperty("value")]
+        public string Value { get; set; }
+        /// <summary>Gets or sets the namespace.</summary>
+        /// <value>The namespace.</value>
+        [JsonProperty("nameSpace")]
+        public string Namespace { get; set; }
     }
 }

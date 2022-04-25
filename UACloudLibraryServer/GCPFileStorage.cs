@@ -1,4 +1,4 @@
-/* ========================================================================
+﻿/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,13 +29,13 @@
 
 namespace UACloudLibrary
 {
+    using Google.Cloud.Storage.V1;
+    using Microsoft.Extensions.Logging;
     using System;
     using System.IO;
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
-    using Google.Cloud.Storage.V1;
-    using Microsoft.Extensions.Logging;
     using UACloudLibrary.Interfaces;
 
 
@@ -44,9 +44,9 @@ namespace UACloudLibrary
     /// </summary>
     public class GCPFileStorage : IFileStorage
     {
-        readonly string _bucket;
-        readonly StorageClient _gcsClient;
-        readonly ILogger _logger;
+        private readonly string _bucket;
+        private readonly StorageClient _gcsClient;
+        private readonly ILogger _logger;
 
         /// <summary>
         /// Default constructor

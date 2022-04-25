@@ -1,4 +1,4 @@
-/* ========================================================================
+﻿/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -42,6 +42,8 @@ namespace UACloudLibrary
         bool AddUATypeToNodeset(uint nodesetId, UATypes uaType, string browseName, string displayName, string nameSpace);
 
         bool DeleteAllRecordsForNodeset(uint nodesetId);
+
+        public void RetrieveAllMetadata(uint nodesetId, AddressSpace uaAddressSpace);
 
         string RetrieveMetaData(uint nodesetId, string metaDataTag);
 
