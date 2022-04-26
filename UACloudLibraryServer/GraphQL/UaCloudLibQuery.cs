@@ -86,8 +86,8 @@ namespace UACloudLibrary
                 }
             );
 
-            Field<ListGraphType<AddressSpaceType>>(
-                "addressSpace",
+            Field<ListGraphType<NameSpaceType>>(
+                "nameSpace",
                 arguments: new QueryArguments(
                     new QueryArgument<IntGraphType> { Name = "limit" },
                     new QueryArgument<IntGraphType> { Name = "offset" },

@@ -29,25 +29,27 @@
 
 namespace UACloudLibrary
 {
+    using System;
     using System.Collections.Generic;
+    using System.Globalization;
     using UACloudLibrary.Models;
 
-    internal class AddressSpaceComparer : IComparer<AddressSpace>
+    internal class NameSpaceComparer : IComparer<UANameSpace>
     {
         public string OrderBy { get; }
 
-        public AddressSpaceComparer(string orderBy)
+        public NameSpaceComparer(string orderBy)
         {
-            OrderBy = orderBy.ToLower();
+            OrderBy = orderBy.ToLower(CultureInfo.InvariantCulture);
         }
 
-        public int Compare(AddressSpace x, AddressSpace y)
+        public int Compare(UANameSpace x, UANameSpace y)
         {
             switch (OrderBy)
             {
-                case "name": return string.Compare(x.Title, y.Title);
-                case "copyrighttext": return string.Compare(x.CopyrightText, y.CopyrightText);
-                case "description": return string.Compare(x.Description, y.Description);
+                case "name": return string.Compare(x.Title, y.Title, StringComparison.Ordinal);
+                case "copyrighttext": return string.Compare(x.CopyrightText, y.CopyrightText, StringComparison.Ordinal);
+                case "description": return string.Compare(x.Description, y.Description, StringComparison.Ordinal);
                 default: return 0; // return unordered
             }
         }

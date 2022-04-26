@@ -39,9 +39,9 @@ namespace UACloudLibrary.Models
         Custom
     }
 
-    public class AddressSpace
+    public class UANameSpace
     {
-        public AddressSpace()
+        public UANameSpace()
         {
             Title = string.Empty;
             License = License.Custom;
@@ -53,11 +53,11 @@ namespace UACloudLibrary.Models
             DocumentationUrl = null;
             IconUrl = null;
             LicenseUrl = null;
-            Keywords = new string[0];
+            Keywords = Array.Empty<string>();
             PurchasingInformationUrl = null;
             ReleaseNotesUrl = null;
             TestSpecificationUrl = null;
-            SupportedLocales = new string[0];
+            SupportedLocales = Array.Empty<string>();
             NumberOfDownloads = 0;
             AdditionalProperties = null;
         }
@@ -108,10 +108,10 @@ namespace UACloudLibrary.Models
 
         public uint NumberOfDownloads { get; set; }
 
-        public Property[] AdditionalProperties { get; set; }
+        public UAProperty[] AdditionalProperties { get; set; }
     }
 
-    public class Property
+    public class UAProperty
     {
         public string Name { get; set; }
 

@@ -32,12 +32,12 @@ namespace UACloudLibrary
     using GraphQL.Types;
     using UACloudLibrary.Models;
 
-    public class AddressSpaceType : ObjectGraphType<AddressSpace>
+    public class NameSpaceType : ObjectGraphType<UANameSpace>
     {
-        public AddressSpaceType()
+        public NameSpaceType()
         {
             Field(e => e.Title, type: typeof(NonNullGraphType<StringGraphType>));
-            Field(e => e.License, type: typeof(NonNullGraphType<AddressSpaceLicenseType>));
+            Field(e => e.License, type: typeof(NonNullGraphType<NameSpaceLicenseType>));
             Field(e => e.CopyrightText, type: typeof(NonNullGraphType<StringGraphType>));
             Field(e => e.Contributor, type: typeof(NonNullGraphType<OrganisationType>));
             Field(e => e.Description, type: typeof(NonNullGraphType<StringGraphType>));

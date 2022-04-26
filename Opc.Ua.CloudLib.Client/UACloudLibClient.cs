@@ -234,10 +234,10 @@ namespace Opc.Ua.CloudLib.Client
         }
 
         /// <summary>Gets the converted metadata.</summary>
-        /// <returns>List of AddressSpace</returns>
-        public async Task<List<AddressSpace>> GetConvertedMetadata()
+        /// <returns>List of NameSpace</returns>
+        public async Task<List<UANameSpace>> GetConvertedMetadata()
         {
-            List<AddressSpace> convertedResult = null;
+            List<UANameSpace> convertedResult = null;
 
             IQuery<MetadataResult> metadataQuery = new Query<MetadataResult>("metadata")
                 .AddField(f => f.ID)
@@ -289,9 +289,9 @@ namespace Opc.Ua.CloudLib.Client
         /// <summary>
         /// Queries the address spaces with the given filters and converts the result
         /// </summary>
-        public async Task<List<AddressSpace>> GetAddressSpaces(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
+        public async Task<List<UANameSpace>> GetNameSpaces(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
-            IQuery<AddressSpace> addressSpaceQuery = new Query<AddressSpace>("addressSpace")
+            IQuery<UANameSpace> nameSpaceQuery = new Query<UANameSpace>("nameSpace")
                 .AddField(h => h.Title)
                 .AddField(
                     h => h.Contributor,
@@ -315,20 +315,20 @@ namespace Opc.Ua.CloudLib.Client
                 .AddField(h => h.Keywords)
                 .AddField(h => h.SupportedLocales);
 
-            addressSpaceQuery.AddArgument("limit", limit);
-            addressSpaceQuery.AddArgument("offset", offset);
+            nameSpaceQuery.AddArgument("limit", limit);
+            nameSpaceQuery.AddArgument("offset", offset);
 
             if (filter != null)
             {
-                addressSpaceQuery.AddArgument("where", WhereExpression.Build(filter));
+                nameSpaceQuery.AddArgument("where", WhereExpression.Build(filter));
             }
 
-            request.Query = "query{" + addressSpaceQuery.Build() + "}";
+            request.Query = "query{" + nameSpaceQuery.Build() + "}";
 
-            List<AddressSpace> result = new List<AddressSpace>();
+            List<UANameSpace> result = new List<UANameSpace>();
             try
             {
-                result = await SendAndConvert<List<AddressSpace>>(request).ConfigureAwait(false);
+                result = await SendAndConvert<List<UANameSpace>>(request).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -343,7 +343,7 @@ namespace Opc.Ua.CloudLib.Client
         /// <summary>
         /// Queries the categories with the given filters
         /// </summary>
-        public async Task<List<Category>> GetAddressSpaceCategories(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
+        public async Task<List<Category>> GetNameSpaceCategories(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
             IQuery<Category> categoryQuery = new Query<Category>("category")
                 .AddField(f => f.Name)
@@ -367,7 +367,7 @@ namespace Opc.Ua.CloudLib.Client
         /// Download chosen Nodeset with a REST call
         /// </summary>
         /// <param name="identifier"></param>
-        public async Task<AddressSpace> DownloadNodeset(string identifier) => await restClient.DownloadNodeset(identifier).ConfigureAwait(false);
+        public async Task<UANameSpace> DownloadNodeset(string identifier) => await restClient.DownloadNodeset(identifier).ConfigureAwait(false);
 
         /// <summary>
         /// Use this method if the CloudLib instance doesn't provide the GraphQL API

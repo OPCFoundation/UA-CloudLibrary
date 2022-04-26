@@ -34,6 +34,7 @@ namespace UACloudLibrary
     using System;
     using System.Collections.Generic;
     using System.Data;
+    using System.Globalization;
     using UACloudLibrary.Models;
 
 public class PostgreSQLDB : IDatabase
@@ -212,129 +213,129 @@ public class PostgreSQLDB : IDatabase
             return true;
         }
 
-        public void RetrieveAllMetadata(uint nodesetId, AddressSpace uaAddressSpace)
+        public void RetrieveAllMetadata(uint nodesetId, UANameSpace nameSpace)
         {
             if (DateTime.TryParse(RetrieveMetaData(nodesetId, "nodesetcreationtime"), out DateTime parsedDateTime))
             {
-                uaAddressSpace.Nodeset.PublicationDate = parsedDateTime;
+                nameSpace.Nodeset.PublicationDate = parsedDateTime;
             }
 
             if (DateTime.TryParse(RetrieveMetaData(nodesetId, "nodesetmodifiedtime"), out parsedDateTime))
             {
-                uaAddressSpace.Nodeset.LastModifiedDate = parsedDateTime;
+                nameSpace.Nodeset.LastModifiedDate = parsedDateTime;
             }
 
-            uaAddressSpace.Title = RetrieveMetaData(nodesetId, "nodesettitle");
+            nameSpace.Title = RetrieveMetaData(nodesetId, "nodesettitle");
 
-            uaAddressSpace.Nodeset.Version = RetrieveMetaData(nodesetId, "version");
+            nameSpace.Nodeset.Version = RetrieveMetaData(nodesetId, "version");
 
-            uaAddressSpace.Nodeset.Identifier = nodesetId;
+            nameSpace.Nodeset.Identifier = nodesetId;
 
             string uri = GetNamespaceUriForNodeset(nodesetId);
             if (!string.IsNullOrEmpty(uri))
             {
-                uaAddressSpace.Nodeset.NamespaceUri = new Uri(uri);
+                nameSpace.Nodeset.NamespaceUri = new Uri(uri);
             }
 
             switch (RetrieveMetaData(nodesetId, "license"))
             {
                 case "MIT":
-                    uaAddressSpace.License = License.MIT;
+                    nameSpace.License = License.MIT;
                     break;
                 case "ApacheLicense20":
-                    uaAddressSpace.License = License.ApacheLicense20;
+                    nameSpace.License = License.ApacheLicense20;
                     break;
                 case "Custom":
-                    uaAddressSpace.License = License.Custom;
+                    nameSpace.License = License.Custom;
                     break;
                 default:
-                    uaAddressSpace.License = License.Custom;
+                    nameSpace.License = License.Custom;
                     break;
             }
 
-            uaAddressSpace.CopyrightText = RetrieveMetaData(nodesetId, "copyright");
+            nameSpace.CopyrightText = RetrieveMetaData(nodesetId, "copyright");
 
-            uaAddressSpace.Description = RetrieveMetaData(nodesetId, "description");
+            nameSpace.Description = RetrieveMetaData(nodesetId, "description");
 
-            uaAddressSpace.Category.Name = RetrieveMetaData(nodesetId, "addressspacename");
+            nameSpace.Category.Name = RetrieveMetaData(nodesetId, "addressspacename");
 
-            uaAddressSpace.Category.Description = RetrieveMetaData(nodesetId, "addressspacedescription");
+            nameSpace.Category.Description = RetrieveMetaData(nodesetId, "addressspacedescription");
 
             uri = RetrieveMetaData(nodesetId, "addressspaceiconurl");
             if (!string.IsNullOrEmpty(uri))
             {
-                uaAddressSpace.Category.IconUrl = new Uri(uri);
+                nameSpace.Category.IconUrl = new Uri(uri);
             }
 
             uri = RetrieveMetaData(nodesetId, "documentationurl");
             if (!string.IsNullOrEmpty(uri))
             {
-                uaAddressSpace.DocumentationUrl = new Uri(uri);
+                nameSpace.DocumentationUrl = new Uri(uri);
             }
 
             uri = RetrieveMetaData(nodesetId, "iconurl");
             if (!string.IsNullOrEmpty(uri))
             {
-                uaAddressSpace.IconUrl = new Uri(uri);
+                nameSpace.IconUrl = new Uri(uri);
             }
 
             uri = RetrieveMetaData(nodesetId, "licenseurl");
             if (!string.IsNullOrEmpty(uri))
             {
-                uaAddressSpace.LicenseUrl = new Uri(uri);
+                nameSpace.LicenseUrl = new Uri(uri);
             }
 
             uri = RetrieveMetaData(nodesetId, "purchasinginfo");
             if (!string.IsNullOrEmpty(uri))
             {
-                uaAddressSpace.PurchasingInformationUrl = new Uri(uri);
+                nameSpace.PurchasingInformationUrl = new Uri(uri);
             }
 
             uri = RetrieveMetaData(nodesetId, "releasenotes");
             if (!string.IsNullOrEmpty(uri))
             {
-                uaAddressSpace.ReleaseNotesUrl = new Uri(uri);
+                nameSpace.ReleaseNotesUrl = new Uri(uri);
             }
 
             uri = RetrieveMetaData(nodesetId, "testspecification");
             if (!string.IsNullOrEmpty(uri))
             {
-                uaAddressSpace.TestSpecificationUrl = new Uri(uri);
+                nameSpace.TestSpecificationUrl = new Uri(uri);
             }
 
             string keywords = RetrieveMetaData(nodesetId, "keywords");
             if (!string.IsNullOrEmpty(keywords))
             {
-                uaAddressSpace.Keywords = keywords.Split(',');
+                nameSpace.Keywords = keywords.Split(',');
             }
 
             string locales = RetrieveMetaData(nodesetId, "locales");
             if (!string.IsNullOrEmpty(locales))
             {
-                uaAddressSpace.SupportedLocales = locales.Split(',');
+                nameSpace.SupportedLocales = locales.Split(',');
             }
 
-            uaAddressSpace.Contributor.Name = RetrieveMetaData(nodesetId, "orgname");
+            nameSpace.Contributor.Name = RetrieveMetaData(nodesetId, "orgname");
 
-            uaAddressSpace.Contributor.Description = RetrieveMetaData(nodesetId, "orgdescription");
+            nameSpace.Contributor.Description = RetrieveMetaData(nodesetId, "orgdescription");
 
             uri = RetrieveMetaData(nodesetId, "orglogo");
             if (!string.IsNullOrEmpty(uri))
             {
-                uaAddressSpace.Contributor.LogoUrl = new Uri(uri);
+                nameSpace.Contributor.LogoUrl = new Uri(uri);
             }
 
-            uaAddressSpace.Contributor.ContactEmail = RetrieveMetaData(nodesetId, "orgcontact");
+            nameSpace.Contributor.ContactEmail = RetrieveMetaData(nodesetId, "orgcontact");
 
             uri = RetrieveMetaData(nodesetId, "orgwebsite");
             if (!string.IsNullOrEmpty(uri))
             {
-                uaAddressSpace.Contributor.Website = new Uri(uri);
+                nameSpace.Contributor.Website = new Uri(uri);
             }
 
             if (uint.TryParse(RetrieveMetaData(nodesetId, "numdownloads"), out uint parsedDownloads))
             {
-                uaAddressSpace.NumberOfDownloads = parsedDownloads;
+                nameSpace.NumberOfDownloads = parsedDownloads;
             }
         }
 
@@ -587,7 +588,7 @@ public class PostgreSQLDB : IDatabase
                     {
                         while (reader.Read())
                         {
-                            results.Add(reader.GetString(0) + "," + reader.GetInt64(1).ToString());
+                            results.Add(reader.GetString(0) + "," + reader.GetInt64(1).ToString(CultureInfo.InvariantCulture));
                         }
                     }
                 }
@@ -599,7 +600,7 @@ public class PostgreSQLDB : IDatabase
                 _logger.LogError(ex.Message);
             }
 
-            return new string[0];
+            return Array.Empty<string>();
         }
     }
 }

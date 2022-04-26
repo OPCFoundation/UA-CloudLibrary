@@ -41,6 +41,7 @@ namespace SampleConsoleClient
     using Opc.Ua.CloudLib.Client;
     using Opc.Ua.CloudLib.Client.Models;
     using System.Threading.Tasks;
+    using System.Globalization;
 
     class Program
     {
@@ -110,11 +111,11 @@ namespace SampleConsoleClient
             Console.WriteLine(JsonConvert.SerializeObject(response.Data, Formatting.Indented));
 
             Console.WriteLine();
-            Console.WriteLine("Testing addressSpace query");
+            Console.WriteLine("Testing NameSpace query");
             request = new GraphQLRequest
             {
                 Query = @"query {
-                            addressSpace(
+                            nameSpace(
                                 limit: 10
                                 offset: 0
                                 where: ""[{ 'orgname': { 'like': 'microsoft' }}]""
@@ -187,7 +188,7 @@ namespace SampleConsoleClient
             Console.WriteLine("Testing /infomodel/download/{identifier}");
 
             // pick the first identifier returned previously
-            string identifier = identifiers[0].Id.ToString(); 
+            string identifier = identifiers[0].Id.ToString(CultureInfo.InvariantCulture); 
             address = webClient.BaseAddress.ToString() + "infomodel/download/" + Uri.EscapeDataString(identifier);
             response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
 
@@ -212,11 +213,11 @@ namespace SampleConsoleClient
                 Console.WriteLine("\nTesting the address space query, this will fall back to the REST interface if GraphQL is not available.");
                 List<WhereExpression> filter = new List<WhereExpression>();
                 filter.Add(new WhereExpression(SearchField.orgname, "microsoft", ComparisonType.like));
-                List<AddressSpace> addressSpaces = await client.GetAddressSpaces(10, 0, filter).ConfigureAwait(false);
-                if(addressSpaces.Count > 0)
+                List<UANameSpace> nameSpaces = await client.GetNameSpaces(10, 0, filter).ConfigureAwait(false);
+                if(nameSpaces.Count > 0)
                 {
-                    Console.WriteLine("Title: {0}", addressSpaces[0].Title);
-                    Console.WriteLine("Total number of address spaces: {0}", addressSpaces.Count);
+                    Console.WriteLine("Title: {0}", nameSpaces[0].Title);
+                    Console.WriteLine("Total number of address spaces: {0}", nameSpaces.Count);
                 }
 
                 Console.WriteLine("\nTesting object query");
@@ -234,8 +235,8 @@ namespace SampleConsoleClient
                 }
 
                 Console.WriteLine("\nTesting query and convertion of metadata");
-                List<AddressSpace> finalResult = await client.GetConvertedMetadata().ConfigureAwait(false);
-                foreach(AddressSpace result in finalResult)
+                List<UANameSpace> finalResult = await client.GetConvertedMetadata().ConfigureAwait(false);
+                foreach(UANameSpace result in finalResult)
                 {
                     Console.WriteLine($"{result.Title} by {result.Contributor.Name}");
                 }
@@ -250,7 +251,7 @@ namespace SampleConsoleClient
             if (restResult.Count > 0)
             {
                 Console.WriteLine("Testing download of nodeset");
-                AddressSpace result = await client.DownloadNodeset(restResult[0].Id.ToString()).ConfigureAwait(false);
+                UANameSpace result = await client.DownloadNodeset(restResult[0].Id.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
                 if (!string.IsNullOrEmpty(result.Nodeset.NodesetXml))
                 {
                     Console.WriteLine("Nodeset Downloaded");

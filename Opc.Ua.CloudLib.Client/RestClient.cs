@@ -90,14 +90,14 @@ namespace Opc.Ua.CloudLib.Client
             return info;
         }
 
-        public async Task<AddressSpace> DownloadNodeset(string identifier)
+        public async Task<UANameSpace> DownloadNodeset(string identifier)
         {
             string address = Path.Combine(client.BaseAddress.ToString(), "infomodel/download/", Uri.EscapeDataString(identifier));
             HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
-            AddressSpace resultType = null;
+            UANameSpace resultType = null;
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                resultType = JsonConvert.DeserializeObject<AddressSpace>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+                resultType = JsonConvert.DeserializeObject<UANameSpace>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
             }
 
             return resultType;

@@ -47,9 +47,9 @@ namespace Opc.Ua.CloudLib.Client
         orgContact,
         /// <summary>The nodesetTitle-field</summary>
         nodesetTitle,
-        /// <summary>The addressSpaceName-field</summary>
+        /// <summary>The nameSpaceName-field</summary>
         addressSpaceName,
-        /// <summary>The addressSpaceDescription-field</summary>
+        /// <summary>The nameSpaceDescription-field</summary>
         addressSpaceDescription,
         /// <summary>The lastModification-field</summary>
         lastModification,
@@ -130,7 +130,7 @@ namespace Opc.Ua.CloudLib.Client
         /// <param name="comparison">The comparison.</param>
         public void SetExpression(SearchField field, string value, ComparisonType comparison)
         {
-            if (!string.IsNullOrEmpty(value) && Enum.IsDefined(typeof(SearchField),field) && Enum.IsDefined(typeof(ComparisonType), comparison))
+            if (!string.IsNullOrEmpty(value) && Enum.IsDefined(typeof(SearchField), field) && Enum.IsDefined(typeof(ComparisonType), comparison))
             {
                 Expression = "{'" + field.ToString() + "': {'" + comparison.ToString() + "': '" + value + "'}}";
 

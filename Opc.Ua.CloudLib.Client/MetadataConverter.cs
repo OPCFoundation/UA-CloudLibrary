@@ -40,30 +40,30 @@ namespace Opc.Ua.CloudLib.Client
         /// <summary>
         /// Converts metadata to a list of combinedtypes, taking the nodeset id from the metadata as a combination point
         /// </summary>
-        public static List<AddressSpace> Convert(List<MetadataResult> metadata)
+        public static List<UANameSpace> Convert(List<MetadataResult> metadata)
         {
-            Dictionary<string, AddressSpace> addressSpaces = new Dictionary<string, AddressSpace>();
+            Dictionary<string, UANameSpace> nameSpaces = new Dictionary<string, UANameSpace>();
 
             if (metadata != null)
             {
                 foreach (MetadataResult item in metadata)
                 {
-                    string id = item.NodesetID.ToString();
-                    if (!addressSpaces.ContainsKey(id))
+                    string id = item.NodesetID.ToString(CultureInfo.InvariantCulture);
+                    if (!nameSpaces.ContainsKey(id))
                     {
-                        addressSpaces.Add(id, new AddressSpace());
+                        nameSpaces.Add(id, new UANameSpace());
                     }
                     
-                    ConvertCases(addressSpaces[id], item);
+                    ConvertCases(nameSpaces[id], item);
                 }
             }
 
-            return addressSpaces.Values.ToList();
+            return nameSpaces.Values.ToList();
         }
 
-        public static List<AddressSpace> Convert(List<UANodesetResult> infos)
+        public static List<UANameSpace> Convert(List<UANodesetResult> infos)
         {
-            List<AddressSpace> result = new List<AddressSpace>();
+            List<UANameSpace> result = new List<UANameSpace>();
 
             if (infos != null)
             {
@@ -76,48 +76,48 @@ namespace Opc.Ua.CloudLib.Client
             return result;
         }
 
-        public static AddressSpace Convert(UANodesetResult info)
+        public static UANameSpace Convert(UANodesetResult info)
         {
-            AddressSpace addressSpace = new AddressSpace();
+            UANameSpace nameSpace = new UANameSpace();
 
-            addressSpace.Title = info.Title;
-            addressSpace.Nodeset.Version = info.Version;
-            addressSpace.Contributor.Name = info.Contributor;
+            nameSpace.Title = info.Title;
+            nameSpace.Nodeset.Version = info.Version;
+            nameSpace.Contributor.Name = info.Contributor;
             
             switch (info.License)
             {
                 case "MIT":
                     {
-                        addressSpace.License = License.MIT;
+                        nameSpace.License = License.MIT;
                         break;
                     }
                 case "ApacheLicense20":
                     {
-                        addressSpace.License = License.ApacheLicense20;
+                        nameSpace.License = License.ApacheLicense20;
                         break;
                     }
                 case "Custom":
                     {
-                        addressSpace.License = License.Custom;
+                        nameSpace.License = License.Custom;
                         break;
                     }
                 default:
                     {
-                        addressSpace.License = License.Custom;
+                        nameSpace.License = License.Custom;
                         break;
                     }
             }
-            addressSpace.Nodeset.PublicationDate = (info.CreationTime != null)? info.CreationTime.Value : DateTime.MinValue;
+            nameSpace.Nodeset.PublicationDate = (info.CreationTime != null)? info.CreationTime.Value : DateTime.MinValue;
 
-            return addressSpace;
+            return nameSpace;
         }
 
         /// <summary>
         /// Converts with paging support so the UI dev doesn't have to deal with it
         /// </summary>
-        public static List<AddressSpace> ConvertWithPaging(List<UANodesetResult> infos, int limit = 10, int offset = 0)
+        public static List<UANameSpace> ConvertWithPaging(List<UANodesetResult> infos, int limit = 10, int offset = 0)
         {
-            List<AddressSpace> result = new List<AddressSpace>();
+            List<UANameSpace> result = new List<UANameSpace>();
             
             if (limit == 0)
             {
@@ -144,54 +144,54 @@ namespace Opc.Ua.CloudLib.Client
         /// <summary>
         /// Switch case with all the names for the members
         /// </summary>
-        private static void ConvertCases(AddressSpace addressSpace, MetadataResult metadata)
+        private static void ConvertCases(UANameSpace nameSpace, MetadataResult metadata)
         {
             switch (metadata.Name)
             {
-                #region AdressSpace Cases
+                #region NameSpace Cases
                 case "addressspacedescription":
                     {
-                        addressSpace.Description = metadata.Value;
+                        nameSpace.Description = metadata.Value;
                         break;
                     }
                 case "copyright":
                     {
-                        addressSpace.CopyrightText = metadata.Value;
+                        nameSpace.CopyrightText = metadata.Value;
                         break;
                     }
                 case "documentationurl":
                     {
-                        addressSpace.DocumentationUrl = new Uri(metadata.Value);
+                        nameSpace.DocumentationUrl = new Uri(metadata.Value);
                         break;
                     }
                 case "licenseurl":
                     {
-                        addressSpace.LicenseUrl = new Uri(metadata.Value);
+                        nameSpace.LicenseUrl = new Uri(metadata.Value);
                         break;
                     }
                 case "purchasinginfo":
                     {
-                        addressSpace.PurchasingInformationUrl = new Uri(metadata.Value);
+                        nameSpace.PurchasingInformationUrl = new Uri(metadata.Value);
                         break;
                     }
                 case "keywords":
                     {
-                        addressSpace.Keywords = metadata.Value.Split(new char[] { ',' });
+                        nameSpace.Keywords = metadata.Value.Split(new char[] { ',' });
                         break;
                     }
                 case "locales":
                     {
-                        addressSpace.SupportedLocales = metadata.Value.Split(new char[] { ',' });
+                        nameSpace.SupportedLocales = metadata.Value.Split(new char[] { ',' });
                         break;
                     }
                 case "numdownloads":
                     {
-                        addressSpace.NumberOfDownloads = System.Convert.ToUInt32(metadata.Value);
+                        nameSpace.NumberOfDownloads = System.Convert.ToUInt32(metadata.Value, CultureInfo.InvariantCulture);
                         break;
                     }
                 case "addressspacename":
                     {
-                        addressSpace.Title = metadata.Value;
+                        nameSpace.Title = metadata.Value;
                         break;
                     }
                 case "license":
@@ -200,22 +200,22 @@ namespace Opc.Ua.CloudLib.Client
                         {
                             case "MIT":
                                 {
-                                    addressSpace.License = License.MIT;
+                                    nameSpace.License = License.MIT;
                                     break;
                                 }
                             case "ApacheLicense20":
                                 {
-                                    addressSpace.License = License.ApacheLicense20;
+                                    nameSpace.License = License.ApacheLicense20;
                                     break;
                                 }
                             case "Custom":
                                 {
-                                    addressSpace.License = License.Custom;
+                                    nameSpace.License = License.Custom;
                                     break;
                                 }
                             default:
                                 {
-                                    addressSpace.License = License.Custom;
+                                    nameSpace.License = License.Custom;
                                     break;
                                 }
                         }
@@ -223,50 +223,51 @@ namespace Opc.Ua.CloudLib.Client
                     }
                 case "version":
                     {
-                        addressSpace.Nodeset.Version = metadata.Value;
+                        nameSpace.Nodeset.Version = metadata.Value;
                         break;
                     }
                 case "releasenotes":
                     {
-                        addressSpace.ReleaseNotesUrl = new Uri(metadata.Value);
+                        nameSpace.ReleaseNotesUrl = new Uri(metadata.Value);
                         break;
                     }
                 case "testspecification":
                     {
-                        addressSpace.TestSpecificationUrl = new Uri(metadata.Value);
+                        nameSpace.TestSpecificationUrl = new Uri(metadata.Value);
                         break;
                     }
                 #endregion
+
                 #region Organistion Cases
                 case "orgname":
                     {
-                        addressSpace.Contributor.Name = metadata.Value;
+                        nameSpace.Contributor.Name = metadata.Value;
                         break;
                     }
                 case "orgdesciption":
                     {
-                        addressSpace.Contributor.Description = metadata.Value;
+                        nameSpace.Contributor.Description = metadata.Value;
                         break;
                     }
                 case "orgcontact":
                     {
-                        addressSpace.Contributor.ContactEmail = metadata.Value;
+                        nameSpace.Contributor.ContactEmail = metadata.Value;
                         break;
                     }
                 case "orgwebsite":
                     {
-                        addressSpace.Contributor.Website = new Uri(metadata.Value);
+                        nameSpace.Contributor.Website = new Uri(metadata.Value);
                         break;
                     }
                 case "orglogo":
                     {
-                        addressSpace.Contributor.LogoUrl = new Uri(metadata.Value);
+                        nameSpace.Contributor.LogoUrl = new Uri(metadata.Value);
                         break;
                     }
                 #endregion
                 case "adressspacecreationtime":
                     {
-                        addressSpace.Nodeset.PublicationDate = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+                        nameSpace.Nodeset.PublicationDate = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
                         break;
                     }
                 default:

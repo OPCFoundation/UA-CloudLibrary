@@ -43,7 +43,7 @@ namespace UACloudLibrary
 
         bool DeleteAllRecordsForNodeset(uint nodesetId);
 
-        public void RetrieveAllMetadata(uint nodesetId, AddressSpace uaAddressSpace);
+        public void RetrieveAllMetadata(uint nodesetId, UANameSpace nameSpace);
 
         string RetrieveMetaData(uint nodesetId, string metaDataTag);
 

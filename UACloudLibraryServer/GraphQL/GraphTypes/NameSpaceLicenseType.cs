@@ -31,9 +31,9 @@ namespace UACloudLibrary
 {
     using GraphQL.Types;
 
-    public class AddressSpaceLicenseType : EnumerationGraphType
+    public class NameSpaceLicenseType : EnumerationGraphType
     {
-        public AddressSpaceLicenseType()
+        public NameSpaceLicenseType()
         {
             AddValue("MIT", "", 0);
             AddValue("ApacheLicense20", "", 1);
