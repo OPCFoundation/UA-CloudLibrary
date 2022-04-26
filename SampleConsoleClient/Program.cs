@@ -56,15 +56,15 @@ namespace SampleConsoleClient
 
             Console.WriteLine("OPC Foundation UA Cloud Library Console Client Application");
 
-            await TestRESTInterface(args).ConfigureAwait(false);
-            await TestGraphQLInterface(args).ConfigureAwait(false);
-            await TestClientLibrary(args).ConfigureAwait(false);
+            await TestRESTInterfaceAsync(args).ConfigureAwait(false);
+            await TestGraphQLInterfaceAsync(args).ConfigureAwait(false);
+            await TestClientLibraryAsync(args).ConfigureAwait(false);
 
             Console.WriteLine();
             Console.WriteLine("Done!");
         }
 
-        private static async Task TestGraphQLInterface(string[] args)
+        private static async Task TestGraphQLInterfaceAsync(string[] args)
         {
             Console.WriteLine();
             Console.WriteLine("Testing GraphQL interface (see https://graphql.org/learn/ for details)...");
@@ -156,7 +156,7 @@ namespace SampleConsoleClient
             graphQLClient.Dispose();
         }
 
-        private static async Task TestRESTInterface(string[] args)
+        private static async Task TestRESTInterfaceAsync(string[] args)
         {
             Console.WriteLine();
             Console.WriteLine("Testing REST interface...");
@@ -197,7 +197,7 @@ namespace SampleConsoleClient
             webClient.Dispose();
         }
 
-        private static async Task TestClientLibrary(string[] args)
+        private static async Task TestClientLibraryAsync(string[] args)
         {
             Console.WriteLine("\n\nTesting the client library");
 
@@ -209,7 +209,7 @@ namespace SampleConsoleClient
                 Console.WriteLine("\nTesting the address space query, this will fall back to the REST interface if GraphQL is not available.");
                 List<WhereExpression> filter = new List<WhereExpression>();
                 filter.Add(new WhereExpression(SearchField.orgname, "microsoft", ComparisonType.like));
-                List<UANameSpace> nameSpaces = await client.GetNameSpaces(10, 0, filter).ConfigureAwait(false);
+                List<UANameSpace> nameSpaces = await client.GetNameSpacesAsync(10, 0, filter).ConfigureAwait(false);
                 if(nameSpaces.Count > 0)
                 {
                     Console.WriteLine("Title: {0}", nameSpaces[0].Title);
@@ -247,7 +247,7 @@ namespace SampleConsoleClient
             if (restResult.Count > 0)
             {
                 Console.WriteLine("Testing download of nodeset");
-                UANameSpace result = await client.DownloadNodeset(restResult[0].Id.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                UANameSpace result = await client.DownloadNodesetAsync(restResult[0].Id.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
                 if (!string.IsNullOrEmpty(result.Nodeset.NodesetXml))
                 {
                     Console.WriteLine("Nodeset Downloaded");

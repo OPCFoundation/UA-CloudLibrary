@@ -248,7 +248,7 @@ namespace Opc.Ua.CloudLib.Client
             catch (Exception ex)
             {
                 Console.WriteLine("Error: " + ex.Message + " Falling back to REST interface...");
-                List<UANodesetResult> infos = await restClient.GetBasicNodesetInformation().ConfigureAwait(false);
+                List<UANodesetResult> infos = await restClient.GetBasicNodesetInformationAsync().ConfigureAwait(false);
                 convertedResult.AddRange(MetadataConverter.Convert(infos));
             }
 
@@ -283,7 +283,7 @@ namespace Opc.Ua.CloudLib.Client
         /// <summary>
         /// Queries the address spaces with the given filters and converts the result
         /// </summary>
-        public async Task<List<UANameSpace>> GetNameSpaces(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
+        public async Task<List<UANameSpace>> GetNameSpacesAsync(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
             IQuery<UANameSpace> nameSpaceQuery = new Query<UANameSpace>("nameSpace")
                 .AddField(h => h.Title)
@@ -327,7 +327,7 @@ namespace Opc.Ua.CloudLib.Client
             catch (Exception ex)
             {
                 Console.WriteLine("Error: " + ex.Message + " Falling back to REST interface...");
-                List<UANodesetResult> infos = await restClient.GetBasicNodesetInformation((List<string>)(filter?.Select(e => e.Value))).ConfigureAwait(false);
+                List<UANodesetResult> infos = await restClient.GetBasicNodesetInformationAsync((List<string>)(filter?.Select(e => e.Value))).ConfigureAwait(false);
                 result = MetadataConverter.ConvertWithPaging(infos, limit, offset);
             }
 
@@ -361,12 +361,12 @@ namespace Opc.Ua.CloudLib.Client
         /// Download chosen Nodeset with a REST call
         /// </summary>
         /// <param name="identifier"></param>
-        public async Task<UANameSpace> DownloadNodeset(string identifier) => await restClient.DownloadNodeset(identifier).ConfigureAwait(false);
+        public async Task<UANameSpace> DownloadNodesetAsync(string identifier) => await restClient.DownloadNodesetAsync(identifier).ConfigureAwait(false);
 
         /// <summary>
         /// Use this method if the CloudLib instance doesn't provide the GraphQL API
         /// </summary>
-        public async Task<List<UANodesetResult>> GetBasicNodesetInformationAsync(List<string> keywords = null) => await restClient.GetBasicNodesetInformation(keywords).ConfigureAwait(false);
+        public async Task<List<UANodesetResult>> GetBasicNodesetInformationAsync(List<string> keywords = null) => await restClient.GetBasicNodesetInformationAsync(keywords).ConfigureAwait(false);
 
         /// <summary>
         /// Gets all available namespaces and the corresponding node set identifier
