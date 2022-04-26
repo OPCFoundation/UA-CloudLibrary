@@ -40,6 +40,9 @@ indent_size = 2
 #### C# Formatting Rules ####
 [*.cs]
 
+# CA1848: Use the LoggerMessage delegates
+dotnet_diagnostic.CA1848.severity = silent
+
 # Null-checking preferences
 csharp_style_throw_expression                                                 = true : suggestion
 csharp_style_conditional_delegate_call                                        = true : suggestion
