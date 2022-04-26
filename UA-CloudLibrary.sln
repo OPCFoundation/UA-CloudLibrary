@@ -22,6 +22,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SampleConsoleClient", "Samp
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Opc.Ua.CloudLib.Client", "Opc.Ua.CloudLib.Client\Opc.Ua.CloudLib.Client.csproj", "{8353C72D-E29A-40BE-A3EF-C59330FC270C}"
 EndProject
+Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{C7282E18-BCDA-48F6-99FD-EC7142A0397A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -40,6 +42,10 @@ Global
 		{8353C72D-E29A-40BE-A3EF-C59330FC270C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8353C72D-E29A-40BE-A3EF-C59330FC270C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8353C72D-E29A-40BE-A3EF-C59330FC270C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C7282E18-BCDA-48F6-99FD-EC7142A0397A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7282E18-BCDA-48F6-99FD-EC7142A0397A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C7282E18-BCDA-48F6-99FD-EC7142A0397A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C7282E18-BCDA-48F6-99FD-EC7142A0397A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
