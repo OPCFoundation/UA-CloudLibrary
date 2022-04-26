@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,10 +29,10 @@
 
 namespace UACloudLibrary
 {
-    using Microsoft.AspNetCore.Identity;
-    using Microsoft.Extensions.Logging;
     using System;
     using System.Threading.Tasks;
+    using Microsoft.AspNetCore.Identity;
+    using Microsoft.Extensions.Logging;
     using UACloudLibrary.Interfaces;
 
     public class UserService : IUserService

@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,10 +29,10 @@
 
 namespace UACloudLibrary
 {
+    using System.IO;
     using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore;
     using Microsoft.Extensions.Configuration;
-    using System.IO;
     using UACloudLibrary.DbContextModels;
 
 
@@ -41,7 +41,7 @@ namespace UACloudLibrary
         public AppDbContext(DbContextOptions options)
         : base(options)
         {
-            
+
         }
 
         // Needed for design-time DB migration
@@ -59,7 +59,7 @@ namespace UACloudLibrary
                    .AddJsonFile("appsettings.json")
                    .Build();
 
-                string connectionString = PostgreSQLDB.CreateConnectionString();
+                string connectionString = PostgreSQLDB.CreateConnectionString(configuration);
                 optionsBuilder.UseNpgsql(connectionString);
             }
         }

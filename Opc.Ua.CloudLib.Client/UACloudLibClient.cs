@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,6 +29,12 @@
 
 namespace Opc.Ua.CloudLib.Client
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Net.Http.Headers;
+    using System.Text;
+    using System.Threading.Tasks;
     using global::Opc.Ua.CloudLib.Client.Models;
     using GraphQL;
     using GraphQL.Client.Http;
@@ -36,12 +42,6 @@ namespace Opc.Ua.CloudLib.Client
     using GraphQL.Query.Builder;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Net.Http.Headers;
-    using System.Text;
-    using System.Threading.Tasks;
 
 
     /// <summary>
@@ -100,13 +100,8 @@ namespace Opc.Ua.CloudLib.Client
         /// <summary>
         /// This constructor uses the standard endpoint with authorization
         /// </summary>
-        public UACloudLibClient(string strUsername, string strPassword)
+        public UACloudLibClient(string strUsername, string strPassword) : this(StandardEndpoint.ToString(), strUsername, strPassword)
         {
-            restClient = new RestClient(StandardEndpoint.ToString(), authentication);
-            BaseEndpoint = StandardEndpoint;
-            m_client = new GraphQLHttpClient(new Uri(BaseEndpoint + "/graphql"), new NewtonsoftJsonSerializer());
-            string auth = Convert.ToBase64String(Encoding.UTF8.GetBytes(strUsername + ":" + strPassword));
-            m_client.HttpClient.DefaultRequestHeaders.Add("Authorization", "basic " + auth);
         }
 
         /// <summary>Initializes a new instance of the <see cref="UACloudLibClient" /> class.</summary>
@@ -131,7 +126,7 @@ namespace Opc.Ua.CloudLib.Client
         ///   <br />
         /// </returns>
         /// <exception cref="System.Exception"></exception>
-        private async Task<T> SendAndConvert<T>(GraphQLRequest request)
+        private async Task<T> SendAndConvertAsync<T>(GraphQLRequest request)
         {
             GraphQLResponse<JObject> response = await m_client.SendQueryAsync<JObject>(request).ConfigureAwait(false);
 
@@ -149,7 +144,7 @@ namespace Opc.Ua.CloudLib.Client
         /// Retrieves a list of ObjectTypes
         /// </summary>
         /// <returns></returns>
-        public async Task<List<ObjectResult>> GetObjectTypes()
+        public async Task<List<ObjectResult>> GetObjectTypesAsync()
         {
             IQuery<ObjectResult> objectQuery = new Query<ObjectResult>("objectType")
                 .AddField(f => f.ID)
@@ -160,14 +155,13 @@ namespace Opc.Ua.CloudLib.Client
 
             request.Query = "query{" + objectQuery.Build() + "}";
 
-            return await SendAndConvert<List<ObjectResult>>(request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<ObjectResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Retrieves a list of metadata
         /// </summary>
-        /// <returns></returns>
-        public async Task<List<MetadataResult>> GetMetadata()
+        public async Task<List<MetadataResult>> GetMetadataAsync()
         {
             IQuery<MetadataResult> metadataQuery = new Query<MetadataResult>("metadata")
                 .AddField(f => f.ID)
@@ -177,14 +171,14 @@ namespace Opc.Ua.CloudLib.Client
 
             request.Query = "query{" + metadataQuery.Build() + "}";
 
-            return await SendAndConvert<List<MetadataResult>>(request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<MetadataResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Retrieves a list of variabletypes
         /// </summary>
         /// <returns></returns>
-        public async Task<List<VariableResult>> GetVariables()
+        public async Task<List<VariableResult>> GetVariablesAsync()
         {
             IQuery<VariableResult> variableQuery = new Query<VariableResult>("variabletype")
             .AddField(f => f.ID)
@@ -195,14 +189,14 @@ namespace Opc.Ua.CloudLib.Client
 
             request.Query = "query{" + variableQuery.Build() + "}";
 
-            return await SendAndConvert<List<VariableResult>>(request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<VariableResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Retrieves a list of referencetype
         /// </summary>
         /// <returns></returns>
-        public async Task<List<ReferenceResult>> GetReferencetype()
+        public async Task<List<ReferenceResult>> GetReferencetypeAsync()
         {
             IQuery<ReferenceResult> referenceQuery = new Query<ReferenceResult>("referencetype")
                 .AddField(f => f.ID)
@@ -213,13 +207,13 @@ namespace Opc.Ua.CloudLib.Client
 
             request.Query = "query{" + referenceQuery.Build() + "}";
 
-            return await SendAndConvert<List<ReferenceResult>>(request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<ReferenceResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Retrieves a list of datatype
         /// </summary>
-        public async Task<List<DataResult>> GetDatatype()
+        public async Task<List<DataResult>> GetDatatypeAsync()
         {
             IQuery<DataResult> dataQuery = new Query<DataResult>("datatype")
                .AddField(f => f.ID)
@@ -230,7 +224,7 @@ namespace Opc.Ua.CloudLib.Client
 
             request.Query = "query{" + dataQuery.Build() + "}";
 
-            return await SendAndConvert<List<DataResult>>(request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<DataResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>Gets the converted metadata.</summary>
@@ -246,7 +240,7 @@ namespace Opc.Ua.CloudLib.Client
                 .AddField(f => f.Value);
 
             request.Query = "query{" + metadataQuery.Build() + "}";
-            List<MetadataResult> result = await SendAndConvert<List<MetadataResult>>(request).ConfigureAwait(false);
+            List<MetadataResult> result = await SendAndConvertAsync<List<MetadataResult>>(request).ConfigureAwait(false);
             try
             {
                 convertedResult = MetadataConverter.Convert(result);
@@ -264,7 +258,7 @@ namespace Opc.Ua.CloudLib.Client
         /// <summary>
         /// Queries the organisations with the given filters.
         /// </summary>
-        public async Task<List<Organisation>> GetOrganisations(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
+        public async Task<List<Organisation>> GetOrganisationsAsync(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
             IQuery<Organisation> organisationQuery = new Query<Organisation>("organisation")
                 .AddField(f => f.Name)
@@ -283,7 +277,7 @@ namespace Opc.Ua.CloudLib.Client
 
             request.Query = "query{" + organisationQuery.Build() + "}";
 
-            return await SendAndConvert<List<Organisation>>(request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<Organisation>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -328,7 +322,7 @@ namespace Opc.Ua.CloudLib.Client
             List<UANameSpace> result = new List<UANameSpace>();
             try
             {
-                result = await SendAndConvert<List<UANameSpace>>(request).ConfigureAwait(false);
+                result = await SendAndConvertAsync<List<UANameSpace>>(request).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -360,7 +354,7 @@ namespace Opc.Ua.CloudLib.Client
 
             request.Query = "query{" + categoryQuery.Build() + "}";
 
-            return await SendAndConvert<List<Category>>(request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<Category>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -372,8 +366,13 @@ namespace Opc.Ua.CloudLib.Client
         /// <summary>
         /// Use this method if the CloudLib instance doesn't provide the GraphQL API
         /// </summary>
-        public async Task<List<UANodesetResult>> GetBasicNodesetInformation(List<string> keywords = null) => await restClient.GetBasicNodesetInformation(keywords).ConfigureAwait(false);
+        public async Task<List<UANodesetResult>> GetBasicNodesetInformationAsync(List<string> keywords = null) => await restClient.GetBasicNodesetInformation(keywords).ConfigureAwait(false);
 
+        /// <summary>
+        /// Gets all available namespaces and the corresponding node set identifier
+        /// </summary>
+        /// <returns></returns>
+        public Task<(string namespaceUri, string identifier)[]> GetNamespacesAsync() => restClient.GetNamespacesAsync();
 
         /// <summary>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.</summary>
         public void Dispose()

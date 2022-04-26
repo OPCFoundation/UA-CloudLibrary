@@ -29,20 +29,31 @@
 
 namespace UACloudLibrary
 {
-    using Microsoft.Extensions.Logging;
-    using Npgsql;
     using System;
     using System.Collections.Generic;
     using System.Data;
     using System.Globalization;
+    using Microsoft.Extensions.Configuration;
+    using Microsoft.Extensions.Logging;
+    using Npgsql;
     using UACloudLibrary.Models;
 
-public class PostgreSQLDB : IDatabase
+    public class PostgreSQLDB : IDatabase, IDisposable
     {
         private NpgsqlConnection _connection = null;
         private readonly ILogger _logger;
 
-        public static string CreateConnectionString()
+        public static string CreateConnectionString(IConfiguration configuration)
+        {
+            var connectionString = configuration.GetConnectionString("CloudLibraryPostgreSQL");
+            if (string.IsNullOrEmpty(connectionString))
+            {
+                connectionString = CreateConnectionStringFromEnvironment();
+            }
+            return connectionString;
+        }
+
+        private static string CreateConnectionStringFromEnvironment()
         {
             // Obtain connection string information from the environment
             string Host = Environment.GetEnvironmentVariable("PostgreSQLEndpoint");
@@ -62,7 +73,7 @@ public class PostgreSQLDB : IDatabase
                 Password);
         }
 
-        public PostgreSQLDB(ILoggerFactory logger)
+        public PostgreSQLDB(ILoggerFactory logger, IConfiguration configuration)
         {
             _logger = logger.CreateLogger("PostgreSQLDB");
 
@@ -77,7 +88,7 @@ public class PostgreSQLDB : IDatabase
 
             try
             {
-                _connection = new NpgsqlConnection(PostgreSQLDB.CreateConnectionString());
+                _connection = new NpgsqlConnection(CreateConnectionString(configuration));
                 _connection.Open();
 
                 foreach (string initCommand in dbInitCommands)
@@ -601,6 +612,11 @@ public class PostgreSQLDB : IDatabase
             }
 
             return Array.Empty<string>();
+        }
+
+        public void Dispose()
+        {
+            throw new NotImplementedException();
         }
     }
 }

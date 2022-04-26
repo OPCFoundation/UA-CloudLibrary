@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -46,7 +46,7 @@ namespace UACloudLibrary.Models
         public string License { get; set; }
 
         [JsonProperty(PropertyName = "version")]
-        public string Version { get; set; }   
+        public string Version { get; set; }
 
         [JsonProperty(PropertyName = "nodesetCreationTime")]
         public System.DateTime? CreationTime { get; set; }

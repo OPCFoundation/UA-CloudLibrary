@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -49,17 +49,16 @@ namespace UACloudLibrary
             Field<ListGraphType<VariabletypeType>>("variableType", resolve: context => cloudLibResolver.GetVariableTypes());
 
             Field<ListGraphType<NodesetType>>("nodeset", resolve: context => cloudLibResolver.GetNodesetTypes());
-            
+
             Field<ListGraphType<CategoryType>>(
                 "category",
                 arguments: new QueryArguments(
                     new QueryArgument<IntGraphType> { Name = "limit" },
                     new QueryArgument<IntGraphType> { Name = "offset" },
                     new QueryArgument<StringGraphType> { Name = "where" },
-                    new QueryArgument<StringGraphType> { Name = "orderBy"}
+                    new QueryArgument<StringGraphType> { Name = "orderBy" }
                 ),
-                resolve: context =>
-                {
+                resolve: context => {
                     int limit = context.GetArgument("limit", 1000000);
                     int offset = context.GetArgument("offset", 0);
                     string where = context.GetArgument("where", string.Empty);
@@ -67,7 +66,7 @@ namespace UACloudLibrary
                     return cloudLibResolver.GetCategoryTypes(limit, offset, where, orderBy);
                 }
             );
-                        
+
             Field<ListGraphType<OrganisationType>>(
                 "organisation",
                 arguments: new QueryArguments(
@@ -76,8 +75,7 @@ namespace UACloudLibrary
                     new QueryArgument<StringGraphType> { Name = "where" },
                     new QueryArgument<StringGraphType> { Name = "orderBy" }
                 ),
-                resolve: context =>
-                {
+                resolve: context => {
                     int limit = context.GetArgument("limit", 1000000);
                     int offset = context.GetArgument("offset", 0);
                     string where = context.GetArgument("where", string.Empty);
@@ -94,8 +92,7 @@ namespace UACloudLibrary
                     new QueryArgument<StringGraphType> { Name = "where" },
                     new QueryArgument<StringGraphType> { Name = "orderBy" }
                 ),
-                resolve: context =>
-                {
+                resolve: context => {
                     int limit = context.GetArgument("limit", 1000000);
                     int offset = context.GetArgument("offset", 0);
                     string where = context.GetArgument("where", string.Empty);

@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,8 +29,8 @@
 
 namespace Opc.Ua.CloudLib.Client
 {
-    using Newtonsoft.Json;
     using System;
+    using Newtonsoft.Json;
 
     /// <summary>License Enumeration</summary>
     public enum License
@@ -75,7 +75,7 @@ namespace Opc.Ua.CloudLib.Client
 
         /// <summary>Gets or sets the title.</summary>
         /// <value>The title.</value>
-        [JsonProperty("title", Required= Required.Always)]
+        [JsonProperty("title", Required = Required.Always)]
         public string Title { get; set; }
 
         /// <summary>Gets or sets the license.</summary>

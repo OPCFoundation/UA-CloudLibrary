@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,15 +29,15 @@
 
 namespace UACloudLibrary
 {
-    using GraphQL.Types;
-    using Microsoft.EntityFrameworkCore;
-    using Newtonsoft.Json;
-    using Newtonsoft.Json.Linq;
     using System;
     using System.Collections.Generic;
     using System.Globalization;
     using System.Linq;
     using System.Threading.Tasks;
+    using GraphQL.Types;
+    using Microsoft.EntityFrameworkCore;
+    using Newtonsoft.Json;
+    using Newtonsoft.Json.Linq;
     using UACloudLibrary.DbContextModels;
     using UACloudLibrary.Models;
 
@@ -125,7 +125,7 @@ namespace UACloudLibrary
         }
 
         public Task<List<VariabletypeModel>> GetVariableTypes()
-        {   
+        {
             return _context.VariableType.ToListAsync();
         }
 

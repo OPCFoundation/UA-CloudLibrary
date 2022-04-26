@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,19 +29,19 @@
 
 namespace SampleConsoleClient
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Globalization;
+    using System.Net.Http;
+    using System.Text;
+    using System.Threading.Tasks;
     using GraphQL;
     using GraphQL.Client.Http;
     using GraphQL.Client.Serializer.Newtonsoft;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
-    using System;
-    using System.Collections.Generic;
-    using System.Net.Http;
-    using System.Text;
     using Opc.Ua.CloudLib.Client;
     using Opc.Ua.CloudLib.Client.Models;
-    using System.Threading.Tasks;
-    using System.Globalization;
 
     class Program
     {
@@ -69,8 +69,7 @@ namespace SampleConsoleClient
             Console.WriteLine();
             Console.WriteLine("Testing GraphQL interface (see https://graphql.org/learn/ for details)...");
 
-            GraphQLHttpClientOptions options = new GraphQLHttpClientOptions
-            {
+            GraphQLHttpClientOptions options = new GraphQLHttpClientOptions {
                 EndPoint = new Uri(args[0] + "/graphql"),
                 HttpMessageHandler = new MessageHandlerWithAuthHeader(args[1], args[2])
             };
@@ -79,8 +78,7 @@ namespace SampleConsoleClient
 
             Console.WriteLine();
             Console.WriteLine("Testing objectType query (the other OPC UA types are very similar!)");
-            GraphQLRequest request = new GraphQLRequest
-            {
+            GraphQLRequest request = new GraphQLRequest {
                 Query = @"query {
                             objectType {
                                 browseName
@@ -91,13 +89,12 @@ namespace SampleConsoleClient
                         }"
             };
 
-            GraphQLResponse<JObject> response =await graphQLClient.SendQueryAsync<JObject>(request).ConfigureAwait(false);
+            GraphQLResponse<JObject> response = await graphQLClient.SendQueryAsync<JObject>(request).ConfigureAwait(false);
             Console.WriteLine(JsonConvert.SerializeObject(response.Data, Formatting.Indented));
 
             Console.WriteLine();
             Console.WriteLine("Testing metadata query");
-            request = new GraphQLRequest
-            {
+            request = new GraphQLRequest {
                 Query = @"query {
                             metadata {
                                 name
@@ -164,8 +161,7 @@ namespace SampleConsoleClient
             Console.WriteLine();
             Console.WriteLine("Testing REST interface...");
 
-            HttpClient webClient = new HttpClient
-            {
+            HttpClient webClient = new HttpClient {
                 BaseAddress = new Uri(args[0])
             };
 
@@ -221,14 +217,14 @@ namespace SampleConsoleClient
                 }
 
                 Console.WriteLine("\nTesting object query");
-                List<ObjectResult> objects = await client.GetObjectTypes().ConfigureAwait(false);
+                List<ObjectResult> objects = await client.GetObjectTypesAsync().ConfigureAwait(false);
                 foreach (ObjectResult result in objects)
                 {
                     Console.WriteLine($"{result.ID}, {result.Namespace}, {result.Browsename}, {result.Value}");
                 }
 
                 Console.WriteLine("\nTesting metadata query");
-                List<MetadataResult> metadata = await client.GetMetadata().ConfigureAwait(false);
+                List<MetadataResult> metadata = await client.GetMetadataAsync().ConfigureAwait(false);
                 foreach (MetadataResult entry in metadata)
                 {
                     Console.WriteLine($"{entry.ID}, {entry.Name}, {entry.Value}");
@@ -247,7 +243,7 @@ namespace SampleConsoleClient
             }
 
             Console.WriteLine("\nUsing the rest API");
-            List<UANodesetResult> restResult = await client.GetBasicNodesetInformation().ConfigureAwait(false);
+            List<UANodesetResult> restResult = await client.GetBasicNodesetInformationAsync().ConfigureAwait(false);
             if (restResult.Count > 0)
             {
                 Console.WriteLine("Testing download of nodeset");

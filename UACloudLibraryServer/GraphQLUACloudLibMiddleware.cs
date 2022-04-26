@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,6 +29,11 @@
 
 namespace UACloudLibrary
 {
+    using System;
+    using System.Linq;
+    using System.Net.Http.Headers;
+    using System.Text;
+    using System.Threading;
     using GraphQL.Server.Transports.AspNetCore;
     using GraphQL.Types;
     using Microsoft.AspNetCore.Http;
@@ -36,14 +41,9 @@ namespace UACloudLibrary
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Primitives;
-    using System;
-    using System.Linq;
-    using System.Net.Http.Headers;
-    using System.Text;
-    using System.Threading;
     using UACloudLibrary.Interfaces;
 
-    public class GraphQLUACloudLibMiddleware<TSchema> : GraphQLHttpMiddleware<TSchema> where TSchema: ISchema
+    public class GraphQLUACloudLibMiddleware<TSchema> : GraphQLHttpMiddleware<TSchema> where TSchema : ISchema
     {
         private readonly IServiceProvider _provider;
         private readonly ILogger _logger;

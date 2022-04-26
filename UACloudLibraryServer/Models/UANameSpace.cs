@@ -69,7 +69,7 @@ namespace UACloudLibrary.Models
         public License License { get; set; }
 
         [Required]
-        public string CopyrightText {get; set;}
+        public string CopyrightText { get; set; }
 
         [Required]
         public Organisation Contributor { get; set; }

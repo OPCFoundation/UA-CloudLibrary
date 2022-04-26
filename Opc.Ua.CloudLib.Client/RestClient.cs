@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,15 +29,16 @@
 
 namespace Opc.Ua.CloudLib.Client
 {
-    using Newtonsoft.Json;
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Linq;
     using System.Net;
     using System.Net.Http;
     using System.Net.Http.Headers;
     using System.Text;
     using System.Threading.Tasks;
+    using Newtonsoft.Json;
 
     /// <summary>
     /// For use when the provider doesn't have a GraphQL interface and the downloading of nodesets
@@ -76,13 +77,13 @@ namespace Opc.Ua.CloudLib.Client
             {
                 keywords = new List<string>() { "*" };
             }
-            
+
             // keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
             string address = client.BaseAddress.ToString() + "infomodel/find" + PrepareArgumentsString(keywords);
             HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
-            
+
             List<UANodesetResult> info = null;
-            if(response.StatusCode == HttpStatusCode.OK)
+            if (response.StatusCode == HttpStatusCode.OK)
             {
                 info = JsonConvert.DeserializeObject<List<UANodesetResult>>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
             }
@@ -100,6 +101,23 @@ namespace Opc.Ua.CloudLib.Client
                 resultType = JsonConvert.DeserializeObject<UANameSpace>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
             }
 
+            return resultType;
+        }
+
+        public async Task<(string namespaceUri, string identifier)[]> GetNamespacesAsync()
+        {
+            string address = Path.Combine(client.BaseAddress.ToString(), "infomodel/namespaces/");
+            HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
+            (string namespaceUri, string identifier)[] resultType = null;
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                var responseStr = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var result = JsonConvert.DeserializeObject<string[]>(responseStr);
+                resultType = result.Select(str => {
+                    var parts = str.Split(',');
+                    return (parts[0], parts[1]);
+                }).ToArray();
+            }
             return resultType;
         }
 

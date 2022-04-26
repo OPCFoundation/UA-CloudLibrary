@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -29,11 +29,11 @@
 
 namespace Opc.Ua.CloudLib.Client
 {
-    using global::Opc.Ua.CloudLib.Client.Models;
     using System;
     using System.Collections.Generic;
     using System.Globalization;
     using System.Linq;
+    using global::Opc.Ua.CloudLib.Client.Models;
 
     static class MetadataConverter
     {
@@ -271,9 +271,9 @@ namespace Opc.Ua.CloudLib.Client
                         break;
                     }
                 default:
-                    {
-                        break;
-                    }
+                {
+                    break;
+                }
             }
         }
     }
