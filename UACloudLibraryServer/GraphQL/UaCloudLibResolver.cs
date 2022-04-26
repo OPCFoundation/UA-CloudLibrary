@@ -199,7 +199,7 @@ namespace UACloudLibrary
             return nodesetIds;
         }
 
-        public Task<List<UANameSpace>> GetAdressSpaceTypes(int limit, int offset, string where, string orderBy)
+        public Task<List<UANameSpace>> GetNameSpaceTypes(int limit, int offset, string where, string orderBy)
         {
             List<long> nodesetIds = ApplyWhereExpression(where);
 
