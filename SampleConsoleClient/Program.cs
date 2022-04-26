@@ -109,8 +109,7 @@ namespace SampleConsoleClient
 
             Console.WriteLine();
             Console.WriteLine("Testing NameSpace query");
-            request = new GraphQLRequest
-            {
+            request = new GraphQLRequest {
                 Query = @"query {
                             nameSpace(
                                 limit: 10
@@ -184,7 +183,7 @@ namespace SampleConsoleClient
             Console.WriteLine("Testing /infomodel/download/{identifier}");
 
             // pick the first identifier returned previously
-            string identifier = identifiers[0].Id.ToString(CultureInfo.InvariantCulture); 
+            string identifier = identifiers[0].Id.ToString(CultureInfo.InvariantCulture);
             address = webClient.BaseAddress.ToString() + "infomodel/download/" + Uri.EscapeDataString(identifier);
             response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
 
@@ -210,7 +209,7 @@ namespace SampleConsoleClient
                 List<WhereExpression> filter = new List<WhereExpression>();
                 filter.Add(new WhereExpression(SearchField.orgname, "microsoft", ComparisonType.like));
                 List<UANameSpace> nameSpaces = await client.GetNameSpacesAsync(10, 0, filter).ConfigureAwait(false);
-                if(nameSpaces.Count > 0)
+                if (nameSpaces.Count > 0)
                 {
                     Console.WriteLine("Title: {0}", nameSpaces[0].Title);
                     Console.WriteLine("Total number of address spaces: {0}", nameSpaces.Count);
@@ -232,7 +231,7 @@ namespace SampleConsoleClient
 
                 Console.WriteLine("\nTesting query and convertion of metadata");
                 List<UANameSpace> finalResult = await client.GetConvertedMetadataAsync().ConfigureAwait(false);
-                foreach(UANameSpace result in finalResult)
+                foreach (UANameSpace result in finalResult)
                 {
                     Console.WriteLine($"{result.Title} by {result.Contributor.Name}");
                 }
