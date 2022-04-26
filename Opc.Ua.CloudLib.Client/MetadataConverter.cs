@@ -53,7 +53,7 @@ namespace Opc.Ua.CloudLib.Client
                     {
                         nameSpaces.Add(id, new UANameSpace());
                     }
-                    
+
                     ConvertCases(nameSpaces[id], item);
                 }
             }
@@ -83,31 +83,31 @@ namespace Opc.Ua.CloudLib.Client
             nameSpace.Title = info.Title;
             nameSpace.Nodeset.Version = info.Version;
             nameSpace.Contributor.Name = info.Contributor;
-            
+
             switch (info.License)
             {
                 case "MIT":
-                    {
-                        nameSpace.License = License.MIT;
-                        break;
-                    }
+                {
+                    nameSpace.License = License.MIT;
+                    break;
+                }
                 case "ApacheLicense20":
-                    {
-                        nameSpace.License = License.ApacheLicense20;
-                        break;
-                    }
+                {
+                    nameSpace.License = License.ApacheLicense20;
+                    break;
+                }
                 case "Custom":
-                    {
-                        nameSpace.License = License.Custom;
-                        break;
-                    }
+                {
+                    nameSpace.License = License.Custom;
+                    break;
+                }
                 default:
-                    {
-                        nameSpace.License = License.Custom;
-                        break;
-                    }
+                {
+                    nameSpace.License = License.Custom;
+                    break;
+                }
             }
-            nameSpace.Nodeset.PublicationDate = (info.CreationTime != null)? info.CreationTime.Value : DateTime.MinValue;
+            nameSpace.Nodeset.PublicationDate = (info.CreationTime != null) ? info.CreationTime.Value : DateTime.MinValue;
 
             return nameSpace;
         }
@@ -118,7 +118,7 @@ namespace Opc.Ua.CloudLib.Client
         public static List<UANameSpace> ConvertWithPaging(List<UANodesetResult> infos, int limit = 10, int offset = 0)
         {
             List<UANameSpace> result = new List<UANameSpace>();
-            
+
             if (limit == 0)
             {
                 // return everything at once
@@ -150,126 +150,126 @@ namespace Opc.Ua.CloudLib.Client
             {
                 #region NameSpace Cases
                 case "addressspacedescription":
-                    {
-                        nameSpace.Description = metadata.Value;
-                        break;
-                    }
+                {
+                    nameSpace.Description = metadata.Value;
+                    break;
+                }
                 case "copyright":
-                    {
-                        nameSpace.CopyrightText = metadata.Value;
-                        break;
-                    }
+                {
+                    nameSpace.CopyrightText = metadata.Value;
+                    break;
+                }
                 case "documentationurl":
-                    {
-                        nameSpace.DocumentationUrl = new Uri(metadata.Value);
-                        break;
-                    }
+                {
+                    nameSpace.DocumentationUrl = new Uri(metadata.Value);
+                    break;
+                }
                 case "licenseurl":
-                    {
-                        nameSpace.LicenseUrl = new Uri(metadata.Value);
-                        break;
-                    }
+                {
+                    nameSpace.LicenseUrl = new Uri(metadata.Value);
+                    break;
+                }
                 case "purchasinginfo":
-                    {
-                        nameSpace.PurchasingInformationUrl = new Uri(metadata.Value);
-                        break;
-                    }
+                {
+                    nameSpace.PurchasingInformationUrl = new Uri(metadata.Value);
+                    break;
+                }
                 case "keywords":
-                    {
-                        nameSpace.Keywords = metadata.Value.Split(new char[] { ',' });
-                        break;
-                    }
+                {
+                    nameSpace.Keywords = metadata.Value.Split(new char[] { ',' });
+                    break;
+                }
                 case "locales":
-                    {
-                        nameSpace.SupportedLocales = metadata.Value.Split(new char[] { ',' });
-                        break;
-                    }
+                {
+                    nameSpace.SupportedLocales = metadata.Value.Split(new char[] { ',' });
+                    break;
+                }
                 case "numdownloads":
-                    {
-                        nameSpace.NumberOfDownloads = System.Convert.ToUInt32(metadata.Value, CultureInfo.InvariantCulture);
-                        break;
-                    }
+                {
+                    nameSpace.NumberOfDownloads = System.Convert.ToUInt32(metadata.Value, CultureInfo.InvariantCulture);
+                    break;
+                }
                 case "addressspacename":
-                    {
-                        nameSpace.Title = metadata.Value;
-                        break;
-                    }
+                {
+                    nameSpace.Title = metadata.Value;
+                    break;
+                }
                 case "license":
+                {
+                    switch (metadata.Value)
                     {
-                        switch (metadata.Value)
+                        case "MIT":
                         {
-                            case "MIT":
-                                {
-                                    nameSpace.License = License.MIT;
-                                    break;
-                                }
-                            case "ApacheLicense20":
-                                {
-                                    nameSpace.License = License.ApacheLicense20;
-                                    break;
-                                }
-                            case "Custom":
-                                {
-                                    nameSpace.License = License.Custom;
-                                    break;
-                                }
-                            default:
-                                {
-                                    nameSpace.License = License.Custom;
-                                    break;
-                                }
+                            nameSpace.License = License.MIT;
+                            break;
                         }
-                        break;
+                        case "ApacheLicense20":
+                        {
+                            nameSpace.License = License.ApacheLicense20;
+                            break;
+                        }
+                        case "Custom":
+                        {
+                            nameSpace.License = License.Custom;
+                            break;
+                        }
+                        default:
+                        {
+                            nameSpace.License = License.Custom;
+                            break;
+                        }
                     }
+                    break;
+                }
                 case "version":
-                    {
-                        nameSpace.Nodeset.Version = metadata.Value;
-                        break;
-                    }
+                {
+                    nameSpace.Nodeset.Version = metadata.Value;
+                    break;
+                }
                 case "releasenotes":
-                    {
-                        nameSpace.ReleaseNotesUrl = new Uri(metadata.Value);
-                        break;
-                    }
+                {
+                    nameSpace.ReleaseNotesUrl = new Uri(metadata.Value);
+                    break;
+                }
                 case "testspecification":
-                    {
-                        nameSpace.TestSpecificationUrl = new Uri(metadata.Value);
-                        break;
-                    }
+                {
+                    nameSpace.TestSpecificationUrl = new Uri(metadata.Value);
+                    break;
+                }
                 #endregion
 
                 #region Organistion Cases
                 case "orgname":
-                    {
-                        nameSpace.Contributor.Name = metadata.Value;
-                        break;
-                    }
+                {
+                    nameSpace.Contributor.Name = metadata.Value;
+                    break;
+                }
                 case "orgdesciption":
-                    {
-                        nameSpace.Contributor.Description = metadata.Value;
-                        break;
-                    }
+                {
+                    nameSpace.Contributor.Description = metadata.Value;
+                    break;
+                }
                 case "orgcontact":
-                    {
-                        nameSpace.Contributor.ContactEmail = metadata.Value;
-                        break;
-                    }
+                {
+                    nameSpace.Contributor.ContactEmail = metadata.Value;
+                    break;
+                }
                 case "orgwebsite":
-                    {
-                        nameSpace.Contributor.Website = new Uri(metadata.Value);
-                        break;
-                    }
+                {
+                    nameSpace.Contributor.Website = new Uri(metadata.Value);
+                    break;
+                }
                 case "orglogo":
-                    {
-                        nameSpace.Contributor.LogoUrl = new Uri(metadata.Value);
-                        break;
-                    }
+                {
+                    nameSpace.Contributor.LogoUrl = new Uri(metadata.Value);
+                    break;
+                }
                 #endregion
                 case "adressspacecreationtime":
-                    {
-                        nameSpace.Nodeset.PublicationDate = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
-                        break;
-                    }
+                {
+                    nameSpace.Nodeset.PublicationDate = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+                    break;
+                }
                 default:
                 {
                     break;
