@@ -206,7 +206,7 @@ namespace SampleConsoleClient
             {
                 Console.WriteLine("\nTesting the GraphQL API");
 
-                Console.WriteLine("\nTesting the address space query, this will fall back to the REST interface if GraphQL is not available.");
+                Console.WriteLine("\nTesting the namespace query, this will fall back to the REST interface if GraphQL is not available.");
                 List<WhereExpression> filter = new List<WhereExpression>();
                 filter.Add(new WhereExpression(SearchField.orgname, "microsoft", ComparisonType.like));
                 List<UANameSpace> nameSpaces = await client.GetNameSpacesAsync(10, 0, filter).ConfigureAwait(false);

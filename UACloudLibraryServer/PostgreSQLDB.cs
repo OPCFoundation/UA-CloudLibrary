@@ -480,7 +480,7 @@ namespace UACloudLibrary
                     }
                     else
                     {
-                        sqlSelect = string.Format("SELECT DISTINCT Nodeset_id FROM public.{0} WHERE LOWER({0}_value) ~ '{1}'", tableName, keyword.ToLower());
+                        sqlSelect = string.Format("SELECT DISTINCT Nodeset_id FROM public.{0} WHERE LOWER({0}_value) ~ '{1}'", tableName, keyword.ToLower(CultureInfo.InvariantCulture));
                     }
 
                     if (_connection.State != ConnectionState.Open)

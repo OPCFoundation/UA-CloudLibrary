@@ -75,37 +75,37 @@ namespace Opc.Ua.CloudLib.Client
 
         /// <summary>Gets or sets the title.</summary>
         /// <value>The title.</value>
-        [JsonProperty("title", Required = Required.Always)]
+        [JsonProperty("title")]
         public string Title { get; set; }
 
         /// <summary>Gets or sets the license.</summary>
         /// <value>The license.</value>
-        [JsonProperty("license", Required = Required.Always)]
+        [JsonProperty("license")]
         public License License { get; set; }
 
         /// <summary>Gets or sets the copyright text.</summary>
         /// <value>The copyright text.</value>
-        [JsonProperty("copyrightText", Required = Required.Always)]
+        [JsonProperty("copyrightText")]
         public string CopyrightText { get; set; }
 
         /// <summary>Gets or sets the contributor.</summary>
         /// <value>The contributor.</value>
-        [JsonProperty("contributor", Required = Required.Always)]
+        [JsonProperty("contributor")]
         public Organisation Contributor { get; set; }
 
         /// <summary>Gets or sets the description.</summary>
         /// <value>The description.</value>
-        [JsonProperty("description", Required = Required.Always)]
+        [JsonProperty("description")]
         public string Description { get; set; }
 
         /// <summary>Gets or sets the category.</summary>
         /// <value>The category.</value>
-        [JsonProperty("category", Required = Required.Always)]
+        [JsonProperty("category")]
         public Category Category { get; set; }
 
         /// <summary>Gets or sets the nodeset.</summary>
         /// <value>The nodeset.</value>
-        [JsonProperty("nodeset", Required = Required.Always)]
+        [JsonProperty("nodeset")]
         public Nodeset Nodeset { get; set; }
 
         /// <summary>
@@ -192,7 +192,7 @@ namespace Opc.Ua.CloudLib.Client
 
         /// <summary>Gets or sets the name.</summary>
         /// <value>The name.</value>
-        [JsonProperty("name", Required = Required.Always)]
+        [JsonProperty("name")]
         public string Name { get; set; }
 
         /// <summary>Gets or sets the description.</summary>
@@ -229,7 +229,7 @@ namespace Opc.Ua.CloudLib.Client
 
         /// <summary>Gets or sets the name.</summary>
         /// <value>The name.</value>
-        [JsonProperty("name", Required = Required.Always)]
+        [JsonProperty("name")]
         public string Name { get; set; }
 
         /// <summary>Gets or sets the description.</summary>
@@ -259,7 +259,7 @@ namespace Opc.Ua.CloudLib.Client
 
         /// <summary>Gets or sets the nodeset XML.</summary>
         /// <value>The nodeset XML.</value>
-        [JsonProperty("nodesetXml", Required = Required.Always)]
+        [JsonProperty("nodesetXml")]
         public string NodesetXml { get; set; }
 
         /// <summary>Gets or sets the identifier.</summary>

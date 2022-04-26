@@ -177,7 +177,9 @@ namespace UACloudLibrary
 
                         if (comparions[i] == "like")
                         {
-                            List<MetadataModel> results = _context.Metadata.Where(p => (p.Name == fields[i]) && p.Value.ToLower(CultureInfo.InvariantCulture).Contains(values[i].ToLower(CultureInfo.InvariantCulture))).ToList();
+#pragma warning disable CA1304 // Specify CultureInfo
+                            List<MetadataModel> results = _context.Metadata.Where(p => (p.Name == fields[i]) && p.Value.ToLower().Contains(values[i].ToLower())).ToList();
+#pragma warning restore CA1304 // Specify CultureInfo
                             nodesetIds.AddRange(results.Select(p => p.NodesetId).Distinct().ToList());
                         }
                     }
