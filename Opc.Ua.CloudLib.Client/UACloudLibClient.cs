@@ -220,7 +220,7 @@ namespace Opc.Ua.CloudLib.Client
 
         /// <summary>Gets the converted metadata.</summary>
         /// <returns>List of NameSpace</returns>
-        public async Task<List<UANameSpace>> GetConvertedMetadata()
+        public async Task<List<UANameSpace>> GetConvertedMetadataAsync()
         {
             List<UANameSpace> convertedResult = null;
 

@@ -231,7 +231,7 @@ namespace SampleConsoleClient
                 }
 
                 Console.WriteLine("\nTesting query and convertion of metadata");
-                List<UANameSpace> finalResult = await client.GetConvertedMetadata().ConfigureAwait(false);
+                List<UANameSpace> finalResult = await client.GetConvertedMetadataAsync().ConfigureAwait(false);
                 foreach(UANameSpace result in finalResult)
                 {
                     Console.WriteLine($"{result.Title} by {result.Contributor.Name}");
