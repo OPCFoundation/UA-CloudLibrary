@@ -373,6 +373,13 @@ namespace Opc.Ua.CloudLib.Client
         /// </summary>
         /// <returns></returns>
         public Task<(string namespaceUri, string identifier)[]> GetNamespacesAsync() => restClient.GetNamespacesAsync();
+        /// <summary>
+        /// Upload a nodeset to the cloud library
+        /// </summary>
+        /// <param name="addressSpace"></param>
+        /// <returns></returns>
+        public Task UploadNodeSetAsync(AddressSpace addressSpace) => restClient.UploadNamespaceAsync(addressSpace);
+
 
         /// <summary>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.</summary>
         public void Dispose()
