@@ -30,13 +30,13 @@
       "launchBrowser": true,
       "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}",
       "environmentVariables": {
-        "PostgreSQLUsername": "barnstee@uacloudlib",
         "PostgreSQLEndpoint": "uacloudlib.postgres.database.azure.com",
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "PostgreSQLPassword": "W!S:eYb42gniR4f",
-        "BlobStorageConnectionString": "DefaultEndpointsProtocol=https;AccountName=uacloudlib;AccountKey=7SlTwXIjHQEVa+1/injyPTOQA7jpig5qkBJhJSYQvT9n0KoNOlOpRykefmXFs2SBURWDK5iPwgpUUdxXTrD/vw==;EndpointSuffix=core.windows.net",
         "HostingPlatform": "Azure",
-        "SendGridAPIKey": "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"
+        "PostgreSQLUsername": "",
+        "PostgreSQLPassword": "",
+        "BlobStorageConnectionString": "",
+        "SendGridAPIKey": ""
       },
       "publishAllPorts": true,
       "useSSL": true
