@@ -328,7 +328,7 @@ namespace Opc.Ua.CloudLib.Client
         /// <summary>
         /// Queries the categories with the given filters
         /// </summary>
-        public async Task<List<Category>> GetNameSpaceCategories(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
+        public async Task<List<Category>> GetNameSpaceCategoriesAsync(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
             IQuery<Category> categoryQuery = new Query<Category>("category")
                 .AddField(f => f.Name)
