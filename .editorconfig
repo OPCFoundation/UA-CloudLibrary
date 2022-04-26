@@ -305,3 +305,6 @@ dotnet_diagnostic.IDE0049.severity                                            = 
 
 # CA1507: Use nameof in place of string
 dotnet_diagnostic.CA1507.severity                                             = warning
+
+# CA1816: Dispose methods should call SuppressFinalize
+dotnet_diagnostic.CA1816.severity = silent

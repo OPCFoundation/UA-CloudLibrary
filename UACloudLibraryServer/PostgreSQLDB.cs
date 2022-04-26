@@ -496,7 +496,7 @@ namespace UACloudLibrary
                         {
                             while (reader.Read())
                             {
-                                string result = reader.GetInt64(0).ToString();
+                                string result = reader.GetInt64(0).ToString(CultureInfo.InvariantCulture);
                                 if (!results.Contains(result))
                                 {
                                     results.Add(result);
@@ -513,7 +513,7 @@ namespace UACloudLibrary
                 _logger.LogError(ex.Message);
             }
 
-            return new string[0];
+            return Array.Empty<string>();
         }
 
         public string[] GetAllNamespacesAndNodesets()
@@ -537,7 +537,7 @@ namespace UACloudLibrary
                     {
                         while (reader.Read())
                         {
-                            results.Add(reader.GetString(0) + "," + reader.GetInt64(1).ToString());
+                            results.Add(reader.GetString(0) + "," + reader.GetInt64(1).ToString(CultureInfo.InvariantCulture));
                         }
                     }
                 }
@@ -549,7 +549,7 @@ namespace UACloudLibrary
                 _logger.LogError(ex.Message);
             }
 
-            return new string[0];
+            return Array.Empty<string>();
         }
 
         public string GetNamespaceUriForNodeset(uint nodesetId)
@@ -616,7 +616,11 @@ namespace UACloudLibrary
 
         public void Dispose()
         {
-            throw new NotImplementedException();
+            if (_connection.State != ConnectionState.Open)
+            {
+                _connection.Close();
+                _connection.Dispose();
+            }
         }
     }
 }
