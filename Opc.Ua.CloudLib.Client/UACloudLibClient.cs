@@ -249,7 +249,7 @@ namespace Opc.Ua.CloudLib.Client
         /// <summary>
         /// Queries the organisations with the given filters.
         /// </summary>
-        public async Task<List<Organisation>> GetOrganisationsAsync(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
+        public async Task<List<Organisation>> GetOrganisationsAsync(int limit = 10, IEnumerable<WhereExpression> filter = null)
         {
             IQuery<Organisation> organisationQuery = new Query<Organisation>("organisation")
                 .AddField(f => f.Name)
@@ -259,7 +259,6 @@ namespace Opc.Ua.CloudLib.Client
                 .AddField(f => f.LogoUrl);
 
             organisationQuery.AddArgument("limit", limit);
-            organisationQuery.AddArgument("offset", offset);
 
             if (filter != null)
             {
@@ -328,7 +327,7 @@ namespace Opc.Ua.CloudLib.Client
         /// <summary>
         /// Queries the categories with the given filters
         /// </summary>
-        public async Task<List<Category>> GetNameSpaceCategoriesAsync(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
+        public async Task<List<Category>> GetNameSpaceCategoriesAsync(int limit = 10, IEnumerable<WhereExpression> filter = null)
         {
             IQuery<Category> categoryQuery = new Query<Category>("category")
                 .AddField(f => f.Name)
@@ -336,7 +335,6 @@ namespace Opc.Ua.CloudLib.Client
                 .AddField(f => f.IconUrl);
 
             categoryQuery.AddArgument("limit", limit);
-            categoryQuery.AddArgument("offset", offset);
 
             if (filter != null)
             {
