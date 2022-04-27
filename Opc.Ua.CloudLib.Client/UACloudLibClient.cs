@@ -122,7 +122,7 @@ namespace Opc.Ua.CloudLib.Client
         {
             if (string.IsNullOrEmpty(strEndpoint))
             {
-                strEndpoint = StandardEndpoint.ToString();
+                strEndpoint = _standardEndpoint.ToString();
             }
             BaseEndpoint = new Uri(strEndpoint);
             _client = new GraphQLHttpClient(new Uri(strEndpoint + "/graphql"), new NewtonsoftJsonSerializer());
@@ -394,9 +394,9 @@ namespace Opc.Ua.CloudLib.Client
         /// <summary>
         /// Upload a nodeset to the cloud library
         /// </summary>
-        /// <param name="addressSpace"></param>
+        /// <param name="nameSpace"></param>
         /// <returns></returns>
-        public Task<string> UploadNodeSetAsync(AddressSpace addressSpace) => restClient.UploadNamespaceAsync(addressSpace);
+        public Task<string> UploadNodeSetAsync(UANameSpace nameSpace) => _restClient.UploadNamespaceAsync(nameSpace);
 
         /// <summary>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.</summary>
         public void Dispose()

@@ -142,17 +142,17 @@ namespace Opc.Ua.CloudLib.Client
             return stringBuilder.ToString();
         }
 
-        internal async Task<string> UploadNamespaceAsync(AddressSpace addressSpace)
+        internal async Task<string> UploadNamespaceAsync(UANameSpace nameSpace)
         {
-            // upload infomodel to targe cloud library
+            // upload infomodel to cloud library
             var uploadAddress = client.BaseAddress != null ? new Uri(client.BaseAddress, "infomodel/upload") : null;
-            HttpContent content = new StringContent(JsonConvert.SerializeObject(addressSpace), Encoding.UTF8, "application/json");
+            HttpContent content = new StringContent(JsonConvert.SerializeObject(nameSpace), Encoding.UTF8, "application/json");
 
             var uploadResponse = await client.SendAsync(new HttpRequestMessage(HttpMethod.Put, uploadAddress) { Content = content }).ConfigureAwait(false);
             if (uploadResponse != null && uploadResponse.StatusCode != System.Net.HttpStatusCode.OK)
             {
                 var uploadResponseStr = await uploadResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
-                return $"{uploadResponse.StatusCode}: Error uploading {addressSpace?.Title}  - {uploadResponseStr}";
+                return $"{uploadResponse.StatusCode}: Error uploading {nameSpace?.Title}  - {uploadResponseStr}";
             }
             else
             {
