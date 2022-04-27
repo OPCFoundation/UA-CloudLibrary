@@ -187,14 +187,9 @@ namespace UACloudLibrary
                 return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
             }
 
-            uint nodeSetHashCodeToStore = nodesetHashCode;
-            if (uaAddressSpace.Nodeset?.Identifier == legacyNodesetHashCode)
-            {
-                nodeSetHashCodeToStore = legacyNodesetHashCode;
-            }
             // upload the new file to the storage service, and get the file handle that the storage service returned
-            string storedFilename = await _storage.UploadFileAsync(nodeSetHashCodeToStore.ToString(), uaAddressSpace.Nodeset.NodesetXml).ConfigureAwait(false);
-            if (string.IsNullOrEmpty(storedFilename) || (storedFilename != nodeSetHashCodeToStore.ToString()))
+            string storedFilename = await _storage.UploadFileAsync(nodesetHashCode.ToString(), uaAddressSpace.Nodeset.NodesetXml).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(storedFilename) || (storedFilename != nodesetHashCode.ToString()))
             {
                 string message = "Error: Nodeset file could not be stored.";
                 _logger.LogError(message);
@@ -217,14 +212,14 @@ namespace UACloudLibrary
             }
 
             // parse nodeset XML, extract metadata and store in our database
-            string error = StoreNodesetMetaDataInDatabase(nodeSetHashCodeToStore, nodeSet);
+            string error = StoreNodesetMetaDataInDatabase(nodesetHashCode, nodeSet);
             if (!string.IsNullOrEmpty(error))
             {
                 _logger.LogError(error);
                 return new ObjectResult(error) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
-            if (!StoreUserMetaDataInDatabase(nodeSetHashCodeToStore, uaAddressSpace, nodeSet))
+            if (!StoreUserMetaDataInDatabase(nodesetHashCode, uaAddressSpace, nodeSet))
             {
                 string message = "Error: User metadata could not be stored.";
                 _logger.LogError(message);
