@@ -325,7 +325,14 @@ namespace Opc.Ua.CloudLib.Client
                 .AddField(h => h.PurchasingInformationUrl)
                 .AddField(h => h.ReleaseNotesUrl)
                 .AddField(h => h.Keywords)
-                .AddField(h => h.SupportedLocales);
+                .AddField(h => h.SupportedLocales)
+                .AddField(
+                    h => h.Nodeset,
+                    sq => sq.AddField(h => h.NamespaceUri)
+                            .AddField(h => h.PublicationDate)
+                            .AddField(h => h.Identifier)
+                    )
+                ;
 
             nameSpaceQuery.AddArgument("limit", limit);
             nameSpaceQuery.AddArgument("offset", offset);
