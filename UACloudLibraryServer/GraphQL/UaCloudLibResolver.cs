@@ -438,23 +438,13 @@ namespace UACloudLibrary
             }
         }
 
-        public Task<List<Category>> GetCategoryTypes(int limit, int offset, string where, string orderBy)
+        public Task<List<Category>> GetCategoryTypes(int limit, string where, string orderBy)
         {
             List<long> nodesetIds = ApplyWhereExpression(where);
 
-            // input validation
-            if ((offset < 0) || (limit < 0) || (offset > nodesetIds.Count))
-            {
-                return Task.FromResult(new List<Category>());
-            }
-            if ((offset + limit) > nodesetIds.Count)
-            {
-                limit = nodesetIds.Count - offset;
-            }
-
             List<Category> result = new List<Category>();
 
-            for (int i = offset; i < (offset + limit); i++)
+            for (int i = 0; (i < nodesetIds.Count) && (result.Count < limit); i++)
             {
                 try
                 {
@@ -481,7 +471,10 @@ namespace UACloudLibrary
                         }
                     }
 
-                    result.Add(category);
+                    if (!result.Contains(category))
+                    {
+                        result.Add(category);
+                    }
                 }
                 catch (Exception)
                 {
@@ -501,23 +494,13 @@ namespace UACloudLibrary
             }
         }
 
-        public Task<List<Organisation>> GetOrganisationTypes(int limit, int offset, string where, string orderBy)
+        public Task<List<Organisation>> GetOrganisationTypes(int limit, string where, string orderBy)
         {
             List<long> nodesetIds = ApplyWhereExpression(where);
 
-            // input validation
-            if ((offset < 0) || (limit < 0) || (offset > nodesetIds.Count))
-            {
-                return Task.FromResult(new List<Organisation>());
-            }
-            if ((offset + limit) > nodesetIds.Count)
-            {
-                limit = nodesetIds.Count - offset;
-            }
-
             List<Organisation> result = new List<Organisation>();
 
-            for (int i = offset; i < (offset + limit); i++)
+            for (int i = 0; (i < nodesetIds.Count) && (result.Count < limit); i++)
             {
                 try
                 {
@@ -558,7 +541,10 @@ namespace UACloudLibrary
                         }
                     }
 
-                    result.Add(organisation);
+                    if (!result.Contains(organisation))
+                    {
+                        result.Add(organisation);
+                    }
                 }
                 catch (Exception)
                 {
