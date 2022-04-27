@@ -31,7 +31,6 @@ namespace UACloudLibrary.Models
 {
     using System;
     using System.ComponentModel.DataAnnotations;
-    using Microsoft.VisualStudio.Web.CodeGenerators.Mvc;
 
     public enum License
     {
