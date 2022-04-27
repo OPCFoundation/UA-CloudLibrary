@@ -183,7 +183,7 @@ namespace UACloudLibrary.Models
             }
             else
             {
-                Organisation org = (Organisation)obj;
+                Category org = (Category)obj;
                 return Name.Equals(org.Name, StringComparison.Ordinal);
             }
         }
