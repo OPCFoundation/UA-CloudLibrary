@@ -396,7 +396,7 @@ namespace Opc.Ua.CloudLib.Client
         /// Gets all available namespaces and the corresponding node set identifier
         /// </summary>
         /// <returns></returns>
-        public Task<(string namespaceUri, string identifier)[]> GetNamespacesAsync() => _restClient.GetNamespacesAsync();
+        public Task<(string namespaceUri, string identifier)[]> GetNamespaceIdsAsync() => _restClient.GetNamespaceIdsAsync();
 
         /// <summary>
         /// Upload a nodeset to the cloud library

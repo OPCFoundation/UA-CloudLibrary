@@ -104,7 +104,7 @@ namespace Opc.Ua.CloudLib.Client
             return resultType;
         }
 
-        public async Task<(string namespaceUri, string identifier)[]> GetNamespacesAsync()
+        public async Task<(string namespaceUri, string identifier)[]> GetNamespaceIdsAsync()
         {
             string address = Path.Combine(client.BaseAddress.ToString(), "infomodel/namespaces/");
             HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
