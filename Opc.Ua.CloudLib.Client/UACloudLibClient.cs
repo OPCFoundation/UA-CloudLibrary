@@ -88,6 +88,25 @@ namespace Opc.Ua.CloudLib.Client
         }
 
         /// <summary>
+        /// Options to use in IOptions patterns
+        /// </summary>
+        public class Options
+        {
+            /// <summary>
+            /// URL of the cloud library. Defaults to the OPC Foundation Cloud Library.
+            /// </summary>
+            public string Url { get; set; }
+            /// <summary>
+            /// Username to use for authenticating with the cloud library
+            /// </summary>
+            public string Username { get; set; }
+            /// <summary>
+            /// Password to use for authenticating with the cloud library
+            /// </summary>
+            public string Password { get; set; }
+        }
+
+        /// <summary>
         /// This Constructor uses the standard endpoint with no authorization
         /// </summary>
         public UACloudLibClient()
@@ -110,6 +129,10 @@ namespace Opc.Ua.CloudLib.Client
         /// <param name="strPassword">The string password.</param>
         public UACloudLibClient(string strEndpoint, string strUsername, string strPassword)
         {
+            if (string.IsNullOrEmpty(strEndpoint))
+            {
+                strEndpoint = StandardEndpoint.ToString();
+            }
             BaseEndpoint = new Uri(strEndpoint);
             m_client = new GraphQLHttpClient(new Uri(strEndpoint + "/graphql"), new NewtonsoftJsonSerializer());
             string temp = Convert.ToBase64String(Encoding.UTF8.GetBytes(strUsername + ":" + strPassword));
@@ -117,6 +140,11 @@ namespace Opc.Ua.CloudLib.Client
             m_strUsername = strUsername;
             m_strPassword = strPassword;
             restClient = new RestClient(strEndpoint, authentication);
+        }
+        /// <summary>Initializes a new instance of the <see cref="UACloudLibClient" /> class.</summary>
+        /// <param name="options">Credentials and URL</param>
+        public UACloudLibClient(Options options) : this(options.Url, options.Username, options.Password)
+        {
         }
 
         /// <summary>Sends the GraphQL query and converts it to JSON</summary>
@@ -378,7 +406,7 @@ namespace Opc.Ua.CloudLib.Client
         /// </summary>
         /// <param name="addressSpace"></param>
         /// <returns></returns>
-        public Task UploadNodeSetAsync(AddressSpace addressSpace) => restClient.UploadNamespaceAsync(addressSpace);
+        public Task<string> UploadNodeSetAsync(AddressSpace addressSpace) => restClient.UploadNamespaceAsync(addressSpace);
 
 
         /// <summary>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.</summary>
