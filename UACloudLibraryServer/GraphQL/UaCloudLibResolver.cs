@@ -31,6 +31,7 @@ namespace UACloudLibrary
 {
     using System;
     using System.Collections.Generic;
+    using System.Globalization;
     using System.Linq;
     using System.Threading.Tasks;
     using GraphQL.Types;
@@ -176,7 +177,9 @@ namespace UACloudLibrary
 
                         if (comparions[i] == "like")
                         {
+#pragma warning disable CA1304 // Specify CultureInfo
                             List<MetadataModel> results = _context.Metadata.Where(p => (p.Name == fields[i]) && p.Value.ToLower().Contains(values[i].ToLower())).ToList();
+#pragma warning restore CA1304 // Specify CultureInfo
                             nodesetIds.AddRange(results.Select(p => p.NodesetId).Distinct().ToList());
                         }
                     }
@@ -196,27 +199,27 @@ namespace UACloudLibrary
             return nodesetIds;
         }
 
-        public Task<List<AddressSpace>> GetAdressSpaceTypes(int limit, int offset, string where, string orderBy)
+        public Task<List<UANameSpace>> GetNameSpaceTypes(int limit, int offset, string where, string orderBy)
         {
             List<long> nodesetIds = ApplyWhereExpression(where);
 
             // input validation
             if ((offset < 0) || (limit < 0) || (offset > nodesetIds.Count))
             {
-                return Task.FromResult(new List<AddressSpace>());
+                return Task.FromResult(new List<UANameSpace>());
             }
             if ((offset + limit) > nodesetIds.Count)
             {
                 limit = nodesetIds.Count - offset;
             }
 
-            List<AddressSpace> result = new List<AddressSpace>();
+            List<UANameSpace> result = new List<UANameSpace>();
 
             for (int i = offset; i < (offset + limit); i++)
             {
                 try
                 {
-                    AddressSpace addressSpace = new AddressSpace();
+                    UANameSpace nameSpace = new UANameSpace();
 
                     Dictionary<string, MetadataModel> metadataForNodeset = _context.Metadata.Where(p => p.NodesetId == nodesetIds[i]).ToDictionary(x => x.Name);
 
@@ -224,7 +227,7 @@ namespace UACloudLibrary
                     {
                         if (DateTime.TryParse(metadataForNodeset["nodesetcreationtime"].Value, out DateTime parsedDateTime))
                         {
-                            addressSpace.Nodeset.PublicationDate = parsedDateTime;
+                            nameSpace.Nodeset.PublicationDate = parsedDateTime;
                         }
                     }
 
@@ -232,26 +235,26 @@ namespace UACloudLibrary
                     {
                         if (DateTime.TryParse(metadataForNodeset["nodesetmodifiedtime"].Value, out DateTime parsedDateTime))
                         {
-                            addressSpace.Nodeset.LastModifiedDate = parsedDateTime;
+                            nameSpace.Nodeset.LastModifiedDate = parsedDateTime;
                         }
                     }
 
                     if (metadataForNodeset.ContainsKey("nodesettitle"))
                     {
-                        addressSpace.Title = metadataForNodeset["nodesettitle"].Value;
+                        nameSpace.Title = metadataForNodeset["nodesettitle"].Value;
                     }
 
                     if (metadataForNodeset.ContainsKey("version"))
                     {
-                        addressSpace.Nodeset.Version = metadataForNodeset["version"].Value;
+                        nameSpace.Nodeset.Version = metadataForNodeset["version"].Value;
                     }
 
-                    addressSpace.Nodeset.Identifier = (uint)nodesetIds[i];
+                    nameSpace.Nodeset.Identifier = (uint)nodesetIds[i];
 
                     List<ObjecttypeModel> objectTypesForNodeset = _context.ObjectType.Where(p => p.NodesetId == nodesetIds[i]).ToList();
                     if (objectTypesForNodeset.Count > 0)
                     {
-                        addressSpace.Nodeset.NamespaceUri = new Uri(objectTypesForNodeset[0].NameSpace);
+                        nameSpace.Nodeset.NamespaceUri = new Uri(objectTypesForNodeset[0].NameSpace);
                     }
 
                     if (metadataForNodeset.ContainsKey("license"))
@@ -259,38 +262,38 @@ namespace UACloudLibrary
                         switch (metadataForNodeset["license"].Value)
                         {
                             case "MIT":
-                                addressSpace.License = License.MIT;
+                                nameSpace.License = License.MIT;
                                 break;
                             case "ApacheLicense20":
-                                addressSpace.License = License.ApacheLicense20;
+                                nameSpace.License = License.ApacheLicense20;
                                 break;
                             case "Custom":
-                                addressSpace.License = License.Custom;
+                                nameSpace.License = License.Custom;
                                 break;
                             default:
-                                addressSpace.License = License.Custom;
+                                nameSpace.License = License.Custom;
                                 break;
                         }
                     }
 
                     if (metadataForNodeset.ContainsKey("copyright"))
                     {
-                        addressSpace.CopyrightText = metadataForNodeset["copyright"].Value;
+                        nameSpace.CopyrightText = metadataForNodeset["copyright"].Value;
                     }
 
                     if (metadataForNodeset.ContainsKey("description"))
                     {
-                        addressSpace.Description = metadataForNodeset["description"].Value;
+                        nameSpace.Description = metadataForNodeset["description"].Value;
                     }
 
                     if (metadataForNodeset.ContainsKey("addressspacename"))
                     {
-                        addressSpace.Category.Name = metadataForNodeset["addressspacename"].Value;
+                        nameSpace.Category.Name = metadataForNodeset["addressspacename"].Value;
                     }
 
                     if (metadataForNodeset.ContainsKey("addressspacedescription"))
                     {
-                        addressSpace.Category.Description = metadataForNodeset["addressspacedescription"].Value;
+                        nameSpace.Category.Description = metadataForNodeset["addressspacedescription"].Value;
                     }
 
                     if (metadataForNodeset.ContainsKey("addressspaceiconurl"))
@@ -298,7 +301,7 @@ namespace UACloudLibrary
                         string uri = metadataForNodeset["addressspaceiconurl"].Value;
                         if (!string.IsNullOrEmpty(uri))
                         {
-                            addressSpace.Category.IconUrl = new Uri(uri);
+                            nameSpace.Category.IconUrl = new Uri(uri);
                         }
                     }
 
@@ -307,7 +310,7 @@ namespace UACloudLibrary
                         string uri = metadataForNodeset["documentationurl"].Value;
                         if (!string.IsNullOrEmpty(uri))
                         {
-                            addressSpace.DocumentationUrl = new Uri(uri);
+                            nameSpace.DocumentationUrl = new Uri(uri);
                         }
                     }
 
@@ -316,7 +319,7 @@ namespace UACloudLibrary
                         string uri = metadataForNodeset["iconurl"].Value;
                         if (!string.IsNullOrEmpty(uri))
                         {
-                            addressSpace.IconUrl = new Uri(uri);
+                            nameSpace.IconUrl = new Uri(uri);
                         }
                     }
 
@@ -325,7 +328,7 @@ namespace UACloudLibrary
                         string uri = metadataForNodeset["licenseurl"].Value;
                         if (!string.IsNullOrEmpty(uri))
                         {
-                            addressSpace.LicenseUrl = new Uri(uri);
+                            nameSpace.LicenseUrl = new Uri(uri);
                         }
                     }
 
@@ -334,7 +337,7 @@ namespace UACloudLibrary
                         string uri = metadataForNodeset["purchasinginfo"].Value;
                         if (!string.IsNullOrEmpty(uri))
                         {
-                            addressSpace.PurchasingInformationUrl = new Uri(uri);
+                            nameSpace.PurchasingInformationUrl = new Uri(uri);
                         }
                     }
 
@@ -343,7 +346,7 @@ namespace UACloudLibrary
                         string uri = metadataForNodeset["releasenotes"].Value;
                         if (!string.IsNullOrEmpty(uri))
                         {
-                            addressSpace.ReleaseNotesUrl = new Uri(uri);
+                            nameSpace.ReleaseNotesUrl = new Uri(uri);
                         }
                     }
 
@@ -352,7 +355,7 @@ namespace UACloudLibrary
                         string uri = metadataForNodeset["testspecification"].Value;
                         if (!string.IsNullOrEmpty(uri))
                         {
-                            addressSpace.TestSpecificationUrl = new Uri(uri);
+                            nameSpace.TestSpecificationUrl = new Uri(uri);
                         }
                     }
 
@@ -361,7 +364,7 @@ namespace UACloudLibrary
                         string keywords = metadataForNodeset["keywords"].Value;
                         if (!string.IsNullOrEmpty(keywords))
                         {
-                            addressSpace.Keywords = keywords.Split(',');
+                            nameSpace.Keywords = keywords.Split(',');
                         }
                     }
 
@@ -370,18 +373,18 @@ namespace UACloudLibrary
                         string locales = metadataForNodeset["locales"].Value;
                         if (!string.IsNullOrEmpty(locales))
                         {
-                            addressSpace.SupportedLocales = locales.Split(',');
+                            nameSpace.SupportedLocales = locales.Split(',');
                         }
                     }
 
                     if (metadataForNodeset.ContainsKey("orgname"))
                     {
-                        addressSpace.Contributor.Name = metadataForNodeset["orgname"].Value;
+                        nameSpace.Contributor.Name = metadataForNodeset["orgname"].Value;
                     }
 
                     if (metadataForNodeset.ContainsKey("orgdescription"))
                     {
-                        addressSpace.Contributor.Description = metadataForNodeset["orgdescription"].Value;
+                        nameSpace.Contributor.Description = metadataForNodeset["orgdescription"].Value;
                     }
 
                     if (metadataForNodeset.ContainsKey("orglogo"))
@@ -389,13 +392,13 @@ namespace UACloudLibrary
                         string uri = metadataForNodeset["orglogo"].Value;
                         if (!string.IsNullOrEmpty(uri))
                         {
-                            addressSpace.Contributor.LogoUrl = new Uri(uri);
+                            nameSpace.Contributor.LogoUrl = new Uri(uri);
                         }
                     }
 
                     if (metadataForNodeset.ContainsKey("orgcontact"))
                     {
-                        addressSpace.Contributor.ContactEmail = metadataForNodeset["orgcontact"].Value;
+                        nameSpace.Contributor.ContactEmail = metadataForNodeset["orgcontact"].Value;
                     }
 
                     if (metadataForNodeset.ContainsKey("orgwebsite"))
@@ -403,7 +406,7 @@ namespace UACloudLibrary
                         string uri = metadataForNodeset["orgwebsite"].Value;
                         if (!string.IsNullOrEmpty(uri))
                         {
-                            addressSpace.Contributor.Website = new Uri(uri);
+                            nameSpace.Contributor.Website = new Uri(uri);
                         }
                     }
 
@@ -411,11 +414,11 @@ namespace UACloudLibrary
                     {
                         if (uint.TryParse(metadataForNodeset["numdownloads"].Value, out uint parsedDownloads))
                         {
-                            addressSpace.NumberOfDownloads = parsedDownloads;
+                            nameSpace.NumberOfDownloads = parsedDownloads;
                         }
                     }
 
-                    result.Add(addressSpace);
+                    result.Add(nameSpace);
                 }
                 catch (Exception)
                 {
@@ -431,7 +434,7 @@ namespace UACloudLibrary
             else
             {
                 // return odered list
-                return Task.FromResult(result.OrderByDescending(p => p, new AddressSpaceComparer(orderBy)).ToList());
+                return Task.FromResult(result.OrderByDescending(p => p, new NameSpaceComparer(orderBy)).ToList());
             }
         }
 
@@ -494,7 +497,7 @@ namespace UACloudLibrary
             else
             {
                 // return odered list
-                return Task.FromResult(result.OrderByDescending(p => p, new AddressSpaceCategoryComparer(orderBy)).ToList());
+                return Task.FromResult(result.OrderByDescending(p => p, new NameSpaceCategoryComparer(orderBy)).ToList());
             }
         }
 

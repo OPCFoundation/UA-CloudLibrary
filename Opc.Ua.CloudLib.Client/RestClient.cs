@@ -71,7 +71,7 @@ namespace Opc.Ua.CloudLib.Client
             client.Dispose();
         }
 
-        public async Task<List<UANodesetResult>> GetBasicNodesetInformation(List<string> keywords = null)
+        public async Task<List<UANodesetResult>> GetBasicNodesetInformationAsync(List<string> keywords = null)
         {
             if (keywords == null)
             {
@@ -91,14 +91,14 @@ namespace Opc.Ua.CloudLib.Client
             return info;
         }
 
-        public async Task<AddressSpace> DownloadNodeset(string identifier)
+        public async Task<UANameSpace> DownloadNodesetAsync(string identifier)
         {
             string address = Path.Combine(client.BaseAddress.ToString(), "infomodel/download/", Uri.EscapeDataString(identifier));
             HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
-            AddressSpace resultType = null;
+            UANameSpace resultType = null;
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                resultType = JsonConvert.DeserializeObject<AddressSpace>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+                resultType = JsonConvert.DeserializeObject<UANameSpace>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
             }
 
             return resultType;

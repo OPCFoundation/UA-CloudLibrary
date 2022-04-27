@@ -29,24 +29,26 @@
 
 namespace UACloudLibrary
 {
+    using System;
     using System.Collections.Generic;
+    using System.Globalization;
     using UACloudLibrary.Models;
 
-    internal class AddressSpaceCategoryComparer : IComparer<Category>
+    internal class NameSpaceCategoryComparer : IComparer<Category>
     {
         public string OrderBy { get; }
 
-        public AddressSpaceCategoryComparer(string orderBy)
+        public NameSpaceCategoryComparer(string orderBy)
         {
-            OrderBy = orderBy.ToLower();
+            OrderBy = orderBy.ToLower(CultureInfo.InvariantCulture);
         }
 
         public int Compare(Category x, Category y)
         {
             switch (OrderBy)
             {
-                case "name": return string.Compare(x.Name, y.Name);
-                case "description": return string.Compare(x.Description, y.Description);
+                case "name": return string.Compare(x.Name, y.Name, StringComparison.Ordinal);
+                case "description": return string.Compare(x.Description, y.Description, StringComparison.Ordinal);
                 default: return 0; // return unordered
             }
         }
