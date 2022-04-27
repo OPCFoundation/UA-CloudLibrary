@@ -29,7 +29,9 @@
 
 namespace UACloudLibrary
 {
+    using System;
     using System.Collections.Generic;
+    using System.Globalization;
     using UACloudLibrary.Models;
 
     internal class OrganisationComparer : IComparer<Organisation>
@@ -38,16 +40,16 @@ namespace UACloudLibrary
 
         public OrganisationComparer(string orderBy)
         {
-            OrderBy = orderBy.ToLower();
+            OrderBy = orderBy.ToLower(CultureInfo.InvariantCulture);
         }
 
         public int Compare(Organisation x, Organisation y)
         {
             switch (OrderBy)
             {
-                case "name": return string.Compare(x.Name, y.Name);
-                case "description": return string.Compare(x.Description, y.Description);
-                case "contactemail": return string.Compare(x.ContactEmail, y.ContactEmail);
+                case "name": return string.Compare(x.Name, y.Name, StringComparison.Ordinal);
+                case "description": return string.Compare(x.Description, y.Description, StringComparison.Ordinal);
+                case "contactemail": return string.Compare(x.ContactEmail, y.ContactEmail, StringComparison.Ordinal);
                 default: return 0; // return unordered
             }
         }
