@@ -66,6 +66,6 @@ jobs:
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_CLOUDLIB_BACK_STAGE_PUBLISHSETTINGS }}
+          publish-profile: ${{ secrets.STAGE_AZURE_CLOUDLIB_BACK_PUBLISHSETTINGS }}
           package: ${{ env.PROJECT_DIRECTORY }}${{ env.PUBLISH_FOLDER }}
 
