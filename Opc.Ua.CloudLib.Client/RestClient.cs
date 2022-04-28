@@ -142,7 +142,7 @@ namespace Opc.Ua.CloudLib.Client
             return stringBuilder.ToString();
         }
 
-        internal async Task<(HttpStatusCode Status,string Message)> UploadNamespaceAsync(UANameSpace nameSpace)
+        internal async Task<(HttpStatusCode Status, string Message)> UploadNamespaceAsync(UANameSpace nameSpace)
         {
             // upload infomodel to cloud library
             var uploadAddress = client.BaseAddress != null ? new Uri(client.BaseAddress, "infomodel/upload") : null;
