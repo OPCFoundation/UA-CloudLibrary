@@ -188,9 +188,14 @@ namespace UACloudLibrary
                 return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
             }
 
+            uint nodeSetHashCodeToStore = nodesetHashCode;
+            if (nameSpace.Nodeset?.Identifier == legacyNodesetHashCode)
+            {
+                nodeSetHashCodeToStore = legacyNodesetHashCode;
+            }
             // upload the new file to the storage service, and get the file handle that the storage service returned
-            string storedFilename = await _storage.UploadFileAsync(nodesetHashCode.ToString(CultureInfo.InvariantCulture), nameSpace.Nodeset.NodesetXml).ConfigureAwait(false);
-            if (string.IsNullOrEmpty(storedFilename) || (storedFilename != nodesetHashCode.ToString(CultureInfo.InvariantCulture)))
+            string storedFilename = await _storage.UploadFileAsync(nodeSetHashCodeToStore.ToString(CultureInfo.InvariantCulture), nameSpace.Nodeset.NodesetXml).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(storedFilename) || (storedFilename != nodeSetHashCodeToStore.ToString(CultureInfo.InvariantCulture)))
             {
                 string message = "Error: Nodeset file could not be stored.";
                 _logger.LogError(message);
@@ -213,14 +218,14 @@ namespace UACloudLibrary
             }
 
             // parse nodeset XML, extract metadata and store in our database
-            string error = StoreNodesetMetaDataInDatabase(nodesetHashCode, nodeSet);
+            string error = StoreNodesetMetaDataInDatabase(nodeSetHashCodeToStore, nodeSet);
             if (!string.IsNullOrEmpty(error))
             {
                 _logger.LogError(error);
                 return new ObjectResult(error) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
-            if (!StoreUserMetaDataInDatabase(nodesetHashCode, nameSpace, nodeSet))
+            if (!StoreUserMetaDataInDatabase(nodeSetHashCodeToStore, nameSpace, nodeSet))
             {
                 string message = "Error: User metadata could not be stored.";
                 _logger.LogError(message);
