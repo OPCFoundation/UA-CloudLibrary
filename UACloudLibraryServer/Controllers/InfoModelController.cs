@@ -54,12 +54,17 @@ namespace UACloudLibrary
         private readonly IFileStorage _storage;
         private readonly IDatabase _database;
         private readonly ILogger _logger;
-
-        public InfoModelController(IFileStorage storage, IDatabase database, ILoggerFactory logger)
+#if USE_GRAPHQL_HOTCHOCOLATE
+        private readonly AppDbContext _appDbContext;
+#endif
+        public InfoModelController(IFileStorage storage, IDatabase database, ILoggerFactory logger, AppDbContext appDbContext)
         {
             _storage = storage;
             _database = database;
             _logger = logger.CreateLogger("InfoModelController");
+#if USE_GRAPHQL_HOTCHOCOLATE
+            _appDbContext = appDbContext;
+#endif
         }
 
         [HttpGet]
@@ -146,12 +151,39 @@ namespace UACloudLibrary
                 return new ObjectResult($"Could not parse nodeset XML file: {ex.Message}") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
+            //// Default attributes from data in nodeset
+            //var firstVersionInNodeSet = nodeSet.Models?[0]?.Version;
+            //if (string.IsNullOrEmpty(uaAddressSpace.Nodeset?.Version) && !string.IsNullOrEmpty(firstVersionInNodeSet))
+            //{
+            //    uaAddressSpace.Nodeset.Version = nodeSet.Models[0].Version;
+            //}
+
+            //if (firstVersionInNodeSet != uaAddressSpace.Nodeset?.Version)
+            //{
+
+            //}
+
             // generate a unique hash code
             uint nodesetHashCode = GenerateHashCode(nodeSet);
             if (nodesetHashCode == 0)
             {
                 return new ObjectResult("Nodeset invalid. Please make sure it includes a valid Model URI and publication date!") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
+
+#if USE_GRAPHQL_HOTCHOCOLATE
+            try
+            {
+                var nsmStore = new NodeSetModelStore(_appDbContext, _logger);
+                await nsmStore.StoreNodeSetModelAsync(nameSpace.Nodeset.NodesetXml);
+            }
+            catch (Exception ex)
+            {
+                return new ObjectResult($"Error importing nodeset: {ex.Message}") { StatusCode = (int) HttpStatusCode.BadRequest };
+                // ignore for now
+                // TODO retry logic for model import (i.e. whenever other models get uploaded)
+                // TODO update model graph when new versions of this or other nodesets get uploaded
+            }
+#endif
 
             // check if the nodeset already exists in the database for the legacy hashcode algorithm
             string legacyResult;
@@ -226,7 +258,6 @@ namespace UACloudLibrary
                 _logger.LogError(message);
                 return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
-
             return new ObjectResult("Upload successful!") { StatusCode = (int)HttpStatusCode.OK };
         }
 
