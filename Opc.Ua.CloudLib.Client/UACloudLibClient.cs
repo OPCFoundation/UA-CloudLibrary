@@ -405,7 +405,7 @@ namespace Opc.Ua.CloudLib.Client
         /// </summary>
         /// <param name="nameSpace"></param>
         /// <returns></returns>
-        public Task<(HttpStatusCode, string)> UploadNodeSetAsync(UANameSpace nameSpace) => _restClient.UploadNamespaceAsync(nameSpace);
+        public Task<(HttpStatusCode Status, string Message)> UploadNodeSetAsync(UANameSpace nameSpace) => _restClient.UploadNamespaceAsync(nameSpace);
 
         /// <summary>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.</summary>
         public void Dispose()

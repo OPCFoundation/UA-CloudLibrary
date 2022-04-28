@@ -104,7 +104,7 @@ namespace Opc.Ua.CloudLib.Client
             return resultType;
         }
 
-        public async Task<(string namespaceUri, string identifier)[]> GetNamespaceIdsAsync()
+        public async Task<(string NamespaceUri, string Identifier)[]> GetNamespaceIdsAsync()
         {
             string address = Path.Combine(client.BaseAddress.ToString(), "infomodel/namespaces/");
             HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
@@ -142,7 +142,7 @@ namespace Opc.Ua.CloudLib.Client
             return stringBuilder.ToString();
         }
 
-        internal async Task<(HttpStatusCode,string)> UploadNamespaceAsync(UANameSpace nameSpace)
+        internal async Task<(HttpStatusCode Status,string Message)> UploadNamespaceAsync(UANameSpace nameSpace)
         {
             // upload infomodel to cloud library
             var uploadAddress = client.BaseAddress != null ? new Uri(client.BaseAddress, "infomodel/upload") : null;
