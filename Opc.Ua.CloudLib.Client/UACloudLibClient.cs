@@ -32,6 +32,7 @@ namespace Opc.Ua.CloudLib.Client
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Net;
     using System.Net.Http.Headers;
     using System.Text;
     using System.Threading.Tasks;
@@ -403,7 +404,7 @@ namespace Opc.Ua.CloudLib.Client
         /// </summary>
         /// <param name="nameSpace"></param>
         /// <returns></returns>
-        public Task<string> UploadNodeSetAsync(UANameSpace nameSpace) => _restClient.UploadNamespaceAsync(nameSpace);
+        public Task<(HttpStatusCode, string)> UploadNodeSetAsync(UANameSpace nameSpace) => _restClient.UploadNamespaceAsync(nameSpace);
 
         /// <summary>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.</summary>
         public void Dispose()
