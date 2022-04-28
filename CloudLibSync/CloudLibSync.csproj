@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Opc.Ua.CloudLib.Client\Opc.Ua.CloudLib.Client.csproj" />
+	  <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Core" Version="1.4.368.33" />
+	  <PackageReference Include="System.CommandLine" Version="2.0.0-beta3.22114.1" />
+	  <PackageReference Include="System.CommandLine.NamingConventionBinder" Version="2.0.0-beta3.22114.1" />
+  </ItemGroup>
+
+</Project>

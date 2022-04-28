@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <Configurations>Debug;Release;Staging</Configurations>
+	<LangVersion>latest</LangVersion>
+	<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+	  <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Core" Version="1.4.368.33" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CESMII.OpcUa.NodeSetModel\CESMII.OpcUa.NodeSetModel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="NodeSets\UNECE_to_OPCUA.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

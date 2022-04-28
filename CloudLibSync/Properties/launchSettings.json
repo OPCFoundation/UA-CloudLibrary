@@ -1,0 +1,17 @@
+{
+  "profiles": {
+    "CloudLibSync": {
+      "commandName": "Project",
+      //"commandLineArgs": "download https://uacloudlibrary.opcfoundation.org/ markus.horstmann@c-labs.com 7Ph_DYMwYe2_VJk --nodeSetXmlDir DownloadsXml"
+      "commandLineArgs": "upload https://localhost:5001/ markus.horstmann@c-labs.com bSz!VvtUF!_Ue43 --fileName Downloads/opc.0.xml"
+      //"commandLineArgs": "upload https://localhost:5001/ markus.horstmann@c-labs.com bSz!VvtUF!_Ue43"
+
+      //"commandLineArgs": "download https://uacloudlibrary.opcfoundation.org/ markus.horstmann@c-labs.com 7Ph_DYMwYe2_VJk --localDir test --nodeSetXmlDir xmltest"
+      //"commandLineArgs": "download https://uacloudlibrary.opcfoundation.org/ markus.horstmann@c-labs.com"
+      //"commandLineArgs": "https://uacloudlibrary.opcfoundation.org/ markus.horstmann@c-labs.com 7Ph_DYMwYe2_VJk",
+      //"commandLineArgs": "https://uacloudlibrary.opcfoundation.org/ markus.horstmann@c-labs.com 7Ph_DYMwYe2_VJk https://localhost:5001/ markus.horstmann@c-labs.com bSz!VvtUF!_Ue43 Downloads/machinery.1620064997.xml"
+      //"commandLineArgs": "https://uacloudlibrary.opcfoundation.org/ markus.horstmann@c-labs.com 7Ph_DYMwYe2_VJk https://localhost:5001/ markus.horstmann@c-labs.com bSz!VvtUF!_Ue43 Downloads/opc.0.xml"
+      // "commandLineArgs": "https://uacloudlibrary.opcfoundation.org/ xxmarkus.horstmann@c-labs.com 7Ph_DYMwYe2_VJk https://localhost:8443/ markus.horstmann@c-labs.com bSz!VvtUF!_Ue43 *"
+    }
+  }
+}

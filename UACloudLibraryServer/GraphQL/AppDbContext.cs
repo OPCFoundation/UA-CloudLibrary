@@ -29,6 +29,9 @@
 
 namespace UACloudLibrary
 {
+#if USE_GRAPHQL_HOTCHOCOLATE
+    using CESMII.OpcUa.NodeSetModel;
+#endif
     using System.IO;
     using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore;
@@ -52,6 +55,9 @@ namespace UACloudLibrary
         // Needed for design-time DB migration
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
+#if USE_GRAPHQL_HOTCHOCOLATE
+            optionsBuilder.UseLazyLoadingProxies();
+#endif
             if (!optionsBuilder.IsConfigured)
             {
                 IConfigurationRoot configuration = new ConfigurationBuilder()
@@ -79,11 +85,19 @@ namespace UACloudLibrary
         {
             base.OnModelCreating(modelBuilder);
 
+#if USE_GRAPHQL_HOTCHOCOLATE
+            NodeSetModelContext.CreateModel(modelBuilder);
+#endif
+
             modelBuilder.Entity<DatatypeModel>().HasKey(k => k.Id);
             modelBuilder.Entity<MetadataModel>().HasKey(k => k.Id);
             modelBuilder.Entity<ObjecttypeModel>().HasKey(k => k.Id);
             modelBuilder.Entity<ReferencetypeModel>().HasKey(k => k.Id);
             modelBuilder.Entity<VariabletypeModel>().HasKey(k => k.Id);
         }
+
+#if USE_GRAPHQL_HOTCHOCOLATE
+        public DbSet<NodeSetModel> nodeSets { get; set; }
+#endif
     }
 }
