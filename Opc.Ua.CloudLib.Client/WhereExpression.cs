@@ -47,9 +47,9 @@ namespace Opc.Ua.CloudLib.Client
         orgContact,
         /// <summary>The nodesetTitle-field</summary>
         nodesetTitle,
-        /// <summary>The addressSpaceName-field</summary>
+        /// <summary>The nameSpaceName-field</summary>
         addressSpaceName,
-        /// <summary>The addressSpaceDescription-field</summary>
+        /// <summary>The nameSpaceDescription-field</summary>
         addressSpaceDescription,
         /// <summary>The lastModification-field</summary>
         lastModification,

@@ -31,7 +31,6 @@ namespace Opc.Ua.CloudLib.Client
 {
     using System;
     using Newtonsoft.Json;
-    //using System.ComponentModel.DataAnnotations;
 
     /// <summary>License Enumeration</summary>
     public enum License
@@ -45,15 +44,15 @@ namespace Opc.Ua.CloudLib.Client
         /// </summary>
         ApacheLicense20,
         /// <summary>
-        /// Custom License model <see cref="AddressSpace.LicenseUrl"/>
+        /// Custom License model <see cref="UANameSpace.LicenseUrl"/>
         /// </summary>
         Custom
     }
     /// <summary>Contains the metadata of the nodeset and the nodeset itself</summary>
-    public class AddressSpace
+    public class UANameSpace
     {
-        /// <summary>Create a new AddressSpace metadata</summary>
-        public AddressSpace()
+        /// <summary>Create a new NameSpace metadata</summary>
+        public UANameSpace()
         {
             Title = string.Empty;
             License = License.Custom;
@@ -65,42 +64,48 @@ namespace Opc.Ua.CloudLib.Client
             DocumentationUrl = null;
             IconUrl = null;
             LicenseUrl = null;
-            Keywords = new string[0];
+            Keywords = Array.Empty<string>();
             PurchasingInformationUrl = null;
             ReleaseNotesUrl = null;
             TestSpecificationUrl = null;
-            SupportedLocales = new string[0];
+            SupportedLocales = Array.Empty<string>();
             NumberOfDownloads = 0;
             AdditionalProperties = null;
         }
 
         /// <summary>Gets or sets the title.</summary>
         /// <value>The title.</value>
-        [JsonProperty("title", Required = Required.Always)]
+        [JsonProperty("title")]
         public string Title { get; set; }
+
         /// <summary>Gets or sets the license.</summary>
         /// <value>The license.</value>
-        [JsonProperty("license", Required = Required.Always)]
+        [JsonProperty("license")]
         public License License { get; set; }
+
         /// <summary>Gets or sets the copyright text.</summary>
         /// <value>The copyright text.</value>
-        [JsonProperty("copyrightText", Required = Required.Always)]
+        [JsonProperty("copyrightText")]
         public string CopyrightText { get; set; }
+
         /// <summary>Gets or sets the contributor.</summary>
         /// <value>The contributor.</value>
-        [JsonProperty("contributor", Required = Required.Always)]
+        [JsonProperty("contributor")]
         public Organisation Contributor { get; set; }
+
         /// <summary>Gets or sets the description.</summary>
         /// <value>The description.</value>
-        [JsonProperty("description", Required = Required.Always)]
+        [JsonProperty("description")]
         public string Description { get; set; }
+
         /// <summary>Gets or sets the category.</summary>
         /// <value>The category.</value>
-        [JsonProperty("category", Required = Required.Always)]
+        [JsonProperty("category")]
         public Category Category { get; set; }
+
         /// <summary>Gets or sets the nodeset.</summary>
         /// <value>The nodeset.</value>
-        [JsonProperty("nodeset", Required = Required.Always)]
+        [JsonProperty("nodeset")]
         public Nodeset Nodeset { get; set; }
 
         /// <summary>
@@ -109,26 +114,32 @@ namespace Opc.Ua.CloudLib.Client
         /// </summary>
         [JsonProperty("documentationUrl")]
         public Uri DocumentationUrl { get; set; }
+
         /// <summary>Gets or sets the icon URL.</summary>
         /// <value>The icon URL.</value>
         [JsonProperty("iconUrl")]
         public Uri IconUrl { get; set; }
+
         /// <summary>Gets or sets the license URL.</summary>
         /// <value>The license URL.</value>
         [JsonProperty("licenseUrl")]
         public Uri LicenseUrl { get; set; }
+
         /// <summary>Gets or sets the key words.</summary>
         /// <value>The key words.</value>
         [JsonProperty("keywords")]
         public string[] Keywords { get; set; }
+
         /// <summary>Gets or sets the purchasing information URL.</summary>
         /// <value>The purchasing information URL.</value>
         [JsonProperty("purchasingInformationUrl")]
         public Uri PurchasingInformationUrl { get; set; }
+
         /// <summary>Gets or sets the release notes URL.</summary>
         /// <value>The release notes URL.</value>
         [JsonProperty("releaseNotesUrl")]
         public Uri ReleaseNotesUrl { get; set; }
+
         /// <summary>Gets or sets the release notes URL.</summary>
         /// <value>The release notes URL.</value>
         [JsonProperty("testSpecificationUrl")]
@@ -139,18 +150,20 @@ namespace Opc.Ua.CloudLib.Client
         /// </summary>
         [JsonProperty("supportedLocales")]
         public string[] SupportedLocales { get; set; }
+
         /// <summary>Gets or sets the number of downloads.</summary>
         /// <value>The number of downloads.</value>
         [JsonProperty("numberOfDownloads")]
         public uint NumberOfDownloads { get; set; }
+
         /// <summary>Gets or sets the additional properties.</summary>
         /// <value>The additional properties.</value>
         [JsonProperty("additionalProperties")]
-        public Property[] AdditionalProperties { get; set; }
+        public UAProperty[] AdditionalProperties { get; set; }
     }
 
     /// <summary>Property Class</summary>
-    public class Property
+    public class UAProperty
     {
         /// <summary>Gets or sets the name.</summary>
         /// <value>The name.</value>
@@ -179,7 +192,7 @@ namespace Opc.Ua.CloudLib.Client
 
         /// <summary>Gets or sets the name.</summary>
         /// <value>The name.</value>
-        [JsonProperty("name", Required = Required.Always)]
+        [JsonProperty("name")]
         public string Name { get; set; }
 
         /// <summary>Gets or sets the description.</summary>
@@ -216,7 +229,7 @@ namespace Opc.Ua.CloudLib.Client
 
         /// <summary>Gets or sets the name.</summary>
         /// <value>The name.</value>
-        [JsonProperty("name", Required = Required.Always)]
+        [JsonProperty("name")]
         public string Name { get; set; }
 
         /// <summary>Gets or sets the description.</summary>
@@ -246,7 +259,7 @@ namespace Opc.Ua.CloudLib.Client
 
         /// <summary>Gets or sets the nodeset XML.</summary>
         /// <value>The nodeset XML.</value>
-        [JsonProperty("nodesetXml", Required = Required.Always)]
+        [JsonProperty("nodesetXml")]
         public string NodesetXml { get; set; }
 
         /// <summary>Gets or sets the identifier.</summary>

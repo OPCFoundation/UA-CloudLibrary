@@ -39,9 +39,9 @@ namespace UACloudLibrary.Models
         Custom
     }
 
-    public class AddressSpace
+    public class UANameSpace
     {
-        public AddressSpace()
+        public UANameSpace()
         {
             Title = string.Empty;
             License = License.Custom;
@@ -53,11 +53,11 @@ namespace UACloudLibrary.Models
             DocumentationUrl = null;
             IconUrl = null;
             LicenseUrl = null;
-            Keywords = new string[0];
+            Keywords = Array.Empty<string>();
             PurchasingInformationUrl = null;
             ReleaseNotesUrl = null;
             TestSpecificationUrl = null;
-            SupportedLocales = new string[0];
+            SupportedLocales = Array.Empty<string>();
             NumberOfDownloads = 0;
             AdditionalProperties = null;
         }
@@ -108,10 +108,10 @@ namespace UACloudLibrary.Models
 
         public uint NumberOfDownloads { get; set; }
 
-        public Property[] AdditionalProperties { get; set; }
+        public UAProperty[] AdditionalProperties { get; set; }
     }
 
-    public class Property
+    public class UAProperty
     {
         public string Name { get; set; }
 
@@ -139,6 +139,24 @@ namespace UACloudLibrary.Models
         public string ContactEmail { get; set; }
 
         public Uri Website { get; set; }
+
+        public override bool Equals(object obj)
+        {
+            if ((obj == null) || !this.GetType().Equals(obj.GetType()))
+            {
+                return false;
+            }
+            else
+            {
+                Organisation org = (Organisation)obj;
+                return Name.Equals(org.Name, StringComparison.Ordinal);
+            }
+        }
+
+        public override int GetHashCode()
+        {
+            return Name.GetHashCode(StringComparison.Ordinal);
+        }
     }
 
     public class Category
@@ -156,6 +174,24 @@ namespace UACloudLibrary.Models
         public string Description { get; set; }
 
         public Uri IconUrl { get; set; }
+
+        public override bool Equals(object obj)
+        {
+            if ((obj == null) || !this.GetType().Equals(obj.GetType()))
+            {
+                return false;
+            }
+            else
+            {
+                Category org = (Category)obj;
+                return Name.Equals(org.Name, StringComparison.Ordinal);
+            }
+        }
+
+        public override int GetHashCode()
+        {
+            return Name.GetHashCode(StringComparison.Ordinal);
+        }
     }
 
     public class Nodeset
