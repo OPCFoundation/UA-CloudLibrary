@@ -108,6 +108,8 @@ namespace Opc.Ua.CloudLib.Client
                 }
             }
             nameSpace.Nodeset.PublicationDate = (info.CreationTime != null) ? info.CreationTime.Value : DateTime.MinValue;
+            nameSpace.Nodeset.NamespaceUri = string.IsNullOrEmpty(info.NameSpaceUri) ? null : new Uri(info.NameSpaceUri);
+            nameSpace.Nodeset.Identifier = info.Id;
 
             return nameSpace;
         }

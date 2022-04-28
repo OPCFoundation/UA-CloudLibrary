@@ -32,6 +32,7 @@ namespace Opc.Ua.CloudLib.Client
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Net;
     using System.Net.Http.Headers;
     using System.Text;
     using System.Threading.Tasks;
@@ -78,6 +79,25 @@ namespace Opc.Ua.CloudLib.Client
         }
 
         /// <summary>
+        /// Options to use in IOptions patterns
+        /// </summary>
+        public class Options
+        {
+            /// <summary>
+            /// URL of the cloud library. Defaults to the OPC Foundation Cloud Library.
+            /// </summary>
+            public string Url { get; set; }
+            /// <summary>
+            /// Username to use for authenticating with the cloud library
+            /// </summary>
+            public string Username { get; set; }
+            /// <summary>
+            /// Password to use for authenticating with the cloud library
+            /// </summary>
+            public string Password { get; set; }
+        }
+
+        /// <summary>
         /// This Constructor uses the standard endpoint with no authorization
         /// </summary>
         public UACloudLibClient()
@@ -101,6 +121,10 @@ namespace Opc.Ua.CloudLib.Client
         /// <param name="strPassword">The string password.</param>
         public UACloudLibClient(string strEndpoint, string strUsername, string strPassword)
         {
+            if (string.IsNullOrEmpty(strEndpoint))
+            {
+                strEndpoint = _standardEndpoint.ToString();
+            }
             BaseEndpoint = new Uri(strEndpoint);
             _client = new GraphQLHttpClient(new Uri(strEndpoint + "/graphql"), new NewtonsoftJsonSerializer());
             string temp = Convert.ToBase64String(Encoding.UTF8.GetBytes(strUsername + ":" + strPassword));
@@ -108,6 +132,12 @@ namespace Opc.Ua.CloudLib.Client
             _username = strUsername;
             _password = strPassword;
             _restClient = new RestClient(strEndpoint, Authentication);
+        }
+        /// <summary>Initializes a new instance of the <see cref="UACloudLibClient" /> class.</summary>
+        /// <param name="options">Credentials and URL</param>
+        public UACloudLibClient(Options options)
+            : this(options.Url, options.Username, options.Password)
+        {
         }
 
         /// <summary>Sends the GraphQL query and converts it to JSON</summary>
@@ -297,7 +327,14 @@ namespace Opc.Ua.CloudLib.Client
                 .AddField(h => h.PurchasingInformationUrl)
                 .AddField(h => h.ReleaseNotesUrl)
                 .AddField(h => h.Keywords)
-                .AddField(h => h.SupportedLocales);
+                .AddField(h => h.SupportedLocales)
+                .AddField(
+                    h => h.Nodeset,
+                    sq => sq.AddField(h => h.NamespaceUri)
+                            .AddField(h => h.PublicationDate)
+                            .AddField(h => h.Identifier)
+                    )
+                ;
 
             nameSpaceQuery.AddArgument("limit", limit);
             nameSpaceQuery.AddArgument("offset", offset);
@@ -361,7 +398,14 @@ namespace Opc.Ua.CloudLib.Client
         /// Gets all available namespaces and the corresponding node set identifier
         /// </summary>
         /// <returns></returns>
-        public Task<(string namespaceUri, string identifier)[]> GetNamespacesAsync() => _restClient.GetNamespacesAsync();
+        public Task<(string NamespaceUri, string Identifier)[]> GetNamespaceIdsAsync() => _restClient.GetNamespaceIdsAsync();
+
+        /// <summary>
+        /// Upload a nodeset to the cloud library
+        /// </summary>
+        /// <param name="nameSpace"></param>
+        /// <returns></returns>
+        public Task<(HttpStatusCode Status, string Message)> UploadNodeSetAsync(UANameSpace nameSpace) => _restClient.UploadNamespaceAsync(nameSpace);
 
         /// <summary>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.</summary>
         public void Dispose()
