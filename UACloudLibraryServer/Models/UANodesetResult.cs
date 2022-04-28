@@ -50,5 +50,8 @@ namespace UACloudLibrary.Models
 
         [JsonProperty(PropertyName = "nodesetCreationTime")]
         public System.DateTime? CreationTime { get; set; }
+
+        [JsonProperty(PropertyName = "nodesetNamespaceUri")]
+        public string NameSpaceUri { get; set; }
     }
 }
