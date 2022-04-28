@@ -135,7 +135,8 @@ namespace Opc.Ua.CloudLib.Client
         }
         /// <summary>Initializes a new instance of the <see cref="UACloudLibClient" /> class.</summary>
         /// <param name="options">Credentials and URL</param>
-        public UACloudLibClient(Options options) : this(options.Url, options.Username, options.Password)
+        public UACloudLibClient(Options options)
+            : this(options.Url, options.Username, options.Password)
         {
         }
 
