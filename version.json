@@ -5,7 +5,7 @@
     "semVer": 2.0
   },
   "publicReleaseRefSpec": [
-    "^refs/heads/cesmii/main$",
+    "^refs/heads/master$",
     "^refs/heads/release/\\d+\\.\\d+\\.\\d+"
   ],
   "cloudBuild": {
