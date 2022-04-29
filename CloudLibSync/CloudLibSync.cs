@@ -84,23 +84,35 @@ namespace Opc.Ua.CloudLib.Sync
                 source.Nodeset.NamespaceUri?.ToString() == target.Nodeset.NamespaceUri?.ToString()
                 && ( source.Nodeset.PublicationDate == target.Nodeset.PublicationDate || (source.Nodeset.Identifier != 0 && source.Nodeset.Identifier == target.Nodeset.Identifier))
                 )).ToList();
-
-            foreach (var nameSpace in toSync)
+            bool bAdded;
+            do
             {
-                // Download each infomodel
-                var nodeSet = await sourceClient.DownloadNodesetAsync(nameSpace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                bAdded = false;
+                foreach (var nameSpace in toSync)
+                {
+                    // Download each infomodel
+                    var nodeSet = await sourceClient.DownloadNodesetAsync(nameSpace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
 
-                // upload infomodel to target cloud library
-                var response = await targetClient.UploadNodeSetAsync(nodeSet).ConfigureAwait(false);
-                if (response.Status == System.Net.HttpStatusCode.OK)
-                {
-                    _logger.LogInformation($"Uploaded {nameSpace.Nodeset.NamespaceUri}, {nameSpace.Nodeset.Identifier}");
+                    try
+                    {
+                        // upload infomodel to target cloud library
+                        var response = await targetClient.UploadNodeSetAsync(nodeSet).ConfigureAwait(false);
+                        if (response.Status == System.Net.HttpStatusCode.OK)
+                        {
+                            bAdded = true;
+                            _logger.LogInformation($"Uploaded {nameSpace.Nodeset.NamespaceUri}, {nameSpace.Nodeset.Identifier}");
+                        }
+                        else
+                        {
+                            _logger.LogError($"Error uploading {nameSpace.Nodeset.NamespaceUri}, {nameSpace.Nodeset.Identifier}: {response.Status} {response.Message}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Error uploading { nameSpace.Nodeset.NamespaceUri}, { nameSpace.Nodeset.Identifier}: {ex.Message}");
+                    }
                 }
-                else
-                {
-                    _logger.LogInformation($"Error uploading {nameSpace.Nodeset.NamespaceUri}, {nameSpace.Nodeset.Identifier}: {response.Status} {response.Message}");
-                }
-            }
+            } while (bAdded);
             //// Get all infomodels from both cloudlibs
             //var nameAndIdentifiersTarget = await targetClient.GetNamespacesAsync().ConfigureAwait(false);
             //var nameAndIdentifiers = await sourceClient.GetNamespacesAsync().ConfigureAwait(false);
