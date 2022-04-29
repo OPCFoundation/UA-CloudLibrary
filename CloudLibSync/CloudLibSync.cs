@@ -74,20 +74,21 @@ namespace Opc.Ua.CloudLib.Sync
             var sourceClient = new UACloudLibClient(sourceUrl, sourceUserName, sourcePassword);
             var targetClient = new UACloudLibClient(targetUrl, targetUserName, targetPassword);
 
-            var targetNamespaces = await targetClient.GetNameSpacesAsync(100).ConfigureAwait(false);
-            //await FillMissingNamespaceUris(targetClient, targetNamespaces).ConfigureAwait(false);
-            var sourceNamespaces = await sourceClient.GetNameSpacesAsync(100).ConfigureAwait(false);
-            //await FillMissingNamespaceUris(sourceClient, sourceNamespaces).ConfigureAwait(false);
-
-            // Get the ones that not already on the target
-            var toSync = sourceNamespaces.Where(source => !targetNamespaces.Any(target =>
-                source.Nodeset.NamespaceUri?.ToString() == target.Nodeset.NamespaceUri?.ToString()
-                && ( source.Nodeset.PublicationDate == target.Nodeset.PublicationDate || (source.Nodeset.Identifier != 0 && source.Nodeset.Identifier == target.Nodeset.Identifier))
-                )).ToList();
             bool bAdded;
             do
             {
                 bAdded = false;
+
+                var targetNamespaces = await targetClient.GetNameSpacesAsync(100).ConfigureAwait(false);
+                //await FillMissingNamespaceUris(targetClient, targetNamespaces).ConfigureAwait(false);
+                var sourceNamespaces = await sourceClient.GetNameSpacesAsync(100).ConfigureAwait(false);
+                //await FillMissingNamespaceUris(sourceClient, sourceNamespaces).ConfigureAwait(false);
+
+                // Get the ones that not already on the target
+                var toSync = sourceNamespaces.Where(source => !targetNamespaces.Any(target =>
+                    source.Nodeset.NamespaceUri?.ToString() == target.Nodeset.NamespaceUri?.ToString()
+                    && (source.Nodeset.PublicationDate == target.Nodeset.PublicationDate || (source.Nodeset.Identifier != 0 && source.Nodeset.Identifier == target.Nodeset.Identifier))
+                    )).ToList();
                 foreach (var nameSpace in toSync)
                 {
                     // Download each infomodel
