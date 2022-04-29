@@ -171,8 +171,15 @@ namespace Opc.Ua.CloudLib.Sync
                 var uploadJson = File.ReadAllText(file);
 
                 var addressSpace = JsonConvert.DeserializeObject<UANameSpace>(uploadJson);
-                await targetClient.UploadNodeSetAsync(addressSpace).ConfigureAwait(false);
-                _logger.LogInformation($"Uploaded {addressSpace?.Nodeset.NamespaceUri}, {addressSpace?.Nodeset.Identifier}");
+                var response = await targetClient.UploadNodeSetAsync(addressSpace).ConfigureAwait(false);
+                if (response.Status == System.Net.HttpStatusCode.OK)
+                {
+                    _logger.LogInformation($"Uploaded {addressSpace?.Nodeset.NamespaceUri}, {addressSpace?.Nodeset.Identifier}");
+                }
+                else
+                {
+                    _logger.LogError($"Error uploading {addressSpace?.Nodeset.NamespaceUri}, {addressSpace?.Nodeset.Identifier}: {response.Status} {response.Message}");
+                }
             }
         }
 
