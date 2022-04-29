@@ -38,6 +38,10 @@ env:
   PROJECT_NAME: 'UA-CloudLibrary'      
   PUBLISH_FOLDER_RELATIVE: "./publish"
   PUBLISH_FOLDER: "/publish"
+
+  AZURE_FUNCTIONAPP_NAME: CloudLibSyncAzureFunction  # set this to your application's name
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: './CloudLibSyncAzureFunction'    # set this to the path to your web app project, defaults to the repository root
+
   # set this to the .NET core version to use
   NETCORE_VERSION: "6.0.x"
 
@@ -62,10 +66,22 @@ jobs:
       - name: Publish (${{env.PROJECT_DIRECTORY}}) TO ${{ env.PUBLISH_FOLDER_RELATIVE }}
         run: dotnet publish --configuration Staging --output ${{ env.PUBLISH_FOLDER_RELATIVE }}
         working-directory: ${{env.PROJECT_DIRECTORY}}
+      - name: 'Resolve Project Dependencies Using Dotnet'
+        shell: bash
+        run: |
+          pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
+          dotnet build --configuration Release --output ./output
+          popd
       - name: 'Deploy to Azure WebApp'
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.STAGE_AZURE_CLOUDLIB_BACK_PUBLISHSETTINGS }}
           package: ${{ env.PROJECT_DIRECTORY }}${{ env.PUBLISH_FOLDER }}
-
+      - name: 'Run Azure Functions Action'
+        uses: Azure/functions-action@v1
+        id: fa
+        with:
+          app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
+          package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output'
+          publish-profile: ${{ secrets.STAGE_AZURE_CLOUDLIB_BACK_SYNC_PUBLISHSETTINGS }}
