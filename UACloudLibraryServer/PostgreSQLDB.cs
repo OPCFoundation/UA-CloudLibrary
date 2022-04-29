@@ -43,22 +43,32 @@ namespace UACloudLibrary
         private NpgsqlConnection _connection = null;
         private readonly ILogger _logger;
 
-        public static string CreateConnectionString(IConfiguration configuration)
+        public static string CreateConnectionString(IConfiguration configuration, ILogger logger = null)
         {
             var connectionString = configuration.GetConnectionString("CloudLibraryPostgreSQL");
             if (string.IsNullOrEmpty(connectionString))
             {
-                connectionString = CreateConnectionStringFromEnvironment();
+                logger?.LogInformation("No connection string in config. Using environment variables.");
+                connectionString = CreateConnectionStringFromEnvironment(logger);
+                // Temporary for troubleshooting
+                if (logger == null)
+                {
+                    throw new ArgumentException("No connection string in config.Using environment variables.");
+                }
             }
             return connectionString;
         }
 
-        private static string CreateConnectionStringFromEnvironment()
+        private static string CreateConnectionStringFromEnvironment(ILogger logger)
         {
             // Obtain connection string information from the environment
             string Host = Environment.GetEnvironmentVariable("PostgreSQLEndpoint");
             string User = Environment.GetEnvironmentVariable("PostgreSQLUsername");
             string Password = Environment.GetEnvironmentVariable("PostgreSQLPassword");
+            if (string.IsNullOrEmpty(Host))
+            {
+                logger?.LogInformation("Using host {Host} from environment");
+            }
 
             string DBname = "uacloudlib";
             string Port = "5432";
@@ -88,7 +98,7 @@ namespace UACloudLibrary
 
             try
             {
-                _connection = new NpgsqlConnection(CreateConnectionString(configuration));
+                _connection = new NpgsqlConnection(CreateConnectionString(configuration, _logger));
                 _connection.Open();
 
                 foreach (string initCommand in dbInitCommands)
