@@ -1,7 +1,7 @@
 version: '3.4'
 
 services:
-  ua-cloudlibrary:
+  cesmii-ua-cloudlibrary:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=https://+:443;http://+:80
