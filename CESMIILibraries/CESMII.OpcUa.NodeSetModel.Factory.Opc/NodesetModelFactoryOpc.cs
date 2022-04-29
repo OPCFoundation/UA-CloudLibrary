@@ -209,7 +209,7 @@ namespace CESMII.OpcUa.NodeSetModel.Factory.Opc
             var missingModels = requiredModels.Where(rm => !NodesetModels.ContainsKey(rm)).ToList();
             if (missingModels.Any())
             {
-                throw new Exception($"Missing dependent node sets: {string.Join("", missingModels)}");
+                throw new Exception($"Missing dependent node sets: {string.Join(", ", missingModels)}");
             }
             if (nodeSet.Items == null)
             {
