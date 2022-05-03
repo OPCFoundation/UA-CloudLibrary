@@ -58,15 +58,15 @@ namespace Opc.Ua.CloudLib.Client
         private string _username = "";
         private string _password = "";
 
-        /// <summary>Gets the Base endpoint used to access the api.</summary>
-        /// <value>The url of the endpoint</value>
-        public Uri BaseEndpoint { get; private set; }
-
         private AuthenticationHeaderValue Authentication
         {
             set => _client.HttpClient.DefaultRequestHeaders.Authorization = value;
             get => _client.HttpClient.DefaultRequestHeaders.Authorization;
         }
+
+        /// <summary>Gets the Base endpoint used to access the api.</summary>
+        /// <value>The url of the endpoint</value>
+        public Uri BaseEndpoint { get; private set; }
 
         /// <summary>Gets or sets the username.</summary>
         /// <value>The username.</value>
