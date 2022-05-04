@@ -98,6 +98,7 @@ namespace UACloudLibrary
 
 #if USE_GRAPHQL_HOTCHOCOLATE
         public DbSet<NodeSetModel> nodeSets { get; set; }
+        public DbSet<NodeModel> nodeModels { get; set; }
 #endif
     }
 }
