@@ -191,6 +191,11 @@ namespace Opc.Ua.CloudLib.Client
                     nameSpace.NumberOfDownloads = System.Convert.ToUInt32(metadata.Value, CultureInfo.InvariantCulture);
                     break;
                 }
+                case "validationstatus":
+                {
+                    nameSpace.ValidationStatus = metadata.Value;
+                    break;
+                }
                 case "addressspacename":
                 {
                     nameSpace.Title = metadata.Value;

@@ -151,6 +151,8 @@ namespace UACloudLibrary
                 return new ObjectResult($"Could not parse nodeset XML file: {ex.Message}") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
+            string modelValidationStatus = "Parsed";
+
             // generate a unique hash code
             uint nodesetHashCode = GenerateHashCode(nodeSet);
             if (nodesetHashCode == 0)
@@ -240,7 +242,7 @@ namespace UACloudLibrary
                 return new ObjectResult(error) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
-            if (!StoreUserMetaDataInDatabase(nodesetHashCode, nameSpace, nodeSet))
+            if (!StoreUserMetaDataInDatabase(nodesetHashCode, nameSpace, nodeSet, modelValidationStatus))
             {
                 string message = "Error: User metadata could not be stored.";
                 _logger.LogError(message);
@@ -363,7 +365,7 @@ namespace UACloudLibrary
             return (uint)hashCode;
         }
 
-        private bool StoreUserMetaDataInDatabase(uint newNodeSetID, UANameSpace nameSpace, UANodeSet nodeSet)
+        private bool StoreUserMetaDataInDatabase(uint newNodeSetID, UANameSpace nameSpace, UANodeSet nodeSet, string modelValidationStatus)
         {
             RetrieveDatesFromNodeset(nodeSet, out DateTime publicationDate, out DateTime lastModifiedDate);
 
@@ -552,6 +554,10 @@ namespace UACloudLibrary
                 }
             }
 
+            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "validationstatus", modelValidationStatus))
+            {
+                return false;
+            }
             if (!_database.AddMetaDataToNodeSet(newNodeSetID, "numdownloads", "0"))
             {
                 return false;

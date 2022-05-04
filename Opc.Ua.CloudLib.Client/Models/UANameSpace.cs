@@ -156,6 +156,12 @@ namespace Opc.Ua.CloudLib.Client
         [JsonProperty("numberOfDownloads")]
         public uint NumberOfDownloads { get; set; }
 
+        /// <summary>Gets or sets the validation status.</summary>
+        /// <value>Status: Parsed, Validaded, Error + message</value>
+        [JsonProperty("validationStatus")]
+        public string ValidationStatus { get; set; }
+
+
         /// <summary>Gets or sets the additional properties.</summary>
         /// <value>The additional properties.</value>
         [JsonProperty("additionalProperties")]
