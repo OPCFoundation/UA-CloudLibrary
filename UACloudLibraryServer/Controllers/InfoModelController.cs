@@ -151,6 +151,8 @@ namespace UACloudLibrary
                 return new ObjectResult($"Could not parse nodeset XML file: {ex.Message}") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
+            string modelValidationStatus = "Parsed";
+
             //// Default attributes from data in nodeset
             //var firstVersionInNodeSet = nodeSet.Models?[0]?.Version;
             //if (string.IsNullOrEmpty(uaAddressSpace.Nodeset?.Version) && !string.IsNullOrEmpty(firstVersionInNodeSet))
@@ -170,20 +172,7 @@ namespace UACloudLibrary
                 return new ObjectResult("Nodeset invalid. Please make sure it includes a valid Model URI and publication date!") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-#if USE_GRAPHQL_HOTCHOCOLATE
-            try
-            {
-                var nsmStore = new NodeSetModelStore(_appDbContext, _logger);
-                await nsmStore.StoreNodeSetModelAsync(nameSpace.Nodeset.NodesetXml);
-            }
-            catch (Exception ex)
-            {
-                return new ObjectResult($"Error importing nodeset: {ex.Message}") { StatusCode = (int) HttpStatusCode.BadRequest };
-                // ignore for now
-                // TODO retry logic for model import (i.e. whenever other models get uploaded)
-                // TODO update model graph when new versions of this or other nodesets get uploaded
-            }
-#endif
+            uint nodeSetHashCodeToStore = nodesetHashCode;
 
             // check if the nodeset already exists in the database for the legacy hashcode algorithm
             string legacyResult;
@@ -204,6 +193,28 @@ namespace UACloudLibrary
                     return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
                 }
             }
+            if (nameSpace.Nodeset?.Identifier == legacyNodesetHashCode)
+            {
+                nodeSetHashCodeToStore = legacyNodesetHashCode;
+            }
+
+#if USE_GRAPHQL_HOTCHOCOLATE
+            try
+            {
+                var nsmStore = new NodeSetModelStore(_appDbContext, _logger);
+                await nsmStore.StoreNodeSetModelAsync(nameSpace.Nodeset.NodesetXml, nodeSetHashCodeToStore.ToString(CultureInfo.InvariantCulture));
+                modelValidationStatus = "Validated";
+            }
+            catch (Exception ex)
+            {
+                modelValidationStatus = $"Error: {ex.Message}";
+                return new ObjectResult($"Error importing nodeset: {ex.Message}") { StatusCode = (int)HttpStatusCode.BadRequest };
+                // fail for now
+                // TODO index in the background (+ retry logic for crash during background processing)
+                // TODO retry logic for model import (i.e. whenever other models get uploaded)
+                // TODO update model graph when new versions of this or other nodesets get uploaded
+            }
+#endif
 
             // check if the nodeset already exists in the database for the new hashcode algorithm
             string result = await _storage.FindFileAsync(nodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
@@ -220,11 +231,6 @@ namespace UACloudLibrary
                 return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
             }
 
-            uint nodeSetHashCodeToStore = nodesetHashCode;
-            if (nameSpace.Nodeset?.Identifier == legacyNodesetHashCode)
-            {
-                nodeSetHashCodeToStore = legacyNodesetHashCode;
-            }
             // upload the new file to the storage service, and get the file handle that the storage service returned
             string storedFilename = await _storage.UploadFileAsync(nodeSetHashCodeToStore.ToString(CultureInfo.InvariantCulture), nameSpace.Nodeset.NodesetXml).ConfigureAwait(false);
             if (string.IsNullOrEmpty(storedFilename) || (storedFilename != nodeSetHashCodeToStore.ToString(CultureInfo.InvariantCulture)))
@@ -257,7 +263,7 @@ namespace UACloudLibrary
                 return new ObjectResult(error) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
-            if (!StoreUserMetaDataInDatabase(nodeSetHashCodeToStore, nameSpace, nodeSet))
+            if (!StoreUserMetaDataInDatabase(nodeSetHashCodeToStore, nameSpace, nodeSet, modelValidationStatus))
             {
                 string message = "Error: User metadata could not be stored.";
                 _logger.LogError(message);
@@ -569,6 +575,10 @@ namespace UACloudLibrary
                 }
             }
 
+            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "validationstatus", modelValidationStatus))
+            {
+                return false;
+            }
             if (!_database.AddMetaDataToNodeSet(newNodeSetID, "numdownloads", "0"))
             {
                 return false;

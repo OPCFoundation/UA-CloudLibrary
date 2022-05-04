@@ -344,6 +344,8 @@ namespace UACloudLibrary
                 nameSpace.Contributor.Website = new Uri(uri);
             }
 
+            nameSpace.ValidationStatus = RetrieveMetaData(nodesetId, "validationstatus");
+
             if (uint.TryParse(RetrieveMetaData(nodesetId, "numdownloads"), out uint parsedDownloads))
             {
                 nameSpace.NumberOfDownloads = parsedDownloads;

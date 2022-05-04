@@ -410,6 +410,10 @@ namespace UACloudLibrary
                         }
                     }
 
+                    if (metadataForNodeset.ContainsKey("validationstatus"))
+                    {
+                        nameSpace.ValidationStatus = metadataForNodeset["validationstatus"].Value;
+                    }
                     if (metadataForNodeset.ContainsKey("numdownloads"))
                     {
                         if (uint.TryParse(metadataForNodeset["numdownloads"].Value, out uint parsedDownloads))
