@@ -2,9 +2,9 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ cesmii/main ]
   pull_request:
-    branches: [ main ]
+    branches: [ cesmii/main ]
 
 jobs:
 

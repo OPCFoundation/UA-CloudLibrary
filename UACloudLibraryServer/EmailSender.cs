@@ -43,9 +43,15 @@ namespace UACloudLibrary
             if (!string.IsNullOrEmpty(apiKey))
             {
                 SendGridClient client = new SendGridClient(apiKey);
+                var emailFrom = Environment.GetEnvironmentVariable("RegistrationEmailFrom");
+                if (string.IsNullOrEmpty(emailFrom)) emailFrom = "stefan.hoppe@opcfoundation.org";
+
+                var emailReplyTo = Environment.GetEnvironmentVariable("RegistrationEmailReplyTo");
+                if (string.IsNullOrEmpty(emailReplyTo)) emailReplyTo = "no-reply@opcfoundation.org";
+
                 SendGridMessage msg = new SendGridMessage() {
-                    From = new EmailAddress("stefan.hoppe@opcfoundation.org"),
-                    ReplyTo = new EmailAddress("no-reply@opcfoundation.org"),
+                    From = new EmailAddress(emailFrom),
+                    ReplyTo = new EmailAddress(emailReplyTo),
                     Subject = subject,
                     PlainTextContent = htmlMessage,
                     HtmlContent = htmlMessage

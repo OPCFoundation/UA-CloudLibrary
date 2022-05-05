@@ -17,3 +17,5 @@ For local development, add them to the local.settings.json:
   }
 }
 ```
+
+tail -f LogFiles/Application/Functions/Function/CloudSyncFunction/*

@@ -1,8 +1,8 @@
 version: '3.4'
 
 services:
-  ua-cloudlibrary:
-    image: ${DOCKER_REGISTRY-}uacloudlibrary
+  cesmii-ua-cloudlibrary:
+    image: ${DOCKER_REGISTRY-}cesmiiuacloudlibrary
     ports:
       - 8443:443
     build:

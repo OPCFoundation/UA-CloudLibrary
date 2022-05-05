@@ -34,6 +34,7 @@ namespace UACloudLibrary
     using CESMII.OpcUa.NodeSetModel.Factory.Opc;
     using Microsoft.Extensions.Logging;
     using Opc.Ua;
+    using System;
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
@@ -49,7 +50,7 @@ namespace UACloudLibrary
         private readonly AppDbContext _appDbContext;
         private readonly ILogger _logger;
 
-        public async Task StoreNodeSetModelAsync(string nodeSetXML)
+        public async Task StoreNodeSetModelAsync(string nodeSetXML, string identifier)
         {
             var operationContext = new SystemContext();
             var namespaceTable = new NamespaceTable();
@@ -64,7 +65,7 @@ namespace UACloudLibrary
             };
 
             var importedNodes = new NodeStateCollection();
-            var nodesetModels = new Dictionary<string, CESMII.OpcUa.NodeSetModel.NodeSetModel>();
+            var nodesetModels = new Dictionary<string, NodeSetModel>();
 
             var cachePath = Path.Combine(Path.GetTempPath(), "CloudLib", "ImporterCache");
             if (!Directory.Exists(cachePath))
@@ -90,6 +91,7 @@ namespace UACloudLibrary
                             null, nodesetModels, systemContext, importedNodes, out _, new Dictionary<string, string>(), false);
                         foreach (var nodesetModel in loadedNodesetModels)
                         {
+                            nodesetModel.Identifier = identifier;
                             _appDbContext.nodeSets.Add(nodesetModel);
                         }
                         await _appDbContext.SaveChangesAsync();
@@ -105,6 +107,10 @@ namespace UACloudLibrary
                             //.Include(m => m.UnknownNodes)
                             //.Include(m => m.Interfaces)
                             .FirstOrDefault();
+                        if (nodeSetModel == null)
+                        {
+                            throw new Exception("NodeSet not in database: Inconsistency between file store and db?");
+                        }
                         model.NodeSet.Import(systemContext, importedNodes);
                         //nodeSetModel.UpdateIndices();
                         nodesetModels.Add(model.NameVersion.ModelUri, nodeSetModel);

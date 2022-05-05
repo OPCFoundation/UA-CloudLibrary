@@ -65,10 +65,10 @@
     <PackageReference Include="HotChocolate.Data" Version="12.7.0" />
     <PackageReference Include="HotChocolate.Types.Scalars" Version="12.7.0" />
     <PackageReference Include="HotChocolate.AspNetCore" Version="12.7.0" />
-    <ProjectReference Include="..\CESMIILibraries\CESMII.OpcUa.NodeSetImporter\CESMII.OpcUa.NodeSetImporter.csproj" />
-    <ProjectReference Include="..\CESMIILibraries\CESMII.OpcUa.NodeSetModel.EF\CESMII.OpcUa.NodeSetModel.EF.csproj" />
-    <ProjectReference Include="..\CESMIILibraries\CESMII.OpcUa.NodeSetModel.Factory.Opc\CESMII.OpcUa.NodeSetModel.Factory.Opc.csproj" />
-    <ProjectReference Include="..\CESMIILibraries\CESMII.OpcUa.NodeSetModel\CESMII.OpcUa.NodeSetModel.csproj" />
+    <PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="1.0.0-*" />
+    <PackageReference Include="CESMII.OpcUa.NodeSetModel.EF" Version="1.0.0-*" />
+    <PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="1.0.0-*" />
+    <PackageReference Include="CESMII.OpcUa.NodeSetModel" Version="1.0.0-*" />
   </ItemGroup>
   <ItemGroup>
 	<PackageReference Include="GraphQL.Server.Ui.GraphiQL" Version="5.2.1" />

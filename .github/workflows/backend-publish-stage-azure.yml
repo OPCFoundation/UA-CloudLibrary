@@ -1,0 +1,87 @@
+# This workflow will build and push a .NET 6 web API to an Azure Web App that is manually triggered by user.
+#
+# This workflow assumes you have already created the target Azure App Service web app.
+# For instructions see https://docs.microsoft.com/azure/app-service/app-service-plan-manage#create-an-app-service-plan
+#
+# To configure this workflow:
+#
+# 1. For Linux apps, add an app setting called WEBSITE_WEBDEPLOY_USE_SCM and set it to true in your app **before downloading the file**.
+#      For more instructions see: https://docs.microsoft.com/azure/app-service/configure-common#configure-app-settings
+#
+# 2. Set up a secret in your repository named AZURE_WEBAPP_PUBLISH_PROFILE with the value of your Azure publish profile.
+#    For instructions on obtaining the publish profile see: https://docs.microsoft.com/azure/app-service/deploy-github-actions#configure-the-github-secret
+#
+# 3. Change the values for the AZURE_WEBAPP_NAME, AZURE_WEBAPP_PACKAGE_PATH and NODE_VERSION environment variables  (below).
+#
+# For more information on GitHub Actions for Azure, refer to https://github.com/Azure/Actions
+# For more samples to get started with GitHub Action workflows to deploy to Azure, refer to https://github.com/Azure/actions-workflow-samples
+name: Stage|Backend|CloudLibrary - Deploy to Azure
+on:
+  #manually trigger deploy
+  workflow_dispatch:
+  # Trigger the workflow on push,
+  # but only for the dev branch
+  push:
+    branches:
+      - cesmii/develop
+
+env:
+  # set this to your application's name
+  AZURE_WEBAPP_NAME: 'cloudlib-back-stage'    
+  # set this to the path to your solution file, defaults to the repository root (this is the folder in the git repo)
+  SOLUTION_DIRECTORY: '.'      
+  # set this to the path to your web app project, defaults to the repository root (this is the folder in the git repo)
+  PROJECT_DIRECTORY: './UACloudLibraryServer'      
+  # Solution file to use
+  SOLUTION_FILE: 'UA-CloudLibrary.sln'      
+  # Project file to use
+  PROJECT_NAME: 'UA-CloudLibrary'      
+  PUBLISH_FOLDER_RELATIVE: "./publish"
+  PUBLISH_FOLDER: "/publish"
+
+  AZURE_FUNCTIONAPP_NAME: CloudLibSyncAzureFunction  # set this to your application's name
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: './CloudLibSyncAzureFunction'    # set this to the path to your web app project, defaults to the repository root
+
+  # set this to the .NET core version to use
+  NETCORE_VERSION: "6.0.x"
+
+jobs:
+  build:
+    name: Build and Deploy .NET6 Web API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Set up dotnet Core ${{ env.NETCORE_VERSION }}
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{ env.NETCORE_VERSION }}
+      - name: Restore dependencies (${{env.SOLUTION_FILE}})
+        run: dotnet restore ${{env.SOLUTION_FILE}}
+        working-directory: ${{env.SOLUTION_DIRECTORY}}
+      - name: Build (${{env.PROJECT_DIRECTORY}})
+        run: dotnet build --configuration Release --no-restore
+        working-directory: ${{env.PROJECT_DIRECTORY}}    
+      - name: Publish (${{env.PROJECT_DIRECTORY}}) TO ${{ env.PUBLISH_FOLDER_RELATIVE }}
+        run: dotnet publish --configuration Staging --output ${{ env.PUBLISH_FOLDER_RELATIVE }}
+        working-directory: ${{env.PROJECT_DIRECTORY}}
+      - name: 'Resolve Project Dependencies Using Dotnet'
+        shell: bash
+        run: |
+          pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
+          dotnet build --configuration Release --output ./output
+          popd
+      - name: 'Deploy to Azure WebApp'
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.STAGE_AZURE_CLOUDLIB_BACK_PUBLISHSETTINGS }}
+          package: ${{ env.PROJECT_DIRECTORY }}${{ env.PUBLISH_FOLDER }}
+      - name: 'Run Azure Functions Action'
+        uses: Azure/functions-action@v1
+        id: fa
+        with:
+          app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
+          package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output'
+          publish-profile: ${{ secrets.STAGE_AZURE_CLOUDLIB_BACK_SYNC_PUBLISHSETTINGS }}
