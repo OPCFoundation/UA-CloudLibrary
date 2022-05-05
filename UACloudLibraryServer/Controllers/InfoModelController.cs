@@ -42,10 +42,10 @@ namespace Opc.Ua.Cloud.Library
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Logging;
     using Opc.Ua;
-    using Opc.Ua.Export;
-    using Swashbuckle.AspNetCore.Annotations;
     using Opc.Ua.Cloud.Library.Interfaces;
     using Opc.Ua.Cloud.Library.Models;
+    using Opc.Ua.Export;
+    using Swashbuckle.AspNetCore.Annotations;
 
     [Authorize(AuthenticationSchemes = "BasicAuthentication")]
     [ApiController]
