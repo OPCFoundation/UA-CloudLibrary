@@ -33,7 +33,7 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using SendGrid;
 using SendGrid.Helpers.Mail;
 
-namespace UACloudLibrary
+namespace Opc.Ua.Cloud.Library
 {
     public class EmailSender : IEmailSender
     {
