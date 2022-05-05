@@ -160,21 +160,6 @@ namespace UACloudLibrary
                 return new ObjectResult("Nodeset invalid. Please make sure it includes a valid Model URI and publication date!") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-#if USE_GRAPHQL_HOTCHOCOLATE
-            try
-            {
-                var nsmStore = new NodeSetModelStore(_appDbContext, _logger);
-                await nsmStore.StoreNodeSetModelAsync(nameSpace.Nodeset.NodesetXml);
-            }
-            catch (Exception ex)
-            {
-                return new ObjectResult($"Error importing nodeset: {ex.Message}") { StatusCode = (int) HttpStatusCode.BadRequest };
-                // ignore for now
-                // TODO retry logic for model import (i.e. whenever other models get uploaded)
-                // TODO update model graph when new versions of this or other nodesets get uploaded
-            }
-#endif
-
             // check if the nodeset already exists in the database for the legacy hashcode algorithm
             string legacyResult;
             uint legacyNodesetHashCode = GenerateHashCodeLegacy(nodeSet);
@@ -194,6 +179,24 @@ namespace UACloudLibrary
                     return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
                 }
             }
+
+#if USE_GRAPHQL_HOTCHOCOLATE
+            try
+            {
+                var nsmStore = new NodeSetModelStore(_appDbContext, _logger);
+                await nsmStore.StoreNodeSetModelAsync(nameSpace.Nodeset.NodesetXml, nodesetHashCode.ToString(CultureInfo.InvariantCulture));
+                modelValidationStatus = "Validated";
+            }
+            catch (Exception ex)
+            {
+                modelValidationStatus = $"Error: {ex.Message}";
+                return new ObjectResult($"Error importing nodeset: {ex.Message}") { StatusCode = (int)HttpStatusCode.BadRequest };
+                // fail for now
+                // TODO index in the background (+ retry logic for crash during background processing)
+                // TODO retry logic for model import (i.e. whenever other models get uploaded)
+                // TODO update model graph when new versions of this or other nodesets get uploaded
+            }
+#endif
 
             // check if the nodeset already exists in the database for the new hashcode algorithm
             string result = await _storage.FindFileAsync(nodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
