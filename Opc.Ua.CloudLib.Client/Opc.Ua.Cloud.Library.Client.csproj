@@ -1,11 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <AssemblyName>Opc.Ua.CloudLib.Client</AssemblyName>
-    <PackageId>OPCFoundation.NetStandard.Opc.Ua.CloudLib.Client</PackageId>
+    <AssemblyName>Opc.Ua.Cloud.Library.Client</AssemblyName>
+    <PackageId>OPCFoundation.NetStandard.Opc.Ua.Cloud.Library.Client</PackageId>
     <TargetFrameworks>net6.0;netstandard2.0</TargetFrameworks>
-    <RootNamespace>Opc.Ua.CloudLib.Client</RootNamespace>
-    <Description>OPC UA CloudLib Client Class Library</Description>
+    <RootNamespace>Opc.Ua.Cloud.Library.Client</RootNamespace>
+    <Description>OPC UA Cloud Library Client Class Library</Description>
     <IsPackable>true</IsPackable>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageLicenseFile></PackageLicenseFile>
