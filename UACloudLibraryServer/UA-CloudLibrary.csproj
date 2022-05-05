@@ -7,6 +7,15 @@
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>./..</DockerfileContext>
     <DockerComposeProjectPath>..\docker-compose.dcproj</DockerComposeProjectPath>
+    <UseGraphQlDotNet>true</UseGraphQlDotNet>
+    <UseGraphQlHotChocolate>true</UseGraphQlHotChocolate>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(UseGraphQlDotNet) == false ">
+    <DefineConstants>$(DefineConstants);USE_GRAPHQL_DOTNET</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(UseGraphQlHotChocolate) == true ">
+    <DefineConstants>$(DefineConstants);USE_GRAPHQL_HOTCHOCOLATE</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(RunConfiguration)' == 'UA_CloudLibrary' " />
@@ -14,6 +23,24 @@
   <ItemGroup>
     <None Include="..\.editorconfig" Link=".editorconfig" />
   </ItemGroup>
+
+  <ItemGroup Condition="$(UseGraphQlDotNet) != true ">
+    <Compile Remove="GraphQL\GraphTypes\**" />
+    <Content Remove="GraphQL\GraphTypes\**" />
+    <EmbeddedResource Remove="GraphQL\GraphTypes\**" />
+    <None Remove="GraphQL\GraphTypes\**" />
+    <Compile Remove="GraphQLUACloudLibMiddleware.cs" />
+    <Compile Remove="GraphQL\UaCloudLibQuery.cs" />
+    <Compile Remove="GraphQL\UaCloudLibResolver.cs" />
+    <Compile Remove="GraphQL\UaCloudLibSchema.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(UseGraphQlHotChocolate) != true ">
+    <Compile Remove="QueryModel.cs" />
+    <Compile Remove="Controllers\DbOpcUaContext.cs" />
+    <Compile Remove="Controllers\NodeSetModelStore.cs" />
+  </ItemGroup>
+  
   <ItemGroup>
     <PackageReference Include="Amazon.AspNetCore.DataProtection.SSM" Version="2.1.0" />
     <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="3.7.2" />
@@ -23,12 +50,27 @@
     <PackageReference Include="Azure.Storage.Blobs" Version="12.11.0" />
         <PackageReference Include="Google.Cloud.Storage.V1" Version="3.7.0" />
         <PackageReference Include="Google.Cloud.AspNetCore.DataProtection.Storage" Version="1.0.0-alpha03" />
+  </ItemGroup>    
+  <ItemGroup Condition="$(UseGraphQlDotNet) == true">
 	<PackageReference Include="GraphQL" Version="4.7.1" />
 	<PackageReference Include="GraphQL.MicrosoftDI" Version="4.7.1" />
 	<PackageReference Include="GraphQL.NewtonsoftJson" Version="4.7.1" />
 	<PackageReference Include="GraphQL.Server.Authorization.AspNetCore" Version="5.2.0" />
 	<PackageReference Include="GraphQL.Server.Transports.AspNetCore" Version="5.2.0" />
 	<PackageReference Include="GraphQL.Server.Transports.AspNetCore.NewtonsoftJson" Version="5.2.0" />
+  </ItemGroup>
+  <ItemGroup Condition="$(UseGraphQlHotChocolate) == true">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="6.0.3" />
+    <PackageReference Include="HotChocolate" Version="12.7.0" />
+    <PackageReference Include="HotChocolate.Data" Version="12.7.0" />
+    <PackageReference Include="HotChocolate.Types.Scalars" Version="12.7.0" />
+    <PackageReference Include="HotChocolate.AspNetCore" Version="12.7.0" />
+    <PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="1.0.0-*" />
+    <PackageReference Include="CESMII.OpcUa.NodeSetModel.EF" Version="1.0.0-*" />
+    <PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="1.0.0-*" />
+    <PackageReference Include="CESMII.OpcUa.NodeSetModel" Version="1.0.0-*" />
+  </ItemGroup>
+  <ItemGroup>
 	<PackageReference Include="GraphQL.Server.Ui.GraphiQL" Version="5.2.1" />
 	<PackageReference Include="GraphQL.Server.Ui.Playground" Version="5.2.0" />
 	<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="6.0.3" />

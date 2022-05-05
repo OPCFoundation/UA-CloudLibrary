@@ -173,6 +173,7 @@ namespace UACloudLibrary
             services.AddHttpContextAccessor();
 
             // setup GrapQL interface
+#if USE_GRAPHQL_DOTNET
             GraphQL.MicrosoftDI.GraphQLBuilderExtensions.AddGraphQL(services)
                 .AddSubscriptionDocumentExecuter()
                 .AddServer(true)
@@ -192,7 +193,21 @@ namespace UACloudLibrary
                         User = httpContext.User
                     }
             );
+#endif
 
+#if USE_GRAPHQL_HOTCHOCOLATE
+            services.AddGraphQLServer()
+                .AddFiltering()
+                .AddSorting()
+                .AddQueryType<QueryModel>()
+                //.ConfigureSchema(s =>
+                //{
+                //    s.
+                //})
+                .BindRuntimeType<UInt32, HotChocolate.Types.UnsignedIntType>()
+                .BindRuntimeType<UInt16, HotChocolate.Types.UnsignedShortType>()
+                ;
+#endif
             services.Configure<IISServerOptions>(options => {
                 options.AllowSynchronousIO = true;
             });
@@ -228,13 +243,14 @@ namespace UACloudLibrary
 
             app.UseAuthorization();
 
+#if USE_GRAPHQL_DOTNET
             app.UseGraphQL<UaCloudLibSchema, GraphQLUACloudLibMiddleware<UaCloudLibSchema>>();
 
             app.UseGraphQLPlayground(new PlaygroundOptions() {
                 RequestCredentials = RequestCredentials.Include
             },
             "/graphqlui");
-
+#endif
             app.UseGraphQLGraphiQL("/graphiql");
 
             app.UseEndpoints(endpoints => {
@@ -243,6 +259,13 @@ namespace UACloudLibrary
                     pattern: "{controller=Home}/{action=Index}/{id?}");
 
                 endpoints.MapRazorPages();
+#if USE_GRAPHQL_HOTCHOCOLATE
+#if USE_GRAPHQL_DOTNET
+                endpoints.MapGraphQL("/graphqlhc");
+#else
+                endpoints.MapGraphQL();
+#endif
+#endif
             });
         }
     }
