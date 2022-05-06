@@ -48,6 +48,8 @@ namespace UACloudLibrary.Models
         [JsonProperty(PropertyName = "version")]
         public string Version { get; set; }
 
+        [JsonProperty(PropertyName = "validationStatus")]
+        public string ValidationStatus { get; set; }
         [JsonProperty(PropertyName = "nodesetCreationTime")]
         public System.DateTime? CreationTime { get; set; }
 
