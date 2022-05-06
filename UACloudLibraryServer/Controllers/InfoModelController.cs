@@ -55,15 +55,15 @@ namespace UACloudLibrary
         private readonly IDatabase _database;
         private readonly ILogger _logger;
 #if USE_GRAPHQL_HOTCHOCOLATE
-        private readonly AppDbContext _appDbContext;
+        private readonly NodeSetModelStoreFactory _nodeSetIndexerFactory;
 #endif
-        public InfoModelController(IFileStorage storage, IDatabase database, ILoggerFactory logger, AppDbContext appDbContext)
+        public InfoModelController(IFileStorage storage, IDatabase database, ILoggerFactory logger, NodeSetModelStoreFactory nodeSetIndexerFactory)
         {
             _storage = storage;
             _database = database;
             _logger = logger.CreateLogger("InfoModelController");
 #if USE_GRAPHQL_HOTCHOCOLATE
-            _appDbContext = appDbContext;
+            _nodeSetIndexerFactory = nodeSetIndexerFactory;
 #endif
         }
 
@@ -74,6 +74,13 @@ namespace UACloudLibrary
             [FromQuery][SwaggerParameter("A list of keywords to search for in the information models. Specify * to return everything.")] string[] keywords)
         {
             UANodesetResult[] results = _database.FindNodesets(keywords);
+#if USE_GRAPHQL_HOTCHOCOLATE
+            // TODO remove this
+            // Just for debugging/triggering a reindex
+            var nodeSetIndexer = _nodeSetIndexerFactory.Create();
+            _ = Task.Run(nodeSetIndexer.IndexNodeSetsAsync);
+#endif
+
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -198,24 +205,6 @@ namespace UACloudLibrary
                 nodeSetHashCodeToStore = legacyNodesetHashCode;
             }
 
-#if USE_GRAPHQL_HOTCHOCOLATE
-            try
-            {
-                var nsmStore = new NodeSetModelStore(_appDbContext, _logger);
-                await nsmStore.StoreNodeSetModelAsync(nameSpace.Nodeset.NodesetXml, nodeSetHashCodeToStore.ToString(CultureInfo.InvariantCulture));
-                modelValidationStatus = "Validated";
-            }
-            catch (Exception ex)
-            {
-                modelValidationStatus = $"Error: {ex.Message}";
-                return new ObjectResult($"Error importing nodeset: {ex.Message}") { StatusCode = (int)HttpStatusCode.BadRequest };
-                // fail for now
-                // TODO index in the background (+ retry logic for crash during background processing)
-                // TODO retry logic for model import (i.e. whenever other models get uploaded)
-                // TODO update model graph when new versions of this or other nodesets get uploaded
-            }
-#endif
-
             // check if the nodeset already exists in the database for the new hashcode algorithm
             string result = await _storage.FindFileAsync(nodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(result) && !overwrite)
@@ -269,6 +258,12 @@ namespace UACloudLibrary
                 _logger.LogError(message);
                 return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
+
+#if USE_GRAPHQL_HOTCHOCOLATE
+            var nodeSetIndexer = _nodeSetIndexerFactory.Create();
+            _ = Task.Run(nodeSetIndexer.IndexNodeSetsAsync);
+#endif
+
             return new ObjectResult("Upload successful!") { StatusCode = (int)HttpStatusCode.OK };
         }
 
