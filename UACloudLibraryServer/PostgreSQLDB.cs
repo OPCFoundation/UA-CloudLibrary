@@ -457,6 +457,7 @@ namespace UACloudLibrary
                     thisResult.Contributor = RetrieveMetaData(matchId, "orgname") ?? string.Empty;
                     thisResult.License = RetrieveMetaData(matchId, "license") ?? string.Empty;
                     thisResult.Version = RetrieveMetaData(matchId, "version") ?? string.Empty;
+                    thisResult.ValidationStatus = RetrieveMetaData(matchId, "validationstatus") ?? string.Empty; ;
                     var pubDate = RetrieveMetaData(matchId, "nodesetcreationtime");
                     if (DateTime.TryParse(pubDate, out DateTime useDate))
                         thisResult.CreationTime = useDate;
