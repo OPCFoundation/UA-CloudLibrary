@@ -155,7 +155,7 @@ namespace Opc.Ua.Cloud.Library
 #endif
             }
 
-            var serviceName = Configuration["Application"] ?? "Opc.Ua.Cloud.Library";
+            var serviceName = Configuration["Application"] ?? "UACloudLibrary";
 
             // setup data protection
             switch (Configuration["HostingPlatform"])
