@@ -75,7 +75,7 @@ namespace UACloudLibrary
             // Setup database context for ASP.NetCore Identity Scaffolding
             services.AddDbContext<AppDbContext>(o => {
                 o.UseNpgsql(PostgreSQLDB.CreateConnectionString(Configuration));
-            });
+            }, ServiceLifetime.Transient);
 
             services.AddDefaultIdentity<IdentityUser>(options =>
                     //require confirmation mail if sendgrid API Key is set
@@ -207,6 +207,7 @@ namespace UACloudLibrary
                 .BindRuntimeType<UInt32, HotChocolate.Types.UnsignedIntType>()
                 .BindRuntimeType<UInt16, HotChocolate.Types.UnsignedShortType>()
                 ;
+            services.AddScoped<NodeSetModelStoreFactory>();
 #endif
             services.Configure<IISServerOptions>(options => {
                 options.AllowSynchronousIO = true;

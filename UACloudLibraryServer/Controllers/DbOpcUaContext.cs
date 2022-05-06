@@ -1,4 +1,4 @@
-﻿/* ========================================================================
+/* ========================================================================
  * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
@@ -40,12 +40,14 @@ namespace UACloudLibrary
     {
         private AppDbContext appDbContext;
         private ILogger logger;
+        private readonly Dictionary<string, NodeSetModel> _nodesetModels;
         private DefaultOpcUaContext _opcContext;
 
         public DbOpcUaContext(AppDbContext appDbContext, SystemContext systemContext, NodeStateCollection importedNodes, Dictionary<string, NodeSetModel> nodesetModels, ILogger logger)
         {
             this.appDbContext = appDbContext;
             this.logger = logger;
+            this._nodesetModels = nodesetModels;
             this._opcContext = new DefaultOpcUaContext(systemContext, importedNodes, nodesetModels, logger);
         }
 
@@ -106,6 +108,14 @@ namespace UACloudLibrary
 
         public NodeSetModel GetOrAddNodesetModel(NodeModel node)
         {
+            if (!_nodesetModels.TryGetValue(node.Namespace, out var nodesetModel))
+            {
+                var existingNodeSet = appDbContext.nodeSets.FirstOrDefault(n => n.ModelUri == node.Namespace);
+                if (existingNodeSet != null)
+                {
+                    _nodesetModels.Add(existingNodeSet.ModelUri, existingNodeSet);
+                }
+            }
             return _opcContext.GetOrAddNodesetModel(node);
         }
 
