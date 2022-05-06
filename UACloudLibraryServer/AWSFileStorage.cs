@@ -27,7 +27,7 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary
+namespace Opc.Ua.Cloud.Library
 {
     using System;
     using System.IO;
@@ -40,7 +40,7 @@ namespace UACloudLibrary
     using Amazon.S3.Util;
     using Microsoft.Extensions.Configuration;
     using Microsoft.Extensions.Logging;
-    using UACloudLibrary.Interfaces;
+    using Opc.Ua.Cloud.Library.Interfaces;
 
     /// <summary>
     /// AWS S3 storage class

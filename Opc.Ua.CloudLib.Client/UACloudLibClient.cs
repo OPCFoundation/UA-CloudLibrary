@@ -27,7 +27,7 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace Opc.Ua.CloudLib.Client
+namespace Opc.Ua.Cloud.Library.Client
 {
     using System;
     using System.Collections.Generic;
@@ -36,7 +36,7 @@ namespace Opc.Ua.CloudLib.Client
     using System.Net.Http.Headers;
     using System.Text;
     using System.Threading.Tasks;
-    using global::Opc.Ua.CloudLib.Client.Models;
+    using global::Opc.Ua.Cloud.Library.Client.Models;
     using GraphQL;
     using GraphQL.Client.Http;
     using GraphQL.Client.Serializer.Newtonsoft;
