@@ -84,7 +84,7 @@ namespace UACloudLibrary
 
             services.AddScoped<IUserService, UserService>();
 
-            services.AddSingleton<IDatabase, PostgreSQLDB>();
+            services.AddScoped<IDatabase, PostgreSQLDB>();
 
             services.AddTransient<IEmailSender, EmailSender>();
 
