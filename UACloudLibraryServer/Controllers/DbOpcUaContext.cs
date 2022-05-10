@@ -27,11 +27,11 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System.Collections.Generic;
+using System.Linq;
 using CESMII.OpcUa.NodeSetModel;
 using CESMII.OpcUa.NodeSetModel.Factory.Opc;
 using Microsoft.Extensions.Logging;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Opc.Ua.Cloud.Library
 {

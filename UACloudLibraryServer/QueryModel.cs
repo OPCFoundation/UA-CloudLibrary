@@ -27,14 +27,14 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-using CESMII.OpcUa.NodeSetModel;
-using HotChocolate;
-using HotChocolate.Data;
-using HotChocolate.Types;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using CESMII.OpcUa.NodeSetModel;
+using HotChocolate;
+using HotChocolate.Data;
+using HotChocolate.Types;
 
 namespace Opc.Ua.Cloud.Library
 {
@@ -133,7 +133,7 @@ namespace Opc.Ua.Cloud.Library
 
         private IQueryable<T> GetNodeModels<T>(AppDbContext dbContext, Expression<Func<NodeSetModel, IEnumerable<T>>> selector, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
             where T : NodeModel
-        { 
+        {
             if (nodeId != null && nodeSetUrl == null)
             {
                 var expandedNodeId = ExpandedNodeId.Parse(nodeId);
