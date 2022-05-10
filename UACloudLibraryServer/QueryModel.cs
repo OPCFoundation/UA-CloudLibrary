@@ -165,5 +165,14 @@ namespace Opc.Ua.Cloud.Library
             }
             return nodeModels;
         }
+#if DEBUG
+        [UsePaging(MaxPageSize = 100, DefaultPageSize = 100), UseFiltering, UseSorting]
+        public Opc.Ua.Cloud.Library.Models.UANodesetResult[] GetNodeSetInfo([Service(ServiceKind.Synchronized)] IDatabase database, [Service(ServiceKind.Synchronized)] NodeSetModelStoreFactory _nodeSetIndexerFactory, string[] keywords)
+        {
+            _ = System.Threading.Tasks.Task.Run(async () => await NodeSetModelStore.IndexNodeSetsAsync(_nodeSetIndexerFactory));
+            var results = database.FindNodesets(keywords ?? new[] { "*" });
+            return results;
+        }
+#endif
     }
 }
