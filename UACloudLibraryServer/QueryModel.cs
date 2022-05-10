@@ -33,9 +33,9 @@ using System.Linq;
 using System.Linq.Expressions;
 using CESMII.OpcUa.NodeSetModel;
 using HotChocolate;
+using HotChocolate.AspNetCore.Authorization;
 using HotChocolate.Data;
 using HotChocolate.Types;
-using HotChocolate.AspNetCore.Authorization;
 
 namespace Opc.Ua.Cloud.Library
 {
