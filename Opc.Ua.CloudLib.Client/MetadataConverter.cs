@@ -27,13 +27,13 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace Opc.Ua.CloudLib.Client
+namespace Opc.Ua.Cloud.Library.Client
 {
     using System;
     using System.Collections.Generic;
     using System.Globalization;
     using System.Linq;
-    using global::Opc.Ua.CloudLib.Client.Models;
+    using global::Opc.Ua.Cloud.Library.Client.Models;
 
     static class MetadataConverter
     {

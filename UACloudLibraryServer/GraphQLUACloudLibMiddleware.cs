@@ -27,7 +27,7 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary
+namespace Opc.Ua.Cloud.Library
 {
     using System;
     using System.Linq;
@@ -41,7 +41,7 @@ namespace UACloudLibrary
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Primitives;
-    using UACloudLibrary.Interfaces;
+    using Opc.Ua.Cloud.Library.Interfaces;
 
     public class GraphQLUACloudLibMiddleware<TSchema> : GraphQLHttpMiddleware<TSchema> where TSchema : ISchema
     {

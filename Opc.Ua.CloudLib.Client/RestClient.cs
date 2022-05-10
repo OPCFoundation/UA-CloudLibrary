@@ -27,7 +27,7 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace Opc.Ua.CloudLib.Client
+namespace Opc.Ua.Cloud.Library.Client
 {
     using System;
     using System.Collections.Generic;

@@ -27,7 +27,7 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary
+namespace Opc.Ua.Cloud.Library
 {
     using System;
     using System.Collections.Generic;
@@ -36,7 +36,7 @@ namespace UACloudLibrary
     using Microsoft.Extensions.Configuration;
     using Microsoft.Extensions.Logging;
     using Npgsql;
-    using UACloudLibrary.Models;
+    using Opc.Ua.Cloud.Library.Models;
 
     public class PostgreSQLDB : IDatabase, IDisposable
     {

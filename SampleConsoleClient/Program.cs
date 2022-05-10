@@ -40,8 +40,8 @@ namespace SampleConsoleClient
     using GraphQL.Client.Serializer.Newtonsoft;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
-    using Opc.Ua.CloudLib.Client;
-    using Opc.Ua.CloudLib.Client.Models;
+    using Opc.Ua.Cloud.Library.Client;
+    using Opc.Ua.Cloud.Library.Client.Models;
 
     class Program
     {
