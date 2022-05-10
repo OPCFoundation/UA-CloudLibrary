@@ -172,52 +172,64 @@ namespace Opc.Ua.Cloud.Library
 
         static bool bIndexing = false;
         static object _indexingLock = new object();
-        public async Task IndexNodeSetsAsync()
+        public static async Task IndexNodeSetsAsync(NodeSetModelStoreFactory factory)
         {
+            lock (_indexingLock)
+            {
+                if (bIndexing) return;
+                bIndexing = true;
+            }
             try
             {
-                lock (_indexingLock)
-                {
-                    if (bIndexing) return;
-                    bIndexing = true;
-                }
                 bool bChanged;
                 do
                 {
-                    var allNodeSets = _database.FindNodesets(new[] { "*" });
-                    var unvalidatedNodeSets = allNodeSets.Where(n => n.ValidationStatus != "Validated").ToList();
                     bChanged = false;
-                    foreach (var nodeSet in unvalidatedNodeSets)
+                    var nodeSetIndexer = factory.Create();
+                    try
                     {
-                        var identifier = nodeSet.Id.ToString(CultureInfo.InvariantCulture);
-                        var nodeSetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
-                        if (nodeSetXml != null)
-                        {
-                            string modelValidationStatus;
-                            try
-                            {
-                                modelValidationStatus = await this.StoreNodeSetModelAsync(nodeSet.NameSpaceUri, nodeSetXml, identifier).ConfigureAwait(false);
-                            }
-                            catch (Exception ex)
-                            {
-                                modelValidationStatus = $"Error: {ex.Message}";
-                            }
-                            if (modelValidationStatus != nodeSet.ValidationStatus)
-                            {
-                                bChanged = true;
-                                _database.UpdateMetaDataForNodeSet(nodeSet.Id, "validationstatus", modelValidationStatus);
-                            }
-                        }
+                        bChanged = await nodeSetIndexer.IndexNodeSetsAsync();
+                    }
+                    finally
+                    {
+                        nodeSetIndexer?.Dispose();
                     }
                 } while (bChanged);
-            }
-            catch (Exception)
-            {
             }
             finally
             {
                 bIndexing = false;
             }
+        }
+
+        private async Task<bool> IndexNodeSetsAsync()
+        {
+            var bChanged = false;
+            var allNodeSets = _database.FindNodesets(new[] { "*" });
+            var unvalidatedNodeSets = allNodeSets.Where(n => n.ValidationStatus != "Validated").ToList();
+            foreach (var nodeSet in unvalidatedNodeSets)
+            {
+                var identifier = nodeSet.Id.ToString(CultureInfo.InvariantCulture);
+                var nodeSetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
+                if (nodeSetXml != null)
+                {
+                    string modelValidationStatus;
+                    try
+                    {
+                        modelValidationStatus = await this.StoreNodeSetModelAsync(nodeSet.NameSpaceUri, nodeSetXml, identifier).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        modelValidationStatus = $"Error: {ex.Message}";
+                    }
+                    if (modelValidationStatus != nodeSet.ValidationStatus)
+                    {
+                        bChanged = true;
+                        _database.UpdateMetaDataForNodeSet(nodeSet.Id, "validationstatus", modelValidationStatus);
+                    }
+                }
+            }
+            return bChanged;
         }
 
         public void Dispose()

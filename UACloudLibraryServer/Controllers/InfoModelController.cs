@@ -74,13 +74,6 @@ namespace Opc.Ua.Cloud.Library
             [FromQuery][SwaggerParameter("A list of keywords to search for in the information models. Specify * to return everything.")] string[] keywords)
         {
             UANodesetResult[] results = _database.FindNodesets(keywords);
-#if USE_GRAPHQL_HOTCHOCOLATE
-            // TODO remove this
-            // Just for debugging/triggering a reindex
-            var nodeSetIndexer = _nodeSetIndexerFactory.Create();
-            _ = Task.Run(nodeSetIndexer.IndexNodeSetsAsync);
-#endif
-
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -242,8 +235,9 @@ namespace Opc.Ua.Cloud.Library
             }
 
 #if USE_GRAPHQL_HOTCHOCOLATE
-            var nodeSetIndexer = _nodeSetIndexerFactory.Create();
-            _ = Task.Run(nodeSetIndexer.IndexNodeSetsAsync);
+            // Validate and index the new nodeset in the background
+            // The nodeset's validation status will be updated as indexing proceeds
+            _ = Task.Run(async () => await NodeSetModelStore.IndexNodeSetsAsync(_nodeSetIndexerFactory));
 #endif
 
             return new ObjectResult("Upload successful!") { StatusCode = (int)HttpStatusCode.OK };
