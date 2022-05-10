@@ -27,24 +27,22 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using CESMII.OpcUa.NodeSetImporter;
+using CESMII.OpcUa.NodeSetModel;
+using CESMII.OpcUa.NodeSetModel.Factory.Opc;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Opc.Ua;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.Linq;
+using System.Threading.Tasks;
+using Opc.Ua.Cloud.Library.Interfaces;
+
 namespace Opc.Ua.Cloud.Library
 {
-    using CESMII.OpcUa.NodeSetImporter;
-    using CESMII.OpcUa.NodeSetModel;
-    using CESMII.OpcUa.NodeSetModel.Factory.Opc;
-    using Microsoft.Extensions.DependencyInjection;
-    using Microsoft.Extensions.Logging;
-    using Opc.Ua;
-    using System;
-    using System.Collections.Generic;
-    using System.Diagnostics;
-    using System.Globalization;
-    using System.IO;
-    using System.Linq;
-    using System.Threading.Tasks;
-    using Opc.Ua.Cloud.Library.Interfaces;
-
-
     public class NodeSetModelStoreFactory
     {
         public NodeSetModelStoreFactory(IServiceScopeFactory serviceScopeFactory, ILogger<NodeSetModelStore> logger)
@@ -66,7 +64,7 @@ namespace Opc.Ua.Cloud.Library
         }
     }
 
-    public class NodeSetModelStore: IDisposable
+    public class NodeSetModelStore : IDisposable
     {
         public NodeSetModelStore(AppDbContext appDbContext, ILogger<NodeSetModelStore> logger, IFileStorage storage, IDatabase database, IServiceScope scope = null)
         {
@@ -92,8 +90,7 @@ namespace Opc.Ua.Cloud.Library
 
             namespaceTable.GetIndexOrAppend(strOpcNamespaceUri);
             var typeTable = new TypeTable(namespaceTable);
-            var systemContext = new SystemContext(operationContext)
-            {
+            var systemContext = new SystemContext(operationContext) {
                 NamespaceUris = namespaceTable,
                 TypeTable = typeTable,
             };
@@ -176,7 +173,7 @@ namespace Opc.Ua.Cloud.Library
 
         static bool bIndexing = false;
         static object _indexingLock = new object();
-        public  async Task IndexNodeSetsAsync()
+        public async Task IndexNodeSetsAsync()
         {
             try
             {

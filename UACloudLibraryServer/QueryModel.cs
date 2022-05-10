@@ -31,7 +31,6 @@ using CESMII.OpcUa.NodeSetModel;
 using HotChocolate;
 using HotChocolate.Data;
 using HotChocolate.Types;
-using Opc.Ua;
 using System;
 using System.Collections.Generic;
 using System.Linq;

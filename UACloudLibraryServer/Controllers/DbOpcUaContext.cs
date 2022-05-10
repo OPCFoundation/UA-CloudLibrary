@@ -30,13 +30,12 @@
 using CESMII.OpcUa.NodeSetModel;
 using CESMII.OpcUa.NodeSetModel.Factory.Opc;
 using Microsoft.Extensions.Logging;
-using Opc.Ua;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace Opc.Ua.Cloud.Library
 {
-    internal class DbOpcUaContext: IOpcUaContext
+    internal class DbOpcUaContext : IOpcUaContext
     {
         private AppDbContext appDbContext;
         private ILogger logger;

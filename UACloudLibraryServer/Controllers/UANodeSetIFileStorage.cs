@@ -28,14 +28,10 @@
  * ======================================================================*/
 
 using System;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using CESMII.OpcUa.NodeSetImporter;
-using Extensions;
 using Opc.Ua.Export;
 using Opc.Ua.Cloud.Library.Interfaces;
 
