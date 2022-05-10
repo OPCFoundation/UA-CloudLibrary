@@ -35,9 +35,11 @@ using CESMII.OpcUa.NodeSetModel;
 using HotChocolate;
 using HotChocolate.Data;
 using HotChocolate.Types;
+using HotChocolate.AspNetCore.Authorization;
 
 namespace Opc.Ua.Cloud.Library
 {
+    [Authorize]
     public class QueryModel
     {
         [UsePaging(MaxPageSize = 100, DefaultPageSize = 100)]

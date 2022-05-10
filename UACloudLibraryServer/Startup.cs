@@ -33,11 +33,14 @@ namespace Opc.Ua.Cloud.Library
     using System.IO;
     using Amazon.S3;
     using GraphQL;
+#if USE_GRAPHQL_DOTNET
     using GraphQL.DataLoader;
     using GraphQL.Execution;
     using GraphQL.Server;
+    using GraphQL.Server.Ui.GraphiQL;
     using GraphQL.Server.Ui.Playground;
     using GraphQL.SystemReactive;
+#endif
     using Microsoft.AspNetCore.Authentication;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.DataProtection;
@@ -197,6 +200,7 @@ namespace Opc.Ua.Cloud.Library
 
 #if USE_GRAPHQL_HOTCHOCOLATE
             services.AddGraphQLServer()
+                .AddAuthorization()
                 .AddFiltering()
                 .AddSorting()
                 .AddQueryType<QueryModel>()
@@ -254,6 +258,9 @@ namespace Opc.Ua.Cloud.Library
 #endif
             app.UseGraphQLGraphiQL("/graphiql");
 
+#if USE_GRAPHQL_HOTCHOCOLATE && USE_GRAPHQL_DOTNET
+            app.UseGraphQLGraphiQL(new GraphiQLOptions { GraphQLEndPoint = "/graphqlhc", }, "/graphiqlhc");
+#endif
             app.UseEndpoints(endpoints => {
                 endpoints.MapControllerRoute(
                     name: "default",

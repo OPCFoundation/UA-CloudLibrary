@@ -7,11 +7,11 @@
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>./..</DockerfileContext>
     <DockerComposeProjectPath>..\docker-compose.dcproj</DockerComposeProjectPath>
-    <UseGraphQlDotNet>true</UseGraphQlDotNet>
+    <UseGraphQlDotNet>false</UseGraphQlDotNet>
     <UseGraphQlHotChocolate>true</UseGraphQlHotChocolate>
   </PropertyGroup>
 
-  <PropertyGroup Condition="$(UseGraphQlDotNet) == false ">
+  <PropertyGroup Condition="$(UseGraphQlDotNet) == true ">
     <DefineConstants>$(DefineConstants);USE_GRAPHQL_DOTNET</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="$(UseGraphQlHotChocolate) == true ">
@@ -65,6 +65,7 @@
     <PackageReference Include="HotChocolate.Data" Version="12.7.0" />
     <PackageReference Include="HotChocolate.Types.Scalars" Version="12.7.0" />
     <PackageReference Include="HotChocolate.AspNetCore" Version="12.7.0" />
+    <PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="12.7.0" />
     <PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="1.0.0-*" />
     <PackageReference Include="CESMII.OpcUa.NodeSetModel.EF" Version="1.0.0-*" />
     <PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="1.0.0-*" />
