@@ -27,10 +27,10 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary
+namespace Opc.Ua.Cloud.Library
 {
     using GraphQL.Types;
-    using UACloudLibrary.Models;
+    using Opc.Ua.Cloud.Library.Models;
 
     public class NodesetType : ObjectGraphType<Nodeset>
     {

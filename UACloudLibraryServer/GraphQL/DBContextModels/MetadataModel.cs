@@ -27,7 +27,7 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary.DbContextModels
+namespace Opc.Ua.Cloud.Library.DbContextModels
 {
     using System.ComponentModel.DataAnnotations.Schema;
 

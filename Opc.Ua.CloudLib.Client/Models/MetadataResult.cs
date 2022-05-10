@@ -27,7 +27,7 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace Opc.Ua.CloudLib.Client.Models
+namespace Opc.Ua.Cloud.Library.Client.Models
 {
     using Newtonsoft.Json;
 

@@ -27,7 +27,7 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary
+namespace Opc.Ua.Cloud.Library
 {
 #if USE_GRAPHQL_HOTCHOCOLATE
     using CESMII.OpcUa.NodeSetModel;
@@ -36,7 +36,7 @@ namespace UACloudLibrary
     using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore;
     using Microsoft.Extensions.Configuration;
-    using UACloudLibrary.DbContextModels;
+    using Opc.Ua.Cloud.Library.DbContextModels;
 
 
     public class AppDbContext : IdentityDbContext

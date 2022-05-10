@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
-    <RootNamespace>UACloudLibrary</RootNamespace>
+    <RootNamespace>Opc.Ua.Cloud.Library</RootNamespace>
     <UserSecretsId>ee5a630a-263e-4334-b590-b77013c2af56</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>./..</DockerfileContext>

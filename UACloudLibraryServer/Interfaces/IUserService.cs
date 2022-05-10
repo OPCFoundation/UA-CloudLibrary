@@ -27,7 +27,7 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary.Interfaces
+namespace Opc.Ua.Cloud.Library.Interfaces
 {
     using System.Threading.Tasks;
 
