@@ -37,7 +37,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 
-namespace UACloudLibrary
+namespace Opc.Ua.Cloud.Library
 {
     public class QueryModel
     {

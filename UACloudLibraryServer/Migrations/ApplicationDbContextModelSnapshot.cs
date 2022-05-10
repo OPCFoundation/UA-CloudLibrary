@@ -35,7 +35,7 @@ namespace Opc.Ua.Cloud.Library
     using Microsoft.EntityFrameworkCore.Infrastructure;
     using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
     using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-    using UACloudLibrary;
+    using Opc.Ua.Cloud.Library;
 
 #nullable disable
 
@@ -303,7 +303,7 @@ namespace Opc.Ua.Cloud.Library
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("UACloudLibrary.DbContextModels.DatatypeModel", b =>
+            modelBuilder.Entity("Opc.Ua.Cloud.Library.DbContextModels.DatatypeModel", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -333,7 +333,7 @@ namespace Opc.Ua.Cloud.Library
                     b.ToTable("datatype");
                 });
 
-            modelBuilder.Entity("UACloudLibrary.DbContextModels.MetadataModel", b =>
+            modelBuilder.Entity("Opc.Ua.Cloud.Library.DbContextModels.MetadataModel", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -359,7 +359,7 @@ namespace Opc.Ua.Cloud.Library
                     b.ToTable("metadata");
                 });
 
-            modelBuilder.Entity("UACloudLibrary.DbContextModels.ObjecttypeModel", b =>
+            modelBuilder.Entity("Opc.Ua.Cloud.Library.DbContextModels.ObjecttypeModel", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -389,7 +389,7 @@ namespace Opc.Ua.Cloud.Library
                     b.ToTable("objecttype");
                 });
 
-            modelBuilder.Entity("UACloudLibrary.DbContextModels.ReferencetypeModel", b =>
+            modelBuilder.Entity("Opc.Ua.Cloud.Library.DbContextModels.ReferencetypeModel", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -419,7 +419,7 @@ namespace Opc.Ua.Cloud.Library
                     b.ToTable("referencetype");
                 });
 
-            modelBuilder.Entity("UACloudLibrary.DbContextModels.VariabletypeModel", b =>
+            modelBuilder.Entity("Opc.Ua.Cloud.Library.DbContextModels.VariabletypeModel", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()

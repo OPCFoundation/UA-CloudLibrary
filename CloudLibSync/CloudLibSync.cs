@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using Opc.Ua.CloudLib.Client;
+using Opc.Ua.Cloud.Library.Client;
 using Opc.Ua.Export;
 
 namespace Opc.Ua.CloudLib.Sync
