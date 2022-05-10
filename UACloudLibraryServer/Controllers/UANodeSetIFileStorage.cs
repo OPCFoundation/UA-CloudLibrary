@@ -37,9 +37,9 @@ using System.Threading.Tasks;
 using CESMII.OpcUa.NodeSetImporter;
 using Extensions;
 using Opc.Ua.Export;
-using UACloudLibrary.Interfaces;
+using Opc.Ua.Cloud.Library.Interfaces;
 
-namespace UACloudLibrary
+namespace Opc.Ua.Cloud.Library
 {
     internal class UANodeSetIFileStorage : IUANodeSetCache
     {

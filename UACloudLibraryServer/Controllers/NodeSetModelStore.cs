@@ -27,7 +27,7 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary
+namespace Opc.Ua.Cloud.Library
 {
     using CESMII.OpcUa.NodeSetImporter;
     using CESMII.OpcUa.NodeSetModel;
@@ -42,7 +42,7 @@ namespace UACloudLibrary
     using System.IO;
     using System.Linq;
     using System.Threading.Tasks;
-    using UACloudLibrary.Interfaces;
+    using Opc.Ua.Cloud.Library.Interfaces;
 
 
     public class NodeSetModelStoreFactory

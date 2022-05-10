@@ -34,7 +34,7 @@ using Opc.Ua;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace UACloudLibrary
+namespace Opc.Ua.Cloud.Library
 {
     internal class DbOpcUaContext: IOpcUaContext
     {
