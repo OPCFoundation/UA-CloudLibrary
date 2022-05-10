@@ -81,19 +81,19 @@ namespace Opc.Ua.Cloud.Library
 
         public DbSet<VariabletypeModel> VariableType { get; set; }
 
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        protected override void OnModelCreating(ModelBuilder builder)
         {
-            base.OnModelCreating(modelBuilder);
+            base.OnModelCreating(builder);
 
 #if USE_GRAPHQL_HOTCHOCOLATE
-            NodeSetModelContext.CreateModel(modelBuilder);
+            NodeSetModelContext.CreateModel(builder);
 #endif
 
-            modelBuilder.Entity<DatatypeModel>().HasKey(k => k.Id);
-            modelBuilder.Entity<MetadataModel>().HasKey(k => k.Id);
-            modelBuilder.Entity<ObjecttypeModel>().HasKey(k => k.Id);
-            modelBuilder.Entity<ReferencetypeModel>().HasKey(k => k.Id);
-            modelBuilder.Entity<VariabletypeModel>().HasKey(k => k.Id);
+            builder.Entity<DatatypeModel>().HasKey(k => k.Id);
+            builder.Entity<MetadataModel>().HasKey(k => k.Id);
+            builder.Entity<ObjecttypeModel>().HasKey(k => k.Id);
+            builder.Entity<ReferencetypeModel>().HasKey(k => k.Id);
+            builder.Entity<VariabletypeModel>().HasKey(k => k.Id);
         }
 
 #if USE_GRAPHQL_HOTCHOCOLATE
