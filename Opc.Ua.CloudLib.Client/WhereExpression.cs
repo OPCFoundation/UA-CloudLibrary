@@ -51,10 +51,10 @@ namespace Opc.Ua.Cloud.Library.Client
         addressSpaceName,
         /// <summary>The nameSpaceDescription-field</summary>
         addressSpaceDescription,
-        /// <summary>The lastModification-field</summary>
-        lastModification,
-        /// <summary>The creationTimeStamp-field</summary>
-        creationTimeStamp,
+        /// <summary>The lastModified-field</summary>
+        lastModified,
+        /// <summary>The publicationDate-field</summary>
+        publicationDate,
         /// <summary>The description-field</summary>
         description
     }

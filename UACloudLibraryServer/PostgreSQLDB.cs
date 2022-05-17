@@ -444,7 +444,8 @@ namespace Opc.Ua.Cloud.Library
                     matches.Add(result);
                 }
             }
-            //Get additional metadata (if present and valid) for each match
+
+            // Get additional metadata (if present and valid) for each match
             foreach (string match in matches)
             {
                 if (uint.TryParse(match, out uint matchId))
@@ -455,9 +456,12 @@ namespace Opc.Ua.Cloud.Library
                     thisResult.Contributor = RetrieveMetaData(matchId, "orgname") ?? string.Empty;
                     thisResult.License = RetrieveMetaData(matchId, "license") ?? string.Empty;
                     thisResult.Version = RetrieveMetaData(matchId, "version") ?? string.Empty;
+
                     var pubDate = RetrieveMetaData(matchId, "nodesetcreationtime");
                     if (DateTime.TryParse(pubDate, out DateTime useDate))
-                        thisResult.CreationTime = useDate;
+                    {
+                        thisResult.PublicationDate = useDate;
+                    }
 
                     var namespaceUri = GetNamespaceUriForNodeset(matchId);
                     thisResult.NameSpaceUri = namespaceUri;
