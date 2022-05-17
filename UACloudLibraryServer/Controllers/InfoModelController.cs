@@ -27,7 +27,7 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary
+namespace Opc.Ua.Cloud.Library
 {
     using System;
     using System.Collections.Generic;
@@ -42,10 +42,10 @@ namespace UACloudLibrary
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Logging;
     using Opc.Ua;
+    using Opc.Ua.Cloud.Library.Interfaces;
+    using Opc.Ua.Cloud.Library.Models;
     using Opc.Ua.Export;
     using Swashbuckle.AspNetCore.Annotations;
-    using UACloudLibrary.Interfaces;
-    using UACloudLibrary.Models;
 
     [Authorize(AuthenticationSchemes = "BasicAuthentication")]
     [ApiController]

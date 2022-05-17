@@ -27,7 +27,7 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary
+namespace Opc.Ua.Cloud.Library
 {
     using System;
     using System.IO;
@@ -51,7 +51,7 @@ namespace UACloudLibrary
     using Microsoft.Extensions.Hosting;
     using Microsoft.Extensions.Logging;
     using Microsoft.OpenApi.Models;
-    using UACloudLibrary.Interfaces;
+    using Opc.Ua.Cloud.Library.Interfaces;
 
     public class Startup
     {

@@ -27,13 +27,13 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace UACloudLibrary
+namespace Opc.Ua.Cloud.Library
 {
     using System.IO;
     using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore;
     using Microsoft.Extensions.Configuration;
-    using UACloudLibrary.DbContextModels;
+    using Opc.Ua.Cloud.Library.DbContextModels;
 
 
     public class AppDbContext : IdentityDbContext

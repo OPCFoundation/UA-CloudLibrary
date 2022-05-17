@@ -29,8 +29,8 @@
 
 using Microsoft.AspNetCore.Hosting;
 
-[assembly: HostingStartup(typeof(UACloudLibrary.Areas.Identity.IdentityHostingStartup))]
-namespace UACloudLibrary.Areas.Identity
+[assembly: HostingStartup(typeof(Opc.Ua.Cloud.Library.Areas.Identity.IdentityHostingStartup))]
+namespace Opc.Ua.Cloud.Library.Areas.Identity
 {
     public class IdentityHostingStartup : IHostingStartup
     {

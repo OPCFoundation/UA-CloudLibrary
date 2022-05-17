@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Opc.Ua.CloudLib.Client\Opc.Ua.CloudLib.Client.csproj" />
+    <ProjectReference Include="..\Opc.Ua.CloudLib.Client\Opc.Ua.Cloud.Library.Client.csproj" />
   </ItemGroup>
 
 </Project>
