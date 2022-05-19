@@ -211,7 +211,8 @@ namespace Opc.Ua.Cloud.Library
                 .BindRuntimeType<UInt32, HotChocolate.Types.UnsignedIntType>()
                 .BindRuntimeType<UInt16, HotChocolate.Types.UnsignedShortType>()
                 ;
-            services.AddScoped<NodeSetModelStoreFactory>();
+            services.AddScoped<NodeSetModelIndexer>();
+            services.AddScoped<NodeSetModelIndexerFactory>();
 #endif
             services.Configure<IISServerOptions>(options => {
                 options.AllowSynchronousIO = true;

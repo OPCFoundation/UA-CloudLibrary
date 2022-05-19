@@ -112,5 +112,20 @@ namespace Opc.Ua.Cloud.Library
                 return null;
             }
         }
+        public Task DeleteFileAsync(string name, CancellationToken cancellationToken = default)
+        {
+#if DEBUG
+            try
+            {
+                File.Delete(Path.Combine(_rootDir, name));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.Message);
+                throw ex;
+            }
+#endif
+            return Task.CompletedTask;
+        }
     }
 }

@@ -87,6 +87,9 @@ namespace Opc.Ua.Cloud.Library
 
 #if USE_GRAPHQL_HOTCHOCOLATE
             NodeSetModelContext.CreateModel(builder);
+            builder.Entity<CloudLibNodeSetModel>()
+                .Property(nsm => nsm.ValidationStatus)
+                    .HasConversion<string>();
 #endif
 
             builder.Entity<DatatypeModel>().HasKey(k => k.Id);
@@ -97,7 +100,7 @@ namespace Opc.Ua.Cloud.Library
         }
 
 #if USE_GRAPHQL_HOTCHOCOLATE
-        public DbSet<NodeSetModel> nodeSets { get; set; }
+        public DbSet<CloudLibNodeSetModel> nodeSets { get; set; }
         public DbSet<NodeModel> nodeModels { get; set; }
 #endif
     }

@@ -1,5 +1,5 @@
 /* ========================================================================
- * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
+ * Copyright (c) 2005-2022 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
  *
@@ -29,7 +29,6 @@
 
 using System;
 using System.IO;
-using System.Linq;
 using System.Text;
 using CESMII.OpcUa.NodeSetImporter;
 using Opc.Ua.Cloud.Library.Interfaces;
@@ -37,6 +36,9 @@ using Opc.Ua.Export;
 
 namespace Opc.Ua.Cloud.Library
 {
+    /// <summary>
+    /// Make the UANodeSetImporter work over IFileStorage
+    /// </summary>
     internal class UANodeSetIFileStorage : IUANodeSetCache
     {
         public UANodeSetIFileStorage(IFileStorage storage, AppDbContext dbContext)
@@ -74,7 +76,7 @@ namespace Opc.Ua.Cloud.Library
         public bool GetNodeSet(UANodeSetImportResult results, ModelNameAndVersion nameVersion, object TenantID)
         {
             // Find next higher model if no exact match
-            var matchingNodeSet = _dbContext.nodeSets.AsQueryable().Where(nsm => nsm.ModelUri == nameVersion.ModelUri && nsm.PublicationDate >= nameVersion.PublicationDate).OrderBy(nsm => nsm.PublicationDate).FirstOrDefault();
+            var matchingNodeSet = DbOpcUaContext.GetMatchingOrHigherNodeSetAsync(_dbContext, nameVersion.ModelUri, nameVersion.PublicationDate).Result;
             if (matchingNodeSet != null)
             {
                 string tFileName = matchingNodeSet.Identifier;
@@ -88,7 +90,6 @@ namespace Opc.Ua.Cloud.Library
             return false;
         }
 
-
         public ModelValue GetNodeSetByID(string id)
         {
             throw new NotImplementedException();
@@ -98,6 +99,5 @@ namespace Opc.Ua.Cloud.Library
         {
             throw new NotImplementedException();
         }
-
     }
 }

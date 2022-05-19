@@ -31,11 +31,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Threading.Tasks;
 using CESMII.OpcUa.NodeSetModel;
 using HotChocolate;
 using HotChocolate.AspNetCore.Authorization;
 using HotChocolate.Data;
 using HotChocolate.Types;
+using Opc.Ua.Cloud.Library.DbContextModels;
 
 namespace Opc.Ua.Cloud.Library
 {
@@ -45,9 +47,9 @@ namespace Opc.Ua.Cloud.Library
         [UsePaging(MaxPageSize = 100, DefaultPageSize = 100)]
         [UseFiltering]
         [UseSorting]
-        public IQueryable<NodeSetModel> GetNodeSets([Service(ServiceKind.Synchronized)] AppDbContext dbContext, string nodeSetUrl = null, DateTime? publicationDate = null)
+        public IQueryable<CloudLibNodeSetModel> GetNodeSets([Service(ServiceKind.Synchronized)] AppDbContext dbContext, string nodeSetUrl = null, DateTime? publicationDate = null)
         {
-            IQueryable<NodeSetModel> nodeSets;
+            IQueryable<CloudLibNodeSetModel> nodeSets;
             if (nodeSetUrl != null && publicationDate != null)
             {
                 nodeSets = dbContext.nodeSets.AsQueryable().Where(nsm => nsm.ModelUri == nodeSetUrl && nsm.PublicationDate == publicationDate);
@@ -62,6 +64,20 @@ namespace Opc.Ua.Cloud.Library
             }
             return nodeSets;
         }
+
+        public IQueryable<ObjecttypeModel> GetObjectType([Service(ServiceKind.Synchronized)] AppDbContext dbContext)
+        {
+            var objectTypes = GetNodeModels<ObjectTypeModel>(dbContext, nsm => nsm.ObjectTypes).Select(ot => new ObjecttypeModel
+            {
+                 BrowseName = ot.BrowseName,
+                  NameSpace = ot.Namespace,
+                  NodesetId = long.Parse(ot.NodeSet.Identifier),
+                  Id = 0,
+                  Value = ot.DisplayName.FirstOrDefault().Text,
+            });
+            return objectTypes;
+        }
+
         [UsePaging(MaxPageSize = 100, DefaultPageSize = 100), UseFiltering, UseSorting]
         public IQueryable<ObjectTypeModel> GetObjectTypes([Service(ServiceKind.Synchronized)] AppDbContext dbContext, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
@@ -133,7 +149,7 @@ namespace Opc.Ua.Cloud.Library
             return nodeModels;
         }
 
-        private IQueryable<T> GetNodeModels<T>(AppDbContext dbContext, Expression<Func<NodeSetModel, IEnumerable<T>>> selector, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        private IQueryable<T> GetNodeModels<T>(AppDbContext dbContext, Expression<Func<CloudLibNodeSetModel, IEnumerable<T>>> selector, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
             where T : NodeModel
         {
             if (nodeId != null && nodeSetUrl == null)
@@ -145,7 +161,7 @@ namespace Opc.Ua.Cloud.Library
                 }
             }
 
-            IQueryable<NodeSetModel> nodeSets;
+            IQueryable<CloudLibNodeSetModel> nodeSets;
             if (nodeSetUrl != null && publicationDate != null)
             {
                 nodeSets = dbContext.nodeSets.AsQueryable().Where(nsm => nsm.ModelUri == nodeSetUrl && nsm.PublicationDate == publicationDate);
@@ -165,11 +181,19 @@ namespace Opc.Ua.Cloud.Library
             }
             return nodeModels;
         }
+
+
+        //[UsePaging(MaxPageSize = 100, DefaultPageSize = 100), UseFiltering, UseSorting]
+        //public Task<List<Opc.Ua.Cloud.Library.Models.UANameSpace>> GetNameSpace([Service(ServiceKind.Synchronized)] UaCloudLibResolver clResolver, int limit, int offset, string where, string orderBy)
+        //{
+        //    return clResolver.GetNameSpaceTypes(limit, offset, where, orderBy);
+        //}
+
 #if DEBUG
         [UsePaging(MaxPageSize = 100, DefaultPageSize = 100), UseFiltering, UseSorting]
-        public Opc.Ua.Cloud.Library.Models.UANodesetResult[] GetNodeSetInfo([Service(ServiceKind.Synchronized)] IDatabase database, [Service(ServiceKind.Synchronized)] NodeSetModelStoreFactory _nodeSetIndexerFactory, string[] keywords)
+        public Opc.Ua.Cloud.Library.Models.UANodesetResult[] GetNodeSetInfo([Service(ServiceKind.Synchronized)] IDatabase database, [Service(ServiceKind.Synchronized)] NodeSetModelIndexerFactory _nodeSetIndexerFactory, string[] keywords)
         {
-            _ = System.Threading.Tasks.Task.Run(async () => await NodeSetModelStore.IndexNodeSetsAsync(_nodeSetIndexerFactory));
+            _ = Task.Run(async () => await NodeSetModelIndexer.IndexNodeSetsAsync(_nodeSetIndexerFactory));
             var results = database.FindNodesets(keywords ?? new[] { "*" });
             return results;
         }
