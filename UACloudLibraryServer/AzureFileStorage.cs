@@ -197,6 +197,8 @@ namespace Opc.Ua.Cloud.Library
                 _logger.LogError(ex.Message);
                 return;
             }
+#else
+            await Task.CompletedTask;
 #endif
         }
 

@@ -168,6 +168,8 @@ namespace Opc.Ua.Cloud.Library
                 _logger.LogError(ex, $"Error finding file {name}");
                 return;
             }
+#else
+            await Task.CompletedTask;
 #endif
         }
     }
