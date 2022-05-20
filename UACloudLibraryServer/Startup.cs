@@ -209,7 +209,7 @@ namespace Opc.Ua.Cloud.Library
                     IncludeTotalCount = true,
                     DefaultPageSize = 100,
                     MaxPageSize = 100,
-                    })
+                })
                 .AddFiltering()
                 .AddSorting()
                 .AddQueryType<QueryModel>()

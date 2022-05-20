@@ -161,7 +161,7 @@ namespace Opc.Ua.Cloud.Library
                         if (nodesetModels.TryGetValue(modelUri, out var nodeSet))
                         {
                             var clNodeSet = nodeSet as CloudLibNodeSetModel;
-                            clNodeSet.ValidationStatusInfo = validationStatusInfo = $"Indexing time: {((double)savedTime)/1000:N3}s";
+                            clNodeSet.ValidationStatusInfo = validationStatusInfo = $"Indexing time: {((double)savedTime) / 1000:N3}s";
                             await _dbContext.SaveChangesAsync().ConfigureAwait(false);
                         }
 #endif

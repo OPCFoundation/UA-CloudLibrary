@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -11,16 +11,14 @@ namespace Opc.Ua.Cloud.Library
         {
             migrationBuilder.CreateTable(
                 name: "ReferenceTypes",
-                columns: table => new
-                {
+                columns: table => new {
                     NodeId = table.Column<string>(type: "text", nullable: false),
                     NodeSetModelUri = table.Column<string>(type: "text", nullable: false),
                     NodeSetPublicationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     NodeSetModelModelUri = table.Column<string>(type: "text", nullable: true),
                     NodeSetModelPublicationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_ReferenceTypes", x => new { x.NodeId, x.NodeSetModelUri, x.NodeSetPublicationDate });
                     table.ForeignKey(
                         name: "FK_ReferenceTypes_Nodes_NodeId_NodeSetModelUri_NodeSetPublicat~",
