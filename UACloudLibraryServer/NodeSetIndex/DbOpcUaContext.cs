@@ -78,6 +78,8 @@ namespace Opc.Ua.Cloud.Library
                 if (model != null) return model;
                 model = nodeSetQuery.AsQueryable().SelectMany(m => m.Objects).Where(dt => dt.NodeId == nodeId).FirstOrDefault();
                 if (model != null) return model;
+                model = nodeSetQuery.AsQueryable().SelectMany(m => m.ReferenceTypes).Where(dt => dt.NodeId == nodeId).FirstOrDefault();
+                if (model != null) return model;
             }
             return null;
         }

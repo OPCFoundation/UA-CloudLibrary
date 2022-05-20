@@ -7,7 +7,7 @@
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>./..</DockerfileContext>
     <DockerComposeProjectPath>..\docker-compose.dcproj</DockerComposeProjectPath>
-    <UseGraphQlDotNet>false</UseGraphQlDotNet>
+    <UseGraphQlDotNet>true</UseGraphQlDotNet>
     <UseGraphQlHotChocolate>true</UseGraphQlHotChocolate>
   </PropertyGroup>
 

@@ -33,6 +33,7 @@ namespace Opc.Ua.Cloud.Library
     using System.IO;
     using Amazon.S3;
     using GraphQL;
+    using HotChocolate.Data;
 #if USE_GRAPHQL_DOTNET
     using GraphQL.DataLoader;
     using GraphQL.Execution;
@@ -80,6 +81,9 @@ namespace Opc.Ua.Cloud.Library
                 o.UseNpgsql(PostgreSQLDB.CreateConnectionString(Configuration));
             }, ServiceLifetime.Transient);
 
+            //services.AddPooledDbContextFactory<AppDbContext>(o => {
+            //        o.UseNpgsql(PostgreSQLDB.CreateConnectionString(Configuration));
+            //    });
             services.AddDefaultIdentity<IdentityUser>(options =>
                     //require confirmation mail if sendgrid API Key is set
                     options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["SendGridAPIKey"])
@@ -177,42 +181,45 @@ namespace Opc.Ua.Cloud.Library
 
             // setup GrapQL interface
 #if USE_GRAPHQL_DOTNET
-            GraphQL.MicrosoftDI.GraphQLBuilderExtensions.AddGraphQL(services)
-                .AddSubscriptionDocumentExecuter()
-                .AddServer(true)
-                .AddSchema<UaCloudLibSchema>(GraphQL.DI.ServiceLifetime.Scoped)
-                .ConfigureExecution(options => {
-                    options.EnableMetrics = Environment.IsDevelopment();
-                    var logger = options.RequestServices.GetRequiredService<ILogger<Startup>>();
-                    options.UnhandledExceptionDelegate = context => logger.LogError("{Error} occurred", context.OriginalException.Message);
-                })
-                .AddNewtonsoftJson()
-                .AddErrorInfoProvider()
-                .Configure<ErrorInfoProviderOptions>(options => options.ExposeExceptionStackTrace = Environment.IsDevelopment())
-                .AddDataLoader()
-                .AddGraphTypes(typeof(UaCloudLibSchema).Assembly)
-                .AddUserContextBuilder(httpContext =>
-                    new GraphQLUserContext {
-                        User = httpContext.User
-                    }
-            );
+            //GraphQL.MicrosoftDI.GraphQLBuilderExtensions.AddGraphQL(services)
+            //    .AddSubscriptionDocumentExecuter()
+            //    .AddServer(true)
+            //    .AddSchema<UaCloudLibSchema>(GraphQL.DI.ServiceLifetime.Scoped)
+            //    .ConfigureExecution(options => {
+            //        options.EnableMetrics = Environment.IsDevelopment();
+            //        var logger = options.RequestServices.GetRequiredService<ILogger<Startup>>();
+            //        options.UnhandledExceptionDelegate = context => logger.LogError("{Error} occurred", context.OriginalException.Message);
+            //    })
+            //    .AddNewtonsoftJson()
+            //    .AddErrorInfoProvider()
+            //    .Configure<ErrorInfoProviderOptions>(options => options.ExposeExceptionStackTrace = Environment.IsDevelopment())
+            //    .AddDataLoader()
+            //    .AddGraphTypes(typeof(UaCloudLibSchema).Assembly)
+            //    .AddUserContextBuilder(httpContext =>
+            //        new GraphQLUserContext {
+            //            User = httpContext.User
+            //        }
+            //);
 #endif
 
 #if USE_GRAPHQL_HOTCHOCOLATE
             services.AddGraphQLServer()
                 .AddAuthorization()
+                .SetPagingOptions(new HotChocolate.Types.Pagination.PagingOptions {
+                    IncludeTotalCount = true,
+                    DefaultPageSize = 100,
+                    MaxPageSize = 100,
+                    })
                 .AddFiltering()
                 .AddSorting()
                 .AddQueryType<QueryModel>()
-                //.ConfigureSchema(s =>
-                //{
-                //    s.
-                //})
+                .AddType<CloudLibNodeSetModelType>()
                 .BindRuntimeType<UInt32, HotChocolate.Types.UnsignedIntType>()
                 .BindRuntimeType<UInt16, HotChocolate.Types.UnsignedShortType>()
                 ;
             services.AddScoped<NodeSetModelIndexer>();
             services.AddScoped<NodeSetModelIndexerFactory>();
+            services.AddTransient<UaCloudLibResolver>();
 #endif
             services.Configure<IISServerOptions>(options => {
                 options.AllowSynchronousIO = true;
@@ -250,17 +257,17 @@ namespace Opc.Ua.Cloud.Library
             app.UseAuthorization();
 
 #if USE_GRAPHQL_DOTNET
-            app.UseGraphQL<UaCloudLibSchema, GraphQLUACloudLibMiddleware<UaCloudLibSchema>>();
+            //app.UseGraphQL<UaCloudLibSchema, GraphQLUACloudLibMiddleware<UaCloudLibSchema>>();
 
-            app.UseGraphQLPlayground(new PlaygroundOptions() {
-                RequestCredentials = RequestCredentials.Include
-            },
-            "/graphqlui");
+            //app.UseGraphQLPlayground(new PlaygroundOptions() {
+            //    RequestCredentials = RequestCredentials.Include
+            //},
+            //"/graphqlui");
 #endif
             app.UseGraphQLGraphiQL("/graphiql");
 
 #if USE_GRAPHQL_HOTCHOCOLATE && USE_GRAPHQL_DOTNET
-            app.UseGraphQLGraphiQL(new GraphiQLOptions { GraphQLEndPoint = "/graphqlhc", }, "/graphiqlhc");
+            //app.UseGraphQLGraphiQL(new GraphiQLOptions { GraphQLEndPoint = "/graphqlhc", }, "/graphiqlhc");
 #endif
             app.UseEndpoints(endpoints => {
                 endpoints.MapControllerRoute(
@@ -269,7 +276,7 @@ namespace Opc.Ua.Cloud.Library
 
                 endpoints.MapRazorPages();
 #if USE_GRAPHQL_HOTCHOCOLATE
-#if USE_GRAPHQL_DOTNET
+#if false && USE_GRAPHQL_DOTNET
                 endpoints.MapGraphQL("/graphqlhc");
 #else
                 endpoints.MapGraphQL();
