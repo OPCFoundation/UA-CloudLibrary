@@ -249,14 +249,6 @@ namespace Opc.Ua.Cloud.Library
                     return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
                 }
 
-                // parse nodeset XML, extract metadata and store in our database
-                string error = StoreNodesetMetaDataInDatabase(nodesetHashCode, nodeSet);
-                if (!string.IsNullOrEmpty(error))
-                {
-                    _logger.LogError(error);
-                    return new ObjectResult(error) { StatusCode = (int)HttpStatusCode.InternalServerError };
-                }
-
                 if (!StoreUserMetaDataInDatabase(nodesetHashCode, nameSpace, nodeSet, modelValidationStatus))
                 {
                     string message = "Error: User metadata could not be stored.";
@@ -264,6 +256,7 @@ namespace Opc.Ua.Cloud.Library
                     return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
                 }
 
+                // Store nodeset metadata synchronously. Indexing of nodes happens in the background
                 if (nodeSet.Models?.Length > 0)
                 {
                     await _indexer.CreateNodeSetModelFromNodeSetAsync(nodeSet, nodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
@@ -637,152 +630,6 @@ namespace Opc.Ua.Cloud.Library
             catch (Exception)
             {
                 // do nothing
-            }
-        }
-
-        private string StoreNodesetMetaDataInDatabase(uint newNodeSetID, UANodeSet nodeSet)
-        {
-            // iterate through the incoming namespace
-            List<string> namespaces = new List<string>();
-
-            // add the default namespace
-            namespaces.Add("http://opcfoundation.org/UA/");
-
-            try
-            {
-                foreach (string ns in nodeSet.NamespaceUris)
-                {
-                    if (!namespaces.Contains(ns))
-                    {
-                        namespaces.Add(ns);
-                    }
-                }
-
-                foreach (UANode uaNode in nodeSet.Items)
-                {
-                    UAVariable variable = uaNode as UAVariable;
-                    if (variable != null)
-                    {
-                        // skip over variables
-                        continue;
-                    }
-
-                    UAMethod method = uaNode as UAMethod;
-                    if (method != null)
-                    {
-                        // skip over methods
-                        continue;
-                    }
-
-                    UAObject uaObject = uaNode as UAObject;
-                    if (uaObject != null)
-                    {
-                        // skip over objects
-                        continue;
-                    }
-
-                    UAView view = uaNode as UAView;
-                    if (view != null)
-                    {
-                        // skip over views
-                        continue;
-                    }
-
-                    UAObjectType objectType = uaNode as UAObjectType;
-                    if (objectType != null)
-                    {
-                        string displayName = objectType.NodeId.ToString();
-                        if ((objectType.DisplayName != null) && (objectType.DisplayName.Length > 0))
-                        {
-                            displayName = objectType.DisplayName[0].Value;
-                        }
-                        if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.ObjectType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
-                        {
-                            throw new ArgumentException(displayName + " could not be stored in database!");
-                        }
-
-                        continue;
-                    }
-
-                    UAVariableType variableType = uaNode as UAVariableType;
-                    if (variableType != null)
-                    {
-                        string displayName = variableType.NodeId.ToString();
-                        if ((variableType.DisplayName != null) && (variableType.DisplayName.Length > 0))
-                        {
-                            displayName = variableType.DisplayName[0].Value;
-                        }
-                        if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.VariableType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
-                        {
-                            throw new ArgumentException(displayName + " could not be stored in database!");
-                        }
-                        continue;
-                    }
-
-                    UADataType dataType = uaNode as UADataType;
-                    if (dataType != null)
-                    {
-                        string displayName = dataType.NodeId.ToString();
-                        if ((dataType.DisplayName != null) && (dataType.DisplayName.Length > 0))
-                        {
-                            displayName = dataType.DisplayName[0].Value;
-                        }
-                        if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.DataType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
-                        {
-                            throw new ArgumentException(displayName + " could not be stored in database!");
-                        }
-
-                        continue;
-                    }
-
-                    UAReferenceType referenceType = uaNode as UAReferenceType;
-                    if (referenceType != null)
-                    {
-                        string displayName = referenceType.NodeId.ToString();
-                        if (referenceType.DisplayName.Length > 0)
-                        {
-                            displayName = referenceType.DisplayName[0].Value;
-                        }
-                        if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.ReferenceType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
-                        {
-                            throw new ArgumentException(displayName + " could not be stored in database!");
-                        }
-
-                        continue;
-                    }
-
-                    throw new ArgumentException("Unknown UA Node detected!");
-                }
-
-                return string.Empty;
-            }
-            catch (Exception ex)
-            {
-                return "Could not parse nodeset XML file: " + ex.Message;
-            }
-        }
-
-        /// <summary>
-        /// Look up the namespace for a given node.
-        /// </summary>
-        /// <param name="nodeId">The id of the node that you want to find the namespace for</param>
-        /// <param name="namespaces">The list of namespaces in the nodeset</param>
-        /// <returns>The string value of the matching namespace</returns>
-        private static string FindNameSpaceStringForNode(string nodeId, List<string> namespaces)
-        {
-            try
-            {
-                var nodeIdParsed = NodeId.ToExpandedNodeId(nodeId, new NamespaceTable(namespaces));
-                var opcNamespace = nodeIdParsed.NamespaceUri;
-                if (opcNamespace == null && nodeIdParsed.NamespaceIndex == 0)
-                {
-                    opcNamespace = namespaces[0];
-                }
-                return opcNamespace;
-            }
-            catch (Exception)
-            {
-                return string.Empty;
             }
         }
     }

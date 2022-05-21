@@ -67,15 +67,7 @@ namespace Opc.Ua.Cloud.Library
         }
 
         // map to our tables
-        public DbSet<DatatypeModel> DataType { get; set; }
-
         public DbSet<MetadataModel> Metadata { get; set; }
-
-        public DbSet<ObjecttypeModel> ObjectType { get; set; }
-
-        public DbSet<ReferencetypeModel> ReferenceType { get; set; }
-
-        public DbSet<VariabletypeModel> VariableType { get; set; }
 
         public DbSet<CloudLibNodeSetModel> nodeSets { get; set; }
 
@@ -90,11 +82,7 @@ namespace Opc.Ua.Cloud.Library
                 .Property(nsm => nsm.ValidationStatus)
                     .HasConversion<string>();
 
-            builder.Entity<DatatypeModel>().HasKey(k => k.Id);
             builder.Entity<MetadataModel>().HasKey(k => k.Id);
-            builder.Entity<ObjecttypeModel>().HasKey(k => k.Id);
-            builder.Entity<ReferencetypeModel>().HasKey(k => k.Id);
-            builder.Entity<VariabletypeModel>().HasKey(k => k.Id);
         }
 
     }
