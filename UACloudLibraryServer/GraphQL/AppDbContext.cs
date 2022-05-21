@@ -29,9 +29,7 @@
 
 namespace Opc.Ua.Cloud.Library
 {
-#if USE_GRAPHQL_HOTCHOCOLATE
     using CESMII.OpcUa.NodeSetModel;
-#endif
     using System.IO;
     using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore;
@@ -55,9 +53,7 @@ namespace Opc.Ua.Cloud.Library
         // Needed for design-time DB migration
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-#if USE_GRAPHQL_HOTCHOCOLATE
             optionsBuilder.UseLazyLoadingProxies();
-#endif
             if (!optionsBuilder.IsConfigured)
             {
                 IConfigurationRoot configuration = new ConfigurationBuilder()
@@ -81,16 +77,18 @@ namespace Opc.Ua.Cloud.Library
 
         public DbSet<VariabletypeModel> VariableType { get; set; }
 
+        public DbSet<CloudLibNodeSetModel> nodeSets { get; set; }
+
+        public DbSet<NodeModel> nodeModels { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
 
-#if USE_GRAPHQL_HOTCHOCOLATE
             NodeSetModelContext.CreateModel(builder);
             builder.Entity<CloudLibNodeSetModel>()
                 .Property(nsm => nsm.ValidationStatus)
                     .HasConversion<string>();
-#endif
 
             builder.Entity<DatatypeModel>().HasKey(k => k.Id);
             builder.Entity<MetadataModel>().HasKey(k => k.Id);
@@ -99,9 +97,5 @@ namespace Opc.Ua.Cloud.Library
             builder.Entity<VariabletypeModel>().HasKey(k => k.Id);
         }
 
-#if USE_GRAPHQL_HOTCHOCOLATE
-        public DbSet<CloudLibNodeSetModel> nodeSets { get; set; }
-        public DbSet<NodeModel> nodeModels { get; set; }
-#endif
     }
 }

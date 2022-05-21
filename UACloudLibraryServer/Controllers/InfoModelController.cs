@@ -54,19 +54,16 @@ namespace Opc.Ua.Cloud.Library
         private readonly IFileStorage _storage;
         private readonly IDatabase _database;
         private readonly ILogger _logger;
-#if USE_GRAPHQL_HOTCHOCOLATE
         private readonly NodeSetModelIndexer _indexer;
         private readonly NodeSetModelIndexerFactory _nodeSetIndexerFactory;
-#endif
+
         public InfoModelController(IFileStorage storage, IDatabase database, ILoggerFactory logger, NodeSetModelIndexer indexer, NodeSetModelIndexerFactory nodeSetIndexerFactory, AppDbContext dbContext)
         {
             _storage = storage;
             _database = database;
             _logger = logger.CreateLogger("InfoModelController");
-#if USE_GRAPHQL_HOTCHOCOLATE
             _indexer = indexer;
             _nodeSetIndexerFactory = nodeSetIndexerFactory;
-#endif
         }
 
         [HttpGet]
@@ -177,13 +174,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 try
                 {
-                    // workaround for bug https://github.com/dotnet/runtime/issues/67622
-                    string nodesetXml = nameSpace.Nodeset.NodesetXml.Replace("<Value/>", "<Value xsi:nil='true' />", StringComparison.Ordinal);
-
-                    using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(nodesetXml)))
-                    {
-                        nodeSet = UANodeSet.Read(stream);
-                    }
+                    nodeSet = ReadUANodeSet(nameSpace.Nodeset.NodesetXml);
                 }
                 catch (Exception ex)
                 {
@@ -273,12 +264,10 @@ namespace Opc.Ua.Cloud.Library
                     return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
                 }
 
-#if USE_GRAPHQL_HOTCHOCOLATE
                 if (nodeSet.Models?.Length > 0)
                 {
-                    await _indexer.CreateNodeSetModelFromNodeSet(nodeSet, nodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                    await _indexer.CreateNodeSetModelFromNodeSetAsync(nodeSet, nodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
                 }
-#endif
                 return new ObjectResult("Upload successful!") { StatusCode = (int)HttpStatusCode.OK };
             }
             finally
@@ -289,6 +278,20 @@ namespace Opc.Ua.Cloud.Library
                 // The nodeset's validation status will be updated as indexing proceeds
                 _ = Task.Run(async () => await NodeSetModelIndexer.IndexNodeSetsAsync(_nodeSetIndexerFactory));
             }
+        }
+
+        public static UANodeSet ReadUANodeSet(string nodeSetXml)
+        {
+            UANodeSet nodeSet;
+            // workaround for bug https://github.com/dotnet/runtime/issues/67622
+            nodeSetXml = nodeSetXml.Replace("<Value/>", "<Value xsi:nil='true' />", StringComparison.Ordinal);
+
+            using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(nodeSetXml)))
+            {
+                nodeSet = UANodeSet.Read(stream);
+            }
+
+            return nodeSet;
         }
 
         private string RetrieveVersionFromNodeset(UANodeSet nodeSet)

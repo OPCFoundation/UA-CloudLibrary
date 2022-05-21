@@ -53,13 +53,7 @@ namespace Opc.Ua.Cloud.Library
         public bool AddNodeSet(UANodeSetImportResult results, string nodeSetXml, object TenantID)
         {
             // Assume already added to cloudlib storage before
-            var nodeSet = new UANodeSet();
-            // workaround for bug https://github.com/dotnet/runtime/issues/67622
-            var patchedXML = nodeSetXml.Replace("<Value/>", "<Value xsi:nil='true' />", StringComparison.OrdinalIgnoreCase);
-            using (var nodesetBytes = new MemoryStream(Encoding.UTF8.GetBytes(patchedXML)))
-            {
-                nodeSet = UANodeSet.Read(nodesetBytes);
-            }
+            var nodeSet = InfoModelController.ReadUANodeSet(nodeSetXml);
             results.AddModelAndDependencies(nodeSet, nodeSet.Models?[0], null, false);
             return false;
         }
