@@ -128,7 +128,7 @@ namespace Opc.Ua.Cloud.Library.Client
                 strEndpoint = _standardEndpoint.ToString();
             }
             BaseEndpoint = new Uri(strEndpoint);
-            _client = new GraphQLHttpClient(new Uri(strEndpoint + "/graphql"), new NewtonsoftJsonSerializer());
+            _client = new GraphQLHttpClient(new Uri(new Uri(strEndpoint), "/graphql"), new NewtonsoftJsonSerializer());
             string temp = Convert.ToBase64String(Encoding.UTF8.GetBytes(strUsername + ":" + strPassword));
             _client.HttpClient.DefaultRequestHeaders.Add("Authorization", "basic " + temp);
             _username = strUsername;

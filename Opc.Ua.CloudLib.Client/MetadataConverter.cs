@@ -119,6 +119,10 @@ namespace Opc.Ua.Cloud.Library.Client
         /// </summary>
         public static List<UANameSpace> ConvertWithPaging(List<UANodesetResult> infos, int limit = 10, int offset = 0)
         {
+            if (infos == null)
+            {
+                return null;
+            }
             List<UANameSpace> result = new List<UANameSpace>();
 
             if (limit == 0)
