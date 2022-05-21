@@ -54,17 +54,16 @@ namespace Opc.Ua.Cloud.Library
         private readonly IFileStorage _storage;
         private readonly IDatabase _database;
         private readonly ILogger _logger;
-#if USE_GRAPHQL_HOTCHOCOLATE
-        private readonly NodeSetModelStoreFactory _nodeSetIndexerFactory;
-#endif
-        public InfoModelController(IFileStorage storage, IDatabase database, ILoggerFactory logger, NodeSetModelStoreFactory nodeSetIndexerFactory)
+        private readonly NodeSetModelIndexer _indexer;
+        private readonly NodeSetModelIndexerFactory _nodeSetIndexerFactory;
+
+        public InfoModelController(IFileStorage storage, IDatabase database, ILoggerFactory logger, NodeSetModelIndexer indexer, NodeSetModelIndexerFactory nodeSetIndexerFactory, AppDbContext dbContext)
         {
             _storage = storage;
             _database = database;
             _logger = logger.CreateLogger("InfoModelController");
-#if USE_GRAPHQL_HOTCHOCOLATE
+            _indexer = indexer;
             _nodeSetIndexerFactory = nodeSetIndexerFactory;
-#endif
         }
 
         [HttpGet]
@@ -74,13 +73,6 @@ namespace Opc.Ua.Cloud.Library
             [FromQuery][SwaggerParameter("A list of keywords to search for in the information models. Specify * to return everything.")] string[] keywords)
         {
             UANodesetResult[] results = _database.FindNodesets(keywords);
-#if USE_GRAPHQL_HOTCHOCOLATE
-            // TODO remove this
-            // Just for debugging/triggering a reindex
-            var nodeSetIndexer = _nodeSetIndexerFactory.Create();
-            _ = Task.Run(nodeSetIndexer.IndexNodeSetsAsync);
-#endif
-
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -131,6 +123,41 @@ namespace Opc.Ua.Cloud.Library
             return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.OK };
         }
 
+#if DEBUG
+        [HttpGet]
+        [Route("/infomodel/delete/{identifier}")]
+        [SwaggerResponse(statusCode: 200, type: typeof(UANameSpace), description: "The OPC UA Information model and its metadata.")]
+        [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The identifier provided could not be parsed.")]
+        [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The identifier provided could not be found.")]
+        public async Task<IActionResult> DeleteNameSpaceAsync(
+            [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier)
+        {
+            UANameSpace result = new UANameSpace();
+
+            result.Nodeset.NodesetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(result.Nodeset.NodesetXml))
+            {
+                return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
+            }
+
+            uint nodeSetID = 0;
+            if (!uint.TryParse(identifier, out nodeSetID))
+            {
+                return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
+            }
+
+            _database.RetrieveAllMetadata(nodeSetID, result);
+
+            await _indexer.DeleteNodeSetIndex(identifier).ConfigureAwait(false);
+
+            _database.DeleteAllRecordsForNodeset(nodeSetID);
+
+            await _storage.DeleteFileAsync(identifier).ConfigureAwait(false);
+
+            return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.OK };
+        }
+#endif
+
         [HttpPut]
         [Route("/infomodel/upload")]
         [SwaggerResponse(statusCode: 200, type: typeof(string), description: "A status message indicating the successful upload.")]
@@ -145,32 +172,16 @@ namespace Opc.Ua.Cloud.Library
 
             try
             {
-                // workaround for bug https://github.com/dotnet/runtime/issues/67622
-                string nodesetXml = nameSpace.Nodeset.NodesetXml.Replace("<Value/>", "<Value xsi:nil='true' />", StringComparison.Ordinal);
-
-                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(nodesetXml)))
+                try
                 {
-                    nodeSet = UANodeSet.Read(stream);
+                    nodeSet = ReadUANodeSet(nameSpace.Nodeset.NodesetXml);
                 }
-            }
-            catch (Exception ex)
-            {
-                return new ObjectResult($"Could not parse nodeset XML file: {ex.Message}") { StatusCode = (int)HttpStatusCode.BadRequest };
-            }
+                catch (Exception ex)
+                {
+                    return new ObjectResult($"Could not parse nodeset XML file: {ex.Message}") { StatusCode = (int)HttpStatusCode.BadRequest };
+                }
 
             string modelValidationStatus = "Parsed";
-
-            //// Default attributes from data in nodeset
-            //var firstVersionInNodeSet = nodeSet.Models?[0]?.Version;
-            //if (string.IsNullOrEmpty(uaAddressSpace.Nodeset?.Version) && !string.IsNullOrEmpty(firstVersionInNodeSet))
-            //{
-            //    uaAddressSpace.Nodeset.Version = nodeSet.Models[0].Version;
-            //}
-
-            //if (firstVersionInNodeSet != uaAddressSpace.Nodeset?.Version)
-            //{
-
-            //}
 
             // generate a unique hash code
             uint nodesetHashCode = GenerateHashCode(nodeSet);
@@ -205,20 +216,20 @@ namespace Opc.Ua.Cloud.Library
                 nodeSetHashCodeToStore = legacyNodesetHashCode;
             }
 
-            // check if the nodeset already exists in the database for the new hashcode algorithm
-            string result = await _storage.FindFileAsync(nodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
-            if (!string.IsNullOrEmpty(result) && !overwrite)
-            {
-                // nodeset already exists
-                return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
-            }
+                // check if the nodeset already exists in the database for the new hashcode algorithm
+                string result = await _storage.FindFileAsync(nodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(result) && !overwrite)
+                {
+                    // nodeset already exists
+                    return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
+                }
 
-            // check contributors match if nodeset already exists
-            string contributorName = _database.RetrieveMetaData(nodesetHashCode, "orgname");
-            if (!string.IsNullOrEmpty(result) && !string.IsNullOrEmpty(contributorName) && (!string.Equals(nameSpace.Contributor.Name, contributorName, StringComparison.Ordinal)))
-            {
-                return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
-            }
+                // check contributors match if nodeset already exists
+                string contributorName = _database.RetrieveMetaData(nodesetHashCode, "orgname");
+                if (!string.IsNullOrEmpty(result) && !string.IsNullOrEmpty(contributorName) && (!string.Equals(nameSpace.Contributor.Name, contributorName, StringComparison.Ordinal)))
+                {
+                    return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
+                }
 
             // upload the new file to the storage service, and get the file handle that the storage service returned
             string storedFilename = await _storage.UploadFileAsync(nodeSetHashCodeToStore.ToString(CultureInfo.InvariantCulture), nameSpace.Nodeset.NodesetXml).ConfigureAwait(false);
@@ -229,28 +240,20 @@ namespace Opc.Ua.Cloud.Library
                 return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
-            // delete any existing records for this nodeset in the database
-            if (!_database.DeleteAllRecordsForNodeset(nodesetHashCode))
-            {
-                string message = "Error: Could not delete existing records for nodeset!";
-                _logger.LogError(message);
-                return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
-            }
+                // delete any existing records for this nodeset in the database
+                if (!_database.DeleteAllRecordsForNodeset(nodesetHashCode))
+                {
+                    string message = "Error: Could not delete existing records for nodeset!";
+                    _logger.LogError(message);
+                    return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
+                }
 
-            if (!_database.DeleteAllRecordsForNodeset(legacyNodesetHashCode))
-            {
-                string message = "Error: Could not delete existing legacy records for nodeset!";
-                _logger.LogError(message);
-                return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
-            }
-
-            // parse nodeset XML, extract metadata and store in our database
-            string error = StoreNodesetMetaDataInDatabase(nodeSetHashCodeToStore, nodeSet);
-            if (!string.IsNullOrEmpty(error))
-            {
-                _logger.LogError(error);
-                return new ObjectResult(error) { StatusCode = (int)HttpStatusCode.InternalServerError };
-            }
+                if (!_database.DeleteAllRecordsForNodeset(legacyNodesetHashCode))
+                {
+                    string message = "Error: Could not delete existing legacy records for nodeset!";
+                    _logger.LogError(message);
+                    return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
+                }
 
             if (!StoreUserMetaDataInDatabase(nodeSetHashCodeToStore, nameSpace, nodeSet, modelValidationStatus))
             {
@@ -259,12 +262,35 @@ namespace Opc.Ua.Cloud.Library
                 return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
-#if USE_GRAPHQL_HOTCHOCOLATE
-            var nodeSetIndexer = _nodeSetIndexerFactory.Create();
-            _ = Task.Run(nodeSetIndexer.IndexNodeSetsAsync);
-#endif
+                // Store nodeset metadata synchronously. Indexing of nodes happens in the background
+                if (nodeSet.Models?.Length > 0)
+                {
+                    await _indexer.CreateNodeSetModelFromNodeSetAsync(nodeSet, nodeSetHashCodeToStore.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                }
+                return new ObjectResult("Upload successful!") { StatusCode = (int)HttpStatusCode.OK };
+            }
+            finally
+            {
+                // No matter the outcome, trigger an indexing run
 
-            return new ObjectResult("Upload successful!") { StatusCode = (int)HttpStatusCode.OK };
+                // Validate and index the new nodeset in the background
+                // The nodeset's validation status will be updated as indexing proceeds
+                _ = Task.Run(async () => await NodeSetModelIndexer.IndexNodeSetsAsync(_nodeSetIndexerFactory));
+            }
+        }
+
+        public static UANodeSet ReadUANodeSet(string nodeSetXml)
+        {
+            UANodeSet nodeSet;
+            // workaround for bug https://github.com/dotnet/runtime/issues/67622
+            nodeSetXml = nodeSetXml.Replace("<Value/>", "<Value xsi:nil='true' />", StringComparison.Ordinal);
+
+            using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(nodeSetXml)))
+            {
+                nodeSet = UANodeSet.Read(stream);
+            }
+
+            return nodeSet;
         }
 
         private string RetrieveVersionFromNodeset(UANodeSet nodeSet)
@@ -610,152 +636,6 @@ namespace Opc.Ua.Cloud.Library
             catch (Exception)
             {
                 // do nothing
-            }
-        }
-
-        private string StoreNodesetMetaDataInDatabase(uint newNodeSetID, UANodeSet nodeSet)
-        {
-            // iterate through the incoming namespace
-            List<string> namespaces = new List<string>();
-
-            // add the default namespace
-            namespaces.Add("http://opcfoundation.org/UA/");
-
-            try
-            {
-                foreach (string ns in nodeSet.NamespaceUris)
-                {
-                    if (!namespaces.Contains(ns))
-                    {
-                        namespaces.Add(ns);
-                    }
-                }
-
-                foreach (UANode uaNode in nodeSet.Items)
-                {
-                    UAVariable variable = uaNode as UAVariable;
-                    if (variable != null)
-                    {
-                        // skip over variables
-                        continue;
-                    }
-
-                    UAMethod method = uaNode as UAMethod;
-                    if (method != null)
-                    {
-                        // skip over methods
-                        continue;
-                    }
-
-                    UAObject uaObject = uaNode as UAObject;
-                    if (uaObject != null)
-                    {
-                        // skip over objects
-                        continue;
-                    }
-
-                    UAView view = uaNode as UAView;
-                    if (view != null)
-                    {
-                        // skip over views
-                        continue;
-                    }
-
-                    UAObjectType objectType = uaNode as UAObjectType;
-                    if (objectType != null)
-                    {
-                        string displayName = objectType.NodeId.ToString();
-                        if ((objectType.DisplayName != null) && (objectType.DisplayName.Length > 0))
-                        {
-                            displayName = objectType.DisplayName[0].Value;
-                        }
-                        if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.ObjectType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
-                        {
-                            throw new ArgumentException(displayName + " could not be stored in database!");
-                        }
-
-                        continue;
-                    }
-
-                    UAVariableType variableType = uaNode as UAVariableType;
-                    if (variableType != null)
-                    {
-                        string displayName = variableType.NodeId.ToString();
-                        if ((variableType.DisplayName != null) && (variableType.DisplayName.Length > 0))
-                        {
-                            displayName = variableType.DisplayName[0].Value;
-                        }
-                        if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.VariableType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
-                        {
-                            throw new ArgumentException(displayName + " could not be stored in database!");
-                        }
-                        continue;
-                    }
-
-                    UADataType dataType = uaNode as UADataType;
-                    if (dataType != null)
-                    {
-                        string displayName = dataType.NodeId.ToString();
-                        if ((dataType.DisplayName != null) && (dataType.DisplayName.Length > 0))
-                        {
-                            displayName = dataType.DisplayName[0].Value;
-                        }
-                        if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.DataType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
-                        {
-                            throw new ArgumentException(displayName + " could not be stored in database!");
-                        }
-
-                        continue;
-                    }
-
-                    UAReferenceType referenceType = uaNode as UAReferenceType;
-                    if (referenceType != null)
-                    {
-                        string displayName = referenceType.NodeId.ToString();
-                        if (referenceType.DisplayName.Length > 0)
-                        {
-                            displayName = referenceType.DisplayName[0].Value;
-                        }
-                        if (!_database.AddUATypeToNodeset(newNodeSetID, UATypes.ReferenceType, uaNode.BrowseName, displayName, FindNameSpaceStringForNode(uaNode.NodeId, namespaces)))
-                        {
-                            throw new ArgumentException(displayName + " could not be stored in database!");
-                        }
-
-                        continue;
-                    }
-
-                    throw new ArgumentException("Unknown UA Node detected!");
-                }
-
-                return string.Empty;
-            }
-            catch (Exception ex)
-            {
-                return "Could not parse nodeset XML file: " + ex.Message;
-            }
-        }
-
-        /// <summary>
-        /// Look up the namespace for a given node.
-        /// </summary>
-        /// <param name="nodeId">The id of the node that you want to find the namespace for</param>
-        /// <param name="namespaces">The list of namespaces in the nodeset</param>
-        /// <returns>The string value of the matching namespace</returns>
-        private static string FindNameSpaceStringForNode(string nodeId, List<string> namespaces)
-        {
-            try
-            {
-                var nodeIdParsed = NodeId.ToExpandedNodeId(nodeId, new NamespaceTable(namespaces));
-                var opcNamespace = nodeIdParsed.NamespaceUri;
-                if (opcNamespace == null && nodeIdParsed.NamespaceIndex == 0)
-                {
-                    opcNamespace = namespaces[0];
-                }
-                return opcNamespace;
-            }
-            catch (Exception)
-            {
-                return string.Empty;
             }
         }
     }

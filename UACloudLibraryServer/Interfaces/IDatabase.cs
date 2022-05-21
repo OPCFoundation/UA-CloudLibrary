@@ -39,8 +39,6 @@ namespace Opc.Ua.Cloud.Library
 
         bool UpdateMetaDataForNodeSet(uint nodesetId, string name, string value);
 
-        bool AddUATypeToNodeset(uint nodesetId, UATypes uaType, string browseName, string displayName, string nameSpace);
-
         bool DeleteAllRecordsForNodeset(uint nodesetId);
 
         public void RetrieveAllMetadata(uint nodesetId, UANameSpace nameSpace);

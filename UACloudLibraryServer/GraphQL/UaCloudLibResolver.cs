@@ -34,14 +34,13 @@ namespace Opc.Ua.Cloud.Library
     using System.Globalization;
     using System.Linq;
     using System.Threading.Tasks;
-    using GraphQL.Types;
     using Microsoft.EntityFrameworkCore;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
     using Opc.Ua.Cloud.Library.DbContextModels;
     using Opc.Ua.Cloud.Library.Models;
 
-    public class UaCloudLibResolver : ObjectGraphType
+    public class UaCloudLibResolver
     {
         private AppDbContext _context;
 
@@ -50,83 +49,9 @@ namespace Opc.Ua.Cloud.Library
             _context = context;
         }
 
-        public Task<List<DatatypeModel>> GetDataTypes()
-        {
-            return _context.DataType.ToListAsync();
-        }
-
         public Task<List<MetadataModel>> GetMetaData()
         {
             return _context.Metadata.ToListAsync();
-        }
-
-        public Task<List<ObjecttypeModel>> GetObjectTypes()
-        {
-            return _context.ObjectType.ToListAsync();
-        }
-
-        public Task<List<ReferencetypeModel>> GetReferenceTypes()
-        {
-            return _context.ReferenceType.ToListAsync();
-        }
-
-        public Task<List<Nodeset>> GetNodesetTypes()
-        {
-            List<Nodeset> result = new List<Nodeset>();
-
-            List<long> nodesetIds = _context.Metadata.Select(p => p.NodesetId).Distinct().ToList();
-
-            for (int i = 0; i < nodesetIds.Count; i++)
-            {
-                try
-                {
-                    Nodeset nodeset = new Nodeset();
-
-                    Dictionary<string, MetadataModel> metadataForNodeset = _context.Metadata.Where(p => p.NodesetId == nodesetIds[i]).ToDictionary(x => x.Name);
-
-                    if (metadataForNodeset.ContainsKey("nodesetcreationtime"))
-                    {
-                        if (DateTime.TryParse(metadataForNodeset["nodesetcreationtime"].Value, out DateTime parsedDateTime))
-                        {
-                            nodeset.PublicationDate = parsedDateTime;
-                        }
-                    }
-
-                    if (metadataForNodeset.ContainsKey("nodesetmodifiedtime"))
-                    {
-                        if (DateTime.TryParse(metadataForNodeset["nodesetmodifiedtime"].Value, out DateTime parsedDateTime))
-                        {
-                            nodeset.LastModifiedDate = parsedDateTime;
-                        }
-                    }
-
-                    if (metadataForNodeset.ContainsKey("version"))
-                    {
-                        nodeset.Version = metadataForNodeset["version"].Value;
-                    }
-
-                    nodeset.Identifier = (uint)nodesetIds[i];
-
-                    List<ObjecttypeModel> objectTypesForNodeset = _context.ObjectType.Where(p => p.NodesetId == nodesetIds[i]).ToList();
-                    if (objectTypesForNodeset.Count > 0)
-                    {
-                        nodeset.NamespaceUri = new Uri(objectTypesForNodeset[0].NameSpace);
-                    }
-
-                    result.Add(nodeset);
-                }
-                catch (Exception)
-                {
-                    // ignore this entity
-                }
-            }
-
-            return Task.FromResult(result);
-        }
-
-        public Task<List<VariabletypeModel>> GetVariableTypes()
-        {
-            return _context.VariableType.ToListAsync();
         }
 
         private List<long> ApplyWhereExpression(string where)
@@ -199,14 +124,14 @@ namespace Opc.Ua.Cloud.Library
             return nodesetIds;
         }
 
-        public Task<List<UANameSpace>> GetNameSpaceTypes(int limit, int offset, string where, string orderBy)
+        public async Task<List<UANameSpace>> GetNameSpaceTypes(int limit, int offset, string where, string orderBy)
         {
             List<long> nodesetIds = ApplyWhereExpression(where);
 
             // input validation
             if ((offset < 0) || (limit < 0) || (offset > nodesetIds.Count))
             {
-                return Task.FromResult(new List<UANameSpace>());
+                return new List<UANameSpace>();
             }
             if ((offset + limit) > nodesetIds.Count)
             {
@@ -251,11 +176,9 @@ namespace Opc.Ua.Cloud.Library
 
                     nameSpace.Nodeset.Identifier = (uint)nodesetIds[i];
 
-                    List<ObjecttypeModel> objectTypesForNodeset = _context.ObjectType.Where(p => p.NodesetId == nodesetIds[i]).ToList();
-                    if (objectTypesForNodeset.Count > 0)
-                    {
-                        nameSpace.Nodeset.NamespaceUri = new Uri(objectTypesForNodeset[0].NameSpace);
-                    }
+                    var nodeSetIdentifier = nodesetIds[i].ToString(CultureInfo.InvariantCulture);
+                    var modelUri = (await _context.nodeSets.Where(nsm => nsm.Identifier == nodeSetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false))?.ModelUri;
+                    nameSpace.Nodeset.NamespaceUri = new Uri(modelUri);
 
                     if (metadataForNodeset.ContainsKey("license"))
                     {
@@ -433,12 +356,12 @@ namespace Opc.Ua.Cloud.Library
             if (string.IsNullOrEmpty(orderBy))
             {
                 // return unordered list
-                return Task.FromResult(result);
+                return result;
             }
             else
             {
                 // return odered list
-                return Task.FromResult(result.OrderByDescending(p => p, new NameSpaceComparer(orderBy)).ToList());
+                return result.OrderByDescending(p => p, new NameSpaceComparer(orderBy)).ToList();
             }
         }
 

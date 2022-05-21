@@ -48,5 +48,12 @@ namespace Opc.Ua.Cloud.Library.Interfaces
         /// Download a nodeset from storage to a local file
         /// </summary>
         Task<string> DownloadFileAsync(string name, CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Delete a nodeset from storage
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        Task DeleteFileAsync(string name, CancellationToken cancellationToken = default);
     }
 }
