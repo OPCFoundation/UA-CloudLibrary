@@ -29,9 +29,7 @@
 
 namespace Opc.Ua.Cloud.Library
 {
-#if USE_GRAPHQL_HOTCHOCOLATE
     using CESMII.OpcUa.NodeSetModel;
-#endif
     using System.IO;
     using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore;
@@ -55,9 +53,7 @@ namespace Opc.Ua.Cloud.Library
         // Needed for design-time DB migration
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-#if USE_GRAPHQL_HOTCHOCOLATE
             optionsBuilder.UseLazyLoadingProxies();
-#endif
             if (!optionsBuilder.IsConfigured)
             {
                 IConfigurationRoot configuration = new ConfigurationBuilder()
@@ -75,30 +71,21 @@ namespace Opc.Ua.Cloud.Library
 
         public DbSet<MetadataModel> Metadata { get; set; }
 
-        public DbSet<ObjecttypeModel> ObjectType { get; set; }
+        public DbSet<CloudLibNodeSetModel> nodeSets { get; set; }
 
-        public DbSet<ReferencetypeModel> ReferenceType { get; set; }
+        public DbSet<NodeModel> nodeModels { get; set; }
 
-        public DbSet<VariabletypeModel> VariableType { get; set; }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        protected override void OnModelCreating(ModelBuilder builder)
         {
-            base.OnModelCreating(modelBuilder);
+            base.OnModelCreating(builder);
 
-#if USE_GRAPHQL_HOTCHOCOLATE
-            NodeSetModelContext.CreateModel(modelBuilder);
-#endif
+            NodeSetModelContext.CreateModel(builder);
+            builder.Entity<CloudLibNodeSetModel>()
+                .Property(nsm => nsm.ValidationStatus)
+                    .HasConversion<string>();
 
-            modelBuilder.Entity<DatatypeModel>().HasKey(k => k.Id);
-            modelBuilder.Entity<MetadataModel>().HasKey(k => k.Id);
-            modelBuilder.Entity<ObjecttypeModel>().HasKey(k => k.Id);
-            modelBuilder.Entity<ReferencetypeModel>().HasKey(k => k.Id);
-            modelBuilder.Entity<VariabletypeModel>().HasKey(k => k.Id);
+            builder.Entity<MetadataModel>().HasKey(k => k.Id);
         }
 
-#if USE_GRAPHQL_HOTCHOCOLATE
-        public DbSet<NodeSetModel> nodeSets { get; set; }
-        public DbSet<NodeModel> nodeModels { get; set; }
-#endif
     }
 }

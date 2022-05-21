@@ -37,6 +37,7 @@ namespace Opc.Ua.Cloud.Library
     using System.Text.Encodings.Web;
     using System.Threading.Tasks;
     using Microsoft.AspNetCore.Authentication;
+    using Microsoft.AspNetCore.Identity;
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Options;
     using Microsoft.Extensions.Primitives;
@@ -44,10 +45,12 @@ namespace Opc.Ua.Cloud.Library
 
     public class BasicAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
     {
-        private IUserService _userService;
+        private readonly IUserService _userService;
+        private readonly SignInManager<IdentityUser> _signInManager;
 
         public BasicAuthenticationHandler(
             IUserService userService,
+            SignInManager<IdentityUser> signInManager,
             IOptionsMonitor<AuthenticationSchemeOptions> options,
             ILoggerFactory logger,
             UrlEncoder encoder,
@@ -55,6 +58,7 @@ namespace Opc.Ua.Cloud.Library
             : base(options, logger, encoder, clock)
         {
             _userService = userService;
+            _signInManager = signInManager;
         }
 
         protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
@@ -64,6 +68,15 @@ namespace Opc.Ua.Cloud.Library
             {
                 if (StringValues.IsNullOrEmpty(Request.Headers["Authorization"]))
                 {
+
+                    if (_signInManager.IsSignedIn(Request.HttpContext.User))
+                    {
+                        // Allow a previously authenticated, signed in user (for example via ASP.Net cookies from the graphiql browser)
+                        ClaimsPrincipal principal2 = new ClaimsPrincipal(Request.HttpContext.User.Identity);
+                        AuthenticationTicket ticket2 = new AuthenticationTicket(principal2, Scheme.Name);
+
+                        return AuthenticateResult.Success(ticket2);
+                    }
                     throw new ArgumentException("Authentication header missing in request!");
                 }
 

@@ -186,5 +186,34 @@ namespace Opc.Ua.Cloud.Library
                 return string.Empty;
             }
         }
+        /// <summary>
+        /// Find a file based on a unique name
+        /// </summary>
+        public async Task DeleteFileAsync(string name, CancellationToken cancellationToken = default)
+        {
+#if DEBUG
+            if (string.IsNullOrEmpty(_bucket))
+            {
+                _logger.LogError($"Error deleting file {name} - S3 Bucket not specified");
+                return;
+            }
+
+            try
+            {
+                var key = string.IsNullOrEmpty(_prefix) ? name : _prefix + name;
+
+                await _s3Client.DeleteObjectAsync(_bucket, key, cancellationToken).ConfigureAwait(false);
+
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error deleting file {name}");
+                return;
+            }
+#else
+            await Task.CompletedTask;
+#endif
+        }
     }
 }

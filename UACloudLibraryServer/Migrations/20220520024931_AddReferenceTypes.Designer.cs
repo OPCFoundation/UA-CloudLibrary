@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Opc.Ua.Cloud.Library;
@@ -12,9 +13,10 @@ using Opc.Ua.Cloud.Library;
 namespace Opc.Ua.Cloud.Library
 {
     [DbContext(typeof(AppDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20220520024931_AddReferenceTypes")]
+    partial class AddReferenceTypes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -281,6 +283,36 @@ namespace Opc.Ua.Cloud.Library
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Opc.Ua.Cloud.Library.DbContextModels.DatatypeModel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("datatype_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BrowseName")
+                        .HasColumnType("text")
+                        .HasColumnName("datatype_browsename");
+
+                    b.Property<string>("NameSpace")
+                        .HasColumnType("text")
+                        .HasColumnName("datatype_namespace");
+
+                    b.Property<long>("NodesetId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("nodeset_id");
+
+                    b.Property<string>("Value")
+                        .HasColumnType("text")
+                        .HasColumnName("datatype_value");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("datatype");
+                });
+
             modelBuilder.Entity("Opc.Ua.Cloud.Library.DbContextModels.MetadataModel", b =>
                 {
                     b.Property<int>("Id")
@@ -305,6 +337,96 @@ namespace Opc.Ua.Cloud.Library
                     b.HasKey("Id");
 
                     b.ToTable("metadata");
+                });
+
+            modelBuilder.Entity("Opc.Ua.Cloud.Library.DbContextModels.ObjecttypeModel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("objecttype_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BrowseName")
+                        .HasColumnType("text")
+                        .HasColumnName("objecttype_browsename");
+
+                    b.Property<string>("NameSpace")
+                        .HasColumnType("text")
+                        .HasColumnName("objecttype_namespace");
+
+                    b.Property<long>("NodesetId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("nodeset_id");
+
+                    b.Property<string>("Value")
+                        .HasColumnType("text")
+                        .HasColumnName("objecttype_value");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("objecttype");
+                });
+
+            modelBuilder.Entity("Opc.Ua.Cloud.Library.DbContextModels.ReferencetypeModel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("referencetype_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BrowseName")
+                        .HasColumnType("text")
+                        .HasColumnName("referencetype_browsename");
+
+                    b.Property<string>("NameSpace")
+                        .HasColumnType("text")
+                        .HasColumnName("referencetype_namespace");
+
+                    b.Property<long>("NodesetId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("nodeset_id");
+
+                    b.Property<string>("Value")
+                        .HasColumnType("text")
+                        .HasColumnName("referencetype_value");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("referencetype");
+                });
+
+            modelBuilder.Entity("Opc.Ua.Cloud.Library.DbContextModels.VariabletypeModel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("variabletype_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BrowseName")
+                        .HasColumnType("text")
+                        .HasColumnName("variabletype_browsename");
+
+                    b.Property<string>("NameSpace")
+                        .HasColumnType("text")
+                        .HasColumnName("variabletype_namespace");
+
+                    b.Property<long>("NodesetId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("nodeset_id");
+
+                    b.Property<string>("Value")
+                        .HasColumnType("text")
+                        .HasColumnName("variabletype_value");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("variabletype");
                 });
 
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.BaseTypeModel", b =>
@@ -503,15 +625,6 @@ namespace Opc.Ua.Cloud.Library
             modelBuilder.Entity("Opc.Ua.Cloud.Library.CloudLibNodeSetModel", b =>
                 {
                     b.HasBaseType("CESMII.OpcUa.NodeSetModel.NodeSetModel");
-
-                    b.Property<TimeSpan>("ValidationElapsedTime")
-                        .HasColumnType("interval");
-
-                    b.Property<string[]>("ValidationErrors")
-                        .HasColumnType("text[]");
-
-                    b.Property<DateTime?>("ValidationFinishedTime")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ValidationStatus")
                         .IsRequired()

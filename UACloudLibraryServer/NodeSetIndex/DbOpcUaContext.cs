@@ -1,5 +1,5 @@
 /* ========================================================================
- * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
+ * Copyright (c) 2005-2022 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
  *
@@ -27,25 +27,27 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-using CESMII.OpcUa.NodeSetModel;
-using CESMII.OpcUa.NodeSetModel.Factory.Opc;
-using Microsoft.Extensions.Logging;
-using Opc.Ua;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using CESMII.OpcUa.NodeSetModel;
+using CESMII.OpcUa.NodeSetModel.Factory.Opc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Opc.Ua.Cloud.Library
 {
-    internal class DbOpcUaContext: IOpcUaContext
+    internal class DbOpcUaContext : IOpcUaContext
     {
-        private AppDbContext appDbContext;
+        private AppDbContext _dbContext;
         private ILogger logger;
         private readonly Dictionary<string, NodeSetModel> _nodesetModels;
         private DefaultOpcUaContext _opcContext;
 
         public DbOpcUaContext(AppDbContext appDbContext, SystemContext systemContext, NodeStateCollection importedNodes, Dictionary<string, NodeSetModel> nodesetModels, ILogger logger)
         {
-            this.appDbContext = appDbContext;
+            this._dbContext = appDbContext;
             this.logger = logger;
             this._nodesetModels = nodesetModels;
             this._opcContext = new DefaultOpcUaContext(systemContext, importedNodes, nodesetModels, logger);
@@ -58,7 +60,7 @@ namespace Opc.Ua.Cloud.Library
 
             var uaNamespace = NodeModelUtils.GetNamespaceFromNodeId(nodeId);
 
-            var nodeSetQuery = appDbContext.Set<NodeSetModel>().AsQueryable().Where(n => n.ModelUri == uaNamespace);
+            var nodeSetQuery = _dbContext.Set<NodeSetModel>().AsQueryable().Where(n => n.ModelUri == uaNamespace);
             if (nodeSetQuery.Any())
             {
                 // TODO Performance: do this in a single query
@@ -76,6 +78,8 @@ namespace Opc.Ua.Cloud.Library
                 if (model != null) return model;
                 model = nodeSetQuery.AsQueryable().SelectMany(m => m.Objects).Where(dt => dt.NodeId == nodeId).FirstOrDefault();
                 if (model != null) return model;
+                model = nodeSetQuery.AsQueryable().SelectMany(m => m.ReferenceTypes).Where(dt => dt.NodeId == nodeId).FirstOrDefault();
+                if (model != null) return model;
             }
             return null;
         }
@@ -89,7 +93,6 @@ namespace Opc.Ua.Cloud.Library
         {
             return _opcContext.GetHierarchyReferences(nodeState);
         }
-
 
         public NodeState GetNode(NodeId referenceTypeId)
         {
@@ -106,17 +109,33 @@ namespace Opc.Ua.Cloud.Library
             return _opcContext.GetNodeIdWithUri(nodeId, out namespaceUri);
         }
 
-        public NodeSetModel GetOrAddNodesetModel(NodeModel node)
+        public NodeSetModel GetOrAddNodesetModel(NodeModel nodeModel)
         {
-            if (!_nodesetModels.TryGetValue(node.Namespace, out var nodesetModel))
+            if (!_nodesetModels.TryGetValue(nodeModel.Namespace, out var nodesetModel))
             {
-                var existingNodeSet = appDbContext.nodeSets.FirstOrDefault(n => n.ModelUri == node.Namespace);
+                var existingNodeSet = GetMatchingOrHigherNodeSetAsync(nodeModel.Namespace, nodeModel.NodeSet?.PublicationDate).Result;
                 if (existingNodeSet != null)
                 {
                     _nodesetModels.Add(existingNodeSet.ModelUri, existingNodeSet);
+                    nodesetModel = existingNodeSet;
                 }
             }
-            return _opcContext.GetOrAddNodesetModel(node);
+            if (nodesetModel == null)
+            {
+                throw new System.Exception($"Undeclared nodeset model {nodeModel.Namespace} was referenced");
+            }
+            nodeModel.NodeSet = nodesetModel;
+            return nodesetModel;
+        }
+
+        public Task<CloudLibNodeSetModel> GetMatchingOrHigherNodeSetAsync(string modelUri, DateTime? publicationDate)
+        {
+            return GetMatchingOrHigherNodeSetAsync(_dbContext, modelUri, publicationDate);
+        }
+        public static Task<CloudLibNodeSetModel> GetMatchingOrHigherNodeSetAsync(AppDbContext dbContext, string modelUri, DateTime? publicationDate)
+        {
+            var matchingNodeSet = dbContext.nodeSets.AsQueryable().Where(nsm => nsm.ModelUri == modelUri && (publicationDate == null || nsm.PublicationDate >= publicationDate)).OrderBy(nsm => nsm.PublicationDate).FirstOrDefaultAsync();
+            return matchingNodeSet;
         }
 
         public string JsonEncodeVariant(Variant wrappedValue)

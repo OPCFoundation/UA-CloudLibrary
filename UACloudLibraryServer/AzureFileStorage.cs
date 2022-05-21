@@ -176,5 +176,31 @@ namespace Opc.Ua.Cloud.Library
                 return string.Empty;
             }
         }
+
+        public async Task DeleteFileAsync(string name, CancellationToken cancellationToken = default)
+        {
+#if DEBUG
+            try
+            {
+                if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("BlobStorageConnectionString")))
+                {
+                    // open blob storage
+                    BlobContainerClient container = new BlobContainerClient(Environment.GetEnvironmentVariable("BlobStorageConnectionString"), "uacloudlib");
+
+                    var response = await container.DeleteBlobAsync(name, cancellationToken: cancellationToken).ConfigureAwait(false);
+                }
+
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.Message);
+                return;
+            }
+#else
+            await Task.CompletedTask;
+#endif
+        }
+
     }
 }
