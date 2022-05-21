@@ -323,6 +323,11 @@ namespace Opc.Ua.Cloud.Library
             ConfigureField(descriptor.Field(f => f.DataVariables));
             ConfigureField(descriptor.Field(f => f.ReferenceTypes));
             ConfigureField(descriptor.Field(f => f.UnknownNodes));
+
+#if !DEBUG
+            descriptor.Field(f => f.ValidationFinishedTime).Ignore();
+            descriptor.Field(f => f.ValidationElapsedTime).Ignore();
+#endif
         }
 
         private void ConfigureField(IObjectFieldDescriptor objectFieldDescriptor)

@@ -161,7 +161,8 @@ namespace Opc.Ua.Cloud.Library
                         if (nodesetModels.TryGetValue(modelUri, out var nodeSet))
                         {
                             var clNodeSet = nodeSet as CloudLibNodeSetModel;
-                            clNodeSet.ValidationStatusInfo = validationStatusInfo = $"Indexing time: {((double)savedTime) / 1000:N3}s";
+                            clNodeSet.ValidationElapsedTime = TimeSpan.FromMilliseconds(savedTime);
+                            clNodeSet.ValidationFinishedTime = DateTime.UtcNow;
                             await _dbContext.SaveChangesAsync().ConfigureAwait(false);
                         }
 #endif
@@ -188,7 +189,7 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
-        public async Task CreateNodeSetModelFromNodeSet(UANodeSet nodeSet, string identifier)
+        public async Task<CloudLibNodeSetModel> CreateNodeSetModelFromNodeSetAsync(UANodeSet nodeSet, string identifier)
         {
             var nodeSetModel = await CloudLibNodeSetModel.FromModelAsync(nodeSet.Models[0], _dbContext).ConfigureAwait(false);
             nodeSetModel.Identifier = identifier;
@@ -196,6 +197,7 @@ namespace Opc.Ua.Cloud.Library
             nodeSetModel.ValidationStatusInfo = null;
             await _dbContext.nodeSets.AddAsync(nodeSetModel);
             await _dbContext.SaveChangesAsync();
+            return nodeSetModel;
         }
 
         public async Task DeleteNodeSetIndex(string identifier)
@@ -255,6 +257,7 @@ namespace Opc.Ua.Cloud.Library
 
         private async Task<bool> IndexNodeSetsAsync()
         {
+            await IndexMissingNodeSets();
             var bChanged = false;
             var unvalidatedNodeSets = _dbContext.nodeSets.Where(n => n.ValidationStatus != ValidationStatus.Indexed).ToList();
             foreach (var nodeSetModel in unvalidatedNodeSets)
@@ -287,6 +290,38 @@ namespace Opc.Ua.Cloud.Library
             return bChanged;
         }
 
+        private async Task IndexMissingNodeSets()
+        {
+            try
+            {
+                var missingNodeSetIds = await _dbContext.Metadata
+                    .Select(md => md.NodesetId.ToString())
+                    .Distinct()
+                    .Where(id => !_dbContext.nodeSets.Any(nsm => nsm.Identifier == id))
+                    .ToListAsync();
+                foreach (var missingNodeSetId in missingNodeSetIds)
+                {
+                    try
+                    {
+                        _logger.LogDebug($"Dowloading missing nodeset {missingNodeSetId}");
+                        var nodeSetXml = await _storage.DownloadFileAsync(missingNodeSetId).ConfigureAwait(false);
+                        _logger.LogDebug($"Parsing missing nodeset {missingNodeSetId}");
+                        var uaNodeSet = InfoModelController.ReadUANodeSet(nodeSetXml);
+                        _logger.LogDebug($"Indexing missing nodeset {missingNodeSetId}");
+                        var nodeSetModel = await this.CreateNodeSetModelFromNodeSetAsync(uaNodeSet, missingNodeSetId);
+                        _logger.LogInformation($"Re-indexed missing nodeset {missingNodeSetId} {nodeSetModel}");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Failed to re-index missing nodeset {missingNodeSetId}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to re-index missing nodesets.");
+            }
+        }
 
         public void Dispose()
         {

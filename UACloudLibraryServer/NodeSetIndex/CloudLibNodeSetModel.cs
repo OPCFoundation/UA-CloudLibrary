@@ -39,6 +39,9 @@ namespace Opc.Ua.Cloud.Library
     {
         public ValidationStatus ValidationStatus { get; set; }
         public string ValidationStatusInfo { get; set; }
+        public TimeSpan ValidationElapsedTime { get; set; }
+        public DateTime? ValidationFinishedTime { get; set; }
+        public string[] ValidationErrors { get; set; }
         internal static async Task<CloudLibNodeSetModel> FromModelAsync(ModelTableEntry model, AppDbContext dbContext)
         {
             var nodeSetModel = new CloudLibNodeSetModel();
