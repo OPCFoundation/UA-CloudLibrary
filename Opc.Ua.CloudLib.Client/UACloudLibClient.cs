@@ -31,6 +31,7 @@ namespace Opc.Ua.Cloud.Library.Client
 {
     using System;
     using System.Collections.Generic;
+    using System.Globalization;
     using System.Linq;
     using System.Net;
     using System.Net.Http.Headers;
@@ -368,6 +369,77 @@ namespace Opc.Ua.Cloud.Library.Client
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Queries one or more node sets and their dependencies
+        /// </summary>
+        public async Task<List<Nodeset>> GetNodeSetDependencies(string identifier = null, string namespaceUri = null, DateTime? publicationDate = null)
+        {
+            var request = new GraphQLRequest();
+            request.Query = @"
+query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: DateTime) {
+  nodeSets(identifier: $identifier, nodeSetUrl: $namespaceUri, publicationDate: $publicationDate) {
+    nodes {
+      modelUri
+      publicationDate
+      version
+      identifier
+      requiredModels {
+        modelUri
+        publicationDate
+        version
+        availableModel {
+          modelUri
+          publicationDate
+          version
+          identifier
+          requiredModels {
+            modelUri
+            publicationDate
+            version
+            availableModel {
+              modelUri
+              publicationDate
+              version
+              identifier
+              requiredModels {
+                modelUri
+                publicationDate
+                version
+                availableModel {
+                  modelUri
+                  publicationDate
+                  version
+                  identifier
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+";
+            request.Variables = new {
+                identifier = identifier,
+                namespaceUri = namespaceUri,
+                publicationDate = publicationDate,
+            };
+            GraphQLNodeResponse<GraphQLRequiredNodeSet> result = null;
+            result = await SendAndConvertAsync<GraphQLNodeResponse<GraphQLRequiredNodeSet>>(request).ConfigureAwait(false);
+            var nodeSets = result?.nodes.Select(n => n.ToNodeSet()).ToList();
+            return nodeSets;
+        }
+
+        /// <summary>
+        /// Helper class to parse GraphQL connections
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        class GraphQLNodeResponse<T>
+        {
+            public List<T> nodes { get; set; }
         }
 
         /// <summary>
