@@ -65,7 +65,7 @@ jobs:
     - name: Build
       run: dotnet build UA-CloudLibrary.sln --configuration Release --no-restore
     - name: Test
-      run: dotnet test UA-CloudLibrary.sln --no-build --verbosity normal
+      run: dotnet test UA-CloudLibrary.sln --verbosity normal
     - name: pack NuGet
       run: dotnet pack Opc.Ua.CloudLib.Client/Opc.Ua.Cloud.Library.Client.csproj --configuration Release
     - name: add github nuget-feed#
