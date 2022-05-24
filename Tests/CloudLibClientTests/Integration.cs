@@ -50,6 +50,24 @@ namespace CloudLibClient.Tests
                 throw new Exception(($"Error uploading {addressSpace?.Nodeset.NamespaceUri}, {addressSpace?.Nodeset.Identifier}: {response.Status} {response.Message}"));
             }
         }
+        [Fact]
+        async Task WaitForIndex()
+        {
+            var client = _factory.CreateCloudLibClient();
+
+            bool bIndexing;
+            do
+            {
+                var nodeSets = await client.GetNodeSetDependencies().ConfigureAwait(false);
+                bIndexing = nodeSets?.Count <3 || nodeSets?.Any(n => n.ValidationStatus != "INDEXED") == true;
+                if (bIndexing)
+                {
+                    await Task.Delay(10000).ConfigureAwait(false);
+                }
+            }
+            while (bIndexing);
+        }
+
     }
 
     [Collection("Run")]
