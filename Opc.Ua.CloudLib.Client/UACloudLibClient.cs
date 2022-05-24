@@ -31,9 +31,9 @@ namespace Opc.Ua.Cloud.Library.Client
 {
     using System;
     using System.Collections.Generic;
-    using System.Globalization;
     using System.Linq;
     using System.Net;
+    using System.Net.Http;
     using System.Net.Http.Headers;
     using System.Text;
     using System.Threading.Tasks;
@@ -140,6 +140,16 @@ namespace Opc.Ua.Cloud.Library.Client
         public UACloudLibClient(Options options)
             : this(options.Url, options.Username, options.Password)
         {
+        }
+
+        /// <summary>
+        /// Initializes a new instance using an existing HttpClient
+        /// </summary>
+        /// <param name="httpClient"></param>
+        public UACloudLibClient(HttpClient httpClient)
+        {
+            _client = new GraphQLHttpClient(new GraphQLHttpClientOptions { EndPoint = new Uri(httpClient.BaseAddress, "graphql"), }, new NewtonsoftJsonSerializer(), httpClient);
+            _restClient = new RestClient(httpClient);
         }
 
         /// <summary>Sends the GraphQL query and converts it to JSON</summary>

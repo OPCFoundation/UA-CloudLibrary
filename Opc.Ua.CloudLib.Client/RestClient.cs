@@ -66,6 +66,11 @@ namespace Opc.Ua.Cloud.Library.Client
             client.DefaultRequestHeaders.Authorization = authentication;
         }
 
+        public RestClient(HttpClient httpClient)
+        {
+            client = httpClient;
+        }
+
         public void Dispose()
         {
             client.Dispose();
