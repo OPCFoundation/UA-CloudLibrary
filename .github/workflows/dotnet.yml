@@ -34,6 +34,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+    - name: Start PostgreSQL on Ubuntu
+      run: |
+        sudo systemctl start postgresql.service
+        pg_isready
+    - name: Create additional user
+      run: |
+        sudo -u postgres psql --command="CREATE USER testuser PASSWORD 'password'" --command="\du"
+    
     - name: 🤘 checkout
       uses: actions/checkout@v2
       with:
