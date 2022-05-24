@@ -368,7 +368,7 @@ namespace Opc.Ua.Cloud.Library
                         .Select(nm => nm.NodeSet.Identifier)
                         .Distinct()
                         .ToList();
-                    foreach(var match in matchesForKeyword)
+                    foreach (var match in matchesForKeyword)
                     {
                         if (!matches.Contains(match))
                         {

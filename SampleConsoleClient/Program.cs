@@ -32,6 +32,7 @@ namespace SampleConsoleClient
     using System;
     using System.Collections.Generic;
     using System.Globalization;
+    using System.Linq;
     using System.Net.Http;
     using System.Text;
     using System.Threading.Tasks;
@@ -308,10 +309,54 @@ namespace SampleConsoleClient
                 Console.WriteLine(ex.Message);
             }
 
-            Console.WriteLine("\nUsing the rest API");
             List<UANodesetResult> restResult = await client.GetBasicNodesetInformationAsync().ConfigureAwait(false);
             if (restResult?.Count > 0)
             {
+
+                Console.WriteLine();
+                Console.WriteLine("Testing nodeset dependency query");
+                var identifier = restResult[0].Id.ToString(CultureInfo.InvariantCulture);
+                var nodeSets = await client.GetNodeSetDependencies(identifier: identifier).ConfigureAwait(false);
+                if (nodeSets?.Count > 0)
+                {
+                    foreach (var nodeSet in nodeSets)
+                    {
+                        Console.WriteLine($"Dependencies for {nodeSet.Identifier} {nodeSet.NamespaceUri} {nodeSet.PublicationDate} ({nodeSet.Version}):");
+                        foreach (var requiredNodeSet in nodeSets[0].RequiredModels)
+                        {
+                            Console.WriteLine($"Required: {requiredNodeSet.NamespaceUri} {requiredNodeSet.PublicationDate} ({requiredNodeSet.Version}). Available in Cloud Library: {requiredNodeSet.AvailableModel?.Identifier} {requiredNodeSet.AvailableModel?.PublicationDate} ({requiredNodeSet.AvailableModel?.Version})");
+                        }
+                    }
+                }
+                Console.WriteLine();
+                Console.WriteLine("Testing nodeset dependency query by namespace and publication date");
+                var namespaceUri = restResult[0].NameSpaceUri;
+                var publicationDate = restResult[0].CreationTime.HasValue && restResult[0].CreationTime.Value.Kind == DateTimeKind.Unspecified ?
+                    DateTime.SpecifyKind(restResult[0].CreationTime.Value, DateTimeKind.Utc)
+                    : restResult[0].CreationTime;
+                var nodeSetsByNamespace = await client.GetNodeSetDependencies(namespaceUri: namespaceUri, publicationDate: publicationDate).ConfigureAwait(false);
+                var dependenciesByNamespace = nodeSetsByNamespace
+                    .SelectMany(n => n.RequiredModels).Where(r => r != null)
+                    .Select(r => (r.AvailableModel?.Identifier, r.NamespaceUri, r.PublicationDate))
+                    .OrderBy(m => m.Identifier).ThenBy(m => m.NamespaceUri).Distinct()
+                    .ToList();
+                var dependenciesByIdentifier = nodeSets
+                    .SelectMany(n => n.RequiredModels).Where(r => r != null)
+                    .Select(r => (r.AvailableModel?.Identifier, r.NamespaceUri, r.PublicationDate))
+                    .OrderBy(m => m.Identifier).ThenBy(m => m.NamespaceUri).Distinct()
+                    .ToList();
+                if (!dependenciesByIdentifier.SequenceEqual(dependenciesByNamespace))
+                {
+                    Console.WriteLine($"FAIL: returned dependencies are different.");
+                    Console.WriteLine($"For identifier {identifier}: {string.Join(" ", dependenciesByIdentifier)}.");
+                    Console.WriteLine($"For namespace {namespaceUri} / {publicationDate}: {string.Join(" ", dependenciesByNamespace)}");
+                }
+                else
+                {
+                    Console.WriteLine("Passed.");
+                }
+
+                Console.WriteLine("\nUsing the rest API");
                 Console.WriteLine("Testing download of nodeset");
                 UANameSpace result = await client.DownloadNodesetAsync(restResult[0].Id.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
                 if (!string.IsNullOrEmpty(result.Nodeset.NodesetXml))

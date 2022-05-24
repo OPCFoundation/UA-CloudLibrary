@@ -47,10 +47,18 @@ namespace Opc.Ua.Cloud.Library
     public class QueryModel
     {
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<CloudLibNodeSetModel> GetNodeSets([Service(ServiceKind.Synchronized)] AppDbContext dbContext, string nodeSetUrl = null, DateTime? publicationDate = null)
+        public IQueryable<CloudLibNodeSetModel> GetNodeSets([Service(ServiceKind.Synchronized)] AppDbContext dbContext, string identifier = null, string nodeSetUrl = null, DateTime? publicationDate = null)
         {
             IQueryable<CloudLibNodeSetModel> nodeSets;
-            if (nodeSetUrl != null && publicationDate != null)
+            if (!string.IsNullOrEmpty(identifier))
+            {
+                if (nodeSetUrl != null || publicationDate != null)
+                {
+                    throw new ArgumentException($"Must not specify other parameters when providing identifier.");
+                }
+                nodeSets = dbContext.nodeSets.AsQueryable().Where(nsm => nsm.Identifier == identifier);
+            }
+            else if (nodeSetUrl != null && publicationDate != null)
             {
                 nodeSets = dbContext.nodeSets.AsQueryable().Where(nsm => nsm.ModelUri == nodeSetUrl && nsm.PublicationDate == publicationDate);
             }

@@ -61,7 +61,8 @@ namespace Opc.Ua.Cloud.Library
             var appDbContext = scope.ServiceProvider.GetService<AppDbContext>();
             var fileStore = scope.ServiceProvider.GetService<IFileStorage>();
             var database = scope.ServiceProvider.GetService<IDatabase>();
-            return new NodeSetModelIndexer(appDbContext, _logger, fileStore, database, scope);
+            var logger = scope.ServiceProvider.GetService<ILogger<NodeSetModelIndexer>>();
+            return new NodeSetModelIndexer(appDbContext, logger, fileStore, database, scope);
         }
     }
 
@@ -298,17 +299,20 @@ namespace Opc.Ua.Cloud.Library
                     .Select(md => md.NodesetId.ToString())
                     .Distinct()
                     .Where(id => !_dbContext.nodeSets.Any(nsm => nsm.Identifier == id))
-                    .ToListAsync();
+                    .ToListAsync().ConfigureAwait(false);
                 foreach (var missingNodeSetId in missingNodeSetIds)
                 {
                     try
                     {
                         _logger.LogDebug($"Dowloading missing nodeset {missingNodeSetId}");
                         var nodeSetXml = await _storage.DownloadFileAsync(missingNodeSetId).ConfigureAwait(false);
+
                         _logger.LogDebug($"Parsing missing nodeset {missingNodeSetId}");
                         var uaNodeSet = InfoModelController.ReadUANodeSet(nodeSetXml);
+
                         _logger.LogDebug($"Indexing missing nodeset {missingNodeSetId}");
-                        var nodeSetModel = await this.CreateNodeSetModelFromNodeSetAsync(uaNodeSet, missingNodeSetId);
+                        var nodeSetModel = await this.CreateNodeSetModelFromNodeSetAsync(uaNodeSet, missingNodeSetId).ConfigureAwait(false);
+
                         _logger.LogInformation($"Re-indexed missing nodeset {missingNodeSetId} {nodeSetModel}");
                     }
                     catch (Exception ex)
