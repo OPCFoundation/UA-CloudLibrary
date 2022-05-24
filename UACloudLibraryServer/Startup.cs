@@ -145,11 +145,8 @@ namespace Opc.Ua.Cloud.Library
                     services.AddSingleton<IFileStorage, AWSFileStorage>();
                     break;
                 case "GCP": services.AddSingleton<IFileStorage, GCPFileStorage>(); break;
-#if DEBUG
-                default: services.AddSingleton<IFileStorage, LocalFileStorage>(); break;
-#else
+                case null: services.AddSingleton<IFileStorage, LocalFileStorage>(); break;
                 default: throw new Exception("Invalid HostingPlatform specified in environment! Valid variables are Azure, AWS and GCP");
-#endif
             }
 
             var serviceName = Configuration["Application"] ?? "UACloudLibrary";
@@ -160,11 +157,8 @@ namespace Opc.Ua.Cloud.Library
                 case "Azure": services.AddDataProtection().PersistKeysToAzureBlobStorage(Configuration["BlobStorageConnectionString"], "keys", "keys"); break;
                 case "AWS": services.AddDataProtection().PersistKeysToAWSSystemsManager($"/{serviceName}/DataProtection"); break;
                 case "GCP": services.AddDataProtection().PersistKeysToGoogleCloudStorage(Configuration["BlobStorageConnectionString"], "DataProtectionProviderKeys.xml"); break;
-#if DEBUG
-                default: services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Directory.GetCurrentDirectory())); break;
-#else
+                case null: services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Directory.GetCurrentDirectory())); break;
                 default: throw new Exception("Invalid HostingPlatform specified in environment! Valid variables are Azure, AWS and GCP");
-#endif
             }
 
             services.AddHttpContextAccessor();

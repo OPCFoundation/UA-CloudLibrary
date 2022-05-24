@@ -190,7 +190,7 @@ namespace Opc.Ua.Cloud.Library
                 return new ObjectResult("Nodeset invalid. Please make sure it includes a valid Model URI and publication date!") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            uint nodeSetHashCodeToStore = nodesetHashCode;
+            uint nodesetHashCodeToStore = nodesetHashCode;
 
             // check if the nodeset already exists in the database for the legacy hashcode algorithm
             string legacyResult;
@@ -213,7 +213,7 @@ namespace Opc.Ua.Cloud.Library
             }
             if (nameSpace.Nodeset?.Identifier == legacyNodesetHashCode)
             {
-                nodeSetHashCodeToStore = legacyNodesetHashCode;
+                nodesetHashCodeToStore = legacyNodesetHashCode;
             }
 
                 // check if the nodeset already exists in the database for the new hashcode algorithm
@@ -232,8 +232,8 @@ namespace Opc.Ua.Cloud.Library
                 }
 
             // upload the new file to the storage service, and get the file handle that the storage service returned
-            string storedFilename = await _storage.UploadFileAsync(nodeSetHashCodeToStore.ToString(CultureInfo.InvariantCulture), nameSpace.Nodeset.NodesetXml).ConfigureAwait(false);
-            if (string.IsNullOrEmpty(storedFilename) || (storedFilename != nodeSetHashCodeToStore.ToString(CultureInfo.InvariantCulture)))
+            string storedFilename = await _storage.UploadFileAsync(nodesetHashCodeToStore.ToString(CultureInfo.InvariantCulture), nameSpace.Nodeset.NodesetXml).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(storedFilename) || (storedFilename != nodesetHashCodeToStore.ToString(CultureInfo.InvariantCulture)))
             {
                 string message = "Error: Nodeset file could not be stored.";
                 _logger.LogError(message);
@@ -255,18 +255,28 @@ namespace Opc.Ua.Cloud.Library
                     return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
                 }
 
-            if (!StoreUserMetaDataInDatabase(nodeSetHashCodeToStore, nameSpace, nodeSet, modelValidationStatus))
-            {
-                string message = "Error: User metadata could not be stored.";
-                _logger.LogError(message);
-                return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
-            }
-
                 // Store nodeset metadata synchronously. Indexing of nodes happens in the background
                 if (nodeSet.Models?.Length > 0)
                 {
-                    await _indexer.CreateNodeSetModelFromNodeSetAsync(nodeSet, nodeSetHashCodeToStore.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                    try
+                    {
+                        await _indexer.CreateNodeSetModelFromNodeSetAsync(nodeSet, nodesetHashCodeToStore.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        string message = "Error: Nodeset index entry could not be created.";
+                        _logger.LogError(ex, message);
+                        return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
+
+                    }
                 }
+                if (!StoreUserMetaDataInDatabase(nodesetHashCodeToStore, nameSpace, nodeSet, modelValidationStatus))
+                {
+                    string message = "Error: User metadata could not be stored.";
+                    _logger.LogError(message);
+                    return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
+                }
+
                 return new ObjectResult("Upload successful!") { StatusCode = (int)HttpStatusCode.OK };
             }
             finally

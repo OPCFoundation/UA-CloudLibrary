@@ -47,7 +47,7 @@ namespace Opc.Ua.Cloud.Library
             var nodeSetModel = new CloudLibNodeSetModel();
             nodeSetModel.ModelUri = model.ModelUri;
             nodeSetModel.Version = model.Version;
-            nodeSetModel.PublicationDate = model.PublicationDate;
+            nodeSetModel.PublicationDate = model.PublicationDateSpecified ? model.PublicationDate : null;
 
             if (model.RequiredModel != null)
             {
@@ -56,9 +56,9 @@ namespace Opc.Ua.Cloud.Library
                     var existingNodeSet = await DbOpcUaContext.GetMatchingOrHigherNodeSetAsync(dbContext, requiredModel.ModelUri, requiredModel.PublicationDateSpecified ? requiredModel.PublicationDate : null).ConfigureAwait(false);
                     var requiredModelInfo = new RequiredModelInfo {
                         ModelUri = requiredModel.ModelUri,
-                        PublicationDate = requiredModel.PublicationDate,
+                        PublicationDate = requiredModel.PublicationDateSpecified ? requiredModel.PublicationDate : null,
                         Version = requiredModel.Version,
-                        Model = existingNodeSet,
+                        AvailableModel = existingNodeSet,
                     };
                     nodeSetModel.RequiredModels.Add(requiredModelInfo);
                 }

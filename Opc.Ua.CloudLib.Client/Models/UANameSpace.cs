@@ -30,6 +30,7 @@
 namespace Opc.Ua.Cloud.Library.Client
 {
     using System;
+    using System.Collections.Generic;
     using Newtonsoft.Json;
 
     /// <summary>License Enumeration</summary>
@@ -283,6 +284,11 @@ namespace Opc.Ua.Cloud.Library.Client
         [JsonProperty("version")]
         public string Version { get; set; }
 
+        /// <summary>Gets or sets the validation status.</summary>
+        /// <value>The validation status.</value>
+        [JsonProperty("validationStatus")]
+        public string ValidationStatus { get; set; }
+
         /// <summary>Gets or sets the publication date.</summary>
         /// <value>The publication date.</value>
         [JsonProperty("publicationDate")]
@@ -292,5 +298,33 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <value>The last modified date.</value>
         [JsonProperty("lastModifiedDate")]
         public DateTime LastModifiedDate { get; set; }
+        /// <summary>
+        /// Nodesets that this nodeset depends on
+        /// </summary>
+        public List<RequiredModelInfo> RequiredModels { get; internal set; }
     }
+
+    /// <summary>
+    /// Contains information about dependencies of a nodeset
+    /// </summary>
+    public class RequiredModelInfo
+    {
+        /// <summary>
+        /// The namespace URI of the dependency
+        /// </summary>
+        public string NamespaceUri { get; set; }
+        /// <summary>
+        /// The minimum required publication date of the dependency
+        /// </summary>
+        public DateTime? PublicationDate { get; set; }
+        /// <summary>
+        /// The informational version of the dependency
+        /// </summary>
+        public string Version { get; set; }
+        /// <summary>
+        /// The best match currently available in the cloud library. null if no match (no nodeset for this namespace uri or only node sets with older publication dates).
+        /// </summary>
+        public Nodeset AvailableModel { get; set; }
+    }
+
 }

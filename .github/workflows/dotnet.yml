@@ -34,6 +34,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+
+    - name: Start PostgreSQL on Ubuntu
+      run: |
+        sudo systemctl start postgresql.service
+        pg_isready
+    - name: Create additional user
+      run: |
+        sudo -u postgres psql --command="CREATE USER testuser SUPERUSER PASSWORD 'password'" --command="\du"
+    - name: List existing databases
+      run: |
+        sudo -u postgres psql -l --command="\du"
+    
     - name: 🤘 checkout
       uses: actions/checkout@v2
       with:
@@ -51,6 +63,9 @@ jobs:
     - name: Restore dependencies SampleConsoleClient
       run: dotnet restore
       working-directory: SampleConsoleClient
+    - name: Restore dependencies CloudLibClientTests
+      run: dotnet restore
+      working-directory: Tests/CloudLibClientTests
     - name: Build
       run: dotnet build UA-CloudLibrary.sln --configuration Release --no-restore
     - name: Test
