@@ -249,6 +249,21 @@ namespace Opc.Ua.Cloud.Library
                     return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
                 }
 
+                // Store nodeset metadata synchronously. Indexing of nodes happens in the background
+                if (nodeSet.Models?.Length > 0)
+                {
+                    try
+                    {
+                        await _indexer.CreateNodeSetModelFromNodeSetAsync(nodeSet, nodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        string message = "Error: Nodeset index entry could not be created.";
+                        _logger.LogError(ex, message);
+                        return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
+
+                    }
+                }
                 if (!StoreUserMetaDataInDatabase(nodesetHashCode, nameSpace, nodeSet, modelValidationStatus))
                 {
                     string message = "Error: User metadata could not be stored.";
@@ -256,11 +271,6 @@ namespace Opc.Ua.Cloud.Library
                     return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
                 }
 
-                // Store nodeset metadata synchronously. Indexing of nodes happens in the background
-                if (nodeSet.Models?.Length > 0)
-                {
-                    await _indexer.CreateNodeSetModelFromNodeSetAsync(nodeSet, nodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
-                }
                 return new ObjectResult("Upload successful!") { StatusCode = (int)HttpStatusCode.OK };
             }
             finally
