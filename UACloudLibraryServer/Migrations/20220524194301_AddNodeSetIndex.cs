@@ -5,9 +5,9 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace Opc.Ua.Cloud.Library
+namespace Opc.Ua.Cloud.Library.Migrations
 {
-    public partial class AddNodeSetModel : Migration
+    public partial class AddNodeSetIndex : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -48,20 +48,6 @@ namespace Opc.Ua.Cloud.Library
                 oldType: "text");
 
             migrationBuilder.CreateTable(
-                name: "datatype",
-                columns: table => new {
-                    datatype_id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    nodeset_id = table.Column<long>(type: "bigint", nullable: false),
-                    datatype_browsename = table.Column<string>(type: "text", nullable: true),
-                    datatype_value = table.Column<string>(type: "text", nullable: true),
-                    datatype_namespace = table.Column<string>(type: "text", nullable: true)
-                },
-                constraints: table => {
-                    table.PrimaryKey("PK_datatype", x => x.datatype_id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "metadata",
                 columns: table => new {
                     metadata_id = table.Column<int>(type: "integer", nullable: false)
@@ -83,52 +69,13 @@ namespace Opc.Ua.Cloud.Library
                     Identifier = table.Column<string>(type: "text", nullable: true),
                     Discriminator = table.Column<string>(type: "text", nullable: false),
                     ValidationStatus = table.Column<string>(type: "text", nullable: true),
-                    ValidationStatusInfo = table.Column<string>(type: "text", nullable: true)
+                    ValidationStatusInfo = table.Column<string>(type: "text", nullable: true),
+                    ValidationElapsedTime = table.Column<TimeSpan>(type: "interval", nullable: true),
+                    ValidationFinishedTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    ValidationErrors = table.Column<string[]>(type: "text[]", nullable: true)
                 },
                 constraints: table => {
                     table.PrimaryKey("PK_NodeSets", x => new { x.ModelUri, x.PublicationDate });
-                });
-
-            migrationBuilder.CreateTable(
-                name: "objecttype",
-                columns: table => new {
-                    objecttype_id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    nodeset_id = table.Column<long>(type: "bigint", nullable: false),
-                    objecttype_browsename = table.Column<string>(type: "text", nullable: true),
-                    objecttype_value = table.Column<string>(type: "text", nullable: true),
-                    objecttype_namespace = table.Column<string>(type: "text", nullable: true)
-                },
-                constraints: table => {
-                    table.PrimaryKey("PK_objecttype", x => x.objecttype_id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "referencetype",
-                columns: table => new {
-                    referencetype_id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    nodeset_id = table.Column<long>(type: "bigint", nullable: false),
-                    referencetype_browsename = table.Column<string>(type: "text", nullable: true),
-                    referencetype_value = table.Column<string>(type: "text", nullable: true),
-                    referencetype_namespace = table.Column<string>(type: "text", nullable: true)
-                },
-                constraints: table => {
-                    table.PrimaryKey("PK_referencetype", x => x.referencetype_id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "variabletype",
-                columns: table => new {
-                    variabletype_id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    nodeset_id = table.Column<long>(type: "bigint", nullable: false),
-                    variabletype_browsename = table.Column<string>(type: "text", nullable: true),
-                    variabletype_value = table.Column<string>(type: "text", nullable: true),
-                    variabletype_namespace = table.Column<string>(type: "text", nullable: true)
-                },
-                constraints: table => {
-                    table.PrimaryKey("PK_variabletype", x => x.variabletype_id);
                 });
 
             migrationBuilder.CreateTable(
@@ -163,14 +110,14 @@ namespace Opc.Ua.Cloud.Library
                     ModelUri = table.Column<string>(type: "text", nullable: true),
                     Version = table.Column<string>(type: "text", nullable: true),
                     PublicationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    ModelUri1 = table.Column<string>(type: "text", nullable: true),
-                    ModelPublicationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                    AvailableModelModelUri = table.Column<string>(type: "text", nullable: true),
+                    AvailableModelPublicationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table => {
                     table.PrimaryKey("PK_RequiredModelInfo", x => new { x.NodeSetModelModelUri, x.NodeSetModelPublicationDate, x.Id });
                     table.ForeignKey(
-                        name: "FK_RequiredModelInfo_NodeSets_ModelUri1_ModelPublicationDate",
-                        columns: x => new { x.ModelUri1, x.ModelPublicationDate },
+                        name: "FK_RequiredModelInfo_NodeSets_AvailableModelModelUri_Available~",
+                        columns: x => new { x.AvailableModelModelUri, x.AvailableModelPublicationDate },
                         principalTable: "NodeSets",
                         principalColumns: new[] { "ModelUri", "PublicationDate" });
                     table.ForeignKey(
@@ -280,6 +227,36 @@ namespace Opc.Ua.Cloud.Library
                         columns: x => new { x.NodeModelNodeId, x.NodeModelNodeSetModelUri, x.NodeModelNodeSetPublicationDate },
                         principalTable: "Nodes",
                         principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ReferenceTypes",
+                columns: table => new {
+                    NodeId = table.Column<string>(type: "text", nullable: false),
+                    NodeSetModelUri = table.Column<string>(type: "text", nullable: false),
+                    NodeSetPublicationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    NodeSetModelModelUri = table.Column<string>(type: "text", nullable: true),
+                    NodeSetModelPublicationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table => {
+                    table.PrimaryKey("PK_ReferenceTypes", x => new { x.NodeId, x.NodeSetModelUri, x.NodeSetPublicationDate });
+                    table.ForeignKey(
+                        name: "FK_ReferenceTypes_Nodes_NodeId_NodeSetModelUri_NodeSetPublicat~",
+                        columns: x => new { x.NodeId, x.NodeSetModelUri, x.NodeSetPublicationDate },
+                        principalTable: "Nodes",
+                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ReferenceTypes_NodeSets_NodeSetModelModelUri_NodeSetModelPu~",
+                        columns: x => new { x.NodeSetModelModelUri, x.NodeSetModelPublicationDate },
+                        principalTable: "NodeSets",
+                        principalColumns: new[] { "ModelUri", "PublicationDate" });
+                    table.ForeignKey(
+                        name: "FK_ReferenceTypes_NodeSets_NodeSetModelUri_NodeSetPublicationD~",
+                        columns: x => new { x.NodeSetModelUri, x.NodeSetPublicationDate },
+                        principalTable: "NodeSets",
+                        principalColumns: new[] { "ModelUri", "PublicationDate" },
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -879,9 +856,19 @@ namespace Opc.Ua.Cloud.Library
                 columns: new[] { "NodeSetModelUri", "NodeSetPublicationDate" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_RequiredModelInfo_ModelUri1_ModelPublicationDate",
+                name: "IX_ReferenceTypes_NodeSetModelModelUri_NodeSetModelPublication~",
+                table: "ReferenceTypes",
+                columns: new[] { "NodeSetModelModelUri", "NodeSetModelPublicationDate" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ReferenceTypes_NodeSetModelUri_NodeSetPublicationDate",
+                table: "ReferenceTypes",
+                columns: new[] { "NodeSetModelUri", "NodeSetPublicationDate" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RequiredModelInfo_AvailableModelModelUri_AvailableModelPubl~",
                 table: "RequiredModelInfo",
-                columns: new[] { "ModelUri1", "ModelPublicationDate" });
+                columns: new[] { "AvailableModelModelUri", "AvailableModelPublicationDate" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_StructureField_DataTypeNodeId_DataTypeNodeSetModelUri_DataT~",
@@ -925,9 +912,6 @@ namespace Opc.Ua.Cloud.Library
                 name: "ChildAndReference");
 
             migrationBuilder.DropTable(
-                name: "datatype");
-
-            migrationBuilder.DropTable(
                 name: "DataVariables");
 
             migrationBuilder.DropTable(
@@ -949,13 +933,10 @@ namespace Opc.Ua.Cloud.Library
                 name: "Objects");
 
             migrationBuilder.DropTable(
-                name: "objecttype");
-
-            migrationBuilder.DropTable(
                 name: "Properties");
 
             migrationBuilder.DropTable(
-                name: "referencetype");
+                name: "ReferenceTypes");
 
             migrationBuilder.DropTable(
                 name: "RequiredModelInfo");
@@ -968,9 +949,6 @@ namespace Opc.Ua.Cloud.Library
 
             migrationBuilder.DropTable(
                 name: "UaEnumField_DisplayName");
-
-            migrationBuilder.DropTable(
-                name: "variabletype");
 
             migrationBuilder.DropTable(
                 name: "ObjectTypes");
