@@ -59,6 +59,9 @@ jobs:
     - name: Restore dependencies SampleConsoleClient
       run: dotnet restore
       working-directory: SampleConsoleClient
+    - name: Restore dependencies CloudLibClientTests
+      run: dotnet restore
+      working-directory: Tests/CloudLibClientTests
     - name: Build
       run: dotnet build UA-CloudLibrary.sln --configuration Release --no-restore
     - name: Test
