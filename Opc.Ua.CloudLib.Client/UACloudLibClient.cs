@@ -395,6 +395,7 @@ query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: Dat
       publicationDate
       version
       identifier
+      validationStatus
       requiredModels {
         modelUri
         publicationDate

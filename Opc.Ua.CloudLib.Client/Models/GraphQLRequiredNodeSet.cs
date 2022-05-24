@@ -44,6 +44,7 @@ namespace Opc.Ua.Cloud.Library.Client
         public string ModelUri { get; set; }
         public string Version { get; set; }
         public DateTime? PublicationDate { get; set; }
+        public string ValidationStatus { get; set; }
 
         // RequiredModels
         public List<GraphQlRequiredModelInfo> RequiredModels { get; set; } = new List<GraphQlRequiredModelInfo>();
@@ -55,6 +56,7 @@ namespace Opc.Ua.Cloud.Library.Client
                 PublicationDate = this.PublicationDate ?? DateTime.MinValue,
                 Identifier = uint.Parse(this.Identifier, CultureInfo.InvariantCulture),
                 Version = this.Version,
+                ValidationStatus = this.ValidationStatus,
                 RequiredModels = this.RequiredModels?.Select(m => new RequiredModelInfo {
                     NamespaceUri = m.ModelUri,
                     PublicationDate = m.PublicationDate,

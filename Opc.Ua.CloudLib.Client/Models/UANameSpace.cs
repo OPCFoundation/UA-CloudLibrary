@@ -284,6 +284,11 @@ namespace Opc.Ua.Cloud.Library.Client
         [JsonProperty("version")]
         public string Version { get; set; }
 
+        /// <summary>Gets or sets the validation status.</summary>
+        /// <value>The validation status.</value>
+        [JsonProperty("validationStatus")]
+        public string ValidationStatus { get; set; }
+
         /// <summary>Gets or sets the publication date.</summary>
         /// <value>The publication date.</value>
         [JsonProperty("publicationDate")]
