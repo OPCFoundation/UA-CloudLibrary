@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -33,13 +34,18 @@ namespace CloudLibClient.Tests
 
         internal UACloudLibClient CreateCloudLibClient()
         {
+            var httpClient = CreateAuthorizedClient();
+            var client = new UACloudLibClient(httpClient);
+            return client;
+        }
+        internal HttpClient CreateAuthorizedClient()
+        {
             var httpClient = CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { });
 
             string temp = Convert.ToBase64String(Encoding.UTF8.GetBytes("admin" + ":" + "testpw"));
             httpClient.DefaultRequestHeaders.Add("Authorization", "basic " + temp);
 
-            var client = new UACloudLibClient(httpClient);
-            return client;
+            return httpClient;
         }
 
     }
