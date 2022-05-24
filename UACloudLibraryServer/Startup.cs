@@ -34,6 +34,7 @@ namespace Opc.Ua.Cloud.Library
     using Amazon.S3;
     using GraphQL;
     using GraphQL.Server.Ui.Playground;
+    using HotChocolate.AspNetCore;
     using Microsoft.AspNetCore.Authentication;
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Builder;
@@ -232,6 +233,10 @@ namespace Opc.Ua.Cloud.Library
                 endpoints.MapRazorPages();
                 endpoints.MapGraphQL()
                     .RequireAuthorization(new AuthorizeAttribute { AuthenticationSchemes = "BasicAuthentication" })
+                    .WithOptions(new GraphQLServerOptions {
+                        EnableGetRequests = true,
+                        Tool = { Enable = false, },
+                    })
                     ;
             });
         }
