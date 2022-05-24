@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
@@ -26,8 +26,7 @@ namespace Opc.Ua.Cloud.Library
         {
             migrationBuilder.CreateTable(
                 name: "datatype",
-                columns: table => new
-                {
+                columns: table => new {
                     datatype_id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     datatype_browsename = table.Column<string>(type: "text", nullable: true),
@@ -35,15 +34,13 @@ namespace Opc.Ua.Cloud.Library
                     nodeset_id = table.Column<long>(type: "bigint", nullable: false),
                     datatype_value = table.Column<string>(type: "text", nullable: true)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_datatype", x => x.datatype_id);
                 });
 
             migrationBuilder.CreateTable(
                 name: "objecttype",
-                columns: table => new
-                {
+                columns: table => new {
                     objecttype_id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     objecttype_browsename = table.Column<string>(type: "text", nullable: true),
@@ -51,15 +48,13 @@ namespace Opc.Ua.Cloud.Library
                     nodeset_id = table.Column<long>(type: "bigint", nullable: false),
                     objecttype_value = table.Column<string>(type: "text", nullable: true)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_objecttype", x => x.objecttype_id);
                 });
 
             migrationBuilder.CreateTable(
                 name: "referencetype",
-                columns: table => new
-                {
+                columns: table => new {
                     referencetype_id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     referencetype_browsename = table.Column<string>(type: "text", nullable: true),
@@ -67,15 +62,13 @@ namespace Opc.Ua.Cloud.Library
                     nodeset_id = table.Column<long>(type: "bigint", nullable: false),
                     referencetype_value = table.Column<string>(type: "text", nullable: true)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_referencetype", x => x.referencetype_id);
                 });
 
             migrationBuilder.CreateTable(
                 name: "variabletype",
-                columns: table => new
-                {
+                columns: table => new {
                     variabletype_id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     variabletype_browsename = table.Column<string>(type: "text", nullable: true),
@@ -83,8 +76,7 @@ namespace Opc.Ua.Cloud.Library
                     nodeset_id = table.Column<long>(type: "bigint", nullable: false),
                     variabletype_value = table.Column<string>(type: "text", nullable: true)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_variabletype", x => x.variabletype_id);
                 });
         }
