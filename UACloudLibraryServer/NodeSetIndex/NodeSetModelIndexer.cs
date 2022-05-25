@@ -239,31 +239,34 @@ namespace Opc.Ua.Cloud.Library
             }
             try
             {
-                int changedCount = 0;
-                int previousCount;
-                int rerunCount = 0;
-                do
+                using (var indexer = factory.Create())
                 {
-                    previousCount = changedCount;
-                    changedCount = await IndexNodeSetsInternalAsync(factory);
-                    rerunCount++;
-                    if (rerunCount >= 50)
+                    var logger = indexer._logger;
+                    int changedCount = 0;
+                    int previousCount;
+                    int rerunCount = 0;
+                    logger.LogInformation($"Starting background indexing. Nodeset count: {indexer._dbContext.nodeSets.Count()}. Not indexed: {indexer._dbContext.nodeSets.Count(n => n.ValidationStatus != ValidationStatus.Indexed)}");
+                    do
                     {
-                        using (var indexer = factory.Create())
+                        previousCount = changedCount;
+                        changedCount = await IndexNodeSetsInternalAsync(factory);
+                        rerunCount++;
+                        if (rerunCount >= 50)
                         {
                             if (changedCount == previousCount)
                             {
                                 // stop the loop when there are no more changes after many attempts (defense in depth against faulty indexing)
-                                indexer._logger.LogError($"Excessive indexing re-runs: {rerunCount}. Stopping indexing loop.");
+                                logger.LogError($"Excessive indexing re-runs: {rerunCount}. Stopping indexing loop.");
                                 break;
                             }
                             else
                             {
-                                indexer._logger.LogWarning($"Excessive indexing re-runs: {rerunCount}. {changedCount} {previousCount}");
+                                logger.LogWarning($"Excessive indexing re-runs: {rerunCount}. {changedCount} {previousCount}");
                             }
                         }
-                    }
-                } while (changedCount > 0);
+                    } while (changedCount > 0);
+                    logger.LogInformation($"Finished background indexing. Nodeset count: {indexer._dbContext.nodeSets.Count()}. Not indexed: {indexer._dbContext.nodeSets.Count(n => n.ValidationStatus != ValidationStatus.Indexed)}");
+                }
             }
             finally
             {
