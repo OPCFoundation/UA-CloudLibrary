@@ -176,7 +176,7 @@ namespace Opc.Ua.Cloud.Library
                         }
                         if (existingNodeSetModel.ValidationStatus != ValidationStatus.Indexed)
                         {
-                            return (ValidationStatus.Error, $"Required NodeSet {existingNodeSetModel} not indexed yet.");
+                            throw new Exception($"Required NodeSet {existingNodeSetModel} not indexed yet.");
                         }
                         model.NodeSet.Import(systemContext, importedNodes);
                     }
@@ -239,20 +239,31 @@ namespace Opc.Ua.Cloud.Library
             }
             try
             {
-                bool bChanged;
+                int changedCount = 0;
+                int previousCount;
+                int rerunCount = 0;
                 do
                 {
-                    bChanged = false;
-                    var nodeSetIndexer = factory.Create();
-                    try
+                    previousCount = changedCount;
+                    changedCount = await IndexNodeSetsInternalAsync(factory);
+                    rerunCount++;
+                    if (rerunCount >= 50)
                     {
-                        bChanged = await nodeSetIndexer.IndexNodeSetsAsync();
+                        using (var indexer = factory.Create())
+                        {
+                            if (changedCount == previousCount)
+                            {
+                                // stop the loop when there are no more changes after many attempts (defense in depth against faulty indexing)
+                                indexer._logger.LogError($"Excessive indexing re-runs: {rerunCount}. Stopping indexing loop.");
+                                break;
+                            }
+                            else
+                            {
+                                indexer._logger.LogWarning($"Excessive indexing re-runs: {rerunCount}. {changedCount} {previousCount}");
+                            }
+                        }
                     }
-                    finally
-                    {
-                        nodeSetIndexer?.Dispose();
-                    }
-                } while (bChanged);
+                } while (changedCount > 0);
             }
             finally
             {
@@ -260,41 +271,71 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
-        private async Task<bool> IndexNodeSetsAsync()
+        private static async Task<int> IndexNodeSetsInternalAsync(NodeSetModelIndexerFactory factory)
         {
-            await IndexMissingNodeSets();
-            var bChanged = false;
-            var unvalidatedNodeSets = _dbContext.nodeSets.Where(n => n.ValidationStatus != ValidationStatus.Indexed).ToList();
-            foreach (var nodeSetModel in unvalidatedNodeSets)
+            var nodeSetIndexer = factory.Create();
+            try
             {
-                var identifier = nodeSetModel.Identifier;
-                var nodeSetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
-                if (nodeSetXml != null)
+                await nodeSetIndexer.IndexMissingNodeSets();
+
+                var unvalidatedNodeSets = nodeSetIndexer._dbContext.nodeSets.Where(n => n.ValidationStatus != ValidationStatus.Indexed).ToList();
+
+                int changedCount = 0;
+                foreach (var nodeSetModel in unvalidatedNodeSets)
                 {
-                    (ValidationStatus Status, string Info) previousValidationStatus = (nodeSetModel.ValidationStatus, nodeSetModel.ValidationStatusInfo);
                     try
                     {
-                        var newValidationStatus = await this.IndexNodeSetModelAsync(nodeSetModel.ModelUri, nodeSetXml, identifier).ConfigureAwait(false);
-                        nodeSetModel.ValidationStatus = newValidationStatus.Status;
-                        nodeSetModel.ValidationStatusInfo = newValidationStatus.Info;
+                        if (await nodeSetIndexer.IndexNodeSetModelAsync(nodeSetModel.Identifier, nodeSetModel.ModelUri, nodeSetModel.PublicationDate).ConfigureAwait(false))
+                        {
+                            changedCount++;
+                        }
                     }
-                    catch (Exception ex)
+                    finally
                     {
-                        _logger.LogError(ex, $"Error indexing {nodeSetModel}");
+                        nodeSetIndexer?.Dispose();
+                        nodeSetIndexer = null;
+                    }
+                    nodeSetIndexer = factory.Create();
+                }
+                return changedCount;
+            }
+            finally
+            {
+                nodeSetIndexer?.Dispose();
+                nodeSetIndexer = null;
+            }
+        }
 
-                        // Abandon any partial indexing so far
-                        _dbContext.ChangeTracker.Clear();
-                        // Re-acquire the nodeset and update it's status
-                        var nodeSetModelAbandoned  = await _dbContext.nodeSets.FindAsync(nodeSetModel.ModelUri, nodeSetModel.PublicationDate).ConfigureAwait(false);
-                        nodeSetModel.ValidationStatus = nodeSetModelAbandoned.ValidationStatus = ValidationStatus.Error;
-                        nodeSetModel.ValidationStatusInfo = nodeSetModelAbandoned.ValidationStatusInfo = ex.Message;
-                    }
-                    if (previousValidationStatus.Status != nodeSetModel.ValidationStatus || previousValidationStatus.Info != nodeSetModel.ValidationStatusInfo)
-                    {
-                        bChanged = true;
-                        await _dbContext.SaveChangesAsync();
-                        _database.UpdateMetaDataForNodeSet(uint.Parse(identifier, CultureInfo.InvariantCulture), "validationstatus", nodeSetModel.ValidationStatus.ToString());
-                    }
+        private async Task<bool> IndexNodeSetModelAsync(string identifier, string modelUri, DateTime? publicationDate)
+        {
+            bool bChanged = false;
+            var nodeSetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
+            if (nodeSetXml != null)
+            {
+                var nodeSetModel = await _dbContext.nodeSets.FindAsync(modelUri, publicationDate).ConfigureAwait(false);
+                (ValidationStatus Status, string Info) previousValidationStatus = (nodeSetModel.ValidationStatus, nodeSetModel.ValidationStatusInfo);
+                try
+                {
+                    var newValidationStatus = await this.IndexNodeSetModelAsync(nodeSetModel.ModelUri, nodeSetXml, identifier).ConfigureAwait(false);
+                    nodeSetModel.ValidationStatus = newValidationStatus.Status;
+                    nodeSetModel.ValidationStatusInfo = newValidationStatus.Info;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Error indexing {nodeSetModel}");
+
+                    // Abandon any partial indexing so far
+                    _dbContext.ChangeTracker.Clear();
+                    // Re-acquire the nodeset and update only it's status
+                    nodeSetModel = await _dbContext.nodeSets.FindAsync(modelUri, publicationDate).ConfigureAwait(false);
+                    nodeSetModel.ValidationStatus = ValidationStatus.Error;
+                    nodeSetModel.ValidationStatusInfo = ex.Message;
+                }
+                if (previousValidationStatus.Status != nodeSetModel.ValidationStatus || previousValidationStatus.Info != nodeSetModel.ValidationStatusInfo)
+                {
+                    await _dbContext.SaveChangesAsync();
+                    _database.UpdateMetaDataForNodeSet(uint.Parse(identifier, CultureInfo.InvariantCulture), "validationstatus", nodeSetModel.ValidationStatus.ToString());
+                    bChanged = true;
                 }
             }
             return bChanged;
@@ -322,7 +363,7 @@ namespace Opc.Ua.Cloud.Library
                         _logger.LogDebug($"Indexing missing nodeset {missingNodeSetId}");
                         var nodeSetModel = await this.CreateNodeSetModelFromNodeSetAsync(uaNodeSet, missingNodeSetId).ConfigureAwait(false);
 
-                        _logger.LogInformation($"Re-indexed missing nodeset {missingNodeSetId} {nodeSetModel}");
+                        _logger.LogWarning($"Database inconsistency: Created index entry for nodeset {missingNodeSetId} {nodeSetModel}");
                     }
                     catch (Exception ex)
                     {
