@@ -209,12 +209,16 @@ namespace Opc.Ua.Cloud.Library
                 var nodes = _dbContext.nodeModels.Where(nm => nm.NodeSet == existingNodeSet).ToList();
                 foreach (var node in nodes)
                 {
-                    var referencesToNode = await _dbContext.nodeModels.Where(nm => nm.OtherChilden.Any(c => c.Child == node)).ToListAsync().ConfigureAwait(false);
-                    foreach (var referencingNode in referencesToNode)
+                    try
                     {
-                        referencingNode.OtherChilden.RemoveAll(reference => reference.Child == node);
-                        _dbContext.Update(referencingNode);
+                        var referencesToNode = await _dbContext.nodeModels.Where(nm => nm.OtherChilden.Any(c => c.Child == node)).ToListAsync().ConfigureAwait(false);
+                        foreach (var referencingNode in referencesToNode)
+                        {
+                            referencingNode.OtherChilden.RemoveAll(reference => reference.Child == node);
+                            _dbContext.Update(referencingNode);
+                        }
                     }
+                    catch { }// ignore
                     _dbContext.nodeModels.Remove(node);
                 }
                 _dbContext.nodeSets.Remove(existingNodeSet);
@@ -277,8 +281,13 @@ namespace Opc.Ua.Cloud.Library
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, $"Error indexing {nodeSetModel}");
-                        nodeSetModel.ValidationStatus = ValidationStatus.Error;
-                        nodeSetModel.ValidationStatusInfo = ex.Message;
+
+                        // Abandon any partial indexing so far
+                        _dbContext.ChangeTracker.Clear();
+                        // Re-acquire the nodeset and update it's status
+                        var nodeSetModelAbandoned  = await _dbContext.nodeSets.FindAsync(nodeSetModel.ModelUri, nodeSetModel.PublicationDate).ConfigureAwait(false);
+                        nodeSetModel.ValidationStatus = nodeSetModelAbandoned.ValidationStatus = ValidationStatus.Error;
+                        nodeSetModel.ValidationStatusInfo = nodeSetModelAbandoned.ValidationStatusInfo = ex.Message;
                     }
                     if (previousValidationStatus.Status != nodeSetModel.ValidationStatus || previousValidationStatus.Info != nodeSetModel.ValidationStatusInfo)
                     {
