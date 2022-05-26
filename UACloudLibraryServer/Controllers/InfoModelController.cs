@@ -181,40 +181,40 @@ namespace Opc.Ua.Cloud.Library
                     return new ObjectResult($"Could not parse nodeset XML file: {ex.Message}") { StatusCode = (int)HttpStatusCode.BadRequest };
                 }
 
-            string modelValidationStatus = "Parsed";
+                string modelValidationStatus = "Parsed";
 
-            // generate a unique hash code
-            uint nodesetHashCode = GenerateHashCode(nodeSet);
-            if (nodesetHashCode == 0)
-            {
-                return new ObjectResult("Nodeset invalid. Please make sure it includes a valid Model URI and publication date!") { StatusCode = (int)HttpStatusCode.BadRequest };
-            }
-
-            uint nodesetHashCodeToStore = nodesetHashCode;
-
-            // check if the nodeset already exists in the database for the legacy hashcode algorithm
-            string legacyResult;
-            uint legacyNodesetHashCode = GenerateHashCodeLegacy(nodeSet);
-            if (legacyNodesetHashCode != 0)
-            {
-                legacyResult = await _storage.FindFileAsync(legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
-                if (!string.IsNullOrEmpty(legacyResult) && !overwrite)
+                // generate a unique hash code
+                uint nodesetHashCode = GenerateHashCode(nodeSet);
+                if (nodesetHashCode == 0)
                 {
-                    // nodeset already exists
-                    return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
+                    return new ObjectResult("Nodeset invalid. Please make sure it includes a valid Model URI and publication date!") { StatusCode = (int)HttpStatusCode.BadRequest };
                 }
 
-                // check contributors match if nodeset already exists
-                string contributorNameLegacy = _database.RetrieveMetaData(legacyNodesetHashCode, "orgname");
-                if (!string.IsNullOrEmpty(legacyResult) && !string.IsNullOrEmpty(contributorNameLegacy) && (!string.Equals(nameSpace.Contributor.Name, contributorNameLegacy, StringComparison.Ordinal)))
+                uint nodesetHashCodeToStore = nodesetHashCode;
+
+                // check if the nodeset already exists in the database for the legacy hashcode algorithm
+                string legacyResult;
+                uint legacyNodesetHashCode = GenerateHashCodeLegacy(nodeSet);
+                if (legacyNodesetHashCode != 0)
                 {
-                    return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
+                    legacyResult = await _storage.FindFileAsync(legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                    if (!string.IsNullOrEmpty(legacyResult) && !overwrite)
+                    {
+                        // nodeset already exists
+                        return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
+                    }
+
+                    // check contributors match if nodeset already exists
+                    string contributorNameLegacy = _database.RetrieveMetaData(legacyNodesetHashCode, "orgname");
+                    if (!string.IsNullOrEmpty(legacyResult) && !string.IsNullOrEmpty(contributorNameLegacy) && (!string.Equals(nameSpace.Contributor.Name, contributorNameLegacy, StringComparison.Ordinal)))
+                    {
+                        return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
+                    }
                 }
-            }
-            if (nameSpace.Nodeset?.Identifier == legacyNodesetHashCode)
-            {
-                nodesetHashCodeToStore = legacyNodesetHashCode;
-            }
+                if (nameSpace.Nodeset?.Identifier == legacyNodesetHashCode)
+                {
+                    nodesetHashCodeToStore = legacyNodesetHashCode;
+                }
 
                 // check if the nodeset already exists in the database for the new hashcode algorithm
                 string result = await _storage.FindFileAsync(nodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
@@ -231,14 +231,14 @@ namespace Opc.Ua.Cloud.Library
                     return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
                 }
 
-            // upload the new file to the storage service, and get the file handle that the storage service returned
-            string storedFilename = await _storage.UploadFileAsync(nodesetHashCodeToStore.ToString(CultureInfo.InvariantCulture), nameSpace.Nodeset.NodesetXml).ConfigureAwait(false);
-            if (string.IsNullOrEmpty(storedFilename) || (storedFilename != nodesetHashCodeToStore.ToString(CultureInfo.InvariantCulture)))
-            {
-                string message = "Error: Nodeset file could not be stored.";
-                _logger.LogError(message);
-                return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
-            }
+                // upload the new file to the storage service, and get the file handle that the storage service returned
+                string storedFilename = await _storage.UploadFileAsync(nodesetHashCodeToStore.ToString(CultureInfo.InvariantCulture), nameSpace.Nodeset.NodesetXml).ConfigureAwait(false);
+                if (string.IsNullOrEmpty(storedFilename) || (storedFilename != nodesetHashCodeToStore.ToString(CultureInfo.InvariantCulture)))
+                {
+                    string message = "Error: Nodeset file could not be stored.";
+                    _logger.LogError(message);
+                    return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
+                }
 
                 // delete any existing records for this nodeset in the database
                 if (!_database.DeleteAllRecordsForNodeset(nodesetHashCode))
