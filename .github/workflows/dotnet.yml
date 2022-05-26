@@ -2,9 +2,9 @@ name: .NET
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, cesmii/main, cesmii/develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, cesmii/main, cesmii/develop ]
 
 jobs:
   dotnet-format:
