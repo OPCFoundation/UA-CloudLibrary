@@ -69,7 +69,7 @@ jobs:
     - name: Build
       run: dotnet build UA-CloudLibrary.sln --configuration Release --no-restore
     - name: Test
-      run: dotnet test UA-CloudLibrary.sln --no-build --verbosity normal
+      run: dotnet test UA-CloudLibrary.sln --no-build --configuration Release --verbosity normal -l:"console;verbosity=normal"
     # No NuGet build/push in this fork
     #- name: pack NuGet
     #  run: dotnet pack Opc.Ua.CloudLib.Client/Opc.Ua.CloudLib.Client.csproj --configuration Release
