@@ -84,4 +84,4 @@ jobs:
         with:
           app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
           package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output'
-          publish-profile: ${{ secrets.STAGE_AZURE_CLOUDLIB_BACK_SYNC_PUBLISHSETTINGS }}
+          publish-profile: ${{ secrets.STAGE_AZURE_CLOUDLIB_SYNC_PUBLISHSETTINGS }}
