@@ -67,8 +67,6 @@ namespace Opc.Ua.Cloud.Library
         }
 
         // map to our tables
-        public DbSet<DatatypeModel> DataType { get; set; }
-
         public DbSet<MetadataModel> Metadata { get; set; }
 
         public DbSet<CloudLibNodeSetModel> nodeSets { get; set; }
