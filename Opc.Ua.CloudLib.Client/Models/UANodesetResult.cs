@@ -58,10 +58,10 @@ namespace Opc.Ua.Cloud.Library.Client
         [JsonProperty(PropertyName = "version")]
         public string Version { get; set; }
 
-        /// <summary>Gets or sets the creation time.</summary>
+        /// <summary>Gets or sets the publication date.</summary>
         /// <value>The creation time.</value>
-        [JsonProperty(PropertyName = "nodesetCreationTime")]
-        public System.DateTime? CreationTime { get; set; }
+        [JsonProperty(PropertyName = "publicationDate")]
+        public System.DateTime? PublicationDate { get; set; }
 
         /// <summary>
         /// Gets or sets the namespace Uri.
