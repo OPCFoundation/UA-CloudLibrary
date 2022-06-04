@@ -71,9 +71,7 @@ namespace Opc.Ua.Cloud.Library
             services.AddRazorPages();
 
             // Setup database context for ASP.NetCore Identity Scaffolding
-            services.AddDbContext<AppDbContext>(o => {
-                o.UseNpgsql(PostgreSQLDB.CreateConnectionString(Configuration));
-            }, ServiceLifetime.Transient);
+            services.AddDbContext<AppDbContext>(ServiceLifetime.Transient);
 
             services.AddDefaultIdentity<IdentityUser>(options =>
                     //require confirmation mail if sendgrid API Key is set

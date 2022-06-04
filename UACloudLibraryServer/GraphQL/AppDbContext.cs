@@ -50,17 +50,28 @@ namespace Opc.Ua.Cloud.Library
         {
         }
 
+        public AppDbContext(DbContextOptions options, IConfiguration configuration)
+: base(options)
+        {
+            _configuration = configuration;
+        }
+        private readonly IConfiguration _configuration;
+
+
         // Needed for design-time DB migration
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder.UseLazyLoadingProxies();
             if (!optionsBuilder.IsConfigured)
             {
-                IConfigurationRoot configuration = new ConfigurationBuilder()
-                   .SetBasePath(Directory.GetCurrentDirectory())
-                   .AddJsonFile("appsettings.json")
-                   .Build();
-
+                IConfiguration configuration = _configuration;
+                if (configuration == null)
+                {
+                    configuration = new ConfigurationBuilder()
+                       .SetBasePath(Directory.GetCurrentDirectory())
+                       .AddJsonFile("appsettings.json")
+                       .Build();
+                }
                 string connectionString = PostgreSQLDB.CreateConnectionString(configuration);
                 optionsBuilder.UseNpgsql(connectionString);
             }
