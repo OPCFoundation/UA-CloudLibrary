@@ -331,9 +331,9 @@ namespace SampleConsoleClient
                 Console.WriteLine();
                 Console.WriteLine("Testing nodeset dependency query by namespace and publication date");
                 var namespaceUri = restResult[0].NameSpaceUri;
-                var publicationDate = restResult[0].CreationTime.HasValue && restResult[0].CreationTime.Value.Kind == DateTimeKind.Unspecified ?
-                    DateTime.SpecifyKind(restResult[0].CreationTime.Value, DateTimeKind.Utc)
-                    : restResult[0].CreationTime;
+                var publicationDate = restResult[0].PublicationDate.HasValue && restResult[0].PublicationDate.Value.Kind == DateTimeKind.Unspecified ?
+                    DateTime.SpecifyKind(restResult[0].PublicationDate.Value, DateTimeKind.Utc)
+                    : restResult[0].PublicationDate;
                 var nodeSetsByNamespace = await client.GetNodeSetDependencies(namespaceUri: namespaceUri, publicationDate: publicationDate).ConfigureAwait(false);
                 var dependenciesByNamespace = nodeSetsByNamespace
                     .SelectMany(n => n.RequiredModels).Where(r => r != null)

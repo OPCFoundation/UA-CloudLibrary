@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -48,9 +48,9 @@ namespace CloudLibClient.Tests
             }
             
             var namespaceUri = nodeSetInfo.NameSpaceUri;
-            var publicationDate = nodeSetInfo.CreationTime.HasValue && nodeSetInfo.CreationTime.Value.Kind == DateTimeKind.Unspecified ?
-                DateTime.SpecifyKind(nodeSetInfo.CreationTime.Value, DateTimeKind.Utc)
-                : nodeSetInfo.CreationTime;
+            var publicationDate = nodeSetInfo.PublicationDate.HasValue && nodeSetInfo.PublicationDate.Value.Kind == DateTimeKind.Unspecified ?
+                DateTime.SpecifyKind(nodeSetInfo.PublicationDate.Value, DateTimeKind.Utc)
+                : nodeSetInfo.PublicationDate;
             var nodeSetsByNamespace = await client.GetNodeSetDependencies(namespaceUri: namespaceUri, publicationDate: publicationDate).ConfigureAwait(false);
             var dependenciesByNamespace = nodeSetsByNamespace
                 .SelectMany(n => n.RequiredModels).Where(r => r != null)
@@ -92,7 +92,7 @@ namespace CloudLibClient.Tests
             {
                 var uaNodeSet = UANodeSet.Read(ms);
                 Assert.Equal(uaNodeSet.Models[0].ModelUri, nodeSetInfo.NameSpaceUri);
-                Assert.Equal(uaNodeSet.Models[0].PublicationDate, nodeSetInfo.CreationTime);
+                Assert.Equal(uaNodeSet.Models[0].PublicationDate, nodeSetInfo.PublicationDate);
             }
         }
     }
