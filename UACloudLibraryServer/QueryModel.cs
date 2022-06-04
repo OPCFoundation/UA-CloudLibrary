@@ -207,12 +207,7 @@ namespace Opc.Ua.Cloud.Library
             return clResolver.GetCategoryTypes(limit, where, orderBy);
         }
 
-        [UsePaging, UseFiltering, UseSorting]
-        public Task<List<MetadataModel>> GetMetaData([Service(ServiceKind.Synchronized)] UaCloudLibResolver clResolver)
-        {
-            return clResolver.GetMetaData();
-        }
-        [Obsolete("Use metaData instead.")]
+        [Obsolete("Use namespaces and namespaces.additionalProperties instead.")]
         public Task<List<MetadataModel>> GetMetadata([Service(ServiceKind.Synchronized)] UaCloudLibResolver clResolver)
         {
             return clResolver.GetMetaData();
