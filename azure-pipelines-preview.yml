@@ -10,8 +10,8 @@ trigger:
     - master
   paths:
     include:
-    - 'Stack/' 
-    - 'Libraries/' 
+    - 'Opc.Ua.CloudLib.Client/' 
+    - 'UACloudLibraryServer/' 
 
 stages:
 - stage: nugetpreview
