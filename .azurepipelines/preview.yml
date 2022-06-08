@@ -62,21 +62,19 @@ jobs:
     displayName: Restore ${{parameters.config}}
     inputs:
       command: restore
-      projects: 'UA Core Library.sln'
+      projects: 'UA-CloudLibrary.sln'
       arguments: '--configuration ${{parameters.config}}'
   - task: DotNetCoreCLI@2
     displayName: Build ${{parameters.config}}
     inputs:
       command: build
-      projects: 'UA Core Library.sln'
+      projects: 'UA-CloudLibrary.sln'
       arguments: '--no-incremental --configuration ${{parameters.config}} ${{ variables.msbuildversion }} ${{ variables.msbuildsign }}'
   - task: CmdLine@2
     displayName: 'List of assemblies to sign'
     inputs:
       script: |
-        dir /b /s Stack\Opc.Ua.*.dll > .\list.txt
-        dir /b /s Libraries\Opc.Ua.*.dll >> .\list.txt
-        dir /b /s .azurepipelines\*.* >> .\list.txt
+        dir /b /s Opc.Ua.CloudLib.Client\Opc.Ua.*.dll > .\list.txt
         type .\list.txt
   - task: CmdLine@2
     displayName: 'Sign Assemblies'
@@ -88,28 +86,10 @@ jobs:
     displayName: Pack Nuget ${{parameters.config}}
     inputs:
       command: pack
-      packagesToPack:  'UA Core Library.sln'
+      packagesToPack:  'UA-CloudLibrary.sln'
       configuration: ${{parameters.config}}
       configurationToPack: ${{parameters.config}}
       nobuild: true
-  - task: NuGetCommand@2
-    displayName: Pack Nuget Legacy Preview
-    condition: and(succeeded(), and(eq('${{parameters.config}}', 'Release'), ne(variables['NBGV_PublicRelease'], 'True')))
-    continueOnError: true
-    inputs:
-      command: 'pack'
-      packagesToPack: '**/Opc.*.nuspec'
-      versioningScheme: 'byEnvVar'
-      versionEnvVar: 'nugetpreviewversion'
-  - task: NuGetCommand@2
-    displayName: Pack Nuget Legacy Public
-    condition: and(succeeded(), and(eq('${{parameters.config}}', 'Release'), eq(variables['NBGV_PublicRelease'], 'True')))
-    continueOnError: true
-    inputs:
-      command: 'pack'
-      packagesToPack: '**/Opc.*.nuspec'
-      versioningScheme: 'byEnvVar'
-      versionEnvVar: 'nugetpublicversion'
   - task: CmdLine@2
     displayName: 'List of nuget packages to sign'
     inputs:
