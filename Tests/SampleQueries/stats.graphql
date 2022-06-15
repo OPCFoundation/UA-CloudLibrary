@@ -1,0 +1,55 @@
+query MyQuery {
+  notIndexed: nodeSets(where: {validationStatus: {neq: INDEXED}}) {
+    totalCount
+    nodes
+    {
+      modelUri
+      publicationDate
+      validationStatus
+      validationStatusInfo
+    }
+  }
+  dataTypes {
+    totalCount
+  }
+  objectTypes {
+    totalCount
+  }
+  variableTypes {
+    totalCount
+  }
+  dataTypes {
+    totalCount
+  }
+  interfaces {
+    totalCount
+  }
+  objects {
+    totalCount
+  }
+  nodeSets {
+    totalCount
+    nodes {
+      modelUri
+      publicationDate
+      version
+      validationStatus
+      validationStatusInfo
+      objectTypes {
+        totalCount
+      }
+      variableTypes {
+        totalCount
+      }
+      dataTypes {
+        totalCount
+      }
+      interfaces {
+        totalCount
+      }
+      objects {
+        totalCount
+      }
+    }
+  }
+}
