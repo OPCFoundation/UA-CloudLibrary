@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -23,8 +23,7 @@ namespace Opc.Ua.Cloud.Library
 
             migrationBuilder.CreateTable(
                 name: "ReferenceTypes_InverseName",
-                columns: table => new
-                {
+                columns: table => new {
                     ReferenceTypeModelNodeId = table.Column<string>(type: "text", nullable: false),
                     ReferenceTypeModelNodeSetModelUri = table.Column<string>(type: "text", nullable: false),
                     ReferenceTypeModelNodeSetPublicationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
@@ -33,8 +32,7 @@ namespace Opc.Ua.Cloud.Library
                     Text = table.Column<string>(type: "text", nullable: true),
                     Locale = table.Column<string>(type: "text", nullable: true)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_ReferenceTypes_InverseName", x => new { x.ReferenceTypeModelNodeId, x.ReferenceTypeModelNodeSetModelUri, x.ReferenceTypeModelNodeSetPublicationDate, x.Id });
                     table.ForeignKey(
                         name: "FK_ReferenceTypes_InverseName_ReferenceTypes_ReferenceTypeMode~",
