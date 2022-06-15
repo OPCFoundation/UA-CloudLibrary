@@ -5,61 +5,12 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace Opc.Ua.Cloud.Library.Migrations
+namespace Opc.Ua.Cloud.Library
 {
-    public partial class AddNodeSetIndex : Migration
+    public partial class AddNodesetIndex : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AlterColumn<string>(
-                name: "Name",
-                table: "AspNetUserTokens",
-                type: "character varying(128)",
-                maxLength: 128,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "text");
-
-            migrationBuilder.AlterColumn<string>(
-                name: "LoginProvider",
-                table: "AspNetUserTokens",
-                type: "character varying(128)",
-                maxLength: 128,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "text");
-
-            migrationBuilder.AlterColumn<string>(
-                name: "ProviderKey",
-                table: "AspNetUserLogins",
-                type: "character varying(128)",
-                maxLength: 128,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "text");
-
-            migrationBuilder.AlterColumn<string>(
-                name: "LoginProvider",
-                table: "AspNetUserLogins",
-                type: "character varying(128)",
-                maxLength: 128,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "text");
-
-            migrationBuilder.CreateTable(
-                name: "metadata",
-                columns: table => new {
-                    metadata_id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    nodeset_id = table.Column<long>(type: "bigint", nullable: false),
-                    metadata_name = table.Column<string>(type: "text", nullable: true),
-                    metadata_value = table.Column<string>(type: "text", nullable: true)
-                },
-                constraints: table => {
-                    table.PrimaryKey("PK_metadata", x => x.metadata_id);
-                });
-
             migrationBuilder.CreateTable(
                 name: "NodeSets",
                 columns: table => new {
@@ -918,9 +869,6 @@ namespace Opc.Ua.Cloud.Library.Migrations
                 name: "Interfaces");
 
             migrationBuilder.DropTable(
-                name: "metadata");
-
-            migrationBuilder.DropTable(
                 name: "Methods");
 
             migrationBuilder.DropTable(
@@ -976,42 +924,6 @@ namespace Opc.Ua.Cloud.Library.Migrations
 
             migrationBuilder.DropTable(
                 name: "NodeSets");
-
-            migrationBuilder.AlterColumn<string>(
-                name: "Name",
-                table: "AspNetUserTokens",
-                type: "text",
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(128)",
-                oldMaxLength: 128);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "LoginProvider",
-                table: "AspNetUserTokens",
-                type: "text",
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(128)",
-                oldMaxLength: 128);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "ProviderKey",
-                table: "AspNetUserLogins",
-                type: "text",
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(128)",
-                oldMaxLength: 128);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "LoginProvider",
-                table: "AspNetUserLogins",
-                type: "text",
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(128)",
-                oldMaxLength: 128);
         }
     }
 }

@@ -4,14 +4,17 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using Opc.Ua.Cloud.Library;
 
 #nullable disable
 
-namespace Opc.Ua.Cloud.Library.Migrations
+namespace Opc.Ua.Cloud.Library
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20220524194301_AddNodeSetIndex")]
-    partial class AddNodeSetIndex
+    [Migration("20220525221701_AddNodesetIndex")]
+    partial class AddNodesetIndex
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
