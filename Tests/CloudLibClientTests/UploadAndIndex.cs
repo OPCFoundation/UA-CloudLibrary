@@ -62,13 +62,17 @@ namespace CloudLibClient.Tests
                 bIndexing = counts.All < expectedNodeSetCount || counts.NotIndexed != 0;
                 if (bIndexing)
                 {
+                    if (counts.Errors > 0)
+                    {
+                        throw new Exception($"Failed to index at least one nodeset");
+                    }
                     await Task.Delay(5000).ConfigureAwait(false);
                 }
             }
             while (bIndexing);
         }
 
-        async Task<(int All, int NotIndexed)> GetNodeSetCountsAsync(HttpClient client)
+        async Task<(int All, int NotIndexed, int Errors)> GetNodeSetCountsAsync(HttpClient client)
         {
             var queryBodyJson = JsonConvert.SerializeObject(new JObject { { "query", @"
                         {
@@ -76,6 +80,9 @@ namespace CloudLibClient.Tests
                             totalCount
                           }
                           all: nodeSets {
+                            totalCount
+                          }
+                          error: nodeSets(where: {validationStatus: {eq: ERROR}}) {
                             totalCount
                           }
                         }"
@@ -90,7 +97,8 @@ namespace CloudLibClient.Tests
             var parsedJson = JsonConvert.DeserializeObject<JObject>(responseString);
             var notIndexed = parsedJson["data"]["notIndexed"]["totalCount"].Value<int>();
             var allCount = parsedJson["data"]["all"]["totalCount"].Value<int>();
-            return (allCount, notIndexed);
+            var errorCount = parsedJson["data"]["error"]["totalCount"].Value<int>();
+            return (allCount, notIndexed, errorCount);
         }
     }
 }
