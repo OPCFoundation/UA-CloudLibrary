@@ -82,7 +82,7 @@ namespace CloudLibClient.Tests
                           all: nodeSets {
                             totalCount
                           }
-                          error: nodeSets(where: {validationStatus: {eq: ERROR}}) {
+                          error: nodeSets(where: { and: {validationStatus: {eq: ERROR}, validationStatusInfo: {ncontains: ""not indexed yet""}}}) {
                             totalCount
                           }
                         }"
