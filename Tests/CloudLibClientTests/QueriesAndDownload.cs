@@ -80,19 +80,18 @@ namespace CloudLibClient.Tests
         {
             var client = _factory.CreateCloudLibClient();
 
-            List<UANodesetResult> restResult = await client.GetBasicNodesetInformationAsync().ConfigureAwait(false);
-            Assert.True(restResult?.Count > 0, "Failed to download node set");
+            var restResult = await client.GetNamespaceIdsAsync().ConfigureAwait(false);
+            Assert.True(restResult?.Length > 0, "Failed to download node set");
 
-            var nodeSetInfo = restResult[0];
-            UANameSpace result = await client.DownloadNodesetAsync(nodeSetInfo.Id.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+            var firstNodeSet = restResult[0];
+            UANameSpace result = await client.DownloadNodesetAsync(firstNodeSet.Identifier).ConfigureAwait(false);
 
-            Assert.False(string.IsNullOrEmpty(result.Nodeset.NodesetXml), "No nodeset XML returned");
+            Assert.False(string.IsNullOrEmpty(result?.Nodeset?.NodesetXml), "No nodeset XML returned");
 
             using (var ms = new MemoryStream(Encoding.UTF8.GetBytes(result.Nodeset.NodesetXml)))
             {
                 var uaNodeSet = UANodeSet.Read(ms);
-                Assert.Equal(uaNodeSet.Models[0].ModelUri, nodeSetInfo.NameSpaceUri);
-                Assert.Equal(uaNodeSet.Models[0].PublicationDate, nodeSetInfo.PublicationDate);
+                Assert.Equal(uaNodeSet.Models[0].ModelUri, firstNodeSet.NamespaceUri);
             }
         }
     }
