@@ -475,7 +475,7 @@ namespace Opc.Ua.Cloud.Library
 
             try
             {
-                var namesAndIds = _dbContext.nodeSets.Select(nsm => new { nsm.ModelUri, nsm.Identifier }).ToList().Select(n => $"{n.ModelUri}, {n.Identifier}").ToArray();
+                var namesAndIds = _dbContext.nodeSets.Select(nsm => new { nsm.ModelUri, nsm.Identifier }).Select(n => $"{n.ModelUri},{n.Identifier}").ToArray();
                 return namesAndIds;
             }
             catch (Exception ex)
