@@ -50,8 +50,9 @@ namespace Opc.Ua.Cloud.Library.Models
 
         [JsonProperty(PropertyName = "validationStatus")]
         public string ValidationStatus { get; set; }
-        [JsonProperty(PropertyName = "nodesetCreationTime")]
-        public System.DateTime? CreationTime { get; set; }
+
+        [JsonProperty(PropertyName = "publicationDate")]
+        public System.DateTime? PublicationDate { get; set; }
 
         [JsonProperty(PropertyName = "nodesetNamespaceUri")]
         public string NameSpaceUri { get; set; }

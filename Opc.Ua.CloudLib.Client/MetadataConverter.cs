@@ -107,7 +107,7 @@ namespace Opc.Ua.Cloud.Library.Client
                     break;
                 }
             }
-            nameSpace.Nodeset.PublicationDate = (info.CreationTime != null) ? info.CreationTime.Value : DateTime.MinValue;
+            nameSpace.Nodeset.PublicationDate = (info.PublicationDate != null) ? info.PublicationDate.Value : DateTime.MinValue;
             nameSpace.Nodeset.NamespaceUri = string.IsNullOrEmpty(info.NameSpaceUri) ? null : new Uri(info.NameSpaceUri);
             nameSpace.Nodeset.Identifier = info.Id;
 

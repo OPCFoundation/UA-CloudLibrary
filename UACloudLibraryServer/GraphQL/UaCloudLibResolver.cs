@@ -88,6 +88,18 @@ namespace Opc.Ua.Cloud.Library
 
                     for (int i = 0; i < fields.Count; i++)
                     {
+                        // map search fields to internal names
+                        if (fields[i] == "publicationDate")
+                        {
+                            fields[i] = "nodesetcreationtime";
+                        }
+
+                        if (fields[i] == "lastModified")
+                        {
+                            fields[i] = "nodesetmodifiedtime";
+                        }
+
+                        // do the search
                         if (comparions[i] == "equals")
                         {
                             List<MetadataModel> results = _context.Metadata.Where(p => (p.Name == fields[i]) && (p.Value == values[i])).ToList();
