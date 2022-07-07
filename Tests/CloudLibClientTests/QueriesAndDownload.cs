@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -33,7 +33,8 @@ namespace CloudLibClient.Tests
             List<UANodesetResult> restResult = await client.GetBasicNodesetInformationAsync().ConfigureAwait(false);
             Assert.True(restResult?.Count > 0, "Failed to get node set information.");
 
-            var nodeSetInfo = restResult.Where(n => n.NameSpaceUri == "http://opcfoundation.org/UA/Robotics/").FirstOrDefault();
+            var nodeSetInfo = restResult.FirstOrDefault(n => n.NameSpaceUri == "http://opcfoundation.org/UA/Robotics/");
+            Assert.True(nodeSetInfo != null, "Nodeset not found");
             var identifier = nodeSetInfo.Id.ToString(CultureInfo.InvariantCulture);
             var nodeSets = await client.GetNodeSetDependencies(identifier: identifier).ConfigureAwait(false);
             Assert.True(nodeSets?.Count > 0);
@@ -48,9 +49,9 @@ namespace CloudLibClient.Tests
             }
             
             var namespaceUri = nodeSetInfo.NameSpaceUri;
-            var publicationDate = nodeSetInfo.CreationTime.HasValue && nodeSetInfo.CreationTime.Value.Kind == DateTimeKind.Unspecified ?
-                DateTime.SpecifyKind(nodeSetInfo.CreationTime.Value, DateTimeKind.Utc)
-                : nodeSetInfo.CreationTime;
+            var publicationDate = nodeSetInfo.PublicationDate.HasValue && nodeSetInfo.PublicationDate.Value.Kind == DateTimeKind.Unspecified ?
+                DateTime.SpecifyKind(nodeSetInfo.PublicationDate.Value, DateTimeKind.Utc)
+                : nodeSetInfo.PublicationDate;
             var nodeSetsByNamespace = await client.GetNodeSetDependencies(namespaceUri: namespaceUri, publicationDate: publicationDate).ConfigureAwait(false);
             var dependenciesByNamespace = nodeSetsByNamespace
                 .SelectMany(n => n.RequiredModels).Where(r => r != null)
@@ -80,19 +81,18 @@ namespace CloudLibClient.Tests
         {
             var client = _factory.CreateCloudLibClient();
 
-            List<UANodesetResult> restResult = await client.GetBasicNodesetInformationAsync().ConfigureAwait(false);
-            Assert.True(restResult?.Count > 0, "Failed to download node set");
+            var restResult = await client.GetNamespaceIdsAsync().ConfigureAwait(false);
+            Assert.True(restResult?.Length > 0, "Failed to download node set");
 
-            var nodeSetInfo = restResult[0];
-            UANameSpace result = await client.DownloadNodesetAsync(nodeSetInfo.Id.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+            var firstNodeSet = restResult[0];
+            UANameSpace result = await client.DownloadNodesetAsync(firstNodeSet.Identifier).ConfigureAwait(false);
 
-            Assert.False(string.IsNullOrEmpty(result.Nodeset.NodesetXml), "No nodeset XML returned");
+            Assert.False(string.IsNullOrEmpty(result?.Nodeset?.NodesetXml), "No nodeset XML returned");
 
             using (var ms = new MemoryStream(Encoding.UTF8.GetBytes(result.Nodeset.NodesetXml)))
             {
                 var uaNodeSet = UANodeSet.Read(ms);
-                Assert.Equal(uaNodeSet.Models[0].ModelUri, nodeSetInfo.NameSpaceUri);
-                Assert.Equal(uaNodeSet.Models[0].PublicationDate, nodeSetInfo.CreationTime);
+                Assert.Equal(uaNodeSet.Models[0].ModelUri, firstNodeSet.NamespaceUri);
             }
         }
     }
