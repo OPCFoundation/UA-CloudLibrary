@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -101,8 +101,7 @@ namespace Opc.Ua.Cloud.Library
 
             migrationBuilder.CreateTable(
                 name: "Nodes_OtherReferencedNodes",
-                columns: table => new
-                {
+                columns: table => new {
                     OwnerNodeId = table.Column<string>(type: "text", nullable: false),
                     OwnerModelUri = table.Column<string>(type: "text", nullable: false),
                     OwnerPublicationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
@@ -113,8 +112,7 @@ namespace Opc.Ua.Cloud.Library
                     ReferencedPublicationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     Reference = table.Column<string>(type: "text", nullable: true)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_Nodes_OtherReferencedNodes", x => new { x.OwnerNodeId, x.OwnerModelUri, x.OwnerPublicationDate, x.Id });
                     table.ForeignKey(
                         name: "FK_Nodes_OtherReferencedNodes_Nodes_OwnerNodeId_OwnerModelUri_~",
@@ -231,8 +229,7 @@ namespace Opc.Ua.Cloud.Library
 
             migrationBuilder.CreateTable(
                 name: "ChildAndReference",
-                columns: table => new
-                {
+                columns: table => new {
                     NodeModelNodeId = table.Column<string>(type: "text", nullable: false),
                     NodeModelNodeSetModelUri = table.Column<string>(type: "text", nullable: false),
                     NodeModelNodeSetPublicationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
@@ -243,8 +240,7 @@ namespace Opc.Ua.Cloud.Library
                     ChildNodeSetPublicationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     Reference = table.Column<string>(type: "text", nullable: true)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_ChildAndReference", x => new { x.NodeModelNodeId, x.NodeModelNodeSetModelUri, x.NodeModelNodeSetPublicationDate, x.Id });
                     table.ForeignKey(
                         name: "FK_ChildAndReference_Nodes_ChildNodeId_ChildNodeSetModelUri_Ch~",
