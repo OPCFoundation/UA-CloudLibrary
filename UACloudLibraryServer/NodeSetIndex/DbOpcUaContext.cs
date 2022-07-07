@@ -80,6 +80,8 @@ namespace Opc.Ua.Cloud.Library
                 if (model != null) return model;
                 model = nodeSetQuery.AsQueryable().SelectMany(m => m.ReferenceTypes).Where(dt => dt.NodeId == nodeId).FirstOrDefault();
                 if (model != null) return model;
+                model = _dbContext.Set<MethodModel>().AsQueryable().Where(m => m.NodeId == nodeId).FirstOrDefault();
+                if (model != null) { return model; }
             }
             return null;
         }
@@ -94,9 +96,9 @@ namespace Opc.Ua.Cloud.Library
             return _opcContext.GetHierarchyReferences(nodeState);
         }
 
-        public NodeState GetNode(NodeId referenceTypeId)
+        public NodeState GetNode(NodeId nodeId)
         {
-            return _opcContext.GetNode(referenceTypeId);
+            return _opcContext.GetNode(nodeId);
         }
 
         public NodeState GetNode(ExpandedNodeId expandedNodeId)
@@ -109,11 +111,11 @@ namespace Opc.Ua.Cloud.Library
             return _opcContext.GetNodeIdWithUri(nodeId, out namespaceUri);
         }
 
-        public NodeSetModel GetOrAddNodesetModel(NodeModel nodeModel)
+        public NodeSetModel GetOrAddNodesetModel(string uaNamespace)
         {
-            if (!_nodesetModels.TryGetValue(nodeModel.Namespace, out var nodesetModel))
+            if (!_nodesetModels.TryGetValue(uaNamespace, out var nodesetModel))
             {
-                var existingNodeSet = GetMatchingOrHigherNodeSetAsync(nodeModel.Namespace, nodeModel.NodeSet?.PublicationDate).Result;
+                var existingNodeSet = GetMatchingOrHigherNodeSetAsync(uaNamespace, null).Result;
                 if (existingNodeSet != null)
                 {
                     _nodesetModels.Add(existingNodeSet.ModelUri, existingNodeSet);
@@ -122,9 +124,8 @@ namespace Opc.Ua.Cloud.Library
             }
             if (nodesetModel == null)
             {
-                throw new System.Exception($"Undeclared nodeset model {nodeModel.Namespace} was referenced");
+                throw new System.Exception($"Undeclared nodeset model {uaNamespace} was referenced");
             }
-            nodeModel.NodeSet = nodesetModel;
             return nodesetModel;
         }
 

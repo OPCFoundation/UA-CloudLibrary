@@ -211,14 +211,17 @@ namespace Opc.Ua.Cloud.Library
                 {
                     try
                     {
-                        var referencesToNode = await _dbContext.nodeModels.Where(nm => nm.OtherChilden.Any(c => c.Child == node)).ToListAsync().ConfigureAwait(false);
+                        var referencesToNode = await _dbContext.nodeModels.Where(nm => nm.OtherReferencedNodes.Any(rn => rn.Node == node)).ToListAsync().ConfigureAwait(false);
                         foreach (var referencingNode in referencesToNode)
                         {
-                            referencingNode.OtherChilden.RemoveAll(reference => reference.Child == node);
+                            referencingNode.OtherReferencedNodes.RemoveAll(reference => reference.Node == node);
                             _dbContext.Update(referencingNode);
                         }
                     }
-                    catch { }// ignore
+                    catch
+                    {
+                        // ignore: any critical omissions will be caught by SaveChangedAsync
+                    }
                     _dbContext.nodeModels.Remove(node);
                 }
                 _dbContext.nodeSets.Remove(existingNodeSet);

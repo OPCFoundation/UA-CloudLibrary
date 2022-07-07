@@ -1,5 +1,6 @@
 -- Deletes the nodeset index. Index will be re-created on next upload (even a failed upload)
 DELETE FROM "ReferenceTypes";
+DELETE FROM "ReferenceTypes_InverseName";
 DELETE FROM "RequiredModelInfo";
 DELETE FROM "ChildAndReference";
 DELETE FROM "Methods";
