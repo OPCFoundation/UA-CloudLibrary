@@ -107,6 +107,7 @@ namespace Opc.Ua.Cloud.Library.Models
         public string[] SupportedLocales { get; set; }
 
         public uint NumberOfDownloads { get; set; }
+        public string ValidationStatus { get; set; }
 
         public UAProperty[] AdditionalProperties { get; set; }
     }

@@ -119,6 +119,10 @@ namespace Opc.Ua.Cloud.Library.Client
         /// </summary>
         public static List<UANameSpace> ConvertWithPaging(List<UANodesetResult> infos, int limit = 10, int offset = 0)
         {
+            if (infos == null)
+            {
+                return null;
+            }
             List<UANameSpace> result = new List<UANameSpace>();
 
             if (limit == 0)
@@ -189,6 +193,11 @@ namespace Opc.Ua.Cloud.Library.Client
                 case "numdownloads":
                 {
                     nameSpace.NumberOfDownloads = System.Convert.ToUInt32(metadata.Value, CultureInfo.InvariantCulture);
+                    break;
+                }
+                case "validationstatus":
+                {
+                    nameSpace.ValidationStatus = metadata.Value;
                     break;
                 }
                 case "addressspacename":

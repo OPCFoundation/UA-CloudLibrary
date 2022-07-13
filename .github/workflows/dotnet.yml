@@ -34,6 +34,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+
+    - name: Start PostgreSQL on Ubuntu
+      run: |
+        sudo systemctl start postgresql.service
+        pg_isready
+    - name: Create additional user
+      run: |
+        sudo -u postgres psql --command="CREATE USER testuser SUPERUSER PASSWORD 'password'" --command="\du"
+    - name: List existing databases
+      run: |
+        sudo -u postgres psql -l --command="\du"
+    
     - name: 🤘 checkout
       uses: actions/checkout@v2
       with:
@@ -51,10 +63,13 @@ jobs:
     - name: Restore dependencies SampleConsoleClient
       run: dotnet restore
       working-directory: SampleConsoleClient
+    - name: Restore dependencies CloudLibClientTests
+      run: dotnet restore
+      working-directory: Tests/CloudLibClientTests
     - name: Build
       run: dotnet build UA-CloudLibrary.sln --configuration Release --no-restore
     - name: Test
-      run: dotnet test UA-CloudLibrary.sln --no-build --verbosity normal
+      run: dotnet test UA-CloudLibrary.sln --no-build --configuration Release --verbosity normal  -l:"console;verbosity=normal"
     - name: pack NuGet
       run: dotnet pack Opc.Ua.CloudLib.Client/Opc.Ua.Cloud.Library.Client.csproj --configuration Release
     - name: add github nuget-feed#

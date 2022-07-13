@@ -33,6 +33,7 @@ namespace Opc.Ua.Cloud.Library.Client
     using System.Collections.Generic;
     using System.Linq;
     using System.Net;
+    using System.Net.Http;
     using System.Net.Http.Headers;
     using System.Text;
     using System.Threading.Tasks;
@@ -54,7 +55,6 @@ namespace Opc.Ua.Cloud.Library.Client
         private static Uri _standardEndpoint = new Uri("https://uacloudlibrary.opcfoundation.org");
 
         private GraphQLHttpClient _client = null;
-        private GraphQLRequest _request = new GraphQLRequest();
         private RestClient _restClient;
         private string _username = "";
         private string _password = "";
@@ -128,7 +128,7 @@ namespace Opc.Ua.Cloud.Library.Client
                 strEndpoint = _standardEndpoint.ToString();
             }
             BaseEndpoint = new Uri(strEndpoint);
-            _client = new GraphQLHttpClient(new Uri(strEndpoint + "/graphql"), new NewtonsoftJsonSerializer());
+            _client = new GraphQLHttpClient(new Uri(new Uri(strEndpoint), "/graphql"), new NewtonsoftJsonSerializer());
             string temp = Convert.ToBase64String(Encoding.UTF8.GetBytes(strUsername + ":" + strPassword));
             _client.HttpClient.DefaultRequestHeaders.Add("Authorization", "basic " + temp);
             _username = strUsername;
@@ -140,6 +140,16 @@ namespace Opc.Ua.Cloud.Library.Client
         public UACloudLibClient(Options options)
             : this(options.Url, options.Username, options.Password)
         {
+        }
+
+        /// <summary>
+        /// Initializes a new instance using an existing HttpClient
+        /// </summary>
+        /// <param name="httpClient"></param>
+        public UACloudLibClient(HttpClient httpClient)
+        {
+            _client = new GraphQLHttpClient(new GraphQLHttpClientOptions { EndPoint = new Uri(httpClient.BaseAddress, "graphql"), }, new NewtonsoftJsonSerializer(), httpClient);
+            _restClient = new RestClient(httpClient);
         }
 
         /// <summary>Sends the GraphQL query and converts it to JSON</summary>
@@ -176,9 +186,10 @@ namespace Opc.Ua.Cloud.Library.Client
                 .AddField(f => f.Browsename)
                 .AddField(f => f.Value);
 
-            _request.Query = "query{" + objectQuery.Build() + "}";
+            var request = new GraphQLRequest();
+            request.Query = "query{" + objectQuery.Build() + "}";
 
-            return await SendAndConvertAsync<List<ObjectResult>>(_request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<ObjectResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -192,9 +203,10 @@ namespace Opc.Ua.Cloud.Library.Client
                 .AddField(f => f.Name)
                 .AddField(f => f.Value);
 
-            _request.Query = "query{" + metadataQuery.Build() + "}";
+            var request = new GraphQLRequest();
+            request.Query = "query{" + metadataQuery.Build() + "}";
 
-            return await SendAndConvertAsync<List<MetadataResult>>(_request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<MetadataResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -210,9 +222,10 @@ namespace Opc.Ua.Cloud.Library.Client
             .AddField(f => f.Browsename)
             .AddField(f => f.Value);
 
-            _request.Query = "query{" + variableQuery.Build() + "}";
+            var request = new GraphQLRequest();
+            request.Query = "query{" + variableQuery.Build() + "}";
 
-            return await SendAndConvertAsync<List<VariableResult>>(_request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<VariableResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -228,9 +241,10 @@ namespace Opc.Ua.Cloud.Library.Client
                 .AddField(f => f.Browsename)
                 .AddField(f => f.Value);
 
-            _request.Query = "query{" + referenceQuery.Build() + "}";
+            var request = new GraphQLRequest();
+            request.Query = "query{" + referenceQuery.Build() + "}";
 
-            return await SendAndConvertAsync<List<ReferenceResult>>(_request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<ReferenceResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -245,9 +259,10 @@ namespace Opc.Ua.Cloud.Library.Client
                .AddField(f => f.Browsename)
                .AddField(f => f.Value);
 
-            _request.Query = "query{" + dataQuery.Build() + "}";
+            var request = new GraphQLRequest();
+            request.Query = "query{" + dataQuery.Build() + "}";
 
-            return await SendAndConvertAsync<List<DataResult>>(_request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<DataResult>>(request).ConfigureAwait(false);
         }
 
         /// <summary>Gets the converted metadata.</summary>
@@ -262,8 +277,9 @@ namespace Opc.Ua.Cloud.Library.Client
                 .AddField(f => f.Name)
                 .AddField(f => f.Value);
 
-            _request.Query = "query{" + metadataQuery.Build() + "}";
-            List<MetadataResult> result = await SendAndConvertAsync<List<MetadataResult>>(_request).ConfigureAwait(false);
+            var request = new GraphQLRequest();
+            request.Query = "query{" + metadataQuery.Build() + "}";
+            List<MetadataResult> result = await SendAndConvertAsync<List<MetadataResult>>(request).ConfigureAwait(false);
             try
             {
                 convertedResult = MetadataConverter.Convert(result);
@@ -297,9 +313,10 @@ namespace Opc.Ua.Cloud.Library.Client
                 organisationQuery.AddArgument("where", WhereExpression.Build(filter));
             }
 
-            _request.Query = "query{" + organisationQuery.Build() + "}";
+            var request = new GraphQLRequest();
+            request.Query = "query{" + organisationQuery.Build() + "}";
 
-            return await SendAndConvertAsync<List<Organisation>>(_request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<Organisation>>(request).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -346,12 +363,13 @@ namespace Opc.Ua.Cloud.Library.Client
                 nameSpaceQuery.AddArgument("where", WhereExpression.Build(filter));
             }
 
-            _request.Query = "query{" + nameSpaceQuery.Build() + "}";
+            var request = new GraphQLRequest();
+            request.Query = "query{" + nameSpaceQuery.Build() + "}";
 
             List<UANameSpace> result = new List<UANameSpace>();
             try
             {
-                result = await SendAndConvertAsync<List<UANameSpace>>(_request).ConfigureAwait(false);
+                result = await SendAndConvertAsync<List<UANameSpace>>(request).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -361,6 +379,78 @@ namespace Opc.Ua.Cloud.Library.Client
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Queries one or more node sets and their dependencies
+        /// </summary>
+        public async Task<List<Nodeset>> GetNodeSetDependencies(string identifier = null, string namespaceUri = null, DateTime? publicationDate = null)
+        {
+            var request = new GraphQLRequest();
+            request.Query = @"
+query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: DateTime) {
+  nodeSets(identifier: $identifier, nodeSetUrl: $namespaceUri, publicationDate: $publicationDate) {
+    nodes {
+      modelUri
+      publicationDate
+      version
+      identifier
+      validationStatus
+      requiredModels {
+        modelUri
+        publicationDate
+        version
+        availableModel {
+          modelUri
+          publicationDate
+          version
+          identifier
+          requiredModels {
+            modelUri
+            publicationDate
+            version
+            availableModel {
+              modelUri
+              publicationDate
+              version
+              identifier
+              requiredModels {
+                modelUri
+                publicationDate
+                version
+                availableModel {
+                  modelUri
+                  publicationDate
+                  version
+                  identifier
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+";
+            request.Variables = new {
+                identifier = identifier,
+                namespaceUri = namespaceUri,
+                publicationDate = publicationDate,
+            };
+            GraphQLNodeResponse<GraphQLRequiredNodeSet> result = null;
+            result = await SendAndConvertAsync<GraphQLNodeResponse<GraphQLRequiredNodeSet>>(request).ConfigureAwait(false);
+            var nodeSets = result?.nodes.Select(n => n.ToNodeSet()).ToList();
+            return nodeSets;
+        }
+
+        /// <summary>
+        /// Helper class to parse GraphQL connections
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        class GraphQLNodeResponse<T>
+        {
+            public List<T> nodes { get; set; }
         }
 
         /// <summary>
@@ -380,9 +470,10 @@ namespace Opc.Ua.Cloud.Library.Client
                 categoryQuery.AddArgument("where", WhereExpression.Build(filter));
             }
 
-            _request.Query = "query{" + categoryQuery.Build() + "}";
+            var request = new GraphQLRequest();
+            request.Query = "query{" + categoryQuery.Build() + "}";
 
-            return await SendAndConvertAsync<List<Category>>(_request).ConfigureAwait(false);
+            return await SendAndConvertAsync<List<Category>>(request).ConfigureAwait(false);
         }
 
         /// <summary>

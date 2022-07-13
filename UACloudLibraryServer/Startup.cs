@@ -33,12 +33,10 @@ namespace Opc.Ua.Cloud.Library
     using System.IO;
     using Amazon.S3;
     using GraphQL;
-    using GraphQL.DataLoader;
-    using GraphQL.Execution;
-    using GraphQL.Server;
     using GraphQL.Server.Ui.Playground;
-    using GraphQL.SystemReactive;
+    using HotChocolate.AspNetCore;
     using Microsoft.AspNetCore.Authentication;
+    using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.DataProtection;
     using Microsoft.AspNetCore.Hosting;
@@ -73,9 +71,7 @@ namespace Opc.Ua.Cloud.Library
             services.AddRazorPages();
 
             // Setup database context for ASP.NetCore Identity Scaffolding
-            services.AddDbContext<AppDbContext>(o => {
-                o.UseNpgsql(PostgreSQLDB.CreateConnectionString(Configuration));
-            });
+            services.AddDbContext<AppDbContext>(ServiceLifetime.Transient);
 
             services.AddDefaultIdentity<IdentityUser>(options =>
                     //require confirmation mail if sendgrid API Key is set
@@ -84,7 +80,7 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddScoped<IUserService, UserService>();
 
-            services.AddSingleton<IDatabase, PostgreSQLDB>();
+            services.AddScoped<IDatabase, PostgreSQLDB>();
 
             services.AddTransient<IEmailSender, EmailSender>();
 
@@ -169,26 +165,25 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddHttpContextAccessor();
 
-            // setup GrapQL interface
-            GraphQL.MicrosoftDI.GraphQLBuilderExtensions.AddGraphQL(services)
-                .AddSubscriptionDocumentExecuter()
-                .AddServer(true)
-                .AddSchema<UaCloudLibSchema>(GraphQL.DI.ServiceLifetime.Scoped)
-                .ConfigureExecution(options => {
-                    options.EnableMetrics = Environment.IsDevelopment();
-                    var logger = options.RequestServices.GetRequiredService<ILogger<Startup>>();
-                    options.UnhandledExceptionDelegate = context => logger.LogError("{Error} occurred", context.OriginalException.Message);
+            #region setup GraphQL server
+            services.AddGraphQLServer()
+                .AddAuthorization()
+                .SetPagingOptions(new HotChocolate.Types.Pagination.PagingOptions {
+                    IncludeTotalCount = true,
+                    DefaultPageSize = 100,
+                    MaxPageSize = 100,
                 })
-                .AddNewtonsoftJson()
-                .AddErrorInfoProvider()
-                .Configure<ErrorInfoProviderOptions>(options => options.ExposeExceptionStackTrace = Environment.IsDevelopment())
-                .AddDataLoader()
-                .AddGraphTypes(typeof(UaCloudLibSchema).Assembly)
-                .AddUserContextBuilder(httpContext =>
-                    new GraphQLUserContext {
-                        User = httpContext.User
-                    }
-            );
+                .AddFiltering()
+                .AddSorting()
+                .AddQueryType<QueryModel>()
+                .AddType<CloudLibNodeSetModelType>()
+                .BindRuntimeType<UInt32, HotChocolate.Types.UnsignedIntType>()
+                .BindRuntimeType<UInt16, HotChocolate.Types.UnsignedShortType>()
+                ;
+            services.AddScoped<NodeSetModelIndexer>();
+            services.AddScoped<NodeSetModelIndexerFactory>();
+            services.AddTransient<UaCloudLibResolver>();
+            #endregion
 
             services.Configure<IISServerOptions>(options => {
                 options.AllowSynchronousIO = true;
@@ -225,13 +220,10 @@ namespace Opc.Ua.Cloud.Library
 
             app.UseAuthorization();
 
-            app.UseGraphQL<UaCloudLibSchema, GraphQLUACloudLibMiddleware<UaCloudLibSchema>>();
-
             app.UseGraphQLPlayground(new PlaygroundOptions() {
                 RequestCredentials = RequestCredentials.Include
             },
             "/graphqlui");
-
             app.UseGraphQLGraphiQL("/graphiql");
 
             app.UseEndpoints(endpoints => {
@@ -240,6 +232,13 @@ namespace Opc.Ua.Cloud.Library
                     pattern: "{controller=Home}/{action=Index}/{id?}");
 
                 endpoints.MapRazorPages();
+                endpoints.MapGraphQL()
+                    .RequireAuthorization(new AuthorizeAttribute { AuthenticationSchemes = "BasicAuthentication" })
+                    .WithOptions(new GraphQLServerOptions {
+                        EnableGetRequests = true,
+                        Tool = { Enable = false, },
+                    })
+                    ;
             });
         }
     }

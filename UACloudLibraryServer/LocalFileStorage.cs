@@ -42,6 +42,7 @@ namespace Opc.Ua.Cloud.Library
     public class LocalFileStorage : IFileStorage
     {
         private readonly ILogger _logger;
+        private readonly string _rootDir;
 
         /// <summary>
         /// Default constructor
@@ -49,6 +50,7 @@ namespace Opc.Ua.Cloud.Library
         public LocalFileStorage(ILoggerFactory logger)
         {
             _logger = logger.CreateLogger("LocalFileStorage");
+            _rootDir = Path.Combine(Path.GetTempPath(), "CloudLib");
         }
 
         /// <summary>
@@ -58,7 +60,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                if (File.Exists(Path.Combine(Path.GetTempPath(), name)))
+                if (File.Exists(Path.Combine(_rootDir, name)))
                 {
                     return Task.FromResult(name);
                 }
@@ -81,7 +83,11 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                await File.WriteAllTextAsync(Path.Combine(Path.GetTempPath(), name), content).ConfigureAwait(false);
+                if (!Directory.Exists(_rootDir))
+                {
+                    Directory.CreateDirectory(_rootDir);
+                }
+                await File.WriteAllTextAsync(Path.Combine(_rootDir, name), content).ConfigureAwait(false);
                 return name;
             }
             catch (Exception ex)
@@ -98,13 +104,28 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                return await File.ReadAllTextAsync(Path.Combine(Path.GetTempPath(), name)).ConfigureAwait(false);
+                return await File.ReadAllTextAsync(Path.Combine(_rootDir, name)).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
                 return null;
             }
+        }
+        public Task DeleteFileAsync(string name, CancellationToken cancellationToken = default)
+        {
+#if DEBUG
+            try
+            {
+                File.Delete(Path.Combine(_rootDir, name));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.Message);
+                throw ex;
+            }
+#endif
+            return Task.CompletedTask;
         }
     }
 }

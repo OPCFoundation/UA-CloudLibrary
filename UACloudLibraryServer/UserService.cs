@@ -32,6 +32,7 @@ namespace Opc.Ua.Cloud.Library
     using System;
     using System.Threading.Tasks;
     using Microsoft.AspNetCore.Identity;
+    using Microsoft.Extensions.Configuration;
     using Microsoft.Extensions.Logging;
     using Opc.Ua.Cloud.Library.Interfaces;
 
@@ -39,11 +40,13 @@ namespace Opc.Ua.Cloud.Library
     {
         private readonly UserManager<IdentityUser> _userManager;
         private readonly ILogger _logger;
+        private readonly IConfiguration _config;
 
-        public UserService(UserManager<IdentityUser> userManager, ILoggerFactory logger)
+        public UserService(UserManager<IdentityUser> userManager, ILoggerFactory logger, IConfiguration config)
         {
             _userManager = userManager;
             _logger = logger.CreateLogger("UserService");
+            _config = config;
         }
 
         public async Task<bool> ValidateCredentialsAsync(string username, string password)
@@ -52,6 +55,10 @@ namespace Opc.Ua.Cloud.Library
             if (username == "admin")
             {
                 string passwordFromEnvironment = Environment.GetEnvironmentVariable("ServicePassword");
+                if (string.IsNullOrEmpty(passwordFromEnvironment))
+                {
+                    passwordFromEnvironment = _config.GetValue<string>("ServicePassword");
+                }
                 if (string.IsNullOrEmpty(passwordFromEnvironment))
                 {
                     _logger.LogError("ServicePassword env variable not set, please set it before trying to log in with admin credentials!");

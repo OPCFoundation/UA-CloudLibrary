@@ -30,6 +30,7 @@
 namespace Opc.Ua.Cloud.Library
 {
     using System.IO;
+    using CESMII.OpcUa.NodeSetModel;
     using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore;
     using Microsoft.Extensions.Configuration;
@@ -49,41 +50,51 @@ namespace Opc.Ua.Cloud.Library
         {
         }
 
+        public AppDbContext(DbContextOptions options, IConfiguration configuration)
+: base(options)
+        {
+            _configuration = configuration;
+        }
+        private readonly IConfiguration _configuration;
+
+
         // Needed for design-time DB migration
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
+            optionsBuilder.UseLazyLoadingProxies();
             if (!optionsBuilder.IsConfigured)
             {
-                IConfigurationRoot configuration = new ConfigurationBuilder()
-                   .SetBasePath(Directory.GetCurrentDirectory())
-                   .AddJsonFile("appsettings.json")
-                   .Build();
-
+                IConfiguration configuration = _configuration;
+                if (configuration == null)
+                {
+                    configuration = new ConfigurationBuilder()
+                       .SetBasePath(Directory.GetCurrentDirectory())
+                       .AddJsonFile("appsettings.json")
+                       .Build();
+                }
                 string connectionString = PostgreSQLDB.CreateConnectionString(configuration);
                 optionsBuilder.UseNpgsql(connectionString);
             }
         }
 
         // map to our tables
-        public DbSet<DatatypeModel> DataType { get; set; }
-
         public DbSet<MetadataModel> Metadata { get; set; }
 
-        public DbSet<ObjecttypeModel> ObjectType { get; set; }
+        public DbSet<CloudLibNodeSetModel> nodeSets { get; set; }
 
-        public DbSet<ReferencetypeModel> ReferenceType { get; set; }
+        public DbSet<NodeModel> nodeModels { get; set; }
 
-        public DbSet<VariabletypeModel> VariableType { get; set; }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        protected override void OnModelCreating(ModelBuilder builder)
         {
-            base.OnModelCreating(modelBuilder);
+            base.OnModelCreating(builder);
 
-            modelBuilder.Entity<DatatypeModel>().HasKey(k => k.Id);
-            modelBuilder.Entity<MetadataModel>().HasKey(k => k.Id);
-            modelBuilder.Entity<ObjecttypeModel>().HasKey(k => k.Id);
-            modelBuilder.Entity<ReferencetypeModel>().HasKey(k => k.Id);
-            modelBuilder.Entity<VariabletypeModel>().HasKey(k => k.Id);
+            NodeSetModelContext.CreateModel(builder);
+            builder.Entity<CloudLibNodeSetModel>()
+                .Property(nsm => nsm.ValidationStatus)
+                    .HasConversion<string>();
+
+            builder.Entity<MetadataModel>().HasKey(k => k.Id);
         }
+
     }
 }

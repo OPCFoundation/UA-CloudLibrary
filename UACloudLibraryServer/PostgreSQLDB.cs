@@ -33,6 +33,9 @@ namespace Opc.Ua.Cloud.Library
     using System.Collections.Generic;
     using System.Data;
     using System.Globalization;
+    using System.Linq;
+    using System.Text.RegularExpressions;
+    using Microsoft.EntityFrameworkCore;
     using Microsoft.Extensions.Configuration;
     using Microsoft.Extensions.Logging;
     using Npgsql;
@@ -42,6 +45,7 @@ namespace Opc.Ua.Cloud.Library
     {
         private NpgsqlConnection _connection = null;
         private readonly ILogger _logger;
+        private readonly AppDbContext _dbContext;
 
         public static string CreateConnectionString(IConfiguration configuration)
         {
@@ -73,17 +77,13 @@ namespace Opc.Ua.Cloud.Library
                 Password);
         }
 
-        public PostgreSQLDB(ILoggerFactory logger, IConfiguration configuration)
+        public PostgreSQLDB(ILoggerFactory logger, IConfiguration configuration, AppDbContext dbContext)
         {
             _logger = logger.CreateLogger("PostgreSQLDB");
-
+            _dbContext = dbContext;
             // Setup the database tables
             string[] dbInitCommands = {
                 "CREATE TABLE IF NOT EXISTS Metadata(Metadata_id serial PRIMARY KEY, Nodeset_id BIGINT, Metadata_Name TEXT, Metadata_Value TEXT)",
-                "CREATE TABLE IF NOT EXISTS ObjectType(ObjectType_id serial PRIMARY KEY, Nodeset_id BIGINT, ObjectType_BrowseName TEXT, ObjectType_Value TEXT, ObjectType_Namespace TEXT)",
-                "CREATE TABLE IF NOT EXISTS VariableType(VariableType_id serial PRIMARY KEY, Nodeset_id BIGINT, VariableType_BrowseName TEXT, VariableType_Value TEXT, VariableType_Namespace TEXT)",
-                "CREATE TABLE IF NOT EXISTS DataType(DataType_id serial PRIMARY KEY, Nodeset_id BIGINT, DataType_BrowseName TEXT, DataType_Value TEXT, DataType_Namespace TEXT)",
-                "CREATE TABLE IF NOT EXISTS ReferenceType(ReferenceType_id serial PRIMARY KEY, Nodeset_id BIGINT, ReferenceType_BrowseName TEXT, ReferenceType_Value TEXT, ReferenceType_Namespace TEXT)"
             };
 
             try
@@ -110,34 +110,6 @@ namespace Opc.Ua.Cloud.Library
                 _connection.Close();
                 _connection = null;
             }
-        }
-
-        public bool AddUATypeToNodeset(uint nodesetId, UATypes uaType, string browseName, string displayName, string nameSpace)
-        {
-            try
-            {
-                if (_connection.State != ConnectionState.Open)
-                {
-                    _connection.Close();
-                    _connection.Open();
-                }
-
-                string sqlInsert = string.Format("INSERT INTO public.{0} (Nodeset_id, {0}_browsename, {0}_value, {0}_namespace) VALUES(@nodesetid, @browsename, @displayname, @namespace)", uaType);
-                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlInsert, _connection);
-                sqlCommand.Parameters.AddWithValue("nodesetid", (long)nodesetId);
-                sqlCommand.Parameters.AddWithValue("browsename", browseName);
-                sqlCommand.Parameters.AddWithValue("displayname", displayName);
-                sqlCommand.Parameters.AddWithValue("namespace", nameSpace);
-                sqlCommand.ExecuteNonQuery();
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex.Message);
-            }
-
-            return false;
         }
 
         public bool AddMetaDataToNodeSet(uint nodesetId, string name, string value)
@@ -197,26 +169,6 @@ namespace Opc.Ua.Cloud.Library
         public bool DeleteAllRecordsForNodeset(uint nodesetId)
         {
             if (!DeleteAllTableRecordsForNodeset(nodesetId, "Metadata"))
-            {
-                return false;
-            }
-
-            if (!DeleteAllTableRecordsForNodeset(nodesetId, "ObjectType"))
-            {
-                return false;
-            }
-
-            if (!DeleteAllTableRecordsForNodeset(nodesetId, "VariableType"))
-            {
-                return false;
-            }
-
-            if (!DeleteAllTableRecordsForNodeset(nodesetId, "DataType"))
-            {
-                return false;
-            }
-
-            if (!DeleteAllTableRecordsForNodeset(nodesetId, "ReferenceType"))
             {
                 return false;
             }
@@ -344,6 +296,8 @@ namespace Opc.Ua.Cloud.Library
                 nameSpace.Contributor.Website = new Uri(uri);
             }
 
+            nameSpace.ValidationStatus = RetrieveMetaData(nodesetId, "validationstatus");
+
             if (uint.TryParse(RetrieveMetaData(nodesetId, "numdownloads"), out uint parsedDownloads))
             {
                 nameSpace.NumberOfDownloads = parsedDownloads;
@@ -405,6 +359,29 @@ namespace Opc.Ua.Cloud.Library
             List<string> matches = new List<string>();
             List<UANodesetResult> nodesetResults = new List<UANodesetResult>();
 
+            if (!(keywords?[0] == "*"))
+            {
+                foreach (var keyword in keywords)
+                {
+                    var matchesForKeyword = _dbContext.nodeModels
+                        .Where(nm => Regex.IsMatch(nm.DisplayName.FirstOrDefault().Text, keyword))
+                        .Select(nm => nm.NodeSet.Identifier)
+                        .Distinct()
+                        .ToList();
+                    foreach (var match in matchesForKeyword)
+                    {
+                        if (!matches.Contains(match))
+                        {
+                            matches.Add(match);
+                        }
+                    };
+                };
+            }
+            else
+            {
+                matches = _dbContext.nodeSets.Select(nsm => nsm.Identifier).Distinct().ToList();
+            }
+
             foreach (string result in FindNodesetsInTable(keywords, "Metadata"))
             {
                 if (!matches.Contains(result))
@@ -413,39 +390,7 @@ namespace Opc.Ua.Cloud.Library
                 }
             }
 
-            foreach (string result in FindNodesetsInTable(keywords, "ObjectType"))
-            {
-                if (!matches.Contains(result))
-                {
-                    matches.Add(result);
-                }
-            }
-
-            foreach (string result in FindNodesetsInTable(keywords, "VariableType"))
-            {
-                if (!matches.Contains(result))
-                {
-                    matches.Add(result);
-                }
-            }
-
-            foreach (string result in FindNodesetsInTable(keywords, "DataType"))
-            {
-                if (!matches.Contains(result))
-                {
-                    matches.Add(result);
-                }
-            }
-
-            foreach (string result in FindNodesetsInTable(keywords, "ReferenceType"))
-            {
-                if (!matches.Contains(result))
-                {
-                    matches.Add(result);
-                }
-            }
-
-            // Get additional metadata (if present and valid) for each match
+            //Get additional metadata (if present and valid) for each match
             foreach (string match in matches)
             {
                 if (uint.TryParse(match, out uint matchId))
@@ -456,7 +401,7 @@ namespace Opc.Ua.Cloud.Library
                     thisResult.Contributor = RetrieveMetaData(matchId, "orgname") ?? string.Empty;
                     thisResult.License = RetrieveMetaData(matchId, "license") ?? string.Empty;
                     thisResult.Version = RetrieveMetaData(matchId, "version") ?? string.Empty;
-
+                    thisResult.ValidationStatus = RetrieveMetaData(matchId, "validationstatus") ?? string.Empty; ;
                     var pubDate = RetrieveMetaData(matchId, "nodesetcreationtime");
                     if (DateTime.TryParse(pubDate, out DateTime useDate))
                     {
@@ -530,27 +475,8 @@ namespace Opc.Ua.Cloud.Library
 
             try
             {
-                string sqlSelect = "SELECT DISTINCT objecttype_namespace, nodeset_id FROM public.objecttype";
-
-                if (_connection.State != ConnectionState.Open)
-                {
-                    _connection.Close();
-                    _connection.Open();
-                }
-
-                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlSelect, _connection);
-                using (NpgsqlDataReader reader = sqlCommand.ExecuteReader())
-                {
-                    if (reader.HasRows)
-                    {
-                        while (reader.Read())
-                        {
-                            results.Add(reader.GetString(0) + "," + reader.GetInt64(1).ToString(CultureInfo.InvariantCulture));
-                        }
-                    }
-                }
-
-                return results.ToArray();
+                var namesAndIds = _dbContext.nodeSets.Select(nsm => new { nsm.ModelUri, nsm.Identifier }).Select(n => $"{n.ModelUri},{n.Identifier}").ToArray();
+                return namesAndIds;
             }
             catch (Exception ex)
             {
@@ -564,19 +490,9 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                if (_connection.State != ConnectionState.Open)
-                {
-                    _connection.Close();
-                    _connection.Open();
-                }
-
-                string sqlSelect = string.Format("SELECT objecttype_namespace FROM public.objecttype WHERE (Nodeset_id='{0}')", (long)nodesetId);
-                NpgsqlCommand sqlCommand = new NpgsqlCommand(sqlSelect, _connection);
-                object result = sqlCommand.ExecuteScalar();
-                if (result != null)
-                {
-                    return result.ToString();
-                }
+                var identifier = nodesetId.ToString(CultureInfo.InvariantCulture);
+                var modelUri = _dbContext.nodeSets.Where(nsm => nsm.Identifier == identifier).Select(nsm => nsm.ModelUri).FirstOrDefault();
+                return modelUri;
             }
             catch (Exception ex)
             {
