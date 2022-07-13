@@ -187,7 +187,7 @@ namespace Opc.Ua.Cloud.Library
             }
         }
         /// <summary>
-        /// Find a file based on a unique name
+        /// Delete a file based on a unique name
         /// </summary>
         public async Task DeleteFileAsync(string name, CancellationToken cancellationToken = default)
         {
