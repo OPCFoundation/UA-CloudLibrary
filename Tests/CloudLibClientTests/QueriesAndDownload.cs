@@ -33,7 +33,8 @@ namespace CloudLibClient.Tests
             List<UANodesetResult> restResult = await client.GetBasicNodesetInformationAsync().ConfigureAwait(false);
             Assert.True(restResult?.Count > 0, "Failed to get node set information.");
 
-            var nodeSetInfo = restResult.Where(n => n.NameSpaceUri == "http://opcfoundation.org/UA/Robotics/").FirstOrDefault();
+            var nodeSetInfo = restResult.FirstOrDefault(n => n.NameSpaceUri == "http://opcfoundation.org/UA/Robotics/");
+            Assert.True(nodeSetInfo != null, "Nodeset not found");
             var identifier = nodeSetInfo.Id.ToString(CultureInfo.InvariantCulture);
             var nodeSets = await client.GetNodeSetDependencies(identifier: identifier).ConfigureAwait(false);
             Assert.True(nodeSets?.Count > 0);
