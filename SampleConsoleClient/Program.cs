@@ -322,7 +322,7 @@ namespace SampleConsoleClient
                     foreach (var nodeSet in nodeSets)
                     {
                         Console.WriteLine($"Dependencies for {nodeSet.Identifier} {nodeSet.NamespaceUri} {nodeSet.PublicationDate} ({nodeSet.Version}):");
-                        foreach (var requiredNodeSet in nodeSets[0].RequiredModels)
+                        foreach (var requiredNodeSet in nodeSet.RequiredModels)
                         {
                             Console.WriteLine($"Required: {requiredNodeSet.NamespaceUri} {requiredNodeSet.PublicationDate} ({requiredNodeSet.Version}). Available in Cloud Library: {requiredNodeSet.AvailableModel?.Identifier} {requiredNodeSet.AvailableModel?.PublicationDate} ({requiredNodeSet.AvailableModel?.Version})");
                         }
