@@ -355,3 +355,4 @@ MigrationBackup/
 *.bak
 *.orig
 /UACloudLibraryServer/key-11993b0e-678c-41aa-98e2-66e04014e18a.xml
+/Tests/CloudLibClientTests/Properties/launchSettings.json
