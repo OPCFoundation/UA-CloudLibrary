@@ -34,14 +34,13 @@ namespace Opc.Ua.Cloud.Library
     using System.Globalization;
     using System.Linq;
     using System.Threading.Tasks;
-    using GraphQL.Types;
     using Microsoft.EntityFrameworkCore;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
     using Opc.Ua.Cloud.Library.DbContextModels;
     using Opc.Ua.Cloud.Library.Models;
 
-    public class UaCloudLibResolver : ObjectGraphType
+    public class UaCloudLibResolver
     {
         private AppDbContext _context;
 
@@ -50,83 +49,9 @@ namespace Opc.Ua.Cloud.Library
             _context = context;
         }
 
-        public Task<List<DatatypeModel>> GetDataTypes()
-        {
-            return _context.DataType.ToListAsync();
-        }
-
         public Task<List<MetadataModel>> GetMetaData()
         {
             return _context.Metadata.ToListAsync();
-        }
-
-        public Task<List<ObjecttypeModel>> GetObjectTypes()
-        {
-            return _context.ObjectType.ToListAsync();
-        }
-
-        public Task<List<ReferencetypeModel>> GetReferenceTypes()
-        {
-            return _context.ReferenceType.ToListAsync();
-        }
-
-        public Task<List<Nodeset>> GetNodesetTypes()
-        {
-            List<Nodeset> result = new List<Nodeset>();
-
-            List<long> nodesetIds = _context.Metadata.Select(p => p.NodesetId).Distinct().ToList();
-
-            for (int i = 0; i < nodesetIds.Count; i++)
-            {
-                try
-                {
-                    Nodeset nodeset = new Nodeset();
-
-                    Dictionary<string, MetadataModel> metadataForNodeset = _context.Metadata.Where(p => p.NodesetId == nodesetIds[i]).ToDictionary(x => x.Name);
-
-                    if (metadataForNodeset.ContainsKey("nodesetcreationtime"))
-                    {
-                        if (DateTime.TryParse(metadataForNodeset["nodesetcreationtime"].Value, out DateTime parsedDateTime))
-                        {
-                            nodeset.PublicationDate = parsedDateTime;
-                        }
-                    }
-
-                    if (metadataForNodeset.ContainsKey("nodesetmodifiedtime"))
-                    {
-                        if (DateTime.TryParse(metadataForNodeset["nodesetmodifiedtime"].Value, out DateTime parsedDateTime))
-                        {
-                            nodeset.LastModifiedDate = parsedDateTime;
-                        }
-                    }
-
-                    if (metadataForNodeset.ContainsKey("version"))
-                    {
-                        nodeset.Version = metadataForNodeset["version"].Value;
-                    }
-
-                    nodeset.Identifier = (uint)nodesetIds[i];
-
-                    List<ObjecttypeModel> objectTypesForNodeset = _context.ObjectType.Where(p => p.NodesetId == nodesetIds[i]).ToList();
-                    if (objectTypesForNodeset.Count > 0)
-                    {
-                        nodeset.NamespaceUri = new Uri(objectTypesForNodeset[0].NameSpace);
-                    }
-
-                    result.Add(nodeset);
-                }
-                catch (Exception)
-                {
-                    // ignore this entity
-                }
-            }
-
-            return Task.FromResult(result);
-        }
-
-        public Task<List<VariabletypeModel>> GetVariableTypes()
-        {
-            return _context.VariableType.ToListAsync();
         }
 
         private List<long> ApplyWhereExpression(string where)
@@ -211,14 +136,14 @@ namespace Opc.Ua.Cloud.Library
             return nodesetIds;
         }
 
-        public Task<List<UANameSpace>> GetNameSpaceTypes(int limit, int offset, string where, string orderBy)
+        public async Task<List<UANameSpace>> GetNameSpaceTypes(int limit, int offset, string where, string orderBy)
         {
             List<long> nodesetIds = ApplyWhereExpression(where);
 
             // input validation
             if ((offset < 0) || (limit < 0) || (offset > nodesetIds.Count))
             {
-                return Task.FromResult(new List<UANameSpace>());
+                return new List<UANameSpace>();
             }
             if ((offset + limit) > nodesetIds.Count)
             {
@@ -233,203 +158,204 @@ namespace Opc.Ua.Cloud.Library
                 {
                     UANameSpace nameSpace = new UANameSpace();
 
-                    Dictionary<string, MetadataModel> metadataForNodeset = _context.Metadata.Where(p => p.NodesetId == nodesetIds[i]).ToDictionary(x => x.Name);
-
-                    if (metadataForNodeset.ContainsKey("nodesetcreationtime"))
-                    {
-                        if (DateTime.TryParse(metadataForNodeset["nodesetcreationtime"].Value, out DateTime parsedDateTime))
-                        {
-                            nameSpace.Nodeset.PublicationDate = parsedDateTime;
-                        }
-                    }
-
-                    if (metadataForNodeset.ContainsKey("nodesetmodifiedtime"))
-                    {
-                        if (DateTime.TryParse(metadataForNodeset["nodesetmodifiedtime"].Value, out DateTime parsedDateTime))
-                        {
-                            nameSpace.Nodeset.LastModifiedDate = parsedDateTime;
-                        }
-                    }
-
-                    if (metadataForNodeset.ContainsKey("nodesettitle"))
-                    {
-                        nameSpace.Title = metadataForNodeset["nodesettitle"].Value;
-                    }
-
-                    if (metadataForNodeset.ContainsKey("version"))
-                    {
-                        nameSpace.Nodeset.Version = metadataForNodeset["version"].Value;
-                    }
-
+                    var additionalProperties = new List<UAProperty>();
                     nameSpace.Nodeset.Identifier = (uint)nodesetIds[i];
 
-                    List<ObjecttypeModel> objectTypesForNodeset = _context.ObjectType.Where(p => p.NodesetId == nodesetIds[i]).ToList();
-                    if (objectTypesForNodeset.Count > 0)
-                    {
-                        nameSpace.Nodeset.NamespaceUri = new Uri(objectTypesForNodeset[0].NameSpace);
-                    }
+                    var nodeSetIdentifier = nodesetIds[i].ToString(CultureInfo.InvariantCulture);
+                    var modelUri = (await _context.nodeSets.Where(nsm => nsm.Identifier == nodeSetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false))?.ModelUri;
+                    nameSpace.Nodeset.NamespaceUri = new Uri(modelUri);
 
-                    if (metadataForNodeset.ContainsKey("license"))
+                    var metadataListForNodeset = _context.Metadata.Where(p => p.NodesetId == nodesetIds[i]).ToList();
+
+                    foreach (var metadataForNodeset in metadataListForNodeset)
                     {
-                        switch (metadataForNodeset["license"].Value)
+                        switch (metadataForNodeset.Name)
                         {
-                            case "MIT":
-                                nameSpace.License = License.MIT;
+                            case "nodesetcreationtime":
+                            {
+                                if (DateTime.TryParse(metadataForNodeset.Value, out DateTime parsedDateTime))
+                                {
+                                    nameSpace.Nodeset.PublicationDate = parsedDateTime;
+                                }
                                 break;
-                            case "ApacheLicense20":
-                                nameSpace.License = License.ApacheLicense20;
+                            }
+                            case "nodesetmodifiedtime":
+                            {
+                                if (DateTime.TryParse(metadataForNodeset.Value, out DateTime parsedDateTime))
+                                {
+                                    nameSpace.Nodeset.LastModifiedDate = parsedDateTime;
+                                }
                                 break;
-                            case "Custom":
-                                nameSpace.License = License.Custom;
+                            }
+                            case "nodesettitle":
+                            {
+                                nameSpace.Title = metadataForNodeset.Value;
                                 break;
+                            }
+                            case "version":
+                            {
+                                nameSpace.Nodeset.Version = metadataForNodeset.Value;
+                                break;
+                            }
+                            case "license":
+                            {
+                                switch (metadataForNodeset.Value)
+                                {
+                                    case "MIT":
+                                        nameSpace.License = License.MIT;
+                                        break;
+                                    case "ApacheLicense20":
+                                        nameSpace.License = License.ApacheLicense20;
+                                        break;
+                                    case "Custom":
+                                        nameSpace.License = License.Custom;
+                                        break;
+                                    default:
+                                        nameSpace.License = License.Custom;
+                                        break;
+                                }
+                                break;
+                            }
+                            case "copyright":
+                                nameSpace.CopyrightText = metadataForNodeset.Value;
+                                break;
+                            case "description":
+                                nameSpace.Description = metadataForNodeset.Value;
+                                break;
+                            case "addressspacename":
+                                nameSpace.Category.Name = metadataForNodeset.Value;
+                                break;
+                            case "addressspacedescription":
+                                nameSpace.Category.Description = metadataForNodeset.Value;
+                                break;
+                            case "addressspaceiconurl":
+                            {
+                                string uri = metadataForNodeset.Value;
+                                if (!string.IsNullOrEmpty(uri))
+                                {
+                                    nameSpace.Category.IconUrl = new Uri(uri);
+                                }
+                                break;
+                            }
+                            case "documentationurl":
+                            {
+                                string uri = metadataForNodeset.Value;
+                                if (!string.IsNullOrEmpty(uri))
+                                {
+                                    nameSpace.DocumentationUrl = new Uri(uri);
+                                }
+                                break;
+                            }
+                            case "iconurl":
+                            {
+                                string uri = metadataForNodeset.Value;
+                                if (!string.IsNullOrEmpty(uri))
+                                {
+                                    nameSpace.IconUrl = new Uri(uri);
+                                }
+                                break;
+                            }
+                            case "licenseurl":
+                            {
+                                string uri = metadataForNodeset.Value;
+                                if (!string.IsNullOrEmpty(uri))
+                                {
+                                    nameSpace.LicenseUrl = new Uri(uri);
+                                }
+                                break;
+                            }
+                            case "purchasinginfo":
+                            {
+                                string uri = metadataForNodeset.Value;
+                                if (!string.IsNullOrEmpty(uri))
+                                {
+                                    nameSpace.PurchasingInformationUrl = new Uri(uri);
+                                }
+                                break;
+                            }
+                            case "releasenotes":
+                            {
+                                string uri = metadataForNodeset.Value;
+                                if (!string.IsNullOrEmpty(uri))
+                                {
+                                    nameSpace.ReleaseNotesUrl = new Uri(uri);
+                                }
+                                break;
+                            }
+                            case "testspecification":
+                            {
+                                string uri = metadataForNodeset.Value;
+                                if (!string.IsNullOrEmpty(uri))
+                                {
+                                    nameSpace.TestSpecificationUrl = new Uri(uri);
+                                }
+                                break;
+                            }
+                            case "keywords":
+                            {
+                                string keywords = metadataForNodeset.Value;
+                                if (!string.IsNullOrEmpty(keywords))
+                                {
+                                    nameSpace.Keywords = keywords.Split(',');
+                                }
+                                break;
+                            }
+                            case "locales":
+                            {
+                                string locales = metadataForNodeset.Value;
+                                if (!string.IsNullOrEmpty(locales))
+                                {
+                                    nameSpace.SupportedLocales = locales.Split(',');
+                                }
+                                break;
+                            }
+                            case "orgname":
+                                nameSpace.Contributor.Name = metadataForNodeset.Value;
+                                break;
+                            case "orgdescription":
+                                nameSpace.Contributor.Description = metadataForNodeset.Value;
+                                break;
+                            case "orglogo":
+                            {
+                                string uri = metadataForNodeset.Value;
+                                if (!string.IsNullOrEmpty(uri))
+                                {
+                                    nameSpace.Contributor.LogoUrl = new Uri(uri);
+                                }
+                                break;
+                            }
+                            case "orgcontact":
+                                nameSpace.Contributor.ContactEmail = metadataForNodeset.Value;
+                                break;
+                            case "orgwebsite":
+                            {
+                                string uri = metadataForNodeset.Value;
+                                if (!string.IsNullOrEmpty(uri))
+                                {
+                                    nameSpace.Contributor.Website = new Uri(uri);
+                                }
+                                break;
+                            }
+                            case "validationstatus":
+                                nameSpace.ValidationStatus = metadataForNodeset.Value;
+                                break;
+                            case "numdownloads":
+                            {
+                                if (uint.TryParse(metadataForNodeset.Value, out uint parsedDownloads))
+                                {
+                                    nameSpace.NumberOfDownloads = parsedDownloads;
+                                }
+                                break;
+                            }
                             default:
-                                nameSpace.License = License.Custom;
+                                additionalProperties.Add(new UAProperty { Name = metadataForNodeset.Name, Value = metadataForNodeset.Value });
                                 break;
                         }
                     }
-
-                    if (metadataForNodeset.ContainsKey("copyright"))
+                    if (additionalProperties.Any())
                     {
-                        nameSpace.CopyrightText = metadataForNodeset["copyright"].Value;
+                        nameSpace.AdditionalProperties = additionalProperties.ToArray();
                     }
-
-                    if (metadataForNodeset.ContainsKey("description"))
-                    {
-                        nameSpace.Description = metadataForNodeset["description"].Value;
-                    }
-
-                    if (metadataForNodeset.ContainsKey("addressspacename"))
-                    {
-                        nameSpace.Category.Name = metadataForNodeset["addressspacename"].Value;
-                    }
-
-                    if (metadataForNodeset.ContainsKey("addressspacedescription"))
-                    {
-                        nameSpace.Category.Description = metadataForNodeset["addressspacedescription"].Value;
-                    }
-
-                    if (metadataForNodeset.ContainsKey("addressspaceiconurl"))
-                    {
-                        string uri = metadataForNodeset["addressspaceiconurl"].Value;
-                        if (!string.IsNullOrEmpty(uri))
-                        {
-                            nameSpace.Category.IconUrl = new Uri(uri);
-                        }
-                    }
-
-                    if (metadataForNodeset.ContainsKey("documentationurl"))
-                    {
-                        string uri = metadataForNodeset["documentationurl"].Value;
-                        if (!string.IsNullOrEmpty(uri))
-                        {
-                            nameSpace.DocumentationUrl = new Uri(uri);
-                        }
-                    }
-
-                    if (metadataForNodeset.ContainsKey("iconurl"))
-                    {
-                        string uri = metadataForNodeset["iconurl"].Value;
-                        if (!string.IsNullOrEmpty(uri))
-                        {
-                            nameSpace.IconUrl = new Uri(uri);
-                        }
-                    }
-
-                    if (metadataForNodeset.ContainsKey("licenseurl"))
-                    {
-                        string uri = metadataForNodeset["licenseurl"].Value;
-                        if (!string.IsNullOrEmpty(uri))
-                        {
-                            nameSpace.LicenseUrl = new Uri(uri);
-                        }
-                    }
-
-                    if (metadataForNodeset.ContainsKey("purchasinginfo"))
-                    {
-                        string uri = metadataForNodeset["purchasinginfo"].Value;
-                        if (!string.IsNullOrEmpty(uri))
-                        {
-                            nameSpace.PurchasingInformationUrl = new Uri(uri);
-                        }
-                    }
-
-                    if (metadataForNodeset.ContainsKey("releasenotes"))
-                    {
-                        string uri = metadataForNodeset["releasenotes"].Value;
-                        if (!string.IsNullOrEmpty(uri))
-                        {
-                            nameSpace.ReleaseNotesUrl = new Uri(uri);
-                        }
-                    }
-
-                    if (metadataForNodeset.ContainsKey("testspecification"))
-                    {
-                        string uri = metadataForNodeset["testspecification"].Value;
-                        if (!string.IsNullOrEmpty(uri))
-                        {
-                            nameSpace.TestSpecificationUrl = new Uri(uri);
-                        }
-                    }
-
-                    if (metadataForNodeset.ContainsKey("keywords"))
-                    {
-                        string keywords = metadataForNodeset["keywords"].Value;
-                        if (!string.IsNullOrEmpty(keywords))
-                        {
-                            nameSpace.Keywords = keywords.Split(',');
-                        }
-                    }
-
-                    if (metadataForNodeset.ContainsKey("locales"))
-                    {
-                        string locales = metadataForNodeset["locales"].Value;
-                        if (!string.IsNullOrEmpty(locales))
-                        {
-                            nameSpace.SupportedLocales = locales.Split(',');
-                        }
-                    }
-
-                    if (metadataForNodeset.ContainsKey("orgname"))
-                    {
-                        nameSpace.Contributor.Name = metadataForNodeset["orgname"].Value;
-                    }
-
-                    if (metadataForNodeset.ContainsKey("orgdescription"))
-                    {
-                        nameSpace.Contributor.Description = metadataForNodeset["orgdescription"].Value;
-                    }
-
-                    if (metadataForNodeset.ContainsKey("orglogo"))
-                    {
-                        string uri = metadataForNodeset["orglogo"].Value;
-                        if (!string.IsNullOrEmpty(uri))
-                        {
-                            nameSpace.Contributor.LogoUrl = new Uri(uri);
-                        }
-                    }
-
-                    if (metadataForNodeset.ContainsKey("orgcontact"))
-                    {
-                        nameSpace.Contributor.ContactEmail = metadataForNodeset["orgcontact"].Value;
-                    }
-
-                    if (metadataForNodeset.ContainsKey("orgwebsite"))
-                    {
-                        string uri = metadataForNodeset["orgwebsite"].Value;
-                        if (!string.IsNullOrEmpty(uri))
-                        {
-                            nameSpace.Contributor.Website = new Uri(uri);
-                        }
-                    }
-
-                    if (metadataForNodeset.ContainsKey("numdownloads"))
-                    {
-                        if (uint.TryParse(metadataForNodeset["numdownloads"].Value, out uint parsedDownloads))
-                        {
-                            nameSpace.NumberOfDownloads = parsedDownloads;
-                        }
-                    }
-
                     result.Add(nameSpace);
                 }
                 catch (Exception)
@@ -441,12 +367,12 @@ namespace Opc.Ua.Cloud.Library
             if (string.IsNullOrEmpty(orderBy))
             {
                 // return unordered list
-                return Task.FromResult(result);
+                return result;
             }
             else
             {
                 // return odered list
-                return Task.FromResult(result.OrderByDescending(p => p, new NameSpaceComparer(orderBy)).ToList());
+                return result.OrderByDescending(p => p, new NameSpaceComparer(orderBy)).ToList();
             }
         }
 

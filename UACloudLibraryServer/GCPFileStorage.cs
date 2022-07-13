@@ -148,5 +148,29 @@ namespace Opc.Ua.Cloud.Library
                 return string.Empty;
             }
         }
+        public async Task DeleteFileAsync(string name, CancellationToken cancellationToken = default)
+        {
+#if DEBUG
+            if (string.IsNullOrEmpty(_bucket))
+            {
+                _logger.LogError($"Error deleting file {name} - GCS Bucket not specified");
+                return;
+            }
+
+            try
+            {
+                await _gcsClient.DeleteObjectAsync(_bucket, name, cancellationToken: cancellationToken).ConfigureAwait(false);
+                return;
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error finding file {name}");
+                return;
+            }
+#else
+            await Task.CompletedTask;
+#endif
+        }
     }
 }

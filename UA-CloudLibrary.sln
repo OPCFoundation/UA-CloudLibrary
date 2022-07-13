@@ -32,6 +32,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "azurepipelines", "azurepipe
 		.azurepipelines\signlistRelease.txt = .azurepipelines\signlistRelease.txt
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{61FA5300-FBB8-418B-8F10-B401001EC236}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudLibClient.Tests", "Tests\CloudLibClientTests\CloudLibClient.Tests.csproj", "{469D7E06-37C7-47B4-B88E-5973BB896EE5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -51,15 +55,21 @@ Global
 		{8353C72D-E29A-40BE-A3EF-C59330FC270C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8353C72D-E29A-40BE-A3EF-C59330FC270C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C7282E18-BCDA-48F6-99FD-EC7142A0397A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{C7282E18-BCDA-48F6-99FD-EC7142A0397A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C7282E18-BCDA-48F6-99FD-EC7142A0397A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C7282E18-BCDA-48F6-99FD-EC7142A0397A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{469D7E06-37C7-47B4-B88E-5973BB896EE5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{469D7E06-37C7-47B4-B88E-5973BB896EE5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{469D7E06-37C7-47B4-B88E-5973BB896EE5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{469D7E06-37C7-47B4-B88E-5973BB896EE5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{1AB4086F-0197-46C1-9C79-FCCAA05B90D6} = {3D43B49A-27D9-47EC-A824-263B43AA9C76}
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{469D7E06-37C7-47B4-B88E-5973BB896EE5} = {61FA5300-FBB8-418B-8F10-B401001EC236}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {B18C4ECD-199D-4657-963A-AF276DBC2C76}
