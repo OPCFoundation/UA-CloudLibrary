@@ -123,6 +123,35 @@ namespace Opc.Ua.Cloud.Library
             return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.OK };
         }
 
+        [HttpGet]
+        [Route("/infomodel/downloadNodeSetXml/{identifier}")]
+        [SwaggerResponse(statusCode: 200, type: typeof(UANameSpace), description: "The OPC UA Information model and its metadata.")]
+        [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The identifier provided could not be parsed.")]
+        [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The identifier provided could not be found.")]
+        public async Task<IActionResult> DownloadNodeSetAsync(
+            [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier)
+        {
+            UANameSpace result = new UANameSpace();
+
+            result.Nodeset.NodesetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(result.Nodeset.NodesetXml))
+            {
+                return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
+            }
+
+            uint nodeSetID = 0;
+            if (!uint.TryParse(identifier, out nodeSetID))
+            {
+                return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
+            }
+
+            _database.RetrieveAllMetadata(nodeSetID, result);
+
+            IncreaseNumDownloads(nodeSetID);
+
+            return new ObjectResult(result.Nodeset.NodesetXml) { StatusCode = (int)HttpStatusCode.OK };
+        }
+
 #if DEBUG
         [HttpGet]
         [Route("/infomodel/delete/{identifier}")]
