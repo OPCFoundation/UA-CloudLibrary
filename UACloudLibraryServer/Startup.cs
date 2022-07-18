@@ -195,7 +195,7 @@ namespace Opc.Ua.Cloud.Library
 
             #region setup Blazor pages
             services.AddServerSideBlazor();
-            
+
             #endregion
         }
 

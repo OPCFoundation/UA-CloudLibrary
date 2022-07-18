@@ -62,7 +62,7 @@ namespace Opc.Ua.Cloud.Library
         [UsePaging, UseFiltering, UseSorting]
         public IQueryable<VariableTypeModel> GetVariableTypes([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
-            return dp.GetNodeModels<VariableTypeModel>( nsm => nsm.VariableTypes, nodeSetUrl, publicationDate, nodeId);
+            return dp.GetNodeModels<VariableTypeModel>(nsm => nsm.VariableTypes, nodeSetUrl, publicationDate, nodeId);
         }
 
         [UsePaging, UseFiltering, UseSorting]
@@ -94,7 +94,7 @@ namespace Opc.Ua.Cloud.Library
         [UsePaging, UseFiltering, UseSorting]
         public IQueryable<ObjectModel> GetObjects([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
-            return dp.GetNodeModels<ObjectModel>( nsm => nsm.Objects, nodeSetUrl, publicationDate, nodeId);
+            return dp.GetNodeModels<ObjectModel>(nsm => nsm.Objects, nodeSetUrl, publicationDate, nodeId);
         }
         [UsePaging, UseFiltering, UseSorting]
         public IQueryable<NodeModel> GetAllNodes([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
@@ -143,7 +143,7 @@ namespace Opc.Ua.Cloud.Library
         [Obsolete("Use organizations instead.")]
         public Task<List<Models.Organisation>> GetOrganisation([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp, int limit, int offset, string where, string orderBy)
         {
-            return dp.GetOrganisation(limit, offset,where, orderBy);
+            return dp.GetOrganisation(limit, offset, where, orderBy);
         }
 
         #region legacy

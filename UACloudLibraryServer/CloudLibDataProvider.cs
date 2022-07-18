@@ -31,7 +31,7 @@ namespace Opc.Ua.Cloud.Library
             string nodeSetUrl = null,
             DateTime? publicationDate = null)
         {
-            
+
             IQueryable<CloudLibNodeSetModel> nodeSets;
             if (!string.IsNullOrEmpty(identifier))
             {
