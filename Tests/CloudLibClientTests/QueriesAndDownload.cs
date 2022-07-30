@@ -160,7 +160,7 @@ namespace CloudLibClient.Tests
         const string strTestNamespaceTitle= "Robotics";
         private static UANameSpace GetUploadedTestNamespace()
         {
-            var uploadedJson = File.ReadAllText(@"TestNamespaces\opcfoundation.org.UA.Robotics.NodeSet2.xml.1151181780.json");
+            var uploadedJson = File.ReadAllText(Path.Combine("TestNamespaces", "opcfoundation.org.UA.Robotics.NodeSet2.xml.1151181780.json"));
             var uploadedNameSpace = JsonConvert.DeserializeObject<UANameSpace>(uploadedJson);
             return uploadedNameSpace;
         }
