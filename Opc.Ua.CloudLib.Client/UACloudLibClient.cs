@@ -59,6 +59,8 @@ namespace Opc.Ua.Cloud.Library.Client
         private string _username = "";
         private string _password = "";
 
+        internal bool _forceRestTestHook = false;
+
         private AuthenticationHeaderValue Authentication
         {
             set => _client.HttpClient.DefaultRequestHeaders.Authorization = value;
@@ -161,6 +163,10 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <exception cref="System.Exception"></exception>
         private async Task<T> SendAndConvertAsync<T>(GraphQLRequest request)
         {
+            if (_forceRestTestHook)
+            {
+                throw new Exception("Failing graphql query to force REST fallback");
+            }
             GraphQLResponse<JObject> response = await _client.SendQueryAsync<JObject>(request).ConfigureAwait(false);
 
             if (response?.Errors?.Length > 0)
@@ -269,7 +275,7 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <returns>List of NameSpace</returns>
         public async Task<List<UANameSpace>> GetConvertedMetadataAsync()
         {
-            List<UANameSpace> convertedResult = null;
+            List<UANameSpace> convertedResult = new List<UANameSpace>() ;
 
             IQuery<MetadataResult> metadataQuery = new Query<MetadataResult>("metadata")
                 .AddField(f => f.ID)
@@ -279,9 +285,9 @@ namespace Opc.Ua.Cloud.Library.Client
 
             var request = new GraphQLRequest();
             request.Query = "query{" + metadataQuery.Build() + "}";
-            List<MetadataResult> result = await SendAndConvertAsync<List<MetadataResult>>(request).ConfigureAwait(false);
             try
             {
+                List<MetadataResult> result = await SendAndConvertAsync<List<MetadataResult>>(request).ConfigureAwait(false);
                 convertedResult = MetadataConverter.Convert(result);
             }
             catch (Exception ex)
@@ -341,17 +347,26 @@ namespace Opc.Ua.Cloud.Library.Client
                             .AddField(h => h.Description)
                             .AddField(h => h.IconUrl)
                     )
+                .AddField(h => h.CopyrightText)
                 .AddField(h => h.Description)
                 .AddField(h => h.DocumentationUrl)
+                .AddField(h => h.IconUrl)
+                .AddField(h => h.LicenseUrl)
+
                 .AddField(h => h.PurchasingInformationUrl)
                 .AddField(h => h.ReleaseNotesUrl)
+                .AddField(h => h.TestSpecificationUrl)
                 .AddField(h => h.Keywords)
                 .AddField(h => h.SupportedLocales)
+                .AddField(h => h.NumberOfDownloads)
+                .AddField(h => h.ValidationStatus)
                 .AddField(
                     h => h.Nodeset,
                     sq => sq.AddField(h => h.NamespaceUri)
                             .AddField(h => h.PublicationDate)
                             .AddField(h => h.Identifier)
+                            .AddField(h => h.LastModifiedDate)
+                            .AddField(h => h.Version)
                     )
                 ;
 
@@ -384,6 +399,10 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <summary>
         /// Queries one or more node sets and their dependencies
         /// </summary>
+        /// <param name="identifier"></param>
+        /// <param name="namespaceUri"></param>
+        /// <param name="publicationDate"></param>
+        /// <returns>The metadata for the requested nodesets, as well as the metadata for all required notesets.</returns>
         public async Task<List<Nodeset>> GetNodeSetDependencies(string identifier = null, string namespaceUri = null, DateTime? publicationDate = null)
         {
             var request = new GraphQLRequest();
