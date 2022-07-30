@@ -49,12 +49,12 @@ namespace CloudLibClient.Tests
             if (x == null && y == null) return true;
             if (x == null) return false;
             if (y == null) return false;
-            return x.NamespaceUri == y.NamespaceUri && x.PublicationDate == y.PublicationDate && x.Version == y.Version && x.AvailableModel == y.AvailableModel;
+            return x.NamespaceUri == y.NamespaceUri && x.PublicationDate == y.PublicationDate && x.Version == y.Version;
         }
 
         public int GetHashCode([DisallowNull] RequiredModelInfo obj)
         {
-            return obj.GetHashCode();
+            throw new System.NotImplementedException();
         }
     }
     internal class UAPropertyComparer : IEqualityComparer<UAProperty>

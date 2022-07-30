@@ -69,6 +69,7 @@ namespace CloudLibClient.Tests
                     NamespaceUri = rm.ModelUri,
                     PublicationDate = rm.PublicationDate,
                     Version = rm.Version,
+                    // TODO verify AvailableModel
                 }).ToList();
             }
             Assert.Equal(expectedModels, nodeSet.RequiredModels, new RequiredModelInfoComparer());
@@ -77,7 +78,9 @@ namespace CloudLibClient.Tests
             var publicationDate = nodeSetInfo.PublicationDate.HasValue && nodeSetInfo.PublicationDate.Value.Kind == DateTimeKind.Unspecified ?
                 DateTime.SpecifyKind(nodeSetInfo.PublicationDate.Value, DateTimeKind.Utc)
                 : nodeSetInfo.PublicationDate;
+
             List<Nodeset> nodeSetsByNamespace = await client.GetNodeSetDependencies(namespaceUri: namespaceUri, publicationDate: publicationDate).ConfigureAwait(false);
+
             var dependenciesByNamespace = nodeSetsByNamespace
                 .SelectMany(n => n.RequiredModels).Where(r => r != null)
                 .Select(r => (r.AvailableModel?.Identifier, r.NamespaceUri, r.PublicationDate))

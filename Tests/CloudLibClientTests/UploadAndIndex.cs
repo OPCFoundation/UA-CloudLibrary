@@ -47,12 +47,20 @@ namespace CloudLibClient.Tests
                     throw new Exception(($"Error uploading {addressSpace?.Nodeset.NamespaceUri}, {addressSpace?.Nodeset.Identifier}: {response.Status} {response.Message}"));
                 }
             }
+            // For now wait after each index: AvailableModel is not populated reliably in some test runs
+            var httpClient = _factory.CreateAuthorizedClient();
+            await WaitForIndexInternal(httpClient).ConfigureAwait(false);
         }
         [Fact]
         async Task WaitForIndex()
         {
             var client = _factory.CreateAuthorizedClient();
 
+            await WaitForIndexInternal(client).ConfigureAwait(false);
+        }
+
+        private static async Task WaitForIndexInternal(HttpClient client)
+        {
             var expectedNodeSetCount = TestNamespaceFiles.GetFiles().Count();
 
             bool bIndexing;
@@ -68,7 +76,7 @@ namespace CloudLibClient.Tests
             while (bIndexing);
         }
 
-        async Task<(int All, int NotIndexed)> GetNodeSetCountsAsync(HttpClient client)
+        static async Task<(int All, int NotIndexed)> GetNodeSetCountsAsync(HttpClient client)
         {
             var queryBodyJson = JsonConvert.SerializeObject(new JObject { { "query", @"
                         {
