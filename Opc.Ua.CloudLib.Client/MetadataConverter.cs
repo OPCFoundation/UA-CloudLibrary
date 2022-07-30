@@ -51,7 +51,9 @@ namespace Opc.Ua.Cloud.Library.Client
                     string id = item.NodesetID.ToString(CultureInfo.InvariantCulture);
                     if (!nameSpaces.ContainsKey(id))
                     {
-                        nameSpaces.Add(id, new UANameSpace());
+                        var uaNameSpace = new UANameSpace();
+                        uaNameSpace.Nodeset.Identifier = (uint) item.NodesetID;
+                        nameSpaces.Add(id, uaNameSpace);
                     }
 
                     ConvertCases(nameSpaces[id], item);
@@ -155,58 +157,49 @@ namespace Opc.Ua.Cloud.Library.Client
             switch (metadata.Name)
             {
                 #region NameSpace Cases
-                case "addressspacedescription":
-                {
+                case "description":
                     nameSpace.Description = metadata.Value;
                     break;
-                }
                 case "copyright":
-                {
                     nameSpace.CopyrightText = metadata.Value;
                     break;
-                }
+                case "iconurl":
+                    nameSpace.IconUrl = new Uri(metadata.Value);
+                    break;
                 case "documentationurl":
-                {
                     nameSpace.DocumentationUrl = new Uri(metadata.Value);
                     break;
-                }
                 case "licenseurl":
-                {
                     nameSpace.LicenseUrl = new Uri(metadata.Value);
                     break;
-                }
                 case "purchasinginfo":
-                {
                     nameSpace.PurchasingInformationUrl = new Uri(metadata.Value);
                     break;
-                }
                 case "keywords":
-                {
                     nameSpace.Keywords = metadata.Value.Split(new char[] { ',' });
                     break;
-                }
                 case "locales":
-                {
                     nameSpace.SupportedLocales = metadata.Value.Split(new char[] { ',' });
                     break;
-                }
                 case "numdownloads":
-                {
                     nameSpace.NumberOfDownloads = System.Convert.ToUInt32(metadata.Value, CultureInfo.InvariantCulture);
                     break;
-                }
                 case "validationstatus":
-                {
                     nameSpace.ValidationStatus = metadata.Value;
                     break;
-                }
-                case "addressspacename":
-                {
+                case "nodesettitle":
                     nameSpace.Title = metadata.Value;
                     break;
-                }
+                case "addressspacename":
+                    nameSpace.Category.Name = metadata.Value;
+                    break;
+                case "addressspacedescription":
+                    nameSpace.Category.Description = metadata.Value;
+                    break;
+                case "addressspaceiconurl":
+                    nameSpace.Category.IconUrl = new Uri(metadata.Value);
+                    break;
                 case "license":
-                {
                     switch (metadata.Value)
                     {
                         case "MIT":
@@ -231,58 +224,46 @@ namespace Opc.Ua.Cloud.Library.Client
                         }
                     }
                     break;
-                }
-                case "version":
-                {
-                    nameSpace.Nodeset.Version = metadata.Value;
-                    break;
-                }
                 case "releasenotes":
-                {
                     nameSpace.ReleaseNotesUrl = new Uri(metadata.Value);
                     break;
-                }
                 case "testspecification":
-                {
                     nameSpace.TestSpecificationUrl = new Uri(metadata.Value);
                     break;
-                }
                 #endregion
-
-                #region Organistion Cases
-                case "orgname":
-                {
-                    nameSpace.Contributor.Name = metadata.Value;
-                    break;
-                }
-                case "orgdesciption":
-                {
-                    nameSpace.Contributor.Description = metadata.Value;
-                    break;
-                }
-                case "orgcontact":
-                {
-                    nameSpace.Contributor.ContactEmail = metadata.Value;
-                    break;
-                }
-                case "orgwebsite":
-                {
-                    nameSpace.Contributor.Website = new Uri(metadata.Value);
-                    break;
-                }
-                case "orglogo":
-                {
-                    nameSpace.Contributor.LogoUrl = new Uri(metadata.Value);
-                    break;
-                }
-                #endregion
-                case "adressspacecreationtime":
-                {
+                #region NodeSet cases
+                case "nodesetcreationtime":
                     nameSpace.Nodeset.PublicationDate = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
                     break;
-                }
+                case "nodesetmodifiedtime":
+                    nameSpace.Nodeset.LastModifiedDate = DateTime.ParseExact(metadata.Value, "MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+                    break;
+                case "version":
+                    nameSpace.Nodeset.Version = metadata.Value;
+                    break;
+                #endregion
+                #region Contributor Cases
+                case "orgname":
+                    nameSpace.Contributor.Name = metadata.Value;
+                    break;
+                case "orgdescription":
+                    nameSpace.Contributor.Description = metadata.Value;
+                    break;
+                case "orgcontact":
+                    nameSpace.Contributor.ContactEmail = metadata.Value;
+                    break;
+                case "orgwebsite":
+                    nameSpace.Contributor.Website = new Uri(metadata.Value);
+                    break;
+                case "orglogo":
+                    nameSpace.Contributor.LogoUrl = new Uri(metadata.Value);
+                    break;
+                #endregion
                 default:
                 {
+                    var additionalProps = nameSpace.AdditionalProperties?.ToList() ?? new List<UAProperty>();
+                    additionalProps.Add(new UAProperty { Name = metadata.Name, Value = metadata.Value });
+                    nameSpace.AdditionalProperties = additionalProps.ToArray();
                     break;
                 }
             }
