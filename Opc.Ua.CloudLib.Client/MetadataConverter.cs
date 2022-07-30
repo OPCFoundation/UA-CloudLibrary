@@ -52,7 +52,7 @@ namespace Opc.Ua.Cloud.Library.Client
                     if (!nameSpaces.ContainsKey(id))
                     {
                         var uaNameSpace = new UANameSpace();
-                        uaNameSpace.Nodeset.Identifier = (uint) item.NodesetID;
+                        uaNameSpace.Nodeset.Identifier = (uint)item.NodesetID;
                         nameSpaces.Add(id, uaNameSpace);
                     }
 

@@ -275,7 +275,7 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <returns>List of NameSpace</returns>
         public async Task<List<UANameSpace>> GetConvertedMetadataAsync()
         {
-            List<UANameSpace> convertedResult = new List<UANameSpace>() ;
+            List<UANameSpace> convertedResult = new List<UANameSpace>();
 
             IQuery<MetadataResult> metadataQuery = new Query<MetadataResult>("metadata")
                 .AddField(f => f.ID)
