@@ -229,6 +229,19 @@ namespace Opc.Ua.Cloud.Library
                     return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
                 }
 
+                if (nameSpace.Nodeset.PublicationDate != nodeSet.Models[0].PublicationDate)
+                {
+                    return new ObjectResult("PublicationDate in metadata does not match nodeset XML.") { StatusCode = (int)HttpStatusCode.BadRequest };
+                }
+                if (nameSpace.Nodeset.Version != nodeSet.Models[0].Version)
+                {
+                    return new ObjectResult("Version in metadata does not match nodeset XML.") { StatusCode = (int)HttpStatusCode.BadRequest };
+                }
+                if (nameSpace.Nodeset.NamespaceUri != null && nameSpace.Nodeset.NamespaceUri.ToString() != nodeSet.Models[0].ModelUri)
+                {
+                    return new ObjectResult("NamespaceUri in metadata does not match nodeset XML.") { StatusCode = (int)HttpStatusCode.BadRequest };
+                }
+
                 // upload the new file to the storage service, and get the file handle that the storage service returned
                 string storedFilename = await _storage.UploadFileAsync(nodesetHashCode.ToString(CultureInfo.InvariantCulture), nameSpace.Nodeset.NodesetXml).ConfigureAwait(false);
                 if (string.IsNullOrEmpty(storedFilename) || (storedFilename != nodesetHashCode.ToString(CultureInfo.InvariantCulture)))

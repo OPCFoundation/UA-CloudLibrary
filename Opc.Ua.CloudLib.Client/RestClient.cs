@@ -103,7 +103,8 @@ namespace Opc.Ua.Cloud.Library.Client
             UANameSpace resultType = null;
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                resultType = JsonConvert.DeserializeObject<UANameSpace>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+                var responseJson = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                resultType = JsonConvert.DeserializeObject<UANameSpace>(responseJson);
             }
 
             return resultType;
@@ -134,11 +135,11 @@ namespace Opc.Ua.Cloud.Library.Client
             {
                 if (i == 0)
                 {
-                    stringBuilder.Append("?");
+                    stringBuilder.Append('?');
                 }
                 else
                 {
-                    stringBuilder.Append("&");
+                    stringBuilder.Append('&');
                 }
 
                 stringBuilder.Append("keywords=" + Uri.EscapeDataString(arguments[i]));
