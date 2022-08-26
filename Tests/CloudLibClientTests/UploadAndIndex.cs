@@ -68,7 +68,7 @@ namespace CloudLibClient.Tests
             while (bIndexing);
         }
 
-        async Task<(int All, int NotIndexed)> GetNodeSetCountsAsync(HttpClient client)
+        static async Task<(int All, int NotIndexed)> GetNodeSetCountsAsync(HttpClient client)
         {
             var queryBodyJson = JsonConvert.SerializeObject(new JObject { { "query", @"
                         {

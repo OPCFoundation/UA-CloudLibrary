@@ -122,7 +122,7 @@ namespace Opc.Ua.Cloud.Library
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
-                throw ex;
+                throw;
             }
 #endif
             return Task.CompletedTask;
