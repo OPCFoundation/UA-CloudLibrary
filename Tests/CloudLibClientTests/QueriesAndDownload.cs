@@ -72,7 +72,7 @@ namespace CloudLibClient.Tests
                     // TODO verify AvailableModel
                 }).ToList();
             }
-            Assert.Equal(expectedModels, nodeSet.RequiredModels, new RequiredModelInfoComparer());
+            Assert.Equal(expectedModels.OrderBy(m => m.NamespaceUri), nodeSet.RequiredModels.OrderBy(m => m.NamespaceUri), new RequiredModelInfoComparer());
 
             var namespaceUri = nodeSetInfo.NameSpaceUri;
             var publicationDate = nodeSetInfo.PublicationDate.HasValue && nodeSetInfo.PublicationDate.Value.Kind == DateTimeKind.Unspecified ?
