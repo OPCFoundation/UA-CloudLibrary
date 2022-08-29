@@ -199,11 +199,18 @@ namespace CloudLibClient.Tests
             {
                 client._forceRestTestHook = forceRest;
             }
+            int offset = 0;
+            int limit = 10;
+            UANameSpace uaNameSpace;
+            List<UANameSpace> nameSpaces;
+            do
+            {
+                nameSpaces = await client.GetNameSpacesAsync(offset: offset, limit: limit);
+                Assert.True(offset != 0 || nameSpaces?.Count > 0, "Failed to get node set information.");
 
-            List<UANameSpace> nameSpaces = await client.GetNameSpacesAsync();
-            Assert.True(nameSpaces?.Count > 0, "Failed to get node set information.");
-
-            var uaNameSpace = nameSpaces.FirstOrDefault(n => n.Nodeset.NamespaceUri?.ToString() == strTestNamespaceUri);
+                uaNameSpace = nameSpaces.FirstOrDefault(n => n.Nodeset.NamespaceUri?.ToString() == strTestNamespaceUri);
+                offset += limit;
+            } while (uaNameSpace == null && nameSpaces?.Count >= limit);
             Assert.True(uaNameSpace != null, "Nodeset not found");
 
             Assert.True(uaNameSpace.Nodeset.Identifier != 0);
@@ -296,7 +303,7 @@ namespace CloudLibClient.Tests
                 Assert.Equal(uploadedNameSpace.TestSpecificationUrl, convertedMetaData.TestSpecificationUrl);
                 Assert.Equal(uploadedNameSpace.Category, convertedMetaData.Category, new CategoryComparer());
                 Assert.Equal(uploadedNameSpace.Contributor, convertedMetaData.Contributor, new OrganisationComparer());
-                Assert.Equal(uploadedNameSpace.AdditionalProperties, convertedMetaData.AdditionalProperties, new UAPropertyComparer());
+                Assert.Equal(uploadedNameSpace.AdditionalProperties.OrderBy(p => p.Name), convertedMetaData.AdditionalProperties.OrderBy(p => p.Name), new UAPropertyComparer());
                 Assert.Equal(uploadedNameSpace.CopyrightText, convertedMetaData.CopyrightText);
                 Assert.Equal(uploadedNameSpace.Description, convertedMetaData.Description);
                 Assert.Equal(uploadedNameSpace.DocumentationUrl, convertedMetaData.DocumentationUrl);
