@@ -924,6 +924,50 @@ namespace Opc.Ua.Cloud.Library
                     b1.Navigation("Node");
                 });
 
+                b.OwnsMany("CESMII.OpcUa.NodeSetModel.NodeModel+NodeAndReference", "OtherReferencingNodes", b1 => {
+                    b1.Property<string>("OwnerNodeId")
+                        .HasColumnType("text");
+
+                    b1.Property<string>("OwnerModelUri")
+                        .HasColumnType("text");
+
+                    b1.Property<DateTime?>("OwnerPublicationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b1.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
+
+                    b1.Property<string>("Reference")
+                        .HasColumnType("text");
+
+                    b1.Property<string>("ReferencingModelUri")
+                        .HasColumnType("text");
+
+                    b1.Property<string>("ReferencingNodeId")
+                        .HasColumnType("text");
+
+                    b1.Property<DateTime?>("ReferencingPublicationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b1.HasKey("OwnerNodeId", "OwnerModelUri", "OwnerPublicationDate", "Id");
+
+                    b1.HasIndex("ReferencingNodeId", "ReferencingModelUri", "ReferencingPublicationDate");
+
+                    b1.ToTable("Nodes_OtherReferencingNodes");
+
+                    b1.WithOwner()
+                        .HasForeignKey("OwnerNodeId", "OwnerModelUri", "OwnerPublicationDate");
+
+                    b1.HasOne("CESMII.OpcUa.NodeSetModel.NodeModel", "Node")
+                        .WithMany()
+                        .HasForeignKey("ReferencingNodeId", "ReferencingModelUri", "ReferencingPublicationDate");
+
+                    b1.Navigation("Node");
+                });
+
                 b.Navigation("Description");
 
                 b.Navigation("DisplayName");
@@ -931,6 +975,8 @@ namespace Opc.Ua.Cloud.Library
                 b.Navigation("NodeSet");
 
                 b.Navigation("OtherReferencedNodes");
+
+                b.Navigation("OtherReferencingNodes");
             });
 
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.NodeSetModel", b => {
