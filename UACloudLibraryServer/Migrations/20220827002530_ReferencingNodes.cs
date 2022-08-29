@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,8 +12,7 @@ namespace Opc.Ua.Cloud.Library
         {
             migrationBuilder.CreateTable(
                 name: "Nodes_OtherReferencingNodes",
-                columns: table => new
-                {
+                columns: table => new {
                     OwnerNodeId = table.Column<string>(type: "text", nullable: false),
                     OwnerModelUri = table.Column<string>(type: "text", nullable: false),
                     OwnerPublicationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
@@ -24,8 +23,7 @@ namespace Opc.Ua.Cloud.Library
                     ReferencingPublicationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     Reference = table.Column<string>(type: "text", nullable: true)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_Nodes_OtherReferencingNodes", x => new { x.OwnerNodeId, x.OwnerModelUri, x.OwnerPublicationDate, x.Id });
                     table.ForeignKey(
                         name: "FK_Nodes_OtherReferencingNodes_Nodes_OwnerNodeId_OwnerModelUri~",
