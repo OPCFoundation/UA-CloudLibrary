@@ -20,8 +20,10 @@
     "identifier": 1151181780,
     "namespaceUri": "http://opcfoundation.org/UA/Robotics/",
     "version": "1.01.2",
+    "validationStatus": null,
     "publicationDate": "2021-05-20T00:00:00Z",
-    "lastModifiedDate": "2021-05-20T00:00:00Z"
+    "lastModifiedDate": "2021-05-20T00:00:00Z",
+    "RequiredModels": null
   },
   "documentationUrl": "http://testdocumentationurl.com",
   "iconUrl": "http://testiconurl.com",
@@ -31,7 +33,7 @@
   "releaseNotesUrl": "http://releasenotesurl.com",
   "testSpecificationUrl": "http://testspecificationurl.com",
   "supportedLocales": [ "en", "de" ],
-  "numberOfDownloads": 70,
+  "numberOfDownloads": 149,
   "validationStatus": null,
   "additionalProperties": [
     {

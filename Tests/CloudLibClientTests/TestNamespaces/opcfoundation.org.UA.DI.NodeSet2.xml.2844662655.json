@@ -20,8 +20,10 @@
     "identifier": 2844662655,
     "namespaceUri": "http://opcfoundation.org/UA/DI/",
     "version": "1.03.0",
+    "validationStatus": null,
     "publicationDate": "2021-03-09T00:00:00Z",
-    "lastModifiedDate": "2021-03-09T00:00:00Z"
+    "lastModifiedDate": "2021-03-09T00:00:00Z",
+    "RequiredModels": null
   },
   "documentationUrl": null,
   "iconUrl": null,
@@ -33,7 +35,7 @@
   "testSpecificationUrl": null,
   "supportedLocales": [
   ],
-  "numberOfDownloads": 103,
+  "numberOfDownloads": 300,
   "validationStatus": null,
   "additionalProperties": null
 }
