@@ -30,6 +30,7 @@
 namespace Opc.Ua.Cloud.Library.Models
 {
     using System;
+    using System.Collections.Generic;
     using System.ComponentModel.DataAnnotations;
 
     public enum License
@@ -219,5 +220,31 @@ namespace Opc.Ua.Cloud.Library.Models
         public DateTime PublicationDate { get; set; }
 
         public DateTime LastModifiedDate { get; set; }
+        public string ValidationStatus { get; set; }
+
+        public List<CloudLibRequiredModelInfo> RequiredModels { get; set; }
+    }
+
+    /// <summary>
+    /// Contains information about dependencies of a nodeset
+    /// </summary>
+    public class CloudLibRequiredModelInfo
+    {
+        /// <summary>
+        /// The namespace URI of the dependency
+        /// </summary>
+        public string NamespaceUri { get; set; }
+        /// <summary>
+        /// The minimum required publication date of the dependency
+        /// </summary>
+        public DateTime? PublicationDate { get; set; }
+        /// <summary>
+        /// The informational version of the dependency
+        /// </summary>
+        public string Version { get; set; }
+        /// <summary>
+        /// The best match currently available in the cloud library. null if no match (no nodeset for this namespace uri or only node sets with older publication dates).
+        /// </summary>
+        public Nodeset AvailableModel { get; set; }
     }
 }

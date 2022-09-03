@@ -162,8 +162,21 @@ namespace Opc.Ua.Cloud.Library
                     nameSpace.Nodeset.Identifier = (uint)nodesetIds[i];
 
                     var nodeSetIdentifier = nodesetIds[i].ToString(CultureInfo.InvariantCulture);
-                    var modelUri = (await _context.nodeSets.Where(nsm => nsm.Identifier == nodeSetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false))?.ModelUri;
+                    var nodeSet = (await _context.nodeSets.Where(nsm => nsm.Identifier == nodeSetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false));
+                    var modelUri = nodeSet?.ModelUri;
+                    var requiredModels = nodeSet?.RequiredModels;
                     nameSpace.Nodeset.NamespaceUri = new Uri(modelUri);
+                    nameSpace.Nodeset.RequiredModels = requiredModels?.Select(rm => new CloudLibRequiredModelInfo {
+                        NamespaceUri = rm.ModelUri,
+                        PublicationDate = rm.PublicationDate,
+                        Version = rm.Version,
+                        AvailableModel = new Nodeset {
+                            NamespaceUri = new Uri(rm.AvailableModel.ModelUri),
+                            PublicationDate = rm.AvailableModel.PublicationDate ?? default,
+                            Version = rm.AvailableModel.Version,
+                            Identifier = uint.Parse(rm.AvailableModel.Identifier, CultureInfo.InvariantCulture),
+                        }
+                    })?.ToList();
 
                     var metadataListForNodeset = _context.Metadata.Where(p => p.NodesetId == nodesetIds[i]).ToList();
 
@@ -338,6 +351,7 @@ namespace Opc.Ua.Cloud.Library
                             }
                             case "validationstatus":
                                 nameSpace.ValidationStatus = metadataForNodeset.Value;
+                                nameSpace.Nodeset.ValidationStatus = metadataForNodeset.Value;
                                 break;
                             case "numdownloads":
                             {

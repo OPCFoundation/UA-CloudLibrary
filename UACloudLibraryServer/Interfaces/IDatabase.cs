@@ -33,7 +33,7 @@ namespace Opc.Ua.Cloud.Library
 
     public interface IDatabase
     {
-        UANodesetResult[] FindNodesets(string[] keywords);
+        UANodesetResult[] FindNodesets(string[] keywords, int? offset, int? limit);
 
         bool AddMetaDataToNodeSet(uint nodesetId, string name, string value);
 

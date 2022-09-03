@@ -164,10 +164,40 @@ namespace Opc.Ua.Cloud.Library
 
 
 
-                string uri = GetNamespaceUriForNodeset(nodesetId);
-                if (!string.IsNullOrEmpty(uri))
+                var model = GetNamespaceUriForNodeset(nodesetId);
+
+                if (!string.IsNullOrEmpty(model?.ModelUri))
                 {
-                    nameSpace.Nodeset.NamespaceUri = new Uri(uri);
+                    nameSpace.Nodeset.NamespaceUri = new Uri(model.ModelUri);
+                }
+                nameSpace.Nodeset.ValidationStatus = model?.ValidationStatus.ToString();
+                if (model?.RequiredModels != null)
+                {
+                    nameSpace.Nodeset.RequiredModels = model?.RequiredModels.Select(rm => {
+                        Nodeset availableModel = null;
+                        if (rm.AvailableModel != null)
+                        {
+                            uint? identifier = null;
+                            if (uint.TryParse(rm.AvailableModel?.Identifier, out var identifierParsed))
+                            {
+                                identifier = identifierParsed;
+                            }
+                            availableModel = new Nodeset {
+                                NamespaceUri = new Uri(rm.AvailableModel.ModelUri),
+                                PublicationDate = rm.AvailableModel.PublicationDate ?? default,
+                                Version = rm.AvailableModel.Version,
+                                Identifier = identifier ?? 0,
+                            };
+                        }
+                        var rn = new CloudLibRequiredModelInfo {
+                            NamespaceUri = rm.ModelUri,
+                            PublicationDate = rm.PublicationDate ?? DateTime.MinValue,
+                            Version = rm.Version,
+                            AvailableModel = availableModel,
+                        };
+                        return rn;
+                    }
+                    ).ToList();
                 }
 
                 switch (allMetaData.GetValueOrDefault("license"))
@@ -194,7 +224,7 @@ namespace Opc.Ua.Cloud.Library
 
                 nameSpace.Category.Description = allMetaData.GetValueOrDefault("addressspacedescription", string.Empty);
 
-                uri = allMetaData.GetValueOrDefault("addressspaceiconurl");
+                var uri = allMetaData.GetValueOrDefault("addressspaceiconurl");
                 if (!string.IsNullOrEmpty(uri))
                 {
                     nameSpace.Category.IconUrl = new Uri(uri);
@@ -272,12 +302,25 @@ namespace Opc.Ua.Cloud.Library
                 {
                     nameSpace.NumberOfDownloads = parsedDownloads;
                 }
+
+                var additionalProperties = allMetaData.Where(kv => !_knownProperties.Contains(kv.Key)).ToList();
+                if (additionalProperties.Any())
+                {
+                    nameSpace.AdditionalProperties = additionalProperties.Select(p => new UAProperty { Name = p.Key, Value = p.Value }).OrderBy(p => p.Name).ToArray();
+                }
+
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
             }
         }
+
+        readonly string[] _knownProperties = new string[] {
+            "addressspacedescription", "addressspaceiconurl", "addressspacename", "copyright", "description", "documentationurl", "iconurl",
+            "keywords", "license", "licenseurl", "locales", "nodesetcreationtime", "nodesetmodifiedtime", "nodesettitle", "numdownloads",
+            "orgcontact", "orgdescription", "orglogo", "orgname", "orgwebsite", "purchasinginfo", "releasenotes", "testspecification", "validationstatus", "version",
+            };
 
         public string RetrieveMetaData(uint nodesetId, string metaDataTag)
         {
@@ -349,6 +392,21 @@ namespace Opc.Ua.Cloud.Library
                         ValidationStatus = nameSpace.ValidationStatus,
                         PublicationDate = nameSpace.Nodeset.PublicationDate,
                         NameSpaceUri = nameSpace.Nodeset.NamespaceUri?.ToString(),
+                        RequiredNodesets = nameSpace.Nodeset.RequiredModels,
+
+                        CopyrightText = nameSpace.CopyrightText,
+                        Description = nameSpace.Description,
+                        Category = nameSpace.Category,
+                        DocumentationUrl = nameSpace.DocumentationUrl,
+                        IconUrl = nameSpace.IconUrl,
+                        LicenseUrl = nameSpace.LicenseUrl,
+                        Keywords = nameSpace.Keywords,
+                        PurchasingInformationUrl = nameSpace.PurchasingInformationUrl,
+                        ReleaseNotesUrl = nameSpace.ReleaseNotesUrl,
+                        TestSpecificationUrl = nameSpace.TestSpecificationUrl,
+                        SupportedLocales = nameSpace.SupportedLocales,
+                        NumberOfDownloads = nameSpace.NumberOfDownloads,
+                        AdditionalProperties = nameSpace.AdditionalProperties,
                     };
 
                     nodesetResults.Add(thisResult);
@@ -373,20 +431,20 @@ namespace Opc.Ua.Cloud.Library
             return Array.Empty<string>();
         }
 
-        public string GetNamespaceUriForNodeset(uint nodesetId)
+        private CloudLibNodeSetModel GetNamespaceUriForNodeset(uint nodesetId)
         {
             try
             {
                 var identifier = nodesetId.ToString(CultureInfo.InvariantCulture);
-                var modelUri = _dbContext.nodeSets.Where(nsm => nsm.Identifier == identifier).Select(nsm => nsm.ModelUri).FirstOrDefault();
-                return modelUri;
+                var model = _dbContext.nodeSets.FirstOrDefault(nsm => nsm.Identifier == identifier);
+                return model;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
             }
 
-            return string.Empty;
+            return null;
         }
 
         public string[] GetAllNamesAndNodesets()
