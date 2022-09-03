@@ -297,12 +297,12 @@ namespace Opc.Ua.Cloud.Library
             return string.Empty;
         }
 
-        public UANodesetResult[] FindNodesets(string[] keywords)
+        public UANodesetResult[] FindNodesets(string[] keywords, int? offset, int? limit)
         {
             List<string> matches = new List<string>();
             List<UANodesetResult> nodesetResults = new List<UANodesetResult>();
 
-            if (!(keywords?[0] == "*"))
+            if (keywords != null && keywords[0] != "*")
             {
                 foreach (var keyword in keywords)
                 {
@@ -313,7 +313,7 @@ namespace Opc.Ua.Cloud.Library
                         .Concat(
                             _dbContext.Metadata
                                 .Where(md => Regex.IsMatch(md.Value, keyword))
-                                .Select(md => md.NodesetId.ToString(CultureInfo.InvariantCulture))
+                                .Select(md => md.NodesetId.ToString())
                                 .Distinct())
                         .Distinct()
                         .ToList();
@@ -323,12 +323,13 @@ namespace Opc.Ua.Cloud.Library
                         {
                             matches.Add(match);
                         }
-                    };
-                };
+                    }
+                }
+                matches = matches.OrderBy(id => id).Skip(offset ?? 0).Take(limit ?? 100).ToList();
             }
             else
             {
-                matches = _dbContext.nodeSets.Select(nsm => nsm.Identifier).Distinct().ToList();
+                matches = _dbContext.nodeSets.Select(nsm => nsm.Identifier).Distinct().Skip(offset ?? 0).Take(limit ??100).ToList();
             }
 
             //Get additional metadata (if present and valid) for each match
@@ -359,8 +360,6 @@ namespace Opc.Ua.Cloud.Library
 
         public string[] GetAllNamespacesAndNodesets()
         {
-            List<string> results = new List<string>();
-
             try
             {
                 var namesAndIds = _dbContext.nodeSets.Select(nsm => new { nsm.ModelUri, nsm.Identifier }).Select(n => $"{n.ModelUri},{n.Identifier}").ToArray();
@@ -392,8 +391,6 @@ namespace Opc.Ua.Cloud.Library
 
         public string[] GetAllNamesAndNodesets()
         {
-            List<string> results = new List<string>();
-
             try
             {
                 var nameSpaceUriAndId = _dbContext.Metadata.Where(md => md.Name == "addressspacename").Select(md => new { NamespaceUri = md.Value, md.NodesetId }).ToList();
