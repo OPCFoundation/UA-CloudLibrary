@@ -80,39 +80,59 @@ namespace Opc.Ua.Cloud.Library.Client
 
         public static UANameSpace Convert(UANodesetResult info)
         {
-            UANameSpace nameSpace = new UANameSpace();
-
-            nameSpace.Title = info.Title;
-            nameSpace.Nodeset.Version = info.Version;
-            nameSpace.Contributor.Name = info.Contributor;
-
+            License license;
             switch (info.License)
             {
                 case "MIT":
                 {
-                    nameSpace.License = License.MIT;
+                    license = License.MIT;
                     break;
                 }
                 case "ApacheLicense20":
                 {
-                    nameSpace.License = License.ApacheLicense20;
+                    license = License.ApacheLicense20;
                     break;
                 }
                 case "Custom":
                 {
-                    nameSpace.License = License.Custom;
+                    license = License.Custom;
                     break;
                 }
                 default:
                 {
-                    nameSpace.License = License.Custom;
+                    license = License.Custom;
                     break;
                 }
             }
-            nameSpace.Nodeset.PublicationDate = (info.PublicationDate != null) ? info.PublicationDate.Value : DateTime.MinValue;
-            nameSpace.Nodeset.NamespaceUri = string.IsNullOrEmpty(info.NameSpaceUri) ? null : new Uri(info.NameSpaceUri);
-            nameSpace.Nodeset.Identifier = info.Id;
 
+            UANameSpace nameSpace = new UANameSpace {
+                Title = info.Title,
+                CopyrightText = info.CopyrightText,
+                License = license,
+                Description = info.Description,
+                Category = info.Category,
+                DocumentationUrl = info.DocumentationUrl,
+                IconUrl = info.IconUrl,
+                LicenseUrl = info.LicenseUrl,
+                Keywords = info.Keywords,
+                PurchasingInformationUrl = info.PurchasingInformationUrl,
+                ReleaseNotesUrl = info.ReleaseNotesUrl,
+                TestSpecificationUrl = info.TestSpecificationUrl,
+                SupportedLocales = info.SupportedLocales,
+                NumberOfDownloads = info.NumberOfDownloads,
+                AdditionalProperties = info.AdditionalProperties,
+                Nodeset = new Nodeset {
+                    NamespaceUri = string.IsNullOrEmpty(info.NameSpaceUri) ? null : new Uri(info.NameSpaceUri),
+                    PublicationDate = (info.PublicationDate != null) ? info.PublicationDate.Value : DateTime.MinValue,
+                    Version = info.Version,
+                    Identifier = info.Id,
+                    RequiredModels = info.RequiredNodesets,
+                },
+                Contributor = new Organisation {
+                    Name = info.Contributor,
+                },
+                ValidationStatus = info.ValidationStatus,
+            };
             return nameSpace;
         }
 
