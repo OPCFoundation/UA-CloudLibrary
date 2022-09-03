@@ -372,7 +372,7 @@ namespace Opc.Ua.Cloud.Library
             }
             else
             {
-                matches = _dbContext.nodeSets.Select(nsm => nsm.Identifier).Distinct().Skip(offset ?? 0).Take(limit ??100).ToList();
+                matches = _dbContext.nodeSets.Select(nsm => nsm.Identifier).Distinct().Skip(offset ?? 0).Take(limit ?? 100).ToList();
             }
 
             //Get additional metadata (if present and valid) for each match
