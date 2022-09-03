@@ -103,16 +103,19 @@ namespace Opc.Ua.Cloud.Library
         [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The identifier provided could not be parsed.")]
         [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The identifier provided could not be found.")]
         public async Task<IActionResult> DownloadNameSpaceAsync(
-            [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier)
+            [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier,
+            [SwaggerParameter("Returns only the metadata, not the nodeset XML.")] bool omitXml
+            )
         {
             UANameSpace result = new UANameSpace();
-
-            result.Nodeset.NodesetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
-            if (string.IsNullOrEmpty(result.Nodeset.NodesetXml))
+            if (!omitXml)
             {
-                return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
+                result.Nodeset.NodesetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
+                if (string.IsNullOrEmpty(result.Nodeset.NodesetXml))
+                {
+                    return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
+                }
             }
-
             uint nodeSetID = 0;
             if (!uint.TryParse(identifier, out nodeSetID))
             {
