@@ -300,16 +300,6 @@ namespace Opc.Ua.Cloud.Library
             return referenceTypes;
         }
         #endregion
-
-
-#if DEBUG
-        [UsePaging, UseFiltering, UseSorting]
-        public Opc.Ua.Cloud.Library.Models.UANodesetResult[] GetNodeSetInfo([Service(ServiceKind.Synchronized)] IDatabase database, string[] keywords)
-        {
-            var results = database.FindNodesets(keywords ?? new[] { "*" });
-            return results;
-        }
-#endif
     }
 
     // Turn on paging for all sub-collections
