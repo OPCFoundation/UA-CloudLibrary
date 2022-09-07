@@ -131,7 +131,7 @@
     private async Task DownloadFileFromURL(UANameSpace item)
     {
         var fileName = $"{item.Title}.NodeSet2.xml";
-        var fileURL = $@"/infomodel/download/{item.Nodeset.Identifier}?getNodeSetXML=true";
+        var fileURL = $@"/infomodel/download/{item.Nodeset.Identifier}?nodesetXMLOnly=true";
         await JS.InvokeVoidAsync("triggerFileDownload", fileName, fileURL);
     }
 
