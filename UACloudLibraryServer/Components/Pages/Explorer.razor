@@ -1,0 +1,235 @@
+﻿@using System.Net
+@using System.Net.Http
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web;
+@using System.Web
+@using Microsoft.AspNetCore.Http
+@using Microsoft.JSInterop
+@using Opc.Ua.Cloud.Library.Models
+@using SendGrid.Helpers.Mail
+
+<div style="height:100%">
+    <div class="uacl-container">
+        <div class="uacl-content">
+            <div class="container">
+                @if (loading)
+                {
+                    <div class="mt-5 mb-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden"></span>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var item in Result)
+                    {
+                        <div class="card" style="width: 18rem;">
+                            <div class="card-body">
+                                <h5 class="card-title">@item.Title</h5>
+                                <h6 class="card-subtitle mb-2 text-muted">by @item.Contributor.Name</h6>
+                                <p class="card-text">
+                                    @item.Description
+                                </p>
+                                <div class="card-text-footer">
+                                    <div>
+                                        License: @item.License
+
+                                    </div>
+                                    <div>
+                                        Version: @item.Nodeset.Version
+                                    </div>
+                                    <div>
+                                        Downloads: @item.NumberOfDownloads
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <button class="btn btn-primary" style="float: right" @onclick="() => Open(item)">More...</button>
+                                <button class="btn btn-primary" style="float: right; margin-right: 1rem;" @onclick="() => DownloadFileFromURL(item)">Download</button>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+        <div class="uacl-pagination pt-2">
+            <nav aria-label="Page navigation example">
+                <ul class="pagination">
+                    <li class="page-item"><a class="page-link" @onclick="() => changePage(-1)">Previous</a></li>
+                    <li class="page-item"><a class="page-link" >@CurrentPage/@(AllPages)</a></li>
+                    <li class="page-item"><a class="page-link" @onclick="() => changePage(+1)">Next</a></li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<div class="modal @ModalClass" tabindex="-1" role="dialog" style="display:@ModalDisplay;">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@ModalTitle</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>@ModalDescription</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" style="margin-right: 1rem;" @onclick="() => DownloadFileFromURL(CurrentItem)">Download</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => Close()">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+@if (ShowBackDrop)
+{
+    <div class="modal-backdrop fade show"></div>
+}
+
+
+@inject IJSRuntime JS
+@inject CloudLibDataProvider dp
+@inject IServiceProvider sp
+@code
+{
+    private string ModalClass = "";
+    private string ModalDisplay = "none";
+    private bool ShowBackDrop = false;
+
+    private UANameSpace CurrentItem;
+
+    private string ModalTitle = "";
+    private string ModalDescription = "";
+
+
+    const int PAGE_SIZE = 5;
+
+    public bool loading { get; set; } = true;
+    private List<UANameSpace> Result = new List<UANameSpace>();
+    private int CurrentPage = 1;
+    private string FilterString = "";
+    private int TotalCount = 0;
+    private int AllPages = 0;
+
+
+    protected override void OnInitialized()
+    {
+
+        fetchData();
+    }
+
+    private async Task DownloadFileFromURL(UANameSpace item)
+    {
+        var fileName = $"{item.Title}.NodeSet2.xml";
+        var fileURL = $@"/infomodel/download/{item.Nodeset.Identifier}?nodesetXMLOnly=true";
+        await JS.InvokeVoidAsync("triggerFileDownload", fileName, fileURL);
+    }
+
+    private void Open(UANameSpace item)
+    {
+        ModalDisplay = "block;";
+        ModalClass = "Show";
+        ShowBackDrop = true;
+        ModalTitle = item.Title;
+        ModalDescription = item.Description;
+        CurrentItem = item;
+        StateHasChanged();
+    }
+
+    private void Close()
+    {
+        ModalDisplay = "none";
+        ModalClass = "";
+        ShowBackDrop = false;
+        StateHasChanged();
+    }
+
+    private void changePage(int increment)
+    {
+        var newPage = Math.Clamp(this.CurrentPage + increment, 1, (int)Math.Ceiling((decimal)this.TotalCount / PAGE_SIZE));
+        if (!CurrentPage.Equals(newPage))
+        {
+            CurrentPage = newPage;
+            fetchData();
+        }
+    }
+
+    private async void fetchData()
+    {
+        var _dp = (CloudLibDataProvider)sp.GetService(typeof(CloudLibDataProvider));
+        this.loading = true;
+        var query = HttpUtility.ParseQueryString(string.Empty);
+        query["page"] = this.CurrentPage.ToString();
+        query["filterString"] = this.FilterString;
+        
+        this.TotalCount = _dp.GetNamespaceTotalCount(null);
+        this.Result = await _dp.GetNamespaces(PAGE_SIZE, (CurrentPage-1) * PAGE_SIZE, null, null);
+        this.AllPages = (int)Math.Ceiling((decimal)this.TotalCount / PAGE_SIZE);
+        this.loading = false;
+
+        StateHasChanged();
+    }
+}
+
+    
+<style>
+    .uacl-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        justify-content: center;
+        align-items: center;
+    }
+    .uacl-container .uacl-content {
+        width: 100%;
+        flex-grow: 1;
+        overflow-y: auto;
+    }
+    .uacl-container .uacl-content > .container {
+        display: flex;
+        flex-direction: row;
+        gap: 1rem;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+    }
+    .uacl-content .card {
+        height: 22rem;
+        width: 22rem;
+        
+    }
+    .uacl-content .card .card-body {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    .uacl-content .card .card-text {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .uacl-content .card .card-text-footer {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: end;
+    }
+
+    .uacl-container .uacl-pagination {
+        height: fit-content;
+    }
+    .page-item {
+        cursor: pointer;
+    }
+</style>
