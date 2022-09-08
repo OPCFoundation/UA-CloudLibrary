@@ -136,6 +136,12 @@ namespace Opc.Ua.Cloud.Library
             return nodesetIds;
         }
 
+        public int GetNameSpaceTypesTotalCount(string where)
+        {
+            var count = ApplyWhereExpression(where).Count;
+            return count;
+        }
+
         public async Task<List<UANameSpace>> GetNameSpaceTypes(int limit, int offset, string where, string orderBy)
         {
             List<long> nodesetIds = ApplyWhereExpression(where);
