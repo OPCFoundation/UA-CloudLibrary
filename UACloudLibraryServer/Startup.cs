@@ -32,7 +32,6 @@ namespace Opc.Ua.Cloud.Library
     using System;
     using System.IO;
     using Amazon.S3;
-    using GraphQL;
     using GraphQL.Server.Ui.Playground;
     using HotChocolate.AspNetCore;
     using Microsoft.AspNetCore.Authentication;
@@ -183,6 +182,7 @@ namespace Opc.Ua.Cloud.Library
             services.AddScoped<NodeSetModelIndexer>();
             services.AddScoped<NodeSetModelIndexerFactory>();
             services.AddTransient<UaCloudLibResolver>();
+            services.AddTransient<CloudLibDataProvider>();
             #endregion
 
             services.Configure<IISServerOptions>(options => {
@@ -192,6 +192,11 @@ namespace Opc.Ua.Cloud.Library
             services.Configure<KestrelServerOptions>(options => {
                 options.AllowSynchronousIO = true;
             });
+
+            #region setup Blazor pages
+            services.AddServerSideBlazor();
+
+            #endregion
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -232,6 +237,7 @@ namespace Opc.Ua.Cloud.Library
                     pattern: "{controller=Home}/{action=Index}/{id?}");
 
                 endpoints.MapRazorPages();
+                endpoints.MapBlazorHub();
                 endpoints.MapGraphQL()
                     .RequireAuthorization(new AuthorizeAttribute { AuthenticationSchemes = "BasicAuthentication" })
                     .WithOptions(new GraphQLServerOptions {
