@@ -169,7 +169,10 @@ namespace Opc.Ua.Cloud.Library.Client
                 throw new Exception("Failing graphql query to force REST fallback");
             }
             GraphQLResponse<JObject> response = await _client.SendQueryAsync<JObject>(request).ConfigureAwait(false);
-
+            if (response == null)
+            {
+                throw new Exception("Internal error: null response.");
+            }
             if (response.Errors?.Length > 0)
             {
                 throw new Exception(response.Errors[0].Message);
