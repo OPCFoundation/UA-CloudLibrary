@@ -276,7 +276,7 @@ namespace CloudLibClient.Tests
                 Assert.Equal(default, uaNameSpace.Nodeset.LastModifiedDate); // REST does not return last modified date
                 Assert.Equal(uploadedNameSpace.Contributor?.Name, uaNameSpace.Contributor?.Name); // GraphQL only returns the name
             }
-            Assert.Equal(uploadedNameSpace.AdditionalProperties, uaNameSpace.AdditionalProperties, new UAPropertyComparer());
+            Assert.Equal(uploadedNameSpace.AdditionalProperties.OrderBy(p => p.Name), uaNameSpace.AdditionalProperties.OrderBy(p => p.Name), new UAPropertyComparer());
             Assert.Equal(uploadedNameSpace.CopyrightText, uaNameSpace.CopyrightText);
             Assert.Equal(uploadedNameSpace.Description, uaNameSpace.Description);
             Assert.Equal(uploadedNameSpace.DocumentationUrl, uaNameSpace.DocumentationUrl);
