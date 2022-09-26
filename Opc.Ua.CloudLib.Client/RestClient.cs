@@ -116,12 +116,12 @@ namespace Opc.Ua.Cloud.Library.Client
         {
             return DownloadNodesetAsync(identifier, false);
         }
-        public async Task<UANameSpace> DownloadNodesetAsync(string identifier, bool omitXml)
+        public async Task<UANameSpace> DownloadNodesetAsync(string identifier, bool metadataOnly)
         {
             var request = $"infomodel/download/{Uri.EscapeDataString(identifier)}";
-            if (omitXml)
+            if (metadataOnly)
             {
-                request += $"?{nameof(omitXml)}=true";
+                request += $"?{nameof(metadataOnly)}=true";
             }
             var address = new Uri(client.BaseAddress, request);
             HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);

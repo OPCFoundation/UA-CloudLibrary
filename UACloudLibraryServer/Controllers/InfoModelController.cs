@@ -105,11 +105,11 @@ namespace Opc.Ua.Cloud.Library
         public async Task<IActionResult> DownloadNameSpaceAsync(
             [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier,
             [FromQuery][SwaggerParameter("Download NodeSet XML only, omitting metadata")] bool nodesetXMLOnly = false,
-            [FromQuery][SwaggerParameter("Download metadata only, omitting NodeSet XML")] bool omitXml = false
+            [FromQuery][SwaggerParameter("Download metadata only, omitting NodeSet XML")] bool metadataOnly = false
             )
         {
             UANameSpace result = new UANameSpace();
-            if (!omitXml)
+            if (!metadataOnly)
             {
                 result.Nodeset.NodesetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
                 if (string.IsNullOrEmpty(result.Nodeset.NodesetXml))
