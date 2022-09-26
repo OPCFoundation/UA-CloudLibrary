@@ -104,7 +104,9 @@ namespace Opc.Ua.Cloud.Library
         [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The identifier provided could not be found.")]
         public async Task<IActionResult> DownloadNameSpaceAsync(
             [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier,
-            [FromQuery][SwaggerParameter("Download NodeSet XML only, omitting metadata")] bool nodesetXMLOnly = false)
+            [FromQuery][SwaggerParameter("Download NodeSet XML only, omitting metadata")] bool nodesetXMLOnly = false,
+            [FromQuery][SwaggerParameter("Download metadata only, omitting NodeSet XML")] bool omitXml = false
+            )
         {
             UANameSpace result = new UANameSpace();
             if (!omitXml)
