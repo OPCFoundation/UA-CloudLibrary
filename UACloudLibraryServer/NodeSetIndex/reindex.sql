@@ -2,6 +2,7 @@
 DELETE FROM "ReferenceTypes";
 DELETE FROM "RequiredModelInfo";
 DELETE FROM "Nodes_OtherReferencedNodes";
+--DELETE FROM "ChildAndReference";
 DELETE FROM "Methods";
 DELETE FROM "DataVariables";
 DELETE FROM "Properties";
