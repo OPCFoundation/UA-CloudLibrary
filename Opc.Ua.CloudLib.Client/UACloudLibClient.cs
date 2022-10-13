@@ -92,9 +92,14 @@ namespace Opc.Ua.Cloud.Library.Client
         public class Options
         {
             /// <summary>
+            /// Endpoint of the cloud library. Defaults to the OPC Foundation Cloud Library.
+            /// </summary>
+            public string EndPoint { get; set; }
+            /// <summary>
             /// URL of the cloud library. Defaults to the OPC Foundation Cloud Library.
             /// </summary>
-            public string Url { get; set; }
+            [Obsolete("Use EndPoint property instead")]
+            public string Url => EndPoint;
             /// <summary>
             /// Username to use for authenticating with the cloud library
             /// </summary>
@@ -144,7 +149,7 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <summary>Initializes a new instance of the <see cref="UACloudLibClient" /> class.</summary>
         /// <param name="options">Credentials and URL</param>
         public UACloudLibClient(Options options)
-            : this(options.Url, options.Username, options.Password)
+            : this(options.EndPoint, options.Username, options.Password)
         {
         }
 
