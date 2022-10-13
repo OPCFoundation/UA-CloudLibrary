@@ -35,6 +35,7 @@ namespace Opc.Ua.Cloud.Library
     using System.Globalization;
     using System.Linq;
     using System.Text.RegularExpressions;
+    using HotChocolate.Types.Pagination.Extensions;
     using Microsoft.EntityFrameworkCore;
     using Microsoft.Extensions.Configuration;
     using Microsoft.Extensions.Logging;
@@ -139,184 +140,192 @@ namespace Opc.Ua.Cloud.Library
             return false;
         }
 
+        public UANameSpace RetrieveAllMetadata(uint nodesetId)
+        {
+            UANameSpace nameSpace = new ();
+            RetrieveAllMetadata(nodesetId, nameSpace);
+            return nameSpace;
+        }
         public void RetrieveAllMetadata(uint nodesetId, UANameSpace nameSpace)
         {
             try
             {
-                nameSpace.Nodeset.Identifier = nodesetId;
-                var allMetaData = _dbContext.Metadata.Where(md => md.NodesetId == nodesetId).ToDictionary(md => md.Name, md => md.Value);
-
-                if (DateTime.TryParse(allMetaData.GetValueOrDefault("nodesetcreationtime"), out DateTime parsedDateTime))
-                {
-                    nameSpace.Nodeset.PublicationDate = parsedDateTime;
-                }
-
-                if (DateTime.TryParse(allMetaData.GetValueOrDefault("nodesetmodifiedtime"), out parsedDateTime))
-                {
-                    nameSpace.Nodeset.LastModifiedDate = parsedDateTime;
-                }
-
-                nameSpace.Title = allMetaData.GetValueOrDefault("nodesettitle", string.Empty);
-
-                nameSpace.Nodeset.Version = allMetaData.GetValueOrDefault("version", string.Empty);
-
-                nameSpace.Nodeset.Identifier = nodesetId;
-
-
-
+                var allMetaData = _dbContext.Metadata.Where(md => md.NodesetId == nodesetId).ToList();
                 var model = GetNamespaceUriForNodeset(nodesetId);
-
-                if (!string.IsNullOrEmpty(model?.ModelUri))
-                {
-                    nameSpace.Nodeset.NamespaceUri = new Uri(model.ModelUri);
-                }
-                nameSpace.Nodeset.ValidationStatus = model?.ValidationStatus.ToString();
-                if (model?.RequiredModels != null)
-                {
-                    nameSpace.Nodeset.RequiredModels = model?.RequiredModels.Select(rm => {
-                        Nodeset availableModel = null;
-                        if (rm.AvailableModel != null)
-                        {
-                            uint? identifier = null;
-                            if (uint.TryParse(rm.AvailableModel?.Identifier, out var identifierParsed))
-                            {
-                                identifier = identifierParsed;
-                            }
-                            availableModel = new Nodeset {
-                                NamespaceUri = new Uri(rm.AvailableModel.ModelUri),
-                                PublicationDate = rm.AvailableModel.PublicationDate ?? default,
-                                Version = rm.AvailableModel.Version,
-                                Identifier = identifier ?? 0,
-                            };
-                        }
-                        var rn = new CloudLibRequiredModelInfo {
-                            NamespaceUri = rm.ModelUri,
-                            PublicationDate = rm.PublicationDate ?? DateTime.MinValue,
-                            Version = rm.Version,
-                            AvailableModel = availableModel,
-                        };
-                        return rn;
-                    }
-                    ).ToList();
-                }
-
-                switch (allMetaData.GetValueOrDefault("license"))
-                {
-                    case "MIT":
-                        nameSpace.License = License.MIT;
-                        break;
-                    case "ApacheLicense20":
-                        nameSpace.License = License.ApacheLicense20;
-                        break;
-                    case "Custom":
-                        nameSpace.License = License.Custom;
-                        break;
-                    default:
-                        nameSpace.License = License.Custom;
-                        break;
-                }
-
-                nameSpace.CopyrightText = allMetaData.GetValueOrDefault("copyright", string.Empty);
-
-                nameSpace.Description = allMetaData.GetValueOrDefault("description", string.Empty);
-
-                nameSpace.Category.Name = allMetaData.GetValueOrDefault("addressspacename", string.Empty);
-
-                nameSpace.Category.Description = allMetaData.GetValueOrDefault("addressspacedescription", string.Empty);
-
-                var uri = allMetaData.GetValueOrDefault("addressspaceiconurl");
-                if (!string.IsNullOrEmpty(uri))
-                {
-                    nameSpace.Category.IconUrl = new Uri(uri);
-                }
-
-                uri = allMetaData.GetValueOrDefault("documentationurl");
-                if (!string.IsNullOrEmpty(uri))
-                {
-                    nameSpace.DocumentationUrl = new Uri(uri);
-                }
-
-                uri = allMetaData.GetValueOrDefault("iconurl");
-                if (!string.IsNullOrEmpty(uri))
-                {
-                    nameSpace.IconUrl = new Uri(uri);
-                }
-
-                uri = allMetaData.GetValueOrDefault("licenseurl");
-                if (!string.IsNullOrEmpty(uri))
-                {
-                    nameSpace.LicenseUrl = new Uri(uri);
-                }
-
-                uri = allMetaData.GetValueOrDefault("purchasinginfo");
-                if (!string.IsNullOrEmpty(uri))
-                {
-                    nameSpace.PurchasingInformationUrl = new Uri(uri);
-                }
-
-                uri = allMetaData.GetValueOrDefault("releasenotes");
-                if (!string.IsNullOrEmpty(uri))
-                {
-                    nameSpace.ReleaseNotesUrl = new Uri(uri);
-                }
-
-                uri = allMetaData.GetValueOrDefault("testspecification");
-                if (!string.IsNullOrEmpty(uri))
-                {
-                    nameSpace.TestSpecificationUrl = new Uri(uri);
-                }
-
-                string keywords = allMetaData.GetValueOrDefault("keywords");
-                if (!string.IsNullOrEmpty(keywords))
-                {
-                    nameSpace.Keywords = keywords.Split(',');
-                }
-
-                string locales = allMetaData.GetValueOrDefault("locales");
-                if (!string.IsNullOrEmpty(locales))
-                {
-                    nameSpace.SupportedLocales = locales.Split(',');
-                }
-
-                nameSpace.Contributor.Name = allMetaData.GetValueOrDefault("orgname", string.Empty);
-
-                nameSpace.Contributor.Description = allMetaData.GetValueOrDefault("orgdescription", string.Empty);
-
-                uri = allMetaData.GetValueOrDefault("orglogo");
-                if (!string.IsNullOrEmpty(uri))
-                {
-                    nameSpace.Contributor.LogoUrl = new Uri(uri);
-                }
-
-                nameSpace.Contributor.ContactEmail = allMetaData.GetValueOrDefault("orgcontact", string.Empty);
-
-                uri = allMetaData.GetValueOrDefault("orgwebsite");
-                if (!string.IsNullOrEmpty(uri))
-                {
-                    nameSpace.Contributor.Website = new Uri(uri);
-                }
-
-                nameSpace.ValidationStatus = allMetaData.GetValueOrDefault("validationstatus", string.Empty);
-
-                if (uint.TryParse(allMetaData.GetValueOrDefault("numdownloads"), out uint parsedDownloads))
-                {
-                    nameSpace.NumberOfDownloads = parsedDownloads;
-                }
-
-                var additionalProperties = allMetaData.Where(kv => !_knownProperties.Contains(kv.Key)).ToList();
-                if (additionalProperties.Any())
-                {
-                    nameSpace.AdditionalProperties = additionalProperties.Select(p => new UAProperty { Name = p.Key, Value = p.Value }).OrderBy(p => p.Name).ToArray();
-                }
-
+                ConvertNodeSetMetadata(nodesetId, allMetaData, model, nameSpace);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
             }
         }
+        private static void ConvertNodeSetMetadata(uint nodesetId, List<MetadataModel> metaDataList, CloudLibNodeSetModel model, UANameSpace nameSpace)
+        {
+            var allMetaData = metaDataList.ToDictionary(md => md.Name, md => md.Value);
 
-        readonly string[] _knownProperties = new string[] {
+            nameSpace.Nodeset.Identifier = nodesetId;
+
+            if (DateTime.TryParse(allMetaData.GetValueOrDefault("nodesetcreationtime"), out DateTime parsedDateTime))
+            {
+                nameSpace.Nodeset.PublicationDate = parsedDateTime;
+            }
+
+            if (DateTime.TryParse(allMetaData.GetValueOrDefault("nodesetmodifiedtime"), out parsedDateTime))
+            {
+                nameSpace.Nodeset.LastModifiedDate = parsedDateTime;
+            }
+
+            nameSpace.Title = allMetaData.GetValueOrDefault("nodesettitle", string.Empty);
+
+            nameSpace.Nodeset.Version = allMetaData.GetValueOrDefault("version", string.Empty);
+
+            nameSpace.Nodeset.Identifier = nodesetId;
+
+            if (!string.IsNullOrEmpty(model?.ModelUri))
+            {
+                nameSpace.Nodeset.NamespaceUri = new Uri(model.ModelUri);
+            }
+            nameSpace.Nodeset.ValidationStatus = model?.ValidationStatus.ToString();
+            if (model?.RequiredModels != null)
+            {
+                nameSpace.Nodeset.RequiredModels = model?.RequiredModels.Select(rm => {
+                    Nodeset availableModel = null;
+                    if (rm.AvailableModel != null)
+                    {
+                        uint? identifier = null;
+                        if (uint.TryParse(rm.AvailableModel?.Identifier, out var identifierParsed))
+                        {
+                            identifier = identifierParsed;
+                        }
+                        availableModel = new Nodeset {
+                            NamespaceUri = new Uri(rm.AvailableModel.ModelUri),
+                            PublicationDate = rm.AvailableModel.PublicationDate ?? default,
+                            Version = rm.AvailableModel.Version,
+                            Identifier = identifier ?? 0,
+                        };
+                    }
+                    var rn = new CloudLibRequiredModelInfo {
+                        NamespaceUri = rm.ModelUri,
+                        PublicationDate = rm.PublicationDate ?? DateTime.MinValue,
+                        Version = rm.Version,
+                        AvailableModel = availableModel,
+                    };
+                    return rn;
+                }
+                ).ToList();
+            }
+
+            switch (allMetaData.GetValueOrDefault("license"))
+            {
+                case "MIT":
+                    nameSpace.License = License.MIT;
+                    break;
+                case "ApacheLicense20":
+                    nameSpace.License = License.ApacheLicense20;
+                    break;
+                case "Custom":
+                    nameSpace.License = License.Custom;
+                    break;
+                default:
+                    nameSpace.License = License.Custom;
+                    break;
+            }
+
+            nameSpace.CopyrightText = allMetaData.GetValueOrDefault("copyright", string.Empty);
+
+            nameSpace.Description = allMetaData.GetValueOrDefault("description", string.Empty);
+
+            nameSpace.Category.Name = allMetaData.GetValueOrDefault("addressspacename", string.Empty);
+
+            nameSpace.Category.Description = allMetaData.GetValueOrDefault("addressspacedescription", string.Empty);
+
+            var uri = allMetaData.GetValueOrDefault("addressspaceiconurl");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                nameSpace.Category.IconUrl = new Uri(uri);
+            }
+
+            uri = allMetaData.GetValueOrDefault("documentationurl");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                nameSpace.DocumentationUrl = new Uri(uri);
+            }
+
+            uri = allMetaData.GetValueOrDefault("iconurl");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                nameSpace.IconUrl = new Uri(uri);
+            }
+
+            uri = allMetaData.GetValueOrDefault("licenseurl");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                nameSpace.LicenseUrl = new Uri(uri);
+            }
+
+            uri = allMetaData.GetValueOrDefault("purchasinginfo");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                nameSpace.PurchasingInformationUrl = new Uri(uri);
+            }
+
+            uri = allMetaData.GetValueOrDefault("releasenotes");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                nameSpace.ReleaseNotesUrl = new Uri(uri);
+            }
+
+            uri = allMetaData.GetValueOrDefault("testspecification");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                nameSpace.TestSpecificationUrl = new Uri(uri);
+            }
+
+            string keywords = allMetaData.GetValueOrDefault("keywords");
+            if (!string.IsNullOrEmpty(keywords))
+            {
+                nameSpace.Keywords = keywords.Split(',');
+            }
+
+            string locales = allMetaData.GetValueOrDefault("locales");
+            if (!string.IsNullOrEmpty(locales))
+            {
+                nameSpace.SupportedLocales = locales.Split(',');
+            }
+
+            nameSpace.Contributor.Name = allMetaData.GetValueOrDefault("orgname", string.Empty);
+
+            nameSpace.Contributor.Description = allMetaData.GetValueOrDefault("orgdescription", string.Empty);
+
+            uri = allMetaData.GetValueOrDefault("orglogo");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                nameSpace.Contributor.LogoUrl = new Uri(uri);
+            }
+
+            nameSpace.Contributor.ContactEmail = allMetaData.GetValueOrDefault("orgcontact", string.Empty);
+
+            uri = allMetaData.GetValueOrDefault("orgwebsite");
+            if (!string.IsNullOrEmpty(uri))
+            {
+                nameSpace.Contributor.Website = new Uri(uri);
+            }
+
+            nameSpace.ValidationStatus = allMetaData.GetValueOrDefault("validationstatus", string.Empty);
+
+            if (uint.TryParse(allMetaData.GetValueOrDefault("numdownloads"), out uint parsedDownloads))
+            {
+                nameSpace.NumberOfDownloads = parsedDownloads;
+            }
+
+            var additionalProperties = allMetaData.Where(kv => !_knownProperties.Contains(kv.Key)).ToList();
+            if (additionalProperties.Any())
+            {
+                nameSpace.AdditionalProperties = additionalProperties.Select(p => new UAProperty { Name = p.Key, Value = p.Value }).OrderBy(p => p.Name).ToArray();
+            }
+        }
+
+        static readonly string[] _knownProperties = new string[] {
             "addressspacedescription", "addressspaceiconurl", "addressspacename", "copyright", "description", "documentationurl", "iconurl",
             "keywords", "license", "licenseurl", "locales", "nodesetcreationtime", "nodesetmodifiedtime", "nodesettitle", "numdownloads",
             "orgcontact", "orgdescription", "orglogo", "orgname", "orgwebsite", "purchasinginfo", "releasenotes", "testspecification", "validationstatus", "version",
@@ -340,77 +349,98 @@ namespace Opc.Ua.Cloud.Library
             return string.Empty;
         }
 
-        public UANodesetResult[] FindNodesets(string[] keywords, int? offset, int? limit)
+        public IQueryable<CloudLibNodeSetModel> SearchNodesets(string[] keywords)
         {
-            List<string> matches = new List<string>();
-            List<UANodesetResult> nodesetResults = new List<UANodesetResult>();
+            IQueryable<CloudLibNodeSetModel> matchingNodeSets;
 
             if (keywords != null && keywords[0] != "*")
             {
-                foreach (var keyword in keywords)
-                {
-                    var matchesForKeyword = _dbContext.nodeModels
-                        .Where(nm => Regex.IsMatch(nm.DisplayName.FirstOrDefault().Text, keyword))
-                        .Select(nm => nm.NodeSet.Identifier)
-                        .Distinct()
-                        .Concat(
-                            _dbContext.Metadata
-                                .Where(md => Regex.IsMatch(md.Value, keyword))
-                                .Select(md => md.NodesetId.ToString())
-                                .Distinct())
-                        .Distinct()
-                        .ToList();
-                    foreach (var match in matchesForKeyword)
-                    {
-                        if (!matches.Contains(match))
-                        {
-                            matches.Add(match);
-                        }
-                    }
-                }
-                matches = matches.OrderBy(id => id).Skip(offset ?? 0).Take(limit ?? 100).ToList();
+                string keywordRegex = $".*({string.Join('|', keywords)}).*";
+
+                matchingNodeSets =
+                    _dbContext.nodeSets
+                    .Where(nsm =>
+                        nsm.ObjectTypes.Any(nm => Regex.IsMatch(nm.DisplayName.FirstOrDefault().Text, keywordRegex, RegexOptions.IgnoreCase))
+                        || nsm.Objects.Any(nm => Regex.IsMatch(nm.DisplayName.FirstOrDefault().Text, keywordRegex, RegexOptions.IgnoreCase))
+                        || nsm.VariableTypes.Any(nm => Regex.IsMatch(nm.DisplayName.FirstOrDefault().Text, keywordRegex, RegexOptions.IgnoreCase))
+                        || nsm.Properties.Any(nm => Regex.IsMatch(nm.DisplayName.FirstOrDefault().Text, keywordRegex, RegexOptions.IgnoreCase))
+                        || nsm.DataVariables.Any(nm => Regex.IsMatch(nm.DisplayName.FirstOrDefault().Text, keywordRegex, RegexOptions.IgnoreCase))
+                        || nsm.DataTypes.Any(nm => Regex.IsMatch(nm.DisplayName.FirstOrDefault().Text, keywordRegex, RegexOptions.IgnoreCase))
+                        || nsm.ReferenceTypes.Any(nm => Regex.IsMatch(nm.DisplayName.FirstOrDefault().Text, keywordRegex, RegexOptions.IgnoreCase))
+                        || nsm.Interfaces.Any(nm => Regex.IsMatch(nm.DisplayName.FirstOrDefault().Text, keywordRegex, RegexOptions.IgnoreCase))
+                        || nsm.UnknownNodes.Any(nm => Regex.IsMatch(nm.DisplayName.FirstOrDefault().Text, keywordRegex, RegexOptions.IgnoreCase))
+                        || _dbContext.Metadata.Any(md => md.NodesetId.ToString() == nsm.Identifier && Regex.IsMatch(md.Value, keywordRegex, RegexOptions.IgnoreCase))
+                        );
             }
             else
             {
-                matches = _dbContext.nodeSets.Select(nsm => nsm.Identifier).Distinct().Skip(offset ?? 0).Take(limit ?? 100).ToList();
+                matchingNodeSets = _dbContext.nodeSets.AsQueryable();
             }
+            return matchingNodeSets;
+        }
+
+        public UANodesetResult[] FindNodesets(string[] keywords, int? offset, int? limit)
+        {
+            List<UANodesetResult> nodesetResults = new List<UANodesetResult>();
+
+            var nodeSets = SearchNodesets(keywords)
+                .OrderBy(n => n.ModelUri)
+                .Skip(offset ?? 0)
+                .Take(limit ?? 100)
+                .ToList();
+
+            var matchesLong = nodeSets.Select(n => long.Parse(n.Identifier, CultureInfo.InvariantCulture)).ToList();
+            var metaDataForMatches = _dbContext.Metadata.Where(md => matchesLong.Contains(md.NodesetId)).ToList();
+
+            Dictionary<long, List<MetadataModel>> metaDataForMatchesByNodeSetId = new();
+            metaDataForMatches.ForEach(md => {
+                if (!metaDataForMatchesByNodeSetId.TryGetValue(md.NodesetId, out var mdList))
+                {
+                    mdList = new();
+                    metaDataForMatchesByNodeSetId[md.NodesetId] = mdList;
+                }
+                mdList.Add(md);
+            });
 
             //Get additional metadata (if present and valid) for each match
-            foreach (string match in matches)
+            foreach (var nodeSet in nodeSets)
             {
-                if (uint.TryParse(match, out uint matchId))
-                {
-                    UANameSpace nameSpace = new UANameSpace();
-                    RetrieveAllMetadata(matchId, nameSpace);
-                    var thisResult = new UANodesetResult {
+                UANameSpace nameSpace = new UANameSpace();
 
-                        Id = matchId,
-                        Title = nameSpace.Title,
-                        Contributor = nameSpace.Contributor.Name,
-                        License = nameSpace.License.ToString(),
-                        Version = nameSpace.Nodeset.Version,
-                        ValidationStatus = nameSpace.ValidationStatus,
-                        PublicationDate = nameSpace.Nodeset.PublicationDate,
-                        NameSpaceUri = nameSpace.Nodeset.NamespaceUri?.ToString(),
-                        RequiredNodesets = nameSpace.Nodeset.RequiredModels,
+                var idStr = /*nodeSetAndMd.N*/nodeSet.Identifier;
+                var id = uint.Parse(idStr, CultureInfo.InvariantCulture);
+                ConvertNodeSetMetadata(id,
+                    metaDataForMatchesByNodeSetId[id],
+                    nodeSet,
+                    nameSpace);
 
-                        CopyrightText = nameSpace.CopyrightText,
-                        Description = nameSpace.Description,
-                        Category = nameSpace.Category,
-                        DocumentationUrl = nameSpace.DocumentationUrl,
-                        IconUrl = nameSpace.IconUrl,
-                        LicenseUrl = nameSpace.LicenseUrl,
-                        Keywords = nameSpace.Keywords,
-                        PurchasingInformationUrl = nameSpace.PurchasingInformationUrl,
-                        ReleaseNotesUrl = nameSpace.ReleaseNotesUrl,
-                        TestSpecificationUrl = nameSpace.TestSpecificationUrl,
-                        SupportedLocales = nameSpace.SupportedLocales,
-                        NumberOfDownloads = nameSpace.NumberOfDownloads,
-                        AdditionalProperties = nameSpace.AdditionalProperties,
-                    };
+                var thisResult = new UANodesetResult {
+                    Id = id,
+                    Title = nameSpace.Title,
+                    Contributor = nameSpace.Contributor.Name,
+                    License = nameSpace.License.ToString(),
+                    Version = nameSpace.Nodeset.Version,
+                    ValidationStatus = nameSpace.ValidationStatus,
+                    PublicationDate = nameSpace.Nodeset.PublicationDate,
+                    NameSpaceUri = nameSpace.Nodeset.NamespaceUri?.ToString(),
+                    RequiredNodesets = nameSpace.Nodeset.RequiredModels,
 
-                    nodesetResults.Add(thisResult);
-                }
+                    CopyrightText = nameSpace.CopyrightText,
+                    Description = nameSpace.Description,
+                    Category = nameSpace.Category,
+                    DocumentationUrl = nameSpace.DocumentationUrl,
+                    IconUrl = nameSpace.IconUrl,
+                    LicenseUrl = nameSpace.LicenseUrl,
+                    Keywords = nameSpace.Keywords,
+                    PurchasingInformationUrl = nameSpace.PurchasingInformationUrl,
+                    ReleaseNotesUrl = nameSpace.ReleaseNotesUrl,
+                    TestSpecificationUrl = nameSpace.TestSpecificationUrl,
+                    SupportedLocales = nameSpace.SupportedLocales,
+                    NumberOfDownloads = nameSpace.NumberOfDownloads,
+                    AdditionalProperties = nameSpace.AdditionalProperties,
+                };
+
+                nodesetResults.Add(thisResult);
             }
             return nodesetResults.ToArray();
         }

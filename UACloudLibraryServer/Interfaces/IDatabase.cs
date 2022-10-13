@@ -29,11 +29,13 @@
 
 namespace Opc.Ua.Cloud.Library
 {
+    using System.Linq;
     using Opc.Ua.Cloud.Library.Models;
 
     public interface IDatabase
     {
         UANodesetResult[] FindNodesets(string[] keywords, int? offset, int? limit);
+        IQueryable<CloudLibNodeSetModel> SearchNodesets(string[] keywords);
 
         bool AddMetaDataToNodeSet(uint nodesetId, string name, string value);
 

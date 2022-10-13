@@ -40,31 +40,13 @@ namespace Opc.Ua.Cloud.Library.Models
         Custom
     }
 
-    public class UANameSpace
+    public class UANameSpaceBase
     {
-        public UANameSpace()
-        {
-            Title = string.Empty;
-            License = License.Custom;
-            CopyrightText = string.Empty;
-            Contributor = new Organisation();
-            Description = string.Empty;
-            Category = new Category();
-            Nodeset = new Nodeset();
-            DocumentationUrl = null;
-            IconUrl = null;
-            LicenseUrl = null;
-            Keywords = Array.Empty<string>();
-            PurchasingInformationUrl = null;
-            ReleaseNotesUrl = null;
-            TestSpecificationUrl = null;
-            SupportedLocales = Array.Empty<string>();
-            NumberOfDownloads = 0;
-            AdditionalProperties = null;
-        }
-
         [Required]
         public string Title { get; set; }
+
+        [Required]
+        public Organisation Contributor { get; set; }
 
         [Required]
         public License License { get; set; }
@@ -73,16 +55,10 @@ namespace Opc.Ua.Cloud.Library.Models
         public string CopyrightText { get; set; }
 
         [Required]
-        public Organisation Contributor { get; set; }
-
-        [Required]
         public string Description { get; set; }
 
         [Required]
         public Category Category { get; set; }
-
-        [Required]
-        public Nodeset Nodeset { get; set; }
 
         /// <summary>
         /// Link to additional documentation, specifications, GitHub, etc.
@@ -111,6 +87,38 @@ namespace Opc.Ua.Cloud.Library.Models
         public string ValidationStatus { get; set; }
 
         public UAProperty[] AdditionalProperties { get; set; }
+
+        public UANameSpaceBase()
+        {
+            Title = string.Empty;
+            License = License.Custom;
+            CopyrightText = string.Empty;
+            Contributor = new Organisation();
+            Description = string.Empty;
+            Category = new Category();
+            DocumentationUrl = null;
+            IconUrl = null;
+            LicenseUrl = null;
+            Keywords = Array.Empty<string>();
+            PurchasingInformationUrl = null;
+            ReleaseNotesUrl = null;
+            TestSpecificationUrl = null;
+            SupportedLocales = Array.Empty<string>();
+            NumberOfDownloads = 0;
+            AdditionalProperties = null;
+        }
+
+    }
+
+    public class UANameSpace : UANameSpaceBase
+    {
+        public UANameSpace(): base()
+        {
+            Nodeset = new Nodeset();
+        }
+
+        [Required]
+        public Nodeset Nodeset { get; set; }
     }
 
     public class UAProperty

@@ -47,20 +47,6 @@ namespace Opc.Ua.Cloud.Library.Models
         [JsonProperty(PropertyName = "license")]
         public string License { get; set; }
 
-        [JsonProperty(PropertyName = "version")]
-        public string Version { get; set; }
-
-        [JsonProperty(PropertyName = "publicationDate")]
-        public System.DateTime? PublicationDate { get; set; }
-
-        [JsonProperty(PropertyName = "validationStatus")]
-        public string ValidationStatus { get; set; }
-
-        [JsonProperty(PropertyName = "nodesetNamespaceUri")]
-        public string NameSpaceUri { get; set; }
-
-        public List<CloudLibRequiredModelInfo> RequiredNodesets { get; set; }
-
         public string CopyrightText { get; set; }
 
         public string Description { get; set; }
@@ -91,8 +77,22 @@ namespace Opc.Ua.Cloud.Library.Models
         public string[] SupportedLocales { get; set; }
 
         public uint NumberOfDownloads { get; set; }
+        [JsonProperty(PropertyName = "validationStatus")]
+        public string ValidationStatus { get; set; }
+
 
         public UAProperty[] AdditionalProperties { get; set; }
+
+        [JsonProperty(PropertyName = "version")]
+        public string Version { get; set; }
+
+        [JsonProperty(PropertyName = "publicationDate")]
+        public System.DateTime? PublicationDate { get; set; }
+
+        [JsonProperty(PropertyName = "nodesetNamespaceUri")]
+        public string NameSpaceUri { get; set; }
+
+        public List<CloudLibRequiredModelInfo> RequiredNodesets { get; set; }
 
     }
 }

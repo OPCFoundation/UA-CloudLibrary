@@ -92,6 +92,7 @@ namespace Opc.Ua.Cloud.Library
 
             NodeSetModelContext.CreateModel(builder);
             builder.Entity<CloudLibNodeSetModel>()
+                .Ignore(nm => nm.Metadata)
                 .Property(nsm => nsm.ValidationStatus)
                     .HasConversion<string>();
 

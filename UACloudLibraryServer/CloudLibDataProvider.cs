@@ -10,6 +10,7 @@ using HotChocolate;
 using HotChocolate.Data;
 using HotChocolate.Types;
 using Opc.Ua.Cloud.Library.DbContextModels;
+using Opc.Ua.Cloud.Library.Models;
 
 namespace Opc.Ua.Cloud.Library
 {
@@ -29,29 +30,34 @@ namespace Opc.Ua.Cloud.Library
         public IQueryable<CloudLibNodeSetModel> GetNodeSets(
             string identifier = null,
             string nodeSetUrl = null,
-            DateTime? publicationDate = null)
+            DateTime? publicationDate = null,
+            string[] keywords = null)
         {
 
             IQueryable<CloudLibNodeSetModel> nodeSets;
             if (!string.IsNullOrEmpty(identifier))
             {
-                if (nodeSetUrl != null || publicationDate != null)
+                if (nodeSetUrl != null || publicationDate != null || keywords != null)
                 {
                     throw new ArgumentException($"Must not specify other parameters when providing identifier.");
                 }
                 nodeSets = this._context.nodeSets.AsQueryable().Where(nsm => nsm.Identifier == identifier);
             }
-            else if (nodeSetUrl != null && publicationDate != null)
-            {
-                nodeSets = this._context.nodeSets.AsQueryable().Where(nsm => nsm.ModelUri == nodeSetUrl && nsm.PublicationDate == publicationDate);
-            }
-            else if (nodeSetUrl != null)
-            {
-                nodeSets = this._context.nodeSets.AsQueryable().Where(nsm => nsm.ModelUri == nodeSetUrl);
-            }
             else
             {
-                nodeSets = this._context.nodeSets.AsQueryable();
+                var nodeSetQuery =_database.SearchNodesets(keywords);
+                if (nodeSetUrl != null && publicationDate != null)
+                {
+                    nodeSets = nodeSetQuery.Where(nsm => nsm.ModelUri == nodeSetUrl && nsm.PublicationDate == publicationDate);
+                }
+                else if (nodeSetUrl != null)
+                {
+                    nodeSets = nodeSetQuery.Where(nsm => nsm.ModelUri == nodeSetUrl);
+                }
+                else
+                {
+                    nodeSets = nodeSetQuery;
+                }
             }
             return nodeSets;
         }
@@ -160,6 +166,10 @@ namespace Opc.Ua.Cloud.Library
         public Task<List<MetadataModel>> GetMetadata()
         {
             return _resolver.GetMetaData();
+        }
+        public UANameSpaceBase GetMetadata(uint nodeSetId)
+        {
+            return (_database as PostgreSQLDB).RetrieveAllMetadata(nodeSetId);
         }
 
         [UsePaging, UseFiltering, UseSorting]

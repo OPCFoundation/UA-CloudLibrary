@@ -48,9 +48,9 @@ namespace Opc.Ua.Cloud.Library
     public class QueryModel
     {
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<CloudLibNodeSetModel> GetNodeSets([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp, string identifier = null, string nodeSetUrl = null, DateTime? publicationDate = null)
+        public IQueryable<CloudLibNodeSetModel> GetNodeSets([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp, string identifier = null, string nodeSetUrl = null, DateTime? publicationDate = null, string[] keywords = null)
         {
-            return dp.GetNodeSets(identifier, nodeSetUrl, publicationDate);
+            return dp.GetNodeSets(identifier, nodeSetUrl, publicationDate, keywords);
         }
 
         [UsePaging, UseFiltering, UseSorting]
@@ -193,6 +193,12 @@ namespace Opc.Ua.Cloud.Library
     {
         protected override void Configure(IObjectTypeDescriptor<CloudLibNodeSetModel> descriptor)
         {
+            descriptor.Field(f => f.Metadata).Resolve(context => {
+                var parent = context.Parent<CloudLibNodeSetModel>();
+                var metaData = context.Service<CloudLibDataProvider>().GetMetadata(uint.Parse(parent.Identifier, CultureInfo.InvariantCulture));
+                return metaData;
+            });
+
             ConfigureField(descriptor.Field(f => f.ObjectTypes));
             ConfigureField(descriptor.Field(f => f.VariableTypes));
             ConfigureField(descriptor.Field(f => f.DataTypes));

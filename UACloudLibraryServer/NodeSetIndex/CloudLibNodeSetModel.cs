@@ -31,12 +31,14 @@ using System;
 using System.Threading.Tasks;
 using CESMII.OpcUa.NodeSetModel;
 using CESMII.OpcUa.NodeSetModel.EF;
+using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Export;
 
 namespace Opc.Ua.Cloud.Library
 {
     public class CloudLibNodeSetModel : NodeSetModel
     {
+        public UANameSpaceBase Metadata { get; set; }
         public ValidationStatus ValidationStatus { get; set; }
         public string ValidationStatusInfo { get; set; }
         public TimeSpan ValidationElapsedTime { get; set; }
