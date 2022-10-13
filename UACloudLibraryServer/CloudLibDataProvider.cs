@@ -45,7 +45,7 @@ namespace Opc.Ua.Cloud.Library
             }
             else
             {
-                var nodeSetQuery =_database.SearchNodesets(keywords);
+                var nodeSetQuery = _database.SearchNodesets(keywords);
                 if (nodeSetUrl != null && publicationDate != null)
                 {
                     nodeSets = nodeSetQuery.Where(nsm => nsm.ModelUri == nodeSetUrl && nsm.PublicationDate == publicationDate);

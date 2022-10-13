@@ -142,7 +142,7 @@ namespace Opc.Ua.Cloud.Library
 
         public UANameSpace RetrieveAllMetadata(uint nodesetId)
         {
-            UANameSpace nameSpace = new ();
+            UANameSpace nameSpace = new();
             RetrieveAllMetadata(nodesetId, nameSpace);
             return nameSpace;
         }

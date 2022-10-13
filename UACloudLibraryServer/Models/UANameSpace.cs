@@ -112,7 +112,7 @@ namespace Opc.Ua.Cloud.Library.Models
 
     public class UANameSpace : UANameSpaceBase
     {
-        public UANameSpace(): base()
+        public UANameSpace() : base()
         {
             Nodeset = new Nodeset();
         }
