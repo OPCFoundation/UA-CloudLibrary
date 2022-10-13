@@ -313,6 +313,11 @@ namespace Opc.Ua.Cloud.Library.Client
         public List<RequiredModelInfo> RequiredModels { get; set; }
 
         /// <summary>
+        /// Meta data about the node set that are not captured in the nodeset itself
+        /// </summary>
+        public UANameSpace Metadata { get; set; }
+
+        /// <summary>
         /// String representation for logging and debugging
         /// </summary>
         /// <returns></returns>
@@ -323,7 +328,7 @@ namespace Opc.Ua.Cloud.Library.Client
     }
 
     /// <summary>
-    /// Contains information about dependencies of a nodeset
+    /// Information about dependencies of a nodeset
     /// </summary>
     public class RequiredModelInfo
     {
