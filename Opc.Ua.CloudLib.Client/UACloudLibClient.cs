@@ -564,12 +564,10 @@ query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: Dat
             try
             {
                 var graphQlResult = await SendAndConvertAsync<GraphQlResult<GraphQLNodeSet>>(request).ConfigureAwait(false);
-                result = new GraphQlResult<Nodeset>(graphQlResult)
-                {
+                result = new GraphQlResult<Nodeset>(graphQlResult) {
                     TotalCount = graphQlResult.TotalCount,
                     Edges = graphQlResult?.Edges.Select(n =>
-                        new GraphQlNodeAndCursor<Nodeset>
-                        {
+                        new GraphQlNodeAndCursor<Nodeset> {
                             Cursor = n.Cursor,
                             Node = n.Node.ToNodeSet(),
                         }).ToList(),

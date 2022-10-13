@@ -123,14 +123,14 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <summary>
         /// Constructore
         /// </summary>
-        public GraphQlResult() 
+        public GraphQlResult()
         {
         }
         /// <summary>
         /// Copy constructor, except for the Edges
         /// </summary>
         /// <param name="paginationInfo"></param>
-        public GraphQlResult(GraphQlPaginationInfo paginationInfo): base(paginationInfo)
+        public GraphQlResult(GraphQlPaginationInfo paginationInfo) : base(paginationInfo)
         {
         }
 
