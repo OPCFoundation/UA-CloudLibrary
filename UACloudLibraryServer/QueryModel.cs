@@ -31,15 +31,14 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Threading.Tasks;
 using CESMII.OpcUa.NodeSetModel;
-using Extensions;
 using HotChocolate;
 using HotChocolate.AspNetCore.Authorization;
 using HotChocolate.Data;
+using HotChocolate.Language;
+using HotChocolate.Resolvers;
 using HotChocolate.Types;
-using Microsoft.AspNetCore.DataProtection;
 using Opc.Ua.Cloud.Library.DbContextModels;
 
 namespace Opc.Ua.Cloud.Library
@@ -48,9 +47,17 @@ namespace Opc.Ua.Cloud.Library
     public class QueryModel
     {
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<CloudLibNodeSetModel> GetNodeSets([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp, string identifier = null, string nodeSetUrl = null, DateTime? publicationDate = null, string[] keywords = null)
+        public IQueryable<CloudLibNodeSetModel> GetNodeSets([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp, IResolverContext context,
+            string identifier = null, string nodeSetUrl = null, DateTime? publicationDate = null, string[] keywords = null)
         {
-            return dp.GetNodeSets(identifier, nodeSetUrl, publicationDate, keywords);
+            var query = dp.GetNodeSets(identifier, nodeSetUrl, publicationDate, keywords);
+            var orderByArgument = context.ArgumentLiteral<IValueNode>("order");
+            if (orderByArgument == NullValueNode.Default || orderByArgument == null)
+            {
+                query = query.OrderBy(nsm => nsm.ModelUri).ThenBy(nsm => nsm.PublicationDate);
+            }
+
+            return query;
         }
 
         [UsePaging, UseFiltering, UseSorting]
