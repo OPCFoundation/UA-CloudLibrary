@@ -88,6 +88,7 @@ namespace Opc.Ua.Cloud.Library
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
+            builder.HasCollation("en_US.UTF-8", "en_US.UTF-8");
             base.OnModelCreating(builder);
 
             NodeSetModelContext.CreateModel(builder);
