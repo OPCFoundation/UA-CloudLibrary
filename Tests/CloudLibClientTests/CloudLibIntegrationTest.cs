@@ -44,8 +44,10 @@ namespace CloudLibClient.Tests
 
             List<Nodeset> paged = await GetAllPaged(apiClient, keywords: keywords, after: after, first: 5);
             Assert.True(paged.Count == unpaged.Count);
-            Assert.Equal(unpaged, paged/*.Take(cloud.Count)*/, new NodesetComparer());
-            Assert.Equal(unpaged.OrderBy(nsm => nsm.NamespaceUri.ToString()).ThenBy(nsm => nsm.PublicationDate).ToList(), paged, new NodesetComparer());
+            Assert.Equal(unpaged, paged/*.Take(cloud.Count)*/, new NodesetComparer(output));
+
+            var unpagedOrdered = unpaged.OrderBy(nsm => nsm.NamespaceUri.ToString()).ThenBy(nsm => nsm.PublicationDate).ToList();
+            Assert.Equal(unpagedOrdered, paged, new NodesetComparer(output));
 
             return unpaged;
         }
@@ -96,9 +98,20 @@ namespace CloudLibClient.Tests
 
     internal class NodesetComparer : IEqualityComparer<Nodeset>
     {
+        private readonly ITestOutputHelper _output;
+
+        public NodesetComparer(ITestOutputHelper output)
+        {
+            _output = output;
+        }
         public bool Equals(Nodeset x, Nodeset y)
         {
-            return x.NamespaceUri == y.NamespaceUri && x.PublicationDate == y.PublicationDate;
+            var equal = x.NamespaceUri == y.NamespaceUri && x.PublicationDate == y.PublicationDate;
+            if (!equal)
+            {
+                _output?.WriteLine($"{x.NamespaceUri} {x.PublicationDate} vs. {y.NamespaceUri} {y.PublicationDate}");
+            }
+            return equal;
         }
 
         public int GetHashCode([DisallowNull] Nodeset p)
