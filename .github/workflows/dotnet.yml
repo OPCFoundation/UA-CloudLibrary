@@ -70,6 +70,9 @@ jobs:
       run: dotnet build UA-CloudLibrary.sln --configuration Release --no-restore
     - name: Test
       run: dotnet test UA-CloudLibrary.sln --no-build --configuration Release --verbosity normal  -l:"console;verbosity=normal"
+    - name: List databases after test run
+      run: |
+        sudo -u postgres psql -l --command="\du"
     - name: pack NuGet
       run: dotnet pack Opc.Ua.CloudLib.Client/Opc.Ua.Cloud.Library.Client.csproj --configuration Release
     - name: add github nuget-feed#
