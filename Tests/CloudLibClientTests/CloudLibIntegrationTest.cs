@@ -46,8 +46,8 @@ namespace CloudLibClient.Tests
             Assert.True(paged.Count == unpaged.Count);
             Assert.Equal(unpaged, paged/*.Take(cloud.Count)*/, new NodesetComparer(output));
 
-            var unpagedOrdered = unpaged.OrderBy(nsm => nsm.NamespaceUri.ToString()).ThenBy(nsm => nsm.PublicationDate).ToList();
-            Assert.Equal(unpagedOrdered, paged, new NodesetComparer(output));
+            //var unpagedOrdered = unpaged.OrderBy(nsm => nsm.NamespaceUri.ToString()).ThenBy(nsm => nsm.PublicationDate).ToList();
+            //Assert.Equal(unpagedOrdered, paged, new NodesetComparer(output));
 
             return unpaged;
         }
