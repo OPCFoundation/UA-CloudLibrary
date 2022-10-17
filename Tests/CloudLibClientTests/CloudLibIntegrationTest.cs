@@ -15,7 +15,7 @@ using Xunit.Sdk;
 
 namespace CloudLibClient.Tests
 {
-    public partial class CloudLibSearch
+    public class CloudLibSearch
     : IClassFixture<CustomWebApplicationFactory<Opc.Ua.Cloud.Library.Startup>>
     {
         private readonly CustomWebApplicationFactory<Opc.Ua.Cloud.Library.Startup> _factory;
@@ -46,8 +46,8 @@ namespace CloudLibClient.Tests
             Assert.True(paged.Count == unpaged.Count);
             Assert.Equal(unpaged, paged/*.Take(cloud.Count)*/, new NodesetComparer(output));
 
-            //var unpagedOrdered = unpaged.OrderBy(nsm => nsm.NamespaceUri.ToString()).ThenBy(nsm => nsm.PublicationDate).ToList();
-            //Assert.Equal(unpagedOrdered, paged, new NodesetComparer(output));
+            var unpagedOrdered = unpaged.OrderBy(nsm => nsm.NamespaceUri.ToString()).ThenBy(nsm => nsm.PublicationDate).ToList();
+            Assert.Equal(unpagedOrdered, paged, new NodesetComparer(output));
 
             return unpaged;
         }
