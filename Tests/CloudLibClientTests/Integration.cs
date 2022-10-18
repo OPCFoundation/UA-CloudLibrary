@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Opc.Ua.Cloud.Library;
@@ -51,6 +52,8 @@ namespace CloudLibClient.Tests
                     if (dbContext.nodeSets.Any())
                     {
                         dbContext.Database.EnsureDeleted();
+                        // Create tables etc., so migration does not get attributed to the first actual test
+                        dbContext.Database.Migrate();
                     }
                 }
                 var fileStoreRoot = Path.Combine(Path.GetTempPath(), "CloudLib");
