@@ -42,6 +42,9 @@ jobs:
     - name: Create additional user
       run: |
         sudo -u postgres psql --command="CREATE USER testuser SUPERUSER PASSWORD 'password'" --command="\du"
+    - name: Create test database with proper collation
+      run: |
+        sudo -u postgres psql --command="create database cloudlib_test with LC_COLLATE = 'en_US.UTF8' LC_CTYPE = 'en_US.UTF8' TEMPLATE template0"
     - name: List existing databases
       run: |
         sudo -u postgres psql -l --command="\du"
