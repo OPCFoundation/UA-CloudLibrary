@@ -25,7 +25,7 @@ services:
     ports:
       - 8080:80
     environment:
-      PGADMIN_DEFAULT_EMAIL: uacloudlib
+      PGADMIN_DEFAULT_EMAIL: no-reply@opcfoundation.org
       PGADMIN_DEFAULT_PASSWORD: uacloudlib
       PGADMIN_CONFIG_SERVER_MODE: "False"
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
