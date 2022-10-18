@@ -156,7 +156,7 @@ namespace Opc.Ua.Cloud.Library
             // setup data protection
             switch (Configuration["HostingPlatform"])
             {
-                case "Azure": services.AddDataProtection().PersistKeysToAzureBlobStorage(Configuration["BlobStorageConnectionString"], "keys", "keys"); break;
+                case "Azure": services.AddDataProtection().PersistKeysToAzureBlobStorage(Configuration["BlobStorageConnectionString"], "keys", Configuration["DataProtectionBlobName"]); break;
                 case "AWS": services.AddDataProtection().PersistKeysToAWSSystemsManager($"/{serviceName}/DataProtection"); break;
                 case "GCP": services.AddDataProtection().PersistKeysToGoogleCloudStorage(Configuration["BlobStorageConnectionString"], "DataProtectionProviderKeys.xml"); break;
                 default: services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Directory.GetCurrentDirectory())); break;
@@ -225,10 +225,11 @@ namespace Opc.Ua.Cloud.Library
 
             app.UseAuthorization();
 
-            app.UseGraphQLPlayground(new PlaygroundOptions() {
-                RequestCredentials = RequestCredentials.Include
-            },
-            "/graphqlui");
+            app.UseGraphQLPlayground(
+                "/graphqlui",
+                new PlaygroundOptions() {
+                    RequestCredentials = RequestCredentials.Include
+                });
             app.UseGraphQLGraphiQL("/graphiql");
 
             app.UseEndpoints(endpoints => {
