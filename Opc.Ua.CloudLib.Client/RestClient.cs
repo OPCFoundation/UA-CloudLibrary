@@ -76,7 +76,22 @@ namespace Opc.Ua.Cloud.Library.Client
             client.Dispose();
         }
 
+        [Obsolete("Use GetBasicNodesetInformationAsync with offset and limit")]
         public async Task<List<UANodesetResult>> GetBasicNodesetInformationAsync(List<string> keywords = null)
+        {
+            var nodeSetResults = new List<UANodesetResult>();
+            int offset = 0;
+            int limit = 100;
+            do
+            {
+                var results = await GetBasicNodesetInformationAsync(offset, limit, keywords).ConfigureAwait(false);
+                nodeSetResults.AddRange(results);
+                offset += limit;
+            } while (nodeSetResults.Count == limit);
+            return nodeSetResults;
+        }
+
+        public async Task<List<UANodesetResult>> GetBasicNodesetInformationAsync(int offset, int limit, List<string> keywords = null)
         {
             if (keywords == null)
             {
@@ -84,21 +99,31 @@ namespace Opc.Ua.Cloud.Library.Client
             }
 
             // keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
-            string address = client.BaseAddress.ToString() + "infomodel/find" + PrepareArgumentsString(keywords);
+            string address = client.BaseAddress.ToString() + "infomodel/find" + PrepareArgumentsString(keywords) + $"&offset={offset}&limit={limit}";
             HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
 
             List<UANodesetResult> info = null;
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                info = JsonConvert.DeserializeObject<List<UANodesetResult>>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+                var responseJson = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                info = JsonConvert.DeserializeObject<List<UANodesetResult>>(responseJson);
             }
 
             return info;
         }
 
-        public async Task<UANameSpace> DownloadNodesetAsync(string identifier)
+        public Task<UANameSpace> DownloadNodesetAsync(string identifier)
         {
-            string address = Path.Combine(client.BaseAddress.ToString(), "infomodel/download/", Uri.EscapeDataString(identifier));
+            return DownloadNodesetAsync(identifier, false);
+        }
+        public async Task<UANameSpace> DownloadNodesetAsync(string identifier, bool metadataOnly)
+        {
+            var request = $"infomodel/download/{Uri.EscapeDataString(identifier)}";
+            if (metadataOnly)
+            {
+                request += $"?{nameof(metadataOnly)}=true";
+            }
+            var address = new Uri(client.BaseAddress, request);
             HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
             UANameSpace resultType = null;
             if (response.StatusCode == HttpStatusCode.OK)

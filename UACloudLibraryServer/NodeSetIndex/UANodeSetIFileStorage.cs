@@ -28,11 +28,9 @@
  * ======================================================================*/
 
 using System;
-using System.IO;
-using System.Text;
 using CESMII.OpcUa.NodeSetImporter;
+using CESMII.OpcUa.NodeSetModel.EF;
 using Opc.Ua.Cloud.Library.Interfaces;
-using Opc.Ua.Export;
 
 namespace Opc.Ua.Cloud.Library
 {
@@ -70,7 +68,7 @@ namespace Opc.Ua.Cloud.Library
         public bool GetNodeSet(UANodeSetImportResult results, ModelNameAndVersion nameVersion, object TenantID)
         {
             // Find next higher model if no exact match
-            var matchingNodeSet = DbOpcUaContext.GetMatchingOrHigherNodeSetAsync(_dbContext, nameVersion.ModelUri, nameVersion.PublicationDate).Result;
+            var matchingNodeSet = DbOpcUaContext.GetMatchingOrHigherNodeSetAsync(_dbContext, nameVersion.ModelUri, nameVersion.PublicationDate).Result as CloudLibNodeSetModel;
             if (matchingNodeSet != null)
             {
                 string tFileName = matchingNodeSet.Identifier;

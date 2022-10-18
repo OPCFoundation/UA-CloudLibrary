@@ -70,9 +70,12 @@ namespace Opc.Ua.Cloud.Library
         [Route("/infomodel/find")]
         [SwaggerResponse(statusCode: 200, type: typeof(UANodesetResult[]), description: "Discovered OPC UA Information Model results of the models found in the UA Cloud Library matching the keywords provided.")]
         public IActionResult FindNameSpaceAsync(
-            [FromQuery][SwaggerParameter("A list of keywords to search for in the information models. Specify * to return everything.")] string[] keywords)
+            [FromQuery][SwaggerParameter("A list of keywords to search for in the information models. Specify * to return everything.")] string[] keywords,
+            [FromQuery][SwaggerParameter("Pagination offset")] int? offset,
+            [FromQuery][SwaggerParameter("Pagination limit")] int? limit
+            )
         {
-            UANodesetResult[] results = _database.FindNodesets(keywords);
+            UANodesetResult[] results = _database.FindNodesets(keywords, offset, limit);
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -101,16 +104,19 @@ namespace Opc.Ua.Cloud.Library
         [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The identifier provided could not be found.")]
         public async Task<IActionResult> DownloadNameSpaceAsync(
             [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier,
-            [FromQuery][SwaggerParameter("Download NodeSet XML only, omitting metadata")] bool nodesetXMLOnly = false)
+            [FromQuery][SwaggerParameter("Download NodeSet XML only, omitting metadata")] bool nodesetXMLOnly = false,
+            [FromQuery][SwaggerParameter("Download metadata only, omitting NodeSet XML")] bool metadataOnly = false
+            )
         {
             UANameSpace result = new UANameSpace();
-
-            result.Nodeset.NodesetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
-            if (string.IsNullOrEmpty(result.Nodeset.NodesetXml))
+            if (!metadataOnly)
             {
-                return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
+                result.Nodeset.NodesetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
+                if (string.IsNullOrEmpty(result.Nodeset.NodesetXml))
+                {
+                    return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
+                }
             }
-
             uint nodeSetID = 0;
             if (!uint.TryParse(identifier, out nodeSetID))
             {

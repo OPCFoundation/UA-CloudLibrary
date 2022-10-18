@@ -29,6 +29,8 @@
 
 namespace Opc.Ua.Cloud.Library.Models
 {
+    using System;
+    using System.Collections.Generic;
     using Newtonsoft.Json;
 
     public class UANodesetResult
@@ -56,5 +58,41 @@ namespace Opc.Ua.Cloud.Library.Models
 
         [JsonProperty(PropertyName = "nodesetNamespaceUri")]
         public string NameSpaceUri { get; set; }
+
+        public List<CloudLibRequiredModelInfo> RequiredNodesets { get; set; }
+
+        public string CopyrightText { get; set; }
+
+        public string Description { get; set; }
+
+        public Category Category { get; set; }
+
+        /// <summary>
+        /// Link to additional documentation, specifications, GitHub, etc.
+        /// For example, If the address space is based on a standard or official UA Information Model, this links to the standard or the OPC specification URL.
+        /// </summary>
+        public Uri DocumentationUrl { get; set; }
+
+        public Uri IconUrl { get; set; }
+
+        public Uri LicenseUrl { get; set; }
+
+        public string[] Keywords { get; set; }
+
+        public Uri PurchasingInformationUrl { get; set; }
+
+        public Uri ReleaseNotesUrl { get; set; }
+
+        public Uri TestSpecificationUrl { get; set; }
+
+        /// <summary>
+        /// Supported ISO language codes
+        /// </summary>
+        public string[] SupportedLocales { get; set; }
+
+        public uint NumberOfDownloads { get; set; }
+
+        public UAProperty[] AdditionalProperties { get; set; }
+
     }
 }

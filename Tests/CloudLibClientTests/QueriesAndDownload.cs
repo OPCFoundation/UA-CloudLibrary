@@ -26,15 +26,19 @@ namespace CloudLibClient.Tests
             this.output = output;
         }
 
-        [Fact]
-        async Task GetNodeSetDependencies()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        async Task GetNodeSetDependencies(bool forceRest)
         {
             var client = _factory.CreateCloudLibClient();
+            if (forceRest)
+            {
+                client._forceRestTestHook = forceRest;
+            }
 
-            List<UANodesetResult> restResult = await client.GetBasicNodesetInformationAsync().ConfigureAwait(false);
-            Assert.True(restResult?.Count > 0, "Failed to get node set information.");
+            var nodeSetInfo = await GetBasicNodeSetInfoForNamespaceAsync(client, "http://opcfoundation.org/UA/Robotics/").ConfigureAwait(false);
 
-            var nodeSetInfo = restResult.FirstOrDefault(n => n.NameSpaceUri == "http://opcfoundation.org/UA/Robotics/");
             Assert.True(nodeSetInfo != null, "Nodeset not found");
             var identifier = nodeSetInfo.Id.ToString(CultureInfo.InvariantCulture);
 
@@ -49,8 +53,8 @@ namespace CloudLibClient.Tests
             Assert.Equal(uploadedNameSpace.Nodeset.PublicationDate, nodeSet.PublicationDate);
             Assert.Equal(uploadedNameSpace.Nodeset.Version, nodeSet.Version);
             Assert.Equal(nodeSetInfo.Id, nodeSet.Identifier);
-            Assert.Equal("INDEXED", nodeSet.ValidationStatus);
-            Assert.Equal(DateTime.MinValue, nodeSet.LastModifiedDate);
+            Assert.Equal("INDEXED", nodeSet.ValidationStatus, ignoreCase: true);
+            Assert.Equal(default, nodeSet.LastModifiedDate);
             Assert.True(string.IsNullOrEmpty(nodeSet.NodesetXml));
 
             Console.WriteLine($"Dependencies for {nodeSet.Identifier} {nodeSet.NamespaceUri} {nodeSet.PublicationDate} ({nodeSet.Version}):");
@@ -59,20 +63,7 @@ namespace CloudLibClient.Tests
                 Console.WriteLine($"Required: {requiredNodeSet.NamespaceUri} {requiredNodeSet.PublicationDate} ({requiredNodeSet.Version}). Available in Cloud Library: {requiredNodeSet.AvailableModel?.Identifier} {requiredNodeSet.AvailableModel?.PublicationDate} ({requiredNodeSet.AvailableModel?.Version})");
             }
 
-            List<RequiredModelInfo> expectedModels;
-            using (var ms = new MemoryStream(Encoding.UTF8.GetBytes(uploadedNameSpace.Nodeset.NodesetXml)))
-            {
-                var uaNodeSet = UANodeSet.Read(ms);
-
-                expectedModels = uaNodeSet.Models.SelectMany(m => m.RequiredModel).Select(rm =>
-                new RequiredModelInfo {
-                    NamespaceUri = rm.ModelUri,
-                    PublicationDate = rm.PublicationDate,
-                    Version = rm.Version,
-                    // TODO verify AvailableModel
-                }).ToList();
-            }
-            Assert.Equal(expectedModels, nodeSet.RequiredModels, new RequiredModelInfoComparer());
+            VerifyRequiredModels(uploadedNameSpace, nodeSet.RequiredModels);
 
             var namespaceUri = nodeSetInfo.NameSpaceUri;
             var publicationDate = nodeSetInfo.PublicationDate.HasValue && nodeSetInfo.PublicationDate.Value.Kind == DateTimeKind.Unspecified ?
@@ -104,6 +95,54 @@ namespace CloudLibClient.Tests
             }
         }
 
+        private static async Task<UANodesetResult> GetBasicNodeSetInfoForNamespaceAsync(UACloudLibClient client, string namespaceUri)
+        {
+            int offset = 0;
+            int limit = 10;
+            List<UANodesetResult> restResult;
+            UANodesetResult nodeSetInfo;
+            do
+            {
+                restResult = await client.GetBasicNodesetInformationAsync(offset, limit).ConfigureAwait(false);
+                Assert.True(offset > 0 || restResult?.Count > 0, "Failed to get node set information.");
+                nodeSetInfo = restResult.FirstOrDefault(n => n.NameSpaceUri == namespaceUri);
+                offset += limit;
+            } while (nodeSetInfo == null && restResult.Count == limit);
+            return nodeSetInfo;
+        }
+
+        private static UANodeSet VerifyRequiredModels(UANameSpace expectedNameSpace, List<RequiredModelInfo> requiredModels)
+        {
+            UANodeSet uaNodeSet = null;
+            if (expectedNameSpace != null)
+            {
+                using (var ms = new MemoryStream(Encoding.UTF8.GetBytes(expectedNameSpace.Nodeset.NodesetXml)))
+                {
+                    uaNodeSet = UANodeSet.Read(ms);
+                }
+            }
+            VerifyRequiredModels(uaNodeSet, requiredModels);
+            return uaNodeSet;
+        }
+
+        private static void VerifyRequiredModels(UANodeSet expectedUaNodeSet, List<RequiredModelInfo> requiredModels)
+        {
+            if (expectedUaNodeSet == null && requiredModels == null)
+            {
+                return;
+            }
+            List<RequiredModelInfo> expectedModels;
+            expectedModels = expectedUaNodeSet?.Models.SelectMany(m => m.RequiredModel).Select(rm =>
+                        new RequiredModelInfo {
+                            NamespaceUri = rm.ModelUri,
+                            PublicationDate = rm.PublicationDate,
+                            Version = rm.Version,
+                            // TODO verify AvailableModel
+                        }).ToList();
+
+            Assert.Equal(expectedModels?.OrderBy(m => m.NamespaceUri), requiredModels?.OrderBy(m => m.NamespaceUri), new RequiredModelInfoComparer());
+        }
+
         [Fact]
         async Task DownloadNodesetAsync()
         {
@@ -123,19 +162,17 @@ namespace CloudLibClient.Tests
 
             Assert.Equal(uploadedNameSpace.Nodeset.NodesetXml, downloadedNameSpace.Nodeset.NodesetXml);
 
-            Assert.Null(downloadedNameSpace.Nodeset.ValidationStatus);
-            Assert.Null(downloadedNameSpace.Nodeset.RequiredModels);
             var identifier = downloadedNameSpace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
             Assert.True(identifier == testNodeSet.Identifier);
 
-            using (var ms = new MemoryStream(Encoding.UTF8.GetBytes(downloadedNameSpace.Nodeset.NodesetXml)))
-            {
-                var uaNodeSet = UANodeSet.Read(ms);
-                Assert.Equal(uaNodeSet.LastModified, downloadedNameSpace.Nodeset.LastModifiedDate);
-                Assert.Equal(uaNodeSet.Models[0].ModelUri, downloadedNameSpace.Nodeset.NamespaceUri.ToString());
-                Assert.Equal(uaNodeSet.Models[0].PublicationDate, downloadedNameSpace.Nodeset.PublicationDate);
-                Assert.Equal(uaNodeSet.Models[0].Version, downloadedNameSpace.Nodeset.Version);
-            }
+            Assert.Equal("INDEXED", downloadedNameSpace.Nodeset.ValidationStatus, ignoreCase: true);
+
+            var uploadedUaNodeSet = VerifyRequiredModels(uploadedNameSpace, downloadedNameSpace.Nodeset.RequiredModels);
+            Assert.Equal(uploadedUaNodeSet.LastModified, downloadedNameSpace.Nodeset.LastModifiedDate);
+            Assert.Equal(uploadedUaNodeSet.Models[0].ModelUri, downloadedNameSpace.Nodeset.NamespaceUri.ToString());
+            Assert.Equal(uploadedUaNodeSet.Models[0].PublicationDate, downloadedNameSpace.Nodeset.PublicationDate);
+            Assert.Equal(uploadedUaNodeSet.Models[0].Version, downloadedNameSpace.Nodeset.Version);
+            
             Assert.Equal(uploadedNameSpace.Nodeset.NamespaceUri?.ToString(), downloadedNameSpace.Nodeset.NamespaceUri.ToString());
             Assert.Equal(uploadedNameSpace.Nodeset.PublicationDate, downloadedNameSpace.Nodeset.PublicationDate);
             Assert.Equal(uploadedNameSpace.Nodeset.Version, downloadedNameSpace.Nodeset.Version);
@@ -148,8 +185,9 @@ namespace CloudLibClient.Tests
             Assert.Equal(uploadedNameSpace.TestSpecificationUrl, downloadedNameSpace.TestSpecificationUrl);
             Assert.Equal(uploadedNameSpace.Category, downloadedNameSpace.Category, new CategoryComparer());
             Assert.Equal(uploadedNameSpace.Contributor, downloadedNameSpace.Contributor, new OrganisationComparer());
-            // https://github.com/OPCFoundation/UA-CloudLibrary/issues/134
-            Assert.Null(downloadedNameSpace.AdditionalProperties);
+
+            Assert.Equal(uploadedNameSpace.AdditionalProperties, downloadedNameSpace.AdditionalProperties, new UAPropertyComparer());
+
             Assert.Equal(uploadedNameSpace.CopyrightText, downloadedNameSpace.CopyrightText);
             Assert.Equal(uploadedNameSpace.Description, downloadedNameSpace.Description);
             Assert.Equal(uploadedNameSpace.DocumentationUrl, downloadedNameSpace.DocumentationUrl);
@@ -173,10 +211,7 @@ namespace CloudLibClient.Tests
         {
             var client = _factory.CreateCloudLibClient();
 
-            List<UANodesetResult> restResult = await client.GetBasicNodesetInformationAsync().ConfigureAwait(false);
-            Assert.True(restResult?.Count > 0, "Failed to get node set information.");
-
-            var basicNodesetInfo = restResult.FirstOrDefault(n => n.NameSpaceUri == strTestNamespaceUri);
+            var basicNodesetInfo = await GetBasicNodeSetInfoForNamespaceAsync(client, strTestNamespaceUri).ConfigureAwait(false);
             Assert.True(basicNodesetInfo != null, $"Test Nodeset {strTestNamespaceUri} not found");
             Assert.True(basicNodesetInfo.Id != 0);
 
@@ -187,6 +222,7 @@ namespace CloudLibClient.Tests
             Assert.Equal(uploadedNameSpace.License.ToString(), basicNodesetInfo.License);
             Assert.Equal(uploadedNameSpace.Title,  basicNodesetInfo.Title);
             Assert.Equal(uploadedNameSpace.Contributor.Name, basicNodesetInfo.Contributor);
+            VerifyRequiredModels(uploadedNameSpace, basicNodesetInfo.RequiredNodesets);
         }
 
         [Theory]
@@ -199,11 +235,18 @@ namespace CloudLibClient.Tests
             {
                 client._forceRestTestHook = forceRest;
             }
+            int offset = 0;
+            int limit = 10;
+            UANameSpace uaNameSpace;
+            List<UANameSpace> nameSpaces;
+            do
+            {
+                nameSpaces = await client.GetNameSpacesAsync(offset: offset, limit: limit);
+                Assert.True(offset != 0 || nameSpaces?.Count > 0, "Failed to get node set information.");
 
-            List<UANameSpace> nameSpaces = await client.GetNameSpacesAsync();
-            Assert.True(nameSpaces?.Count > 0, "Failed to get node set information.");
-
-            var uaNameSpace = nameSpaces.FirstOrDefault(n => n.Nodeset.NamespaceUri?.ToString() == strTestNamespaceUri);
+                uaNameSpace = nameSpaces.FirstOrDefault(n => n.Nodeset.NamespaceUri?.ToString() == strTestNamespaceUri);
+                offset += limit;
+            } while (uaNameSpace == null && nameSpaces?.Count >= limit);
             Assert.True(uaNameSpace != null, "Nodeset not found");
 
             Assert.True(uaNameSpace.Nodeset.Identifier != 0);
@@ -214,51 +257,37 @@ namespace CloudLibClient.Tests
             Assert.Equal(uploadedNameSpace.Nodeset.NamespaceUri?.ToString(), uaNameSpace.Nodeset.NamespaceUri.ToString());
             Assert.Equal(uploadedNameSpace.Nodeset.PublicationDate, uaNameSpace.Nodeset.PublicationDate);
             Assert.Equal(uploadedNameSpace.Nodeset.Version, uaNameSpace.Nodeset.Version);
+
+            Assert.Equal(uploadedNameSpace.Title, uaNameSpace.Title);
+            Assert.Equal(uploadedNameSpace.License, uaNameSpace.License);
+            Assert.Equal(uploadedNameSpace.Keywords, uaNameSpace.Keywords);
+            Assert.Equal(uploadedNameSpace.LicenseUrl, uaNameSpace.LicenseUrl);
+            Assert.Equal(uploadedNameSpace.TestSpecificationUrl, uaNameSpace.TestSpecificationUrl);
+            Assert.Equal(uploadedNameSpace.Category, uaNameSpace.Category, new CategoryComparer());
             if (!forceRest)
             {
+                // GraphQL
                 Assert.Equal(uploadedNameSpace.Nodeset.LastModifiedDate, uaNameSpace.Nodeset.LastModifiedDate);
-                Assert.Equal(uploadedNameSpace.Title, uaNameSpace.Title);
-                Assert.Equal(uploadedNameSpace.License, uaNameSpace.License);
-                Assert.Equal(uploadedNameSpace.Keywords, uaNameSpace.Keywords);
-                Assert.Equal(uploadedNameSpace.LicenseUrl, uaNameSpace.LicenseUrl);
-                Assert.Equal(uploadedNameSpace.TestSpecificationUrl, uaNameSpace.TestSpecificationUrl);
-                Assert.Equal(uploadedNameSpace.Category, uaNameSpace.Category, new CategoryComparer());
                 Assert.Equal(uploadedNameSpace.Contributor, uaNameSpace.Contributor, new OrganisationComparer());
-                // https://github.com/OPCFoundation/UA-CloudLibrary/issues/135
-                //Assert.Equal(uploadedNameSpace.AdditionalProperties, uaNameSpace.AdditionalProperties, new UAPropertyComparer());
-                Assert.Null(uaNameSpace.AdditionalProperties);
-                Assert.Equal(uploadedNameSpace.CopyrightText, uaNameSpace.CopyrightText);
-                Assert.Equal(uploadedNameSpace.Description, uaNameSpace.Description);
-                Assert.Equal(uploadedNameSpace.DocumentationUrl, uaNameSpace.DocumentationUrl);
-                Assert.Equal(uploadedNameSpace.IconUrl, uaNameSpace.IconUrl);
-                Assert.Equal(uploadedNameSpace.PurchasingInformationUrl, uaNameSpace.PurchasingInformationUrl);
-                Assert.Equal(uploadedNameSpace.ReleaseNotesUrl, uaNameSpace.ReleaseNotesUrl);
-                Assert.Equal(uploadedNameSpace.SupportedLocales, uaNameSpace.SupportedLocales);
             }
             else
             {
-                // https://github.com/OPCFoundation/UA-CloudLibrary/issues/133
-                Assert.Equal(DateTime.MinValue, uaNameSpace.Nodeset.LastModifiedDate);
-                Assert.Equal(uploadedNameSpace.Title, uaNameSpace.Title);
-                Assert.Equal(uploadedNameSpace.License, uaNameSpace.License);
-                Assert.True(uaNameSpace.Keywords.Length == 0);
-                Assert.Null(uaNameSpace.LicenseUrl);
-                Assert.Null(uaNameSpace.TestSpecificationUrl);
-                Assert.True(string.IsNullOrEmpty(uaNameSpace.Category.Name) && uaNameSpace.Category.IconUrl == null && string.IsNullOrEmpty(uaNameSpace.Category.Description));
-                Assert.Equal(uploadedNameSpace.Contributor?.Name, uaNameSpace.Contributor?.Name);
-                Assert.Null(uaNameSpace.AdditionalProperties);
-                Assert.True(string.IsNullOrEmpty(uaNameSpace.CopyrightText));
-                Assert.True(string.IsNullOrEmpty(uaNameSpace.Description));
-                Assert.Null(uaNameSpace.DocumentationUrl);
-                Assert.Null(uaNameSpace.IconUrl);
-                Assert.Null(uaNameSpace.PurchasingInformationUrl);
-                Assert.Null(uaNameSpace.ReleaseNotesUrl);
-                Assert.True(uaNameSpace.SupportedLocales.Length == 0);
+                // REST
+                Assert.Equal(default, uaNameSpace.Nodeset.LastModifiedDate); // REST does not return last modified date
+                Assert.Equal(uploadedNameSpace.Contributor?.Name, uaNameSpace.Contributor?.Name); // GraphQL only returns the name
             }
+            Assert.Equal(uploadedNameSpace.AdditionalProperties.OrderBy(p => p.Name), uaNameSpace.AdditionalProperties.OrderBy(p => p.Name), new UAPropertyComparer());
+            Assert.Equal(uploadedNameSpace.CopyrightText, uaNameSpace.CopyrightText);
+            Assert.Equal(uploadedNameSpace.Description, uaNameSpace.Description);
+            Assert.Equal(uploadedNameSpace.DocumentationUrl, uaNameSpace.DocumentationUrl);
+            Assert.Equal(uploadedNameSpace.IconUrl, uaNameSpace.IconUrl);
+            Assert.Equal(uploadedNameSpace.PurchasingInformationUrl, uaNameSpace.PurchasingInformationUrl);
+            Assert.Equal(uploadedNameSpace.ReleaseNotesUrl, uaNameSpace.ReleaseNotesUrl);
+            Assert.Equal(uploadedNameSpace.SupportedLocales, uaNameSpace.SupportedLocales);
+            VerifyRequiredModels(uploadedNameSpace/*(UANameSpace) null*/, uaNameSpace.Nodeset.RequiredModels);
 
             Assert.True(string.IsNullOrEmpty(uaNameSpace.Nodeset.NodesetXml));
             Assert.Null(uaNameSpace.Nodeset.ValidationStatus);
-            Assert.Null(uaNameSpace.Nodeset.RequiredModels);
         }
 
         [Theory]
@@ -269,7 +298,9 @@ namespace CloudLibClient.Tests
             var client = _factory.CreateCloudLibClient();
             client._forceRestTestHook = forceRest;
 
+#pragma warning disable CS0618 // Type or member is obsolete
             List<UANameSpace> restResult = await client.GetConvertedMetadataAsync().ConfigureAwait(false);
+#pragma warning restore CS0618 // Type or member is obsolete
             Assert.True(restResult?.Count > 0, "Failed to get node set information.");
 
             UANameSpace convertedMetaData = restResult.FirstOrDefault(n => n.Nodeset.NamespaceUri?.ToString() == strTestNamespaceUri);
@@ -282,53 +313,37 @@ namespace CloudLibClient.Tests
             Assert.True(convertedMetaData.Nodeset.Identifier != 0);
 
             UANameSpace uploadedNameSpace = GetUploadedTestNamespace();
+            Assert.Null(convertedMetaData.Nodeset.NamespaceUri);
+            Assert.Equal(uploadedNameSpace.Nodeset.PublicationDate, convertedMetaData.Nodeset.PublicationDate);
+            Assert.Equal(uploadedNameSpace.Nodeset.Version, convertedMetaData.Nodeset.Version);
+
+            Assert.Equal(uploadedNameSpace.Title, convertedMetaData.Title);
+            Assert.Equal(uploadedNameSpace.License, convertedMetaData.License);
+            Assert.Equal(uploadedNameSpace.Keywords, convertedMetaData.Keywords);
+            Assert.Equal(uploadedNameSpace.LicenseUrl, convertedMetaData.LicenseUrl);
+            Assert.Equal(uploadedNameSpace.TestSpecificationUrl, convertedMetaData.TestSpecificationUrl);
+            Assert.Equal(uploadedNameSpace.Category, convertedMetaData.Category, new CategoryComparer());
             if (!forceRest)
             {
-                Assert.Null(convertedMetaData.Nodeset.NamespaceUri);
-                Assert.Equal(uploadedNameSpace.Nodeset.PublicationDate, convertedMetaData.Nodeset.PublicationDate);
-                Assert.Equal(uploadedNameSpace.Nodeset.Version, convertedMetaData.Nodeset.Version);
+                // GraphQL
                 Assert.Equal(uploadedNameSpace.Nodeset.LastModifiedDate, convertedMetaData.Nodeset.LastModifiedDate);
-
-                Assert.Equal(uploadedNameSpace.Title, convertedMetaData.Title);
-                Assert.Equal(uploadedNameSpace.License, convertedMetaData.License);
-                Assert.Equal(uploadedNameSpace.Keywords, convertedMetaData.Keywords);
-                Assert.Equal(uploadedNameSpace.LicenseUrl, convertedMetaData.LicenseUrl);
-                Assert.Equal(uploadedNameSpace.TestSpecificationUrl, convertedMetaData.TestSpecificationUrl);
-                Assert.Equal(uploadedNameSpace.Category, convertedMetaData.Category, new CategoryComparer());
                 Assert.Equal(uploadedNameSpace.Contributor, convertedMetaData.Contributor, new OrganisationComparer());
-                Assert.Equal(uploadedNameSpace.AdditionalProperties, convertedMetaData.AdditionalProperties, new UAPropertyComparer());
-                Assert.Equal(uploadedNameSpace.CopyrightText, convertedMetaData.CopyrightText);
-                Assert.Equal(uploadedNameSpace.Description, convertedMetaData.Description);
-                Assert.Equal(uploadedNameSpace.DocumentationUrl, convertedMetaData.DocumentationUrl);
-                Assert.Equal(uploadedNameSpace.IconUrl, convertedMetaData.IconUrl);
-                Assert.Equal(uploadedNameSpace.PurchasingInformationUrl, convertedMetaData.PurchasingInformationUrl);
-                Assert.Equal(uploadedNameSpace.ReleaseNotesUrl, convertedMetaData.ReleaseNotesUrl);
-                Assert.Equal(uploadedNameSpace.SupportedLocales, convertedMetaData.SupportedLocales);
             }
             else
             {
-                Assert.Equal(uploadedNameSpace.Nodeset.NamespaceUri, convertedMetaData.Nodeset.NamespaceUri);
-                Assert.Equal(uploadedNameSpace.Nodeset.PublicationDate, convertedMetaData.Nodeset.PublicationDate);
-                Assert.Equal(uploadedNameSpace.Nodeset.Version, convertedMetaData.Nodeset.Version);
-                // https://github.com/OPCFoundation/UA-CloudLibrary/issues/133
-                Assert.Equal(DateTime.MinValue, convertedMetaData.Nodeset.LastModifiedDate);
-
-                Assert.Equal(uploadedNameSpace.Title, convertedMetaData.Title);
-                Assert.Equal(uploadedNameSpace.License, convertedMetaData.License);
-                Assert.True(convertedMetaData.Keywords == null || convertedMetaData.Keywords.Length == 0);
-                Assert.Null(convertedMetaData.LicenseUrl);
-                Assert.Null(convertedMetaData.TestSpecificationUrl);
-                Assert.True(string.IsNullOrEmpty(convertedMetaData.Category?.Name));
+                // REST
+                Assert.Equal(default, convertedMetaData.Nodeset.LastModifiedDate); // REST does not return last modified date
                 Assert.Equal(uploadedNameSpace.Contributor?.Name, convertedMetaData.Contributor?.Name);
-                Assert.Null(convertedMetaData.AdditionalProperties);
-                Assert.True(string.IsNullOrEmpty(convertedMetaData.CopyrightText));
-                Assert.True(string.IsNullOrEmpty(convertedMetaData.Description));
-                Assert.Null(convertedMetaData.DocumentationUrl);
-                Assert.Null(convertedMetaData.IconUrl);
-                Assert.Null(convertedMetaData.PurchasingInformationUrl);
-                Assert.Null(convertedMetaData.ReleaseNotesUrl);
-                Assert.True(convertedMetaData.SupportedLocales == null || convertedMetaData.SupportedLocales.Length == 0);
             }
+            Assert.Equal(uploadedNameSpace.AdditionalProperties.OrderBy(p => p.Name), convertedMetaData.AdditionalProperties.OrderBy(p => p.Name), new UAPropertyComparer());
+            Assert.Equal(uploadedNameSpace.CopyrightText, convertedMetaData.CopyrightText);
+            Assert.Equal(uploadedNameSpace.Description, convertedMetaData.Description);
+            Assert.Equal(uploadedNameSpace.DocumentationUrl, convertedMetaData.DocumentationUrl);
+            Assert.Equal(uploadedNameSpace.IconUrl, convertedMetaData.IconUrl);
+            Assert.Equal(uploadedNameSpace.PurchasingInformationUrl, convertedMetaData.PurchasingInformationUrl);
+            Assert.Equal(uploadedNameSpace.ReleaseNotesUrl, convertedMetaData.ReleaseNotesUrl);
+            Assert.Equal(uploadedNameSpace.SupportedLocales, convertedMetaData.SupportedLocales);
+            VerifyRequiredModels((UANameSpace)null, convertedMetaData.Nodeset.RequiredModels);
         }
     }
 }
