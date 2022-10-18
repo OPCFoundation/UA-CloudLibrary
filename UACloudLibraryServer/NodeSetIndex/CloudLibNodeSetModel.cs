@@ -30,7 +30,7 @@
 using System;
 using System.Threading.Tasks;
 using CESMII.OpcUa.NodeSetModel;
-using Opc.Ua.Cloud.Library.Models;
+using CESMII.OpcUa.NodeSetModel.EF;
 using Opc.Ua.Export;
 
 namespace Opc.Ua.Cloud.Library

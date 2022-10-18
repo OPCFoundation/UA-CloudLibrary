@@ -164,10 +164,40 @@ namespace Opc.Ua.Cloud.Library
 
 
 
-                string uri = GetNamespaceUriForNodeset(nodesetId);
-                if (!string.IsNullOrEmpty(uri))
+                var model = GetNamespaceUriForNodeset(nodesetId);
+
+                if (!string.IsNullOrEmpty(model?.ModelUri))
                 {
-                    nameSpace.Nodeset.NamespaceUri = new Uri(uri);
+                    nameSpace.Nodeset.NamespaceUri = new Uri(model.ModelUri);
+                }
+                nameSpace.Nodeset.ValidationStatus = model?.ValidationStatus.ToString();
+                if (model?.RequiredModels != null)
+                {
+                    nameSpace.Nodeset.RequiredModels = model?.RequiredModels.Select(rm => {
+                        Nodeset availableModel = null;
+                        if (rm.AvailableModel != null)
+                        {
+                            uint? identifier = null;
+                            if (uint.TryParse(rm.AvailableModel?.Identifier, out var identifierParsed))
+                            {
+                                identifier = identifierParsed;
+                            }
+                            availableModel = new Nodeset {
+                                NamespaceUri = new Uri(rm.AvailableModel.ModelUri),
+                                PublicationDate = rm.AvailableModel.PublicationDate ?? default,
+                                Version = rm.AvailableModel.Version,
+                                Identifier = identifier ?? 0,
+                            };
+                        }
+                        var rn = new CloudLibRequiredModelInfo {
+                            NamespaceUri = rm.ModelUri,
+                            PublicationDate = rm.PublicationDate ?? DateTime.MinValue,
+                            Version = rm.Version,
+                            AvailableModel = availableModel,
+                        };
+                        return rn;
+                    }
+                    ).ToList();
                 }
 
                 switch (allMetaData.GetValueOrDefault("license"))
@@ -194,7 +224,7 @@ namespace Opc.Ua.Cloud.Library
 
                 nameSpace.Category.Description = allMetaData.GetValueOrDefault("addressspacedescription", string.Empty);
 
-                uri = allMetaData.GetValueOrDefault("addressspaceiconurl");
+                var uri = allMetaData.GetValueOrDefault("addressspaceiconurl");
                 if (!string.IsNullOrEmpty(uri))
                 {
                     nameSpace.Category.IconUrl = new Uri(uri);
@@ -272,12 +302,25 @@ namespace Opc.Ua.Cloud.Library
                 {
                     nameSpace.NumberOfDownloads = parsedDownloads;
                 }
+
+                var additionalProperties = allMetaData.Where(kv => !_knownProperties.Contains(kv.Key)).ToList();
+                if (additionalProperties.Any())
+                {
+                    nameSpace.AdditionalProperties = additionalProperties.Select(p => new UAProperty { Name = p.Key, Value = p.Value }).OrderBy(p => p.Name).ToArray();
+                }
+
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
             }
         }
+
+        readonly string[] _knownProperties = new string[] {
+            "addressspacedescription", "addressspaceiconurl", "addressspacename", "copyright", "description", "documentationurl", "iconurl",
+            "keywords", "license", "licenseurl", "locales", "nodesetcreationtime", "nodesetmodifiedtime", "nodesettitle", "numdownloads",
+            "orgcontact", "orgdescription", "orglogo", "orgname", "orgwebsite", "purchasinginfo", "releasenotes", "testspecification", "validationstatus", "version",
+            };
 
         public string RetrieveMetaData(uint nodesetId, string metaDataTag)
         {
@@ -297,12 +340,12 @@ namespace Opc.Ua.Cloud.Library
             return string.Empty;
         }
 
-        public UANodesetResult[] FindNodesets(string[] keywords)
+        public UANodesetResult[] FindNodesets(string[] keywords, int? offset, int? limit)
         {
             List<string> matches = new List<string>();
             List<UANodesetResult> nodesetResults = new List<UANodesetResult>();
 
-            if (!(keywords?[0] == "*"))
+            if (keywords != null && keywords[0] != "*")
             {
                 foreach (var keyword in keywords)
                 {
@@ -313,7 +356,7 @@ namespace Opc.Ua.Cloud.Library
                         .Concat(
                             _dbContext.Metadata
                                 .Where(md => Regex.IsMatch(md.Value, keyword))
-                                .Select(md => md.NodesetId.ToString(CultureInfo.InvariantCulture))
+                                .Select(md => md.NodesetId.ToString())
                                 .Distinct())
                         .Distinct()
                         .ToList();
@@ -323,12 +366,13 @@ namespace Opc.Ua.Cloud.Library
                         {
                             matches.Add(match);
                         }
-                    };
-                };
+                    }
+                }
+                matches = matches.OrderBy(id => id).Skip(offset ?? 0).Take(limit ?? 100).ToList();
             }
             else
             {
-                matches = _dbContext.nodeSets.Select(nsm => nsm.Identifier).Distinct().ToList();
+                matches = _dbContext.nodeSets.Select(nsm => nsm.Identifier).Distinct().Skip(offset ?? 0).Take(limit ?? 100).ToList();
             }
 
             //Get additional metadata (if present and valid) for each match
@@ -348,6 +392,21 @@ namespace Opc.Ua.Cloud.Library
                         ValidationStatus = nameSpace.ValidationStatus,
                         PublicationDate = nameSpace.Nodeset.PublicationDate,
                         NameSpaceUri = nameSpace.Nodeset.NamespaceUri?.ToString(),
+                        RequiredNodesets = nameSpace.Nodeset.RequiredModels,
+
+                        CopyrightText = nameSpace.CopyrightText,
+                        Description = nameSpace.Description,
+                        Category = nameSpace.Category,
+                        DocumentationUrl = nameSpace.DocumentationUrl,
+                        IconUrl = nameSpace.IconUrl,
+                        LicenseUrl = nameSpace.LicenseUrl,
+                        Keywords = nameSpace.Keywords,
+                        PurchasingInformationUrl = nameSpace.PurchasingInformationUrl,
+                        ReleaseNotesUrl = nameSpace.ReleaseNotesUrl,
+                        TestSpecificationUrl = nameSpace.TestSpecificationUrl,
+                        SupportedLocales = nameSpace.SupportedLocales,
+                        NumberOfDownloads = nameSpace.NumberOfDownloads,
+                        AdditionalProperties = nameSpace.AdditionalProperties,
                     };
 
                     nodesetResults.Add(thisResult);
@@ -359,8 +418,6 @@ namespace Opc.Ua.Cloud.Library
 
         public string[] GetAllNamespacesAndNodesets()
         {
-            List<string> results = new List<string>();
-
             try
             {
                 var namesAndIds = _dbContext.nodeSets.Select(nsm => new { nsm.ModelUri, nsm.Identifier }).Select(n => $"{n.ModelUri},{n.Identifier}").ToArray();
@@ -374,26 +431,24 @@ namespace Opc.Ua.Cloud.Library
             return Array.Empty<string>();
         }
 
-        public string GetNamespaceUriForNodeset(uint nodesetId)
+        private CloudLibNodeSetModel GetNamespaceUriForNodeset(uint nodesetId)
         {
             try
             {
                 var identifier = nodesetId.ToString(CultureInfo.InvariantCulture);
-                var modelUri = _dbContext.nodeSets.Where(nsm => nsm.Identifier == identifier).Select(nsm => nsm.ModelUri).FirstOrDefault();
-                return modelUri;
+                var model = _dbContext.nodeSets.FirstOrDefault(nsm => nsm.Identifier == identifier);
+                return model;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
             }
 
-            return string.Empty;
+            return null;
         }
 
         public string[] GetAllNamesAndNodesets()
         {
-            List<string> results = new List<string>();
-
             try
             {
                 var nameSpaceUriAndId = _dbContext.Metadata.Where(md => md.Name == "addressspacename").Select(md => new { NamespaceUri = md.Value, md.NodesetId }).ToList();

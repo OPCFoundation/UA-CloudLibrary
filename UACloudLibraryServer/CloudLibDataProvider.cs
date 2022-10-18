@@ -243,7 +243,7 @@ namespace Opc.Ua.Cloud.Library
 #if DEBUG
         public Opc.Ua.Cloud.Library.Models.UANodesetResult[] GetNodeSetInfo(string[] keywords)
         {
-            var results = _database.FindNodesets(keywords ?? new[] { "*" });
+            var results = _database.FindNodesets(keywords ?? new[] { "*" }, 0, 100);
             return results;
         }
 #endif

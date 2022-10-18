@@ -20,6 +20,7 @@ namespace CloudLibClient.Tests
 
         public int GetHashCode([DisallowNull] Organisation obj)
         {
+            // not used by the tests
             throw new System.NotImplementedException();
         }
     }
@@ -38,6 +39,7 @@ namespace CloudLibClient.Tests
 
         public int GetHashCode([DisallowNull] Category obj)
         {
+            // not used by the tests
             throw new System.NotImplementedException();
         }
     }
@@ -54,6 +56,7 @@ namespace CloudLibClient.Tests
 
         public int GetHashCode([DisallowNull] RequiredModelInfo obj)
         {
+            // not used by the tests
             throw new System.NotImplementedException();
         }
     }
@@ -69,7 +72,8 @@ namespace CloudLibClient.Tests
 
         public int GetHashCode([DisallowNull] UAProperty obj)
         {
-            return obj.GetHashCode();
+            // not used by the tests
+            throw new System.NotImplementedException();
         }
     }
 }
