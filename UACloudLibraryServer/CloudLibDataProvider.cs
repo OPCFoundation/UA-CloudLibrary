@@ -6,7 +6,6 @@ using System.Linq.Expressions;
 using System.Threading.Tasks;
 using CESMII.OpcUa.NodeSetModel;
 using Extensions;
-using HotChocolate;
 using HotChocolate.Data;
 using HotChocolate.Types;
 using Opc.Ua.Cloud.Library.DbContextModels;
@@ -17,13 +16,11 @@ namespace Opc.Ua.Cloud.Library
     {
         private readonly AppDbContext _context = null;
         private readonly UaCloudLibResolver _resolver = null;
-        private readonly IDatabase _database = null;
 
-        public CloudLibDataProvider(AppDbContext context, IDatabase database)
+        public CloudLibDataProvider(AppDbContext context, UaCloudLibResolver resolver)
         {
             _context = context;
-            _resolver = new UaCloudLibResolver(context, database);
-            _database = database;
+            _resolver = resolver;
         }
 
         public IQueryable<CloudLibNodeSetModel> GetNodeSets(
@@ -39,19 +36,19 @@ namespace Opc.Ua.Cloud.Library
                 {
                     throw new ArgumentException($"Must not specify other parameters when providing identifier.");
                 }
-                nodeSets = this._context.nodeSets.AsQueryable().Where(nsm => nsm.Identifier == identifier);
+                nodeSets = _context.nodeSets.AsQueryable().Where(nsm => nsm.Identifier == identifier);
             }
             else if (nodeSetUrl != null && publicationDate != null)
             {
-                nodeSets = this._context.nodeSets.AsQueryable().Where(nsm => nsm.ModelUri == nodeSetUrl && nsm.PublicationDate == publicationDate);
+                nodeSets = _context.nodeSets.AsQueryable().Where(nsm => nsm.ModelUri == nodeSetUrl && nsm.PublicationDate == publicationDate);
             }
             else if (nodeSetUrl != null)
             {
-                nodeSets = this._context.nodeSets.AsQueryable().Where(nsm => nsm.ModelUri == nodeSetUrl);
+                nodeSets = _context.nodeSets.AsQueryable().Where(nsm => nsm.ModelUri == nodeSetUrl);
             }
             else
             {
-                nodeSets = this._context.nodeSets.AsQueryable();
+                nodeSets = _context.nodeSets.AsQueryable();
             }
             return nodeSets;
         }
@@ -121,7 +118,7 @@ namespace Opc.Ua.Cloud.Library
             return nodeModels;
         }
 
-        public Task<List<Opc.Ua.Cloud.Library.Models.UANameSpace>> GetNamespaces()
+        public Task<List<Models.UANameSpace>> GetNamespaces()
         {
             return GetNamespaces(short.MaxValue, 0, null, null);
         }
@@ -132,26 +129,26 @@ namespace Opc.Ua.Cloud.Library
             return _resolver.GetNameSpaceTypes(limit, offset, where, orderBy);
         }
 
-        public int GetNamespaceTotalCount(string where)
+        public int GetNamespaceTotalCount()
         {
-            return _resolver.GetNameSpaceTypesTotalCount(where);
+            return _resolver.GetNameSpaceTypesTotalCount();
         }
 
         [Obsolete("Use namespaces instead.")]
-        public Task<List<Opc.Ua.Cloud.Library.Models.UANameSpace>> GetNameSpace(int limit, int offset, string where, string orderBy)
+        public Task<List<Models.UANameSpace>> GetNameSpace(int limit, int offset, string where, string orderBy)
         {
             return _resolver.GetNameSpaceTypes(limit, offset, where, orderBy);
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public Task<List<Opc.Ua.Cloud.Library.Models.Category>> GetCategories()
+        public Task<List<Models.Category>> GetCategories()
         {
             // TODO run as DB query
             return _resolver.GetCategoryTypes(short.MaxValue, null, null);
         }
 
         [Obsolete("Use categories instead.")]
-        public Task<List<Opc.Ua.Cloud.Library.Models.Category>> GetCategory(int limit, int offset, string where, string orderBy)
+        public Task<List<Models.Category>> GetCategory(int limit, int offset, string where, string orderBy)
         {
             return _resolver.GetCategoryTypes(limit, where, orderBy);
         }
@@ -239,13 +236,5 @@ namespace Opc.Ua.Cloud.Library
             return referenceTypes;
         }
         #endregion
-
-#if DEBUG
-        public Opc.Ua.Cloud.Library.Models.UANodesetResult[] GetNodeSetInfo(string[] keywords)
-        {
-            var results = _database.FindNodesets(keywords ?? new[] { "*" }, 0, 100);
-            return results;
-        }
-#endif
     }
 }

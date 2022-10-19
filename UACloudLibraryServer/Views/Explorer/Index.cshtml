@@ -5,7 +5,7 @@
     ViewData["Title"] = "Explorer";
 }
 
-@(await Html.RenderComponentAsync<Explorer>(RenderMode.ServerPrerendered))
+@(await Html.RenderComponentAsync<Explorer>(RenderMode.ServerPrerendered).ConfigureAwait(false))
     
 @section Scripts{
     <script src="_framework/blazor.server.js"></script>
