@@ -34,7 +34,6 @@ namespace Opc.Ua.Cloud.Library
     using System.Globalization;
     using System.Linq;
     using System.Threading.Tasks;
-    using Microsoft.EntityFrameworkCore;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
     using Opc.Ua.Cloud.Library.DbContextModels;
@@ -187,7 +186,7 @@ namespace Opc.Ua.Cloud.Library
                             Identifier = uint.Parse(rm.AvailableModel?.Identifier ?? "0", CultureInfo.InvariantCulture),
                         }
                     })?.ToList();
-                    
+
                     var metadataListForNodeset = _context.Metadata.Where(p => p.NodesetId == nodesetIds[i]).ToList();
 
                     foreach (var metadataForNodeset in metadataListForNodeset)
