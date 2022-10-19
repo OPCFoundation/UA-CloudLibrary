@@ -29,17 +29,13 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Threading.Tasks;
 using CESMII.OpcUa.NodeSetModel;
-using Extensions;
 using HotChocolate;
 using HotChocolate.AspNetCore.Authorization;
 using HotChocolate.Data;
 using HotChocolate.Types;
-using Microsoft.AspNetCore.DataProtection;
 using Opc.Ua.Cloud.Library.DbContextModels;
 
 namespace Opc.Ua.Cloud.Library
@@ -70,21 +66,25 @@ namespace Opc.Ua.Cloud.Library
         {
             return dp.GetNodeModels<DataTypeModel>(nsm => nsm.DataTypes, nodeSetUrl, publicationDate, nodeId);
         }
+
         [UsePaging, UseFiltering, UseSorting]
         public IQueryable<PropertyModel> GetProperties([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
             return dp.GetNodeModels<PropertyModel>(nsm => nsm.Properties, nodeSetUrl, publicationDate, nodeId);
         }
+
         [UsePaging, UseFiltering, UseSorting]
         public IQueryable<DataVariableModel> GetDataVariables([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
             return dp.GetNodeModels<DataVariableModel>(nsm => nsm.DataVariables, nodeSetUrl, publicationDate, nodeId);
         }
+
         [UsePaging, UseFiltering, UseSorting]
         public IQueryable<ReferenceTypeModel> GetReferenceTypes([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
             return dp.GetNodeModels<ReferenceTypeModel>(nsm => nsm.ReferenceTypes, nodeSetUrl, publicationDate, nodeId);
         }
+
         [UsePaging, UseFiltering, UseSorting]
         public IQueryable<InterfaceModel> GetInterfaces([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
@@ -96,6 +96,7 @@ namespace Opc.Ua.Cloud.Library
         {
             return dp.GetNodeModels<ObjectModel>(nsm => nsm.Objects, nodeSetUrl, publicationDate, nodeId);
         }
+
         [UsePaging, UseFiltering, UseSorting]
         public IQueryable<NodeModel> GetAllNodes([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
@@ -103,26 +104,50 @@ namespace Opc.Ua.Cloud.Library
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public Task<List<Opc.Ua.Cloud.Library.Models.UANameSpace>> GetNamespaces([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp)
+        public Task<List<Models.UANameSpace>> GetNamespaces([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp)
         {
             // TODO run as DB query
             return dp.GetNamespaces();
         }
-        [Obsolete("Use namespaces instead.")]
-        public Task<List<Opc.Ua.Cloud.Library.Models.UANameSpace>> GetNameSpace([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp, int limit, int offset, string where, string orderBy)
-        {
-            return dp.GetNameSpace(limit, offset, where, orderBy);
-        }
 
         [UsePaging, UseFiltering, UseSorting]
-        public Task<List<Opc.Ua.Cloud.Library.Models.Category>> GetCategories([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp)
+        public Task<List<Models.Category>> GetCategories([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp)
         {
             // TODO run as DB query
             return dp.GetCategories();
         }
 
+        [UsePaging, UseFiltering, UseSorting]
+        public Task<List<Models.Organisation>> GetOrganisations([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp)
+        {
+            // TODO run as DB query
+            return dp.GetOrganisations();
+        }
+
+        #region legacy
+        public class NodeSetGraphQLLegacy
+        {
+            public string NodesetXml { get; set; }
+
+            public uint Identifier { get; set; }
+
+            public string NamespaceUri { get; set; }
+
+            public string Version { get; set; }
+
+            public DateTime PublicationDate { get; set; }
+
+            public DateTime LastModifiedDate { get; set; }
+        }
+
+        [Obsolete("Use namespaces instead.")]
+        public Task<List<Models.UANameSpace>> GetNameSpace([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp, int limit, int offset, string where, string orderBy)
+        {
+            return dp.GetNameSpace(limit, offset, where, orderBy);
+        }
+
         [Obsolete("Use categories instead.")]
-        public Task<List<Opc.Ua.Cloud.Library.Models.Category>> GetCategory([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp, int limit, int offset, string where, string orderBy)
+        public Task<List<Models.Category>> GetCategory([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp, int limit, int offset, string where, string orderBy)
         {
             return dp.GetCategory(limit, offset, where, orderBy);
         }
@@ -133,29 +158,10 @@ namespace Opc.Ua.Cloud.Library
             return dp.GetMetadata();
         }
 
-        [UsePaging, UseFiltering, UseSorting]
-        public Task<List<Models.Organisation>> GetOrganisations([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp)
-        {
-            // TODO run as DB query
-            return dp.GetOrganisations();
-        }
-
         [Obsolete("Use organizations instead.")]
         public Task<List<Models.Organisation>> GetOrganisation([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp, int limit, int offset, string where, string orderBy)
         {
             return dp.GetOrganisation(limit, offset, where, orderBy);
-        }
-
-        #region legacy
-
-        public class NodeSetGraphQLLegacy
-        {
-            public string NodesetXml { get; set; }
-            public uint Identifier { get; set; }
-            public string NamespaceUri { get; set; }
-            public string Version { get; set; }
-            public DateTime PublicationDate { get; set; }
-            public DateTime LastModifiedDate { get; set; }
         }
 
         [Obsolete("Use nodeSets instead.")]
@@ -175,16 +181,19 @@ namespace Opc.Ua.Cloud.Library
         {
             return dp.GetDataType();
         }
+
         [Obsolete("Use referenceTypes instead.")]
         public IQueryable<ReferencetypeModel> GetReferenceType([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp)
         {
             return dp.GetReferenceType();
         }
+
         [Obsolete("Use variableTypes instead.")]
         public IQueryable<VariabletypeModel> GetVariableType([Service(ServiceKind.Synchronized)] CloudLibDataProvider dp)
         {
             return dp.GetVariableType();
         }
+
         #endregion
     }
 

@@ -198,7 +198,7 @@ namespace Opc.Ua.Cloud.Library
                 return;
             }
 #else
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
 #endif
         }
 

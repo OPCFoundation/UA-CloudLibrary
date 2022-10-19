@@ -356,10 +356,11 @@ namespace Opc.Ua.Cloud.Library
                         .Concat(
                             _dbContext.Metadata
                                 .Where(md => Regex.IsMatch(md.Value, keyword))
-                                .Select(md => md.NodesetId.ToString())
+                                .Select(md => md.NodesetId.ToString(CultureInfo.InvariantCulture))
                                 .Distinct())
                         .Distinct()
                         .ToList();
+
                     foreach (var match in matchesForKeyword)
                     {
                         if (!matches.Contains(match))

@@ -79,7 +79,7 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddScoped<IUserService, UserService>();
 
-            services.AddScoped<IDatabase, PostgreSQLDB>();
+            services.AddTransient<IDatabase, PostgreSQLDB>();
 
             services.AddTransient<IEmailSender, EmailSender>();
 
@@ -164,7 +164,6 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddHttpContextAccessor();
 
-            #region setup GraphQL server
             services.AddGraphQLServer()
                 .AddAuthorization()
                 .SetPagingOptions(new HotChocolate.Types.Pagination.PagingOptions {
@@ -177,13 +176,12 @@ namespace Opc.Ua.Cloud.Library
                 .AddQueryType<QueryModel>()
                 .AddType<CloudLibNodeSetModelType>()
                 .BindRuntimeType<UInt32, HotChocolate.Types.UnsignedIntType>()
-                .BindRuntimeType<UInt16, HotChocolate.Types.UnsignedShortType>()
-                ;
+                .BindRuntimeType<UInt16, HotChocolate.Types.UnsignedShortType>();
+
             services.AddScoped<NodeSetModelIndexer>();
             services.AddScoped<NodeSetModelIndexerFactory>();
             services.AddTransient<UaCloudLibResolver>();
             services.AddTransient<CloudLibDataProvider>();
-            #endregion
 
             services.Configure<IISServerOptions>(options => {
                 options.AllowSynchronousIO = true;
@@ -193,10 +191,7 @@ namespace Opc.Ua.Cloud.Library
                 options.AllowSynchronousIO = true;
             });
 
-            #region setup Blazor pages
             services.AddServerSideBlazor();
-
-            #endregion
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -243,9 +238,8 @@ namespace Opc.Ua.Cloud.Library
                     .RequireAuthorization(new AuthorizeAttribute { AuthenticationSchemes = "BasicAuthentication" })
                     .WithOptions(new GraphQLServerOptions {
                         EnableGetRequests = true,
-                        Tool = { Enable = false, },
-                    })
-                    ;
+                        Tool = { Enable = false },
+                    });
             });
         }
     }

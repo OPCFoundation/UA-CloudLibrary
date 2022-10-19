@@ -302,7 +302,7 @@ namespace Opc.Ua.Cloud.Library
 
                 // Validate and index the new nodeset in the background
                 // The nodeset's validation status will be updated as indexing proceeds
-                _ = Task.Run(async () => await NodeSetModelIndexer.IndexNodeSetsAsync(_nodeSetIndexerFactory));
+                _ = Task.Run(async () => await NodeSetModelIndexer.IndexNodeSetsAsync(_nodeSetIndexerFactory)).ConfigureAwait(false);
             }
         }
 

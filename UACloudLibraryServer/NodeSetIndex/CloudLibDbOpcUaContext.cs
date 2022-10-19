@@ -41,6 +41,7 @@ namespace Opc.Ua.Cloud.Library
         public CloudLibDbOpcUaContext(AppDbContext dbContext, ILogger logger, Func<ModelTableEntry, CloudLibNodeSetModel> nodeSetFactory) : base(dbContext, logger, nodeSetFactory)
         {
         }
+
         public override NodeSetModel GetOrAddNodesetModel(ModelTableEntry model, bool createNew = true)
         {
             var nodeSetModel = base.GetOrAddNodesetModel(model) as CloudLibNodeSetModel;
