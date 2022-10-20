@@ -353,7 +353,7 @@ namespace Opc.Ua.Cloud.Library
         {
             IQueryable<CloudLibNodeSetModel> matchingNodeSets;
 
-            if (keywords != null && keywords[0] != "*")
+            if (keywords?.Any() == true && keywords[0] != "*")
             {
                 string keywordRegex = $".*({string.Join('|', keywords)}).*";
 
