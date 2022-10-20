@@ -79,7 +79,7 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddScoped<IUserService, UserService>();
 
-            services.AddScoped<IDatabase, PostgreSQLDB>();
+            services.AddTransient<IDatabase, PostgreSQLDB>();
 
             services.AddTransient<IEmailSender, EmailSender>();
 
@@ -156,7 +156,7 @@ namespace Opc.Ua.Cloud.Library
             // setup data protection
             switch (Configuration["HostingPlatform"])
             {
-                case "Azure": services.AddDataProtection().PersistKeysToAzureBlobStorage(Configuration["BlobStorageConnectionString"], "keys", "keys"); break;
+                case "Azure": services.AddDataProtection().PersistKeysToAzureBlobStorage(Configuration["BlobStorageConnectionString"], "keys", Configuration["DataProtectionBlobName"]); break;
                 case "AWS": services.AddDataProtection().PersistKeysToAWSSystemsManager($"/{serviceName}/DataProtection"); break;
                 case "GCP": services.AddDataProtection().PersistKeysToGoogleCloudStorage(Configuration["BlobStorageConnectionString"], "DataProtectionProviderKeys.xml"); break;
                 default: services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Directory.GetCurrentDirectory())); break;
@@ -164,7 +164,6 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddHttpContextAccessor();
 
-            #region setup GraphQL server
             services.AddGraphQLServer()
                 .AddAuthorization()
                 .SetPagingOptions(new HotChocolate.Types.Pagination.PagingOptions {
@@ -177,13 +176,12 @@ namespace Opc.Ua.Cloud.Library
                 .AddQueryType<QueryModel>()
                 .AddType<CloudLibNodeSetModelType>()
                 .BindRuntimeType<UInt32, HotChocolate.Types.UnsignedIntType>()
-                .BindRuntimeType<UInt16, HotChocolate.Types.UnsignedShortType>()
-                ;
+                .BindRuntimeType<UInt16, HotChocolate.Types.UnsignedShortType>();
+
             services.AddScoped<NodeSetModelIndexer>();
             services.AddScoped<NodeSetModelIndexerFactory>();
             services.AddTransient<UaCloudLibResolver>();
             services.AddTransient<CloudLibDataProvider>();
-            #endregion
 
             services.Configure<IISServerOptions>(options => {
                 options.AllowSynchronousIO = true;
@@ -193,10 +191,7 @@ namespace Opc.Ua.Cloud.Library
                 options.AllowSynchronousIO = true;
             });
 
-            #region setup Blazor pages
             services.AddServerSideBlazor();
-
-            #endregion
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -225,10 +220,11 @@ namespace Opc.Ua.Cloud.Library
 
             app.UseAuthorization();
 
-            app.UseGraphQLPlayground(new PlaygroundOptions() {
-                RequestCredentials = RequestCredentials.Include
-            },
-            "/graphqlui");
+            app.UseGraphQLPlayground(
+                "/graphqlui",
+                new PlaygroundOptions() {
+                    RequestCredentials = RequestCredentials.Include
+                });
             app.UseGraphQLGraphiQL("/graphiql");
 
             app.UseEndpoints(endpoints => {
@@ -242,9 +238,8 @@ namespace Opc.Ua.Cloud.Library
                     .RequireAuthorization(new AuthorizeAttribute { AuthenticationSchemes = "BasicAuthentication" })
                     .WithOptions(new GraphQLServerOptions {
                         EnableGetRequests = true,
-                        Tool = { Enable = false, },
-                    })
-                    ;
+                        Tool = { Enable = false },
+                    });
             });
         }
     }

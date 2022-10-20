@@ -34,7 +34,6 @@ namespace Opc.Ua.Cloud.Library
     using System.Globalization;
     using System.Linq;
     using System.Threading.Tasks;
-    using Microsoft.EntityFrameworkCore;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
     using Opc.Ua.Cloud.Library.DbContextModels;
@@ -44,14 +43,14 @@ namespace Opc.Ua.Cloud.Library
     {
         private AppDbContext _context;
 
-        public UaCloudLibResolver(AppDbContext context, IDatabase database)
+        public UaCloudLibResolver(AppDbContext context)
         {
             _context = context;
         }
 
         public Task<List<MetadataModel>> GetMetaData()
         {
-            return _context.Metadata.ToListAsync();
+            return Task.FromResult(_context.Metadata.ToList());
         }
 
         private List<long> ApplyWhereExpression(string where)
@@ -136,20 +135,19 @@ namespace Opc.Ua.Cloud.Library
             return nodesetIds;
         }
 
-        public int GetNameSpaceTypesTotalCount(string where)
+        public int GetNameSpaceTypesTotalCount()
         {
-            var count = ApplyWhereExpression(where).Count;
-            return count;
+            return _context.Metadata.Select(p => p.NodesetId).Distinct().Count();
         }
 
-        public async Task<List<UANameSpace>> GetNameSpaceTypes(int limit, int offset, string where, string orderBy)
+        public Task<List<UANameSpace>> GetNameSpaceTypes(int limit, int offset, string where, string orderBy)
         {
             List<long> nodesetIds = ApplyWhereExpression(where);
 
             // input validation
             if ((offset < 0) || (limit < 0) || (offset > nodesetIds.Count))
             {
-                return new List<UANameSpace>();
+                return Task.FromResult(new List<UANameSpace>());
             }
             if ((offset + limit) > nodesetIds.Count)
             {
@@ -168,19 +166,24 @@ namespace Opc.Ua.Cloud.Library
                     nameSpace.Nodeset.Identifier = (uint)nodesetIds[i];
 
                     var nodeSetIdentifier = nodesetIds[i].ToString(CultureInfo.InvariantCulture);
-                    var nodeSet = (await _context.nodeSets.Where(nsm => nsm.Identifier == nodeSetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false));
+                    var nodeSet = _context.nodeSets.AsQueryable().Where(nsm => nsm.Identifier == nodeSetIdentifier).FirstOrDefault();
                     var modelUri = nodeSet?.ModelUri;
                     var requiredModels = nodeSet?.RequiredModels;
-                    nameSpace.Nodeset.NamespaceUri = new Uri(modelUri);
+
+                    if (modelUri != null)
+                    {
+                        nameSpace.Nodeset.NamespaceUri = new Uri(modelUri);
+                    }
+
                     nameSpace.Nodeset.RequiredModels = requiredModels?.Select(rm => new CloudLibRequiredModelInfo {
                         NamespaceUri = rm.ModelUri,
                         PublicationDate = rm.PublicationDate,
                         Version = rm.Version,
                         AvailableModel = new Nodeset {
-                            NamespaceUri = new Uri(rm.AvailableModel.ModelUri),
-                            PublicationDate = rm.AvailableModel.PublicationDate ?? default,
-                            Version = rm.AvailableModel.Version,
-                            Identifier = uint.Parse(rm.AvailableModel.Identifier, CultureInfo.InvariantCulture),
+                            NamespaceUri = new Uri(rm.AvailableModel?.ModelUri ?? "http://empty.org"),
+                            PublicationDate = rm.AvailableModel?.PublicationDate ?? default,
+                            Version = rm.AvailableModel?.Version,
+                            Identifier = uint.Parse(rm.AvailableModel?.Identifier ?? "0", CultureInfo.InvariantCulture),
                         }
                     })?.ToList();
 
@@ -387,12 +390,12 @@ namespace Opc.Ua.Cloud.Library
             if (string.IsNullOrEmpty(orderBy))
             {
                 // return unordered list
-                return result;
+                return Task.FromResult(result);
             }
             else
             {
                 // return odered list
-                return result.OrderByDescending(p => p, new NameSpaceComparer(orderBy)).ToList();
+                return Task.FromResult(result.OrderByDescending(p => p, new NameSpaceComparer(orderBy)).ToList());
             }
         }
 
