@@ -323,17 +323,34 @@ namespace Opc.Ua.Cloud.Library
                         _logger.LogDebug($"Dowloading missing nodeset {missingNodeSetId}");
                         var nodeSetXml = await _storage.DownloadFileAsync(missingNodeSetId).ConfigureAwait(false);
 
-                        _logger.LogDebug($"Parsing missing nodeset {missingNodeSetId}");
-                        var uaNodeSet = InfoModelController.ReadUANodeSet(nodeSetXml);
+                        if (nodeSetXml != null)
+                        {
+                            _logger.LogDebug($"Parsing missing nodeset {missingNodeSetId}");
+                            var uaNodeSet = InfoModelController.ReadUANodeSet(nodeSetXml);
 
-                        _logger.LogDebug($"Indexing missing nodeset {missingNodeSetId}");
-                        var nodeSetModel = await CreateNodeSetModelFromNodeSetAsync(uaNodeSet, missingNodeSetId).ConfigureAwait(false);
+                            _logger.LogDebug($"Indexing missing nodeset {missingNodeSetId}");
+                            var nodeSetModel = await CreateNodeSetModelFromNodeSetAsync(uaNodeSet, missingNodeSetId).ConfigureAwait(false);
 
-                        _logger.LogWarning($"Database inconsistency: Created index entry for nodeset {missingNodeSetId} {nodeSetModel}");
+                            _logger.LogWarning($"Database inconsistency: Created index entry for nodeset {missingNodeSetId} {nodeSetModel}");
+                        }
+                        else
+                        {
+                            _logger.LogError($"Failed to re-index missing nodeset {missingNodeSetId}: not found in file storage.");
+                        }
                     }
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, $"Failed to re-index missing nodeset {missingNodeSetId}");
+                    }
+                    finally
+                    {
+                        // Acquire a new context for each nodeset in case a nodeset fails to index but leaves the _dbContext "tainted" (for example PublicationDate == null)
+                        var newDbContext = _scope.ServiceProvider.GetService<AppDbContext>();
+                        if (newDbContext != _dbContext)
+                        {
+                            _dbContext.Dispose();
+                            _dbContext = newDbContext;
+                        }
                     }
                 }
             }
