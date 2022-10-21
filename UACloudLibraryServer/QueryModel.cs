@@ -132,7 +132,7 @@ namespace Opc.Ua.Cloud.Library
         }
 
 #if !NOLEGACY
-#region legacy
+        #region legacy
 
         [UsePaging, UseFiltering, UseSorting]
         [Obsolete("Use NodeSets.Metadata instead.")]
@@ -171,7 +171,7 @@ namespace Opc.Ua.Cloud.Library
         }
 
         [Obsolete("Use namespaces and namespaces.additionalProperties instead.")]
-        public Task<List<MetadataModel>> GetMetadata([Service(ServiceKind.Synchronized)] IDatabase dp)
+        public IQueryable<MetadataModel> GetMetadata([Service(ServiceKind.Synchronized)] IDatabase dp)
         {
             return dp.GetMetadataModel();
         }
@@ -212,7 +212,7 @@ namespace Opc.Ua.Cloud.Library
             return dp.GetVariableType();
         }
 
-#endregion
+        #endregion
 #endif // NOLEGACY
     }
 

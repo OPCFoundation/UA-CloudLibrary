@@ -180,7 +180,6 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddScoped<NodeSetModelIndexer>();
             services.AddScoped<NodeSetModelIndexerFactory>();
-            services.AddTransient<UaCloudLibResolver>();
 
             services.Configure<IISServerOptions>(options => {
                 options.AllowSynchronousIO = true;

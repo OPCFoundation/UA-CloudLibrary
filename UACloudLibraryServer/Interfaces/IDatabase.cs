@@ -70,7 +70,7 @@ namespace Opc.Ua.Cloud.Library
         Task<List<Category>> GetCategory(int limit, int offset, string where, string orderBy);
         Task<List<Organisation>> GetOrganisation(int limit, int offset, string where, string orderBy);
 
-        Task<List<MetadataModel>> GetMetadataModel();
+        IQueryable<MetadataModel> GetMetadataModel();
         Task<List<UANameSpace>> GetNamespaces(int limit, int offset, string where, string orderBy);
         int GetNamespaceTotalCount();
 #if !NOLEGACY
