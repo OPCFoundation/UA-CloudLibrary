@@ -7,16 +7,12 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CESMII.OpcUa.NodeSetModel;
 using Extensions;
-using HotChocolate.Data;
-using HotChocolate.Types;
-using HotChocolate;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Opc.Ua.Cloud.Library.DbContextModels;
-using Opc.Ua.Cloud.Library.Models;
-using SendGrid.Helpers.Mail;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
+using Opc.Ua.Cloud.Library.DbContextModels;
+using Opc.Ua.Cloud.Library.Models;
 
 namespace Opc.Ua.Cloud.Library
 {

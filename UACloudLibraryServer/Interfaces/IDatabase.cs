@@ -32,10 +32,10 @@ namespace Opc.Ua.Cloud.Library
     using System.Collections.Generic;
     using System;
     using System.Linq;
+    using System.Threading.Tasks;
+
     using CESMII.OpcUa.NodeSetModel;
     using Opc.Ua.Cloud.Library.DbContextModels;
-    using System.Linq.Expressions;
-    using System.Threading.Tasks;
     using Opc.Ua.Cloud.Library.Models;
 
     public interface IDatabase
