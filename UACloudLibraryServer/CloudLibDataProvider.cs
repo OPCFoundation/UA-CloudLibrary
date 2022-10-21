@@ -173,30 +173,9 @@ namespace Opc.Ua.Cloud.Library
             return nodeModels;
         }
 
-        public Task<List<Models.UANameSpace>> GetNamespaces(int limit, int offset, string where, string orderBy)
-        {
-            // TODO run as DB query
-            return GetNameSpaceTypes(limit, offset, where, orderBy);
-        }
-
-        public int GetNamespaceTotalCount()
-        {
-            return GetNameSpaceTypesTotalCount();
-        }
-
-        public Task<List<Category>> GetCategory(int limit, int offset, string where, string orderBy)
-        {
-            return GetCategoryTypes(limit, where, orderBy);
-        }
-
         public IQueryable<MetadataModel> GetMetadataModel()
         {
             return _dbContext.Metadata.AsQueryable();
-        }
-
-        public Task<List<Models.Organisation>> GetOrganisation(int limit, int offset, string where, string orderBy)
-        {
-            return GetOrganisationTypes(limit, where, orderBy);
         }
 
         public bool AddMetaDataToNodeSet(uint nodesetId, string name, string value)
@@ -691,12 +670,12 @@ namespace Opc.Ua.Cloud.Library
             return nodesetIds;
         }
 
-        public int GetNameSpaceTypesTotalCount()
+        public int GetNamespaceTotalCount()
         {
             return _dbContext.Metadata.Select(p => p.NodesetId).Distinct().Count();
         }
 
-        public Task<List<UANameSpace>> GetNameSpaceTypes(int limit, int offset, string where, string orderBy)
+        public Task<List<UANameSpace>> GetNamespaces(int limit, int offset, string where, string orderBy)
         {
             List<long> nodesetIds = ApplyWhereExpression(where);
 
@@ -955,7 +934,7 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
-        public Task<List<Category>> GetCategoryTypes(int limit, string where, string orderBy)
+        public Task<List<Category>> GetCategory(int limit, int offset, string where, string orderBy)
         {
             List<long> nodesetIds = ApplyWhereExpression(where);
 
@@ -1007,11 +986,11 @@ namespace Opc.Ua.Cloud.Library
             else
             {
                 // return odered list
-                return Task.FromResult(result.OrderByDescending(p => p, new NameSpaceCategoryComparer(orderBy)).ToList());
+                return Task.FromResult(result.OrderByDescending(p => p, new NameSpaceCategoryComparer(orderBy)).Skip(offset).ToList());
             }
         }
 
-        public Task<List<Organisation>> GetOrganisationTypes(int limit, string where, string orderBy)
+        public Task<List<Organisation>> GetOrganisation(int limit, int offset, string where, string orderBy)
         {
             List<long> nodesetIds = ApplyWhereExpression(where);
 
@@ -1077,7 +1056,7 @@ namespace Opc.Ua.Cloud.Library
             else
             {
                 // return odered list
-                return Task.FromResult(result.OrderByDescending(p => p, new OrganisationComparer(orderBy)).ToList());
+                return Task.FromResult(result.OrderByDescending(p => p, new OrganisationComparer(orderBy)).Skip(offset).ToList());
             }
         }
 

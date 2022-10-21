@@ -120,14 +120,14 @@ namespace Opc.Ua.Cloud.Library
         [UsePaging, UseFiltering, UseSorting]
         public Task<List<Models.Category>> GetCategories([Service(ServiceKind.Synchronized)] IDatabase dp)
         {
-            // TODO run as DB query
+            // TODO Return IQueryable to make GraphQL filtering and pagination more efficient.
             return dp.GetCategory(short.MaxValue, 0, null, null);
         }
 
         [UsePaging, UseFiltering, UseSorting]
         public Task<List<Models.Organisation>> GetOrganisations([Service(ServiceKind.Synchronized)] IDatabase dp)
         {
-            // TODO run as DB query
+            // TODO Return IQueryable to make GraphQL filtering and pagination more efficient.
             return dp.GetOrganisation(short.MaxValue, 0, null, null);
         }
 
@@ -138,7 +138,7 @@ namespace Opc.Ua.Cloud.Library
         [Obsolete("Use NodeSets.Metadata instead.")]
         public Task<List<Models.UANameSpace>> GetNamespaces([Service(ServiceKind.Synchronized)] IDatabase dp)
         {
-            // TODO run as DB query
+            // TODO Return IQueryable to make GraphQL filtering and pagination more efficient.
             return dp.GetNamespaces(short.MaxValue, 0, null, null);
         }
 
