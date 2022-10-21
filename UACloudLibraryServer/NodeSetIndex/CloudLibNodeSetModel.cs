@@ -49,7 +49,9 @@ namespace Opc.Ua.Cloud.Library
             var nodeSetModel = new CloudLibNodeSetModel();
             nodeSetModel.ModelUri = model.ModelUri;
             nodeSetModel.Version = model.Version;
-            nodeSetModel.PublicationDate = model.PublicationDateSpecified ? model.PublicationDate : null;
+            nodeSetModel.PublicationDate = model.PublicationDateSpecified
+                ? model.PublicationDate
+                : DateTime.MinValue; // Upload without a publication date is disallowed, but there are 2 nodesets already in the cloudlibrary 
 
             if (model.RequiredModel != null)
             {
