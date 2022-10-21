@@ -29,6 +29,7 @@
 
 namespace Opc.Ua.Cloud.Library
 {
+    using System;
     using System.IO;
     using CESMII.OpcUa.NodeSetModel;
     using CESMII.OpcUa.NodeSetModel.EF;
@@ -73,11 +74,37 @@ namespace Opc.Ua.Cloud.Library
                        .AddJsonFile("appsettings.json")
                        .Build();
                 }
-                string connectionString = PostgreSQLDB.CreateConnectionString(configuration);
+                string connectionString = CreateConnectionString(configuration);
                 optionsBuilder.UseNpgsql(connectionString,
                     o => o.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery));
             }
         }
+
+        public static string CreateConnectionString(IConfiguration configuration)
+        {
+            var connectionString = configuration.GetConnectionString("CloudLibraryPostgreSQL");
+            if (string.IsNullOrEmpty(connectionString))
+            {
+                connectionString = CreateConnectionStringFromEnvironment();
+            }
+            return connectionString;
+        }
+
+        private static string CreateConnectionStringFromEnvironment()
+        {
+            // Obtain connection string information from the environment
+            string Host = Environment.GetEnvironmentVariable("PostgreSQLEndpoint");
+            string User = Environment.GetEnvironmentVariable("PostgreSQLUsername");
+            string Password = Environment.GetEnvironmentVariable("PostgreSQLPassword");
+
+            string DBname = "uacloudlib";
+            string Port = "5432";
+
+            // Build connection string using parameters from portal
+            return $"Server={Host};Username={User};Database={DBname};Port={Port};Password={Password};SSLMode=Prefer";
+        }
+
+
 
         // map to our tables
         public DbSet<MetadataModel> Metadata { get; set; }

@@ -38,7 +38,7 @@ namespace Opc.Ua.Cloud.Library
 {
     public class CloudLibNodeSetModel : NodeSetModel
     {
-        public UANameSpaceBase Metadata { get; set; }
+        public UANameSpaceMetadata Metadata { get; set; }
         public ValidationStatus ValidationStatus { get; set; }
         public string ValidationStatusInfo { get; set; }
         public TimeSpan ValidationElapsedTime { get; set; }

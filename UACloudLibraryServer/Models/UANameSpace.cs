@@ -40,7 +40,7 @@ namespace Opc.Ua.Cloud.Library.Models
         Custom
     }
 
-    public class UANameSpaceBase
+    public class UANameSpaceMetadata
     {
         [Required]
         public string Title { get; set; }
@@ -88,7 +88,7 @@ namespace Opc.Ua.Cloud.Library.Models
 
         public UAProperty[] AdditionalProperties { get; set; }
 
-        public UANameSpaceBase()
+        public UANameSpaceMetadata()
         {
             Title = string.Empty;
             License = License.Custom;
@@ -110,9 +110,9 @@ namespace Opc.Ua.Cloud.Library.Models
 
     }
 
-    public class UANameSpace : UANameSpaceBase
+    public class UANameSpace : UANameSpaceMetadata
     {
-        public UANameSpace() : base()
+        public UANameSpace()
         {
             Nodeset = new Nodeset();
         }
