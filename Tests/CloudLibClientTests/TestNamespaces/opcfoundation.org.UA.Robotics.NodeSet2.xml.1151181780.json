@@ -28,11 +28,17 @@
   "documentationUrl": "http://testdocumentationurl.com",
   "iconUrl": "http://testiconurl.com",
   "licenseUrl": "http://testlicenseurl.com",
-  "keywords": [ "testkw1", "testkw2" ],
+  "keywords": [
+    "testkw1",
+    "testkw2"
+  ],
   "purchasingInformationUrl": "http://purchasinginformationurl.com",
   "releaseNotesUrl": "http://releasenotesurl.com",
   "testSpecificationUrl": "http://testspecificationurl.com",
-  "supportedLocales": [ "en", "de" ],
+  "supportedLocales": [
+    "en",
+    "de"
+  ],
   "numberOfDownloads": 149,
   "validationStatus": null,
   "additionalProperties": [
