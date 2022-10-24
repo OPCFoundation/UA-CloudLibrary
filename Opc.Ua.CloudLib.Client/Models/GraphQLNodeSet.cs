@@ -38,13 +38,14 @@ namespace Opc.Ua.Cloud.Library.Client
     /// <summary>
     /// GraphQL version of the class
     /// </summary>
-    internal class GraphQLRequiredNodeSet
+    internal class GraphQLNodeSet
     {
         public string Identifier { get; set; }
         public string ModelUri { get; set; }
         public string Version { get; set; }
         public DateTime? PublicationDate { get; set; }
         public string ValidationStatus { get; set; }
+        public UANameSpace Metadata { get; set; }
 
         // RequiredModels
         public List<GraphQlRequiredModelInfo> RequiredModels { get; set; } = new List<GraphQlRequiredModelInfo>();
@@ -63,6 +64,7 @@ namespace Opc.Ua.Cloud.Library.Client
                     Version = m.Version,
                     AvailableModel = m.AvailableModel?.ToNodeSet(),
                 }).ToList(),
+                Metadata = this.Metadata,
             };
         }
     }
@@ -86,6 +88,6 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <summary>
         /// The best match currently available in the cloud library. null if no match (no nodeset for this namespace uri or only node sets with older publication dates).
         /// </summary>
-        public GraphQLRequiredNodeSet AvailableModel { get; set; }
+        public GraphQLNodeSet AvailableModel { get; set; }
     }
 }

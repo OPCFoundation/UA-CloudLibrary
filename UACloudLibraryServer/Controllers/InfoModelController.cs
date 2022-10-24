@@ -108,11 +108,11 @@ namespace Opc.Ua.Cloud.Library
             [FromQuery][SwaggerParameter("Download metadata only, omitting NodeSet XML")] bool metadataOnly = false
             )
         {
-            UANameSpace result = new UANameSpace();
+            string nodesetXml = null;
             if (!metadataOnly)
             {
-                result.Nodeset.NodesetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
-                if (string.IsNullOrEmpty(result.Nodeset.NodesetXml))
+                nodesetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
+                if (string.IsNullOrEmpty(nodesetXml))
                 {
                     return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
                 }
@@ -123,13 +123,16 @@ namespace Opc.Ua.Cloud.Library
                 return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            _database.RetrieveAllMetadata(nodeSetID, result);
-
-            IncreaseNumDownloads(nodeSetID);
             if (nodesetXMLOnly)
             {
-                return new ObjectResult(result.Nodeset.NodesetXml) { StatusCode = (int)HttpStatusCode.OK };
+                IncreaseNumDownloads(nodeSetID);
+                return new ObjectResult(nodesetXml) { StatusCode = (int)HttpStatusCode.OK };
             }
+
+            var result = _database.RetrieveAllMetadata(nodeSetID);
+            result.Nodeset.NodesetXml = nodesetXml;
+
+            IncreaseNumDownloads(nodeSetID);
             return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -142,10 +145,8 @@ namespace Opc.Ua.Cloud.Library
         public async Task<IActionResult> DeleteNameSpaceAsync(
             [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier)
         {
-            UANameSpace result = new UANameSpace();
-
-            result.Nodeset.NodesetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
-            if (string.IsNullOrEmpty(result.Nodeset.NodesetXml))
+            string nodesetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(nodesetXml))
             {
                 return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
             }
@@ -156,8 +157,8 @@ namespace Opc.Ua.Cloud.Library
                 return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            _database.RetrieveAllMetadata(nodeSetID, result);
-
+            var result = _database.RetrieveAllMetadata(nodeSetID);
+            result.Nodeset.NodesetXml = nodesetXml;
             await _indexer.DeleteNodeSetIndex(identifier).ConfigureAwait(false);
 
             _database.DeleteAllRecordsForNodeset(nodeSetID);

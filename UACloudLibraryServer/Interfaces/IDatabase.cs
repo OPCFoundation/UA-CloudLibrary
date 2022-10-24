@@ -29,11 +29,19 @@
 
 namespace Opc.Ua.Cloud.Library
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Threading.Tasks;
+
+    using CESMII.OpcUa.NodeSetModel;
+    using Opc.Ua.Cloud.Library.DbContextModels;
     using Opc.Ua.Cloud.Library.Models;
 
     public interface IDatabase
     {
         UANodesetResult[] FindNodesets(string[] keywords, int? offset, int? limit);
+        IQueryable<CloudLibNodeSetModel> GetNodeSets(string identifier = null, string nodeSetUrl = null, DateTime? publicationDate = null, string[] keywords = null);
 
         bool AddMetaDataToNodeSet(uint nodesetId, string name, string value);
 
@@ -41,12 +49,36 @@ namespace Opc.Ua.Cloud.Library
 
         bool DeleteAllRecordsForNodeset(uint nodesetId);
 
-        public void RetrieveAllMetadata(uint nodesetId, UANameSpace nameSpace);
+        UANameSpace RetrieveAllMetadata(uint nodesetId);
 
         string RetrieveMetaData(uint nodesetId, string metaDataTag);
 
         string[] GetAllNamespacesAndNodesets();
 
         string[] GetAllNamesAndNodesets();
+
+        IQueryable<ObjectTypeModel> GetObjectTypes(string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null);
+        IQueryable<VariableTypeModel> GetVariableTypes(string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null);
+        IQueryable<DataTypeModel> GetDataTypes(string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null);
+        IQueryable<PropertyModel> GetProperties(string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null);
+        IQueryable<DataVariableModel> GetDataVariables(string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null);
+        IQueryable<ReferenceTypeModel> GetReferenceTypes(string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null);
+        IQueryable<InterfaceModel> GetInterfaces(string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null);
+        IQueryable<ObjectModel> GetObjects(string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null);
+        IQueryable<NodeModel> GetAllNodes(string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null);
+
+        Task<List<Category>> GetCategory(int limit, int offset, string where, string orderBy);
+        Task<List<Organisation>> GetOrganisation(int limit, int offset, string where, string orderBy);
+
+        IQueryable<MetadataModel> GetMetadataModel();
+        Task<List<UANameSpace>> GetNamespaces(int limit, int offset, string where, string orderBy);
+        int GetNamespaceTotalCount();
+#if !NOLEGACY
+        IQueryable<DatatypeModel> GetDataType();
+        IQueryable<QueryModel.NodeSetGraphQLLegacy> GetNodeSet();
+        IQueryable<ObjecttypeModel> GetObjectType();
+        IQueryable<ReferencetypeModel> GetReferenceType();
+        IQueryable<VariabletypeModel> GetVariableType();
+#endif // NOLEGACY
     }
 }
