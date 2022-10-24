@@ -79,7 +79,7 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddScoped<IUserService, UserService>();
 
-            services.AddTransient<IDatabase, PostgreSQLDB>();
+            services.AddTransient<IDatabase, CloudLibDataProvider>();
 
             services.AddTransient<IEmailSender, EmailSender>();
 
@@ -180,8 +180,6 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddScoped<NodeSetModelIndexer>();
             services.AddScoped<NodeSetModelIndexerFactory>();
-            services.AddTransient<UaCloudLibResolver>();
-            services.AddTransient<CloudLibDataProvider>();
 
             services.Configure<IISServerOptions>(options => {
                 options.AllowSynchronousIO = true;
