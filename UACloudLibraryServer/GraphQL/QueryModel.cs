@@ -27,23 +27,23 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Threading.Tasks;
-using CESMII.OpcUa.NodeSetModel;
-using HotChocolate;
-using HotChocolate.AspNetCore.Authorization;
-using HotChocolate.Data;
-using HotChocolate.Language;
-using HotChocolate.Resolvers;
-using HotChocolate.Types;
-using Opc.Ua.Cloud.Library.DbContextModels;
-using Opc.Ua.Cloud.Library.Models;
-
 namespace Opc.Ua.Cloud.Library
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Globalization;
+    using System.Linq;
+    using System.Threading.Tasks;
+    using CESMII.OpcUa.NodeSetModel;
+    using HotChocolate;
+    using HotChocolate.AspNetCore.Authorization;
+    using HotChocolate.Data;
+    using HotChocolate.Language;
+    using HotChocolate.Resolvers;
+    using HotChocolate.Types;
+    using Opc.Ua.Cloud.Library.DbContextModels;
+    using Opc.Ua.Cloud.Library.Models;
+
     [Authorize]
     public class QueryModel
     {
