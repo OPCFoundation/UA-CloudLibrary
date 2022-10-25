@@ -75,23 +75,23 @@ namespace CloudLibClient.Tests
         {
             return new List<object[]>
             {
-                new object[ ]{ null, 54 },
+                new object[ ]{ null, 63 },
                 new object[] { new string[] { "BaseObjectType" },  6 },
-                new object[] { new string[] { "di" }, 54 },
-                new object[] { new string[] { "robotics" }, 1 },
+                new object[] { new string[] { "di" }, 61 },
+                new object[] { new string[] { "robotics" }, 2 },
                 new object[] { new string[] { "plastic" }, 15 },
                 new object[] { new string[] { "pump" } , 6},
-                new object[] { new string[] { "robotics", "di" }, 54 },
-                new object[] { new string[] { "robotics", "di", "pump", "plastic" }, 54 },
-                new object[] { new string[] { "robotics", "pump", }, 7 },
-                new object[] { new string[] { "robotics", "plastic" }, 16 },
-                new object[] { new string[] { "robotics", "pump", "plastic" }, 19 },
+                new object[] { new string[] { "robotics", "di" }, 61 },
+                new object[] { new string[] { "robotics", "di", "pump", "plastic" }, 61 },
+                new object[] { new string[] { "robotics", "pump", }, 8 },
+                new object[] { new string[] { "robotics", "plastic" }, 17 },
+                new object[] { new string[] { "robotics", "pump", "plastic" }, 20 },
                 new object[] { new string[] { "abcdefg", "defghi", "dhjfhsdjfhsdjkfhsdjkf", "dfsjdhfjkshdfjksd" } , 0 },
                 new object[] { new string[] { "Interface" }, 24 },
-                new object[] { new string[] { "Event" }, 22 },
+                new object[] { new string[] { "Event" }, 23 },
                 new object[] { new string[] { "Interface", "BaseObjectType" }, 28 },
                 new object[] { new string[] { "BaseObjectType", "Interface" }, 28 },
-                new object[] { new string[] { "Interface", "BaseObjectType", "Event" }, 39 },
+                new object[] { new string[] { "Interface", "BaseObjectType", "Event" }, 40 },
             };
         }
     }

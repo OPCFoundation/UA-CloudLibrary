@@ -37,7 +37,7 @@ namespace CloudLibClient.Tests
                 client._forceRestTestHook = forceRest;
             }
 
-            var nodeSetInfo = await GetBasicNodeSetInfoForNamespaceAsync(client, "http://opcfoundation.org/UA/Robotics/").ConfigureAwait(false);
+            var nodeSetInfo = await GetBasicNodeSetInfoForNamespaceAsync(client, strTestNamespaceUri).ConfigureAwait(false);
 
             Assert.True(nodeSetInfo != null, "Nodeset not found");
             var identifier = nodeSetInfo.Id.ToString(CultureInfo.InvariantCulture);
@@ -197,11 +197,11 @@ namespace CloudLibClient.Tests
             Assert.Equal(uploadedNameSpace.SupportedLocales, downloadedNameSpace.SupportedLocales);
         }
 
-        const string strTestNamespaceUri = "http://opcfoundation.org/UA/Robotics/";
-        const string strTestNamespaceTitle= "Robotics";
+        const string strTestNamespaceUri = "http://cloudlibtests/testnodeset001/";
+        const string strTestNamespaceTitle= "CloudLib Test Nodeset 001";
         private static UANameSpace GetUploadedTestNamespace()
         {
-            var uploadedJson = File.ReadAllText(Path.Combine("TestNamespaces", "opcfoundation.org.UA.Robotics.NodeSet2.xml.1151181780.json"));
+            var uploadedJson = File.ReadAllText(Path.Combine("TestNamespaces", "cloudlibtests.testnodeset001.NodeSet2.xml.0.json"));
             var uploadedNameSpace = JsonConvert.DeserializeObject<UANameSpace>(uploadedJson);
             return uploadedNameSpace;
         }
