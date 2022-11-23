@@ -38,6 +38,7 @@ Environment variables that **must** be defined:
 * PostgreSQLUsername: The username to use to log in to the PostgreSQL instance.
 * PostgreSQLPassword: The password to use to log in to the PostgreSQL instance.
 * ServicePassword: The administration password for the REST service (username admin).
+* DataProtectionBlobName: The name of the blob storage used for the .Net data protection feature
 
 Environment variables that **can optionally** be defined:
 
