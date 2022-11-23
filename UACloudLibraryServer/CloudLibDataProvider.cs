@@ -425,7 +425,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                var value = _dbContext.Metadata.Where(md => md.NodesetId == nodesetId)?.Select(md => md.Value)?.FirstOrDefault();
+                var value = _dbContext.Metadata.Where(md => md.NodesetId == nodesetId && md.Name == metaDataTag)?.Select(md => md.Value)?.FirstOrDefault();
                 if (value != null)
                 {
                     return value;
