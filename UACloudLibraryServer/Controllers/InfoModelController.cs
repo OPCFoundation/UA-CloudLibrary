@@ -40,7 +40,9 @@ namespace Opc.Ua.Cloud.Library
     using Extensions;
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
+    using Microsoft.EntityFrameworkCore;
     using Microsoft.Extensions.Logging;
+    using Npgsql;
     using Opc.Ua;
     using Opc.Ua.Cloud.Library.Interfaces;
     using Opc.Ua.Cloud.Library.Models;
@@ -279,6 +281,11 @@ namespace Opc.Ua.Cloud.Library
                     try
                     {
                         await _indexer.CreateNodeSetModelFromNodeSetAsync(nodeSet, nodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                    }
+                    catch (DbUpdateException ex) when ((ex.InnerException as PostgresException).SqlState == PostgresErrorCodes.UniqueViolation)
+                    {
+                        string message = $"Error: Nodeset index entry already exists. Index likely out of date for nodeset {nodesetHashCode}.";
+                        _logger.LogError(ex, message);
                     }
                     catch (Exception ex)
                     {
