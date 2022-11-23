@@ -30,7 +30,7 @@ If you want to access the admin to the develpoment database instance open http:/
 
 ## Cloud Hosting Setup
 
-Environment variables that must be defined:
+Environment variables that **must** be defined:
 
 * HostingPlatform: The cloud hosting platform. Valid options are Azure, AWS and GCP.
 * BlobStorageConnectionString: The connection string to the cloud storage instance (that must be previously deployed in the hosting platform).
@@ -38,7 +38,13 @@ Environment variables that must be defined:
 * PostgreSQLUsername: The username to use to log in to the PostgreSQL instance.
 * PostgreSQLPassword: The password to use to log in to the PostgreSQL instance.
 * ServicePassword: The administration password for the REST service (username admin).
-* PostmarkAPIKey: The API key for the Postmark service
+
+Environment variables that **can optionally** be defined:
+
+* EmailSenderAPIKey: The API key for the email sender service
+* RegistrationEmailFrom: The "from" email address to use for user registration confirmation emails
+* RegistrationEmailReplyTo: The "replyto" email address to use for user registration confirmation emails
+* UseSendGridEmailSender: Use SendGrid for sending emails instead of the default Postmark
 
 Hosting on AWS requires the identity/role used to have policies allowing access to the S3 bucket and SSM Parameter Store.
 

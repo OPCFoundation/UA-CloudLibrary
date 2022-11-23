@@ -73,15 +73,22 @@ namespace Opc.Ua.Cloud.Library
             services.AddDbContext<AppDbContext>(ServiceLifetime.Transient);
 
             services.AddDefaultIdentity<IdentityUser>(options =>
-                    // require confirmation mail if Postmark API Key is set
-                    options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["PostmarkAPIKey"])
+                    //require confirmation mail if email sender API Key is set
+                    options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["EmailSenderAPIKey"])
                     ).AddEntityFrameworkStores<AppDbContext>();
 
             services.AddScoped<IUserService, UserService>();
 
             services.AddTransient<IDatabase, CloudLibDataProvider>();
 
-            services.AddTransient<IEmailSender, EmailSender>();
+            if (!string.IsNullOrEmpty(Configuration["UseSendGridEmailSender"]))
+            {
+                services.AddTransient<IEmailSender, SendGridEmailSender>();
+            }
+            else
+            {
+                services.AddTransient<IEmailSender, PostmarkEmailSender>();
+            }
 
             services.AddLogging(builder => builder.AddConsole());
 
