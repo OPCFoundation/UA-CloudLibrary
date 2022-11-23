@@ -30,8 +30,7 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity.UI.Services;
-using SendGrid;
-using SendGrid.Helpers.Mail;
+using PostmarkDotNet;
 
 namespace Opc.Ua.Cloud.Library
 {
@@ -39,34 +38,31 @@ namespace Opc.Ua.Cloud.Library
     {
         public Task SendEmailAsync(string email, string subject, string htmlMessage)
         {
-            var apiKey = Environment.GetEnvironmentVariable("SendGridAPIKey");
+            string apiKey = Environment.GetEnvironmentVariable("PostmarkAPIKey");
             if (!string.IsNullOrEmpty(apiKey))
             {
-                SendGridClient client = new SendGridClient(apiKey);
-                var emailFrom = Environment.GetEnvironmentVariable("RegistrationEmailFrom");
-                if (string.IsNullOrEmpty(emailFrom)) emailFrom = "stefan.hoppe@opcfoundation.org";
+                PostmarkClient client = new(apiKey);
 
-                var emailReplyTo = Environment.GetEnvironmentVariable("RegistrationEmailReplyTo");
-                if (string.IsNullOrEmpty(emailReplyTo)) emailReplyTo = "no-reply@opcfoundation.org";
+                string emailFrom = Environment.GetEnvironmentVariable("RegistrationEmailFrom");
+                if (string.IsNullOrEmpty(emailFrom)) emailFrom = "office@opcfoundation.org";
 
-                SendGridMessage msg = new SendGridMessage() {
-                    From = new EmailAddress(emailFrom),
-                    ReplyTo = new EmailAddress(emailReplyTo),
+                // Send an email asynchronously:
+                PostmarkMessage msg = new() {
+                    To = email,
+                    From = emailFrom,
+                    TrackOpens = true,
                     Subject = subject,
-                    PlainTextContent = htmlMessage,
-                    HtmlContent = htmlMessage
+                    TextBody = htmlMessage,
+                    HtmlBody = htmlMessage,
+                    MessageStream = "outbound",
+                    Tag = "UA Cloud Library"
                 };
-                msg.AddTo(new EmailAddress(email));
 
-                // Disable click tracking.
-                // See https://sendgrid.com/docs/User_Guide/Settings/tracking.html
-                msg.SetClickTracking(false, false);
-
-                return client.SendEmailAsync(msg);
+                return client.SendMessageAsync(msg);
             }
             else
             {
-                Console.WriteLine($"Mail sending is disabled due to missing API-Key for sendgrid (email: ${email}, subject: ${subject})");
+                Console.WriteLine($"Mail sending is disabled due to missing API-Key for Postmark (email: ${email}, subject: ${subject})");
                 return Task.CompletedTask;
             }
         }

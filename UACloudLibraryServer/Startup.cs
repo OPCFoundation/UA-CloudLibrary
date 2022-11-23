@@ -73,8 +73,8 @@ namespace Opc.Ua.Cloud.Library
             services.AddDbContext<AppDbContext>(ServiceLifetime.Transient);
 
             services.AddDefaultIdentity<IdentityUser>(options =>
-                    //require confirmation mail if sendgrid API Key is set
-                    options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["SendGridAPIKey"])
+                    // require confirmation mail if Postmark API Key is set
+                    options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["PostmarkAPIKey"])
                     ).AddEntityFrameworkStores<AppDbContext>();
 
             services.AddScoped<IUserService, UserService>();
