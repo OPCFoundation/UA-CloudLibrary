@@ -34,11 +34,11 @@ using PostmarkDotNet;
 
 namespace Opc.Ua.Cloud.Library
 {
-    public class EmailSender : IEmailSender
+    public class PostmarkEmailSender : IEmailSender
     {
         public Task SendEmailAsync(string email, string subject, string htmlMessage)
         {
-            string apiKey = Environment.GetEnvironmentVariable("PostmarkAPIKey");
+            string apiKey = Environment.GetEnvironmentVariable("EmailSenderAPIKey");
             if (!string.IsNullOrEmpty(apiKey))
             {
                 PostmarkClient client = new(apiKey);
