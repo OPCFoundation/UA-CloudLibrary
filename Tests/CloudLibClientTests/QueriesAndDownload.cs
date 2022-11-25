@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -37,7 +39,7 @@ namespace CloudLibClient.Tests
                 client._forceRestTestHook = forceRest;
             }
 
-            var nodeSetInfo = await GetBasicNodeSetInfoForNamespaceAsync(client, "http://opcfoundation.org/UA/Robotics/").ConfigureAwait(false);
+            var nodeSetInfo = await GetBasicNodeSetInfoForNamespaceAsync(client, strTestNamespaceUri).ConfigureAwait(false);
 
             Assert.True(nodeSetInfo != null, "Nodeset not found");
             var identifier = nodeSetInfo.Id.ToString(CultureInfo.InvariantCulture);
@@ -197,11 +199,13 @@ namespace CloudLibClient.Tests
             Assert.Equal(uploadedNameSpace.SupportedLocales, downloadedNameSpace.SupportedLocales);
         }
 
-        const string strTestNamespaceUri = "http://opcfoundation.org/UA/Robotics/";
-        const string strTestNamespaceTitle= "Robotics";
+        const string strTestNamespaceUri = "http://cloudlibtests/testnodeset001/";
+        const string strTestNamespaceTitle= "CloudLib Test Nodeset 001";
+        const string strTestNamespaceFilename = "cloudlibtests.testnodeset001.NodeSet2.xml.0.json";
+        const string strTestNamespaceUpdateFilename = "cloudlibtests.testnodeset001.V1_2.NodeSet2.xml.0.json";
         private static UANameSpace GetUploadedTestNamespace()
         {
-            var uploadedJson = File.ReadAllText(Path.Combine("TestNamespaces", "opcfoundation.org.UA.Robotics.NodeSet2.xml.1151181780.json"));
+            var uploadedJson = File.ReadAllText(Path.Combine("TestNamespaces", strTestNamespaceFilename));
             var uploadedNameSpace = JsonConvert.DeserializeObject<UANameSpace>(uploadedJson);
             return uploadedNameSpace;
         }
@@ -344,6 +348,43 @@ namespace CloudLibClient.Tests
             Assert.Equal(uploadedNameSpace.ReleaseNotesUrl, convertedMetaData.ReleaseNotesUrl);
             Assert.Equal(uploadedNameSpace.SupportedLocales, convertedMetaData.SupportedLocales);
             VerifyRequiredModels((UANameSpace)null, convertedMetaData.Nodeset.RequiredModels);
+        }
+
+        [Fact]
+        async Task UpdateNodeSet()
+        {
+            var client = _factory.CreateCloudLibClient();
+            var fileName = strTestNamespaceUpdateFilename;
+            var uploadJson = File.ReadAllText(Path.Combine("", "OtherTestNamespaces", fileName));
+            var addressSpace = JsonConvert.DeserializeObject<UANameSpace>(uploadJson);
+            var response = await client.UploadNodeSetAsync(addressSpace).ConfigureAwait(false);
+            if (response.Status == HttpStatusCode.OK)
+            {
+                output.WriteLine($"Uploaded {addressSpace?.Nodeset.NamespaceUri}, {addressSpace?.Nodeset.Identifier}");
+            }
+            else
+            {
+                if (!(TestSetup._bIgnoreUploadConflict && response.Message.Contains("Nodeset already exists")))
+                {
+                    throw new Exception(($"Error uploading {addressSpace?.Nodeset.NamespaceUri}, {addressSpace?.Nodeset.Identifier}: {response.Status} {response.Message}"));
+                }
+                else
+                {
+                    Assert.Equal(HttpStatusCode.OK, response.Status);
+                }
+            }
+            // Upload again should cause conflict
+            response = await client.UploadNodeSetAsync(addressSpace).ConfigureAwait(false);
+            Assert.Equal(HttpStatusCode.Conflict, response.Status);
+
+            // Use REST client: SDK does not support specifying the overwrite flag
+            var restClient = _factory.CreateAuthorizedClient();
+
+            var uploadAddress = restClient.BaseAddress != null ? new Uri(restClient.BaseAddress, "infomodel/upload?overwrite=true") : null;
+            HttpContent content = new StringContent(JsonConvert.SerializeObject(addressSpace), Encoding.UTF8, "application/json");
+
+            var uploadResponse = await restClient.SendAsync(new HttpRequestMessage(HttpMethod.Put, uploadAddress) { Content = content }).ConfigureAwait(false);
+            Assert.Equal(HttpStatusCode.OK, uploadResponse.StatusCode);
         }
     }
 }
