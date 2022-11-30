@@ -204,22 +204,46 @@ namespace Opc.Ua.Cloud.Library
                 }
 
                 // check if the nodeset already exists in the database for the legacy hashcode algorithm
-                string legacyResult;
                 uint legacyNodesetHashCode = GenerateHashCodeLegacy(nodeSet);
                 if (legacyNodesetHashCode != 0)
                 {
-                    legacyResult = await _storage.FindFileAsync(legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
-                    if (!string.IsNullOrEmpty(legacyResult) && !overwrite)
-                    {
-                        // nodeset already exists
-                        return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
-                    }
+                    string legacyNodeSetXml = await _storage.DownloadFileAsync(legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
 
-                    // check contributors match if nodeset already exists
-                    string contributorNameLegacy = _database.RetrieveMetaData(legacyNodesetHashCode, "orgname");
-                    if (!string.IsNullOrEmpty(legacyResult) && !string.IsNullOrEmpty(contributorNameLegacy) && (!string.Equals(nameSpace.Contributor.Name, contributorNameLegacy, StringComparison.Ordinal)))
+                    if (!string.IsNullOrEmpty(legacyNodeSetXml))
                     {
-                        return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
+                        try
+                        {
+                            var legacyNodeSet = ReadUANodeSet(legacyNodeSetXml);
+                            var firstModel = legacyNodeSet.Models.Length > 0 ? legacyNodeSet.Models[0] : null;
+                            if (firstModel == null)
+                            {
+                                return new ObjectResult($"Nodeset exists but existing nodeset had no model entry.") { StatusCode = (int)HttpStatusCode.Conflict };
+                            }
+                            if (!firstModel.PublicationDateSpecified || firstModel.PublicationDate == nodeSet.Models[0].PublicationDate)
+                            {
+                                if (!overwrite)
+                                {
+                                    // nodeset already exists
+                                    return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
+                                }
+                            }
+                            else
+                            {
+                                // New nodeset is a different version from the legacy nodeset: don't touch the legacy nodeset
+                                legacyNodesetHashCode = 0;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            return new ObjectResult($"Nodeset exists but existing nodeset could not be validated: {ex.Message}.") { StatusCode = (int)HttpStatusCode.Conflict };
+                        }
+
+                        // check contributors match if nodeset already exists
+                        string contributorNameLegacy = _database.RetrieveMetaData(legacyNodesetHashCode, "orgname");
+                        if (!string.IsNullOrEmpty(legacyNodeSetXml) && !string.IsNullOrEmpty(contributorNameLegacy) && (!string.Equals(nameSpace.Contributor.Name, contributorNameLegacy, StringComparison.Ordinal)))
+                        {
+                            return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
+                        }
                     }
                 }
 
@@ -246,7 +270,7 @@ namespace Opc.Ua.Cloud.Library
                 {
                     return new ObjectResult("Version in metadata does not match nodeset XML.") { StatusCode = (int)HttpStatusCode.BadRequest };
                 }
-                if (nameSpace.Nodeset.NamespaceUri != null && nameSpace.Nodeset.NamespaceUri.ToString() != nodeSet.Models[0].ModelUri)
+                if (nameSpace.Nodeset.NamespaceUri != null && nameSpace.Nodeset.NamespaceUri.OriginalString != nodeSet.Models[0].ModelUri)
                 {
                     return new ObjectResult("NamespaceUri in metadata does not match nodeset XML.") { StatusCode = (int)HttpStatusCode.BadRequest };
                 }
@@ -268,13 +292,31 @@ namespace Opc.Ua.Cloud.Library
                     return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
                 }
 
-                if (!_database.DeleteAllRecordsForNodeset(legacyNodesetHashCode))
+                if (legacyNodesetHashCode != 0 && !_database.DeleteAllRecordsForNodeset(legacyNodesetHashCode))
                 {
                     string message = "Error: Could not delete existing legacy records for nodeset!";
                     _logger.LogError(message);
                     return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
                 }
 
+                if (!StoreUserMetaDataInDatabase(nodesetHashCode, nameSpace, nodeSet, modelValidationStatus))
+                {
+                    string message = "Error: User metadata could not be stored.";
+                    _logger.LogError(message);
+                    return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
+                }
+
+                if (legacyNodesetHashCode != 0)
+                {
+                    try
+                    {
+                        await _storage.DeleteFileAsync(legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture));
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Failed to delete legacy nodeset {legacyNodesetHashCode} for {nameSpace?.Nodeset?.NamespaceUri} {nameSpace?.Nodeset?.PublicationDate} {nameSpace?.Nodeset?.Identifier}");
+                    }
+                }
                 // Store nodeset metadata synchronously. Indexing of nodes happens in the background
                 if (nodeSet.Models?.Length > 0)
                 {
@@ -292,14 +334,7 @@ namespace Opc.Ua.Cloud.Library
                         string message = "Error: Nodeset index entry could not be created.";
                         _logger.LogError(ex, message);
                         return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
-
                     }
-                }
-                if (!StoreUserMetaDataInDatabase(nodesetHashCode, nameSpace, nodeSet, modelValidationStatus))
-                {
-                    string message = "Error: User metadata could not be stored.";
-                    _logger.LogError(message);
-                    return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
                 }
 
                 return new ObjectResult("Upload successful!") { StatusCode = (int)HttpStatusCode.OK };
