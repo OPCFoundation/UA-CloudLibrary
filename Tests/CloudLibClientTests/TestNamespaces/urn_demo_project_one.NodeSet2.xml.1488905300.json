@@ -1,0 +1,40 @@
+{
+  "title": "Demo nodeset",
+  "license": 0,
+  "copyrightText": "-",
+  "contributor": {
+    "name": "Test",
+    "description": "",
+    "logoUrl": null,
+    "contactEmail": "",
+    "website": null
+  },
+  "description": "-",
+  "category": {
+    "name": "Demo",
+    "description": "",
+    "iconUrl": null
+  },
+  "nodeset": {
+    "nodesetXml": "<UANodeSet xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns=\"http://opcfoundation.org/UA/2011/03/UANodeSet.xsd\" LastModified=\"2022-05-19T11:59:24Z\">\r\n    <NamespaceUris>\r\n        <Uri>urn:demo:project:one</Uri>\r\n        <Uri>http://opcfoundation.org/UA/DI/</Uri>\r\n    </NamespaceUris>\r\n   <Models>\r\n     <Model ModelUri=\"urn:demo:project:one\" Version=\"1.01\" PublicationDate=\"2013-07-31T00:00:00Z\">\r\n       <RequiredModel ModelUri=\"http://opcfoundation.org/UA/\" Version=\"1.03\" PublicationDate=\"2013-12-02T00:00:00Z\" />\r\n       <RequiredModel ModelUri=\"http://opcfoundation.org/UA/DI/\" Version=\"1.01\" PublicationDate=\"2012-12-31T00:00:00Z\" />\r\n     </Model>\r\n   </Models>\r\n    <UAObject NodeId=\"ns=1;i=18482\" BrowseName=\"1:TestObjectOne\" WriteMask=\"0\" EventNotifier=\"0\">\r\n        <DisplayName>TestObjectOne</DisplayName>\r\n        <Description>TestObjectOne</Description>\r\n        <References>\r\n            <Reference ReferenceType=\"i=35\" IsForward=\"false\">i=85</Reference>\r\n            <Reference ReferenceType=\"i=40\" IsForward=\"true\">i=58</Reference>\r\n            <Reference ReferenceType=\"i=47\" IsForward=\"true\">ns=1;i=24464</Reference>\r\n        </References>\r\n    </UAObject>\r\n    <UAObject NodeId=\"ns=1;i=24464\" BrowseName=\"1:TestObjectChildOne\" WriteMask=\"1495824\" EventNotifier=\"0\">\r\n        <DisplayName>TestObjectChildOne</DisplayName>\r\n        <Description>TestObjectChildOne</Description>\r\n        <References>\r\n            <Reference ReferenceType=\"i=47\" IsForward=\"false\">ns=1;i=18482</Reference>\r\n            <Reference ReferenceType=\"i=40\" IsForward=\"true\">ns=2;i=1004</Reference>\r\n            <Reference ReferenceType=\"i=47\" IsForward=\"true\">ns=1;s=ns=1;i=24464/SupportedTypes</Reference>\r\n            <Reference ReferenceType=\"i=47\" IsForward=\"true\">ns=1;s=ns=1;i=24464/&lt;ObjectIdentifier&gt;</Reference>\r\n        </References>\r\n    </UAObject>\r\n    <UAObject NodeId=\"ns=1;s=ns=1;i=24464/&lt;ObjectIdentifier&gt;\" BrowseName=\"2:&lt;ObjectIdentifier&gt;\" WriteMask=\"0\" EventNotifier=\"0\">\r\n        <DisplayName>&lt;ObjectIdentifier&gt;</DisplayName>\r\n        <References>\r\n            <Reference ReferenceType=\"i=47\" IsForward=\"false\">ns=1;i=24464</Reference>\r\n            <Reference ReferenceType=\"i=40\" IsForward=\"true\">i=58</Reference>\r\n        </References>\r\n    </UAObject>\r\n    <UAObject NodeId=\"ns=1;s=ns=1;i=24464/SupportedTypes\" BrowseName=\"2:SupportedTypes\" WriteMask=\"0\" EventNotifier=\"0\">\r\n        <DisplayName>SupportedTypes</DisplayName>\r\n        <References>\r\n            <Reference ReferenceType=\"i=47\" IsForward=\"false\">ns=1;i=24464</Reference>\r\n            <Reference ReferenceType=\"i=40\" IsForward=\"true\">i=61</Reference>\r\n        </References>\r\n    </UAObject>\r\n</UANodeSet>\r\n",
+    "identifier": 1488905300,
+    "namespaceUri": null,
+    "version": "1.01",
+    "validationStatus": null,
+    "publicationDate": "2013-07-31T00:00:00",
+    "lastModifiedDate": "2022-05-19T11:59:24",
+    "RequiredModels": null,
+    "Metadata": null
+  },
+  "documentationUrl": null,
+  "iconUrl": null,
+  "licenseUrl": null,
+  "keywords": [],
+  "purchasingInformationUrl": null,
+  "releaseNotesUrl": null,
+  "testSpecificationUrl": null,
+  "supportedLocales": [],
+  "numberOfDownloads": 9,
+  "validationStatus": "",
+  "additionalProperties": null
+}

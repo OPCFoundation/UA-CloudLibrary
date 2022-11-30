@@ -739,8 +739,9 @@ query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: Dat
         /// Upload a nodeset to the cloud library
         /// </summary>
         /// <param name="nameSpace"></param>
+        /// <param name="overwrite"></param>
         /// <returns></returns>
-        public Task<(HttpStatusCode Status, string Message)> UploadNodeSetAsync(UANameSpace nameSpace) => _restClient.UploadNamespaceAsync(nameSpace);
+        public Task<(HttpStatusCode Status, string Message)> UploadNodeSetAsync(UANameSpace nameSpace, bool overwrite = false) => _restClient.UploadNamespaceAsync(nameSpace, overwrite);
 
         /// <summary>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.</summary>
         public void Dispose()
