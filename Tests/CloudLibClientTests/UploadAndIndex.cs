@@ -45,7 +45,7 @@ namespace CloudLibClient.Tests
             {
                 if (!(TestSetup._bIgnoreUploadConflict && response.Message.Contains("Nodeset already exists")))
                 {
-                    throw new Exception(($"Error uploading {addressSpace?.Nodeset.NamespaceUri}, {addressSpace?.Nodeset.Identifier}: {response.Status} {response.Message}"));
+                    throw new Exception(($"Error uploading {addressSpace}: {response.Status} {response.Message}"));
                 }
                 else
                 {
