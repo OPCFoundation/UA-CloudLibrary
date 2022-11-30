@@ -1165,7 +1165,7 @@ namespace Opc.Ua.Cloud.Library
                     .IsRequired();
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.BaseTypeModel", "SuperType")
-                    .WithMany()
+                    .WithMany("SubTypes")
                     .HasForeignKey("SuperTypeNodeId", "SuperTypeNodeSetModelUri", "SuperTypeNodeSetPublicationDate");
 
                 b.Navigation("SuperType");
@@ -1670,6 +1670,10 @@ namespace Opc.Ua.Cloud.Library
                 b.Navigation("UnknownNodes");
 
                 b.Navigation("VariableTypes");
+            });
+
+            modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.BaseTypeModel", b => {
+                b.Navigation("SubTypes");
             });
 #pragma warning restore 612, 618
         }
