@@ -58,6 +58,7 @@ namespace Opc.Ua.Cloud.Library
 
         public void DeleteNewlyAddedNodeSetsFromCache(UANodeSetImportResult results)
         {
+            // Not needed as files are stored externally in the cloud library regardless of indexer state
         }
 
         public UANodeSetImportResult FlushCache()
@@ -68,7 +69,7 @@ namespace Opc.Ua.Cloud.Library
         public bool GetNodeSet(UANodeSetImportResult results, ModelNameAndVersion nameVersion, object TenantID)
         {
             // Find next higher model if no exact match
-            var matchingNodeSet = DbOpcUaContext.GetMatchingOrHigherNodeSetAsync(_dbContext, nameVersion.ModelUri, nameVersion.PublicationDate).Result as CloudLibNodeSetModel;
+            var matchingNodeSet = DbOpcUaContext.GetMatchingOrHigherNodeSetAsync(_dbContext, nameVersion.ModelUri, nameVersion.PublicationDate, nameVersion.ModelVersion).Result as CloudLibNodeSetModel;
             if (matchingNodeSet != null)
             {
                 string tFileName = matchingNodeSet.Identifier;
