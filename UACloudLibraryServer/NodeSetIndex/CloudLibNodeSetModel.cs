@@ -57,7 +57,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 foreach (var requiredModel in model.RequiredModel)
                 {
-                    var existingNodeSet = await DbOpcUaContext.GetMatchingOrHigherNodeSetAsync(dbContext, requiredModel.ModelUri, requiredModel.PublicationDateSpecified ? requiredModel.PublicationDate : null).ConfigureAwait(false);
+                    var existingNodeSet = await DbOpcUaContext.GetMatchingOrHigherNodeSetAsync(dbContext, requiredModel.ModelUri, requiredModel.PublicationDateSpecified ? requiredModel.PublicationDate : null, requiredModel.Version).ConfigureAwait(false);
                     var requiredModelInfo = new RequiredModelInfo {
                         ModelUri = requiredModel.ModelUri,
                         PublicationDate = requiredModel.PublicationDateSpecified ? requiredModel.PublicationDate : null,
