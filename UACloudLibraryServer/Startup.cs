@@ -181,6 +181,7 @@ namespace Opc.Ua.Cloud.Library
                 .AddFiltering()
                 .AddSorting()
                 .AddQueryType<QueryModel>()
+                .AddMutationType<MutationModel>()
                 .AddType<CloudLibNodeSetModelType>()
                 .BindRuntimeType<UInt32, HotChocolate.Types.UnsignedIntType>()
                 .BindRuntimeType<UInt16, HotChocolate.Types.UnsignedShortType>();
