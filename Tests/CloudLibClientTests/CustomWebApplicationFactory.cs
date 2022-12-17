@@ -5,6 +5,7 @@ using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Opc.Ua.Cloud.Library.Client;
 
@@ -13,6 +14,28 @@ namespace CloudLibClient.Tests
     public class CustomWebApplicationFactory<TStartup>
         : WebApplicationFactory<TStartup> where TStartup : class
     {
+        public class IntegrationTestConfig
+        {
+            public bool IgnoreUploadConflict { get; set; }
+            public bool DeleteCloudLibDBAndStore { get; set; }
+        }
+
+
+        private IntegrationTestConfig _testConfig;
+        public IntegrationTestConfig TestConfig
+        {
+            get
+            {
+                if (_testConfig == null)
+                {
+                    IntegrationTestConfig testConfig = new();
+                    Services.GetService<IConfiguration>()?.Bind("IntegrationTest", testConfig);
+                    _testConfig = testConfig;
+                }
+                return _testConfig;
+            }
+        }
+
         protected override IHostBuilder CreateHostBuilder()
         {
             return base.CreateHostBuilder()
@@ -27,8 +50,7 @@ namespace CloudLibClient.Tests
         }
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
-            builder.ConfigureServices(services =>
-            {
+            builder.ConfigureServices(services => {
             });
         }
 
@@ -36,6 +58,8 @@ namespace CloudLibClient.Tests
         {
             var httpClient = CreateAuthorizedClient();
             var client = new UACloudLibClient(httpClient);
+            // Ensure all test cases hit GraphQL. Set to true in the test case if explicitly testing fallbacks
+            client._allowRestFallback = false;
             return client;
         }
         internal HttpClient CreateAuthorizedClient()

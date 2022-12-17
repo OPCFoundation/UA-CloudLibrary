@@ -43,11 +43,7 @@ namespace CloudLibClient.Tests
             }
             else
             {
-                if (!(TestSetup._bIgnoreUploadConflict && response.Message.Contains("Nodeset already exists")))
-                {
-                    throw new Exception(($"Error uploading {addressSpace}: {response.Status} {response.Message}"));
-                }
-                else
+                if (!(_factory.TestConfig.IgnoreUploadConflict && (response.Status == HttpStatusCode.Conflict || response.Message.Contains("Nodeset already exists"))))
                 {
                     Assert.Equal(HttpStatusCode.OK, response.Status);
                 }
@@ -60,6 +56,11 @@ namespace CloudLibClient.Tests
 
             var expectedNodeSetCount = TestNamespaceFiles.GetFiles().Count();
 
+            await WaitForIndexAsync(client, expectedNodeSetCount).ConfigureAwait(false);
+        }
+
+        internal static async Task WaitForIndexAsync(HttpClient client, int expectedNodeSetCount)
+        {
             bool bIndexing;
             do
             {
@@ -85,7 +86,7 @@ namespace CloudLibClient.Tests
                           }
                         }"
                     } });
-            string address = client.BaseAddress.ToString() + "graphql";
+            var address = new Uri(client.BaseAddress, "graphql");
             var response2 = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, address) { Content = new StringContent(queryBodyJson, null, "application/json"), }).ConfigureAwait(false);
             Assert.True(response2.IsSuccessStatusCode, "Failed to read nodeset status");
 

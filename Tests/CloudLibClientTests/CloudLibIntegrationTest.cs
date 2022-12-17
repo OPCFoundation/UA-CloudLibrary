@@ -40,14 +40,14 @@ namespace CloudLibClient.Tests
 
         private async Task<ICollection<Nodeset>> PagedVsNonPagedAsync(UACloudLibClient apiClient, string[] keywords, string after, int first)
         {
-            var unpagedResult = await apiClient.GetNodeSets(keywords: keywords, after: after, first: first);
+            var unpagedResult = await apiClient.GetNodeSetsAsync(keywords: keywords, after: after, first: first);
             var unpaged = unpagedResult.Edges.Select(e => e.Node).ToList();
 
             List<Nodeset> paged = await GetAllPaged(apiClient, keywords: keywords, after: after, first: 5);
             Assert.True(paged.Count == unpaged.Count);
             Assert.Equal(unpaged, paged/*.Take(cloud.Count)*/, new NodesetComparer(output));
 
-            var unpagedOrdered = unpaged.OrderBy(nsm => nsm.NamespaceUri.ToString()).ThenBy(nsm => nsm.PublicationDate).ToList();
+            var unpagedOrdered = unpaged.OrderBy(nsm => nsm.NamespaceUri.OriginalString).ThenBy(nsm => nsm.PublicationDate).ToList();
             Assert.Equal(unpagedOrdered, paged, new NodesetComparer(output));
 
             return unpaged;
@@ -60,7 +60,7 @@ namespace CloudLibClient.Tests
             string cursor = after;
             do
             {
-                var page = await apiClient.GetNodeSets(keywords: keywords, after: cursor, first: first);
+                var page = await apiClient.GetNodeSetsAsync(keywords: keywords, after: cursor, first: first);
                 Assert.True(page.Edges.Count <= first, "CloudLibAsync returned more profiles than requested");
                 paged.AddRange(page.Edges.Select(e => e.Node));
                 if (!page.PageInfo.HasNextPage)
@@ -78,20 +78,20 @@ namespace CloudLibClient.Tests
             {
                 new object[ ]{ null, 63 },
                 new object[] { new string[] { "BaseObjectType" },  6 },
-                new object[] { new string[] { "di" }, 61 },
-                new object[] { new string[] { "robotics" }, 2 },
+                new object[] { new string[] { "di" }, 56 },
+                new object[] { new string[] { "robotics" }, 1 },
                 new object[] { new string[] { "plastic" }, 15 },
                 new object[] { new string[] { "pump" } , 6},
-                new object[] { new string[] { "robotics", "di" }, 61 },
-                new object[] { new string[] { "robotics", "di", "pump", "plastic" }, 61 },
-                new object[] { new string[] { "robotics", "pump", }, 8 },
-                new object[] { new string[] { "robotics", "plastic" }, 17 },
-                new object[] { new string[] { "robotics", "pump", "plastic" }, 20 },
+                new object[] { new string[] { "robotics", "di" }, 56 },
+                new object[] { new string[] { "robotics", "di", "pump", "plastic" }, 56 },
+                new object[] { new string[] { "robotics", "pump", }, 7 },
+                new object[] { new string[] { "robotics", "plastic" }, 16 },
+                new object[] { new string[] { "robotics", "pump", "plastic" }, 19 },
                 new object[] { new string[] { "abcdefg", "defghi", "dhjfhsdjfhsdjkfhsdjkf", "dfsjdhfjkshdfjksd" } , 0 },
-                new object[] { new string[] { "Interface" }, 24 },
+                new object[] { new string[] { "Interface" }, 21 },
                 new object[] { new string[] { "Event" }, 23 },
-                new object[] { new string[] { "Interface", "BaseObjectType" }, 28 },
-                new object[] { new string[] { "BaseObjectType", "Interface" }, 28 },
+                new object[] { new string[] { "Interface", "BaseObjectType" }, 25 },
+                new object[] { new string[] { "BaseObjectType", "Interface" }, 25 },
                 new object[] { new string[] { "Interface", "BaseObjectType", "Event" }, 40 },
             };
         }

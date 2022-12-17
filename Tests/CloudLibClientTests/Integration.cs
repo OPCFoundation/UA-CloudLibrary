@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Opc.Ua.Cloud.Library;
+using Opc.Ua.Cloud.Library.Interfaces;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -27,24 +27,21 @@ namespace CloudLibClient.Tests
     {
         private static int InstantiationCount;
         private readonly CustomWebApplicationFactory<Startup> _factory;
-        private readonly bool _bClearDB;
-        public static bool _bIgnoreUploadConflict;
 
         public TestSetup(CustomWebApplicationFactory<Opc.Ua.Cloud.Library.Startup> factory)
         {
             _factory = factory;
             InstantiationCount++;
-            var testConfig = _factory.Services.GetService<IConfiguration>()?.GetSection("IntegrationTest");
-            _bClearDB = testConfig?.GetValue<bool>("DeleteCloudLibDBAndStore") ?? false;
-            _bIgnoreUploadConflict = testConfig?.GetValue<bool>("IgnoreUploadConflict") ?? false;
         }
 
         [Fact]
         public void Setup()
         {
-            if (_bClearDB && InstantiationCount == 1)
+            if (_factory.TestConfig.DeleteCloudLibDBAndStore && InstantiationCount == 1)
             {
+                // Start the app
                 var client = _factory.CreateAuthorizedClient();
+                Assert.NotNull(client);
 
                 using (var scope = _factory.Server.Services.CreateScope())
                 {
@@ -55,11 +52,12 @@ namespace CloudLibClient.Tests
                         // Create tables etc., so migration does not get attributed to the first actual test
                         dbContext.Database.Migrate();
                     }
-                }
-                var fileStoreRoot = Path.Combine(Path.GetTempPath(), "CloudLib");
-                if (Directory.Exists(fileStoreRoot))
-                {
-                    Directory.Delete(fileStoreRoot, true);
+
+                    var storage = scope.ServiceProvider.GetRequiredService<IFileStorage>();
+                    if (storage is LocalFileStorage localStorage)
+                    {
+                        _ = localStorage.DeleteAllFilesAsync().Result;
+                    }
                 }
             }
         }

@@ -21,9 +21,9 @@
     "namespaceUri": "http://opcfoundation.org/UA/",
     "version": "1.05.02",
     "validationStatus": "Indexed",
-    "publicationDate": "2022-11-01T00:00:00",
-    "lastModifiedDate": "2022-11-01T00:00:00",
-    "RequiredModels": [],
+    "publicationDate": "2022-11-01T00:00:00Z",
+    "lastModifiedDate": "2022-11-01T00:00:00Z",
+    "RequiredModels": null,
     "Metadata": null
   },
   "documentationUrl": "https://reference.opcfoundation.org/Core/Part3/v105/docs/",
