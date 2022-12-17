@@ -45,7 +45,7 @@ namespace Opc.Ua.Cloud.Library
     using Opc.Ua.Cloud.Library.Models;
 
     [Authorize]
-    public class QueryModel
+    public partial class QueryModel
     {
         [UsePaging, UseFiltering, UseSorting]
         public IQueryable<CloudLibNodeSetModel> GetNodeSets([Service(ServiceKind.Synchronized)] IDatabase dp, IResolverContext context,
@@ -118,17 +118,15 @@ namespace Opc.Ua.Cloud.Library
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public Task<List<Models.Category>> GetCategories([Service(ServiceKind.Synchronized)] IDatabase dp)
+        public IQueryable<CategoryModel> GetCategories([Service(ServiceKind.Synchronized)] IDatabase dp)
         {
-            // TODO Return IQueryable to make GraphQL filtering and pagination more efficient.
-            return dp.GetCategory(short.MaxValue, 0, null, null);
+            return dp.GetCategories();
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public Task<List<Models.Organisation>> GetOrganisations([Service(ServiceKind.Synchronized)] IDatabase dp)
+        public IQueryable<OrganisationModel> GetOrganisations([Service(ServiceKind.Synchronized)] IDatabase dp)
         {
-            // TODO Return IQueryable to make GraphQL filtering and pagination more efficient.
-            return dp.GetOrganisation(short.MaxValue, 0, null, null);
+            return dp.GetOrganisations();
         }
 
 #if !NOLEGACY
@@ -221,12 +219,6 @@ namespace Opc.Ua.Cloud.Library
     {
         protected override void Configure(IObjectTypeDescriptor<CloudLibNodeSetModel> descriptor)
         {
-            descriptor.Field(f => f.Metadata).Resolve(context => {
-                var parent = context.Parent<CloudLibNodeSetModel>();
-                UANameSpaceMetadata metaData = context.Service<IDatabase>().RetrieveAllMetadata(uint.Parse(parent.Identifier, CultureInfo.InvariantCulture));
-                return metaData;
-            });
-
             ConfigureField(descriptor.Field(f => f.ObjectTypes));
             ConfigureField(descriptor.Field(f => f.VariableTypes));
             ConfigureField(descriptor.Field(f => f.DataTypes));

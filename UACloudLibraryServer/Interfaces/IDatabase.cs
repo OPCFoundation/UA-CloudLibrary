@@ -30,28 +30,26 @@
 namespace Opc.Ua.Cloud.Library
 {
     using System;
-    using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
 
     using CESMII.OpcUa.NodeSetModel;
     using Opc.Ua.Cloud.Library.DbContextModels;
     using Opc.Ua.Cloud.Library.Models;
+    using Opc.Ua.Export;
 
     public interface IDatabase
     {
         UANodesetResult[] FindNodesets(string[] keywords, int? offset, int? limit);
         IQueryable<CloudLibNodeSetModel> GetNodeSets(string identifier = null, string nodeSetUrl = null, DateTime? publicationDate = null, string[] keywords = null);
 
-        bool AddMetaDataToNodeSet(uint nodesetId, string name, string value);
+        Task<string> AddMetaDataAsync(UANameSpace uaNamespace, UANodeSet nodeSet, uint legacyNodesetHashCode, string userId);
 
-        bool UpdateMetaDataForNodeSet(uint nodesetId, string name, string value);
+        Task<uint> IncrementDownloadCountAsync(uint nodesetId);
 
-        bool DeleteAllRecordsForNodeset(uint nodesetId);
+        Task<bool> DeleteAllRecordsForNodesetAsync(uint nodesetId);
 
-        UANameSpace RetrieveAllMetadata(uint nodesetId);
-
-        string RetrieveMetaData(uint nodesetId, string metaDataTag);
+        Task<UANameSpace> RetrieveAllMetadataAsync(uint nodesetId);
 
         string[] GetAllNamespacesAndNodesets();
 
@@ -67,13 +65,17 @@ namespace Opc.Ua.Cloud.Library
         IQueryable<ObjectModel> GetObjects(string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null);
         IQueryable<NodeModel> GetAllNodes(string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null);
 
-        Task<List<Category>> GetCategory(int limit, int offset, string where, string orderBy);
-        Task<List<Organisation>> GetOrganisation(int limit, int offset, string where, string orderBy);
+        IQueryable<CategoryModel> GetCategories();
+        IQueryable<OrganisationModel> GetOrganisations();
 
-        IQueryable<MetadataModel> GetMetadataModel();
-        Task<List<UANameSpace>> GetNamespaces(int limit, int offset, string where, string orderBy);
+        IQueryable<NamespaceMetaDataModel> GetNamespaces();
         int GetNamespaceTotalCount();
+
+        Task<UANameSpace> ApproveNamespaceAsync(string identifier, ApprovalStatus status, string approvalInformation);
+        IQueryable<CloudLibNodeSetModel> GetNodeSetsPendingApproval();
+
 #if !NOLEGACY
+        IQueryable<MetadataModel> GetMetadataModel(); // CODE REVIEW: is this still required? Moving to legacy section for now
         IQueryable<DatatypeModel> GetDataType();
         IQueryable<QueryModel.NodeSetGraphQLLegacy> GetNodeSet();
         IQueryable<ObjecttypeModel> GetObjectType();
@@ -81,4 +83,11 @@ namespace Opc.Ua.Cloud.Library
         IQueryable<VariabletypeModel> GetVariableType();
 #endif // NOLEGACY
     }
+    public enum ApprovalStatus
+    {
+        Pending,
+        Approved,
+        Rejected,
+    }
+
 }

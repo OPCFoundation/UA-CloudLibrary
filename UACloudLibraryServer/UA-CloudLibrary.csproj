@@ -7,10 +7,26 @@
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>./..</DockerfileContext>
     <DockerComposeProjectPath>..\docker-compose.dcproj</DockerComposeProjectPath>
+    <DefineConstants>$(DEFINECONSTANTS);NOLEGACY</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(RunConfiguration)' == 'UA_CloudLibrary' " />
 
+  <ItemGroup Condition="$(DEFINECONSTANTS.Contains('NOLEGACY'))">
+    <Compile Remove="GraphQL\DBContextModels\DatatypeModel.cs" />
+    <Compile Remove="GraphQL\DBContextModels\ObjecttypeModel.cs" />
+    <Compile Remove="GraphQL\DBContextModels\ReferencetypeModel.cs" />
+    <Compile Remove="GraphQL\DBContextModels\VariabletypeModel.cs" />
+    <Compile Remove="GraphQL\NameSpaceCategoryComparer.cs" />
+    <Compile Remove="GraphQL\NameSpaceComparer.cs" />
+    <Compile Remove="GraphQL\OrganisationComparer.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(DEFINECONSTANTS.Contains('NOLEGACYMIGRATION'))">
+      <Compile Remove="GraphQL\DBContextModels\MetadataModel.cs" />
+      <Compile Remove="CloudLibDataProviderLegacyMetadata.cs" />
+  </ItemGroup>
+  
   <ItemGroup>
     <None Include="..\.editorconfig" Link=".editorconfig" />
   </ItemGroup>
@@ -32,10 +48,10 @@
     <PackageReference Include="HotChocolate.Types.Scalars" Version="12.15.0" />
     <PackageReference Include="HotChocolate.AspNetCore" Version="12.15.0" />
     <PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="12.15.0" />
-    <PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="1.0.3" />
-    <PackageReference Include="CESMII.OpcUa.NodeSetModel.EF" Version="1.0.3" />
-    <PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="1.0.3" />
-    <PackageReference Include="CESMII.OpcUa.NodeSetModel" Version="1.0.3" />
+    <PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="1.0.4" />
+    <PackageReference Include="CESMII.OpcUa.NodeSetModel.EF" Version="1.0.4" />
+    <PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="1.0.4" />
+    <PackageReference Include="CESMII.OpcUa.NodeSetModel" Version="1.0.4" />
   </ItemGroup>
   <ItemGroup>
 	<PackageReference Include="GraphQL.Server.Ui.GraphiQL" Version="7.1.1" />

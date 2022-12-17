@@ -49,7 +49,7 @@ namespace Opc.Ua.Cloud.Library.Models
         public Organisation Contributor { get; set; }
 
         [Required]
-        public License License { get; set; }
+        public string License { get; set; }
 
         [Required]
         public string CopyrightText { get; set; }
@@ -83,15 +83,12 @@ namespace Opc.Ua.Cloud.Library.Models
         /// </summary>
         public string[] SupportedLocales { get; set; }
 
-        public uint NumberOfDownloads { get; set; }
-        public string ValidationStatus { get; set; }
-
         public UAProperty[] AdditionalProperties { get; set; }
 
         public UANameSpaceMetadata()
         {
             Title = string.Empty;
-            License = License.Custom;
+            License = null;
             CopyrightText = string.Empty;
             Contributor = new Organisation();
             Description = string.Empty;
@@ -104,15 +101,14 @@ namespace Opc.Ua.Cloud.Library.Models
             ReleaseNotesUrl = null;
             TestSpecificationUrl = null;
             SupportedLocales = Array.Empty<string>();
-            NumberOfDownloads = 0;
             AdditionalProperties = null;
         }
 
     }
 
-    public class UANameSpace : UANameSpaceMetadata
+    public class UANameSpaceAndNodeSet : UANameSpaceMetadata
     {
-        public UANameSpace()
+        public UANameSpaceAndNodeSet()
         {
             Nodeset = new Nodeset();
         }
@@ -120,6 +116,21 @@ namespace Opc.Ua.Cloud.Library.Models
         [Required]
         public Nodeset Nodeset { get; set; }
     }
+    public class UANameSpace : UANameSpaceAndNodeSet
+    {
+        public UANameSpace()
+        {
+            CreationTime = null;
+            NumberOfDownloads = 0;
+            //ValidationStatus = null;
+        }
+        /// <summary>
+        /// Time the nodeset was submitted to the cloud library
+        /// </summary>
+        public DateTime? CreationTime { get; set; }
+        public uint NumberOfDownloads { get; set; }
+    }
+
 
     public class UAProperty
     {
@@ -214,9 +225,9 @@ namespace Opc.Ua.Cloud.Library.Models
             Version = string.Empty;
             PublicationDate = DateTime.MinValue;
             LastModifiedDate = DateTime.MinValue;
+            ValidationStatus = null;
         }
 
-        [Required]
         public string NodesetXml { get; set; }
 
         public uint Identifier { get; set; }

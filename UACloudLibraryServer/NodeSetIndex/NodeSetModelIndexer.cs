@@ -30,10 +30,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using CESMII.OpcUa.NodeSetImporter;
 using CESMII.OpcUa.NodeSetModel;
 using CESMII.OpcUa.NodeSetModel.Factory.Opc;
 using Microsoft.EntityFrameworkCore;
@@ -103,13 +101,17 @@ namespace Opc.Ua.Cloud.Library
                     var clNodeSet = nodeSetModel as CloudLibNodeSetModel;
                     if (clNodeSet == null)
                     {
-                        throw new Exception($"Internal error: unexpected nodeset model type {nodeSetModel.GetType()}");
+                        throw new ArgumentException($"Internal error: unexpected nodeset model type {nodeSetModel.GetType()}");
                     }
                     clNodeSet.ValidationStatus = validationStatus = ValidationStatus.Indexed;
                     clNodeSet.ValidationStatusInfo = validationStatusInfo = null;
                     if (!_dbContext.Set<NodeSetModel>().Local.Any(nsm => nsm.ModelUri == clNodeSet.ModelUri && nsm.PublicationDate == clNodeSet.PublicationDate))
                     {
-                        _dbContext.nodeSets.Add(clNodeSet);
+                        _dbContext.nodeSetsWithUnapproved.Add(clNodeSet);
+                    }
+                    else
+                    {
+                        _dbContext.nodeSetsWithUnapproved.Update(clNodeSet);
                     }
                 }
                 var validatedTime = sw.ElapsedMilliseconds;
@@ -125,6 +127,7 @@ namespace Opc.Ua.Cloud.Library
                     var clNodeSet = nodeSet as CloudLibNodeSetModel;
                     clNodeSet.ValidationElapsedTime = TimeSpan.FromMilliseconds(savedTime);
                     clNodeSet.ValidationFinishedTime = DateTime.UtcNow;
+                    _dbContext.Update(clNodeSet);
                     await _dbContext.SaveChangesAsync().ConfigureAwait(false);
                 }
 #endif
@@ -146,15 +149,33 @@ namespace Opc.Ua.Cloud.Library
 
         }
 
-        public async Task<CloudLibNodeSetModel> CreateNodeSetModelFromNodeSetAsync(UANodeSet nodeSet, string identifier)
+        public async Task<CloudLibNodeSetModel> CreateNodeSetModelFromNodeSetAsync(UANodeSet nodeSet, string identifier, string userId)
         {
-            var nodeSetModel = await CloudLibNodeSetModel.FromModelAsync(nodeSet.Models[0], _dbContext).ConfigureAwait(false);
-            nodeSetModel.Identifier = identifier;
-            nodeSetModel.ValidationStatus = ValidationStatus.Parsed;
-            nodeSetModel.ValidationStatusInfo = null;
-            await _dbContext.nodeSets.AddAsync(nodeSetModel).ConfigureAwait(false);
+            var nodeSetModel = await CreateNodeSetModelFromNodeSetAsync(_dbContext, nodeSet, identifier, userId).ConfigureAwait(false);
+            await _dbContext.AddAsync(nodeSetModel);
             await _dbContext.SaveChangesAsync().ConfigureAwait(false);
             return nodeSetModel;
+        }
+        public static async Task<CloudLibNodeSetModel> CreateNodeSetModelFromNodeSetAsync(AppDbContext dbContext, UANodeSet nodeSet, string identifier, string userId)
+        {
+            var nodeSetModel = await CloudLibNodeSetModel.FromModelAsync(nodeSet.Models[0], dbContext).ConfigureAwait(false);
+            nodeSetModel.Identifier = identifier;
+            nodeSetModel.LastModifiedDate = nodeSet.LastModifiedSpecified ? nodeSet.LastModified : null;
+            return nodeSetModel;
+        }
+
+        public static CloudLibNodeSetModel CreateNodeSetModelFromNodeSet(CloudLibNodeSetModel nodeSetModel)
+        {
+            var newNodeSetModel = new CloudLibNodeSetModel {
+                Identifier = nodeSetModel.Identifier,
+                ModelUri = nodeSetModel.ModelUri,
+                PublicationDate = nodeSetModel.PublicationDate,
+                Version = nodeSetModel.Version,
+                LastModifiedDate = nodeSetModel.LastModifiedDate,
+                ValidationStatus = ValidationStatus.Parsed,
+                RequiredModels = nodeSetModel.RequiredModels.Select(rm => new RequiredModelInfo { ModelUri = rm.ModelUri, PublicationDate = rm.PublicationDate, Version = rm.Version }).ToList(),
+            };
+            return newNodeSetModel;
         }
 
         public async Task DeleteNodeSetIndex(string identifier)
@@ -178,9 +199,9 @@ namespace Opc.Ua.Cloud.Library
                     {
                         // ignore: any critical omissions will be caught by SaveChangedAsync
                     }
-                    _dbContext.nodeModels.Remove(node);
+                    _dbContext.nodeModelsWithUnapproved.Remove(node);
                 }
-                _dbContext.nodeSets.Remove(existingNodeSet);
+                _dbContext.nodeSetsWithUnapproved.Remove(existingNodeSet);
                 await _dbContext.SaveChangesAsync().ConfigureAwait(false);
             }
         }
@@ -201,30 +222,37 @@ namespace Opc.Ua.Cloud.Library
                 using (var indexer = factory.Create())
                 {
                     var logger = indexer._logger;
-                    int changedCount = 0;
-                    int previousCount;
-                    int rerunCount = 0;
-                    logger.LogInformation($"Starting background indexing. Nodeset count: {indexer._dbContext.nodeSets.Count()}. Not indexed: {indexer._dbContext.nodeSets.Count(n => n.ValidationStatus != ValidationStatus.Indexed)}");
-                    do
+                    try
                     {
-                        previousCount = changedCount;
-                        changedCount = await IndexNodeSetsInternalAsync(factory).ConfigureAwait(false);
-                        rerunCount++;
-                        if (rerunCount >= 50)
+                        int changedCount = 0;
+                        int previousCount;
+                        int rerunCount = 0;
+                        logger.LogInformation($"Starting background indexing. Nodeset count: {indexer._dbContext.nodeSetsWithUnapproved.Count()}. Not indexed: {indexer._dbContext.nodeSetsWithUnapproved.Count(n => n.ValidationStatus != ValidationStatus.Indexed)}");
+                        do
                         {
-                            if (changedCount == previousCount)
+                            previousCount = changedCount;
+                            changedCount = await IndexNodeSetsInternalAsync(factory).ConfigureAwait(false);
+                            rerunCount++;
+                            if (rerunCount >= 50)
                             {
-                                // stop the loop when there are no more changes after many attempts (defense in depth against faulty indexing)
-                                logger.LogError($"Excessive indexing re-runs: {rerunCount}. Stopping indexing loop.");
-                                break;
+                                if (changedCount == previousCount)
+                                {
+                                    // stop the loop when there are no more changes after many attempts (defense in depth against faulty indexing)
+                                    logger.LogError($"Excessive indexing re-runs: {rerunCount}. Stopping indexing loop.");
+                                    break;
+                                }
+                                else
+                                {
+                                    logger.LogWarning($"Excessive indexing re-runs: {rerunCount}. {changedCount} {previousCount}");
+                                }
                             }
-                            else
-                            {
-                                logger.LogWarning($"Excessive indexing re-runs: {rerunCount}. {changedCount} {previousCount}");
-                            }
-                        }
-                    } while (changedCount > 0);
-                    logger.LogInformation($"Finished background indexing. Nodeset count: {indexer._dbContext.nodeSets.Count()}. Not indexed: {indexer._dbContext.nodeSets.Count(n => n.ValidationStatus != ValidationStatus.Indexed)}");
+                        } while (changedCount > 0);
+                        logger.LogInformation($"Finished background indexing. Nodeset count: {indexer._dbContext.nodeSetsWithUnapproved.Count()}. Not indexed: {indexer._dbContext.nodeSetsWithUnapproved.Count(n => n.ValidationStatus != ValidationStatus.Indexed)}");
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Internal error during indexing");
+                    }
                 }
             }
             finally
@@ -240,14 +268,15 @@ namespace Opc.Ua.Cloud.Library
             {
                 await nodeSetIndexer.IndexMissingNodeSets();
 
-                var unvalidatedNodeSets = nodeSetIndexer._dbContext.nodeSets.Where(n => n.ValidationStatus != ValidationStatus.Indexed).ToList();
+                var unvalidatedNodeSets = await nodeSetIndexer._dbContext.nodeSetsWithUnapproved.Where(n => n.ValidationStatus != ValidationStatus.Indexed)
+                    .ToListAsync().ConfigureAwait(false);
 
                 int changedCount = 0;
-                foreach (var nodeSetModel in unvalidatedNodeSets)
+                foreach (var nodeSet in unvalidatedNodeSets)
                 {
                     try
                     {
-                        if (await nodeSetIndexer.IndexNodeSetModelAsync(nodeSetModel.Identifier, nodeSetModel.ModelUri, nodeSetModel.PublicationDate).ConfigureAwait(false))
+                        if (await nodeSetIndexer.IndexNodeSetModelAsync(nodeSet.Identifier, nodeSet.ModelUri, nodeSet.PublicationDate).ConfigureAwait(false))
                         {
                             changedCount++;
                         }
@@ -274,13 +303,24 @@ namespace Opc.Ua.Cloud.Library
             var nodeSetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
             if (nodeSetXml != null)
             {
-                var nodeSetModel = await _dbContext.nodeSets.FindAsync(modelUri, publicationDate).ConfigureAwait(false);
-                (ValidationStatus Status, string Info) previousValidationStatus = (nodeSetModel.ValidationStatus, nodeSetModel.ValidationStatusInfo);
+                CloudLibNodeSetModel nodeSetModel = null;
                 try
                 {
+                    nodeSetModel = await _dbContext.nodeSetsWithUnapproved.FindAsync(modelUri, publicationDate).ConfigureAwait(false);
+                    if (nodeSetModel == null)
+                    {
+                        _logger.LogWarning($"NodeSet model '{identifier}' '{modelUri}' '{publicationDate}' not found during indexing.");
+                        return false;
+                    }
+                    (ValidationStatus Status, string Info) previousValidationStatus = (nodeSetModel.ValidationStatus, nodeSetModel.ValidationStatusInfo);
                     var newValidationStatus = await this.IndexNodeSetModelAsync(nodeSetModel.ModelUri, nodeSetXml, identifier).ConfigureAwait(false);
                     nodeSetModel.ValidationStatus = newValidationStatus.Status;
                     nodeSetModel.ValidationStatusInfo = newValidationStatus.Info;
+                    if (previousValidationStatus.Status != nodeSetModel.ValidationStatus || previousValidationStatus.Info != nodeSetModel.ValidationStatusInfo)
+                    {
+                        await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+                        bChanged = true;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -289,15 +329,16 @@ namespace Opc.Ua.Cloud.Library
                     // Abandon any partial indexing so far
                     _dbContext.ChangeTracker.Clear();
                     // Re-acquire the nodeset and update only it's status
-                    nodeSetModel = await _dbContext.nodeSets.FindAsync(modelUri, publicationDate).ConfigureAwait(false);
-                    nodeSetModel.ValidationStatus = ValidationStatus.Error;
-                    nodeSetModel.ValidationStatusInfo = ex.Message;
-                }
-                if (previousValidationStatus.Status != nodeSetModel.ValidationStatus || previousValidationStatus.Info != nodeSetModel.ValidationStatusInfo)
-                {
-                    await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-                    _database.UpdateMetaDataForNodeSet(uint.Parse(identifier, CultureInfo.InvariantCulture), "validationstatus", nodeSetModel.ValidationStatus.ToString());
-                    bChanged = true;
+                    nodeSetModel = await _dbContext.nodeSetsWithUnapproved.FindAsync(modelUri, publicationDate).ConfigureAwait(false);
+                    if (nodeSetModel != null)
+                    {
+                        nodeSetModel.ValidationStatus = ValidationStatus.Error;
+                        nodeSetModel.ValidationStatusInfo = ex.Message + (ex.InnerException?.Message != null ? " " + ex.InnerException?.Message : "");
+                    }
+                    else
+                    {
+                        _logger.LogError($"NodeSetModel '{modelUri}' '{publicationDate}' no longer found.");
+                    }
                 }
             }
             return bChanged;
@@ -307,14 +348,22 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-#pragma warning disable CA1305 // Specify IFormatProvider
-                //.ToString() runs in the database using a fixed culture/collation
-                var missingNodeSetIds = await _dbContext.Metadata
-                    .Select(md => md.NodesetId.ToString())
-                    .Distinct()
-                    .Where(id => !_dbContext.nodeSets.Any(nsm => nsm.Identifier == id))
+                try
+                {
+                    var cloudLibProvider = (CloudLibDataProvider)_database;
+#if !NOLEGACYMIGRATION
+                    await cloudLibProvider.MigrateLegacyMetadataAsync(_storage).ConfigureAwait(false);
+#endif
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Error during legacy metadata migration");
+                }
+
+                var missingNodeSetIds = await _dbContext.NamespaceMetaDataWithUnapproved
+                    .Where(nmd => !_dbContext.nodeSets.Any(n => n.Identifier == nmd.NodesetId))
+                    .Select(nmd => nmd.NodesetId)
                     .ToListAsync().ConfigureAwait(false);
-#pragma warning restore CA1305 // Specify IFormatProvider
 
                 foreach (var missingNodeSetId in missingNodeSetIds)
                 {
@@ -328,10 +377,18 @@ namespace Opc.Ua.Cloud.Library
                             _logger.LogDebug($"Parsing missing nodeset {missingNodeSetId}");
                             var uaNodeSet = InfoModelController.ReadUANodeSet(nodeSetXml);
 
-                            _logger.LogDebug($"Indexing missing nodeset {missingNodeSetId}");
-                            var nodeSetModel = await CreateNodeSetModelFromNodeSetAsync(uaNodeSet, missingNodeSetId).ConfigureAwait(false);
+                            var existingNodeSet = await _dbContext.nodeSets.FirstOrDefaultAsync(n => n.ModelUri == uaNodeSet.Models[0].ModelUri && n.PublicationDate == uaNodeSet.Models[0].PublicationDate);
+                            if (existingNodeSet != null)
+                            {
+                                _logger.LogWarning($"Metadata vs. NodeSets inconsistency for {existingNodeSet}: Metadata NodeSetId {missingNodeSetId} vs. NodeSet {existingNodeSet.Identifier}");
+                            }
+                            else
+                            {
+                                _logger.LogDebug($"Indexing missing nodeset {missingNodeSetId}");
+                                var nodeSetModel = await CreateNodeSetModelFromNodeSetAsync(uaNodeSet, missingNodeSetId, null).ConfigureAwait(false);
 
-                            _logger.LogWarning($"Database inconsistency: Created index entry for nodeset {missingNodeSetId} {nodeSetModel}");
+                                _logger.LogWarning($"Database inconsistency: Created index entry for nodeset {missingNodeSetId} {nodeSetModel}");
+                            }
                         }
                         else
                         {
@@ -360,16 +417,36 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
+        public void DoDispose()
+        {
+            try
+            {
+                _scope?.Dispose();
+            }
+            catch
+            {
+                // ignore: not much we can do here
+            }
+        }
+
+        private bool m_disposedValue;
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!m_disposedValue)
+            {
+                if (disposing)
+                {
+                    DoDispose();
+                }
+                m_disposedValue = true;
+            }
+        }
+
         public void Dispose()
         {
-            if (_scope != null)
-            {
-                try
-                {
-                    _scope.Dispose();
-                }
-                catch { }
-            }
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 }
