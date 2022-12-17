@@ -33,6 +33,7 @@ namespace Opc.Ua.Cloud.Library
     using System.IO;
     using System.Threading;
     using System.Threading.Tasks;
+    using Microsoft.Extensions.Configuration;
     using Microsoft.Extensions.Logging;
     using Opc.Ua.Cloud.Library.Interfaces;
 
@@ -47,10 +48,18 @@ namespace Opc.Ua.Cloud.Library
         /// <summary>
         /// Default constructor
         /// </summary>
-        public LocalFileStorage(ILoggerFactory logger)
+        public LocalFileStorage(ILoggerFactory logger, IConfiguration configuration)
         {
             _logger = logger.CreateLogger("LocalFileStorage");
-            _rootDir = Path.Combine(Path.GetTempPath(), "CloudLib");
+            var rootDir = configuration.GetSection("LocalFileStorage")?.GetValue<string>("RootDirectory");
+            if (string.IsNullOrEmpty(rootDir))
+            {
+                _rootDir = Path.Combine(Path.GetTempPath(), "CloudLib");
+            }
+            else
+            {
+                _rootDir = rootDir;
+            }
         }
 
         /// <summary>
@@ -121,11 +130,26 @@ namespace Opc.Ua.Cloud.Library
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex.Message);
+                _logger.LogError(ex, $"Failed to delete file {name}");
                 throw;
             }
 #endif
             return Task.CompletedTask;
+        }
+
+        // Test hook for cleanup before test runs
+        public Task<bool> DeleteAllFilesAsync()
+        {
+            try
+            {
+                Directory.Delete(_rootDir, true);
+                return Task.FromResult(true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to delete directory {_rootDir}");
+                return Task.FromResult(false);
+            }
         }
     }
 }
