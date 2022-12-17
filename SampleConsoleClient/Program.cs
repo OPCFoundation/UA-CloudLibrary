@@ -89,7 +89,7 @@ namespace SampleConsoleClient
 
                 webClient.DefaultRequestHeaders.Add("Authorization", "basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(args[1] + ":" + args[2])));
                 var queryBodyJson = JsonConvert.SerializeObject(new JObject { { "query", objectTypeQuery } });
-                string address = webClient.BaseAddress.ToString() + "graphql";
+                Uri address = new Uri(webClient.BaseAddress, "graphql");
                 var response2 = webClient.Send(new HttpRequestMessage(HttpMethod.Post, address) {
                     Content = new StringContent(queryBodyJson, null, "application/json"),
                 });
@@ -223,7 +223,7 @@ namespace SampleConsoleClient
             Console.WriteLine("Testing /infomodel/find?keywords");
 
             // return everything (keywords=*, other keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
-            string address = webClient.BaseAddress.ToString() + "infomodel/find?keywords=" + Uri.EscapeDataString("*");
+            Uri address = new Uri(webClient.BaseAddress, "infomodel/find?keywords=" + Uri.EscapeDataString("*"));
             var response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
             Console.WriteLine("Response: " + response.StatusCode.ToString());
             var responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -243,7 +243,7 @@ namespace SampleConsoleClient
             {
                 // pick the first identifier returned previously
                 string identifier = identifiers[0].Id.ToString(CultureInfo.InvariantCulture);
-                address = webClient.BaseAddress.ToString() + "infomodel/download/" + Uri.EscapeDataString(identifier);
+                address = new Uri(webClient.BaseAddress, "infomodel/download/" + Uri.EscapeDataString(identifier));
                 response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
 
                 Console.WriteLine("Response: " + response.StatusCode.ToString());
@@ -272,7 +272,9 @@ namespace SampleConsoleClient
                 Console.WriteLine("\nTesting the namespace query, this will fall back to the REST interface if GraphQL is not available.");
                 List<WhereExpression> filter = new List<WhereExpression>();
                 filter.Add(new WhereExpression(SearchField.orgname, "microsoft", ComparisonType.like));
+#pragma warning disable CS0618 // Type or member is obsolete
                 List<UANameSpace> nameSpaces = await client.GetNameSpacesAsync(10, 0, filter).ConfigureAwait(false);
+#pragma warning restore CS0618 // Type or member is obsolete
                 if (nameSpaces?.Count > 0)
                 {
                     Console.WriteLine("Title: {0}", nameSpaces[0].Title);

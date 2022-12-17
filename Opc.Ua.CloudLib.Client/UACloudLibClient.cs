@@ -64,6 +64,7 @@ namespace Opc.Ua.Cloud.Library.Client
         private string _password = "";
 
         internal bool _forceRestTestHook = false;
+        internal bool _allowRestFallback = true;
 
         private AuthenticationHeaderValue Authentication
         {
@@ -183,7 +184,12 @@ namespace Opc.Ua.Cloud.Library.Client
             }
             if (response.Errors?.Length > 0)
             {
-                throw new GraphQlException(response.Errors[0].Message);
+                string message = response.Errors[0].Message;
+                if (response.Errors[0].Extensions?.TryGetValue("message", out var messageObj) == true && messageObj != null)
+                {
+                    message = messageObj?.ToString();
+                }
+                throw new GraphQlException(message);
             }
 
             string dataJson = response.Data?.First?.First?.ToString();
@@ -305,7 +311,7 @@ namespace Opc.Ua.Cloud.Library.Client
         /// </summary>
         /// <param name="offset"></param>
         /// <param name="limit"></param>
-        /// <returns>List of NameSpace</returns>
+        /// <returns>List of UANameSpace</returns>
         public async Task<List<UANameSpace>> GetConvertedMetadataAsync(int offset, int limit)
         {
             List<UANameSpace> convertedResult = new List<UANameSpace>();
@@ -325,6 +331,10 @@ namespace Opc.Ua.Cloud.Library.Client
             }
             catch (Exception ex)
             {
+                if (!_allowRestFallback)
+                {
+                    throw;
+                }
                 Console.WriteLine("Error: " + ex.Message + " Falling back to REST interface...");
                 List<UANodesetResult> infos = await _restClient.GetBasicNodesetInformationAsync(offset, limit).ConfigureAwait(false);
                 // Match GraphQL
@@ -366,9 +376,10 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <summary>
         /// Queries the address spaces with the given filters and converts the result
         /// </summary>
+        [Obsolete("Use GetNodeSetsAsync instead")]
         public async Task<List<UANameSpace>> GetNameSpacesAsync(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
-            IQuery<UANameSpace> nameSpaceQuery = new Query<UANameSpace>("nameSpace")
+            IQuery<UANameSpace> namespaceQuery = new Query<UANameSpace>("namespace")
                 .AddField(h => h.Title)
                 .AddField(
                     h => h.Contributor,
@@ -421,16 +432,16 @@ namespace Opc.Ua.Cloud.Library.Client
                     )
                 ;
 
-            nameSpaceQuery.AddArgument("limit", limit);
-            nameSpaceQuery.AddArgument("offset", offset);
+            namespaceQuery.AddArgument("limit", limit);
+            namespaceQuery.AddArgument("offset", offset);
 
             if (filter != null)
             {
-                nameSpaceQuery.AddArgument("where", WhereExpression.Build(filter));
+                namespaceQuery.AddArgument("where", WhereExpression.Build(filter));
             }
 
             var request = new GraphQLRequest();
-            request.Query = "query{" + nameSpaceQuery.Build() + "}";
+            request.Query = "query{" + namespaceQuery.Build() + "}";
 
             List<UANameSpace> result = new List<UANameSpace>();
             try
@@ -439,6 +450,10 @@ namespace Opc.Ua.Cloud.Library.Client
             }
             catch (Exception ex)
             {
+                if (!_allowRestFallback)
+                {
+                    throw;
+                }
                 Console.WriteLine("Error: " + ex.Message + " Falling back to REST interface...");
                 List<UANodesetResult> infos = await _restClient.GetBasicNodesetInformationAsync(offset, limit, filter?.Select(e => e.Value).ToList()).ConfigureAwait(false);
                 result = MetadataConverter.Convert(infos);
@@ -459,13 +474,14 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <param name="before">Pagination: cursor of the first node in the next page. Use for backward paging</param>
         /// <param name="last">Pagination: minimum number of nodes to return, use with before for backward paging.</param>
         /// <returns>The metadata for the requested nodesets, as well as the metadata for all required notesets.</returns>
-        public async Task<GraphQlResult<Nodeset>> GetNodeSets(string identifier = null, string namespaceUri = null, DateTime? publicationDate = null, string[] keywords = null,
+        public async Task<GraphQlResult<Nodeset>> GetNodeSetsAsync(string identifier = null, string namespaceUri = null, DateTime? publicationDate = null, string[] keywords = null,
             string after = null, int? first = null, int? last = null, string before = null)
         {
             var request = new GraphQLRequest();
             request.Query = @"
 query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: DateTime, $keywords: [String], $after: String, $first: Int, $before: String, $last:Int) {
   nodeSets(identifier: $identifier, nodeSetUrl: $namespaceUri, publicationDate: $publicationDate, keywords: $keywords, after: $after, first: $first, before: $before, last: $last) {
+    totalCount
     pageInfo {
       endCursor
       hasNextPage
@@ -584,6 +600,24 @@ query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: Dat
             }
         }
 
+        /// <summary>
+        /// Queries one or more node sets and their dependencies
+        /// </summary>
+        /// <param name="identifier"></param>
+        /// <param name="namespaceUri"></param>
+        /// <param name="publicationDate"></param>
+        /// <param name="keywords"></param>
+        /// <param name="after">Pagination: cursor of the last node in the previous page, use for forward paging</param>
+        /// <param name="first">Pagination: maximum number of nodes to return, use with after for forward paging.</param>
+        /// <param name="before">Pagination: cursor of the first node in the next page. Use for backward paging</param>
+        /// <param name="last">Pagination: minimum number of nodes to return, use with before for backward paging.</param>
+        /// <returns>The metadata for the requested nodesets, as well as the metadata for all required notesets.</returns>
+        [Obsolete("Use GetNodeSetsAsync instead")]
+        public Task<GraphQlResult<Nodeset>> GetNodeSets(string identifier = null, string namespaceUri = null, DateTime? publicationDate = null, string[] keywords = null,
+                string after = null, int? first = null, int? last = null, string before = null)
+        {
+            return GetNodeSetsAsync(identifier, namespaceUri, publicationDate, keywords, after, first, last, before);
+        }
 
         /// <summary>
         /// Queries one or more node sets and their dependencies
@@ -655,6 +689,10 @@ query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: Dat
             }
             catch (Exception ex)
             {
+                if (!_allowRestFallback)
+                {
+                    throw;
+                }
                 Console.WriteLine("Error: " + ex.Message + " Falling back to REST interface...");
                 var nodeSetAndDependencies = new List<Nodeset>();
                 List<string> identifiers;
@@ -718,6 +756,11 @@ query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: Dat
         /// </summary>
         /// <param name="identifier"></param>
         public async Task<UANameSpace> DownloadNodesetAsync(string identifier) => await _restClient.DownloadNodesetAsync(identifier).ConfigureAwait(false);
+        /// <summary>
+        /// Download chosen Nodeset with a REST call
+        /// </summary>
+        /// <param name="identifier"></param>
+        public async Task<UANameSpace> DownloadNodesetAsync(uint identifier) => await _restClient.DownloadNodesetAsync(identifier.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
 
         /// <summary>
         /// Use this method if the CloudLib instance doesn't provide the GraphQL API

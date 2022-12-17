@@ -323,7 +323,7 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <returns></returns>
         public override string ToString()
         {
-            return $"{NamespaceUri} {PublicationDate} {Version} {Identifier} {ValidationStatus}";
+            return $"{NamespaceUri?.OriginalString} {PublicationDate} {Version} {Identifier} {ValidationStatus}";
         }
     }
 
