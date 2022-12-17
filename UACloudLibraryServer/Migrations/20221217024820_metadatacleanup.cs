@@ -125,35 +125,30 @@ namespace Opc.Ua.Cloud.Library
 
             migrationBuilder.CreateTable(
                 name: "Categories",
-                columns: table => new
-                {
+                columns: table => new {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Name = table.Column<string>(type: "text", nullable: true),
                     Description = table.Column<string>(type: "text", nullable: true),
                     IconUrl = table.Column<string>(type: "text", nullable: true)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_Categories", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
                 name: "DevDbFiles",
-                columns: table => new
-                {
+                columns: table => new {
                     Name = table.Column<string>(type: "text", nullable: false),
                     Blob = table.Column<string>(type: "text", nullable: true)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_DevDbFiles", x => x.Name);
                 });
 
             migrationBuilder.CreateTable(
                 name: "Organisations",
-                columns: table => new
-                {
+                columns: table => new {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Name = table.Column<string>(type: "text", nullable: true),
@@ -162,15 +157,13 @@ namespace Opc.Ua.Cloud.Library
                     ContactEmail = table.Column<string>(type: "text", nullable: true),
                     Website = table.Column<string>(type: "text", nullable: true)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_Organisations", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
                 name: "NamespaceMeta",
-                columns: table => new
-                {
+                columns: table => new {
                     NodesetId = table.Column<string>(type: "text", nullable: false),
                     Title = table.Column<string>(type: "text", nullable: true),
                     ContributorId = table.Column<int>(type: "integer", nullable: false),
@@ -191,8 +184,7 @@ namespace Opc.Ua.Cloud.Library
                     ApprovalInformation = table.Column<string>(type: "text", nullable: true),
                     UserId = table.Column<string>(type: "text", nullable: true)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_NamespaceMeta", x => x.NodesetId);
                     table.ForeignKey(
                         name: "FK_NamespaceMeta_Categories_CategoryId",
@@ -210,16 +202,14 @@ namespace Opc.Ua.Cloud.Library
 
             migrationBuilder.CreateTable(
                 name: "AdditionalProperties",
-                columns: table => new
-                {
+                columns: table => new {
                     NodeSetId = table.Column<string>(type: "text", nullable: false),
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Name = table.Column<string>(type: "text", nullable: true),
                     Value = table.Column<string>(type: "text", nullable: true)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_AdditionalProperties", x => new { x.NodeSetId, x.Id });
                     table.ForeignKey(
                         name: "FK_AdditionalProperties_NamespaceMeta_NodeSetId",
