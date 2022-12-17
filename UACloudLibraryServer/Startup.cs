@@ -150,6 +150,7 @@ namespace Opc.Ua.Cloud.Library
                     services.AddSingleton<IFileStorage, AWSFileStorage>();
                     break;
                 case "GCP": services.AddSingleton<IFileStorage, GCPFileStorage>(); break;
+                case "DevDB": services.AddScoped<IFileStorage, DevDbFileStorage>(); break;
                 default:
                 {
                     services.AddSingleton<IFileStorage, LocalFileStorage>();
