@@ -295,10 +295,10 @@ namespace CloudLibClient.Tests
         }
 
         [Theory]
-        [InlineData(new[] { "plastic", "robot", "machine" }, 31)]
+        [InlineData(new[] { "plastic", "robot", "machine" }, 34)]
         [InlineData(new[] { "plastic" }, 15)]
         [InlineData(new[] { "robot"}, 4)]
-        [InlineData(new[] { "machine" }, 20)]
+        [InlineData(new[] { "machine" }, 33)]
         async Task GetNodeSetsFilteredAsync(string[] keywords, int expectedCount)
         {
             var client = _factory.CreateCloudLibClient();
