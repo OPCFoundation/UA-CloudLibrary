@@ -31,7 +31,7 @@ namespace CloudLibClient.Tests
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        async Task GetNodeSetDependencies(bool forceRest)
+        public async Task GetNodeSetDependencies(bool forceRest)
         {
             var client = _factory.CreateCloudLibClient();
             if (forceRest)
@@ -147,7 +147,7 @@ namespace CloudLibClient.Tests
         }
 
         [Fact]
-        async Task DownloadNodesetAsync()
+        public async Task DownloadNodesetAsync()
         {
             var client = _factory.CreateCloudLibClient();
 
@@ -212,7 +212,7 @@ namespace CloudLibClient.Tests
         }
 
         [Fact]
-        async Task GetBasicNodesetInformationAsync()
+        public async Task GetBasicNodesetInformationAsync()
         {
             var client = _factory.CreateCloudLibClient();
 
@@ -231,7 +231,7 @@ namespace CloudLibClient.Tests
         }
 
         [Fact]
-        async Task GetNamespaceIdsAsync()
+        public async Task GetNamespaceIdsAsync()
         {
             var client = _factory.CreateCloudLibClient();
 
@@ -242,20 +242,31 @@ namespace CloudLibClient.Tests
             Assert.NotNull(testNodeSet.Identifier);
         }
 
-        [Fact]
-        async Task GetNodeSetsAsync()
+        [Theory]
+        [InlineData(true, true, true)]
+        [InlineData(false, false, false)]
+        [InlineData(true, false, false)]
+        [InlineData(false, true, false)]
+        [InlineData(false, false, true)]
+
+        public async Task GetNodeSetsAsync(bool noMetadata, bool noRequiredModels, bool noTotalCount)
         {
             var client = _factory.CreateCloudLibClient();
             string cursor = null;
             int limit = 10;
             Nodeset testNodeSet;
             bool moreData;
+            int? totalCount = null;
             do
             {
-                var result = await client.GetNodeSetsAsync(after: cursor, first: limit);
+                var result = await client.GetNodeSetsAsync(after: cursor, first: limit, noRequiredModels: noRequiredModels, noMetadata: noMetadata, noTotalCount: noTotalCount);
                 Assert.True(cursor == null || result.Edges?.Count > 0, "Failed to get node set information.");
 
                 testNodeSet = result.Edges.FirstOrDefault(n => n.Node.NamespaceUri.OriginalString == strTestNamespaceUri)?.Node;
+                if (testNodeSet != null && result.TotalCount > 0)
+                {
+                    totalCount = result.TotalCount;
+                }
                 cursor = result.PageInfo.EndCursor;
                 moreData = result.PageInfo.HasNextPage;
             } while (testNodeSet == null && moreData);
@@ -269,27 +280,48 @@ namespace CloudLibClient.Tests
             Assert.Equal(uploadedNamespace.Nodeset.NamespaceUri?.OriginalString, testNodeSet.NamespaceUri.OriginalString);
             Assert.Equal(uploadedNamespace.Nodeset.PublicationDate, testNodeSet.PublicationDate);
             Assert.Equal(uploadedNamespace.Nodeset.Version, testNodeSet.Version);
+            if (noMetadata)
+            {
+                Assert.Null(testNodeSet.Metadata);
+            }
+            else
+            {
+                Assert.Equal(uploadedNamespace.Title, testNodeSet.Metadata.Title);
+                Assert.Equal(uploadedNamespace.License, testNodeSet.Metadata.License);
+                Assert.Equal(uploadedNamespace.Keywords, testNodeSet.Metadata.Keywords);
+                Assert.Equal(uploadedNamespace.LicenseUrl, testNodeSet.Metadata.LicenseUrl);
+                Assert.Equal(uploadedNamespace.TestSpecificationUrl, testNodeSet.Metadata.TestSpecificationUrl);
+                Assert.Equal(uploadedNamespace.Category, testNodeSet.Metadata.Category, new CategoryComparer());
 
-            Assert.Equal(uploadedNamespace.Title, testNodeSet.Metadata.Title);
-            Assert.Equal(uploadedNamespace.License, testNodeSet.Metadata.License);
-            Assert.Equal(uploadedNamespace.Keywords, testNodeSet.Metadata.Keywords);
-            Assert.Equal(uploadedNamespace.LicenseUrl, testNodeSet.Metadata.LicenseUrl);
-            Assert.Equal(uploadedNamespace.TestSpecificationUrl, testNodeSet.Metadata.TestSpecificationUrl);
-            Assert.Equal(uploadedNamespace.Category, testNodeSet.Metadata.Category, new CategoryComparer());
+                Assert.Equal(default/*uploadedNamespace.Nodeset.LastModifiedDate*/, testNodeSet.LastModifiedDate); // TODO
+                Assert.Equal(uploadedNamespace.Contributor, testNodeSet.Metadata.Contributor, new OrganisationComparer());
 
-            Assert.Equal(default/*uploadedNamespace.Nodeset.LastModifiedDate*/, testNodeSet.LastModifiedDate); // TODO
-            Assert.Equal(uploadedNamespace.Contributor, testNodeSet.Metadata.Contributor, new OrganisationComparer());
+                Assert.Equal(uploadedNamespace.AdditionalProperties.OrderBy(p => p.Name), testNodeSet.Metadata.AdditionalProperties.OrderBy(p => p.Name), new UAPropertyComparer());
+                Assert.Equal(uploadedNamespace.CopyrightText, testNodeSet.Metadata.CopyrightText);
+                Assert.Equal(uploadedNamespace.Description, testNodeSet.Metadata.Description);
+                Assert.Equal(uploadedNamespace.DocumentationUrl, testNodeSet.Metadata.DocumentationUrl);
+                Assert.Equal(uploadedNamespace.IconUrl, testNodeSet.Metadata.IconUrl);
+                Assert.Equal(uploadedNamespace.PurchasingInformationUrl, testNodeSet.Metadata.PurchasingInformationUrl);
+                Assert.Equal(uploadedNamespace.ReleaseNotesUrl, testNodeSet.Metadata.ReleaseNotesUrl);
+                Assert.Equal(uploadedNamespace.SupportedLocales, testNodeSet.Metadata.SupportedLocales);
+            }
+            if (noRequiredModels)
+            {
+                Assert.True(testNodeSet.RequiredModels?.Any() != true);
+            }
+            else
+            {
+                VerifyRequiredModels(uploadedNamespace/*(UANameSpace) null*/, testNodeSet.RequiredModels);
+            }
 
-            Assert.Equal(uploadedNamespace.AdditionalProperties.OrderBy(p => p.Name), testNodeSet.Metadata.AdditionalProperties.OrderBy(p => p.Name), new UAPropertyComparer());
-            Assert.Equal(uploadedNamespace.CopyrightText, testNodeSet.Metadata.CopyrightText);
-            Assert.Equal(uploadedNamespace.Description, testNodeSet.Metadata.Description);
-            Assert.Equal(uploadedNamespace.DocumentationUrl, testNodeSet.Metadata.DocumentationUrl);
-            Assert.Equal(uploadedNamespace.IconUrl, testNodeSet.Metadata.IconUrl);
-            Assert.Equal(uploadedNamespace.PurchasingInformationUrl, testNodeSet.Metadata.PurchasingInformationUrl);
-            Assert.Equal(uploadedNamespace.ReleaseNotesUrl, testNodeSet.Metadata.ReleaseNotesUrl);
-            Assert.Equal(uploadedNamespace.SupportedLocales, testNodeSet.Metadata.SupportedLocales);
-            VerifyRequiredModels(uploadedNamespace/*(UANameSpace) null*/, testNodeSet.RequiredModels);
-
+            if (noTotalCount)
+            {
+                Assert.Null(totalCount);
+            }
+            else
+            {
+                Assert.True(totalCount > 60);
+            }
             Assert.True(string.IsNullOrEmpty(testNodeSet.NodesetXml));
             Assert.Equal("INDEXED", testNodeSet.ValidationStatus);
         }
@@ -299,7 +331,7 @@ namespace CloudLibClient.Tests
         [InlineData(new[] { "plastic" }, 15)]
         [InlineData(new[] { "robot"}, 4)]
         [InlineData(new[] { "machine" }, 33)]
-        async Task GetNodeSetsFilteredAsync(string[] keywords, int expectedCount)
+        public async Task GetNodeSetsFilteredAsync(string[] keywords, int expectedCount)
         {
             var client = _factory.CreateCloudLibClient();
 
@@ -310,7 +342,7 @@ namespace CloudLibClient.Tests
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        async Task GetConvertedMetadataAsync(bool forceRest)
+        public async Task GetConvertedMetadataAsync(bool forceRest)
         {
             var client = _factory.CreateCloudLibClient();
             client._forceRestTestHook = forceRest;
@@ -359,7 +391,7 @@ namespace CloudLibClient.Tests
         [InlineData("TestNamespaces", strTestNamespaceFilename, true)]
         [InlineData("TestNamespaces", "opcfoundation.org.UA.DI.NodeSet2.xml.2844662655.json", true)]
         [InlineData("TestNamespaces", "opcfoundation.org.UA.2022-11-01.NodeSet2.xml.3338611482.json", true)]
-        async Task UpdateNodeSet(string path, string fileName, bool uploadConflictExpected = false)
+        public async Task UpdateNodeSet(string path, string fileName, bool uploadConflictExpected = false)
         {
             var client = _factory.CreateCloudLibClient();
 

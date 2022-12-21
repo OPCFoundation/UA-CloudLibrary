@@ -472,29 +472,17 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <param name="after">Pagination: cursor of the last node in the previous page, use for forward paging</param>
         /// <param name="first">Pagination: maximum number of nodes to return, use with after for forward paging.</param>
         /// <param name="before">Pagination: cursor of the first node in the next page. Use for backward paging</param>
+        /// <param name="noMetadata">Don't request Nodeset.Metadata (performance)</param>
+        /// <param name="noTotalCount">Don't request TotalCount (performance)</param>
+        /// <param name="noRequiredModels">Don't request Nodeset.RequiredModels (performance)</param>
         /// <param name="last">Pagination: minimum number of nodes to return, use with before for backward paging.</param>
         /// <returns>The metadata for the requested nodesets, as well as the metadata for all required notesets.</returns>
         public async Task<GraphQlResult<Nodeset>> GetNodeSetsAsync(string identifier = null, string namespaceUri = null, DateTime? publicationDate = null, string[] keywords = null,
-            string after = null, int? first = null, int? last = null, string before = null)
+            string after = null, int? first = null, int? last = null, string before = null, bool noMetadata = false, bool noTotalCount = false, bool noRequiredModels = false)
         {
             var request = new GraphQLRequest();
-            request.Query = @"
-query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: DateTime, $keywords: [String], $after: String, $first: Int, $before: String, $last:Int) {
-  nodeSets(identifier: $identifier, nodeSetUrl: $namespaceUri, publicationDate: $publicationDate, keywords: $keywords, after: $after, first: $first, before: $before, last: $last) {
-    totalCount
-    pageInfo {
-      endCursor
-      hasNextPage
-      hasPreviousPage
-      startCursor
-    }
-    edges {
-      cursor
-        node {
-          modelUri
-          publicationDate
-          version
-          identifier
+            var totalCountFragment = noTotalCount ? "" : "totalCount ";
+            var metadataFragment = noMetadata ? "" : @"
           metadata {
             contributor {
               description
@@ -527,7 +515,9 @@ query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: Dat
             title
             validationStatus
           }
-          validationStatus
+            ";
+
+            var requiredModelFragment = noRequiredModels ? "" : @"
           requiredModels {
             modelUri
             publicationDate
@@ -561,10 +551,32 @@ query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: Dat
               }
             }
           }
-        }
-    }
-  }
-}
+            ";
+
+            request.Query = $@"
+query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: DateTime, $keywords: [String], $after: String, $first: Int, $before: String, $last:Int) {{
+  nodeSets(identifier: $identifier, nodeSetUrl: $namespaceUri, publicationDate: $publicationDate, keywords: $keywords, after: $after, first: $first, before: $before, last: $last) {{
+    {totalCountFragment}
+    pageInfo {{
+      endCursor
+      hasNextPage
+      hasPreviousPage
+      startCursor
+    }}
+    edges {{
+      cursor
+        node {{
+          modelUri
+          publicationDate
+          version
+          identifier
+          validationStatus
+{metadataFragment}
+{requiredModelFragment}
+        }}
+    }}
+  }}
+}}
 ";
             request.Variables = new {
                 identifier = identifier,
