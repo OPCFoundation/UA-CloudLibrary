@@ -106,24 +106,16 @@ namespace Opc.Ua.Cloud.Library.Models
 
     }
 
-    public class UANameSpaceAndNodeSet : UANameSpaceMetadata
-    {
-        public UANameSpaceAndNodeSet()
-        {
-            Nodeset = new Nodeset();
-        }
-
-        [Required]
-        public Nodeset Nodeset { get; set; }
-    }
-    public class UANameSpace : UANameSpaceAndNodeSet
+    public class UANameSpace : UANameSpaceMetadata
     {
         public UANameSpace()
         {
             CreationTime = null;
             NumberOfDownloads = 0;
-            //ValidationStatus = null;
+            Nodeset = new Nodeset();
         }
+        [Required]
+        public Nodeset Nodeset { get; set; }
         /// <summary>
         /// Time the nodeset was submitted to the cloud library
         /// </summary>
