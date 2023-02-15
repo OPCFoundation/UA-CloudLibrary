@@ -463,7 +463,7 @@ namespace Opc.Ua.Cloud.Library.Client
         /// Queries one or more node sets and their dependencies
         /// </summary>
         /// <param name="identifier"></param>
-        /// <param name="namespaceUri"></param>
+        /// <param name="modelUri"></param>
         /// <param name="publicationDate"></param>
         /// <param name="keywords"></param>
         /// <param name="after">Pagination: cursor of the last node in the previous page, use for forward paging</param>
@@ -474,8 +474,160 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <param name="noRequiredModels">Don't request Nodeset.RequiredModels (performance)</param>
         /// <param name="last">Pagination: minimum number of nodes to return, use with before for backward paging.</param>
         /// <returns>The metadata for the requested nodesets, as well as the metadata for all required notesets.</returns>
-        public async Task<GraphQlResult<Nodeset>> GetNodeSetsAsync(string identifier = null, string namespaceUri = null, DateTime? publicationDate = null, string[] keywords = null,
+        public async Task<GraphQlResult<Nodeset>> GetNodeSetsAsync(string identifier = null, string modelUri = null, DateTime? publicationDate = null, string[] keywords = null,
             string after = null, int? first = null, int? last = null, string before = null, bool noMetadata = false, bool noTotalCount = false, bool noRequiredModels = false)
+        {
+            var request = new GraphQLRequest();
+            IQuery<GraphQlResult<GraphQLNodeSet>> query = new Query<GraphQlResult<GraphQLNodeSet>>("nodeSets", new QueryOptions {  Formatter = CamelCasePropertyNameFormatter.Format })
+                .AddField(r => r.PageInfo, pir => pir
+                    .AddField(pi => pi.EndCursor)
+                    .AddField(pi => pi.HasNextPage)
+                    .AddField(pi => pi.HasPreviousPage)
+                    .AddField(pi => pi.StartCursor)
+                    )
+                .AddField(n => n.Edges, eq => eq
+                    .AddField(e => e.Cursor)
+                    .AddField(e => e.Node, nq => nq
+                        .AddField(n => n.ModelUri)
+                        .AddField(n => n.PublicationDate)
+                        .AddField(n => n.Version)
+                        .AddField(n => n.Identifier)
+                        .AddField(n => n.ValidationStatus)
+                        .AddFields(AddMetadataFields, noMetadata)
+                        .AddFields(AddRequiredModelFields, noRequiredModels)
+                        )
+                    )
+                ;
+            if (!noTotalCount)
+            {
+                query.AddField(r => r.TotalCount);
+            }
+            if (identifier != null) query.AddArgument(nameof(identifier), identifier);
+            if (modelUri != null) query.AddArgument(nameof(modelUri), modelUri);
+            if (publicationDate != null) query.AddArgument(nameof(publicationDate), publicationDate.Value);
+            if (keywords != null) query.AddArgument(nameof(keywords), keywords);
+            if (after != null) query.AddArgument(nameof(after), after);
+            if (first != null) query.AddArgument(nameof(first), first);
+            if (last != null) query.AddArgument(nameof(last), last);
+            if (before != null) query.AddArgument(nameof(before), before);
+            request.Query = "query{" + query.Build() + "}";
+
+            GraphQlResult<Nodeset> result = null;
+            try
+            {
+                var graphQlResult = await SendAndConvertAsync<GraphQlResult<GraphQLNodeSet>>(request).ConfigureAwait(false);
+                result = new GraphQlResult<Nodeset>(graphQlResult) {
+                    TotalCount = graphQlResult.TotalCount,
+                    Edges = graphQlResult?.Edges.Select(n =>
+                        new GraphQlNodeAndCursor<Nodeset> {
+                            Cursor = n.Cursor,
+                            Node = n.Node.ToNodeSet(),
+                        }).ToList(),
+                };
+                return result;
+            }
+            catch (HttpRequestException ex)
+#if !NETSTANDARD2_0
+            when (ex.StatusCode == HttpStatusCode.NotFound)
+#endif
+            {
+                Console.WriteLine("Error: " + ex.Message + " Cloud Library does not support GraphQL.");
+                throw new GraphQlNotSupportedException("Cloud Library does not support GraphQL.", ex);
+            }
+        }
+
+        IQuery<GraphQLNodeSet> AddMetadataFields(IQuery<GraphQLNodeSet> query)
+        {
+            return query.AddField(n => n.Metadata, mdq => mdq
+                .AddField(n => n.Contributor, cq => cq
+                .AddField(c => c.Description)
+                .AddField(c => c.ContactEmail)
+                .AddField(c => c.LogoUrl)
+                .AddField(c => c.Name)
+                .AddField(c => c.Website)
+                )
+                .AddField(n => n.Category, catq => catq
+                    .AddField(cat => cat.Description)
+                    .AddField(cat => cat.IconUrl)
+                    .AddField(cat => cat.Name)
+                    )
+                .AddField(n => n.AdditionalProperties, pq => pq
+                    .AddField(p => p.Name)
+                    .AddField(p => p.Value)
+                    )
+                .AddField(n => n.CopyrightText)
+                .AddField(n => n.Description)
+                .AddField(n => n.DocumentationUrl)
+                .AddField(n => n.IconUrl)
+                .AddField(n => n.Keywords)
+                .AddField(n => n.License)
+                .AddField(n => n.LicenseUrl)
+                .AddField(n => n.NumberOfDownloads)
+                .AddField(n => n.PurchasingInformationUrl)
+                .AddField(n => n.ReleaseNotesUrl)
+                .AddField(n => n.SupportedLocales)
+                .AddField(n => n.TestSpecificationUrl)
+                .AddField(n => n.Title)
+                .AddField(n => n.ValidationStatus)
+                .AddField(n => n.ApprovalStatus)
+                .AddField(n => n.ApprovalInformation)
+                );
+        }
+
+        IQuery<GraphQLNodeSet> AddRequiredModelFields(IQuery<GraphQLNodeSet> query)
+        {
+            return query.AddField(n => n.RequiredModels, rmq => rmq
+                .AddField(rm => rm.ModelUri)
+                .AddField(rm => rm.PublicationDate)
+                .AddField(rm => rm.Version)
+                .AddField(rm => rm.AvailableModel, amq => amq
+                    .AddField(am => am.Identifier)
+                    .AddField(am => am.ModelUri)
+                    .AddField(am => am.PublicationDate)
+                    .AddField(am => am.Version)
+                    .AddField(am => am.RequiredModels, rmq2 => rmq2
+                        .AddField(rm => rm.ModelUri)
+                        .AddField(rm => rm.PublicationDate)
+                        .AddField(rm => rm.Version)
+                        .AddField(rm => rm.AvailableModel, amq2 => amq2
+                            .AddField(am => am.Identifier)
+                            .AddField(am => am.ModelUri)
+                            .AddField(am => am.PublicationDate)
+                            .AddField(am => am.Version)
+                            .AddField(am => am.RequiredModels, rmq3 => rmq3
+                                .AddField(rm => rm.ModelUri)
+                                .AddField(rm => rm.PublicationDate)
+                                .AddField(rm => rm.Version)
+                                .AddField(rm => rm.AvailableModel, amq3 => amq3
+                                    .AddField(am => am.Identifier)
+                                    .AddField(am => am.ModelUri)
+                                    .AddField(am => am.PublicationDate)
+                                    .AddField(am => am.Version)
+                                    )
+                                )
+                            )
+                        )
+                    )
+                );
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="namespaceUri"></param>
+        /// <param name="publicationDate"></param>
+        /// <param name="additionalProperty"></param>
+        /// <param name="after"></param>
+        /// <param name="first"></param>
+        /// <param name="last"></param>
+        /// <param name="before"></param>
+        /// <param name="noMetadata"></param>
+        /// <param name="noTotalCount"></param>
+        /// <param name="noRequiredModels"></param>
+        /// <returns></returns>
+        /// <exception cref="GraphQlNotSupportedException"></exception>
+        public async Task<GraphQlResult<Nodeset>> GetNodeSetsPendingApprovalAsync(string namespaceUri = null, DateTime? publicationDate = null, UAProperty additionalProperty = null,
+    string after = null, int? first = null, int? last = null, string before = null, bool noMetadata = false, bool noTotalCount = false, bool noRequiredModels = false)
         {
             var request = new GraphQLRequest();
             var totalCountFragment = noTotalCount ? "" : "totalCount ";
@@ -632,15 +784,15 @@ query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: Dat
         /// Queries one or more node sets and their dependencies
         /// </summary>
         /// <param name="identifier"></param>
-        /// <param name="namespaceUri"></param>
+        /// <param name="modelUri"></param>
         /// <param name="publicationDate"></param>
         /// <returns>The metadata for the requested nodesets, as well as the metadata for all required notesets.</returns>
         public async Task<List<Nodeset>> GetNodeSetDependencies(string identifier = null, string namespaceUri = null, DateTime? publicationDate = null)
         {
             var request = new GraphQLRequest();
             request.Query = @"
-query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: DateTime) {
-  nodeSets(identifier: $identifier, nodeSetUrl: $namespaceUri, publicationDate: $publicationDate) {
+query MyQuery ($identifier: String, $modelUri: String, $publicationDate: DateTime) {
+  nodeSets(identifier: $identifier, modelUri: $modelUri, publicationDate: $publicationDate) {
     nodes {
       modelUri
       publicationDate
@@ -686,7 +838,7 @@ query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: Dat
 ";
             request.Variables = new {
                 identifier = identifier,
-                namespaceUri = namespaceUri,
+                modelUri = modelUri,
                 publicationDate = publicationDate,
             };
             GraphQLNodeResponse<GraphQLNodeSet> result = null;
@@ -715,7 +867,7 @@ query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: Dat
 #pragma warning disable CS0618 // Type or member is obsolete
                     var allNamespaces = await _restClient.GetBasicNodesetInformationAsync().ConfigureAwait(false);
 #pragma warning restore CS0618 // Type or member is obsolete
-                    var namespaceResults = allNamespaces.Where(n => n.NameSpaceUri == namespaceUri && (publicationDate == null || n.PublicationDate == publicationDate));
+                    var namespaceResults = allNamespaces.Where(n => n.NameSpaceUri == modelUri && (publicationDate == null || n.PublicationDate == publicationDate));
                     identifiers = namespaceResults.Select(nr => nr.Id.ToString(CultureInfo.InvariantCulture)).ToList();
                 }
                 foreach (var id in identifiers)
