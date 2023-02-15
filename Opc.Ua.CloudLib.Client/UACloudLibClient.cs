@@ -203,7 +203,7 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <returns></returns>
         public async Task<List<ObjectResult>> GetObjectTypesAsync()
         {
-            IQuery<ObjectResult> objectQuery = new Query<ObjectResult>("objectType")
+            IQuery<ObjectResult> objectQuery = new Query<ObjectResult>("objectType", new QueryOptions { Formatter = CamelCasePropertyNameFormatter.Format })
                 .AddField(f => f.ID)
                 .AddField(f => f.NodesetID)
                 .AddField(f => f.Namespace)
@@ -221,7 +221,7 @@ namespace Opc.Ua.Cloud.Library.Client
         /// </summary>
         public async Task<List<MetadataResult>> GetMetadataAsync()
         {
-            IQuery<MetadataResult> metadataQuery = new Query<MetadataResult>("metadata")
+            IQuery<MetadataResult> metadataQuery = new Query<MetadataResult>("metadata", new QueryOptions { Formatter = CamelCasePropertyNameFormatter.Format })
                 .AddField(f => f.ID)
                 .AddField(f => f.NodesetID)
                 .AddField(f => f.Name)
@@ -239,7 +239,7 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <returns></returns>
         public async Task<List<VariableResult>> GetVariablesAsync()
         {
-            IQuery<VariableResult> variableQuery = new Query<VariableResult>("variabletype")
+            IQuery<VariableResult> variableQuery = new Query<VariableResult>("variabletype", new QueryOptions { Formatter = CamelCasePropertyNameFormatter.Format })
             .AddField(f => f.ID)
             .AddField(f => f.NodesetID)
             .AddField(f => f.Namespace)
@@ -258,7 +258,7 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <returns></returns>
         public async Task<List<ReferenceResult>> GetReferencetypeAsync()
         {
-            IQuery<ReferenceResult> referenceQuery = new Query<ReferenceResult>("referencetype")
+            IQuery<ReferenceResult> referenceQuery = new Query<ReferenceResult>("referencetype", new QueryOptions { Formatter = CamelCasePropertyNameFormatter.Format })
                 .AddField(f => f.ID)
                 .AddField(f => f.NodesetID)
                 .AddField(f => f.Namespace)
@@ -276,7 +276,7 @@ namespace Opc.Ua.Cloud.Library.Client
         /// </summary>
         public async Task<List<DataResult>> GetDatatypeAsync()
         {
-            IQuery<DataResult> dataQuery = new Query<DataResult>("datatype")
+            IQuery<DataResult> dataQuery = new Query<DataResult>("datatype", new QueryOptions { Formatter = CamelCasePropertyNameFormatter.Format })
                .AddField(f => f.ID)
                .AddField(f => f.NodesetID)
                .AddField(f => f.Namespace)
@@ -316,7 +316,7 @@ namespace Opc.Ua.Cloud.Library.Client
         {
             List<UANameSpace> convertedResult = new List<UANameSpace>();
 
-            IQuery<MetadataResult> metadataQuery = new Query<MetadataResult>("metadata")
+            IQuery<MetadataResult> metadataQuery = new Query<MetadataResult>("metadata", new QueryOptions { Formatter = CamelCasePropertyNameFormatter.Format })
                 .AddField(f => f.ID)
                 .AddField(f => f.NodesetID)
                 .AddField(f => f.Name)
@@ -353,7 +353,7 @@ namespace Opc.Ua.Cloud.Library.Client
         /// </summary>
         public async Task<List<Organisation>> GetOrganisationsAsync(int limit = 10, IEnumerable<WhereExpression> filter = null)
         {
-            IQuery<Organisation> organisationQuery = new Query<Organisation>("organisation")
+            IQuery<Organisation> organisationQuery = new Query<Organisation>("organisation", new QueryOptions { Formatter = CamelCasePropertyNameFormatter.Format })
                 .AddField(f => f.Name)
                 .AddField(f => f.Website)
                 .AddField(f => f.ContactEmail)
@@ -379,7 +379,7 @@ namespace Opc.Ua.Cloud.Library.Client
         [Obsolete("Use GetNodeSetsAsync instead")]
         public async Task<List<UANameSpace>> GetNameSpacesAsync(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
         {
-            IQuery<UANameSpace> namespaceQuery = new Query<UANameSpace>("namespace")
+            IQuery<UANameSpace> namespaceQuery = new Query<UANameSpace>("namespace", new QueryOptions { Formatter = CamelCasePropertyNameFormatter.Format })
                 .AddField(h => h.Title)
                 .AddField(
                     h => h.Contributor,
@@ -416,19 +416,16 @@ namespace Opc.Ua.Cloud.Library.Client
                             .AddField(h => h.Identifier)
                             .AddField(h => h.LastModifiedDate)
                             .AddField(h => h.Version)
-                            .AddField<List<RequiredModelInfo>>(
-                                "requiredModels",
-                                rm => rm
-                                    .AddField("namespaceUri")
-                                    .AddField("publicationDate")
-                                    .AddField("version")
+                            .AddField(h => h.RequiredModels, rmq => rmq
+                                .AddField(rm => rm.NamespaceUri)
+                                .AddField(rm => rm.PublicationDate)
+                                .AddField(rm => rm.Version)
                             )
                     )
                 .AddField(
-                    h => h.AdditionalProperties,
-                    sq => sq
-                        .AddField("name")
-                        .AddField("value")
+                    h => h.AdditionalProperties, apq => apq
+                        .AddField(ap => ap.Name)
+                        .AddField(ap => ap.Name)
                     )
                 ;
 
@@ -745,7 +742,7 @@ query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: Dat
         /// </summary>
         public async Task<List<Category>> GetNameSpaceCategoriesAsync(int limit = 10, IEnumerable<WhereExpression> filter = null)
         {
-            IQuery<Category> categoryQuery = new Query<Category>("category")
+            IQuery<Category> categoryQuery = new Query<Category>("category", new QueryOptions { Formatter = CamelCasePropertyNameFormatter.Format })
                 .AddField(f => f.Name)
                 .AddField(f => f.Description)
                 .AddField(f => f.IconUrl);
