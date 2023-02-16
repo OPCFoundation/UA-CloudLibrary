@@ -34,6 +34,7 @@ namespace Opc.Ua.Cloud.Library
     using Amazon.S3;
     using GraphQL.Server.Ui.Playground;
     using HotChocolate.AspNetCore;
+    using HotChocolate.Data;
     using Microsoft.AspNetCore.Authentication;
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Builder;
@@ -241,8 +242,8 @@ namespace Opc.Ua.Cloud.Library
                     RequestCredentials = RequestCredentials.Include
                 });
             app.UseGraphQLGraphiQL("/graphiql", new GraphQL.Server.Ui.GraphiQL.GraphiQLOptions {
-                 ExplorerExtensionEnabled = true,
-                 
+                ExplorerExtensionEnabled = true,
+
             });
 
             app.UseEndpoints(endpoints => {

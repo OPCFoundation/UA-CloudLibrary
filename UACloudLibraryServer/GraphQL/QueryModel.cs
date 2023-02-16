@@ -79,7 +79,7 @@ namespace Opc.Ua.Cloud.Library
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<PropertyModel> GetProperties([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime ? publicationDate = null, string nodeId = null)
+        public IQueryable<PropertyModel> GetProperties([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
             return dp.GetProperties(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }

@@ -98,7 +98,7 @@ namespace Opc.Ua.Cloud.Library
                 {
                     return null;
                 }
-                List<Claim> claims = new ();
+                List<Claim> claims = new();
                 claims.Add(new Claim(ClaimTypes.Name, username));
                 var roles = await _userManager.GetRolesAsync(user);
                 foreach (var role in roles)
