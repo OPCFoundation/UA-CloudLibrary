@@ -29,7 +29,7 @@ namespace CloudLibClient.Tests
 
         [Theory]
         [ClassData(typeof(TestNamespaceFiles))]
-        async Task UploadNodeSets(string fileName)
+        public async Task UploadNodeSets(string fileName)
         {
             var client = _factory.CreateCloudLibClient();
 
@@ -40,6 +40,10 @@ namespace CloudLibClient.Tests
             if (response.Status == HttpStatusCode.OK)
             {
                 output.WriteLine($"Uploaded {addressSpace?.Nodeset.NamespaceUri}, {addressSpace?.Nodeset.Identifier}");
+                var uploadedIdentifier = response.Message;
+                var approvalResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "APPROVED", null, null);
+                Assert.NotNull(approvalResult);
+                Assert.Equal("APPROVED", approvalResult.ApprovalStatus);
             }
             else
             {
@@ -50,7 +54,7 @@ namespace CloudLibClient.Tests
             }
         }
         [Fact]
-        async Task WaitForIndex()
+        public async Task WaitForIndex()
         {
             var client = _factory.CreateAuthorizedClient();
 

@@ -45,6 +45,7 @@ namespace CloudLibClient.Tests
                         {
                             { "ServicePassword", "testpw" },
                             { "ConnectionStrings:CloudLibraryPostgreSQL", "Server=localhost;Username=testuser;Database=cloudlib_test;Port=5432;Password=password;SSLMode=Prefer;Include Error Detail=true" },
+                            { "CloudLibrary:ApprovalRequired", "false" },
                         }))
                         ;
         }
