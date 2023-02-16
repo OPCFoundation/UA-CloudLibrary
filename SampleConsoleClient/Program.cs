@@ -336,7 +336,7 @@ namespace SampleConsoleClient
                 var publicationDate = restResult[0].PublicationDate.HasValue && restResult[0].PublicationDate.Value.Kind == DateTimeKind.Unspecified ?
                     DateTime.SpecifyKind(restResult[0].PublicationDate.Value, DateTimeKind.Utc)
                     : restResult[0].PublicationDate;
-                var nodeSetsByNamespace = await client.GetNodeSetDependencies(namespaceUri: namespaceUri, publicationDate: publicationDate).ConfigureAwait(false);
+                var nodeSetsByNamespace = await client.GetNodeSetDependencies(modelUri: namespaceUri, publicationDate: publicationDate).ConfigureAwait(false);
                 var dependenciesByNamespace = nodeSetsByNamespace
                     .SelectMany(n => n.RequiredModels).Where(r => r != null)
                     .Select(r => (r.AvailableModel?.Identifier, r.NamespaceUri, r.PublicationDate))
