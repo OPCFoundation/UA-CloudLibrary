@@ -36,7 +36,7 @@ namespace Opc.Ua.Cloud.Library
     using System.Threading.Tasks;
     using CESMII.OpcUa.NodeSetModel;
     using HotChocolate;
-    using HotChocolate.AspNetCore.Authorization;
+    using HotChocolate.Authorization;
     using HotChocolate.Data;
     using HotChocolate.Language;
     using HotChocolate.Resolvers;
@@ -52,12 +52,16 @@ namespace Opc.Ua.Cloud.Library
             public string Identifier { get; set; }
             public ApprovalStatus Status { get; set; }
             public string ApprovalInformation { get; set; }
+            /// <summary>
+            /// Set/overwrite these properties upon approval. Null or empty string value deletes the property.
+            /// </summary>
+            public List<UAProperty> AdditionalProperties { get; set; }
         }
 
         [Authorize(Policy = "ApprovalPolicy")]
-        public async Task<UANameSpace> ApproveNodeSetAsync([Service(ServiceKind.Synchronized)] IDatabase db, ApprovalInput input)
+        public async Task<NamespaceMetaDataModel> ApproveNodeSetAsync([Service(ServiceKind.Synchronized)] IDatabase db, ApprovalInput input)
         {
-            var nodeSet = await db.ApproveNamespaceAsync(input.Identifier, input.Status, input.ApprovalInformation);
+            var nodeSet = await db.ApproveNamespaceAsync(input.Identifier, input.Status, input.ApprovalInformation, input.AdditionalProperties);
             return nodeSet;
         }
 

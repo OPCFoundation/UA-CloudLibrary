@@ -30,6 +30,7 @@
 namespace Opc.Ua.Cloud.Library
 {
     using System;
+    using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
 
@@ -71,7 +72,7 @@ namespace Opc.Ua.Cloud.Library
         IQueryable<NamespaceMetaDataModel> GetNamespaces();
         int GetNamespaceTotalCount();
 
-        Task<UANameSpace> ApproveNamespaceAsync(string identifier, ApprovalStatus status, string approvalInformation);
+        Task<NamespaceMetaDataModel> ApproveNamespaceAsync(string identifier, ApprovalStatus status, string approvalInformation, List<UAProperty> additionalProperties);
         IQueryable<CloudLibNodeSetModel> GetNodeSetsPendingApproval();
 
 #if !NOLEGACY
@@ -88,6 +89,7 @@ namespace Opc.Ua.Cloud.Library
         Pending,
         Approved,
         Rejected,
+        Canceled,
     }
 
 }

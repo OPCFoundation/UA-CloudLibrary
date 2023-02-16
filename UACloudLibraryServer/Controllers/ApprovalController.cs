@@ -53,7 +53,7 @@ namespace Opc.Ua.Cloud.Library
 
 
         [HttpPut]
-        [Route("/approval/{identifier}/{approvalStatus}/{approvalInformation}")]
+        [Route("/approval/{identifier}")]
         [Authorize(Policy = "ApprovalPolicy")]
         [SwaggerResponse(statusCode: 200, type: typeof(string), description: "A status message indicating the successful approval.")]
         [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The provided nodeset was not found.")]
@@ -63,10 +63,11 @@ namespace Opc.Ua.Cloud.Library
             [FromQuery][SwaggerParameter("Status of the approval")] ApprovalStatus status,
             [FromQuery][SwaggerParameter("Information about the approval")] string approvalInformation)
         {
-            if (await _database.ApproveNamespaceAsync(identifier, status, approvalInformation) != null)
+            if (await _database.ApproveNamespaceAsync(identifier, status, approvalInformation, null) != null)
             {
-                return new ObjectResult("Approval status update successful!") { StatusCode = (int)HttpStatusCode.OK };
+                return new ObjectResult("Approval status updated successfully") { StatusCode = (int)HttpStatusCode.OK };
             }
+            _logger.LogError($"Approval failed: {identifier} not found.");
             return NotFound();
         }
 
@@ -86,7 +87,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 return this.BadRequest(result);
             }
-            return new ObjectResult("Approval status update successful!") { StatusCode = (int)HttpStatusCode.OK };
+            return new ObjectResult("Role added successfully") { StatusCode = (int)HttpStatusCode.OK };
         }
         [HttpPut]
         [Route("/access/userRoles/{userId}/{roleName}")]
@@ -110,7 +111,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 return this.BadRequest(result);
             }
-            return new ObjectResult("Approval status update successful!") { StatusCode = (int)HttpStatusCode.OK };
+            return new ObjectResult("User role added successfully") { StatusCode = (int)HttpStatusCode.OK };
         }
     }
 }
