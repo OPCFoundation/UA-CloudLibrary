@@ -663,6 +663,8 @@ namespace Opc.Ua.Cloud.Library.Client
             testSpecificationUrl
             title
             validationStatus
+            approvalStatus
+            approvalInformation
           }
             ";
 
@@ -701,10 +703,44 @@ namespace Opc.Ua.Cloud.Library.Client
             }
           }
             ";
+            string whereClause = "";
+            string variableParams = "";
+            if (namespaceUri != null)
+            {
+                whereClause = @"where: {modelUri: {eq: $namespaceUri}";
+                if (publicationDate != null)
+                {
+                    whereClause += ", publicationDate: {eq: $publicationDate}";
+                }
+                variableParams += "$namespaceUri: String, $publicationDate: DateTime, ";
+            }
+            if (additionalProperty != null)
+            {
+                if (string.IsNullOrEmpty(whereClause))
+                {
+                    whereClause = @"where: {";
+                }
+                whereClause += @"
+and: { 
+  metadata: {
+    additionalProperties: {
+      some: {
+        name: {eq: $propName},
+        value: {endsWith: $propValue}
+      }
+    }
+  }
+}";
+                variableParams += "$propName: String, $propValue: String, ";
 
+            }
+            if (!string.IsNullOrEmpty(whereClause))
+            {
+                whereClause += "}, ";
+            }
             request.Query = $@"
-query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: DateTime, $keywords: [String], $after: String, $first: Int, $before: String, $last:Int) {{
-  nodeSets(identifier: $identifier, nodeSetUrl: $namespaceUri, publicationDate: $publicationDate, keywords: $keywords, after: $after, first: $first, before: $before, last: $last) {{
+query MyQuery ({variableParams}$after: String, $first: Int, $before: String, $last:Int) {{
+  nodeSetsPendingApproval({whereClause}after: $after, first: $first, before: $before, last: $last) {{
     {totalCountFragment}
     pageInfo {{
       endCursor
@@ -727,16 +763,51 @@ query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: Dat
   }}
 }}
 ";
-            request.Variables = new {
-                identifier = identifier,
-                namespaceUri = namespaceUri,
-                publicationDate = publicationDate,
-                keywords = keywords,
-                after = after,
-                first = first,
-                before = before,
-                last = last,
-            };
+            if (namespaceUri != null && additionalProperty != null)
+            {
+                request.Variables = new {
+                    namespaceUri = namespaceUri,
+                    publicationDate = publicationDate,
+                    propName = additionalProperty?.Name,
+                    propValue = additionalProperty?.Value,
+                    after = after,
+                    first = first,
+                    before = before,
+                    last = last,
+                };
+            }
+            else if (namespaceUri != null)
+            {
+                request.Variables = new {
+                    namespaceUri = namespaceUri,
+                    publicationDate = publicationDate,
+                    after = after,
+                    first = first,
+                    before = before,
+                    last = last,
+                };
+            }
+            else if (additionalProperty != null)
+            {
+                request.Variables = new {
+                    propName = additionalProperty?.Name,
+                    propValue = additionalProperty?.Value,
+                    after = after,
+                    first = first,
+                    before = before,
+                    last = last,
+                };
+            }
+            else
+            {
+                request.Variables = new {
+                    after = after,
+                    first = first,
+                    before = before,
+                    last = last,
+                };
+
+            }
             GraphQlResult<Nodeset> result = null;
             try
             {
@@ -749,6 +820,72 @@ query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: Dat
                             Node = n.Node.ToNodeSet(),
                         }).ToList(),
                 };
+                return result;
+            }
+            catch (HttpRequestException ex)
+#if !NETSTANDARD2_0
+            when (ex.StatusCode == HttpStatusCode.NotFound)
+#endif
+            {
+                Console.WriteLine("Error: " + ex.Message + " Cloud Library does not support GraphQL.");
+                throw new GraphQlNotSupportedException("Cloud Library does not support GraphQL.", ex);
+            }
+        }
+        /// <summary>
+        /// Administrator only: approved an uploaded nodeset. Only required if cloud library is running with the "CloudLibrary:ApprovalRequired" setting
+        /// </summary>
+        /// <param name="nodeSetId">id to be approved</param>
+        /// <param name="newStatus">approval status to set (APPROVED, PENDING, REJECTED, CANCELED)</param>
+        /// <param name="statusInfo">Optional comment to explain the status, especially REJECTED</param>
+        /// <param name="additionalProperty">Additional properties to be set or removed on the approved nodeset. Value = null or empty string removes the property.</param>
+        /// <returns>The approved namespace metadata if update succeeded. NULL or exception if failed.</returns>
+        /// <exception cref="GraphQlNotSupportedException"></exception>
+        public async Task<UANameSpace> UpdateApprovalStatusAsync(string nodeSetId, string newStatus, string statusInfo, UAProperty additionalProperty)
+        {
+            var request = new GraphQLRequest();
+
+            string propVariables = additionalProperty != null ? ", $propName: String, $propValue: String" : "";
+            string propArgs = additionalProperty != null ? ", additionalProperties: [{key: $propName, value: $propValue},]" : "";
+            request.Query = $@"
+mutation ApprovalMutation ($newStatus: ApprovalStatus!, $identifier: String, $approvalInfo: String{propVariables}) {{
+  approveNodeSet(input: {{status: $newStatus, identifier: $identifier, approvalInformation: $approvalInfo{propArgs}}})
+    {{
+        title
+        approvalStatus
+        additionalProperties {{
+            name
+            value
+        }}
+        nodeSet {{
+            identifier
+            modelUri
+            version
+        }}
+    }}
+}}
+";
+            request.OperationName = "ApprovalMutation";
+            if (additionalProperty != null)
+            {
+                request.Variables = new {
+                    identifier = nodeSetId,
+                    newStatus = newStatus,
+                    approvalInfo = statusInfo,
+                    propName = additionalProperty?.Name,
+                    propValue = additionalProperty?.Value,
+                };
+            }
+            else
+            {
+                request.Variables = new {
+                    identifier = nodeSetId,
+                    newStatus = newStatus,
+                    approvalInfo = statusInfo,
+                };
+            }
+            try
+            {
+                var result = await SendAndConvertAsync<UANameSpace>(request).ConfigureAwait(false);
                 return result;
             }
             catch (HttpRequestException ex)
@@ -787,7 +924,7 @@ query MyQuery ($identifier: String, $namespaceUri: String, $publicationDate: Dat
         /// <param name="modelUri"></param>
         /// <param name="publicationDate"></param>
         /// <returns>The metadata for the requested nodesets, as well as the metadata for all required notesets.</returns>
-        public async Task<List<Nodeset>> GetNodeSetDependencies(string identifier = null, string namespaceUri = null, DateTime? publicationDate = null)
+        public async Task<List<Nodeset>> GetNodeSetDependencies(string identifier = null, string modelUri = null, DateTime? publicationDate = null)
         {
             var request = new GraphQLRequest();
             request.Query = @"
