@@ -30,6 +30,8 @@
 namespace Opc.Ua.Cloud.Library
 {
     using System;
+    using System.Collections.Generic;
+    using System.Security.Claims;
     using System.Threading.Tasks;
     using Microsoft.AspNetCore.Identity;
     using Microsoft.Extensions.Configuration;
@@ -49,10 +51,10 @@ namespace Opc.Ua.Cloud.Library
             _config = config;
         }
 
-        public async Task<bool> ValidateCredentialsAsync(string username, string password)
+        public async Task<IEnumerable<Claim>> ValidateCredentialsAsync(string username, string password)
         {
             // check for admin
-            if (username == "admin")
+            if (username.Equals("admin", StringComparison.OrdinalIgnoreCase))
             {
                 string passwordFromEnvironment = Environment.GetEnvironmentVariable("ServicePassword");
                 if (string.IsNullOrEmpty(passwordFromEnvironment))
@@ -62,34 +64,49 @@ namespace Opc.Ua.Cloud.Library
                 if (string.IsNullOrEmpty(passwordFromEnvironment))
                 {
                     _logger.LogError("ServicePassword env variable not set, please set it before trying to log in with admin credentials!");
-                    return false;
+                    return null;
                 }
-                else
+                if (!password.Equals(passwordFromEnvironment, StringComparison.OrdinalIgnoreCase))
                 {
-                    return username.Equals("admin") && password.Equals(passwordFromEnvironment);
+                    return null;
                 }
+                List<Claim> claims = new() {
+                            new Claim(ClaimTypes.Name, username)
+                        };
+
+                claims.Add(new Claim(ClaimTypes.Role, "Administrator"));
+                return claims;
             }
             else
             {
-                if (password != null)
+                if (password == null)
                 {
-                    IdentityUser user = await _userManager.FindByNameAsync(username).ConfigureAwait(false);
-                    if (user == null)
-                    {
-                        user = await _userManager.FindByEmailAsync(username).ConfigureAwait(false);
-                    }
-
-                    if (user != null)
-                    {
-                        PasswordVerificationResult result = _userManager.PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
-                        if (result == PasswordVerificationResult.Success)
-                        {
-                            return true;
-                        }
-                    }
+                    return null;
+                }
+                IdentityUser user = await _userManager.FindByNameAsync(username).ConfigureAwait(false);
+                if (user == null)
+                {
+                    user = await _userManager.FindByEmailAsync(username).ConfigureAwait(false);
                 }
 
-                return false;
+                if (user == null)
+                {
+                    return null;
+                }
+                PasswordVerificationResult result = _userManager.PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
+                if (result != PasswordVerificationResult.Success)
+                {
+                    return null;
+                }
+                List<Claim> claims = new ();
+                claims.Add(new Claim(ClaimTypes.Name, username));
+                var roles = await _userManager.GetRolesAsync(user);
+                foreach (var role in roles)
+                {
+                    claims.Add(new Claim(ClaimTypes.Role, role));
+                }
+                claims.AddRange(await this._userManager.GetClaimsAsync(user));
+                return claims;
             }
         }
     }
