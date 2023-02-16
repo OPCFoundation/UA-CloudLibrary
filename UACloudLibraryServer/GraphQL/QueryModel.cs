@@ -30,19 +30,16 @@
 namespace Opc.Ua.Cloud.Library
 {
     using System;
-    using System.Collections.Generic;
-    using System.Globalization;
     using System.Linq;
-    using System.Threading.Tasks;
     using CESMII.OpcUa.NodeSetModel;
     using HotChocolate;
-    using HotChocolate.AspNetCore.Authorization;
+    using HotChocolate.Authorization;
     using HotChocolate.Data;
+    using HotChocolate.Data.Filters;
     using HotChocolate.Language;
     using HotChocolate.Resolvers;
     using HotChocolate.Types;
     using Opc.Ua.Cloud.Library.DbContextModels;
-    using Opc.Ua.Cloud.Library.Models;
 
     [Authorize]
     public partial class QueryModel
@@ -241,6 +238,27 @@ namespace Opc.Ua.Cloud.Library
                 .UsePaging(options: new HotChocolate.Types.Pagination.PagingOptions { IncludeTotalCount = true })
                 .UseFiltering()
                 .UseSorting();
+        }
+    }
+
+    // Hotchocolate 13.x no longer automatically generates filters for custom types (https://github.com/ChilliCream/graphql-platform/pull/5759)
+    public class UnsignedIntOperationFilterInputType
+    : ComparableOperationFilterInputType<UnsignedIntType>
+    {
+        protected override void Configure(IFilterInputTypeDescriptor descriptor)
+        {
+            descriptor.Name("UnsignedIntOperationFilterInputType");
+            base.Configure(descriptor);
+        }
+    }
+
+    public class UnsignedShortOperationFilterInputType
+    : ComparableOperationFilterInputType<UnsignedShortType>
+    {
+        protected override void Configure(IFilterInputTypeDescriptor descriptor)
+        {
+            descriptor.Name("UnsignedShortOperationFilterInputType");
+            base.Configure(descriptor);
         }
     }
 }
