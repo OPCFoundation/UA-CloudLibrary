@@ -478,7 +478,7 @@ namespace Opc.Ua.Cloud.Library.Client
             string after = null, int? first = null, int? last = null, string before = null, bool noMetadata = false, bool noTotalCount = false, bool noRequiredModels = false)
         {
             var request = new GraphQLRequest();
-            IQuery<GraphQlResult<GraphQLNodeSet>> query = new Query<GraphQlResult<GraphQLNodeSet>>("nodeSets", new QueryOptions {  Formatter = CamelCasePropertyNameFormatter.Format })
+            IQuery<GraphQlResult<GraphQLNodeSet>> query = new Query<GraphQlResult<GraphQLNodeSet>>("nodeSets", new QueryOptions { Formatter = CamelCasePropertyNameFormatter.Format })
                 .AddField(r => r.PageInfo, pir => pir
                     .AddField(pi => pi.EndCursor)
                     .AddField(pi => pi.HasNextPage)
