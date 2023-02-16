@@ -1,6 +1,6 @@
 {
   "title": "CloudLib Test Nodeset 001",
-  "license": 2,
+  "license": "Custom",
   "copyrightText": "Copyright OPC Foundation",
   "contributor": {
     "name": "OPC Foundation Test",
