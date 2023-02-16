@@ -73,7 +73,7 @@ namespace CloudLibClient.Tests
                 DateTime.SpecifyKind(nodeSetInfo.PublicationDate.Value, DateTimeKind.Utc)
                 : nodeSetInfo.PublicationDate;
 
-            List<Nodeset> nodeSetsByNamespace = await client.GetNodeSetDependencies(namespaceUri: namespaceUri, publicationDate: publicationDate).ConfigureAwait(false);
+            List<Nodeset> nodeSetsByNamespace = await client.GetNodeSetDependencies(modelUri: namespaceUri, publicationDate: publicationDate).ConfigureAwait(false);
 
             var dependenciesByNamespace = nodeSetsByNamespace
                 .SelectMany(n => n.RequiredModels).Where(r => r != null)
@@ -151,7 +151,7 @@ namespace CloudLibClient.Tests
         {
             var client = _factory.CreateCloudLibClient();
 
-            var nodeSetsResult = await client.GetNodeSetsAsync(namespaceUri: strTestNamespaceUri).ConfigureAwait(false);
+            var nodeSetsResult = await client.GetNodeSetsAsync(modelUri: strTestNamespaceUri).ConfigureAwait(false);
             Assert.True(nodeSetsResult.TotalCount > 0, "Failed to download node set info");
             var testNodeSet = nodeSetsResult.Nodes.FirstOrDefault(r => r.NamespaceUri.OriginalString == strTestNamespaceUri);
 
@@ -430,7 +430,7 @@ namespace CloudLibClient.Tests
             bool notIndexed;
             do
             {
-                nodeSetInfo = await client.GetNodeSetsAsync(namespaceUri: addressSpace.Nodeset.NamespaceUri.OriginalString, publicationDate: addressSpace.Nodeset.PublicationDate).ConfigureAwait(false);
+                nodeSetInfo = await client.GetNodeSetsAsync(modelUri: addressSpace.Nodeset.NamespaceUri.OriginalString, publicationDate: addressSpace.Nodeset.PublicationDate).ConfigureAwait(false);
                 notIndexed = nodeSetInfo.TotalCount == 1 && nodeSetInfo.Edges[0].Node.ValidationStatus != "INDEXED";
                 if (notIndexed)
                 {
@@ -446,7 +446,7 @@ namespace CloudLibClient.Tests
             // Wait for indexing
             do
             {
-                nodeSetInfo = await client.GetNodeSetsAsync(namespaceUri: addressSpace.Nodeset.NamespaceUri.OriginalString, publicationDate: addressSpace.Nodeset.PublicationDate).ConfigureAwait(false);
+                nodeSetInfo = await client.GetNodeSetsAsync(modelUri: addressSpace.Nodeset.NamespaceUri.OriginalString, publicationDate: addressSpace.Nodeset.PublicationDate).ConfigureAwait(false);
                 notIndexed = nodeSetInfo.TotalCount == 1 && nodeSetInfo.Edges[0].Node.ValidationStatus != "INDEXED";
                 if (notIndexed)
                 {
