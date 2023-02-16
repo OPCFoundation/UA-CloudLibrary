@@ -361,7 +361,7 @@ namespace Opc.Ua.Cloud.Library
                 }
 
                 var missingNodeSetIds = await _dbContext.NamespaceMetaDataWithUnapproved
-                    .Where(nmd => !_dbContext.nodeSets.Any(n => n.Identifier == nmd.NodesetId))
+                    .Where(nmd => !_dbContext.nodeSetsWithUnapproved.Any(n => n.Identifier == nmd.NodesetId))
                     .Select(nmd => nmd.NodesetId)
                     .ToListAsync().ConfigureAwait(false);
 
