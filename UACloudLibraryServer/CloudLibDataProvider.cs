@@ -46,7 +46,8 @@ namespace Opc.Ua.Cloud.Library
                 {
                     throw new ArgumentException($"Must not specify other parameters when providing identifier.");
                 }
-                nodeSets = _dbContext.nodeSets.AsQueryable().Where(nsm => nsm.Identifier == identifier);
+                // Return unapproved nodesets only if request by identifier, but not in queries
+                nodeSets = _dbContext.nodeSetsWithUnapproved.AsQueryable().Where(nsm => nsm.Identifier == identifier);
             }
             else
             {
