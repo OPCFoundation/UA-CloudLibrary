@@ -34,21 +34,6 @@ namespace Opc.Ua.Cloud.Library.Client
     using Newtonsoft.Json;
 
     /// <summary>License Enumeration</summary>
-    public enum License
-    {
-        /// <summary>
-        /// MIT License
-        /// </summary>
-        MIT,
-        /// <summary>
-        /// Apache 2.0 License
-        /// </summary>
-        ApacheLicense20,
-        /// <summary>
-        /// Custom License model <see cref="UANameSpace.LicenseUrl"/>
-        /// </summary>
-        Custom
-    }
     /// <summary>Contains the metadata of the nodeset and the nodeset itself</summary>
     public class UANameSpace
     {
@@ -56,7 +41,7 @@ namespace Opc.Ua.Cloud.Library.Client
         public UANameSpace()
         {
             Title = string.Empty;
-            License = License.Custom;
+            License = string.Empty;
             CopyrightText = string.Empty;
             Contributor = new Organisation();
             Description = string.Empty;
@@ -82,7 +67,7 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <summary>Gets or sets the license.</summary>
         /// <value>The license.</value>
         [JsonProperty("license")]
-        public License License { get; set; }
+        public string License { get; set; }
 
         /// <summary>Gets or sets the copyright text.</summary>
         /// <value>The copyright text.</value>
