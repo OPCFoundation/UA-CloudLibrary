@@ -95,7 +95,10 @@ namespace Opc.Ua.Cloud.Library
             services.AddAuthentication()
                 .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null);
 
-            services.AddAuthorization();
+            services.AddAuthorization(options => {
+                options.AddPolicy("ApprovalPolicy", policy => policy.RequireRole("Administrator"));
+                options.AddPolicy("UserAdministrationPolicy", policy => policy.RequireRole("Administrator"));
+            });
 
             services.AddSwaggerGen(options => {
                 options.SwaggerDoc("v1", new OpenApiInfo {
@@ -179,13 +182,18 @@ namespace Opc.Ua.Cloud.Library
                     DefaultPageSize = 100,
                     MaxPageSize = 100,
                 })
-                .AddFiltering()
+                .AddFiltering(fd => {
+                    fd.AddDefaults().BindRuntimeType<UInt32, UnsignedIntOperationFilterInputType>();
+                    fd.AddDefaults().BindRuntimeType<UInt32?, UnsignedIntOperationFilterInputType>();
+                    fd.AddDefaults().BindRuntimeType<UInt16?, UnsignedShortOperationFilterInputType>();
+                })
                 .AddSorting()
                 .AddQueryType<QueryModel>()
                 .AddMutationType<MutationModel>()
                 .AddType<CloudLibNodeSetModelType>()
                 .BindRuntimeType<UInt32, HotChocolate.Types.UnsignedIntType>()
-                .BindRuntimeType<UInt16, HotChocolate.Types.UnsignedShortType>();
+                .BindRuntimeType<UInt16, HotChocolate.Types.UnsignedShortType>()
+                ;
 
             services.AddScoped<NodeSetModelIndexer>();
             services.AddScoped<NodeSetModelIndexerFactory>();
@@ -232,7 +240,10 @@ namespace Opc.Ua.Cloud.Library
                 new PlaygroundOptions() {
                     RequestCredentials = RequestCredentials.Include
                 });
-            app.UseGraphQLGraphiQL("/graphiql");
+            app.UseGraphQLGraphiQL("/graphiql", new GraphQL.Server.Ui.GraphiQL.GraphiQLOptions {
+                 ExplorerExtensionEnabled = true,
+                 
+            });
 
             app.UseEndpoints(endpoints => {
                 endpoints.MapControllerRoute(
