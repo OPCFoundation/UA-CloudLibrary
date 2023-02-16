@@ -103,7 +103,10 @@ namespace Opc.Ua.Cloud.Library.Models
             SupportedLocales = Array.Empty<string>();
             AdditionalProperties = null;
         }
-
+        public override string ToString()
+        {
+            return $"{Title} {Contributor} {Category}";
+        }
     }
 
     public class UANameSpace : UANameSpaceMetadata

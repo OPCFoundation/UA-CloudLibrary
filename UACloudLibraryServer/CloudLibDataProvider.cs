@@ -314,7 +314,7 @@ namespace Opc.Ua.Cloud.Library
             UANameSpace nameSpace = new();
             try
             {
-                var namespaceModel = await _dbContext.NamespaceMetaData
+                var namespaceModel = await _dbContext.NamespaceMetaDataWithUnapproved
                     .Where(md => md.NodesetId == nodesetId.ToString())
                     .Include(md => md.NodeSet)
                     .FirstOrDefaultAsync().ConfigureAwait(false);
