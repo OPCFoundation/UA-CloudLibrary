@@ -49,9 +49,9 @@ namespace Opc.Ua.Cloud.Library
     {
         [UsePaging, UseFiltering, UseSorting]
         public IQueryable<CloudLibNodeSetModel> GetNodeSets([Service(ServiceKind.Synchronized)] IDatabase dp, IResolverContext context,
-            string identifier = null, string nodeSetUrl = null, DateTime? publicationDate = null, string[] keywords = null)
+            string identifier = null, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string[] keywords = null)
         {
-            var query = dp.GetNodeSets(identifier, nodeSetUrl, publicationDate, keywords);
+            var query = dp.GetNodeSets(identifier, modelUri ?? nodeSetUrl, publicationDate, keywords);
 
             // Make sure the result is ordered even if the graphl query didn't specify an order so that pagination works correctly
             var orderByArgument = context.ArgumentLiteral<IValueNode>("order");
@@ -64,57 +64,57 @@ namespace Opc.Ua.Cloud.Library
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<ObjectTypeModel> GetObjectTypes([Service(ServiceKind.Synchronized)] IDatabase dp, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<ObjectTypeModel> GetObjectTypes([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
-            return dp.GetObjectTypes(nodeSetUrl, publicationDate, nodeId);
+            return dp.GetObjectTypes(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<VariableTypeModel> GetVariableTypes([Service(ServiceKind.Synchronized)] IDatabase dp, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<VariableTypeModel> GetVariableTypes([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
-            return dp.GetVariableTypes(nodeSetUrl, publicationDate, nodeId);
+            return dp.GetVariableTypes(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<DataTypeModel> GetDataTypes([Service(ServiceKind.Synchronized)] IDatabase dp, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<DataTypeModel> GetDataTypes([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
-            return dp.GetDataTypes(nodeSetUrl, publicationDate, nodeId);
+            return dp.GetDataTypes(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<PropertyModel> GetProperties([Service(ServiceKind.Synchronized)] IDatabase dp, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<PropertyModel> GetProperties([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime ? publicationDate = null, string nodeId = null)
         {
-            return dp.GetProperties(nodeSetUrl, publicationDate, nodeId);
+            return dp.GetProperties(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<DataVariableModel> GetDataVariables([Service(ServiceKind.Synchronized)] IDatabase dp, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<DataVariableModel> GetDataVariables([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
-            return dp.GetDataVariables(nodeSetUrl, publicationDate, nodeId);
+            return dp.GetDataVariables(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<ReferenceTypeModel> GetReferenceTypes([Service(ServiceKind.Synchronized)] IDatabase dp, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<ReferenceTypeModel> GetReferenceTypes([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
-            return dp.GetReferenceTypes(nodeSetUrl, publicationDate, nodeId);
+            return dp.GetReferenceTypes(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<InterfaceModel> GetInterfaces([Service(ServiceKind.Synchronized)] IDatabase dp, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<InterfaceModel> GetInterfaces([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
-            return dp.GetInterfaces(nodeSetUrl, publicationDate, nodeId);
+            return dp.GetInterfaces(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<ObjectModel> GetObjects([Service(ServiceKind.Synchronized)] IDatabase dp, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<ObjectModel> GetObjects([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
-            return dp.GetObjects(nodeSetUrl, publicationDate, nodeId);
+            return dp.GetObjects(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<NodeModel> GetAllNodes([Service(ServiceKind.Synchronized)] IDatabase dp, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<NodeModel> GetAllNodes([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
-            return dp.GetAllNodes(nodeSetUrl, publicationDate, nodeId);
+            return dp.GetAllNodes(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
 
         [UsePaging, UseFiltering, UseSorting]
