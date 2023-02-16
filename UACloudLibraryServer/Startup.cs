@@ -76,7 +76,9 @@ namespace Opc.Ua.Cloud.Library
             services.AddDefaultIdentity<IdentityUser>(options =>
                     //require confirmation mail if email sender API Key is set
                     options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["EmailSenderAPIKey"])
-                    ).AddEntityFrameworkStores<AppDbContext>();
+                    )
+                .AddRoles<IdentityRole>()
+                .AddEntityFrameworkStores<AppDbContext>();
 
             services.AddScoped<IUserService, UserService>();
 
