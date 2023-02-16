@@ -274,19 +274,23 @@ namespace Opc.Ua.Cloud.Library
 
                 if (uaNamespace.Nodeset.PublicationDate != nodeSet.Models[0].PublicationDate)
                 {
-                    return new ObjectResult("PublicationDate in metadata does not match nodeset XML.") { StatusCode = (int)HttpStatusCode.BadRequest };
+                    _logger.LogInformation("PublicationDate in metadata does not match nodeset XML. Ignoring.");
+                    uaNamespace.Nodeset.PublicationDate = nodeSet.Models[0].PublicationDate;
                 }
                 if (uaNamespace.Nodeset.Version != nodeSet.Models[0].Version)
                 {
-                    return new ObjectResult("Version in metadata does not match nodeset XML.") { StatusCode = (int)HttpStatusCode.BadRequest };
+                    _logger.LogInformation("Version in metadata does not match nodeset XML. Ignoring.");
+                    uaNamespace.Nodeset.Version = nodeSet.Models[0].Version;
                 }
                 if (uaNamespace.Nodeset.NamespaceUri != null && uaNamespace.Nodeset.NamespaceUri.OriginalString != nodeSet.Models[0].ModelUri)
                 {
-                    return new ObjectResult("NamespaceUri in metadata does not match nodeset XML.") { StatusCode = (int)HttpStatusCode.BadRequest };
+                    _logger.LogInformation("NamespaceUri in metadata does not match nodeset XML. Ignoring.");
+                    uaNamespace.Nodeset.NamespaceUri = new Uri(nodeSet.Models[0].ModelUri);
                 }
                 if (uaNamespace.Nodeset.LastModifiedDate != nodeSet.LastModified)
                 {
                     _logger.LogInformation($"LastModifiedDate in metadata for nodeset {uaNamespace.Nodeset.Identifier} does not match nodeset XML. Ignoring.");
+                    uaNamespace.Nodeset.LastModifiedDate = nodeSet.LastModified;
                 }
 
                 // Ignore RequiredModels if provided: cloud library will read from the nodeset
@@ -329,7 +333,7 @@ namespace Opc.Ua.Cloud.Library
                     }
                 }
 
-                return new ObjectResult("Upload successful!") { StatusCode = (int)HttpStatusCode.OK };
+                return new ObjectResult(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)) { StatusCode = (int)HttpStatusCode.OK };
             }
             finally
             {
