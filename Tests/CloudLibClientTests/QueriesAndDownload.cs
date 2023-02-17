@@ -403,6 +403,10 @@ namespace CloudLibClient.Tests
             if (response.Status == HttpStatusCode.OK)
             {
                 output.WriteLine($"Uploaded {addressSpace?.Nodeset.NamespaceUri}, {addressSpace?.Nodeset.Identifier}");
+                var uploadedIdentifier = response.Message;
+                var approvalResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "APPROVED", null, null);
+                Assert.NotNull(approvalResult);
+                Assert.Equal("APPROVED", approvalResult.ApprovalStatus);
             }
             else
             {
@@ -442,7 +446,12 @@ namespace CloudLibClient.Tests
             // Upload with override
             response = await client.UploadNodeSetAsync(addressSpace, true).ConfigureAwait(false);
             Assert.Equal(HttpStatusCode.OK, response.Status);
-
+            {
+                var uploadedIdentifier = response.Message;
+                var approvalResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "APPROVED", null, null);
+                Assert.NotNull(approvalResult);
+                Assert.Equal("APPROVED", approvalResult.ApprovalStatus);
+            }
             // Wait for indexing
             do
             {
