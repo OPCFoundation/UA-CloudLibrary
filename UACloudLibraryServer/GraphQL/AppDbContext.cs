@@ -158,6 +158,9 @@ namespace Opc.Ua.Cloud.Library
                 ;
 
             builder.Entity<NodeModel>()
+                .Ignore(nm => nm.AllReferencedNodes);
+
+            builder.Entity<NodeModel>()
                 .HasIndex(nm => new { nm.BrowseName })
                 .HasMethod("GIN")
                 .IsTsVectorExpressionIndex("english")

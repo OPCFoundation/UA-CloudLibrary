@@ -48,10 +48,10 @@
 		<PackageReference Include="HotChocolate.Types.Scalars" Version="13.0.2" />
 		<PackageReference Include="HotChocolate.AspNetCore" Version="13.0.2" />
 		<PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="13.0.2" />
-		<PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="1.0.8" />
-		<PackageReference Include="CESMII.OpcUa.NodeSetModel.EF" Version="1.0.8" />
-		<PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="1.0.8" />
-		<PackageReference Include="CESMII.OpcUa.NodeSetModel" Version="1.0.8" />
+		<PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="1.0.9" />
+		<PackageReference Include="CESMII.OpcUa.NodeSetModel.EF" Version="1.0.9" />
+		<PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="1.0.9" />
+		<PackageReference Include="CESMII.OpcUa.NodeSetModel" Version="1.0.9" />
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="GraphQL.Server.Ui.GraphiQL" Version="7.2.0" />
