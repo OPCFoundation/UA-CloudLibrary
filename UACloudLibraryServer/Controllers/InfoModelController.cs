@@ -132,6 +132,10 @@ namespace Opc.Ua.Cloud.Library
             }
 
             var uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID).ConfigureAwait(false);
+            if (uaNamespace == null)
+            {
+                return new ObjectResult("Failed to find nodeset metadata") { StatusCode = (int)HttpStatusCode.NotFound };
+            }
             uaNamespace.Nodeset.NodesetXml = nodesetXml;
 
             if (!metadataOnly)
@@ -261,8 +265,14 @@ namespace Opc.Ua.Cloud.Library
                 string result = await _storage.FindFileAsync(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
                 if (!string.IsNullOrEmpty(result) && !overwrite)
                 {
-                    // nodeset already exists
-                    return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
+                    var existingNamespace = await _database.RetrieveAllMetadataAsync(uaNamespace.Nodeset.Identifier).ConfigureAwait(false);
+                    if (existingNamespace != null)
+                    {
+                        // nodeset already exists
+                        return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
+                    }
+                    // nodeset metadata not found: allow overwrite of orphaned blob
+                    overwrite = true;
                 }
 
                 // check contributors match if nodeset already exists
