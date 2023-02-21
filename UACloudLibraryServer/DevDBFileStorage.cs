@@ -132,7 +132,6 @@ namespace Opc.Ua.Cloud.Library
         }
         public async Task DeleteFileAsync(string name, CancellationToken cancellationToken = default)
         {
-#if DEBUG
             try
             {
                 var existingFile = await _dbContext.FindAsync<DevDbFiles>(name).ConfigureAwait(false);
@@ -147,10 +146,6 @@ namespace Opc.Ua.Cloud.Library
                 _logger.LogError(ex.Message);
                 throw;
             }
-#else
-            // Make code analysis tools happy
-            await Task.CompletedTask;
-#endif
         }
 
         internal static void OnModelCreating(ModelBuilder modelBuilder)

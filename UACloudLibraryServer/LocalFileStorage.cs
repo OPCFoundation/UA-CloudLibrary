@@ -123,7 +123,6 @@ namespace Opc.Ua.Cloud.Library
         }
         public Task DeleteFileAsync(string name, CancellationToken cancellationToken = default)
         {
-#if DEBUG
             try
             {
                 File.Delete(Path.Combine(_rootDir, name));
@@ -133,7 +132,6 @@ namespace Opc.Ua.Cloud.Library
                 _logger.LogError(ex, $"Failed to delete file {name}");
                 throw;
             }
-#endif
             return Task.CompletedTask;
         }
 
