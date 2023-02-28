@@ -69,6 +69,12 @@ jobs:
     - name: Restore dependencies CloudLibClientTests
       run: dotnet restore
       working-directory: Tests/CloudLibClientTests
+    - name: Restore dependencies CloudLibSync
+      working-directory: CloudLibSync
+      run: dotnet restore
+    - name: Restore dependencies CloudLibSyncAzureFunction
+      working-directory: CloudLibSyncAzureFunction
+      run: dotnet restore
     - name: Build
       run: dotnet build UA-CloudLibrary.sln --configuration Release --no-restore
     - name: Test

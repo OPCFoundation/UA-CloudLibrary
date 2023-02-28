@@ -30,49 +30,56 @@
 namespace Opc.Ua.Cloud.Library
 {
     using System;
+    using System.ComponentModel.DataAnnotations;
     using System.IO;
     using System.Threading;
     using System.Threading.Tasks;
+    using Microsoft.EntityFrameworkCore;
+    using Microsoft.EntityFrameworkCore.ChangeTracking;
+    using Microsoft.Extensions.Configuration;
     using Microsoft.Extensions.Logging;
     using Opc.Ua.Cloud.Library.Interfaces;
 
     /// <summary>
-    /// Azure storage class
+    /// Database storage class: single store makes some development scenarios easier
+	/// For example: database deletion/recreate leaves DB out of sync with file store)
+	/// Multiple copies collide on file store
     /// </summary>
-    public class LocalFileStorage : IFileStorage
+    public class DevDbFileStorage : IFileStorage
     {
         private readonly ILogger _logger;
-        private readonly string _rootDir;
+        private readonly AppDbContext _dbContext;
 
         /// <summary>
         /// Default constructor
         /// </summary>
-        public LocalFileStorage(ILoggerFactory logger)
+        public DevDbFileStorage(ILoggerFactory logger, AppDbContext dbContext, IConfiguration configuration)
         {
             _logger = logger.CreateLogger("LocalFileStorage");
-            _rootDir = Path.Combine(Path.GetTempPath(), "CloudLib");
+            _dbContext = dbContext;
         }
 
         /// <summary>
         /// Find a file based on a unique name
         /// </summary>
-        public Task<string> FindFileAsync(string name, CancellationToken cancellationToken = default)
+        public async Task<string> FindFileAsync(string name, CancellationToken cancellationToken = default)
         {
             try
             {
-                if (File.Exists(Path.Combine(_rootDir, name)))
+                var existingFile = await _dbContext.FindAsync<DevDbFiles>(name).ConfigureAwait(false);
+                if (existingFile != null)
                 {
-                    return Task.FromResult(name);
+                    return name;
                 }
                 else
                 {
-                    return Task.FromResult<string>(null);
+                    return null;
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
-                return Task.FromResult<string>(null);
+                return null;
             }
         }
 
@@ -83,11 +90,21 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                if (!Directory.Exists(_rootDir))
+                var existingFile = await _dbContext.FindAsync<DevDbFiles>(name).ConfigureAwait(false);
+                if (existingFile != null)
                 {
-                    Directory.CreateDirectory(_rootDir);
+                    existingFile.Blob = content;
+                    _dbContext.Update(existingFile);
                 }
-                await File.WriteAllTextAsync(Path.Combine(_rootDir, name), content).ConfigureAwait(false);
+                else
+                {
+                    DevDbFiles newFile = new DevDbFiles {
+                        Name = name,
+                        Blob = content,
+                    };
+                    _dbContext.Add(newFile);
+                }
+                await _dbContext.SaveChangesAsync(true).ConfigureAwait(false);
                 return name;
             }
             catch (Exception ex)
@@ -104,7 +121,8 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                return await File.ReadAllTextAsync(Path.Combine(_rootDir, name)).ConfigureAwait(false);
+                var existingFile = await _dbContext.FindAsync<DevDbFiles>(name).ConfigureAwait(false);
+                return existingFile?.Blob;
             }
             catch (Exception ex)
             {
@@ -112,20 +130,33 @@ namespace Opc.Ua.Cloud.Library
                 return null;
             }
         }
-        public Task DeleteFileAsync(string name, CancellationToken cancellationToken = default)
+        public async Task DeleteFileAsync(string name, CancellationToken cancellationToken = default)
         {
-#if DEBUG
             try
             {
-                File.Delete(Path.Combine(_rootDir, name));
+                var existingFile = await _dbContext.FindAsync<DevDbFiles>(name).ConfigureAwait(false);
+                if (existingFile != null)
+                {
+                    _dbContext.Remove(existingFile);
+                    await _dbContext.SaveChangesAsync(true).ConfigureAwait(false);
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
                 throw;
             }
-#endif
-            return Task.CompletedTask;
         }
+
+        internal static void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<DevDbFiles>();
+        }
+    }
+    public class DevDbFiles
+    {
+        [Key]
+        public string Name { get; set; }
+        public string Blob { get; set; }
     }
 }

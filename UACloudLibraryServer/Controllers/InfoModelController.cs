@@ -71,7 +71,7 @@ namespace Opc.Ua.Cloud.Library
         [HttpGet]
         [Route("/infomodel/find")]
         [SwaggerResponse(statusCode: 200, type: typeof(UANodesetResult[]), description: "Discovered OPC UA Information Model results of the models found in the UA Cloud Library matching the keywords provided.")]
-        public IActionResult FindNameSpaceAsync(
+        public IActionResult FindNamespaceAsync(
             [FromQuery][SwaggerParameter("A list of keywords to search for in the information models. Specify * to return everything.")] string[] keywords,
             [FromQuery][SwaggerParameter("Pagination offset")] int? offset,
             [FromQuery][SwaggerParameter("Pagination limit")] int? limit
@@ -104,7 +104,7 @@ namespace Opc.Ua.Cloud.Library
         [SwaggerResponse(statusCode: 200, type: typeof(UANameSpace), description: "The OPC UA Information model and its metadata.")]
         [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The identifier provided could not be parsed.")]
         [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The identifier provided could not be found.")]
-        public async Task<IActionResult> DownloadNameSpaceAsync(
+        public async Task<IActionResult> DownloadNamespaceAsync(
             [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier,
             [FromQuery][SwaggerParameter("Download NodeSet XML only, omitting metadata")] bool nodesetXMLOnly = false,
             [FromQuery][SwaggerParameter("Download metadata only, omitting NodeSet XML")] bool metadataOnly = false
@@ -127,15 +127,23 @@ namespace Opc.Ua.Cloud.Library
 
             if (nodesetXMLOnly)
             {
-                IncreaseNumDownloads(nodeSetID);
+                await _database.IncrementDownloadCountAsync(nodeSetID);
                 return new ObjectResult(nodesetXml) { StatusCode = (int)HttpStatusCode.OK };
             }
 
-            var result = _database.RetrieveAllMetadata(nodeSetID);
-            result.Nodeset.NodesetXml = nodesetXml;
+            var uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID).ConfigureAwait(false);
+            if (uaNamespace == null)
+            {
+                return new ObjectResult("Failed to find nodeset metadata") { StatusCode = (int)HttpStatusCode.NotFound };
+            }
+            uaNamespace.Nodeset.NodesetXml = nodesetXml;
 
-            IncreaseNumDownloads(nodeSetID);
-            return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.OK };
+            if (!metadataOnly)
+            {
+                // Only count downloads with XML payload
+                await _database.IncrementDownloadCountAsync(nodeSetID);
+            }
+            return new ObjectResult(uaNamespace) { StatusCode = (int)HttpStatusCode.OK };
         }
 
 #if DEBUG
@@ -144,7 +152,7 @@ namespace Opc.Ua.Cloud.Library
         [SwaggerResponse(statusCode: 200, type: typeof(UANameSpace), description: "The OPC UA Information model and its metadata.")]
         [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The identifier provided could not be parsed.")]
         [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The identifier provided could not be found.")]
-        public async Task<IActionResult> DeleteNameSpaceAsync(
+        public async Task<IActionResult> DeleteNamespaceAsync(
             [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier)
         {
             string nodesetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
@@ -159,15 +167,15 @@ namespace Opc.Ua.Cloud.Library
                 return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            var result = _database.RetrieveAllMetadata(nodeSetID);
-            result.Nodeset.NodesetXml = nodesetXml;
+            var uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID).ConfigureAwait(false);
+            uaNamespace.Nodeset.NodesetXml = nodesetXml;
             await _indexer.DeleteNodeSetIndex(identifier).ConfigureAwait(false);
 
-            _database.DeleteAllRecordsForNodeset(nodeSetID);
+            await _database.DeleteAllRecordsForNodesetAsync(nodeSetID).ConfigureAwait(false);
 
             await _storage.DeleteFileAsync(identifier).ConfigureAwait(false);
 
-            return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.OK };
+            return new ObjectResult(uaNamespace) { StatusCode = (int)HttpStatusCode.OK };
         }
 #endif
 
@@ -177,167 +185,165 @@ namespace Opc.Ua.Cloud.Library
         [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The provided nodeset file failed verification.")]
         [SwaggerResponse(statusCode: 409, type: typeof(string), description: "An existing information model with the same identifier already exists in the UA Cloud Library and the overwrite flag was not set or the contributor name of existing information model is different to the one provided.")]
         [SwaggerResponse(statusCode: 500, type: typeof(string), description: "The provided information model could not be stored or updated.")]
-        public async Task<IActionResult> UploadNameSpaceAsync(
-            [FromBody][Required][SwaggerParameter("The OPC UA Information model to upload.")] UANameSpace nameSpace,
+        public async Task<IActionResult> UploadNamespaceAsync(
+            [FromBody][Required][SwaggerParameter("The OPC UA Information model to upload.")] UANameSpace uaNamespace,
             [FromQuery][SwaggerParameter("An optional flag if existing OPC UA Information models in the library should be overwritten.")] bool overwrite = false)
         {
-            UANodeSet nodeSet = null;
-
             try
             {
+                UANodeSet nodeSet = null;
                 try
                 {
-                    nodeSet = ReadUANodeSet(nameSpace.Nodeset.NodesetXml);
+                    nodeSet = ReadUANodeSet(uaNamespace.Nodeset.NodesetXml);
                 }
                 catch (Exception ex)
                 {
                     return new ObjectResult($"Could not parse nodeset XML file: {ex.Message}") { StatusCode = (int)HttpStatusCode.BadRequest };
                 }
 
-                string modelValidationStatus = "Parsed";
-
+                uint legacyNodesetHashCode;
                 // generate a unique hash code
                 uint nodesetHashCode = GenerateHashCode(nodeSet);
-                if (nodesetHashCode == 0)
                 {
-                    return new ObjectResult("Nodeset invalid. Please make sure it includes a valid Model URI and publication date!") { StatusCode = (int)HttpStatusCode.BadRequest };
-                }
-
-                // check if the nodeset already exists in the database for the legacy hashcode algorithm
-                uint legacyNodesetHashCode = GenerateHashCodeLegacy(nodeSet);
-                if (legacyNodesetHashCode != 0)
-                {
-                    string legacyNodeSetXml = await _storage.DownloadFileAsync(legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
-
-                    if (!string.IsNullOrEmpty(legacyNodeSetXml))
+                    if (nodesetHashCode == 0)
                     {
-                        try
+                        return new ObjectResult("Nodeset invalid. Please make sure it includes a valid Model URI and publication date!") { StatusCode = (int)HttpStatusCode.BadRequest };
+                    }
+
+                    if (nodeSet.Models.Length != 1)
+                    {
+                        return new ObjectResult("Nodeset not supported. Please make sure it includes exactly one Model!") { StatusCode = (int)HttpStatusCode.BadRequest };
+                    }
+
+                    // check if the nodeset already exists in the database for the legacy hashcode algorithm
+                    legacyNodesetHashCode = GenerateHashCodeLegacy(nodeSet);
+                    if (legacyNodesetHashCode != 0)
+                    {
+                        string legacyNodeSetXml = await _storage.DownloadFileAsync(legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+
+                        if (!string.IsNullOrEmpty(legacyNodeSetXml))
                         {
-                            var legacyNodeSet = ReadUANodeSet(legacyNodeSetXml);
-                            var firstModel = legacyNodeSet.Models.Length > 0 ? legacyNodeSet.Models[0] : null;
-                            if (firstModel == null)
+                            try
                             {
-                                return new ObjectResult($"Nodeset exists but existing nodeset had no model entry.") { StatusCode = (int)HttpStatusCode.Conflict };
-                            }
-                            if (!firstModel.PublicationDateSpecified || firstModel.PublicationDate == nodeSet.Models[0].PublicationDate)
-                            {
-                                if (!overwrite)
+                                var legacyNodeSet = ReadUANodeSet(legacyNodeSetXml);
+                                var firstModel = legacyNodeSet.Models.Length > 0 ? legacyNodeSet.Models[0] : null;
+                                if (firstModel == null)
                                 {
-                                    // nodeset already exists
-                                    return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
+                                    return new ObjectResult($"Nodeset exists but existing nodeset had no model entry.") { StatusCode = (int)HttpStatusCode.Conflict };
+                                }
+                                if (!firstModel.PublicationDateSpecified || firstModel.PublicationDate == nodeSet.Models[0].PublicationDate)
+                                {
+                                    if (!overwrite)
+                                    {
+                                        // nodeset already exists
+                                        return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
+                                    }
+                                }
+                                else
+                                {
+                                    // New nodeset is a different version from the legacy nodeset: don't touch the legacy nodeset
+                                    legacyNodesetHashCode = 0;
                                 }
                             }
-                            else
+                            catch (Exception ex)
                             {
-                                // New nodeset is a different version from the legacy nodeset: don't touch the legacy nodeset
-                                legacyNodesetHashCode = 0;
+                                return new ObjectResult($"Nodeset exists but existing nodeset could not be validated: {ex.Message}.") { StatusCode = (int)HttpStatusCode.Conflict };
+                            }
+
+                            // check contributors match if nodeset already exists
+                            string contributorNameLegacy = (await _database.RetrieveAllMetadataAsync(legacyNodesetHashCode).ConfigureAwait(false))?.Contributor?.Name;
+                            if (!string.IsNullOrEmpty(legacyNodeSetXml) && !string.IsNullOrEmpty(contributorNameLegacy) && (!string.Equals(uaNamespace.Contributor.Name, contributorNameLegacy, StringComparison.Ordinal)))
+                            {
+                                return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
                             }
                         }
-                        catch (Exception ex)
-                        {
-                            return new ObjectResult($"Nodeset exists but existing nodeset could not be validated: {ex.Message}.") { StatusCode = (int)HttpStatusCode.Conflict };
-                        }
-
-                        // check contributors match if nodeset already exists
-                        string contributorNameLegacy = _database.RetrieveMetaData(legacyNodesetHashCode, "orgname");
-                        if (!string.IsNullOrEmpty(legacyNodeSetXml) && !string.IsNullOrEmpty(contributorNameLegacy) && (!string.Equals(nameSpace.Contributor.Name, contributorNameLegacy, StringComparison.Ordinal)))
-                        {
-                            return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
-                        }
                     }
+                    uaNamespace.Nodeset.Identifier = nodesetHashCode;
                 }
 
                 // check if the nodeset already exists in the database for the new hashcode algorithm
-                string result = await _storage.FindFileAsync(nodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                string result = await _storage.FindFileAsync(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
                 if (!string.IsNullOrEmpty(result) && !overwrite)
                 {
-                    // nodeset already exists
-                    return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
+                    var existingNamespace = await _database.RetrieveAllMetadataAsync(uaNamespace.Nodeset.Identifier).ConfigureAwait(false);
+                    if (existingNamespace != null)
+                    {
+                        // nodeset already exists
+                        return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
+                    }
+                    // nodeset metadata not found: allow overwrite of orphaned blob
+                    overwrite = true;
                 }
 
                 // check contributors match if nodeset already exists
-                string contributorName = _database.RetrieveMetaData(nodesetHashCode, "orgname");
-                if (!string.IsNullOrEmpty(result) && !string.IsNullOrEmpty(contributorName) && (!string.Equals(nameSpace.Contributor.Name, contributorName, StringComparison.Ordinal)))
+                string contributorName = (await _database.RetrieveAllMetadataAsync(uaNamespace.Nodeset.Identifier).ConfigureAwait(false))?.Contributor?.Name;
+                if (!string.IsNullOrEmpty(result) && !string.IsNullOrEmpty(contributorName) && (!string.Equals(uaNamespace.Contributor.Name, contributorName, StringComparison.Ordinal)))
                 {
                     return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
                 }
 
-                if (nameSpace.Nodeset.PublicationDate != nodeSet.Models[0].PublicationDate)
+                if (uaNamespace.Nodeset.PublicationDate != nodeSet.Models[0].PublicationDate)
                 {
-                    return new ObjectResult("PublicationDate in metadata does not match nodeset XML.") { StatusCode = (int)HttpStatusCode.BadRequest };
+                    _logger.LogInformation("PublicationDate in metadata does not match nodeset XML. Ignoring.");
+                    uaNamespace.Nodeset.PublicationDate = nodeSet.Models[0].PublicationDate;
                 }
-                if (nameSpace.Nodeset.Version != nodeSet.Models[0].Version)
+                if (uaNamespace.Nodeset.Version != nodeSet.Models[0].Version)
                 {
-                    return new ObjectResult("Version in metadata does not match nodeset XML.") { StatusCode = (int)HttpStatusCode.BadRequest };
+                    _logger.LogInformation("Version in metadata does not match nodeset XML. Ignoring.");
+                    uaNamespace.Nodeset.Version = nodeSet.Models[0].Version;
                 }
-                if (nameSpace.Nodeset.NamespaceUri != null && nameSpace.Nodeset.NamespaceUri.OriginalString != nodeSet.Models[0].ModelUri)
+                if (uaNamespace.Nodeset.NamespaceUri != null && uaNamespace.Nodeset.NamespaceUri.OriginalString != nodeSet.Models[0].ModelUri)
                 {
-                    return new ObjectResult("NamespaceUri in metadata does not match nodeset XML.") { StatusCode = (int)HttpStatusCode.BadRequest };
+                    _logger.LogInformation("NamespaceUri in metadata does not match nodeset XML. Ignoring.");
+                    uaNamespace.Nodeset.NamespaceUri = new Uri(nodeSet.Models[0].ModelUri);
                 }
+                if (uaNamespace.Nodeset.LastModifiedDate != nodeSet.LastModified)
+                {
+                    _logger.LogInformation($"LastModifiedDate in metadata for nodeset {uaNamespace.Nodeset.Identifier} does not match nodeset XML. Ignoring.");
+                    uaNamespace.Nodeset.LastModifiedDate = nodeSet.LastModified;
+                }
+
+                // Ignore RequiredModels if provided: cloud library will read from the nodeset
+                uaNamespace.Nodeset.RequiredModels = null;
+
+                uaNamespace.Nodeset.ValidationStatus = "Parsed";
+
+                // At this point all inputs are validated: ready to store
 
                 // upload the new file to the storage service, and get the file handle that the storage service returned
-                string storedFilename = await _storage.UploadFileAsync(nodesetHashCode.ToString(CultureInfo.InvariantCulture), nameSpace.Nodeset.NodesetXml).ConfigureAwait(false);
-                if (string.IsNullOrEmpty(storedFilename) || (storedFilename != nodesetHashCode.ToString(CultureInfo.InvariantCulture)))
+                string storedFilename = await _storage.UploadFileAsync(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture), uaNamespace.Nodeset.NodesetXml).ConfigureAwait(false);
+                if (string.IsNullOrEmpty(storedFilename) || (storedFilename != uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)))
                 {
-                    string message = "Error: Nodeset file could not be stored.";
+                    string message = "Error: NodeSet file could not be stored.";
                     _logger.LogError(message);
                     return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
                 }
 
-                // delete any existing records for this nodeset in the database
-                if (!_database.DeleteAllRecordsForNodeset(nodesetHashCode))
+                var userId = User.Identity.Name;
+                var dbMessage = await _database.AddMetaDataAsync(uaNamespace, nodeSet, legacyNodesetHashCode, userId).ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(dbMessage))
                 {
-                    string message = "Error: Could not delete existing records for nodeset!";
-                    _logger.LogError(message);
-                    return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
-                }
-
-                if (legacyNodesetHashCode != 0 && !_database.DeleteAllRecordsForNodeset(legacyNodesetHashCode))
-                {
-                    string message = "Error: Could not delete existing legacy records for nodeset!";
-                    _logger.LogError(message);
-                    return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
-                }
-
-                if (!StoreUserMetaDataInDatabase(nodesetHashCode, nameSpace, nodeSet, modelValidationStatus))
-                {
-                    string message = "Error: User metadata could not be stored.";
-                    _logger.LogError(message);
-                    return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
+                    _logger.LogError(dbMessage);
+                    return new ObjectResult(dbMessage) { StatusCode = (int)HttpStatusCode.InternalServerError };
                 }
 
                 if (legacyNodesetHashCode != 0)
                 {
                     try
                     {
-                        await _storage.DeleteFileAsync(legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture));
+                        var legacyHashCodeStr = legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture);
+                        if (!string.IsNullOrEmpty(await _storage.FindFileAsync(legacyHashCodeStr).ConfigureAwait(false)))
+                        {
+                            //await _storage.DeleteFileAsync(legacyHashCodeStr).ConfigureAwait(false);
+                        }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, $"Failed to delete legacy nodeset {legacyNodesetHashCode} for {nameSpace?.Nodeset?.NamespaceUri} {nameSpace?.Nodeset?.PublicationDate} {nameSpace?.Nodeset?.Identifier}");
-                    }
-                }
-                // Store nodeset metadata synchronously. Indexing of nodes happens in the background
-                if (nodeSet.Models?.Length > 0)
-                {
-                    try
-                    {
-                        await _indexer.CreateNodeSetModelFromNodeSetAsync(nodeSet, nodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
-                    }
-                    catch (DbUpdateException ex) when ((ex.InnerException as PostgresException).SqlState == PostgresErrorCodes.UniqueViolation)
-                    {
-                        string message = $"Error: Nodeset index entry already exists. Index likely out of date for nodeset {nodesetHashCode}.";
-                        _logger.LogError(ex, message);
-                    }
-                    catch (Exception ex)
-                    {
-                        string message = "Error: Nodeset index entry could not be created.";
-                        _logger.LogError(ex, message);
-                        return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
+                        _logger.LogError(ex, $"Failed to delete legacy nodeset {legacyNodesetHashCode} for {uaNamespace?.Nodeset?.NamespaceUri} {uaNamespace?.Nodeset?.PublicationDate} {uaNamespace?.Nodeset?.Identifier}");
                     }
                 }
 
-                return new ObjectResult("Upload successful!") { StatusCode = (int)HttpStatusCode.OK };
+                return new ObjectResult(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)) { StatusCode = (int)HttpStatusCode.OK };
             }
             finally
             {
@@ -361,59 +367,6 @@ namespace Opc.Ua.Cloud.Library
             }
 
             return nodeSet;
-        }
-
-        private string RetrieveVersionFromNodeset(UANodeSet nodeSet)
-        {
-            try
-            {
-                if ((nodeSet.Models != null) && (nodeSet.Models.Length > 0))
-                {
-                    // take the data from the first model
-                    ModelTableEntry model = nodeSet.Models[0];
-                    if (model != null)
-                    {
-                        return model.Version;
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                return string.Empty;
-            }
-
-            return string.Empty;
-        }
-
-        private void RetrieveDatesFromNodeset(UANodeSet nodeSet, out DateTime publicationDate, out DateTime lastModifiedDate)
-        {
-            publicationDate = DateTime.UtcNow;
-            lastModifiedDate = DateTime.UtcNow;
-
-            try
-            {
-                if ((nodeSet.Models != null) && (nodeSet.Models.Length > 0))
-                {
-                    // take the data from the first model
-                    ModelTableEntry model = nodeSet.Models[0];
-                    if (model != null)
-                    {
-                        if (model.PublicationDateSpecified)
-                        {
-                            publicationDate = model.PublicationDate;
-                        }
-
-                        if (nodeSet.LastModifiedSpecified)
-                        {
-                            lastModifiedDate = nodeSet.LastModified;
-                        }
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                // do nothing
-            }
         }
 
         private uint GenerateHashCode(UANodeSet nodeSet)
@@ -456,6 +409,10 @@ namespace Opc.Ua.Cloud.Library
         private uint GenerateHashCodeLegacy(UANodeSet nodeSet)
         {
             // generate a hash from the NamespaceURIs in the nodeset
+            if (nodeSet?.NamespaceUris == null)
+            {
+                return 0;
+            }
             int hashCode = 0;
             try
             {
@@ -475,238 +432,6 @@ namespace Opc.Ua.Cloud.Library
             }
 
             return (uint)hashCode;
-        }
-
-        private bool StoreUserMetaDataInDatabase(uint newNodeSetID, UANameSpace nameSpace, UANodeSet nodeSet, string modelValidationStatus)
-        {
-            RetrieveDatesFromNodeset(nodeSet, out DateTime publicationDate, out DateTime lastModifiedDate);
-
-            nameSpace.Nodeset.PublicationDate = publicationDate;
-            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "nodesetcreationtime", nameSpace.Nodeset.PublicationDate.ToString(CultureInfo.InvariantCulture)))
-            {
-                return false;
-            }
-
-            nameSpace.Nodeset.LastModifiedDate = lastModifiedDate;
-            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "nodesetmodifiedtime", nameSpace.Nodeset.LastModifiedDate.ToString(CultureInfo.InvariantCulture)))
-            {
-                return false;
-            }
-
-            // add nodeset metadata provided by the user to the database
-            if (!string.IsNullOrWhiteSpace(nameSpace.Title))
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "nodesettitle", nameSpace.Title))
-                {
-                    return false;
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(nameSpace.Nodeset.Version))
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "version", nameSpace.Nodeset.Version))
-                {
-                    return false;
-                }
-            }
-            else
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "version", RetrieveVersionFromNodeset(nodeSet)))
-                {
-                    return false;
-                }
-            }
-
-            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "license", nameSpace.License.ToString()))
-            {
-                return false;
-            }
-
-            if (!string.IsNullOrWhiteSpace(nameSpace.CopyrightText))
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "copyright", nameSpace.CopyrightText))
-                {
-                    return false;
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(nameSpace.Description))
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "description", nameSpace.Description))
-                {
-                    return false;
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(nameSpace.Category.Name))
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "addressspacename", nameSpace.Category.Name))
-                {
-                    return false;
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(nameSpace.Category.Description))
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "addressspacedescription", nameSpace.Category.Description))
-                {
-                    return false;
-                }
-            }
-
-            if (nameSpace.Category.IconUrl != null)
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "addressspaceiconurl", nameSpace.Category.IconUrl.ToString()))
-                {
-                    return false;
-                }
-            }
-
-            if (nameSpace.DocumentationUrl != null)
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "documentationurl", nameSpace.DocumentationUrl.ToString()))
-                {
-                    return false;
-                }
-            }
-
-            if (nameSpace.IconUrl != null)
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "iconurl", nameSpace.IconUrl.ToString()))
-                {
-                    return false;
-                }
-            }
-
-            if (nameSpace.LicenseUrl != null)
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "licenseurl", nameSpace.LicenseUrl.ToString()))
-                {
-                    return false;
-                }
-            }
-
-            if (nameSpace.PurchasingInformationUrl != null)
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "purchasinginfo", nameSpace.PurchasingInformationUrl.ToString()))
-                {
-                    return false;
-                }
-            }
-
-            if (nameSpace.ReleaseNotesUrl != null)
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "releasenotes", nameSpace.ReleaseNotesUrl.ToString()))
-                {
-                    return false;
-                }
-            }
-
-            if (nameSpace.TestSpecificationUrl != null)
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "testspecification", nameSpace.TestSpecificationUrl.ToString()))
-                {
-                    return false;
-                }
-            }
-
-            if ((nameSpace.Keywords != null) && (nameSpace.Keywords.Length > 0))
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "keywords", string.Join(',', nameSpace.Keywords)))
-                {
-                    return false;
-                }
-            }
-
-            if ((nameSpace.SupportedLocales != null) && (nameSpace.SupportedLocales.Length > 0))
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "locales", string.Join(',', nameSpace.SupportedLocales)))
-                {
-                    return false;
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(nameSpace.Contributor.Name))
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "orgname", nameSpace.Contributor.Name))
-                {
-                    return false;
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(nameSpace.Contributor.Description))
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "orgdescription", nameSpace.Contributor.Description))
-                {
-                    return false;
-                }
-            }
-
-            if (nameSpace.Contributor.LogoUrl != null)
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "orglogo", nameSpace.Contributor.LogoUrl.ToString()))
-                {
-                    return false;
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(nameSpace.Contributor.ContactEmail))
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "orgcontact", nameSpace.Contributor.ContactEmail))
-                {
-                    return false;
-                }
-            }
-
-            if (nameSpace.Contributor.Website != null)
-            {
-                if (!_database.AddMetaDataToNodeSet(newNodeSetID, "orgwebsite", nameSpace.Contributor.Website.ToString()))
-                {
-                    return false;
-                }
-            }
-
-            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "validationstatus", modelValidationStatus))
-            {
-                return false;
-            }
-            if (!_database.AddMetaDataToNodeSet(newNodeSetID, "numdownloads", "0"))
-            {
-                return false;
-            }
-
-            if (nameSpace.AdditionalProperties != null)
-            {
-                foreach (UAProperty additionalProperty in nameSpace.AdditionalProperties)
-                {
-                    if (!string.IsNullOrWhiteSpace(additionalProperty.Name) && !string.IsNullOrWhiteSpace(additionalProperty.Value))
-                    {
-                        if (!_database.AddMetaDataToNodeSet(newNodeSetID, additionalProperty.Name, additionalProperty.Value))
-                        {
-                            return false;
-                        }
-                    }
-                }
-            }
-
-            return true;
-        }
-
-        private void IncreaseNumDownloads(uint nodeSetID)
-        {
-            try
-            {
-                uint parsedDownloads;
-                if (uint.TryParse(_database.RetrieveMetaData(nodeSetID, "numdownloads"), out parsedDownloads))
-                {
-                    parsedDownloads++;
-                    _database.UpdateMetaDataForNodeSet(nodeSetID, "numdownloads", parsedDownloads.ToString(CultureInfo.InvariantCulture));
-                }
-            }
-            catch (Exception)
-            {
-                // do nothing
-            }
         }
     }
 }

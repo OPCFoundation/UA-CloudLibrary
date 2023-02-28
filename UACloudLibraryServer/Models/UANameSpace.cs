@@ -49,7 +49,7 @@ namespace Opc.Ua.Cloud.Library.Models
         public Organisation Contributor { get; set; }
 
         [Required]
-        public License License { get; set; }
+        public string License { get; set; }
 
         [Required]
         public string CopyrightText { get; set; }
@@ -83,15 +83,12 @@ namespace Opc.Ua.Cloud.Library.Models
         /// </summary>
         public string[] SupportedLocales { get; set; }
 
-        public uint NumberOfDownloads { get; set; }
-        public string ValidationStatus { get; set; }
-
         public UAProperty[] AdditionalProperties { get; set; }
 
         public UANameSpaceMetadata()
         {
             Title = string.Empty;
-            License = License.Custom;
+            License = null;
             CopyrightText = string.Empty;
             Contributor = new Organisation();
             Description = string.Empty;
@@ -104,22 +101,31 @@ namespace Opc.Ua.Cloud.Library.Models
             ReleaseNotesUrl = null;
             TestSpecificationUrl = null;
             SupportedLocales = Array.Empty<string>();
-            NumberOfDownloads = 0;
             AdditionalProperties = null;
         }
-
+        public override string ToString()
+        {
+            return $"{Title} {Contributor} {Category}";
+        }
     }
 
     public class UANameSpace : UANameSpaceMetadata
     {
         public UANameSpace()
         {
+            CreationTime = null;
+            NumberOfDownloads = 0;
             Nodeset = new Nodeset();
         }
-
         [Required]
         public Nodeset Nodeset { get; set; }
+        /// <summary>
+        /// Time the nodeset was submitted to the cloud library
+        /// </summary>
+        public DateTime? CreationTime { get; set; }
+        public uint NumberOfDownloads { get; set; }
     }
+
 
     public class UAProperty
     {
@@ -214,9 +220,9 @@ namespace Opc.Ua.Cloud.Library.Models
             Version = string.Empty;
             PublicationDate = DateTime.MinValue;
             LastModifiedDate = DateTime.MinValue;
+            ValidationStatus = null;
         }
 
-        [Required]
         public string NodesetXml { get; set; }
 
         public uint Identifier { get; set; }

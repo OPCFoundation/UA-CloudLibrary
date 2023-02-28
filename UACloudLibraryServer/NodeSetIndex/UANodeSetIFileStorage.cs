@@ -28,6 +28,7 @@
  * ======================================================================*/
 
 using System;
+using System.Linq;
 using CESMII.OpcUa.NodeSetImporter;
 using CESMII.OpcUa.NodeSetModel.EF;
 using Opc.Ua.Cloud.Library.Interfaces;
@@ -48,12 +49,15 @@ namespace Opc.Ua.Cloud.Library
         private readonly IFileStorage _storage;
         private readonly AppDbContext _dbContext;
 
-        public bool AddNodeSet(UANodeSetImportResult results, string nodeSetXml, object TenantID)
+        public bool AddNodeSet(UANodeSetImportResult results, string nodeSetXml, object TenantID, bool requested)
         {
             // Assume already added to cloudlib storage before
             var nodeSet = InfoModelController.ReadUANodeSet(nodeSetXml);
-            results.AddModelAndDependencies(nodeSet, nodeSet.Models?[0], null, false);
-            return false;
+            // Assumption: exactly one nodeSetXml was passed into UANodeSetImport.ImportNodeSets and it's the first one being added.
+            bool isNew = !results.Models.Any();
+            var modelInfo = results.AddModelAndDependencies(nodeSet, nodeSet.Models?[0], null, isNew);
+            modelInfo.Model.RequestedForThisImport = requested;
+            return modelInfo.Added;
         }
 
         public void DeleteNewlyAddedNodeSetsFromCache(UANodeSetImportResult results)
@@ -76,7 +80,7 @@ namespace Opc.Ua.Cloud.Library
                 var nodeSetXml = _storage.DownloadFileAsync(tFileName).Result;
                 if (nodeSetXml != null)
                 {
-                    AddNodeSet(results, nodeSetXml, TenantID);
+                    AddNodeSet(results, nodeSetXml, TenantID, false);
                     return true;
                 }
             }

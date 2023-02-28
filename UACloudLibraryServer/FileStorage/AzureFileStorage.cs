@@ -179,7 +179,6 @@ namespace Opc.Ua.Cloud.Library
 
         public async Task DeleteFileAsync(string name, CancellationToken cancellationToken = default)
         {
-#if DEBUG
             try
             {
                 if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("BlobStorageConnectionString")))
@@ -197,9 +196,6 @@ namespace Opc.Ua.Cloud.Library
                 _logger.LogError(ex.Message);
                 return;
             }
-#else
-            await Task.CompletedTask.ConfigureAwait(false);
-#endif
         }
 
     }

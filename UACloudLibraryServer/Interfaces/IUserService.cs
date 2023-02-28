@@ -29,11 +29,13 @@
 
 namespace Opc.Ua.Cloud.Library.Interfaces
 {
+    using System.Collections.Generic;
+    using System.Security.Claims;
     using System.Threading.Tasks;
 
     public interface IUserService
     {
-        Task<bool> ValidateCredentialsAsync(string username, string password);
+        Task<IEnumerable<Claim>> ValidateCredentialsAsync(string username, string password);
     }
 }
 
