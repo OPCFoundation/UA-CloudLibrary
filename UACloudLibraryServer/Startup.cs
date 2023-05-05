@@ -34,6 +34,7 @@ namespace Opc.Ua.Cloud.Library
     using Amazon.S3;
     using GraphQL.Server.Ui.Playground;
     using HotChocolate.AspNetCore;
+    using HotChocolate.Data;
     using Microsoft.AspNetCore.Authentication;
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Builder;
@@ -75,7 +76,9 @@ namespace Opc.Ua.Cloud.Library
             services.AddDefaultIdentity<IdentityUser>(options =>
                     //require confirmation mail if email sender API Key is set
                     options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["EmailSenderAPIKey"])
-                    ).AddEntityFrameworkStores<AppDbContext>();
+                    )
+                .AddRoles<IdentityRole>()
+                .AddEntityFrameworkStores<AppDbContext>();
 
             services.AddScoped<IUserService, UserService>();
 
@@ -95,7 +98,10 @@ namespace Opc.Ua.Cloud.Library
             services.AddAuthentication()
                 .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null);
 
-            services.AddAuthorization();
+            services.AddAuthorization(options => {
+                options.AddPolicy("ApprovalPolicy", policy => policy.RequireRole("Administrator"));
+                options.AddPolicy("UserAdministrationPolicy", policy => policy.RequireRole("Administrator"));
+            });
 
             services.AddSwaggerGen(options => {
                 options.SwaggerDoc("v1", new OpenApiInfo {
@@ -150,6 +156,7 @@ namespace Opc.Ua.Cloud.Library
                     services.AddSingleton<IFileStorage, AWSFileStorage>();
                     break;
                 case "GCP": services.AddSingleton<IFileStorage, GCPFileStorage>(); break;
+                case "DevDB": services.AddScoped<IFileStorage, DevDbFileStorage>(); break;
                 default:
                 {
                     services.AddSingleton<IFileStorage, LocalFileStorage>();
@@ -178,12 +185,18 @@ namespace Opc.Ua.Cloud.Library
                     DefaultPageSize = 100,
                     MaxPageSize = 100,
                 })
-                .AddFiltering()
+                .AddFiltering(fd => {
+                    fd.AddDefaults().BindRuntimeType<UInt32, UnsignedIntOperationFilterInputType>();
+                    fd.AddDefaults().BindRuntimeType<UInt32?, UnsignedIntOperationFilterInputType>();
+                    fd.AddDefaults().BindRuntimeType<UInt16?, UnsignedShortOperationFilterInputType>();
+                })
                 .AddSorting()
                 .AddQueryType<QueryModel>()
+                .AddMutationType<MutationModel>()
                 .AddType<CloudLibNodeSetModelType>()
                 .BindRuntimeType<UInt32, HotChocolate.Types.UnsignedIntType>()
-                .BindRuntimeType<UInt16, HotChocolate.Types.UnsignedShortType>();
+                .BindRuntimeType<UInt16, HotChocolate.Types.UnsignedShortType>()
+                ;
 
             services.AddScoped<NodeSetModelIndexer>();
             services.AddScoped<NodeSetModelIndexerFactory>();
@@ -230,7 +243,10 @@ namespace Opc.Ua.Cloud.Library
                 new PlaygroundOptions() {
                     RequestCredentials = RequestCredentials.Include
                 });
-            app.UseGraphQLGraphiQL("/graphiql");
+            app.UseGraphQLGraphiQL("/graphiql", new GraphQL.Server.Ui.GraphiQL.GraphiQLOptions {
+                ExplorerExtensionEnabled = true,
+
+            });
 
             app.UseEndpoints(endpoints => {
                 endpoints.MapControllerRoute(

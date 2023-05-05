@@ -99,7 +99,8 @@ namespace Opc.Ua.Cloud.Library.Client
             }
 
             // keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
-            string address = client.BaseAddress.ToString() + "infomodel/find" + PrepareArgumentsString(keywords) + $"&offset={offset}&limit={limit}";
+            var relativeUri = $"infomodel/find{PrepareArgumentsString(keywords)}&offset={offset}&limit={limit}";
+            Uri address = new Uri(client.BaseAddress, relativeUri);
             HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
 
             List<UANodesetResult> info = null;
@@ -129,7 +130,7 @@ namespace Opc.Ua.Cloud.Library.Client
             if (response.StatusCode == HttpStatusCode.OK)
             {
                 var responseJson = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                resultType = JsonConvert.DeserializeObject<UANameSpace>(responseJson);
+                resultType = JsonConvert.DeserializeObject<UANameSpace>(responseJson, new JsonSerializerSettings { DateTimeZoneHandling = DateTimeZoneHandling.Utc });
             }
 
             return resultType;
@@ -137,7 +138,7 @@ namespace Opc.Ua.Cloud.Library.Client
 
         public async Task<(string NamespaceUri, string Identifier)[]> GetNamespaceIdsAsync()
         {
-            string address = Path.Combine(client.BaseAddress.ToString(), "infomodel/namespaces/");
+            Uri address = new Uri(client.BaseAddress, "infomodel/namespaces/");
             HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
             (string namespaceUri, string identifier)[] resultType = null;
             if (response.StatusCode == HttpStatusCode.OK)

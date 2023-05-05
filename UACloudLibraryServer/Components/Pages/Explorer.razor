@@ -7,7 +7,9 @@
 @using Microsoft.AspNetCore.Components.Web;
 @using System.Web
 @using Microsoft.AspNetCore.Http
+@using Microsoft.EntityFrameworkCore
 @using Microsoft.JSInterop
+@using Opc.Ua.Cloud.Library.DbContextModels
 @using Opc.Ua.Cloud.Library.Models
 
 <div style="height:100%">
@@ -33,7 +35,7 @@
                                     @if (i < Result.Count)
                                     {
                                         var item = Result[i];
-                                        <div class="card h-100" >
+                                        <div class="card h-100">
                                             <div class="card-header">
                                                 @if (!string.IsNullOrEmpty(@item.Category.Name))
                                                 {
@@ -52,7 +54,7 @@
                                                         License: @item.License
                                                     </div>
                                                     <div>
-                                                        Version: @item.Nodeset.Version
+                                                        Version: @item.NodeSet.Version
                                                     </div>
                                                     <div>
                                                         Downloads: @item.NumberOfDownloads
@@ -121,7 +123,7 @@
     private string ModalDisplay = "none";
     private bool ShowBackDrop = false;
 
-    private UANameSpace CurrentItem;
+    private NamespaceMetaDataModel CurrentItem;
 
     private string ModalTitle = "";
     private string ModalDescription = "";
@@ -130,7 +132,7 @@
     const int PAGE_SIZE = 6;
     const int COL_SIZE = 3;
     public bool Loading { get; set; } = true;
-    private List<UANameSpace> Result = new List<UANameSpace>();
+    private List<NamespaceMetaDataModel> Result = new();
     private int CurrentPage = 1;
     private string FilterString = "";
     private int TotalCount = 0;
@@ -143,14 +145,14 @@
         fetchData();
     }
 
-    private async Task DownloadFileFromURL(UANameSpace item)
+    private async Task DownloadFileFromURL(NamespaceMetaDataModel item)
     {
         var fileName = $"{item.Title}.NodeSet2.xml";
-        var fileURL = $@"/infomodel/download/{item.Nodeset.Identifier}?nodesetXMLOnly=true";
+        var fileURL = $@"/infomodel/download/{item.NodeSet.Identifier}?nodesetXMLOnly=true";
         await JS.InvokeVoidAsync("triggerFileDownload", fileName, fileURL).ConfigureAwait(false);
     }
 
-    private void Open(UANameSpace item)
+    private void Open(NamespaceMetaDataModel item)
     {
         ModalDisplay = "block;";
         ModalClass = "Show";
@@ -187,13 +189,16 @@
         query["filterString"] = this.FilterString;
 
         TotalCount = dp.GetNamespaceTotalCount();
-        Result = await dp.GetNamespaces(PAGE_SIZE, (CurrentPage - 1) * PAGE_SIZE, null, "Category").ConfigureAwait(false);
+        Result = await dp.GetNamespaces()
+            .OrderBy(md => md.Category.Name)
+            .Skip((CurrentPage - 1) * PAGE_SIZE).Take(PAGE_SIZE)
+            .ToListAsync().ConfigureAwait(true);
         AllPages = (int)Math.Ceiling((decimal)this.TotalCount / PAGE_SIZE);
         Loading = false;
 
         StateHasChanged();
     }
-    }
+}
 
 
 <style>

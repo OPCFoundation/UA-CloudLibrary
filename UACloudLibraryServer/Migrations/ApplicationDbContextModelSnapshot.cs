@@ -18,7 +18,7 @@ namespace Opc.Ua.Cloud.Library
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "6.0.5")
+                .HasAnnotation("ProductVersion", "6.0.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -56,6 +56,11 @@ namespace Opc.Ua.Cloud.Library
 
                 b.HasKey("NodeId", "NodeSetModelUri", "NodeSetPublicationDate");
 
+                b.HasIndex("BrowseName")
+                    .HasAnnotation("Npgsql:TsVectorConfig", "english");
+
+                NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("BrowseName"), "GIN");
+
                 b.HasIndex("NodeSetModelUri", "NodeSetPublicationDate");
 
                 b.HasIndex("NodeSetUnknownNodesModelUri", "NodeSetUnknownNodesPublicationDate");
@@ -75,12 +80,15 @@ namespace Opc.Ua.Cloud.Library
                     .HasColumnType("text");
 
                 b.Property<string>("Identifier")
+                    .IsRequired()
                     .HasColumnType("text");
 
                 b.Property<string>("Version")
                     .HasColumnType("text");
 
                 b.HasKey("ModelUri", "PublicationDate");
+
+                b.HasAlternateKey("Identifier");
 
                 b.ToTable("NodeSets", (string)null);
 
@@ -436,6 +444,30 @@ namespace Opc.Ua.Cloud.Library
                 b.ToTable("NodeModelVariableModel");
             });
 
+            modelBuilder.Entity("Opc.Ua.Cloud.Library.DbContextModels.CategoryModel", b => {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("integer");
+
+                NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                b.Property<string>("Description")
+                    .HasColumnType("text");
+
+                b.Property<string>("IconUrl")
+                    .HasColumnType("text");
+
+                b.Property<string>("Name")
+                    .HasColumnType("text");
+
+                b.HasKey("Id");
+
+                b.HasIndex("Name")
+                    .IsUnique();
+
+                b.ToTable("Categories");
+            });
+
             modelBuilder.Entity("Opc.Ua.Cloud.Library.DbContextModels.MetadataModel", b => {
                 b.Property<int>("Id")
                     .ValueGeneratedOnAdd()
@@ -461,6 +493,120 @@ namespace Opc.Ua.Cloud.Library
                 b.ToTable("metadata");
             });
 
+            modelBuilder.Entity("Opc.Ua.Cloud.Library.DbContextModels.NamespaceMetaDataModel", b => {
+                b.Property<string>("NodesetId")
+                    .HasColumnType("text");
+
+                b.Property<string>("ApprovalInformation")
+                    .HasColumnType("text");
+
+                b.Property<string>("ApprovalStatus")
+                    .HasColumnType("text");
+
+                b.Property<int>("CategoryId")
+                    .HasColumnType("integer");
+
+                b.Property<int>("ContributorId")
+                    .HasColumnType("integer");
+
+                b.Property<string>("CopyrightText")
+                    .HasColumnType("text");
+
+                b.Property<string>("Description")
+                    .HasColumnType("text");
+
+                b.Property<string>("DocumentationUrl")
+                    .HasColumnType("text");
+
+                b.Property<string>("IconUrl")
+                    .HasColumnType("text");
+
+                b.Property<string[]>("Keywords")
+                    .HasColumnType("text[]");
+
+                b.Property<string>("License")
+                    .HasColumnType("text");
+
+                b.Property<string>("LicenseUrl")
+                    .HasColumnType("text");
+
+                b.Property<long>("NumberOfDownloads")
+                    .HasColumnType("bigint");
+
+                b.Property<string>("PurchasingInformationUrl")
+                    .HasColumnType("text");
+
+                b.Property<string>("ReleaseNotesUrl")
+                    .HasColumnType("text");
+
+                b.Property<string[]>("SupportedLocales")
+                    .HasColumnType("text[]");
+
+                b.Property<string>("TestSpecificationUrl")
+                    .HasColumnType("text");
+
+                b.Property<string>("Title")
+                    .HasColumnType("text");
+
+                b.Property<string>("UserId")
+                    .HasColumnType("text");
+
+                b.HasKey("NodesetId");
+
+                b.HasIndex("CategoryId");
+
+                b.HasIndex("ContributorId");
+
+                b.HasIndex("Title", "Description")
+                    .HasAnnotation("Npgsql:TsVectorConfig", "english");
+
+                NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Title", "Description"), "GIN");
+
+                b.ToTable("NamespaceMeta");
+            });
+
+            modelBuilder.Entity("Opc.Ua.Cloud.Library.DbContextModels.OrganisationModel", b => {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("integer");
+
+                NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                b.Property<string>("ContactEmail")
+                    .HasColumnType("text");
+
+                b.Property<string>("Description")
+                    .HasColumnType("text");
+
+                b.Property<string>("LogoUrl")
+                    .HasColumnType("text");
+
+                b.Property<string>("Name")
+                    .HasColumnType("text");
+
+                b.Property<string>("Website")
+                    .HasColumnType("text");
+
+                b.HasKey("Id");
+
+                b.HasIndex("Name")
+                    .IsUnique();
+
+                b.ToTable("Organisations");
+            });
+
+            modelBuilder.Entity("Opc.Ua.Cloud.Library.DevDbFiles", b => {
+                b.Property<string>("Name")
+                    .HasColumnType("text");
+
+                b.Property<string>("Blob")
+                    .HasColumnType("text");
+
+                b.HasKey("Name");
+
+                b.ToTable("DevDbFiles");
+            });
+
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.BaseTypeModel", b => {
                 b.HasBaseType("CESMII.OpcUa.NodeSetModel.NodeModel");
 
@@ -484,7 +630,7 @@ namespace Opc.Ua.Cloud.Library
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.MethodModel", b => {
                 b.HasBaseType("CESMII.OpcUa.NodeSetModel.NodeModel");
 
-                b.Property<string>("ModelingRule")
+                b.Property<string>("ModellingRule")
                     .HasColumnType("text");
 
                 b.Property<string>("ParentModelUri")
@@ -515,7 +661,7 @@ namespace Opc.Ua.Cloud.Library
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.ObjectModel", b => {
                 b.HasBaseType("CESMII.OpcUa.NodeSetModel.NodeModel");
 
-                b.Property<string>("ModelingRule")
+                b.Property<string>("ModellingRule")
                     .HasColumnType("text");
 
                 b.Property<string>("NodeSetObjectsModelUri")
@@ -575,7 +721,7 @@ namespace Opc.Ua.Cloud.Library
                 b.Property<long?>("EURangeAccessLevel")
                     .HasColumnType("bigint");
 
-                b.Property<string>("EURangeModelingRule")
+                b.Property<string>("EURangeModellingRule")
                     .HasColumnType("text");
 
                 b.Property<string>("EURangeNodeId")
@@ -584,7 +730,7 @@ namespace Opc.Ua.Cloud.Library
                 b.Property<long?>("EngUnitAccessLevel")
                     .HasColumnType("bigint");
 
-                b.Property<string>("EngUnitModelingRule")
+                b.Property<string>("EngUnitModellingRule")
                     .HasColumnType("text");
 
                 b.Property<string>("EngUnitNodeId")
@@ -599,6 +745,15 @@ namespace Opc.Ua.Cloud.Library
                 b.Property<double?>("InstrumentMinValue")
                     .HasColumnType("double precision");
 
+                b.Property<long?>("InstrumentRangeAccessLevel")
+                    .HasColumnType("bigint");
+
+                b.Property<string>("InstrumentRangeModellingRule")
+                    .HasColumnType("text");
+
+                b.Property<string>("InstrumentRangeNodeId")
+                    .HasColumnType("text");
+
                 b.Property<double?>("MaxValue")
                     .HasColumnType("double precision");
 
@@ -608,7 +763,7 @@ namespace Opc.Ua.Cloud.Library
                 b.Property<double?>("MinimumSamplingInterval")
                     .HasColumnType("double precision");
 
-                b.Property<string>("ModelingRule")
+                b.Property<string>("ModellingRule")
                     .HasColumnType("text");
 
                 b.Property<string>("TypeDefinitionNodeId")
@@ -641,6 +796,9 @@ namespace Opc.Ua.Cloud.Library
 
             modelBuilder.Entity("Opc.Ua.Cloud.Library.CloudLibNodeSetModel", b => {
                 b.HasBaseType("CESMII.OpcUa.NodeSetModel.NodeSetModel");
+
+                b.Property<DateTime?>("LastModifiedDate")
+                    .HasColumnType("timestamp with time zone");
 
                 b.Property<TimeSpan>("ValidationElapsedTime")
                     .HasColumnType("interval");
@@ -816,7 +974,8 @@ namespace Opc.Ua.Cloud.Library
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.NodeSetModel", null)
                     .WithMany("UnknownNodes")
-                    .HasForeignKey("NodeSetUnknownNodesModelUri", "NodeSetUnknownNodesPublicationDate");
+                    .HasForeignKey("NodeSetUnknownNodesModelUri", "NodeSetUnknownNodesPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 b.OwnsMany("CESMII.OpcUa.NodeSetModel.NodeModel+LocalizedText", "Description", b1 => {
                     b1.Property<string>("NodeModelNodeId")
@@ -919,7 +1078,8 @@ namespace Opc.Ua.Cloud.Library
 
                     b1.HasOne("CESMII.OpcUa.NodeSetModel.NodeModel", "Node")
                         .WithMany()
-                        .HasForeignKey("ReferencedNodeId", "ReferencedModelUri", "ReferencedPublicationDate");
+                        .HasForeignKey("ReferencedNodeId", "ReferencedModelUri", "ReferencedPublicationDate")
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b1.Navigation("Node");
                 });
@@ -963,7 +1123,8 @@ namespace Opc.Ua.Cloud.Library
 
                     b1.HasOne("CESMII.OpcUa.NodeSetModel.NodeModel", "Node")
                         .WithMany()
-                        .HasForeignKey("ReferencingNodeId", "ReferencingModelUri", "ReferencingPublicationDate");
+                        .HasForeignKey("ReferencingNodeId", "ReferencingModelUri", "ReferencingPublicationDate")
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b1.Navigation("Node");
                 });
@@ -1016,7 +1177,8 @@ namespace Opc.Ua.Cloud.Library
 
                     b1.HasOne("CESMII.OpcUa.NodeSetModel.NodeSetModel", "AvailableModel")
                         .WithMany()
-                        .HasForeignKey("AvailableModelModelUri", "AvailableModelPublicationDate");
+                        .HasForeignKey("AvailableModelModelUri", "AvailableModelPublicationDate")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b1.WithOwner()
                         .HasForeignKey("DependentModelUri", "DependentPublicationDate");
@@ -1157,6 +1319,52 @@ namespace Opc.Ua.Cloud.Library
                     .IsRequired();
             });
 
+            modelBuilder.Entity("Opc.Ua.Cloud.Library.DbContextModels.NamespaceMetaDataModel", b => {
+                b.HasOne("Opc.Ua.Cloud.Library.DbContextModels.CategoryModel", "Category")
+                    .WithMany()
+                    .HasForeignKey("CategoryId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.HasOne("Opc.Ua.Cloud.Library.DbContextModels.OrganisationModel", "Contributor")
+                    .WithMany()
+                    .HasForeignKey("ContributorId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.OwnsMany("Opc.Ua.Cloud.Library.DbContextModels.AdditionalPropertyModel", "AdditionalProperties", b1 => {
+                    b1.Property<string>("NodeSetId")
+                        .HasColumnType("text");
+
+                    b1.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
+
+                    b1.Property<string>("Name")
+                        .HasColumnType("text");
+
+                    b1.Property<string>("Value")
+                        .HasColumnType("text");
+
+                    b1.HasKey("NodeSetId", "Id");
+
+                    b1.ToTable("AdditionalProperties");
+
+                    b1.WithOwner("NodeSet")
+                        .HasForeignKey("NodeSetId");
+
+                    b1.Navigation("NodeSet");
+                });
+
+                b.Navigation("AdditionalProperties");
+
+                b.Navigation("Category");
+
+                b.Navigation("Contributor");
+            });
+
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.BaseTypeModel", b => {
                 b.HasOne("CESMII.OpcUa.NodeSetModel.NodeModel", null)
                     .WithOne()
@@ -1166,7 +1374,8 @@ namespace Opc.Ua.Cloud.Library
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.BaseTypeModel", "SuperType")
                     .WithMany("SubTypes")
-                    .HasForeignKey("SuperTypeNodeId", "SuperTypeNodeSetModelUri", "SuperTypeNodeSetPublicationDate");
+                    .HasForeignKey("SuperTypeNodeId", "SuperTypeNodeSetModelUri", "SuperTypeNodeSetPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 b.Navigation("SuperType");
             });
@@ -1180,11 +1389,13 @@ namespace Opc.Ua.Cloud.Library
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.NodeModel", "Parent")
                     .WithMany()
-                    .HasForeignKey("ParentNodeId", "ParentModelUri", "ParentPublicationDate");
+                    .HasForeignKey("ParentNodeId", "ParentModelUri", "ParentPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.MethodModel", "TypeDefinition")
                     .WithMany()
-                    .HasForeignKey("TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate");
+                    .HasForeignKey("TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 b.Navigation("Parent");
 
@@ -1194,7 +1405,8 @@ namespace Opc.Ua.Cloud.Library
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.ObjectModel", b => {
                 b.HasOne("CESMII.OpcUa.NodeSetModel.NodeSetModel", null)
                     .WithMany("Objects")
-                    .HasForeignKey("NodeSetObjectsModelUri", "NodeSetObjectsPublicationDate");
+                    .HasForeignKey("NodeSetObjectsModelUri", "NodeSetObjectsPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.NodeModel", null)
                     .WithOne()
@@ -1204,11 +1416,13 @@ namespace Opc.Ua.Cloud.Library
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.NodeModel", "Parent")
                     .WithMany()
-                    .HasForeignKey("ParentNodeId", "ParentModelUri", "ParentPublicationDate");
+                    .HasForeignKey("ParentNodeId", "ParentModelUri", "ParentPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.ObjectTypeModel", "TypeDefinition")
                     .WithMany()
-                    .HasForeignKey("TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate");
+                    .HasForeignKey("TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 b.Navigation("Parent");
 
@@ -1218,7 +1432,8 @@ namespace Opc.Ua.Cloud.Library
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.VariableModel", b => {
                 b.HasOne("CESMII.OpcUa.NodeSetModel.BaseTypeModel", "DataType")
                     .WithMany()
-                    .HasForeignKey("DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate");
+                    .HasForeignKey("DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.NodeModel", null)
                     .WithOne()
@@ -1228,7 +1443,8 @@ namespace Opc.Ua.Cloud.Library
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.VariableTypeModel", "TypeDefinition")
                     .WithMany()
-                    .HasForeignKey("TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate");
+                    .HasForeignKey("TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 b.OwnsOne("CESMII.OpcUa.NodeSetModel.VariableModel+EngineeringUnitInfo", "EngineeringUnit", b1 => {
                     b1.Property<string>("VariableModelNodeId")
@@ -1316,10 +1532,20 @@ namespace Opc.Ua.Cloud.Library
                 b.Navigation("TypeDefinition");
             });
 
+            modelBuilder.Entity("Opc.Ua.Cloud.Library.CloudLibNodeSetModel", b => {
+                b.HasOne("Opc.Ua.Cloud.Library.DbContextModels.NamespaceMetaDataModel", "Metadata")
+                    .WithOne("NodeSet")
+                    .HasForeignKey("Opc.Ua.Cloud.Library.CloudLibNodeSetModel", "Identifier")
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                b.Navigation("Metadata");
+            });
+
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.DataTypeModel", b => {
                 b.HasOne("CESMII.OpcUa.NodeSetModel.NodeSetModel", null)
                     .WithMany("DataTypes")
-                    .HasForeignKey("NodeSetDataTypesModelUri", "NodeSetDataTypesPublicationDate");
+                    .HasForeignKey("NodeSetDataTypesModelUri", "NodeSetDataTypesPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.BaseTypeModel", null)
                     .WithOne()
@@ -1381,7 +1607,8 @@ namespace Opc.Ua.Cloud.Library
 
                     b1.HasOne("CESMII.OpcUa.NodeSetModel.BaseTypeModel", "DataType")
                         .WithMany()
-                        .HasForeignKey("DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate");
+                        .HasForeignKey("DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate")
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b1.OwnsMany("CESMII.OpcUa.NodeSetModel.NodeModel+LocalizedText", "Description", b2 => {
                         b2.Property<string>("StructureFieldDataTypeModelNodeId")
@@ -1532,7 +1759,8 @@ namespace Opc.Ua.Cloud.Library
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.DataVariableModel", b => {
                 b.HasOne("CESMII.OpcUa.NodeSetModel.NodeSetModel", null)
                     .WithMany("DataVariables")
-                    .HasForeignKey("NodeSetDataVariablesModelUri", "NodeSetDataVariablesPublicationDate");
+                    .HasForeignKey("NodeSetDataVariablesModelUri", "NodeSetDataVariablesPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.VariableModel", null)
                     .WithOne()
@@ -1542,7 +1770,8 @@ namespace Opc.Ua.Cloud.Library
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.NodeModel", "Parent")
                     .WithMany()
-                    .HasForeignKey("ParentNodeId", "ParentModelUri", "ParentPublicationDate");
+                    .HasForeignKey("ParentNodeId", "ParentModelUri", "ParentPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 b.Navigation("Parent");
             });
@@ -1550,7 +1779,8 @@ namespace Opc.Ua.Cloud.Library
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.ObjectTypeModel", b => {
                 b.HasOne("CESMII.OpcUa.NodeSetModel.NodeSetModel", null)
                     .WithMany("ObjectTypes")
-                    .HasForeignKey("NodeSetObjectTypesModelUri", "NodeSetObjectTypesPublicationDate");
+                    .HasForeignKey("NodeSetObjectTypesModelUri", "NodeSetObjectTypesPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.BaseTypeModel", null)
                     .WithOne()
@@ -1562,7 +1792,8 @@ namespace Opc.Ua.Cloud.Library
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.PropertyModel", b => {
                 b.HasOne("CESMII.OpcUa.NodeSetModel.NodeSetModel", null)
                     .WithMany("Properties")
-                    .HasForeignKey("NodeSetPropertiesModelUri", "NodeSetPropertiesPublicationDate");
+                    .HasForeignKey("NodeSetPropertiesModelUri", "NodeSetPropertiesPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.VariableModel", null)
                     .WithOne()
@@ -1572,7 +1803,8 @@ namespace Opc.Ua.Cloud.Library
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.NodeModel", "Parent")
                     .WithMany()
-                    .HasForeignKey("ParentNodeId", "ParentModelUri", "ParentPublicationDate");
+                    .HasForeignKey("ParentNodeId", "ParentModelUri", "ParentPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 b.Navigation("Parent");
             });
@@ -1580,7 +1812,8 @@ namespace Opc.Ua.Cloud.Library
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.ReferenceTypeModel", b => {
                 b.HasOne("CESMII.OpcUa.NodeSetModel.NodeSetModel", null)
                     .WithMany("ReferenceTypes")
-                    .HasForeignKey("NodeSetReferenceTypesModelUri", "NodeSetReferenceTypesPublicationDate");
+                    .HasForeignKey("NodeSetReferenceTypesModelUri", "NodeSetReferenceTypesPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.BaseTypeModel", null)
                     .WithOne()
@@ -1625,11 +1858,13 @@ namespace Opc.Ua.Cloud.Library
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.VariableTypeModel", b => {
                 b.HasOne("CESMII.OpcUa.NodeSetModel.NodeSetModel", null)
                     .WithMany("VariableTypes")
-                    .HasForeignKey("NodeSetVariableTypesModelUri", "NodeSetVariableTypesPublicationDate");
+                    .HasForeignKey("NodeSetVariableTypesModelUri", "NodeSetVariableTypesPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.BaseTypeModel", "DataType")
                     .WithMany()
-                    .HasForeignKey("DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate");
+                    .HasForeignKey("DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.BaseTypeModel", null)
                     .WithOne()
@@ -1643,7 +1878,8 @@ namespace Opc.Ua.Cloud.Library
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.InterfaceModel", b => {
                 b.HasOne("CESMII.OpcUa.NodeSetModel.NodeSetModel", null)
                     .WithMany("Interfaces")
-                    .HasForeignKey("NodeSetInterfacesModelUri", "NodeSetInterfacesPublicationDate");
+                    .HasForeignKey("NodeSetInterfacesModelUri", "NodeSetInterfacesPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 b.HasOne("CESMII.OpcUa.NodeSetModel.ObjectTypeModel", null)
                     .WithOne()
@@ -1670,6 +1906,10 @@ namespace Opc.Ua.Cloud.Library
                 b.Navigation("UnknownNodes");
 
                 b.Navigation("VariableTypes");
+            });
+
+            modelBuilder.Entity("Opc.Ua.Cloud.Library.DbContextModels.NamespaceMetaDataModel", b => {
+                b.Navigation("NodeSet");
             });
 
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.BaseTypeModel", b => {

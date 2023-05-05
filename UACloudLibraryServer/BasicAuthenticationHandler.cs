@@ -30,6 +30,7 @@
 namespace Opc.Ua.Cloud.Library
 {
     using System;
+    using System.Collections.Generic;
     using System.Linq;
     using System.Net.Http.Headers;
     using System.Security.Claims;
@@ -64,6 +65,7 @@ namespace Opc.Ua.Cloud.Library
         protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
         {
             string username = null;
+            IEnumerable<Claim> claims = null;
             try
             {
                 if (StringValues.IsNullOrEmpty(Request.Headers["Authorization"]))
@@ -85,7 +87,8 @@ namespace Opc.Ua.Cloud.Library
                 username = credentials.FirstOrDefault();
                 string password = credentials.LastOrDefault();
 
-                if (!await _userService.ValidateCredentialsAsync(username, password).ConfigureAwait(false))
+                claims = await _userService.ValidateCredentialsAsync(username, password).ConfigureAwait(false);
+                if (claims?.Any() != true)
                 {
                     throw new ArgumentException("Invalid credentials");
                 }
@@ -94,11 +97,10 @@ namespace Opc.Ua.Cloud.Library
             {
                 return AuthenticateResult.Fail($"Authentication failed: {ex.Message}");
             }
-
-            Claim[] claims = new[] {
-                new Claim(ClaimTypes.Name, username)
-            };
-
+            if (claims == null)
+            {
+                throw new ArgumentException("Invalid credentials");
+            }
             ClaimsIdentity identity = new ClaimsIdentity(claims, Scheme.Name);
             ClaimsPrincipal principal = new ClaimsPrincipal(identity);
             AuthenticationTicket ticket = new AuthenticationTicket(principal, Scheme.Name);

@@ -31,6 +31,7 @@ using System;
 using System.Threading.Tasks;
 using CESMII.OpcUa.NodeSetModel;
 using CESMII.OpcUa.NodeSetModel.EF;
+using Opc.Ua.Cloud.Library.DbContextModels;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Export;
 
@@ -38,12 +39,13 @@ namespace Opc.Ua.Cloud.Library
 {
     public class CloudLibNodeSetModel : NodeSetModel
     {
-        public UANameSpaceMetadata Metadata { get; set; }
+        public virtual NamespaceMetaDataModel Metadata { get; set; }
         public ValidationStatus ValidationStatus { get; set; }
         public string ValidationStatusInfo { get; set; }
         public TimeSpan ValidationElapsedTime { get; set; }
         public DateTime? ValidationFinishedTime { get; set; }
         public string[] ValidationErrors { get; set; }
+        public DateTime? LastModifiedDate { get; set; }
         internal static async Task<CloudLibNodeSetModel> FromModelAsync(ModelTableEntry model, AppDbContext dbContext)
         {
             var nodeSetModel = new CloudLibNodeSetModel();

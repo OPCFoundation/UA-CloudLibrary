@@ -31,6 +31,7 @@ namespace Opc.Ua.Cloud.Library
 {
     using System;
     using System.IO;
+    using System.Linq;
     using CESMII.OpcUa.NodeSetModel;
     using CESMII.OpcUa.NodeSetModel.EF;
     using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -38,29 +39,19 @@ namespace Opc.Ua.Cloud.Library
     using Microsoft.Extensions.Configuration;
     using Opc.Ua.Cloud.Library.DbContextModels;
 
-
     public class AppDbContext : IdentityDbContext
     {
-        public AppDbContext(DbContextOptions options)
-        : base(options)
-        {
-
-        }
-
-        // Needed for design-time DB migration
-        public AppDbContext()
-        {
-        }
-
         public AppDbContext(DbContextOptions options, IConfiguration configuration)
 : base(options)
         {
             _configuration = configuration;
+            _approvalRequired = configuration.GetSection("CloudLibrary")?.GetValue<bool>("ApprovalRequired") ?? false;
         }
+
         private readonly IConfiguration _configuration;
+        private readonly bool _approvalRequired;
 
 
-        // Needed for design-time DB migration
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder.UseLazyLoadingProxies();
@@ -75,8 +66,12 @@ namespace Opc.Ua.Cloud.Library
                        .Build();
                 }
                 string connectionString = CreateConnectionString(configuration);
-                optionsBuilder.UseNpgsql(connectionString,
-                    o => o.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery));
+                optionsBuilder
+                    .UseNpgsql(connectionString, o => o
+                        .UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery)
+                        .EnableRetryOnFailure()
+                        )
+                    ;
             }
         }
 
@@ -107,23 +102,74 @@ namespace Opc.Ua.Cloud.Library
 
 
         // map to our tables
-        public DbSet<MetadataModel> Metadata { get; set; }
 
-        public DbSet<CloudLibNodeSetModel> nodeSets { get; set; }
+        public IQueryable<NamespaceMetaDataModel> NamespaceMetaData
+        {
+            get => _approvalRequired
+                ? NamespaceMetaDataWithUnapproved.Where(n => n.ApprovalStatus == ApprovalStatus.Approved)
+                : NamespaceMetaDataWithUnapproved;
+        }
 
-        public DbSet<NodeModel> nodeModels { get; set; }
+        // Full metadata dbset, use only for Add
+        public DbSet<NamespaceMetaDataModel> NamespaceMetaDataWithUnapproved { get; set; }
+
+#if !NOLEGACYMIGRATION
+        public DbSet<MetadataModel> LegacyMetadata { get; set; }
+#endif
+        public DbSet<OrganisationModel> Organisations { get; set; }
+        public DbSet<CategoryModel> Categories { get; set; }
+
+
+        // nodeSet query filtered to only approved nodesets: use for all access
+        public IQueryable<CloudLibNodeSetModel> nodeSets
+        {
+            get =>
+                _approvalRequired
+                ? nodeSetsWithUnapproved.Where(n => NamespaceMetaDataWithUnapproved.Any(nmd => nmd.NodesetId == n.Identifier && nmd.ApprovalStatus == ApprovalStatus.Approved))
+                : nodeSetsWithUnapproved;
+        }
+
+        // Full dbset, use only for Add or administrator-protected queries
+        public DbSet<CloudLibNodeSetModel> nodeSetsWithUnapproved { get; set; }
+
+
+        // nodeModel query filtered to only approved nodesets: use for all access
+        public IQueryable<NodeModel> nodeModels
+        {
+            get =>
+                _approvalRequired
+                ? nodeModelsWithUnapproved.Where(n => NamespaceMetaData.Any(nmd => nmd.NodesetId == n.NodeSet.Identifier && nmd.ApprovalStatus == ApprovalStatus.Approved))
+                : nodeModelsWithUnapproved;
+        }
+
+        // Full dbset, use only for Add or administrator-protected queries
+        public DbSet<NodeModel> nodeModelsWithUnapproved { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
 
-            NodeSetModelContext.CreateModel(builder);
+            NodeSetModelContext.CreateModel(builder, true);
             builder.Entity<CloudLibNodeSetModel>()
-                .Ignore(nm => nm.Metadata)
                 .Property(nsm => nsm.ValidationStatus)
                     .HasConversion<string>();
+            builder.Entity<NodeSetModel>()
+                .HasAlternateKey(nm => nm.Identifier)
+                ;
 
+            builder.Entity<NodeModel>()
+                .Ignore(nm => nm.AllReferencedNodes);
+
+            builder.Entity<NodeModel>()
+                .HasIndex(nm => new { nm.BrowseName })
+                .HasMethod("GIN")
+                .IsTsVectorExpressionIndex("english")
+                ;
+            NamespaceMetaDataModel.OnModelCreating(builder);
+#if !NOLEGACYMIGRATION
             builder.Entity<MetadataModel>().HasKey(k => k.Id);
+#endif
+            DevDbFileStorage.OnModelCreating(builder);
         }
 
     }
