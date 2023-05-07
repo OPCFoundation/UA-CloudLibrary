@@ -30,13 +30,14 @@
       "launchBrowser": true,
       "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}",
       "environmentVariables": {
-        "PostgreSQLEndpoint": "uacloudlib.postgres.database.azure.com",
+        "PostgreSQLEndpoint": "localhost",
         "ASPNETCORE_ENVIRONMENT": "Development",
         "HostingPlatform": "Azure",
         "PostgreSQLUsername": "",
         "PostgreSQLPassword": "",
         "BlobStorageConnectionString": "",
-        "EmailSenderAPIKey": ""
+        "EmailSenderAPIKey": "",
+        "DataProtectionBlobName": ""
       },
       "publishAllPorts": true,
       "useSSL": true
