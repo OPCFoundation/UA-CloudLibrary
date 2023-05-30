@@ -18,7 +18,7 @@ namespace Opc.Ua.Cloud.Library
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "6.0.10")
+                .HasAnnotation("ProductVersion", "6.0.16")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -84,6 +84,9 @@ namespace Opc.Ua.Cloud.Library
                     .HasColumnType("text");
 
                 b.Property<string>("Version")
+                    .HasColumnType("text");
+
+                b.Property<string>("XmlSchemaUri")
                     .HasColumnType("text");
 
                 b.HasKey("ModelUri", "PublicationDate");
@@ -1058,6 +1061,15 @@ namespace Opc.Ua.Cloud.Library
                     b1.Property<string>("Reference")
                         .HasColumnType("text");
 
+                    b1.Property<string>("ReferenceTypeModelUri")
+                        .HasColumnType("text");
+
+                    b1.Property<string>("ReferenceTypeNodeId")
+                        .HasColumnType("text");
+
+                    b1.Property<DateTime?>("ReferenceTypePublicationDate")
+                        .HasColumnType("timestamp with time zone");
+
                     b1.Property<string>("ReferencedModelUri")
                         .HasColumnType("text");
 
@@ -1069,6 +1081,8 @@ namespace Opc.Ua.Cloud.Library
 
                     b1.HasKey("OwnerNodeId", "OwnerModelUri", "OwnerPublicationDate", "Id");
 
+                    b1.HasIndex("ReferenceTypeNodeId", "ReferenceTypeModelUri", "ReferenceTypePublicationDate");
+
                     b1.HasIndex("ReferencedNodeId", "ReferencedModelUri", "ReferencedPublicationDate");
 
                     b1.ToTable("Nodes_OtherReferencedNodes");
@@ -1076,12 +1090,19 @@ namespace Opc.Ua.Cloud.Library
                     b1.WithOwner()
                         .HasForeignKey("OwnerNodeId", "OwnerModelUri", "OwnerPublicationDate");
 
+                    b1.HasOne("CESMII.OpcUa.NodeSetModel.NodeModel", "ReferenceType")
+                        .WithMany()
+                        .HasForeignKey("ReferenceTypeNodeId", "ReferenceTypeModelUri", "ReferenceTypePublicationDate")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b1.HasOne("CESMII.OpcUa.NodeSetModel.NodeModel", "Node")
                         .WithMany()
                         .HasForeignKey("ReferencedNodeId", "ReferencedModelUri", "ReferencedPublicationDate")
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b1.Navigation("Node");
+
+                    b1.Navigation("ReferenceType");
                 });
 
                 b.OwnsMany("CESMII.OpcUa.NodeSetModel.NodeModel+NodeAndReference", "OtherReferencingNodes", b1 => {
@@ -1103,6 +1124,15 @@ namespace Opc.Ua.Cloud.Library
                     b1.Property<string>("Reference")
                         .HasColumnType("text");
 
+                    b1.Property<string>("ReferenceTypeModelUri")
+                        .HasColumnType("text");
+
+                    b1.Property<string>("ReferenceTypeNodeId")
+                        .HasColumnType("text");
+
+                    b1.Property<DateTime?>("ReferenceTypePublicationDate")
+                        .HasColumnType("timestamp with time zone");
+
                     b1.Property<string>("ReferencingModelUri")
                         .HasColumnType("text");
 
@@ -1114,6 +1144,8 @@ namespace Opc.Ua.Cloud.Library
 
                     b1.HasKey("OwnerNodeId", "OwnerModelUri", "OwnerPublicationDate", "Id");
 
+                    b1.HasIndex("ReferenceTypeNodeId", "ReferenceTypeModelUri", "ReferenceTypePublicationDate");
+
                     b1.HasIndex("ReferencingNodeId", "ReferencingModelUri", "ReferencingPublicationDate");
 
                     b1.ToTable("Nodes_OtherReferencingNodes");
@@ -1121,12 +1153,19 @@ namespace Opc.Ua.Cloud.Library
                     b1.WithOwner()
                         .HasForeignKey("OwnerNodeId", "OwnerModelUri", "OwnerPublicationDate");
 
+                    b1.HasOne("CESMII.OpcUa.NodeSetModel.NodeModel", "ReferenceType")
+                        .WithMany()
+                        .HasForeignKey("ReferenceTypeNodeId", "ReferenceTypeModelUri", "ReferenceTypePublicationDate")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b1.HasOne("CESMII.OpcUa.NodeSetModel.NodeModel", "Node")
                         .WithMany()
                         .HasForeignKey("ReferencingNodeId", "ReferencingModelUri", "ReferencingPublicationDate")
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b1.Navigation("Node");
+
+                    b1.Navigation("ReferenceType");
                 });
 
                 b.Navigation("Description");
@@ -1430,7 +1469,7 @@ namespace Opc.Ua.Cloud.Library
             });
 
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.VariableModel", b => {
-                b.HasOne("CESMII.OpcUa.NodeSetModel.BaseTypeModel", "DataType")
+                b.HasOne("CESMII.OpcUa.NodeSetModel.DataTypeModel", "DataType")
                     .WithMany()
                     .HasForeignKey("DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate")
                     .OnDelete(DeleteBehavior.Cascade);
@@ -1861,7 +1900,7 @@ namespace Opc.Ua.Cloud.Library
                     .HasForeignKey("NodeSetVariableTypesModelUri", "NodeSetVariableTypesPublicationDate")
                     .OnDelete(DeleteBehavior.Cascade);
 
-                b.HasOne("CESMII.OpcUa.NodeSetModel.BaseTypeModel", "DataType")
+                b.HasOne("CESMII.OpcUa.NodeSetModel.DataTypeModel", "DataType")
                     .WithMany()
                     .HasForeignKey("DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate")
                     .OnDelete(DeleteBehavior.Cascade);
