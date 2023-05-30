@@ -1,0 +1,46 @@
+{
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
+    "iisExpress": {
+      "applicationUrl": "http://localhost:65446",
+      "sslPort": 44388
+    }
+  },
+  "profiles": {
+    "IIS Express": {
+      "commandName": "IISExpress",
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "UA_CloudLibrary": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:5001;http://localhost:5000"
+    },
+    "Docker": {
+      "commandName": "Docker",
+      "launchBrowser": true,
+      "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}",
+      "environmentVariables": {
+        "PostgreSQLEndpoint": "localhost",
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "HostingPlatform": "Azure",
+        "PostgreSQLUsername": "",
+        "PostgreSQLPassword": "",
+        "BlobStorageConnectionString": "",
+        "EmailSenderAPIKey": "",
+        "DataProtectionBlobName": ""
+      },
+      "publishAllPorts": true,
+      "useSSL": true
+    }
+  }
+}
