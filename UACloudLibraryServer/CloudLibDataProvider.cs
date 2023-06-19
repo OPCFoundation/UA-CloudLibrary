@@ -524,6 +524,7 @@ namespace Opc.Ua.Cloud.Library
         {
             var identifier = nodeSetModel != null ? nodeSetModel.Identifier : uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
             entity.NodesetId = identifier;
+            entity.CreationTime = uaNamespace.CreationTime ?? DateTime.Now;
             entity.NodeSet = nodeSetModel;
             entity.Title = uaNamespace.Title;
             entity.ContributorId = contributor?.Id ?? 0;
@@ -573,6 +574,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 MapToNodeSet(uaNamespace.Nodeset, model.NodeSet);
             }
+            uaNamespace.CreationTime = model.CreationTime;
             uaNamespace.Title = model.Title;
             if (model.Contributor == null)
             {

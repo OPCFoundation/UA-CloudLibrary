@@ -282,6 +282,8 @@ namespace Opc.Ua.Cloud.Library
                     return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
                 }
 
+                uaNamespace.CreationTime = DateTime.UtcNow;
+
                 if (uaNamespace.Nodeset.PublicationDate != nodeSet.Models[0].PublicationDate)
                 {
                     _logger.LogInformation("PublicationDate in metadata does not match nodeset XML. Ignoring.");
