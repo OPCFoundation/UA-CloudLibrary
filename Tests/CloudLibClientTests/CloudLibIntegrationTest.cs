@@ -77,6 +77,7 @@ namespace CloudLibClient.Tests
             return new List<object[]>
             {
                 new object[ ]{ null, 63 },
+                new object[] { new string[] { "http://opcfoundation.org/UA/ADI/" }, 1 },
                 new object[] { new string[] { "BaseObjectType" },  6 },
                 new object[] { new string[] { "di" }, 62 },
                 new object[] { new string[] { "robotics" }, 1 },

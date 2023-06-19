@@ -315,10 +315,12 @@ namespace Opc.Ua.Cloud.Library
             UANameSpace nameSpace = new();
             try
             {
+#pragma warning disable CA1305 // Specify IFormatProvider: runs in database with single culture, can not use culture invariant
                 var namespaceModel = await _dbContext.NamespaceMetaDataWithUnapproved
                     .Where(md => md.NodesetId == nodesetId.ToString())
                     .Include(md => md.NodeSet)
                     .FirstOrDefaultAsync().ConfigureAwait(false);
+#pragma warning restore CA1305 // Specify IFormatProvider
                 if (namespaceModel == null)
                 {
                     return null;
@@ -340,18 +342,18 @@ namespace Opc.Ua.Cloud.Library
             if (keywords?.Any() == true && keywords[0] != "*")
             {
                 string keywordRegex = $".*({string.Join('|', keywords)}).*";
-                string keywordTsQueryText = string.Join(" | ",
-                    keywords
-                    .Select(k => $"'{Regex.Replace(k, "\\d", "").Trim(' ')}'")
-                    ); // PostgreSql text search doesn't like numbers: remove them for now
-                var keywordTsQuery = NpgsqlTsQuery.Parse(keywordTsQueryText);
 #pragma warning disable CA1305 // Specify IFormatProvider - ToString() runs in the database, cultureinfo not supported
                 matchingNodeSets =
                     _dbContext.nodeSets
                     .Where(nsm =>
                         _dbContext.NamespaceMetaData.Any(md =>
                             md.NodesetId == nsm.Identifier
-                            && Regex.IsMatch(md.Title + md.Description, keywordRegex, RegexOptions.IgnoreCase)
+                            && (Regex.IsMatch(md.Title, keywordRegex, RegexOptions.IgnoreCase)
+                            || Regex.IsMatch(md.Description, keywordRegex, RegexOptions.IgnoreCase)
+                            || Regex.IsMatch(md.NodeSet.ModelUri, keywordRegex, RegexOptions.IgnoreCase)
+                            || Regex.IsMatch(string.Join(",", md.Keywords), keywordRegex, RegexOptions.IgnoreCase)
+                            || Regex.IsMatch(md.Category.Name, keywordRegex, RegexOptions.IgnoreCase)
+                            || Regex.IsMatch(md.Contributor.Name, keywordRegex, RegexOptions.IgnoreCase))
                             // Fulltext appears to be slower than regex: && EF.Functions.ToTsVector("english", md.Title + " || " + md.Description/* + " " + string.Join(' ', md.Keywords) + md.Category.Name + md.Contributor.Name*/).Matches(keywordTsQuery))
                             )
 
