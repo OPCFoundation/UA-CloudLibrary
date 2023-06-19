@@ -399,7 +399,7 @@ namespace Opc.Ua.Cloud.Library.Client
                 .AddField(h => h.CopyrightText)
                 .AddField(h => h.Description)
                 .AddField(h => h.DocumentationUrl)
-                .AddField(h => h.CreationTime, skip:noCreationTime)
+                .AddField(h => h.CreationTime, skip: noCreationTime)
                 .AddField(h => h.IconUrl)
                 .AddField(h => h.LicenseUrl)
 
@@ -656,7 +656,7 @@ namespace Opc.Ua.Cloud.Library.Client
             copyrightText
             description
             documentationUrl
-            " + (noCreationTime ? "" : "creationTime") +@"
+            " + (noCreationTime ? "" : "creationTime") + @"
             iconUrl
             keywords
             license
