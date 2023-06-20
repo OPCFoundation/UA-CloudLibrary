@@ -246,7 +246,7 @@ namespace Opc.Ua.Cloud.Library
 
         public async Task<uint> IncrementDownloadCountAsync(uint nodesetId)
         {
-            var namespaceMeta = await _dbContext.NamespaceMetaData.FirstOrDefaultAsync(n => n.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+            var namespaceMeta = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
             namespaceMeta.NumberOfDownloads++;
             var newCount = namespaceMeta.NumberOfDownloads;
             await _dbContext.SaveChangesAsync();
