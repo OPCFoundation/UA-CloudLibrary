@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Opc.Ua.CloudLib.Client\Opc.Ua.Cloud.Library.Client.csproj" />
-	  <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Core" Version="1.4.370.12" />
+	  <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Core" Version="1.4.371.60" />
 	  <PackageReference Include="System.CommandLine" Version="2.0.0-beta3.22114.1" />
 	  <PackageReference Include="System.CommandLine.NamingConventionBinder" Version="2.0.0-beta3.22114.1" />
   </ItemGroup>
