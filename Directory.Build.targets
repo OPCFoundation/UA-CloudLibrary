@@ -13,7 +13,7 @@
   </PropertyGroup>
 
   <Choose>
-    <When Condition="'$(SolutionPath)' != '' AND '$(SolutionPath)' != '*undefined*' AND Exists('$(SolutionPath)')" >
+    <When Condition="'$(SolutionPath)' != '' AND '$(SolutionPath)' != '*undefined*' AND Exists('$(SolutionPath)') " >
       <PropertyGroup>
         <!-- <SolutionFileContent>$([System.IO.File]::ReadAllText($(SolutionPath)))</SolutionFileContent> --> <!-- Markush: 2020/02/10: This exhausts memory for large SLN files: read multiple times - less efficient but preserves memory-->
         <SmartSolutionDir>$([System.IO.Path]::GetDirectoryName( $(SolutionPath) ))</SmartSolutionDir>
@@ -29,21 +29,46 @@
   </Choose>
   <Choose>
     <When Condition="$(ReplacePackageReferences) AND $(HasSolution)">
-      <ItemGroup>
+	 <ItemGroup>
         <!-- Keep the identity of the  packagereference -->
         <SmartPackageReference Include="@(PackageReference)">
+          <PackageName>%(Identity)</PackageName> 
+          <Pattern>$(RegexPattern.Replace('[PackageName]','%(Identity)') )</Pattern>
+  		  <SmartPath></SmartPath>
+		   <!--The RegEx gets the path to the project from the SLN file, using the package name as a look behind key
+		      To use projects that are not named as the package (ie. Opc.Ua.Core.csproj) edit the SLN file to use the Package name after adding the project reference. 
+			  Example:
+			  Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Opc.Ua.Core", "..\..\UA-.NETStandard\Stack\Opc.Ua.Core\Opc.Ua.Core.csproj", "{7226CBF4-6AC8-44C4-A24B-D65C8EA52B97}"
+			  change to:
+			  Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OPCFoundation.NetStandard.Opc.Ua.Core", "..\..\UA-.NETStandard\Stack\Opc.Ua.Core\Opc.Ua.Core.csproj", "{7226CBF4-6AC8-44C4-A24B-D65C8EA52B97}"-->
+		  
+		  <SmartPath Condition = " '$(PackageReferenceFilter)' == '' OR '$(PackageReferenceFilter.Contains(%(Identity)))' == 'True' ">$([System.Text.RegularExpressions.Regex]::Match( '$([System.IO.File]::ReadAllText($(SolutionPath)))', '%(Pattern)' ))</SmartPath>
+ 		  <InSolution>false</InSolution>
+          <InSolution Condition = " %(SmartPath) != '' ">True</InSolution>
+
+        </SmartPackageReference>
+ 
+         <!--Filter them by mapping them to another itemGroup using the WithMetadataValue item function--> 
+        <PackageInSolution Include="@(SmartPackageReference -> WithMetadataValue('InSolution', True) )">
+			<!--<Pattern>$(RegexPattern.Replace('[PackageName]','%(PackageName)') )</Pattern>
+			<SmartPath>$([System.Text.RegularExpressions.Regex]::Match( '$([System.IO.File]::ReadAllText($(SolutionPath)))', '%(Pattern)' ))</SmartPath>-->
+		</PackageInSolution>
+
+
+		  <!--Original approach-->
+        <!--<SmartPackageReference Include="@(PackageReference)">
           <PackageName>%(Identity)</PackageName> 
           <InSolution>false</InSolution>
           <InSolution Condition = " '$(PackageReferenceFilter)' == '' OR '$(PackageReferenceFilter.Contains(%(Identity)))' == 'True' ">$([System.IO.File]::ReadAllText($(SolutionPath)).Contains('\%(Identity).csproj'))</InSolution>
         </SmartPackageReference>
 
-        <!-- Filter them by mapping them to another itemGroup using the WithMetadataValue item function -->
         <PackageInSolution Include="@(SmartPackageReference -> WithMetadataValue('InSolution', True) )">
           <Pattern>$(RegexPattern.Replace('[PackageName]','%(PackageName)') )</Pattern>
           <SmartPath>$([System.Text.RegularExpressions.Regex]::Match( '$([System.IO.File]::ReadAllText($(SolutionPath)))', '%(Pattern)' ))</SmartPath>
-        </PackageInSolution>
+        </PackageInSolution>-->
 
-        <ProjectReference  Include="@(PackageInSolution -> '$(SmartSolutionDir)\%(SmartPath)' )"/>
+
+		 <ProjectReference  Include="@(PackageInSolution -> '$(SmartSolutionDir)\%(SmartPath)' )"/>
 
         <!-- Remove the package references that are now referenced as projects -->
         <PackageReference Remove="@(PackageInSolution -> '%(PackageName)' )"/>

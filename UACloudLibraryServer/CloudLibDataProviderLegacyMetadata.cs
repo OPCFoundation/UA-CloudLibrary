@@ -120,6 +120,11 @@ namespace Opc.Ua.Cloud.Library
                 nameSpace.Nodeset.LastModifiedDate = parsedDateTime;
             }
 
+            if (DateTime.TryParse(allMetaData.GetValueOrDefault("creationtime"), out parsedDateTime))
+            {
+                nameSpace.CreationTime = parsedDateTime;
+            }
+
             nameSpace.Title = allMetaData.GetValueOrDefault("nodesettitle", string.Empty);
 
             nameSpace.Nodeset.Version = allMetaData.GetValueOrDefault("version", string.Empty);
@@ -269,7 +274,7 @@ namespace Opc.Ua.Cloud.Library
         }
 
         static readonly string[] _knownProperties = new string[] {
-            "addressspacedescription", "addressspaceiconurl", "addressspacename", "copyright", "description", "documentationurl", "iconurl",
+            "addressspacedescription", "addressspaceiconurl", "addressspacename", "copyright", "creationtime", "description", "documentationurl", "iconurl",
             "keywords", "license", "licenseurl", "locales", "nodesetcreationtime", "nodesetmodifiedtime", "nodesettitle", "numdownloads",
             "orgcontact", "orgdescription", "orglogo", "orgname", "orgwebsite", "purchasinginfo", "releasenotes", "testspecification", "validationstatus", "version",
             };

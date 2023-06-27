@@ -26,6 +26,13 @@
                 }
                 else
                 {
+
+                    <div class="input-group mb-3">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text" id="inputGroup-sizing-default">Search</span>
+                        </div>
+                        <input type="text" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default" value="@string.Join(",", SearchKeywords)" @onchange="@OnSearchTextChanged">
+                    </div>
                     @for (int row = 0; row < Math.Ceiling(Result.Count / (double)COL_SIZE); ++row)
                     {
                         <div class="row">
@@ -77,11 +84,64 @@
         <div class="uacl-pagination pt-2">
             <nav aria-label="Page navigation example">
                 <ul class="pagination justify-content-center">
-                    <li class="page-item"><a class="page-link" @onclick="() => changePage(-1)">Previous</a></li>
-                    <li class="page-item"><a class="page-link">@CurrentPage/@(AllPages)</a></li>
-                    <li class="page-item"><a class="page-link" @onclick="() => changePage(+1)">Next</a></li>
+                    @if (FirstItemOnPage > 0)
+                    {
+                        <li class="page-item"><a class="page-link" @onclick="() => changePage(-1)">Previous</a></li>
+                        @if (CurrentPage != 1)
+                        {
+                            <li class="page-item"><a class="page-link" @onclick="() => changePageAbsolute(1)">1</a></li>
+                        }
+                        @if (CurrentPage - 4 == 3)
+                        {
+                            <li class="page-item"><a class="page-link" @onclick="() => changePageAbsolute(CurrentPage - 4)">2</a></li>
+                        }
+                        @if (CurrentPage - 4 > 3)
+                        {
+                            <li class="page-item"><a class="page-link" @onclick="() => changePageAbsolute(CurrentPage - 4)">...</a></li>
+                        }
+                        @for (int i = Math.Max(2, CurrentPage - 4); i < CurrentPage; i++)
+                        {
+                            int j = i;
+                            <li class="page-item"><a class="page-link" @onclick="() => changePageAbsolute(j)">@i</a></li>
+                        }
+
+                        <li class="page-item active"><a class="page-link">@CurrentPage of @AllPages</a></li>
+
+                        @for (int i = CurrentPage + 1; i <= Math.Min(AllPages - 1, CurrentPage + 4); i++)
+                        {
+                            int j = i;
+                            <li class="page-item"><a class="page-link" @onclick="() => changePageAbsolute(j)">@i</a></li>
+                        }
+                        @if (CurrentPage + 4 == AllPages - 2)
+                        {
+                            <li class="page-item"><a class="page-link" @onclick="() => changePageAbsolute(CurrentPage + 4)">@(CurrentPage + 5)</a></li>
+                        }
+                        @if (CurrentPage + 4 < AllPages - 2)
+                        {
+                            <li class="page-item"><a class="page-link" @onclick="() => changePageAbsolute(CurrentPage + 4)">...</a></li>
+                        }
+
+                        @if (CurrentPage != AllPages)
+                        {
+                            <li class="page-item"><a class="page-link" @onclick="() => changePageAbsolute(AllPages)">@AllPages</a></li>
+                        }
+                        <li class="page-item"><a class="page-link" @onclick="() => changePage(+1)">Next</a></li>
+                    }
+                    else
+                    {
+                        <li class="page-item">No nodesets matching search keywords @string.Join(" ", SearchKeywords?.Select(k => $"'{k}'")).</li>
+                    }
+                </ul>
+                <ul class="pagination justify-content-center">
+                    <li class="page-item">Nodeset count: @TotalCount</li>
                 </ul>
             </nav>
+            <div class="input-group mb-3">
+                <div class="input-group-prepend">
+                    <span class="input-group-text" id="inputGroup-sizing-default">Items per page</span>
+                </div>
+                <input type="text" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default" value="@PAGE_SIZE" @onchange="@OnPageSizeChanged">
+            </div>
         </div>
     </div>
 </div>
@@ -98,6 +158,9 @@
             <div class="modal-body">
                 <p>@ModalDescription</p>
             </div>
+            <div class="modal-body">
+                <a href="@ModalDocumentationUrl" target="_blank" rel="noopener noreferrer">@ModalDocumentationUrl</a>
+            </div>
             <div class="modal-footer">
                 <button class="btn btn-primary" style="margin-right: 1rem;" @onclick="() => DownloadFileFromURL(CurrentItem)">Download</button>
                 <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => Close()">Close</button>
@@ -105,9 +168,6 @@
         </div>
     </div>
 </div>
-
-
-
 
 @if (ShowBackDrop)
 {
@@ -119,6 +179,28 @@
 @inject IDatabase dp
 @code
 {
+    private void OnSearchTextChanged(Microsoft.AspNetCore.Components.ChangeEventArgs patharg)
+    {
+        var searchText = patharg.Value?.ToString();
+        var keywords = searchText?.Split(",").Select(k => k.Trim()).ToArray();
+        keywords = keywords != null && keywords.Length > 0 && !string.IsNullOrEmpty(keywords[0]) ? keywords : new[] { "*" };
+
+        if (!SearchKeywords.SequenceEqual(keywords))
+        {
+            SearchKeywords = keywords;
+            CurrentPage = 1;
+            fetchData();
+        }
+    }
+    private void OnPageSizeChanged(Microsoft.AspNetCore.Components.ChangeEventArgs patharg)
+    {
+        if (int.TryParse(patharg.Value?.ToString(), out var pageSize) && pageSize > 1 && pageSize <= 100)
+        {
+            PAGE_SIZE = pageSize;
+            CurrentPage = 1;
+            fetchData();
+        }
+    }
     private string ModalClass = "";
     private string ModalDisplay = "none";
     private bool ShowBackDrop = false;
@@ -127,16 +209,21 @@
 
     private string ModalTitle = "";
     private string ModalDescription = "";
+    private string ModalDocumentationUrl = "";
 
 
-    const int PAGE_SIZE = 6;
+    int PAGE_SIZE = 6;
     const int COL_SIZE = 3;
     public bool Loading { get; set; } = true;
     private List<NamespaceMetaDataModel> Result = new();
     private int CurrentPage = 1;
+    private int FirstItemOnPage = 0;
+    private int LastItemOnPage = 0;
     private string FilterString = "";
     private int TotalCount = 0;
     private int AllPages = 0;
+
+    private string[] SearchKeywords { get; set; } = new[] { "*" };
 
 
     protected override void OnInitialized()
@@ -159,6 +246,7 @@
         ShowBackDrop = true;
         ModalTitle = item.Title;
         ModalDescription = item.Description;
+        ModalDocumentationUrl = item.DocumentationUrl;
         CurrentItem = item;
         StateHasChanged();
     }
@@ -171,14 +259,19 @@
         StateHasChanged();
     }
 
-    private void changePage(int increment)
+    private void changePageAbsolute(int requestedPage)
     {
-        var newPage = (this.TotalCount > 0) ? Math.Clamp(this.CurrentPage + increment, 1, (int)Math.Ceiling((decimal)this.TotalCount / PAGE_SIZE)) : 0;
+        var newPage = (this.TotalCount > 0) ? Math.Clamp(requestedPage, 1, (int)Math.Ceiling((decimal)this.TotalCount / PAGE_SIZE)) : 0;
         if (!CurrentPage.Equals(newPage))
         {
             CurrentPage = newPage;
             fetchData();
         }
+
+    }
+    private void changePage(int increment)
+    {
+        changePageAbsolute(this.CurrentPage + increment);
     }
 
     private async void fetchData()
@@ -187,13 +280,25 @@
         var query = HttpUtility.ParseQueryString(string.Empty);
         query["page"] = this.CurrentPage.ToString();
         query["filterString"] = this.FilterString;
-
-        TotalCount = dp.GetNamespaceTotalCount();
-        Result = await dp.GetNamespaces()
-            .OrderBy(md => md.Category.Name)
+        var dbQuery = dp.GetNodeSets(keywords: SearchKeywords)
+            .Select(n => n.Metadata)
+            .OrderBy(md => md.Category.Name);
+        TotalCount = dbQuery.Count();
+        int skip = (CurrentPage - 1) * PAGE_SIZE;
+        Result = await dbQuery
             .Skip((CurrentPage - 1) * PAGE_SIZE).Take(PAGE_SIZE)
             .ToListAsync().ConfigureAwait(true);
         AllPages = (int)Math.Ceiling((decimal)this.TotalCount / PAGE_SIZE);
+        if (Result.Count > 0)
+        {
+            FirstItemOnPage = skip + 1;
+            LastItemOnPage = FirstItemOnPage + Result.Count - 1;
+        }
+        else
+        {
+            FirstItemOnPage = 0;
+            LastItemOnPage = 0;
+        }
         Loading = false;
 
         StateHasChanged();

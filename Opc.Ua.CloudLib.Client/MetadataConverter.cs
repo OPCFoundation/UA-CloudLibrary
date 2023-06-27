@@ -87,6 +87,7 @@ namespace Opc.Ua.Cloud.Library.Client
                 Description = info.Description,
                 Category = info.Category,
                 DocumentationUrl = info.DocumentationUrl,
+                CreationTime = info.CreationTime,
                 IconUrl = info.IconUrl,
                 LicenseUrl = info.LicenseUrl,
                 Keywords = info.Keywords,

@@ -142,6 +142,13 @@ namespace Opc.Ua.Cloud.Library.Client
         [JsonProperty("numberOfDownloads")]
         public uint NumberOfDownloads { get; set; }
 
+        /// <summary>
+        /// The time the nodeset was uploaded to the cloud library
+        /// </summary>
+        [JsonProperty("creationTime")]
+        public DateTime? CreationTime { get; set; }
+
+
         /// <summary>Gets or sets the validation status.</summary>
         /// <value>Status: Parsed, Validaded, Error + message</value>
         [JsonProperty("validationStatus")]

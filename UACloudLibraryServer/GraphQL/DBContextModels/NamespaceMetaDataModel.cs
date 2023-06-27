@@ -43,6 +43,7 @@ namespace Opc.Ua.Cloud.Library.DbContextModels
     public partial class NamespaceMetaDataModel
     {
         public string NodesetId { get; set; }
+        public DateTime CreationTime { get; set; }
         public virtual CloudLibNodeSetModel NodeSet { get; set; }
         public string Title { get; set; }
         public int ContributorId { get; set; }

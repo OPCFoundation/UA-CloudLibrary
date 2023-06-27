@@ -377,7 +377,7 @@ namespace Opc.Ua.Cloud.Library.Client
         /// Queries the address spaces with the given filters and converts the result
         /// </summary>
         [Obsolete("Use GetNodeSetsAsync instead")]
-        public async Task<List<UANameSpace>> GetNameSpacesAsync(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null)
+        public async Task<List<UANameSpace>> GetNameSpacesAsync(int limit = 10, int offset = 0, IEnumerable<WhereExpression> filter = null, bool noCreationTime = true)
         {
             IQuery<UANameSpace> namespaceQuery = new Query<UANameSpace>("namespace", new QueryOptions { Formatter = CamelCasePropertyNameFormatter.Format })
                 .AddField(h => h.Title)
@@ -399,6 +399,7 @@ namespace Opc.Ua.Cloud.Library.Client
                 .AddField(h => h.CopyrightText)
                 .AddField(h => h.Description)
                 .AddField(h => h.DocumentationUrl)
+                .AddField(h => h.CreationTime, skip: noCreationTime)
                 .AddField(h => h.IconUrl)
                 .AddField(h => h.LicenseUrl)
 
@@ -468,14 +469,15 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <param name="keywords"></param>
         /// <param name="after">Pagination: cursor of the last node in the previous page, use for forward paging</param>
         /// <param name="first">Pagination: maximum number of nodes to return, use with after for forward paging.</param>
+        /// <param name="last">Pagination: minimum number of nodes to return, use with before for backward paging.</param>
         /// <param name="before">Pagination: cursor of the first node in the next page. Use for backward paging</param>
         /// <param name="noMetadata">Don't request Nodeset.Metadata (performance)</param>
         /// <param name="noTotalCount">Don't request TotalCount (performance)</param>
         /// <param name="noRequiredModels">Don't request Nodeset.RequiredModels (performance)</param>
-        /// <param name="last">Pagination: minimum number of nodes to return, use with before for backward paging.</param>
+        /// <param name="noCreationTime"></param>
         /// <returns>The metadata for the requested nodesets, as well as the metadata for all required notesets.</returns>
         public async Task<GraphQlResult<Nodeset>> GetNodeSetsAsync(string identifier = null, string modelUri = null, DateTime? publicationDate = null, string[] keywords = null,
-            string after = null, int? first = null, int? last = null, string before = null, bool noMetadata = false, bool noTotalCount = false, bool noRequiredModels = false)
+            string after = null, int? first = null, int? last = null, string before = null, bool noMetadata = false, bool noTotalCount = false, bool noRequiredModels = false, bool noCreationTime = true)
         {
             var request = new GraphQLRequest();
             IQuery<GraphQlResult<GraphQLNodeSet>> query = new Query<GraphQlResult<GraphQLNodeSet>>("nodeSets", new QueryOptions { Formatter = CamelCasePropertyNameFormatter.Format })
@@ -493,7 +495,7 @@ namespace Opc.Ua.Cloud.Library.Client
                         .AddField(n => n.Version)
                         .AddField(n => n.Identifier)
                         .AddField(n => n.ValidationStatus)
-                        .AddFields(AddMetadataFields, noMetadata)
+                        .AddFields(q => AddMetadataFields(q, noCreationTime), noMetadata)
                         .AddFields(AddRequiredModelFields, noRequiredModels)
                         )
                     )
@@ -536,7 +538,7 @@ namespace Opc.Ua.Cloud.Library.Client
             }
         }
 
-        IQuery<GraphQLNodeSet> AddMetadataFields(IQuery<GraphQLNodeSet> query)
+        IQuery<GraphQLNodeSet> AddMetadataFields(IQuery<GraphQLNodeSet> query, bool noCreationTime)
         {
             return query.AddField(n => n.Metadata, mdq => mdq
                 .AddField(n => n.Contributor, cq => cq
@@ -558,6 +560,7 @@ namespace Opc.Ua.Cloud.Library.Client
                 .AddField(n => n.CopyrightText)
                 .AddField(n => n.Description)
                 .AddField(n => n.DocumentationUrl)
+                .AddField(h => h.CreationTime, skip: noCreationTime)
                 .AddField(n => n.IconUrl)
                 .AddField(n => n.Keywords)
                 .AddField(n => n.License)
@@ -624,10 +627,11 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <param name="noMetadata"></param>
         /// <param name="noTotalCount"></param>
         /// <param name="noRequiredModels"></param>
+        /// <param name="noCreationTime"></param>
         /// <returns></returns>
         /// <exception cref="GraphQlNotSupportedException"></exception>
         public async Task<GraphQlResult<Nodeset>> GetNodeSetsPendingApprovalAsync(string namespaceUri = null, DateTime? publicationDate = null, UAProperty additionalProperty = null,
-    string after = null, int? first = null, int? last = null, string before = null, bool noMetadata = false, bool noTotalCount = false, bool noRequiredModels = false)
+    string after = null, int? first = null, int? last = null, string before = null, bool noMetadata = false, bool noTotalCount = false, bool noRequiredModels = false, bool noCreationTime = true)
         {
             var request = new GraphQLRequest();
             var totalCountFragment = noTotalCount ? "" : "totalCount ";
@@ -652,6 +656,7 @@ namespace Opc.Ua.Cloud.Library.Client
             copyrightText
             description
             documentationUrl
+            " + (noCreationTime ? "" : "creationTime") + @"
             iconUrl
             keywords
             license

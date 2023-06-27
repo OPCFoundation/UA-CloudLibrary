@@ -194,6 +194,7 @@ namespace CloudLibClient.Tests
             Assert.Equal(uploadedNamespace.CopyrightText, downloadedNamespace.CopyrightText);
             Assert.Equal(uploadedNamespace.Description, downloadedNamespace.Description);
             Assert.Equal(uploadedNamespace.DocumentationUrl, downloadedNamespace.DocumentationUrl);
+            Assert.True(downloadedNamespace.CreationTime != null && DateTime.Now - downloadedNamespace.CreationTime < new TimeSpan(1, 0, 0));
             Assert.Equal(uploadedNamespace.IconUrl, downloadedNamespace.IconUrl);
             Assert.Equal(uploadedNamespace.PurchasingInformationUrl, downloadedNamespace.PurchasingInformationUrl);
             Assert.Equal(uploadedNamespace.ReleaseNotesUrl, downloadedNamespace.ReleaseNotesUrl);
@@ -243,13 +244,14 @@ namespace CloudLibClient.Tests
         }
 
         [Theory]
-        [InlineData(true, true, true)]
-        [InlineData(false, false, false)]
-        [InlineData(true, false, false)]
-        [InlineData(false, true, false)]
-        [InlineData(false, false, true)]
+        [InlineData(true, true, true, true)]
+        [InlineData(false, true, true, false)]
+        [InlineData(false, false, false, false)]
+        [InlineData(true, false, false, false)]
+        [InlineData(false, true, false, false)]
+        [InlineData(false, false, true, false)]
 
-        public async Task GetNodeSetsAsync(bool noMetadata, bool noRequiredModels, bool noTotalCount)
+        public async Task GetNodeSetsAsync(bool noMetadata, bool noRequiredModels, bool noTotalCount, bool noCreationTime)
         {
             var client = _factory.CreateCloudLibClient();
             string cursor = null;
@@ -259,7 +261,7 @@ namespace CloudLibClient.Tests
             int? totalCount = null;
             do
             {
-                var result = await client.GetNodeSetsAsync(after: cursor, first: limit, noRequiredModels: noRequiredModels, noMetadata: noMetadata, noTotalCount: noTotalCount);
+                var result = await client.GetNodeSetsAsync(after: cursor, first: limit, noRequiredModels: noRequiredModels, noMetadata: noMetadata, noTotalCount: noTotalCount, noCreationTime: noCreationTime);
                 Assert.True(cursor == null || result.Edges?.Count > 0, "Failed to get node set information.");
 
                 testNodeSet = result.Edges.FirstOrDefault(n => n.Node.NamespaceUri.OriginalString == strTestNamespaceUri)?.Node;
@@ -300,6 +302,14 @@ namespace CloudLibClient.Tests
                 Assert.Equal(uploadedNamespace.CopyrightText, testNodeSet.Metadata.CopyrightText);
                 Assert.Equal(uploadedNamespace.Description, testNodeSet.Metadata.Description);
                 Assert.Equal(uploadedNamespace.DocumentationUrl, testNodeSet.Metadata.DocumentationUrl);
+                if (noCreationTime)
+                {
+                    Assert.Null(testNodeSet.Metadata.CreationTime);
+                }
+                else
+                {
+                    Assert.True(testNodeSet.Metadata.CreationTime != null && DateTime.Now - testNodeSet.Metadata.CreationTime < new TimeSpan(1, 0, 0));
+                }
                 Assert.Equal(uploadedNamespace.IconUrl, testNodeSet.Metadata.IconUrl);
                 Assert.Equal(uploadedNamespace.PurchasingInformationUrl, testNodeSet.Metadata.PurchasingInformationUrl);
                 Assert.Equal(uploadedNamespace.ReleaseNotesUrl, testNodeSet.Metadata.ReleaseNotesUrl);
@@ -379,6 +389,7 @@ namespace CloudLibClient.Tests
             Assert.Equal(uploadedNamespace.CopyrightText, convertedMetaData.CopyrightText);
             Assert.Equal(uploadedNamespace.Description, convertedMetaData.Description);
             Assert.Equal(uploadedNamespace.DocumentationUrl, convertedMetaData.DocumentationUrl);
+            Assert.Null(uploadedNamespace.CreationTime);
             Assert.Equal(uploadedNamespace.IconUrl, convertedMetaData.IconUrl);
             Assert.Equal(uploadedNamespace.PurchasingInformationUrl, convertedMetaData.PurchasingInformationUrl);
             Assert.Equal(uploadedNamespace.ReleaseNotesUrl, convertedMetaData.ReleaseNotesUrl);
