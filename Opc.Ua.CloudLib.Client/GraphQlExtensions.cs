@@ -30,6 +30,7 @@
 namespace Opc.Ua.Cloud.Library.Client
 {
     using System;
+    using System.Linq.Expressions;
     using GraphQL.Query.Builder;
 
     static class GraphQlExtensions
@@ -41,6 +42,14 @@ namespace Opc.Ua.Cloud.Library.Client
                 return This;
             }
             return addFields(This);
+        }
+        public static IQuery<TSource> AddField<TSource, TProperty>(this IQuery<TSource> This, Expression<Func<TSource, TProperty>> selector, bool skip = false)
+        {
+            if (skip)
+            {
+                return This;
+            }
+            return This.AddField(selector);
         }
     }
 }

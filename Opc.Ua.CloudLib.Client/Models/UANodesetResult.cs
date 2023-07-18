@@ -142,6 +142,12 @@ namespace Opc.Ua.Cloud.Library.Client
         public uint NumberOfDownloads { get; set; }
 
         /// <summary>
+        /// The time the nodeset was uploaded to the cloud library
+        /// </summary>
+        [JsonProperty(PropertyName = "creationTime")]
+        public System.DateTime? CreationTime { get; set; }
+
+        /// <summary>
         /// Additional properties
         /// </summary>
         public UAProperty[] AdditionalProperties { get; set; }
