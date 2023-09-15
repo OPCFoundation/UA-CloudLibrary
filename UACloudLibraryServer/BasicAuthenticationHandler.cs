@@ -79,6 +79,7 @@ namespace Opc.Ua.Cloud.Library
 
                         return AuthenticateResult.Success(ticket2);
                     }
+
                     throw new ArgumentException("Authentication header missing in request!");
                 }
 
@@ -97,10 +98,12 @@ namespace Opc.Ua.Cloud.Library
             {
                 return AuthenticateResult.Fail($"Authentication failed: {ex.Message}");
             }
+
             if (claims == null)
             {
                 throw new ArgumentException("Invalid credentials");
             }
+
             ClaimsIdentity identity = new ClaimsIdentity(claims, Scheme.Name);
             ClaimsPrincipal principal = new ClaimsPrincipal(identity);
             AuthenticationTicket ticket = new AuthenticationTicket(principal, Scheme.Name);

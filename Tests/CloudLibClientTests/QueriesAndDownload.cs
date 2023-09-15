@@ -261,7 +261,7 @@ namespace CloudLibClient.Tests
             int? totalCount = null;
             do
             {
-                var result = await client.GetNodeSetsAsync(after: cursor, first: limit, noRequiredModels: noRequiredModels, noMetadata: noMetadata, noTotalCount: noTotalCount, noCreationTime: noCreationTime);
+                var result = await client.GetNodeSetsAsync(after: cursor, first: limit, noRequiredModels: noRequiredModels, noMetadata: noMetadata, noTotalCount: noTotalCount, noCreationTime: noCreationTime).ConfigureAwait(false);
                 Assert.True(cursor == null || result.Edges?.Count > 0, "Failed to get node set information.");
 
                 testNodeSet = result.Edges.FirstOrDefault(n => n.Node.NamespaceUri.OriginalString == strTestNamespaceUri)?.Node;
@@ -415,7 +415,7 @@ namespace CloudLibClient.Tests
             {
                 output.WriteLine($"Uploaded {addressSpace?.Nodeset.NamespaceUri}, {addressSpace?.Nodeset.Identifier}");
                 var uploadedIdentifier = response.Message;
-                var approvalResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "APPROVED", null, null);
+                var approvalResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "APPROVED", null, null).ConfigureAwait(false);
                 Assert.NotNull(approvalResult);
                 Assert.Equal("APPROVED", approvalResult.ApprovalStatus);
             }
@@ -452,14 +452,14 @@ namespace CloudLibClient.Tests
                     await Task.Delay(5000);
                 }
             } while (notIndexed);
-            await UploadAndIndex.WaitForIndexAsync(_factory.CreateAuthorizedClient(), expectedNodeSetCount);
+            await UploadAndIndex.WaitForIndexAsync(_factory.CreateAuthorizedClient(), expectedNodeSetCount).ConfigureAwait(false);
 
             // Upload with override
             response = await client.UploadNodeSetAsync(addressSpace, true).ConfigureAwait(false);
             Assert.Equal(HttpStatusCode.OK, response.Status);
             {
                 var uploadedIdentifier = response.Message;
-                var approvalResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "APPROVED", null, null);
+                var approvalResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "APPROVED", null, null).ConfigureAwait(false);
                 Assert.NotNull(approvalResult);
                 Assert.Equal("APPROVED", approvalResult.ApprovalStatus);
             }
@@ -473,7 +473,8 @@ namespace CloudLibClient.Tests
                     await Task.Delay(5000);
                 }
             } while (notIndexed);
-            await UploadAndIndex.WaitForIndexAsync(_factory.CreateAuthorizedClient(), expectedNodeSetCount);
+
+            await UploadAndIndex.WaitForIndexAsync(_factory.CreateAuthorizedClient(), expectedNodeSetCount).ConfigureAwait(false);
         }
     }
 }

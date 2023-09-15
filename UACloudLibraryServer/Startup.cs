@@ -30,16 +30,23 @@
 namespace Opc.Ua.Cloud.Library
 {
     using System;
+    using System.Collections.Generic;
+    using System.Globalization;
     using System.IO;
+    using System.Net.Http;
+    using System.Security.Claims;
+    using System.Text.Json;
     using Amazon.S3;
     using GraphQL.Server.Ui.Playground;
     using HotChocolate.AspNetCore;
     using HotChocolate.Data;
     using Microsoft.AspNetCore.Authentication;
+    using Microsoft.AspNetCore.Authentication.OAuth;
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.DataProtection;
     using Microsoft.AspNetCore.Hosting;
+    using Microsoft.AspNetCore.Http;
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Identity.UI.Services;
     using Microsoft.AspNetCore.Server.Kestrel.Core;
@@ -96,7 +103,47 @@ namespace Opc.Ua.Cloud.Library
             services.AddLogging(builder => builder.AddConsole());
 
             services.AddAuthentication()
-                .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null);
+                .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null)
+                .AddOAuth("OAuth", "OPC Foundation", options =>
+                {
+                    options.AuthorizationEndpoint = "https://opcfoundation.org/oauth/authorize/";
+                    options.TokenEndpoint = "https://opcfoundation.org/oauth/token/";
+                    options.UserInformationEndpoint = "https://opcfoundation.org/oauth/me";
+
+                    options.AccessDeniedPath = new PathString("/Account/AccessDenied");
+                    options.CallbackPath = new PathString("/Account/ExternalLogin");
+
+                    options.ClientId = Configuration["OAuth2ClientId"];
+                    options.ClientSecret = Configuration["OAuth2ClientSecret"];
+
+                    options.SaveTokens = true;
+
+                    options.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "ID");
+                    options.ClaimActions.MapJsonKey(ClaimTypes.Name, "display_name");
+                    options.ClaimActions.MapJsonKey(ClaimTypes.Email, "user_email");
+
+                    options.Events = new OAuthEvents {
+                        OnCreatingTicket = async context =>
+                        {
+                            List<AuthenticationToken> tokens = (List<AuthenticationToken>)context.Properties.GetTokens();
+
+                            tokens.Add(new AuthenticationToken() {
+                                Name = "TicketCreated",
+                                Value = DateTime.UtcNow.ToString(DateTimeFormatInfo.InvariantInfo)
+                            });
+
+                            context.Properties.StoreTokens(tokens);
+
+                            HttpResponseMessage response = await context.Backchannel.GetAsync($"{context.Options.UserInformationEndpoint}?access_token={context.AccessToken}").ConfigureAwait(false);
+                            response.EnsureSuccessStatusCode();
+
+                            string json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                            JsonElement user = JsonDocument.Parse(json).RootElement;
+
+                            context.RunClaimActions(user);
+                        }
+                    };
+                });
 
             services.AddAuthorization(options => {
                 options.AddPolicy("ApprovalPolicy", policy => policy.RequireRole("Administrator"));
@@ -113,14 +160,6 @@ namespace Opc.Ua.Cloud.Library
                         Email = "office@opcfoundation.org",
                         Url = new Uri("https://opcfoundation.org/")
                     }
-                });
-
-                options.AddSecurityDefinition("basic", new OpenApiSecurityScheme {
-                    Name = "Authorization",
-                    Type = SecuritySchemeType.Http,
-                    Scheme = "basic",
-                    In = ParameterLocation.Header,
-                    Description = "Basic Authorization header using the Bearer scheme."
                 });
 
                 options.AddSecurityRequirement(new OpenApiSecurityRequirement
