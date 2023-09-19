@@ -65,8 +65,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
             Username = userName;
 
-            Input = new InputModel
-            {
+            Input = new InputModel {
                 PhoneNumber = phoneNumber
             };
         }

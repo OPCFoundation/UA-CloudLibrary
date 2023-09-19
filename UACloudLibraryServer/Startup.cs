@@ -81,8 +81,8 @@ namespace Opc.Ua.Cloud.Library
             services.AddDbContext<AppDbContext>(ServiceLifetime.Transient);
 
             services.AddDefaultIdentity<IdentityUser>(options =>
-                    //require confirmation mail if email sender API Key is set
-                    options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["EmailSenderAPIKey"])
+                      //require confirmation mail if email sender API Key is set
+                      options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["EmailSenderAPIKey"])
                     )
                 .AddRoles<IdentityRole>()
                 .AddEntityFrameworkStores<AppDbContext>();
@@ -104,46 +104,44 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddAuthentication()
                 .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null)
-                .AddOAuth("OAuth", "OPC Foundation", options =>
-                {
-                    options.AuthorizationEndpoint = "https://opcfoundation.org/oauth/authorize/";
-                    options.TokenEndpoint = "https://opcfoundation.org/oauth/token/";
-                    options.UserInformationEndpoint = "https://opcfoundation.org/oauth/me";
+                    .AddOAuth("OAuth", "OPC Foundation", options => {
+                        options.AuthorizationEndpoint = "https://opcfoundation.org/oauth/authorize/";
+                        options.TokenEndpoint = "https://opcfoundation.org/oauth/token/";
+                        options.UserInformationEndpoint = "https://opcfoundation.org/oauth/me";
 
-                    options.AccessDeniedPath = new PathString("/Account/AccessDenied");
-                    options.CallbackPath = new PathString("/Account/ExternalLogin");
+                        options.AccessDeniedPath = new PathString("/Account/AccessDenied");
+                        options.CallbackPath = new PathString("/Account/ExternalLogin");
 
-                    options.ClientId = Configuration["OAuth2ClientId"];
-                    options.ClientSecret = Configuration["OAuth2ClientSecret"];
+                        options.ClientId = Configuration["OAuth2ClientId"];
+                        options.ClientSecret = Configuration["OAuth2ClientSecret"];
 
-                    options.SaveTokens = true;
+                        options.SaveTokens = true;
 
-                    options.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "ID");
-                    options.ClaimActions.MapJsonKey(ClaimTypes.Name, "display_name");
-                    options.ClaimActions.MapJsonKey(ClaimTypes.Email, "user_email");
+                        options.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "ID");
+                        options.ClaimActions.MapJsonKey(ClaimTypes.Name, "display_name");
+                        options.ClaimActions.MapJsonKey(ClaimTypes.Email, "user_email");
 
-                    options.Events = new OAuthEvents {
-                        OnCreatingTicket = async context =>
-                        {
-                            List<AuthenticationToken> tokens = (List<AuthenticationToken>)context.Properties.GetTokens();
+                        options.Events = new OAuthEvents {
+                            OnCreatingTicket = async context => {
+                                List<AuthenticationToken> tokens = (List<AuthenticationToken>)context.Properties.GetTokens();
 
-                            tokens.Add(new AuthenticationToken() {
-                                Name = "TicketCreated",
-                                Value = DateTime.UtcNow.ToString(DateTimeFormatInfo.InvariantInfo)
-                            });
+                                tokens.Add(new AuthenticationToken() {
+                                    Name = "TicketCreated",
+                                    Value = DateTime.UtcNow.ToString(DateTimeFormatInfo.InvariantInfo)
+                                });
 
-                            context.Properties.StoreTokens(tokens);
+                                context.Properties.StoreTokens(tokens);
 
-                            HttpResponseMessage response = await context.Backchannel.GetAsync($"{context.Options.UserInformationEndpoint}?access_token={context.AccessToken}").ConfigureAwait(false);
-                            response.EnsureSuccessStatusCode();
+                                HttpResponseMessage response = await context.Backchannel.GetAsync($"{context.Options.UserInformationEndpoint}?access_token={context.AccessToken}").ConfigureAwait(false);
+                                response.EnsureSuccessStatusCode();
 
-                            string json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                            JsonElement user = JsonDocument.Parse(json).RootElement;
+                                string json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                                JsonElement user = JsonDocument.Parse(json).RootElement;
 
-                            context.RunClaimActions(user);
-                        }
-                    };
-                });
+                                context.RunClaimActions(user);
+                            }
+                        };
+                    });
 
             services.AddAuthorization(options => {
                 options.AddPolicy("ApprovalPolicy", policy => policy.RequireRole("Administrator"));
