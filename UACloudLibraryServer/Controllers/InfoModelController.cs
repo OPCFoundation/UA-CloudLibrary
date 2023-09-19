@@ -40,10 +40,7 @@ namespace Opc.Ua.Cloud.Library
     using Extensions;
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
-    using Microsoft.EntityFrameworkCore;
     using Microsoft.Extensions.Logging;
-    using Npgsql;
-    using Opc.Ua;
     using Opc.Ua.Cloud.Library.Interfaces;
     using Opc.Ua.Cloud.Library.Models;
     using Opc.Ua.Export;
@@ -127,7 +124,7 @@ namespace Opc.Ua.Cloud.Library
 
             if (nodesetXMLOnly)
             {
-                await _database.IncrementDownloadCountAsync(nodeSetID);
+                await _database.IncrementDownloadCountAsync(nodeSetID).ConfigureAwait(false);
                 return new ObjectResult(nodesetXml) { StatusCode = (int)HttpStatusCode.OK };
             }
 
@@ -141,7 +138,7 @@ namespace Opc.Ua.Cloud.Library
             if (!metadataOnly)
             {
                 // Only count downloads with XML payload
-                await _database.IncrementDownloadCountAsync(nodeSetID);
+                await _database.IncrementDownloadCountAsync(nodeSetID).ConfigureAwait(false);
             }
             return new ObjectResult(uaNamespace) { StatusCode = (int)HttpStatusCode.OK };
         }

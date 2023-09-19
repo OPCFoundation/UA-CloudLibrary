@@ -61,7 +61,7 @@ namespace Opc.Ua.Cloud.Library
         [Authorize(Policy = "ApprovalPolicy")]
         public async Task<NamespaceMetaDataModel> ApproveNodeSetAsync([Service(ServiceKind.Synchronized)] IDatabase db, ApprovalInput input)
         {
-            var nodeSet = await db.ApproveNamespaceAsync(input.Identifier, input.Status, input.ApprovalInformation, input.AdditionalProperties);
+            var nodeSet = await db.ApproveNamespaceAsync(input.Identifier, input.Status, input.ApprovalInformation, input.AdditionalProperties).ConfigureAwait(false);
             return nodeSet;
         }
 

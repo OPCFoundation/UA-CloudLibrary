@@ -51,7 +51,7 @@ class Program : ILogger
             uploadCommand,
         };
 
-        await root.InvokeAsync(args);
+        await root.InvokeAsync(args).ConfigureAwait(false);
 
         return 0;
     }

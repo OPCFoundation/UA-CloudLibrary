@@ -63,7 +63,7 @@ namespace Opc.Ua.Cloud.Library
             [FromQuery][SwaggerParameter("Status of the approval")] ApprovalStatus status,
             [FromQuery][SwaggerParameter("Information about the approval")] string approvalInformation)
         {
-            if (await _database.ApproveNamespaceAsync(identifier, status, approvalInformation, null) != null)
+            if (await _database.ApproveNamespaceAsync(identifier, status, approvalInformation, null).ConfigureAwait(false) != null)
             {
                 return new ObjectResult("Approval status updated successfully") { StatusCode = (int)HttpStatusCode.OK };
             }
@@ -82,7 +82,7 @@ namespace Opc.Ua.Cloud.Library
             [FromServices] RoleManager<IdentityRole> roleManager
             )
         {
-            var result = await roleManager.CreateAsync(new IdentityRole { Name = roleName });
+            var result = await roleManager.CreateAsync(new IdentityRole { Name = roleName }).ConfigureAwait(false);
             if (!result.Succeeded)
             {
                 return this.BadRequest(result);
@@ -101,12 +101,12 @@ namespace Opc.Ua.Cloud.Library
             [FromServices] UserManager<IdentityUser> userManager
             )
         {
-            var user = await userManager.FindByIdAsync(userId);
+            var user = await userManager.FindByIdAsync(userId).ConfigureAwait(false);
             if (user == null)
             {
                 return NotFound();
             }
-            var result = await userManager.AddToRoleAsync(user, roleName);
+            var result = await userManager.AddToRoleAsync(user, roleName).ConfigureAwait(false);
             if (!result.Succeeded)
             {
                 return this.BadRequest(result);

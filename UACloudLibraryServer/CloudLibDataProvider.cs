@@ -233,7 +233,7 @@ namespace Opc.Ua.Cloud.Library
                 // This will only run on failures during transaction commit, where the EF can not determine if the Tx was committed or not
                 () => _dbContext.nodeSetsWithUnapproved.AsNoTracking()
                     .AnyAsync(n => n.ModelUri == nodeSet.Models[0].ModelUri && n.PublicationDate == (nodeSet.Models[0].PublicationDateSpecified ? nodeSet.Models[0].PublicationDate : default))
-                );
+                ).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -249,7 +249,7 @@ namespace Opc.Ua.Cloud.Library
             var namespaceMeta = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
             namespaceMeta.NumberOfDownloads++;
             var newCount = namespaceMeta.NumberOfDownloads;
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync().ConfigureAwait(false);
             return newCount;
         }
 
@@ -451,7 +451,7 @@ namespace Opc.Ua.Cloud.Library
 
         public async Task<NamespaceMetaDataModel> ApproveNamespaceAsync(string identifier, ApprovalStatus status, string approvalInformation, List<UAProperty> additionalProperties)
         {
-            var nodeSetMeta = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync();
+            var nodeSetMeta = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync().ConfigureAwait(false);
             if (nodeSetMeta == null) return null;
 
             nodeSetMeta.ApprovalStatus = status;
@@ -468,7 +468,7 @@ namespace Opc.Ua.Cloud.Library
                     _logger.LogWarning($"Failed to delete file on Approval cancelation for {nodeSetMeta.NodesetId}: {ex.Message}");
                 }
 
-                if (!await DeleteAllRecordsForNodesetAsync(uint.Parse(nodeSetMeta.NodesetId, CultureInfo.InvariantCulture)))
+                if (!await DeleteAllRecordsForNodesetAsync(uint.Parse(nodeSetMeta.NodesetId, CultureInfo.InvariantCulture)).ConfigureAwait(false))
                 {
                     _logger.LogWarning($"Failed to delete records on Approval cancelation for {nodeSetMeta.NodesetId}");
                     return null;
@@ -502,8 +502,8 @@ namespace Opc.Ua.Cloud.Library
                     }
                 }
             }
-            await _dbContext.SaveChangesAsync();
-            var nodeSetMetaSaved = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync();
+            await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+            var nodeSetMetaSaved = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync().ConfigureAwait(false);
             return nodeSetMetaSaved;
         }
 

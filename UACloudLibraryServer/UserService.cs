@@ -100,12 +100,12 @@ namespace Opc.Ua.Cloud.Library
                 }
                 List<Claim> claims = new();
                 claims.Add(new Claim(ClaimTypes.Name, username));
-                var roles = await _userManager.GetRolesAsync(user);
+                var roles = await _userManager.GetRolesAsync(user).ConfigureAwait(false);
                 foreach (var role in roles)
                 {
                     claims.Add(new Claim(ClaimTypes.Role, role));
                 }
-                claims.AddRange(await this._userManager.GetClaimsAsync(user));
+                claims.AddRange(await this._userManager.GetClaimsAsync(user).ConfigureAwait(false));
                 return claims;
             }
         }
