@@ -118,6 +118,9 @@ namespace Opc.Ua.Cloud.Library
 
                     options.SaveTokens = true;
 
+                    options.CorrelationCookie.SameSite = SameSiteMode.Strict;
+                    options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
+
                     options.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "ID");
                     options.ClaimActions.MapJsonKey(ClaimTypes.Name, "display_name");
                     options.ClaimActions.MapJsonKey(ClaimTypes.Email, "user_email");
