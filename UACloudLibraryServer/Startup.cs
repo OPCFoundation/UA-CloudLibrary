@@ -173,6 +173,7 @@ namespace Opc.Ua.Cloud.Library
             services.AddAuthorization(options => {
                 options.AddPolicy("ApprovalPolicy", policy => policy.RequireRole("Administrator"));
                 options.AddPolicy("UserAdministrationPolicy", policy => policy.RequireRole("Administrator"));
+                options.AddPolicy("DeletePolicy", policy => policy.RequireRole("Administrator"));
             });
 
 #if DEBUG
