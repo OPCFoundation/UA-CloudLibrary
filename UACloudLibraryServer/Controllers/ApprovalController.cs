@@ -38,7 +38,7 @@ namespace Opc.Ua.Cloud.Library
     using Microsoft.Extensions.Logging;
     using Swashbuckle.AspNetCore.Annotations;
 
-    [Authorize(AuthenticationSchemes = "BasicAuthentication")]
+    [Authorize]
     [ApiController]
     public class ApprovalController : ControllerBase
     {

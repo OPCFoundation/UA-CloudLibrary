@@ -41,6 +41,7 @@ namespace Opc.Ua.Cloud.Library
     using HotChocolate.AspNetCore;
     using HotChocolate.Data;
     using Microsoft.AspNetCore.Authentication;
+    using Microsoft.AspNetCore.Authentication.Cookies;
     using Microsoft.AspNetCore.Authentication.OAuth;
     using Microsoft.AspNetCore.Authentication.OpenIdConnect;
     using Microsoft.AspNetCore.Builder;
@@ -61,6 +62,8 @@ namespace Opc.Ua.Cloud.Library
 #endif
     using Microsoft.OpenApi.Models;
     using Opc.Ua.Cloud.Library.Interfaces;
+    using System.Threading.Tasks;
+    using System.Net;
 
     public class Startup
     {
@@ -90,6 +93,14 @@ namespace Opc.Ua.Cloud.Library
                     )
                 .AddRoles<IdentityRole>()
                 .AddEntityFrameworkStores<AppDbContext>();
+
+            // Prevent redirect to login page for requests to the REST APIs
+            services.ConfigureApplicationCookie(options => {
+                options.Events = new CookieAuthenticationEvents {
+                    OnRedirectToAccessDenied = CheckRedirectForApi,
+                    OnRedirectToLogin = CheckRedirectForApi,
+                };
+            });
 
             services.AddScoped<IUserService, UserService>();
 
@@ -126,12 +137,12 @@ namespace Opc.Ua.Cloud.Library
 
                         options.SaveTokens = true;
 
-                    options.CorrelationCookie.SameSite = SameSiteMode.Strict;
-                    options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
+                        options.CorrelationCookie.SameSite = SameSiteMode.Strict;
+                        options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
 
-                    options.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "ID");
-                    options.ClaimActions.MapJsonKey(ClaimTypes.Name, "display_name");
-                    options.ClaimActions.MapJsonKey(ClaimTypes.Email, "user_email");
+                        options.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "ID");
+                        options.ClaimActions.MapJsonKey(ClaimTypes.Name, "display_name");
+                        options.ClaimActions.MapJsonKey(ClaimTypes.Email, "user_email");
 
                         options.Events = new OAuthEvents {
                             OnCreatingTicket = async context => {
@@ -282,6 +293,28 @@ namespace Opc.Ua.Cloud.Library
               .PostConfigureAll<OpenIdConnectOptions>(o => {
                   o.SignInScheme = IdentityConstants.ExternalScheme;
               });
+        }
+
+        private static Task CheckRedirectForApi(RedirectContext<CookieAuthenticationOptions> ctx)
+        {
+            if (IsApiRequest(ctx.Request))
+            {
+                ctx.Response.StatusCode = (int)HttpStatusCode.Forbidden;
+            }
+            else
+            {
+                ctx.Response.Redirect(ctx.RedirectUri);
+            }
+            return Task.CompletedTask;
+        }
+
+        private static bool IsApiRequest(HttpRequest request)
+        {
+            return request.Path.StartsWithSegments("/infomodel", StringComparison.OrdinalIgnoreCase)
+                || request.Path.StartsWithSegments("/approval", StringComparison.OrdinalIgnoreCase)
+                || request.Path.StartsWithSegments("/access", StringComparison.OrdinalIgnoreCase)
+                || request.Path.StartsWithSegments("/graphql", StringComparison.OrdinalIgnoreCase)
+                ;
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
