@@ -162,7 +162,10 @@ namespace Opc.Ua.Cloud.Library
             if (Configuration.GetSection("AzureAd")?["ClientId"] != null)
             {
                 services.AddAuthentication()
-                    .AddMicrosoftIdentityWebApp(Configuration, configSectionName: "AzureAd", openIdConnectScheme: "AzureAd", subscribeToOpenIdConnectMiddlewareDiagnosticsEvents: true, displayName: "CESMII Test")
+                    .AddMicrosoftIdentityWebApp(Configuration,
+                        configSectionName: "AzureAd",
+                        openIdConnectScheme: "AzureAd",
+                        displayName: Configuration["AADDisplayName"] ?? "Microsoft Account")
                     ;
             }
 #endif
