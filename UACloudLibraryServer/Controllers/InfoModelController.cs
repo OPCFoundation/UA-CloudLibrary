@@ -46,7 +46,7 @@ namespace Opc.Ua.Cloud.Library
     using Opc.Ua.Export;
     using Swashbuckle.AspNetCore.Annotations;
 
-    [Authorize(AuthenticationSchemes = "BasicAuthentication")]
+    [Authorize]
     [ApiController]
     public class InfoModelController : ControllerBase
     {

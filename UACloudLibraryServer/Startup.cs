@@ -42,7 +42,7 @@ namespace Opc.Ua.Cloud.Library
     using HotChocolate.Data;
     using Microsoft.AspNetCore.Authentication;
     using Microsoft.AspNetCore.Authentication.OAuth;
-    using Microsoft.AspNetCore.Authorization;
+    using Microsoft.AspNetCore.Authentication.OpenIdConnect;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.DataProtection;
     using Microsoft.AspNetCore.Hosting;
@@ -55,6 +55,10 @@ namespace Opc.Ua.Cloud.Library
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Hosting;
     using Microsoft.Extensions.Logging;
+    using Microsoft.IdentityModel.Logging;
+#if !NO_AZURE_AD
+    using Microsoft.Identity.Web;
+#endif
     using Microsoft.OpenApi.Models;
     using Opc.Ua.Cloud.Library.Interfaces;
 
@@ -104,6 +108,11 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddAuthentication()
                 .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null)
+                ;
+
+            if (Configuration["OAuth2ClientId"] != null)
+            {
+                services.AddAuthentication()
                     .AddOAuth("OAuth", "OPC Foundation", options => {
                         options.AuthorizationEndpoint = "https://opcfoundation.org/oauth/authorize/";
                         options.TokenEndpoint = "https://opcfoundation.org/oauth/token/";
@@ -142,11 +151,25 @@ namespace Opc.Ua.Cloud.Library
                             }
                         };
                     });
+            }
+
+#if !NO_AZURE_AD
+            if (Configuration.GetSection("AzureAd")?["ClientId"] != null)
+            {
+                services.AddAuthentication()
+                    .AddMicrosoftIdentityWebApp(Configuration, configSectionName: "AzureAd", openIdConnectScheme: "AzureAd", subscribeToOpenIdConnectMiddlewareDiagnosticsEvents: true, displayName: "CESMII Test")
+                    ;
+            }
+#endif
 
             services.AddAuthorization(options => {
                 options.AddPolicy("ApprovalPolicy", policy => policy.RequireRole("Administrator"));
                 options.AddPolicy("UserAdministrationPolicy", policy => policy.RequireRole("Administrator"));
             });
+
+#if DEBUG
+            IdentityModelEventSource.ShowPII = true;
+#endif
 
             services.AddSwaggerGen(options => {
                 options.SwaggerDoc("v1", new OpenApiInfo {
@@ -247,6 +270,15 @@ namespace Opc.Ua.Cloud.Library
             });
 
             services.AddServerSideBlazor();
+
+            // Required to make Azure AD login work as ASP.Net External Identity
+            // From https://stackoverflow.com/a/71360559:
+            // Change the SignInScheme to External after ALL other configuration have run.
+            services
+              .AddOptions()
+              .PostConfigureAll<OpenIdConnectOptions>(o => {
+                  o.SignInScheme = IdentityConstants.ExternalScheme;
+              });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -282,7 +314,7 @@ namespace Opc.Ua.Cloud.Library
                 });
             app.UseGraphQLGraphiQL("/graphiql", new GraphQL.Server.Ui.GraphiQL.GraphiQLOptions {
                 ExplorerExtensionEnabled = true,
-
+                RequestCredentials = GraphQL.Server.Ui.GraphiQL.RequestCredentials.Include,
             });
 
             app.UseEndpoints(endpoints => {
@@ -293,7 +325,7 @@ namespace Opc.Ua.Cloud.Library
                 endpoints.MapRazorPages();
                 endpoints.MapBlazorHub();
                 endpoints.MapGraphQL()
-                    .RequireAuthorization(new AuthorizeAttribute { AuthenticationSchemes = "BasicAuthentication" })
+                    .RequireAuthorization()
                     .WithOptions(new GraphQLServerOptions {
                         EnableGetRequests = true,
                         Tool = { Enable = false },
