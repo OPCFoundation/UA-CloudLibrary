@@ -62,8 +62,7 @@ namespace Opc.Ua.Cloud.Library
 #endif
     using Microsoft.OpenApi.Models;
     using Opc.Ua.Cloud.Library.Interfaces;
-    using System.Threading.Tasks;
-    using System.Net;
+    using Microsoft.AspNetCore.Authorization;
 
     public class Startup
     {
@@ -93,14 +92,6 @@ namespace Opc.Ua.Cloud.Library
                     )
                 .AddRoles<IdentityRole>()
                 .AddEntityFrameworkStores<AppDbContext>();
-
-            // Prevent redirect to login page for requests to the REST APIs
-            services.ConfigureApplicationCookie(options => {
-                options.Events = new CookieAuthenticationEvents {
-                    OnRedirectToAccessDenied = CheckRedirectForApi,
-                    OnRedirectToLogin = CheckRedirectForApi,
-                };
-            });
 
             services.AddScoped<IUserService, UserService>();
 
@@ -197,6 +188,11 @@ namespace Opc.Ua.Cloud.Library
                     }
                 });
 
+                options.AddSecurityDefinition("basicAuth", new OpenApiSecurityScheme {
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "basic"
+                });
+
                 options.AddSecurityRequirement(new OpenApiSecurityRequirement
                 {
                     {
@@ -205,7 +201,7 @@ namespace Opc.Ua.Cloud.Library
                                 Reference = new OpenApiReference
                                 {
                                     Type = ReferenceType.SecurityScheme,
-                                    Id = "basic"
+                                    Id = "basicAuth"
                                 }
                             },
                             Array.Empty<string>()
@@ -285,9 +281,7 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddServerSideBlazor();
 
-            // Required to make Azure AD login work as ASP.Net External Identity
-            // From https://stackoverflow.com/a/71360559:
-            // Change the SignInScheme to External after ALL other configuration have run.
+            // Required to make Azure AD login work as ASP.Net External Identity: Change the SignInScheme to External after ALL other configuration have run.
             services
               .AddOptions()
               .PostConfigureAll<OpenIdConnectOptions>(o => {
@@ -295,27 +289,6 @@ namespace Opc.Ua.Cloud.Library
               });
         }
 
-        private static Task CheckRedirectForApi(RedirectContext<CookieAuthenticationOptions> ctx)
-        {
-            if (IsApiRequest(ctx.Request))
-            {
-                ctx.Response.StatusCode = (int)HttpStatusCode.Forbidden;
-            }
-            else
-            {
-                ctx.Response.Redirect(ctx.RedirectUri);
-            }
-            return Task.CompletedTask;
-        }
-
-        private static bool IsApiRequest(HttpRequest request)
-        {
-            return request.Path.StartsWithSegments("/infomodel", StringComparison.OrdinalIgnoreCase)
-                || request.Path.StartsWithSegments("/approval", StringComparison.OrdinalIgnoreCase)
-                || request.Path.StartsWithSegments("/access", StringComparison.OrdinalIgnoreCase)
-                || request.Path.StartsWithSegments("/graphql", StringComparison.OrdinalIgnoreCase)
-                ;
-        }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, AppDbContext appDbContext)
@@ -361,7 +334,7 @@ namespace Opc.Ua.Cloud.Library
                 endpoints.MapRazorPages();
                 endpoints.MapBlazorHub();
                 endpoints.MapGraphQL()
-                    .RequireAuthorization()
+                    .RequireAuthorization(new AuthorizeAttribute() { AuthenticationSchemes = "BasicAuthentication" })
                     .WithOptions(new GraphQLServerOptions {
                         EnableGetRequests = true,
                         Tool = { Enable = false },

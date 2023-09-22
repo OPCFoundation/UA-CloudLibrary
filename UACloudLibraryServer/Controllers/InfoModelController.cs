@@ -27,7 +27,7 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace Opc.Ua.Cloud.Library
+namespace Opc.Ua.Cloud.Library.Controllers
 {
     using System;
     using System.Collections.Generic;
@@ -46,7 +46,7 @@ namespace Opc.Ua.Cloud.Library
     using Opc.Ua.Export;
     using Swashbuckle.AspNetCore.Annotations;
 
-    [Authorize]
+    [Authorize(AuthenticationSchemes = "BasicAuthentication")]
     [ApiController]
     public class InfoModelController : ControllerBase
     {
