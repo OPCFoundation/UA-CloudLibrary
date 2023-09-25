@@ -251,13 +251,25 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddHttpContextAccessor();
 
-            services.AddGraphQLServer()
-                .AddAuthorization()
-                .SetPagingOptions(new HotChocolate.Types.Pagination.PagingOptions {
+
+            HotChocolate.Types.Pagination.PagingOptions paginationConfig;
+            var section = Configuration.GetSection("GraphQLPagination");
+            if (section.Exists())
+            {
+                paginationConfig = section.Get<HotChocolate.Types.Pagination.PagingOptions>();
+            }
+            else
+            {
+                paginationConfig = new HotChocolate.Types.Pagination.PagingOptions {
                     IncludeTotalCount = true,
                     DefaultPageSize = 100,
                     MaxPageSize = 100,
-                })
+                };
+            }
+
+            services.AddGraphQLServer()
+                .AddAuthorization()
+                .SetPagingOptions(paginationConfig)
                 .AddFiltering(fd => {
                     fd.AddDefaults().BindRuntimeType<UInt32, UnsignedIntOperationFilterInputType>();
                     fd.AddDefaults().BindRuntimeType<UInt32?, UnsignedIntOperationFilterInputType>();
