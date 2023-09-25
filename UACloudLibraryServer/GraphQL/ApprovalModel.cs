@@ -29,12 +29,9 @@
 
 namespace Opc.Ua.Cloud.Library
 {
-    using System;
     using System.Collections.Generic;
-    using System.Globalization;
     using System.Linq;
     using System.Threading.Tasks;
-    using CESMII.OpcUa.NodeSetModel;
     using HotChocolate;
     using HotChocolate.Authorization;
     using HotChocolate.Data;
