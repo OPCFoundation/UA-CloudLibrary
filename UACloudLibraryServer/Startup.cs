@@ -41,9 +41,7 @@ namespace Opc.Ua.Cloud.Library
     using HotChocolate.AspNetCore;
     using HotChocolate.Data;
     using Microsoft.AspNetCore.Authentication;
-    using Microsoft.AspNetCore.Authentication.Cookies;
     using Microsoft.AspNetCore.Authentication.OAuth;
-    using Microsoft.AspNetCore.Authentication.OpenIdConnect;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.DataProtection;
     using Microsoft.AspNetCore.Hosting;
@@ -56,8 +54,9 @@ namespace Opc.Ua.Cloud.Library
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Hosting;
     using Microsoft.Extensions.Logging;
+#if AZURE_AD
+    using Microsoft.AspNetCore.Authentication.OpenIdConnect;
     using Microsoft.IdentityModel.Logging;
-#if !NO_AZURE_AD
     using Microsoft.Identity.Web;
 #endif
     using Microsoft.OpenApi.Models;
@@ -158,7 +157,7 @@ namespace Opc.Ua.Cloud.Library
                     });
             }
 
-#if !NO_AZURE_AD
+#if AZURE_AD
             if (Configuration.GetSection("AzureAd")?["ClientId"] != null)
             {
                 services.AddAuthentication()
@@ -168,6 +167,10 @@ namespace Opc.Ua.Cloud.Library
                         displayName: Configuration["AADDisplayName"] ?? "Microsoft Account")
                     ;
             }
+#if DEBUG
+            IdentityModelEventSource.ShowPII = true;
+#endif
+
 #endif
 
             services.AddAuthorization(options => {
@@ -175,10 +178,6 @@ namespace Opc.Ua.Cloud.Library
                 options.AddPolicy("UserAdministrationPolicy", policy => policy.RequireRole("Administrator"));
                 options.AddPolicy("DeletePolicy", policy => policy.RequireRole("Administrator"));
             });
-
-#if DEBUG
-            IdentityModelEventSource.ShowPII = true;
-#endif
 
             services.AddSwaggerGen(options => {
                 options.SwaggerDoc("v1", new OpenApiInfo {
@@ -284,13 +283,14 @@ namespace Opc.Ua.Cloud.Library
             });
 
             services.AddServerSideBlazor();
-
+#if AZURE_AD
             // Required to make Azure AD login work as ASP.Net External Identity: Change the SignInScheme to External after ALL other configuration have run.
             services
               .AddOptions()
               .PostConfigureAll<OpenIdConnectOptions>(o => {
                   o.SignInScheme = IdentityConstants.ExternalScheme;
               });
+#endif
         }
 
 
