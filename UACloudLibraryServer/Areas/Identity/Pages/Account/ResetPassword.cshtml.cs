@@ -77,8 +77,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
             }
             else
             {
-                Input = new InputModel
-                {
+                Input = new InputModel {
                     Code = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code))
                 };
                 return Page();

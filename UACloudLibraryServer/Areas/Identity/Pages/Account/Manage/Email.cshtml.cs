@@ -77,8 +77,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
             var email = await _userManager.GetEmailAsync(user).ConfigureAwait(false);
             Email = email;
 
-            Input = new InputModel
-            {
+            Input = new InputModel {
                 NewEmail = email,
             };
 

@@ -1,0 +1,2636 @@
+schema {
+  query: QueryModel
+}
+
+# The `@defer` directive may be provided for fragment spreads and inline fragments to inform the executor to delay the execution of the current fragment to indicate deprioritization of the current fragment. A query with `@defer` directive will cause the request to potentially return multiple responses, where non-deferred data is delivered in the initial response and data deferred is delivered in a subsequent response. `@include` and `@skip` take precedence over `@defer`.
+directive @defer(
+  # If this argument label has a value other than null, it will be passed on to the result of this defer directive. This label is intended to give client applications a way to identify to which fragment a deferred result belongs to.
+  label: String
+
+  # Deferred when true.
+  if: Boolean
+) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+# The `@stream` directive may be provided for a field of `List` type so that the backend can leverage technology such as asynchronous iterators to provide a partial list in the initial response, and additional list items in subsequent responses. `@include` and `@skip` take precedence over `@stream`.
+directive @stream(
+  # If this argument label has a value other than null, it will be passed on to the result of this stream directive. This label is intended to give client applications a way to identify to which fragment a streamed result belongs to.
+  label: String
+
+  # The initial elements that shall be send down to the consumer.
+  initialCount: Int! = 0
+
+  # Streamed when true.
+  if: Boolean
+) on FIELD
+
+directive @authorize(
+  # The name of the authorization policy that determines access to the annotated resource.
+  policy: String
+
+  # Roles that are allowed to access the annotated resource.
+  roles: [String!]
+
+  # Defines when when the resolver shall be executed.By default the resolver is executed after the policy has determined that the current user is allowed to access the field.
+  apply: ApplyPolicy! = BEFORE_RESOLVER
+) on SCHEMA | OBJECT | FIELD_DEFINITION
+
+# The UnsignedInt scalar type represents a unsigned 32-bit numeric non-fractional value greater than or equal to 0.
+scalar UnsignedInt
+
+# The UnsignedShort scalar type represents a unsigned 16-bit numeric non-fractional value greater than or equal to 0.
+scalar UnsignedShort
+
+type CloudLibNodeSetModel {
+  metadata: UANameSpaceMetadata
+  objectTypes(
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: ObjectTypeModelFilterInput
+    order: [ObjectTypeModelSortInput!]
+  ): ObjectTypesConnection
+  variableTypes(
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: VariableTypeModelFilterInput
+    order: [VariableTypeModelSortInput!]
+  ): VariableTypesConnection
+  dataTypes(
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: DataTypeModelFilterInput
+    order: [DataTypeModelSortInput!]
+  ): DataTypesConnection
+  interfaces(
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: InterfaceModelFilterInput
+    order: [InterfaceModelSortInput!]
+  ): InterfacesConnection
+  objects(
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: ObjectModelFilterInput
+    order: [ObjectModelSortInput!]
+  ): ObjectsConnection
+  properties(
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: PropertyModelFilterInput
+    order: [PropertyModelSortInput!]
+  ): PropertiesConnection
+  dataVariables(
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: DataVariableModelFilterInput
+    order: [DataVariableModelSortInput!]
+  ): DataVariablesConnection
+  referenceTypes(
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: ReferenceTypeModelFilterInput
+    order: [ReferenceTypeModelSortInput!]
+  ): ReferenceTypesConnection
+  unknownNodes(
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: NodeModelFilterInput
+    order: [NodeModelSortInput!]
+  ): UnknownNodesConnection
+  validationStatus: ValidationStatus!
+  validationStatusInfo: String
+  validationErrors: [String]
+  modelUri: String
+  version: String
+  publicationDate: DateTime
+  requiredModels: [RequiredModelInfo]
+  identifier: String
+  allNodesByNodeId: [KeyValuePairOfStringAndNodeModel!]
+}
+
+enum ApplyPolicy {
+  BEFORE_RESOLVER
+  AFTER_RESOLVER
+}
+
+input ObjectTypeModelFilterInput {
+  and: [ObjectTypeModelFilterInput!]
+  or: [ObjectTypeModelFilterInput!]
+  nodesWithEvents: ListFilterInputTypeOfNodeModelFilterInput
+  isAbstract: BooleanOperationFilterInput
+  superType: BaseTypeModelFilterInput
+  subTypes: ListFilterInputTypeOfBaseTypeModelFilterInput
+  displayName: ListFilterInputTypeOfLocalizedTextFilterInput
+  browseName: StringOperationFilterInput
+  symbolicName: StringOperationFilterInput
+  description: ListFilterInputTypeOfLocalizedTextFilterInput
+  documentation: StringOperationFilterInput
+  releaseStatus: StringOperationFilterInput
+  namespace: StringOperationFilterInput
+  nodeId: StringOperationFilterInput
+  categories: ListStringOperationFilterInput
+  nodeSet: NodeSetModelFilterInput
+  properties: ListFilterInputTypeOfVariableModelFilterInput
+  dataVariables: ListFilterInputTypeOfDataVariableModelFilterInput
+  objects: ListFilterInputTypeOfObjectModelFilterInput
+  interfaces: ListFilterInputTypeOfInterfaceModelFilterInput
+  methods: ListFilterInputTypeOfMethodModelFilterInput
+  events: ListFilterInputTypeOfObjectTypeModelFilterInput
+  otherReferencedNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+  otherReferencingNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+}
+
+input ObjectTypeModelSortInput {
+  isAbstract: SortEnumType
+  superType: BaseTypeModelSortInput
+  browseName: SortEnumType
+  symbolicName: SortEnumType
+  documentation: SortEnumType
+  releaseStatus: SortEnumType
+  namespace: SortEnumType
+  nodeId: SortEnumType
+  nodeSet: NodeSetModelSortInput
+}
+
+input VariableTypeModelFilterInput {
+  and: [VariableTypeModelFilterInput!]
+  or: [VariableTypeModelFilterInput!]
+  dataType: BaseTypeModelFilterInput
+  valueRank: ComparableNullableOfInt32OperationFilterInput
+  arrayDimensions: StringOperationFilterInput
+  value: StringOperationFilterInput
+  isAbstract: BooleanOperationFilterInput
+  superType: BaseTypeModelFilterInput
+  subTypes: ListFilterInputTypeOfBaseTypeModelFilterInput
+  displayName: ListFilterInputTypeOfLocalizedTextFilterInput
+  browseName: StringOperationFilterInput
+  symbolicName: StringOperationFilterInput
+  description: ListFilterInputTypeOfLocalizedTextFilterInput
+  documentation: StringOperationFilterInput
+  releaseStatus: StringOperationFilterInput
+  namespace: StringOperationFilterInput
+  nodeId: StringOperationFilterInput
+  categories: ListStringOperationFilterInput
+  nodeSet: NodeSetModelFilterInput
+  properties: ListFilterInputTypeOfVariableModelFilterInput
+  dataVariables: ListFilterInputTypeOfDataVariableModelFilterInput
+  objects: ListFilterInputTypeOfObjectModelFilterInput
+  interfaces: ListFilterInputTypeOfInterfaceModelFilterInput
+  methods: ListFilterInputTypeOfMethodModelFilterInput
+  events: ListFilterInputTypeOfObjectTypeModelFilterInput
+  otherReferencedNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+  otherReferencingNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+}
+
+input VariableTypeModelSortInput {
+  dataType: BaseTypeModelSortInput
+  valueRank: SortEnumType
+  arrayDimensions: SortEnumType
+  value: SortEnumType
+  isAbstract: SortEnumType
+  superType: BaseTypeModelSortInput
+  browseName: SortEnumType
+  symbolicName: SortEnumType
+  documentation: SortEnumType
+  releaseStatus: SortEnumType
+  namespace: SortEnumType
+  nodeId: SortEnumType
+  nodeSet: NodeSetModelSortInput
+}
+
+input DataTypeModelFilterInput {
+  and: [DataTypeModelFilterInput!]
+  or: [DataTypeModelFilterInput!]
+  structureFields: ListFilterInputTypeOfStructureFieldFilterInput
+  enumFields: ListFilterInputTypeOfUaEnumFieldFilterInput
+  isOptionSet: BooleanOperationFilterInput
+  isAbstract: BooleanOperationFilterInput
+  superType: BaseTypeModelFilterInput
+  subTypes: ListFilterInputTypeOfBaseTypeModelFilterInput
+  displayName: ListFilterInputTypeOfLocalizedTextFilterInput
+  browseName: StringOperationFilterInput
+  symbolicName: StringOperationFilterInput
+  description: ListFilterInputTypeOfLocalizedTextFilterInput
+  documentation: StringOperationFilterInput
+  releaseStatus: StringOperationFilterInput
+  namespace: StringOperationFilterInput
+  nodeId: StringOperationFilterInput
+  categories: ListStringOperationFilterInput
+  nodeSet: NodeSetModelFilterInput
+  properties: ListFilterInputTypeOfVariableModelFilterInput
+  dataVariables: ListFilterInputTypeOfDataVariableModelFilterInput
+  objects: ListFilterInputTypeOfObjectModelFilterInput
+  interfaces: ListFilterInputTypeOfInterfaceModelFilterInput
+  methods: ListFilterInputTypeOfMethodModelFilterInput
+  events: ListFilterInputTypeOfObjectTypeModelFilterInput
+  otherReferencedNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+  otherReferencingNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+}
+
+input DataTypeModelSortInput {
+  isOptionSet: SortEnumType
+  isAbstract: SortEnumType
+  superType: BaseTypeModelSortInput
+  browseName: SortEnumType
+  symbolicName: SortEnumType
+  documentation: SortEnumType
+  releaseStatus: SortEnumType
+  namespace: SortEnumType
+  nodeId: SortEnumType
+  nodeSet: NodeSetModelSortInput
+}
+
+input InterfaceModelFilterInput {
+  and: [InterfaceModelFilterInput!]
+  or: [InterfaceModelFilterInput!]
+  nodesWithInterface: ListFilterInputTypeOfNodeModelFilterInput
+  nodesWithEvents: ListFilterInputTypeOfNodeModelFilterInput
+  isAbstract: BooleanOperationFilterInput
+  superType: BaseTypeModelFilterInput
+  subTypes: ListFilterInputTypeOfBaseTypeModelFilterInput
+  displayName: ListFilterInputTypeOfLocalizedTextFilterInput
+  browseName: StringOperationFilterInput
+  symbolicName: StringOperationFilterInput
+  description: ListFilterInputTypeOfLocalizedTextFilterInput
+  documentation: StringOperationFilterInput
+  releaseStatus: StringOperationFilterInput
+  namespace: StringOperationFilterInput
+  nodeId: StringOperationFilterInput
+  categories: ListStringOperationFilterInput
+  nodeSet: NodeSetModelFilterInput
+  properties: ListFilterInputTypeOfVariableModelFilterInput
+  dataVariables: ListFilterInputTypeOfDataVariableModelFilterInput
+  objects: ListFilterInputTypeOfObjectModelFilterInput
+  interfaces: ListFilterInputTypeOfInterfaceModelFilterInput
+  methods: ListFilterInputTypeOfMethodModelFilterInput
+  events: ListFilterInputTypeOfObjectTypeModelFilterInput
+  otherReferencedNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+  otherReferencingNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+}
+
+input InterfaceModelSortInput {
+  isAbstract: SortEnumType
+  superType: BaseTypeModelSortInput
+  browseName: SortEnumType
+  symbolicName: SortEnumType
+  documentation: SortEnumType
+  releaseStatus: SortEnumType
+  namespace: SortEnumType
+  nodeId: SortEnumType
+  nodeSet: NodeSetModelSortInput
+}
+
+input ObjectModelFilterInput {
+  and: [ObjectModelFilterInput!]
+  or: [ObjectModelFilterInput!]
+  nodesWithObjects: ListFilterInputTypeOfNodeModelFilterInput
+  typeDefinition: ObjectTypeModelFilterInput
+  modelingRule: StringOperationFilterInput
+  parent: NodeModelFilterInput
+  displayName: ListFilterInputTypeOfLocalizedTextFilterInput
+  browseName: StringOperationFilterInput
+  symbolicName: StringOperationFilterInput
+  description: ListFilterInputTypeOfLocalizedTextFilterInput
+  documentation: StringOperationFilterInput
+  releaseStatus: StringOperationFilterInput
+  namespace: StringOperationFilterInput
+  nodeId: StringOperationFilterInput
+  categories: ListStringOperationFilterInput
+  nodeSet: NodeSetModelFilterInput
+  properties: ListFilterInputTypeOfVariableModelFilterInput
+  dataVariables: ListFilterInputTypeOfDataVariableModelFilterInput
+  objects: ListFilterInputTypeOfObjectModelFilterInput
+  interfaces: ListFilterInputTypeOfInterfaceModelFilterInput
+  methods: ListFilterInputTypeOfMethodModelFilterInput
+  events: ListFilterInputTypeOfObjectTypeModelFilterInput
+  otherReferencedNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+  otherReferencingNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+}
+
+input ObjectModelSortInput {
+  typeDefinition: ObjectTypeModelSortInput
+  modelingRule: SortEnumType
+  parent: NodeModelSortInput
+  browseName: SortEnumType
+  symbolicName: SortEnumType
+  documentation: SortEnumType
+  releaseStatus: SortEnumType
+  namespace: SortEnumType
+  nodeId: SortEnumType
+  nodeSet: NodeSetModelSortInput
+}
+
+input PropertyModelFilterInput {
+  and: [PropertyModelFilterInput!]
+  or: [PropertyModelFilterInput!]
+  dataType: BaseTypeModelFilterInput
+  valueRank: ComparableNullableOfInt32OperationFilterInput
+  arrayDimensions: StringOperationFilterInput
+  value: StringOperationFilterInput
+  nodesWithProperties: ListFilterInputTypeOfNodeModelFilterInput
+  engineeringUnit: EngineeringUnitInfoFilterInput
+  engUnitNodeId: StringOperationFilterInput
+  engUnitModelingRule: StringOperationFilterInput
+  engUnitAccessLevel: ComparableNullableOfUInt32OperationFilterInput
+  minValue: ComparableNullableOfDoubleOperationFilterInput
+  maxValue: ComparableNullableOfDoubleOperationFilterInput
+  eURangeNodeId: StringOperationFilterInput
+  eURangeModelingRule: StringOperationFilterInput
+  eURangeAccessLevel: ComparableNullableOfUInt32OperationFilterInput
+  instrumentMinValue: ComparableNullableOfDoubleOperationFilterInput
+  instrumentMaxValue: ComparableNullableOfDoubleOperationFilterInput
+  enumValue: ComparableNullableOfInt64OperationFilterInput
+  accessLevel: ComparableNullableOfUInt32OperationFilterInput
+  accessRestrictions: ComparableNullableOfUInt16OperationFilterInput
+  writeMask: ComparableNullableOfUInt32OperationFilterInput
+  userWriteMask: ComparableNullableOfUInt32OperationFilterInput
+  minimumSamplingInterval: ComparableNullableOfDoubleOperationFilterInput
+  typeDefinition: VariableTypeModelFilterInput
+  modelingRule: StringOperationFilterInput
+  parent: NodeModelFilterInput
+  displayName: ListFilterInputTypeOfLocalizedTextFilterInput
+  browseName: StringOperationFilterInput
+  symbolicName: StringOperationFilterInput
+  description: ListFilterInputTypeOfLocalizedTextFilterInput
+  documentation: StringOperationFilterInput
+  releaseStatus: StringOperationFilterInput
+  namespace: StringOperationFilterInput
+  nodeId: StringOperationFilterInput
+  categories: ListStringOperationFilterInput
+  nodeSet: NodeSetModelFilterInput
+  properties: ListFilterInputTypeOfVariableModelFilterInput
+  dataVariables: ListFilterInputTypeOfDataVariableModelFilterInput
+  objects: ListFilterInputTypeOfObjectModelFilterInput
+  interfaces: ListFilterInputTypeOfInterfaceModelFilterInput
+  methods: ListFilterInputTypeOfMethodModelFilterInput
+  events: ListFilterInputTypeOfObjectTypeModelFilterInput
+  otherReferencedNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+  otherReferencingNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+}
+
+input PropertyModelSortInput {
+  dataType: BaseTypeModelSortInput
+  valueRank: SortEnumType
+  arrayDimensions: SortEnumType
+  value: SortEnumType
+  engineeringUnit: EngineeringUnitInfoSortInput
+  engUnitNodeId: SortEnumType
+  engUnitModelingRule: SortEnumType
+  engUnitAccessLevel: SortEnumType
+  minValue: SortEnumType
+  maxValue: SortEnumType
+  eURangeNodeId: SortEnumType
+  eURangeModelingRule: SortEnumType
+  eURangeAccessLevel: SortEnumType
+  instrumentMinValue: SortEnumType
+  instrumentMaxValue: SortEnumType
+  enumValue: SortEnumType
+  accessLevel: SortEnumType
+  accessRestrictions: SortEnumType
+  writeMask: SortEnumType
+  userWriteMask: SortEnumType
+  minimumSamplingInterval: SortEnumType
+  typeDefinition: VariableTypeModelSortInput
+  modelingRule: SortEnumType
+  parent: NodeModelSortInput
+  browseName: SortEnumType
+  symbolicName: SortEnumType
+  documentation: SortEnumType
+  releaseStatus: SortEnumType
+  namespace: SortEnumType
+  nodeId: SortEnumType
+  nodeSet: NodeSetModelSortInput
+}
+
+input DataVariableModelFilterInput {
+  and: [DataVariableModelFilterInput!]
+  or: [DataVariableModelFilterInput!]
+  nodesWithDataVariables: ListFilterInputTypeOfNodeModelFilterInput
+  dataType: BaseTypeModelFilterInput
+  valueRank: ComparableNullableOfInt32OperationFilterInput
+  arrayDimensions: StringOperationFilterInput
+  value: StringOperationFilterInput
+  nodesWithProperties: ListFilterInputTypeOfNodeModelFilterInput
+  engineeringUnit: EngineeringUnitInfoFilterInput
+  engUnitNodeId: StringOperationFilterInput
+  engUnitModelingRule: StringOperationFilterInput
+  engUnitAccessLevel: ComparableNullableOfUInt32OperationFilterInput
+  minValue: ComparableNullableOfDoubleOperationFilterInput
+  maxValue: ComparableNullableOfDoubleOperationFilterInput
+  eURangeNodeId: StringOperationFilterInput
+  eURangeModelingRule: StringOperationFilterInput
+  eURangeAccessLevel: ComparableNullableOfUInt32OperationFilterInput
+  instrumentMinValue: ComparableNullableOfDoubleOperationFilterInput
+  instrumentMaxValue: ComparableNullableOfDoubleOperationFilterInput
+  enumValue: ComparableNullableOfInt64OperationFilterInput
+  accessLevel: ComparableNullableOfUInt32OperationFilterInput
+  accessRestrictions: ComparableNullableOfUInt16OperationFilterInput
+  writeMask: ComparableNullableOfUInt32OperationFilterInput
+  userWriteMask: ComparableNullableOfUInt32OperationFilterInput
+  minimumSamplingInterval: ComparableNullableOfDoubleOperationFilterInput
+  typeDefinition: VariableTypeModelFilterInput
+  modelingRule: StringOperationFilterInput
+  parent: NodeModelFilterInput
+  displayName: ListFilterInputTypeOfLocalizedTextFilterInput
+  browseName: StringOperationFilterInput
+  symbolicName: StringOperationFilterInput
+  description: ListFilterInputTypeOfLocalizedTextFilterInput
+  documentation: StringOperationFilterInput
+  releaseStatus: StringOperationFilterInput
+  namespace: StringOperationFilterInput
+  nodeId: StringOperationFilterInput
+  categories: ListStringOperationFilterInput
+  nodeSet: NodeSetModelFilterInput
+  properties: ListFilterInputTypeOfVariableModelFilterInput
+  dataVariables: ListFilterInputTypeOfDataVariableModelFilterInput
+  objects: ListFilterInputTypeOfObjectModelFilterInput
+  interfaces: ListFilterInputTypeOfInterfaceModelFilterInput
+  methods: ListFilterInputTypeOfMethodModelFilterInput
+  events: ListFilterInputTypeOfObjectTypeModelFilterInput
+  otherReferencedNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+  otherReferencingNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+}
+
+input DataVariableModelSortInput {
+  dataType: BaseTypeModelSortInput
+  valueRank: SortEnumType
+  arrayDimensions: SortEnumType
+  value: SortEnumType
+  engineeringUnit: EngineeringUnitInfoSortInput
+  engUnitNodeId: SortEnumType
+  engUnitModelingRule: SortEnumType
+  engUnitAccessLevel: SortEnumType
+  minValue: SortEnumType
+  maxValue: SortEnumType
+  eURangeNodeId: SortEnumType
+  eURangeModelingRule: SortEnumType
+  eURangeAccessLevel: SortEnumType
+  instrumentMinValue: SortEnumType
+  instrumentMaxValue: SortEnumType
+  enumValue: SortEnumType
+  accessLevel: SortEnumType
+  accessRestrictions: SortEnumType
+  writeMask: SortEnumType
+  userWriteMask: SortEnumType
+  minimumSamplingInterval: SortEnumType
+  typeDefinition: VariableTypeModelSortInput
+  modelingRule: SortEnumType
+  parent: NodeModelSortInput
+  browseName: SortEnumType
+  symbolicName: SortEnumType
+  documentation: SortEnumType
+  releaseStatus: SortEnumType
+  namespace: SortEnumType
+  nodeId: SortEnumType
+  nodeSet: NodeSetModelSortInput
+}
+
+input ReferenceTypeModelFilterInput {
+  and: [ReferenceTypeModelFilterInput!]
+  or: [ReferenceTypeModelFilterInput!]
+  inverseName: ListFilterInputTypeOfLocalizedTextFilterInput
+  symmetric: BooleanOperationFilterInput
+  isAbstract: BooleanOperationFilterInput
+  superType: BaseTypeModelFilterInput
+  subTypes: ListFilterInputTypeOfBaseTypeModelFilterInput
+  displayName: ListFilterInputTypeOfLocalizedTextFilterInput
+  browseName: StringOperationFilterInput
+  symbolicName: StringOperationFilterInput
+  description: ListFilterInputTypeOfLocalizedTextFilterInput
+  documentation: StringOperationFilterInput
+  releaseStatus: StringOperationFilterInput
+  namespace: StringOperationFilterInput
+  nodeId: StringOperationFilterInput
+  categories: ListStringOperationFilterInput
+  nodeSet: NodeSetModelFilterInput
+  properties: ListFilterInputTypeOfVariableModelFilterInput
+  dataVariables: ListFilterInputTypeOfDataVariableModelFilterInput
+  objects: ListFilterInputTypeOfObjectModelFilterInput
+  interfaces: ListFilterInputTypeOfInterfaceModelFilterInput
+  methods: ListFilterInputTypeOfMethodModelFilterInput
+  events: ListFilterInputTypeOfObjectTypeModelFilterInput
+  otherReferencedNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+  otherReferencingNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+}
+
+input ReferenceTypeModelSortInput {
+  symmetric: SortEnumType
+  isAbstract: SortEnumType
+  superType: BaseTypeModelSortInput
+  browseName: SortEnumType
+  symbolicName: SortEnumType
+  documentation: SortEnumType
+  releaseStatus: SortEnumType
+  namespace: SortEnumType
+  nodeId: SortEnumType
+  nodeSet: NodeSetModelSortInput
+}
+
+input NodeModelFilterInput {
+  and: [NodeModelFilterInput!]
+  or: [NodeModelFilterInput!]
+  displayName: ListFilterInputTypeOfLocalizedTextFilterInput
+  browseName: StringOperationFilterInput
+  symbolicName: StringOperationFilterInput
+  description: ListFilterInputTypeOfLocalizedTextFilterInput
+  documentation: StringOperationFilterInput
+  releaseStatus: StringOperationFilterInput
+  namespace: StringOperationFilterInput
+  nodeId: StringOperationFilterInput
+  categories: ListStringOperationFilterInput
+  nodeSet: NodeSetModelFilterInput
+  properties: ListFilterInputTypeOfVariableModelFilterInput
+  dataVariables: ListFilterInputTypeOfDataVariableModelFilterInput
+  objects: ListFilterInputTypeOfObjectModelFilterInput
+  interfaces: ListFilterInputTypeOfInterfaceModelFilterInput
+  methods: ListFilterInputTypeOfMethodModelFilterInput
+  events: ListFilterInputTypeOfObjectTypeModelFilterInput
+  otherReferencedNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+  otherReferencingNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+}
+
+input NodeModelSortInput {
+  browseName: SortEnumType
+  symbolicName: SortEnumType
+  documentation: SortEnumType
+  releaseStatus: SortEnumType
+  namespace: SortEnumType
+  nodeId: SortEnumType
+  nodeSet: NodeSetModelSortInput
+}
+
+# A connection to a list of items.
+type ObjectTypesConnection {
+  # Information to aid in pagination.
+  pageInfo: PageInfo!
+
+  # A list of edges.
+  edges: [ObjectTypesEdge!]
+
+  # A flattened list of the nodes.
+  nodes: [ObjectTypeModel]
+  totalCount: Int!
+}
+
+# A connection to a list of items.
+type VariableTypesConnection {
+  # Information to aid in pagination.
+  pageInfo: PageInfo!
+
+  # A list of edges.
+  edges: [VariableTypesEdge!]
+
+  # A flattened list of the nodes.
+  nodes: [VariableTypeModel]
+  totalCount: Int!
+}
+
+# A connection to a list of items.
+type DataTypesConnection {
+  # Information to aid in pagination.
+  pageInfo: PageInfo!
+
+  # A list of edges.
+  edges: [DataTypesEdge!]
+
+  # A flattened list of the nodes.
+  nodes: [DataTypeModel]
+  totalCount: Int!
+}
+
+# A connection to a list of items.
+type InterfacesConnection {
+  # Information to aid in pagination.
+  pageInfo: PageInfo!
+
+  # A list of edges.
+  edges: [InterfacesEdge!]
+
+  # A flattened list of the nodes.
+  nodes: [InterfaceModel]
+  totalCount: Int!
+}
+
+# A connection to a list of items.
+type ObjectsConnection {
+  # Information to aid in pagination.
+  pageInfo: PageInfo!
+
+  # A list of edges.
+  edges: [ObjectsEdge!]
+
+  # A flattened list of the nodes.
+  nodes: [ObjectModel]
+  totalCount: Int!
+}
+
+# A connection to a list of items.
+type PropertiesConnection {
+  # Information to aid in pagination.
+  pageInfo: PageInfo!
+
+  # A list of edges.
+  edges: [PropertiesEdge!]
+
+  # A flattened list of the nodes.
+  nodes: [PropertyModel]
+  totalCount: Int!
+}
+
+# A connection to a list of items.
+type DataVariablesConnection {
+  # Information to aid in pagination.
+  pageInfo: PageInfo!
+
+  # A list of edges.
+  edges: [DataVariablesEdge!]
+
+  # A flattened list of the nodes.
+  nodes: [DataVariableModel]
+  totalCount: Int!
+}
+
+# A connection to a list of items.
+type ReferenceTypesConnection {
+  # Information to aid in pagination.
+  pageInfo: PageInfo!
+
+  # A list of edges.
+  edges: [ReferenceTypesEdge!]
+
+  # A flattened list of the nodes.
+  nodes: [ReferenceTypeModel]
+  totalCount: Int!
+}
+
+# A connection to a list of items.
+type UnknownNodesConnection {
+  # Information to aid in pagination.
+  pageInfo: PageInfo!
+
+  # A list of edges.
+  edges: [UnknownNodesEdge!]
+
+  # A flattened list of the nodes.
+  nodes: [NodeModel]
+  totalCount: Int!
+}
+
+input ListFilterInputTypeOfNodeModelFilterInput {
+  all: NodeModelFilterInput
+  none: NodeModelFilterInput
+  some: NodeModelFilterInput
+  any: Boolean
+}
+
+input BooleanOperationFilterInput {
+  eq: Boolean
+  neq: Boolean
+}
+
+input BaseTypeModelFilterInput {
+  and: [BaseTypeModelFilterInput!]
+  or: [BaseTypeModelFilterInput!]
+  isAbstract: BooleanOperationFilterInput
+  superType: BaseTypeModelFilterInput
+  subTypes: ListFilterInputTypeOfBaseTypeModelFilterInput
+  displayName: ListFilterInputTypeOfLocalizedTextFilterInput
+  browseName: StringOperationFilterInput
+  symbolicName: StringOperationFilterInput
+  description: ListFilterInputTypeOfLocalizedTextFilterInput
+  documentation: StringOperationFilterInput
+  releaseStatus: StringOperationFilterInput
+  namespace: StringOperationFilterInput
+  nodeId: StringOperationFilterInput
+  categories: ListStringOperationFilterInput
+  nodeSet: NodeSetModelFilterInput
+  properties: ListFilterInputTypeOfVariableModelFilterInput
+  dataVariables: ListFilterInputTypeOfDataVariableModelFilterInput
+  objects: ListFilterInputTypeOfObjectModelFilterInput
+  interfaces: ListFilterInputTypeOfInterfaceModelFilterInput
+  methods: ListFilterInputTypeOfMethodModelFilterInput
+  events: ListFilterInputTypeOfObjectTypeModelFilterInput
+  otherReferencedNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+  otherReferencingNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+}
+
+input ListFilterInputTypeOfBaseTypeModelFilterInput {
+  all: BaseTypeModelFilterInput
+  none: BaseTypeModelFilterInput
+  some: BaseTypeModelFilterInput
+  any: Boolean
+}
+
+input ListFilterInputTypeOfLocalizedTextFilterInput {
+  all: LocalizedTextFilterInput
+  none: LocalizedTextFilterInput
+  some: LocalizedTextFilterInput
+  any: Boolean
+}
+
+input StringOperationFilterInput {
+  and: [StringOperationFilterInput!]
+  or: [StringOperationFilterInput!]
+  eq: String
+  neq: String
+  contains: String
+  ncontains: String
+  in: [String]
+  nin: [String]
+  startsWith: String
+  nstartsWith: String
+  endsWith: String
+  nendsWith: String
+}
+
+input ListStringOperationFilterInput {
+  all: StringOperationFilterInput
+  none: StringOperationFilterInput
+  some: StringOperationFilterInput
+  any: Boolean
+}
+
+input NodeSetModelFilterInput {
+  and: [NodeSetModelFilterInput!]
+  or: [NodeSetModelFilterInput!]
+  modelUri: StringOperationFilterInput
+  version: StringOperationFilterInput
+  publicationDate: ComparableNullableOfDateTimeOperationFilterInput
+  requiredModels: ListFilterInputTypeOfRequiredModelInfoFilterInput
+  identifier: StringOperationFilterInput
+  objectTypes: ListFilterInputTypeOfObjectTypeModelFilterInput
+  variableTypes: ListFilterInputTypeOfVariableTypeModelFilterInput
+  dataTypes: ListFilterInputTypeOfDataTypeModelFilterInput
+  interfaces: ListFilterInputTypeOfInterfaceModelFilterInput
+  objects: ListFilterInputTypeOfObjectModelFilterInput
+  properties: ListFilterInputTypeOfPropertyModelFilterInput
+  dataVariables: ListFilterInputTypeOfDataVariableModelFilterInput
+  unknownNodes: ListFilterInputTypeOfNodeModelFilterInput
+  referenceTypes: ListFilterInputTypeOfReferenceTypeModelFilterInput
+  allNodesByNodeId: DictionaryOfStringAndNodeModelFilterInput
+}
+
+input ListFilterInputTypeOfVariableModelFilterInput {
+  all: VariableModelFilterInput
+  none: VariableModelFilterInput
+  some: VariableModelFilterInput
+  any: Boolean
+}
+
+input ListFilterInputTypeOfDataVariableModelFilterInput {
+  all: DataVariableModelFilterInput
+  none: DataVariableModelFilterInput
+  some: DataVariableModelFilterInput
+  any: Boolean
+}
+
+input ListFilterInputTypeOfObjectModelFilterInput {
+  all: ObjectModelFilterInput
+  none: ObjectModelFilterInput
+  some: ObjectModelFilterInput
+  any: Boolean
+}
+
+input ListFilterInputTypeOfInterfaceModelFilterInput {
+  all: InterfaceModelFilterInput
+  none: InterfaceModelFilterInput
+  some: InterfaceModelFilterInput
+  any: Boolean
+}
+
+input ListFilterInputTypeOfMethodModelFilterInput {
+  all: MethodModelFilterInput
+  none: MethodModelFilterInput
+  some: MethodModelFilterInput
+  any: Boolean
+}
+
+input ListFilterInputTypeOfObjectTypeModelFilterInput {
+  all: ObjectTypeModelFilterInput
+  none: ObjectTypeModelFilterInput
+  some: ObjectTypeModelFilterInput
+  any: Boolean
+}
+
+input ListFilterInputTypeOfNodeAndReferenceFilterInput {
+  all: NodeAndReferenceFilterInput
+  none: NodeAndReferenceFilterInput
+  some: NodeAndReferenceFilterInput
+  any: Boolean
+}
+
+enum SortEnumType {
+  ASC
+  DESC
+}
+
+input BaseTypeModelSortInput {
+  isAbstract: SortEnumType
+  superType: BaseTypeModelSortInput
+  browseName: SortEnumType
+  symbolicName: SortEnumType
+  documentation: SortEnumType
+  releaseStatus: SortEnumType
+  namespace: SortEnumType
+  nodeId: SortEnumType
+  nodeSet: NodeSetModelSortInput
+}
+
+input NodeSetModelSortInput {
+  modelUri: SortEnumType
+  version: SortEnumType
+  publicationDate: SortEnumType
+  identifier: SortEnumType
+}
+
+input ComparableNullableOfInt32OperationFilterInput {
+  eq: Int
+  neq: Int
+  in: [Int]
+  nin: [Int]
+  gt: Int
+  ngt: Int
+  gte: Int
+  ngte: Int
+  lt: Int
+  nlt: Int
+  lte: Int
+  nlte: Int
+}
+
+input ListFilterInputTypeOfStructureFieldFilterInput {
+  all: StructureFieldFilterInput
+  none: StructureFieldFilterInput
+  some: StructureFieldFilterInput
+  any: Boolean
+}
+
+input ListFilterInputTypeOfUaEnumFieldFilterInput {
+  all: UaEnumFieldFilterInput
+  none: UaEnumFieldFilterInput
+  some: UaEnumFieldFilterInput
+  any: Boolean
+}
+
+input EngineeringUnitInfoFilterInput {
+  and: [EngineeringUnitInfoFilterInput!]
+  or: [EngineeringUnitInfoFilterInput!]
+  displayName: LocalizedTextFilterInput
+  description: LocalizedTextFilterInput
+  namespaceUri: StringOperationFilterInput
+  unitId: ComparableNullableOfInt32OperationFilterInput
+}
+
+input ComparableNullableOfUInt32OperationFilterInput {
+  eq: UnsignedInt
+  neq: UnsignedInt
+  in: [UnsignedInt]
+  nin: [UnsignedInt]
+  gt: UnsignedInt
+  ngt: UnsignedInt
+  gte: UnsignedInt
+  ngte: UnsignedInt
+  lt: UnsignedInt
+  nlt: UnsignedInt
+  lte: UnsignedInt
+  nlte: UnsignedInt
+}
+
+input ComparableNullableOfDoubleOperationFilterInput {
+  eq: Float
+  neq: Float
+  in: [Float]
+  nin: [Float]
+  gt: Float
+  ngt: Float
+  gte: Float
+  ngte: Float
+  lt: Float
+  nlt: Float
+  lte: Float
+  nlte: Float
+}
+
+input ComparableNullableOfInt64OperationFilterInput {
+  eq: Long
+  neq: Long
+  in: [Long]
+  nin: [Long]
+  gt: Long
+  ngt: Long
+  gte: Long
+  ngte: Long
+  lt: Long
+  nlt: Long
+  lte: Long
+  nlte: Long
+}
+
+input ComparableNullableOfUInt16OperationFilterInput {
+  eq: UnsignedShort
+  neq: UnsignedShort
+  in: [UnsignedShort]
+  nin: [UnsignedShort]
+  gt: UnsignedShort
+  ngt: UnsignedShort
+  gte: UnsignedShort
+  ngte: UnsignedShort
+  lt: UnsignedShort
+  nlt: UnsignedShort
+  lte: UnsignedShort
+  nlte: UnsignedShort
+}
+
+input EngineeringUnitInfoSortInput {
+  displayName: LocalizedTextSortInput
+  description: LocalizedTextSortInput
+  namespaceUri: SortEnumType
+  unitId: SortEnumType
+}
+
+# Information about pagination in a connection.
+type PageInfo {
+  # Indicates whether more edges exist following the set defined by the clients arguments.
+  hasNextPage: Boolean!
+
+  # Indicates whether more edges exist prior the set defined by the clients arguments.
+  hasPreviousPage: Boolean!
+
+  # When paginating backwards, the cursor to continue.
+  startCursor: String
+
+  # When paginating forwards, the cursor to continue.
+  endCursor: String
+}
+
+type ObjectTypeModel {
+  hasBaseType(nodeId: String): Boolean!
+  browseName: String
+  nodesWithEvents: [NodeModel]
+  isAbstract: Boolean!
+  superType: BaseTypeModel
+  subTypes: [BaseTypeModel]
+  displayName: [LocalizedText]
+  symbolicName: String
+  description: [LocalizedText]
+  documentation: String
+  releaseStatus: String
+  namespace: String
+  nodeId: String
+  categories: [String]
+  nodeSet: NodeSetModel
+  properties: [VariableModel]
+  dataVariables: [DataVariableModel]
+  objects: [ObjectModel]
+  interfaces: [InterfaceModel]
+  methods: [MethodModel]
+  events: [ObjectTypeModel]
+  otherReferencedNodes: [NodeAndReference]
+  otherReferencingNodes: [NodeAndReference]
+}
+
+# An edge in a connection.
+type ObjectTypesEdge {
+  # A cursor for use in pagination.
+  cursor: String!
+
+  # The item at the end of the edge.
+  node: ObjectTypeModel
+}
+
+type VariableTypeModel {
+  hasBaseType(nodeId: String): Boolean!
+  browseName: String
+  dataType: BaseTypeModel
+  valueRank: Int
+  arrayDimensions: String
+  value: String
+  isAbstract: Boolean!
+  superType: BaseTypeModel
+  subTypes: [BaseTypeModel]
+  displayName: [LocalizedText]
+  symbolicName: String
+  description: [LocalizedText]
+  documentation: String
+  releaseStatus: String
+  namespace: String
+  nodeId: String
+  categories: [String]
+  nodeSet: NodeSetModel
+  properties: [VariableModel]
+  dataVariables: [DataVariableModel]
+  objects: [ObjectModel]
+  interfaces: [InterfaceModel]
+  methods: [MethodModel]
+  events: [ObjectTypeModel]
+  otherReferencedNodes: [NodeAndReference]
+  otherReferencingNodes: [NodeAndReference]
+}
+
+# An edge in a connection.
+type VariableTypesEdge {
+  # A cursor for use in pagination.
+  cursor: String!
+
+  # The item at the end of the edge.
+  node: VariableTypeModel
+}
+
+type DataTypeModel {
+  hasBaseType(nodeId: String): Boolean!
+  browseName: String
+  structureFields: [StructureField]
+  enumFields: [UaEnumField]
+  isOptionSet: Boolean
+  isAbstract: Boolean!
+  superType: BaseTypeModel
+  subTypes: [BaseTypeModel]
+  displayName: [LocalizedText]
+  symbolicName: String
+  description: [LocalizedText]
+  documentation: String
+  releaseStatus: String
+  namespace: String
+  nodeId: String
+  categories: [String]
+  nodeSet: NodeSetModel
+  properties: [VariableModel]
+  dataVariables: [DataVariableModel]
+  objects: [ObjectModel]
+  interfaces: [InterfaceModel]
+  methods: [MethodModel]
+  events: [ObjectTypeModel]
+  otherReferencedNodes: [NodeAndReference]
+  otherReferencingNodes: [NodeAndReference]
+}
+
+# An edge in a connection.
+type DataTypesEdge {
+  # A cursor for use in pagination.
+  cursor: String!
+
+  # The item at the end of the edge.
+  node: DataTypeModel
+}
+
+type InterfaceModel {
+  hasBaseType(nodeId: String): Boolean!
+  browseName: String
+  nodesWithInterface: [NodeModel]
+  nodesWithEvents: [NodeModel]
+  isAbstract: Boolean!
+  superType: BaseTypeModel
+  subTypes: [BaseTypeModel]
+  displayName: [LocalizedText]
+  symbolicName: String
+  description: [LocalizedText]
+  documentation: String
+  releaseStatus: String
+  namespace: String
+  nodeId: String
+  categories: [String]
+  nodeSet: NodeSetModel
+  properties: [VariableModel]
+  dataVariables: [DataVariableModel]
+  objects: [ObjectModel]
+  interfaces: [InterfaceModel]
+  methods: [MethodModel]
+  events: [ObjectTypeModel]
+  otherReferencedNodes: [NodeAndReference]
+  otherReferencingNodes: [NodeAndReference]
+}
+
+# An edge in a connection.
+type InterfacesEdge {
+  # A cursor for use in pagination.
+  cursor: String!
+
+  # The item at the end of the edge.
+  node: InterfaceModel
+}
+
+type ObjectModel {
+  browseName: String
+  nodesWithObjects: [NodeModel]
+  typeDefinition: ObjectTypeModel
+  modelingRule: String
+  parent: NodeModel
+  displayName: [LocalizedText]
+  symbolicName: String
+  description: [LocalizedText]
+  documentation: String
+  releaseStatus: String
+  namespace: String
+  nodeId: String
+  categories: [String]
+  nodeSet: NodeSetModel
+  properties: [VariableModel]
+  dataVariables: [DataVariableModel]
+  objects: [ObjectModel]
+  interfaces: [InterfaceModel]
+  methods: [MethodModel]
+  events: [ObjectTypeModel]
+  otherReferencedNodes: [NodeAndReference]
+  otherReferencingNodes: [NodeAndReference]
+}
+
+# An edge in a connection.
+type ObjectsEdge {
+  # A cursor for use in pagination.
+  cursor: String!
+
+  # The item at the end of the edge.
+  node: ObjectModel
+}
+
+type PropertyModel {
+  browseName: String
+  dataType: BaseTypeModel
+  valueRank: Int
+  arrayDimensions: String
+  value: String
+  nodesWithProperties: [NodeModel]
+  engineeringUnit: EngineeringUnitInfo
+  engUnitNodeId: String
+  engUnitModelingRule: String
+  engUnitAccessLevel: UnsignedInt
+  minValue: Float
+  maxValue: Float
+  eURangeNodeId: String
+  eURangeModelingRule: String
+  eURangeAccessLevel: UnsignedInt
+  instrumentMinValue: Float
+  instrumentMaxValue: Float
+  enumValue: Long
+  accessLevel: UnsignedInt
+  accessRestrictions: UnsignedShort
+  writeMask: UnsignedInt
+  userWriteMask: UnsignedInt
+  minimumSamplingInterval: Float
+  typeDefinition: VariableTypeModel
+  modelingRule: String
+  parent: NodeModel
+  displayName: [LocalizedText]
+  symbolicName: String
+  description: [LocalizedText]
+  documentation: String
+  releaseStatus: String
+  namespace: String
+  nodeId: String
+  categories: [String]
+  nodeSet: NodeSetModel
+  properties: [VariableModel]
+  dataVariables: [DataVariableModel]
+  objects: [ObjectModel]
+  interfaces: [InterfaceModel]
+  methods: [MethodModel]
+  events: [ObjectTypeModel]
+  otherReferencedNodes: [NodeAndReference]
+  otherReferencingNodes: [NodeAndReference]
+}
+
+# An edge in a connection.
+type PropertiesEdge {
+  # A cursor for use in pagination.
+  cursor: String!
+
+  # The item at the end of the edge.
+  node: PropertyModel
+}
+
+type DataVariableModel {
+  browseName: String
+  nodesWithDataVariables: [NodeModel]
+  dataType: BaseTypeModel
+  valueRank: Int
+  arrayDimensions: String
+  value: String
+  nodesWithProperties: [NodeModel]
+  engineeringUnit: EngineeringUnitInfo
+  engUnitNodeId: String
+  engUnitModelingRule: String
+  engUnitAccessLevel: UnsignedInt
+  minValue: Float
+  maxValue: Float
+  eURangeNodeId: String
+  eURangeModelingRule: String
+  eURangeAccessLevel: UnsignedInt
+  instrumentMinValue: Float
+  instrumentMaxValue: Float
+  enumValue: Long
+  accessLevel: UnsignedInt
+  accessRestrictions: UnsignedShort
+  writeMask: UnsignedInt
+  userWriteMask: UnsignedInt
+  minimumSamplingInterval: Float
+  typeDefinition: VariableTypeModel
+  modelingRule: String
+  parent: NodeModel
+  displayName: [LocalizedText]
+  symbolicName: String
+  description: [LocalizedText]
+  documentation: String
+  releaseStatus: String
+  namespace: String
+  nodeId: String
+  categories: [String]
+  nodeSet: NodeSetModel
+  properties: [VariableModel]
+  dataVariables: [DataVariableModel]
+  objects: [ObjectModel]
+  interfaces: [InterfaceModel]
+  methods: [MethodModel]
+  events: [ObjectTypeModel]
+  otherReferencedNodes: [NodeAndReference]
+  otherReferencingNodes: [NodeAndReference]
+}
+
+# An edge in a connection.
+type DataVariablesEdge {
+  # A cursor for use in pagination.
+  cursor: String!
+
+  # The item at the end of the edge.
+  node: DataVariableModel
+}
+
+type ReferenceTypeModel {
+  hasBaseType(nodeId: String): Boolean!
+  browseName: String
+  inverseName: [LocalizedText]
+  symmetric: Boolean!
+  isAbstract: Boolean!
+  superType: BaseTypeModel
+  subTypes: [BaseTypeModel]
+  displayName: [LocalizedText]
+  symbolicName: String
+  description: [LocalizedText]
+  documentation: String
+  releaseStatus: String
+  namespace: String
+  nodeId: String
+  categories: [String]
+  nodeSet: NodeSetModel
+  properties: [VariableModel]
+  dataVariables: [DataVariableModel]
+  objects: [ObjectModel]
+  interfaces: [InterfaceModel]
+  methods: [MethodModel]
+  events: [ObjectTypeModel]
+  otherReferencedNodes: [NodeAndReference]
+  otherReferencingNodes: [NodeAndReference]
+}
+
+# An edge in a connection.
+type ReferenceTypesEdge {
+  # A cursor for use in pagination.
+  cursor: String!
+
+  # The item at the end of the edge.
+  node: ReferenceTypeModel
+}
+
+type NodeModel {
+  browseName: String
+  displayName: [LocalizedText]
+  symbolicName: String
+  description: [LocalizedText]
+  documentation: String
+  releaseStatus: String
+  namespace: String
+  nodeId: String
+  categories: [String]
+  nodeSet: NodeSetModel
+  properties: [VariableModel]
+  dataVariables: [DataVariableModel]
+  objects: [ObjectModel]
+  interfaces: [InterfaceModel]
+  methods: [MethodModel]
+  events: [ObjectTypeModel]
+  otherReferencedNodes: [NodeAndReference]
+  otherReferencingNodes: [NodeAndReference]
+}
+
+# An edge in a connection.
+type UnknownNodesEdge {
+  # A cursor for use in pagination.
+  cursor: String!
+
+  # The item at the end of the edge.
+  node: NodeModel
+}
+
+input LocalizedTextFilterInput {
+  and: [LocalizedTextFilterInput!]
+  or: [LocalizedTextFilterInput!]
+  text: StringOperationFilterInput
+  locale: StringOperationFilterInput
+}
+
+input ComparableNullableOfDateTimeOperationFilterInput {
+  eq: DateTime
+  neq: DateTime
+  in: [DateTime]
+  nin: [DateTime]
+  gt: DateTime
+  ngt: DateTime
+  gte: DateTime
+  ngte: DateTime
+  lt: DateTime
+  nlt: DateTime
+  lte: DateTime
+  nlte: DateTime
+}
+
+input ListFilterInputTypeOfRequiredModelInfoFilterInput {
+  all: RequiredModelInfoFilterInput
+  none: RequiredModelInfoFilterInput
+  some: RequiredModelInfoFilterInput
+  any: Boolean
+}
+
+input ListFilterInputTypeOfVariableTypeModelFilterInput {
+  all: VariableTypeModelFilterInput
+  none: VariableTypeModelFilterInput
+  some: VariableTypeModelFilterInput
+  any: Boolean
+}
+
+input ListFilterInputTypeOfDataTypeModelFilterInput {
+  all: DataTypeModelFilterInput
+  none: DataTypeModelFilterInput
+  some: DataTypeModelFilterInput
+  any: Boolean
+}
+
+input ListFilterInputTypeOfPropertyModelFilterInput {
+  all: PropertyModelFilterInput
+  none: PropertyModelFilterInput
+  some: PropertyModelFilterInput
+  any: Boolean
+}
+
+input ListFilterInputTypeOfReferenceTypeModelFilterInput {
+  all: ReferenceTypeModelFilterInput
+  none: ReferenceTypeModelFilterInput
+  some: ReferenceTypeModelFilterInput
+  any: Boolean
+}
+
+input DictionaryOfStringAndNodeModelFilterInput {
+  and: [DictionaryOfStringAndNodeModelFilterInput!]
+  or: [DictionaryOfStringAndNodeModelFilterInput!]
+  comparer: IEqualityComparerOfStringFilterInput
+  count: ComparableInt32OperationFilterInput
+  keys: ListStringOperationFilterInput
+  values: ListFilterInputTypeOfNodeModelFilterInput
+}
+
+input VariableModelFilterInput {
+  and: [VariableModelFilterInput!]
+  or: [VariableModelFilterInput!]
+  dataType: BaseTypeModelFilterInput
+  valueRank: ComparableNullableOfInt32OperationFilterInput
+  arrayDimensions: StringOperationFilterInput
+  value: StringOperationFilterInput
+  nodesWithProperties: ListFilterInputTypeOfNodeModelFilterInput
+  engineeringUnit: EngineeringUnitInfoFilterInput
+  engUnitNodeId: StringOperationFilterInput
+  engUnitModelingRule: StringOperationFilterInput
+  engUnitAccessLevel: ComparableNullableOfUInt32OperationFilterInput
+  minValue: ComparableNullableOfDoubleOperationFilterInput
+  maxValue: ComparableNullableOfDoubleOperationFilterInput
+  eURangeNodeId: StringOperationFilterInput
+  eURangeModelingRule: StringOperationFilterInput
+  eURangeAccessLevel: ComparableNullableOfUInt32OperationFilterInput
+  instrumentMinValue: ComparableNullableOfDoubleOperationFilterInput
+  instrumentMaxValue: ComparableNullableOfDoubleOperationFilterInput
+  enumValue: ComparableNullableOfInt64OperationFilterInput
+  accessLevel: ComparableNullableOfUInt32OperationFilterInput
+  accessRestrictions: ComparableNullableOfUInt16OperationFilterInput
+  writeMask: ComparableNullableOfUInt32OperationFilterInput
+  userWriteMask: ComparableNullableOfUInt32OperationFilterInput
+  minimumSamplingInterval: ComparableNullableOfDoubleOperationFilterInput
+  typeDefinition: VariableTypeModelFilterInput
+  modelingRule: StringOperationFilterInput
+  parent: NodeModelFilterInput
+  displayName: ListFilterInputTypeOfLocalizedTextFilterInput
+  browseName: StringOperationFilterInput
+  symbolicName: StringOperationFilterInput
+  description: ListFilterInputTypeOfLocalizedTextFilterInput
+  documentation: StringOperationFilterInput
+  releaseStatus: StringOperationFilterInput
+  namespace: StringOperationFilterInput
+  nodeId: StringOperationFilterInput
+  categories: ListStringOperationFilterInput
+  nodeSet: NodeSetModelFilterInput
+  properties: ListFilterInputTypeOfVariableModelFilterInput
+  dataVariables: ListFilterInputTypeOfDataVariableModelFilterInput
+  objects: ListFilterInputTypeOfObjectModelFilterInput
+  interfaces: ListFilterInputTypeOfInterfaceModelFilterInput
+  methods: ListFilterInputTypeOfMethodModelFilterInput
+  events: ListFilterInputTypeOfObjectTypeModelFilterInput
+  otherReferencedNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+  otherReferencingNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+}
+
+input MethodModelFilterInput {
+  and: [MethodModelFilterInput!]
+  or: [MethodModelFilterInput!]
+  nodesWithMethods: ListFilterInputTypeOfNodeModelFilterInput
+  typeDefinition: MethodModelFilterInput
+  modelingRule: StringOperationFilterInput
+  parent: NodeModelFilterInput
+  displayName: ListFilterInputTypeOfLocalizedTextFilterInput
+  browseName: StringOperationFilterInput
+  symbolicName: StringOperationFilterInput
+  description: ListFilterInputTypeOfLocalizedTextFilterInput
+  documentation: StringOperationFilterInput
+  releaseStatus: StringOperationFilterInput
+  namespace: StringOperationFilterInput
+  nodeId: StringOperationFilterInput
+  categories: ListStringOperationFilterInput
+  nodeSet: NodeSetModelFilterInput
+  properties: ListFilterInputTypeOfVariableModelFilterInput
+  dataVariables: ListFilterInputTypeOfDataVariableModelFilterInput
+  objects: ListFilterInputTypeOfObjectModelFilterInput
+  interfaces: ListFilterInputTypeOfInterfaceModelFilterInput
+  methods: ListFilterInputTypeOfMethodModelFilterInput
+  events: ListFilterInputTypeOfObjectTypeModelFilterInput
+  otherReferencedNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+  otherReferencingNodes: ListFilterInputTypeOfNodeAndReferenceFilterInput
+}
+
+input NodeAndReferenceFilterInput {
+  and: [NodeAndReferenceFilterInput!]
+  or: [NodeAndReferenceFilterInput!]
+  node: NodeModelFilterInput
+  reference: StringOperationFilterInput
+}
+
+input StructureFieldFilterInput {
+  and: [StructureFieldFilterInput!]
+  or: [StructureFieldFilterInput!]
+  name: StringOperationFilterInput
+  dataType: BaseTypeModelFilterInput
+  valueRank: ComparableNullableOfInt32OperationFilterInput
+  arrayDimensions: StringOperationFilterInput
+  maxStringLength: ComparableNullableOfUInt32OperationFilterInput
+  description: ListFilterInputTypeOfLocalizedTextFilterInput
+  isOptional: BooleanOperationFilterInput
+  fieldOrder: ComparableInt32OperationFilterInput
+}
+
+input UaEnumFieldFilterInput {
+  and: [UaEnumFieldFilterInput!]
+  or: [UaEnumFieldFilterInput!]
+  name: StringOperationFilterInput
+  displayName: ListFilterInputTypeOfLocalizedTextFilterInput
+  description: ListFilterInputTypeOfLocalizedTextFilterInput
+  value: ComparableInt64OperationFilterInput
+}
+
+input LocalizedTextSortInput {
+  text: SortEnumType
+  locale: SortEnumType
+}
+
+input RequiredModelInfoFilterInput {
+  and: [RequiredModelInfoFilterInput!]
+  or: [RequiredModelInfoFilterInput!]
+  modelUri: StringOperationFilterInput
+  version: StringOperationFilterInput
+  publicationDate: ComparableNullableOfDateTimeOperationFilterInput
+  availableModel: NodeSetModelFilterInput
+}
+
+input IEqualityComparerOfStringFilterInput {
+  and: [IEqualityComparerOfStringFilterInput!]
+  or: [IEqualityComparerOfStringFilterInput!]
+}
+
+input ComparableInt32OperationFilterInput {
+  eq: Int
+  neq: Int
+  in: [Int!]
+  nin: [Int!]
+  gt: Int
+  ngt: Int
+  gte: Int
+  ngte: Int
+  lt: Int
+  nlt: Int
+  lte: Int
+  nlte: Int
+}
+
+input ComparableInt64OperationFilterInput {
+  eq: Long
+  neq: Long
+  in: [Long!]
+  nin: [Long!]
+  gt: Long
+  ngt: Long
+  gte: Long
+  ngte: Long
+  lt: Long
+  nlt: Long
+  lte: Long
+  nlte: Long
+}
+
+type QueryModel {
+  nodeSets(
+    identifier: String
+    nodeSetUrl: String
+    publicationDate: DateTime
+    keywords: [String]
+
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: CloudLibNodeSetModelFilterInput
+    order: [CloudLibNodeSetModelSortInput!]
+  ): NodeSetsConnection
+  objectTypes(
+    nodeSetUrl: String
+    publicationDate: DateTime
+    nodeId: String
+
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: ObjectTypeModelFilterInput
+    order: [ObjectTypeModelSortInput!]
+  ): ObjectTypesConnection
+  variableTypes(
+    nodeSetUrl: String
+    publicationDate: DateTime
+    nodeId: String
+
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: VariableTypeModelFilterInput
+    order: [VariableTypeModelSortInput!]
+  ): VariableTypesConnection
+  dataTypes(
+    nodeSetUrl: String
+    publicationDate: DateTime
+    nodeId: String
+
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: DataTypeModelFilterInput
+    order: [DataTypeModelSortInput!]
+  ): DataTypesConnection
+  properties(
+    nodeSetUrl: String
+    publicationDate: DateTime
+    nodeId: String
+
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: PropertyModelFilterInput
+    order: [PropertyModelSortInput!]
+  ): PropertiesConnection
+  dataVariables(
+    nodeSetUrl: String
+    publicationDate: DateTime
+    nodeId: String
+
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: DataVariableModelFilterInput
+    order: [DataVariableModelSortInput!]
+  ): DataVariablesConnection
+  referenceTypes(
+    nodeSetUrl: String
+    publicationDate: DateTime
+    nodeId: String
+
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: ReferenceTypeModelFilterInput
+    order: [ReferenceTypeModelSortInput!]
+  ): ReferenceTypesConnection
+  interfaces(
+    nodeSetUrl: String
+    publicationDate: DateTime
+    nodeId: String
+
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: InterfaceModelFilterInput
+    order: [InterfaceModelSortInput!]
+  ): InterfacesConnection
+  objects(
+    nodeSetUrl: String
+    publicationDate: DateTime
+    nodeId: String
+
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: ObjectModelFilterInput
+    order: [ObjectModelSortInput!]
+  ): ObjectsConnection
+  allNodes(
+    nodeSetUrl: String
+    publicationDate: DateTime
+    nodeId: String
+
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: NodeModelFilterInput
+    order: [NodeModelSortInput!]
+  ): AllNodesConnection
+  categories(
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: CategoryFilterInput
+    order: [CategorySortInput!]
+  ): CategoriesConnection
+  organisations(
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: OrganisationFilterInput
+    order: [OrganisationSortInput!]
+  ): OrganisationsConnection
+  namespaces(
+    # Returns the first _n_ elements from the list.
+    first: Int
+
+    # Returns the elements in the list that come after the specified cursor.
+    after: String
+
+    # Returns the last _n_ elements from the list.
+    last: Int
+
+    # Returns the elements in the list that come before the specified cursor.
+    before: String
+    where: UANameSpaceFilterInput
+    order: [UANameSpaceSortInput!]
+  ): NamespacesConnection @deprecated(reason: "Use NodeSets.Metadata instead.")
+  nameSpace(
+    limit: Int!
+    offset: Int!
+    where: String
+    orderBy: String
+  ): [UANameSpace] @deprecated(reason: "Use namespaces instead.")
+  category(
+    limit: Int!
+    offset: Int!
+    where: String
+    orderBy: String
+  ): [Category] @deprecated(reason: "Use categories instead.")
+  metadata: [MetadataModel]
+    @deprecated(
+      reason: "Use namespaces and namespaces.additionalProperties instead."
+    )
+  organisation(
+    limit: Int!
+    offset: Int!
+    where: String
+    orderBy: String
+  ): [Organisation] @deprecated(reason: "Use organizations instead.")
+  nodeSet: [NodeSetGraphQLLegacy] @deprecated(reason: "Use nodeSets instead.")
+  objectType: [ObjecttypeModel] @deprecated(reason: "Use objectTypes instead.")
+  dataType: [DatatypeModel] @deprecated(reason: "Use dataTypes instead.")
+  referenceType: [ReferencetypeModel]
+    @deprecated(reason: "Use referenceTypes instead.")
+  variableType: [VariabletypeModel]
+    @deprecated(reason: "Use variableTypes instead.")
+}
+
+type UANameSpaceMetadata {
+  title: String!
+  contributor: Organisation!
+  license: License!
+  copyrightText: String!
+  description: String!
+  category: Category!
+  documentationUrl: URL
+  iconUrl: URL
+  licenseUrl: URL
+  keywords: [String]
+  purchasingInformationUrl: URL
+  releaseNotesUrl: URL
+  testSpecificationUrl: URL
+  supportedLocales: [String]
+  numberOfDownloads: UnsignedInt!
+  validationStatus: String
+  additionalProperties: [UAProperty]
+}
+
+enum ValidationStatus {
+  PARSED
+  INDEXED
+  ERROR
+}
+
+# The `DateTime` scalar represents an ISO-8601 compliant date time type.
+scalar DateTime
+
+type RequiredModelInfo {
+  modelUri: String
+  version: String
+  publicationDate: DateTime
+  availableModel: NodeSetModel
+}
+
+type KeyValuePairOfStringAndNodeModel {
+  key: String!
+  value: NodeModel!
+}
+
+# The `Long` scalar type represents non-fractional signed whole 64-bit numeric values. Long can represent values between -(2^63) and 2^63 - 1.
+scalar Long
+
+type BaseTypeModel {
+  hasBaseType(nodeId: String): Boolean!
+  browseName: String
+  isAbstract: Boolean!
+  superType: BaseTypeModel
+  subTypes: [BaseTypeModel]
+  displayName: [LocalizedText]
+  symbolicName: String
+  description: [LocalizedText]
+  documentation: String
+  releaseStatus: String
+  namespace: String
+  nodeId: String
+  categories: [String]
+  nodeSet: NodeSetModel
+  properties: [VariableModel]
+  dataVariables: [DataVariableModel]
+  objects: [ObjectModel]
+  interfaces: [InterfaceModel]
+  methods: [MethodModel]
+  events: [ObjectTypeModel]
+  otherReferencedNodes: [NodeAndReference]
+  otherReferencingNodes: [NodeAndReference]
+}
+
+type LocalizedText {
+  text: String!
+  locale: String
+}
+
+type NodeSetModel {
+  modelUri: String
+  version: String
+  publicationDate: DateTime
+  requiredModels: [RequiredModelInfo]
+  identifier: String
+  objectTypes: [ObjectTypeModel]
+  variableTypes: [VariableTypeModel]
+  dataTypes: [DataTypeModel]
+  interfaces: [InterfaceModel]
+  objects: [ObjectModel]
+  properties: [PropertyModel]
+  dataVariables: [DataVariableModel]
+  unknownNodes: [NodeModel]
+  referenceTypes: [ReferenceTypeModel]
+  allNodesByNodeId: [KeyValuePairOfStringAndNodeModel!]
+}
+
+type VariableModel {
+  browseName: String
+  dataType: BaseTypeModel
+  valueRank: Int
+  arrayDimensions: String
+  value: String
+  nodesWithProperties: [NodeModel]
+  engineeringUnit: EngineeringUnitInfo
+  engUnitNodeId: String
+  engUnitModelingRule: String
+  engUnitAccessLevel: UnsignedInt
+  minValue: Float
+  maxValue: Float
+  eURangeNodeId: String
+  eURangeModelingRule: String
+  eURangeAccessLevel: UnsignedInt
+  instrumentMinValue: Float
+  instrumentMaxValue: Float
+  enumValue: Long
+  accessLevel: UnsignedInt
+  accessRestrictions: UnsignedShort
+  writeMask: UnsignedInt
+  userWriteMask: UnsignedInt
+  minimumSamplingInterval: Float
+  typeDefinition: VariableTypeModel
+  modelingRule: String
+  parent: NodeModel
+  displayName: [LocalizedText]
+  symbolicName: String
+  description: [LocalizedText]
+  documentation: String
+  releaseStatus: String
+  namespace: String
+  nodeId: String
+  categories: [String]
+  nodeSet: NodeSetModel
+  properties: [VariableModel]
+  dataVariables: [DataVariableModel]
+  objects: [ObjectModel]
+  interfaces: [InterfaceModel]
+  methods: [MethodModel]
+  events: [ObjectTypeModel]
+  otherReferencedNodes: [NodeAndReference]
+  otherReferencingNodes: [NodeAndReference]
+}
+
+type MethodModel {
+  browseName: String
+  nodesWithMethods: [NodeModel]
+  typeDefinition: MethodModel
+  modelingRule: String
+  parent: NodeModel
+  displayName: [LocalizedText]
+  symbolicName: String
+  description: [LocalizedText]
+  documentation: String
+  releaseStatus: String
+  namespace: String
+  nodeId: String
+  categories: [String]
+  nodeSet: NodeSetModel
+  properties: [VariableModel]
+  dataVariables: [DataVariableModel]
+  objects: [ObjectModel]
+  interfaces: [InterfaceModel]
+  methods: [MethodModel]
+  events: [ObjectTypeModel]
+  otherReferencedNodes: [NodeAndReference]
+  otherReferencingNodes: [NodeAndReference]
+}
+
+type NodeAndReference {
+  node: NodeModel
+  reference: String
+}
+
+type StructureField {
+  name: String
+  dataType: BaseTypeModel
+  valueRank: Int
+  arrayDimensions: String
+  maxStringLength: UnsignedInt
+  description: [LocalizedText]
+  isOptional: Boolean!
+  fieldOrder: Int!
+}
+
+type UaEnumField {
+  name: String
+  displayName: [LocalizedText]
+  description: [LocalizedText]
+  value: Long!
+}
+
+type EngineeringUnitInfo {
+  displayName: LocalizedText
+  description: LocalizedText
+  namespaceUri: String
+  unitId: Int
+}
+
+input CloudLibNodeSetModelFilterInput {
+  and: [CloudLibNodeSetModelFilterInput!]
+  or: [CloudLibNodeSetModelFilterInput!]
+  metadata: UANameSpaceMetadataFilterInput
+  validationStatus: ValidationStatusOperationFilterInput
+  validationStatusInfo: StringOperationFilterInput
+  validationElapsedTime: ComparableTimeSpanOperationFilterInput
+  validationFinishedTime: ComparableNullableOfDateTimeOperationFilterInput
+  validationErrors: ListStringOperationFilterInput
+  modelUri: StringOperationFilterInput
+  version: StringOperationFilterInput
+  publicationDate: ComparableNullableOfDateTimeOperationFilterInput
+  requiredModels: ListFilterInputTypeOfRequiredModelInfoFilterInput
+  identifier: StringOperationFilterInput
+  objectTypes: ListFilterInputTypeOfObjectTypeModelFilterInput
+  variableTypes: ListFilterInputTypeOfVariableTypeModelFilterInput
+  dataTypes: ListFilterInputTypeOfDataTypeModelFilterInput
+  interfaces: ListFilterInputTypeOfInterfaceModelFilterInput
+  objects: ListFilterInputTypeOfObjectModelFilterInput
+  properties: ListFilterInputTypeOfPropertyModelFilterInput
+  dataVariables: ListFilterInputTypeOfDataVariableModelFilterInput
+  unknownNodes: ListFilterInputTypeOfNodeModelFilterInput
+  referenceTypes: ListFilterInputTypeOfReferenceTypeModelFilterInput
+  allNodesByNodeId: DictionaryOfStringAndNodeModelFilterInput
+}
+
+input CloudLibNodeSetModelSortInput {
+  metadata: UANameSpaceMetadataSortInput
+  validationStatus: SortEnumType
+  validationStatusInfo: SortEnumType
+  validationElapsedTime: SortEnumType
+  validationFinishedTime: SortEnumType
+  modelUri: SortEnumType
+  version: SortEnumType
+  publicationDate: SortEnumType
+  identifier: SortEnumType
+}
+
+input CategoryFilterInput {
+  and: [CategoryFilterInput!]
+  or: [CategoryFilterInput!]
+  name: StringOperationFilterInput
+  description: StringOperationFilterInput
+  iconUrl: UriFilterInput
+}
+
+input CategorySortInput {
+  name: SortEnumType
+  description: SortEnumType
+  iconUrl: UriSortInput
+}
+
+input OrganisationFilterInput {
+  and: [OrganisationFilterInput!]
+  or: [OrganisationFilterInput!]
+  name: StringOperationFilterInput
+  description: StringOperationFilterInput
+  logoUrl: UriFilterInput
+  contactEmail: StringOperationFilterInput
+  website: UriFilterInput
+}
+
+input OrganisationSortInput {
+  name: SortEnumType
+  description: SortEnumType
+  logoUrl: UriSortInput
+  contactEmail: SortEnumType
+  website: UriSortInput
+}
+
+input UANameSpaceFilterInput {
+  and: [UANameSpaceFilterInput!]
+  or: [UANameSpaceFilterInput!]
+  nodeset: NodesetFilterInput
+  title: StringOperationFilterInput
+  contributor: OrganisationFilterInput
+  license: LicenseOperationFilterInput
+  copyrightText: StringOperationFilterInput
+  description: StringOperationFilterInput
+  category: CategoryFilterInput
+  documentationUrl: UriFilterInput
+  iconUrl: UriFilterInput
+  licenseUrl: UriFilterInput
+  keywords: ListStringOperationFilterInput
+  purchasingInformationUrl: UriFilterInput
+  releaseNotesUrl: UriFilterInput
+  testSpecificationUrl: UriFilterInput
+  supportedLocales: ListStringOperationFilterInput
+  numberOfDownloads: ComparableUInt32OperationFilterInput
+  validationStatus: StringOperationFilterInput
+  additionalProperties: ListFilterInputTypeOfUAPropertyFilterInput
+}
+
+input UANameSpaceSortInput {
+  nodeset: NodesetSortInput
+  title: SortEnumType
+  contributor: OrganisationSortInput
+  license: SortEnumType
+  copyrightText: SortEnumType
+  description: SortEnumType
+  category: CategorySortInput
+  documentationUrl: UriSortInput
+  iconUrl: UriSortInput
+  licenseUrl: UriSortInput
+  purchasingInformationUrl: UriSortInput
+  releaseNotesUrl: UriSortInput
+  testSpecificationUrl: UriSortInput
+  numberOfDownloads: SortEnumType
+  validationStatus: SortEnumType
+}
+
+# A connection to a list of items.
+type NodeSetsConnection {
+  # Information to aid in pagination.
+  pageInfo: PageInfo!
+
+  # A list of edges.
+  edges: [NodeSetsEdge!]
+
+  # A flattened list of the nodes.
+  nodes: [CloudLibNodeSetModel]
+  totalCount: Int!
+}
+
+# A connection to a list of items.
+type AllNodesConnection {
+  # Information to aid in pagination.
+  pageInfo: PageInfo!
+
+  # A list of edges.
+  edges: [AllNodesEdge!]
+
+  # A flattened list of the nodes.
+  nodes: [NodeModel]
+  totalCount: Int!
+}
+
+# A connection to a list of items.
+type CategoriesConnection {
+  # Information to aid in pagination.
+  pageInfo: PageInfo!
+
+  # A list of edges.
+  edges: [CategoriesEdge!]
+
+  # A flattened list of the nodes.
+  nodes: [Category]
+  totalCount: Int!
+}
+
+# A connection to a list of items.
+type OrganisationsConnection {
+  # Information to aid in pagination.
+  pageInfo: PageInfo!
+
+  # A list of edges.
+  edges: [OrganisationsEdge!]
+
+  # A flattened list of the nodes.
+  nodes: [Organisation]
+  totalCount: Int!
+}
+
+# A connection to a list of items.
+type NamespacesConnection {
+  # Information to aid in pagination.
+  pageInfo: PageInfo!
+
+  # A list of edges.
+  edges: [NamespacesEdge!]
+
+  # A flattened list of the nodes.
+  nodes: [UANameSpace]
+  totalCount: Int!
+}
+
+input UANameSpaceMetadataFilterInput {
+  and: [UANameSpaceMetadataFilterInput!]
+  or: [UANameSpaceMetadataFilterInput!]
+  title: StringOperationFilterInput
+  contributor: OrganisationFilterInput
+  license: LicenseOperationFilterInput
+  copyrightText: StringOperationFilterInput
+  description: StringOperationFilterInput
+  category: CategoryFilterInput
+  documentationUrl: UriFilterInput
+  iconUrl: UriFilterInput
+  licenseUrl: UriFilterInput
+  keywords: ListStringOperationFilterInput
+  purchasingInformationUrl: UriFilterInput
+  releaseNotesUrl: UriFilterInput
+  testSpecificationUrl: UriFilterInput
+  supportedLocales: ListStringOperationFilterInput
+  numberOfDownloads: ComparableUInt32OperationFilterInput
+  validationStatus: StringOperationFilterInput
+  additionalProperties: ListFilterInputTypeOfUAPropertyFilterInput
+}
+
+input ValidationStatusOperationFilterInput {
+  eq: ValidationStatus
+  neq: ValidationStatus
+  in: [ValidationStatus!]
+  nin: [ValidationStatus!]
+}
+
+input ComparableTimeSpanOperationFilterInput {
+  eq: TimeSpan
+  neq: TimeSpan
+  in: [TimeSpan!]
+  nin: [TimeSpan!]
+  gt: TimeSpan
+  ngt: TimeSpan
+  gte: TimeSpan
+  ngte: TimeSpan
+  lt: TimeSpan
+  nlt: TimeSpan
+  lte: TimeSpan
+  nlte: TimeSpan
+}
+
+input UANameSpaceMetadataSortInput {
+  title: SortEnumType
+  contributor: OrganisationSortInput
+  license: SortEnumType
+  copyrightText: SortEnumType
+  description: SortEnumType
+  category: CategorySortInput
+  documentationUrl: UriSortInput
+  iconUrl: UriSortInput
+  licenseUrl: UriSortInput
+  purchasingInformationUrl: UriSortInput
+  releaseNotesUrl: UriSortInput
+  testSpecificationUrl: UriSortInput
+  numberOfDownloads: SortEnumType
+  validationStatus: SortEnumType
+}
+
+input UriFilterInput {
+  and: [UriFilterInput!]
+  or: [UriFilterInput!]
+  absolutePath: StringOperationFilterInput
+  absoluteUri: StringOperationFilterInput
+  localPath: StringOperationFilterInput
+  authority: StringOperationFilterInput
+  hostNameType: UriHostNameTypeOperationFilterInput
+  isDefaultPort: BooleanOperationFilterInput
+  isFile: BooleanOperationFilterInput
+  isLoopback: BooleanOperationFilterInput
+  pathAndQuery: StringOperationFilterInput
+  segments: ListStringOperationFilterInput
+  isUnc: BooleanOperationFilterInput
+  host: StringOperationFilterInput
+  port: ComparableInt32OperationFilterInput
+  query: StringOperationFilterInput
+  fragment: StringOperationFilterInput
+  scheme: StringOperationFilterInput
+  originalString: StringOperationFilterInput
+  dnsSafeHost: StringOperationFilterInput
+  idnHost: StringOperationFilterInput
+  isAbsoluteUri: BooleanOperationFilterInput
+  userEscaped: BooleanOperationFilterInput
+  userInfo: StringOperationFilterInput
+}
+
+input UriSortInput {
+  absolutePath: SortEnumType
+  absoluteUri: SortEnumType
+  localPath: SortEnumType
+  authority: SortEnumType
+  hostNameType: SortEnumType
+  isDefaultPort: SortEnumType
+  isFile: SortEnumType
+  isLoopback: SortEnumType
+  pathAndQuery: SortEnumType
+  isUnc: SortEnumType
+  host: SortEnumType
+  port: SortEnumType
+  query: SortEnumType
+  fragment: SortEnumType
+  scheme: SortEnumType
+  originalString: SortEnumType
+  dnsSafeHost: SortEnumType
+  idnHost: SortEnumType
+  isAbsoluteUri: SortEnumType
+  userEscaped: SortEnumType
+  userInfo: SortEnumType
+}
+
+input NodesetFilterInput {
+  and: [NodesetFilterInput!]
+  or: [NodesetFilterInput!]
+  nodesetXml: StringOperationFilterInput
+  identifier: ComparableUInt32OperationFilterInput
+  namespaceUri: UriFilterInput
+  version: StringOperationFilterInput
+  publicationDate: ComparableDateTimeOperationFilterInput
+  lastModifiedDate: ComparableDateTimeOperationFilterInput
+  validationStatus: StringOperationFilterInput
+  requiredModels: ListFilterInputTypeOfCloudLibRequiredModelInfoFilterInput
+}
+
+input LicenseOperationFilterInput {
+  eq: License
+  neq: License
+  in: [License!]
+  nin: [License!]
+}
+
+input ComparableUInt32OperationFilterInput {
+  eq: UnsignedInt
+  neq: UnsignedInt
+  in: [UnsignedInt!]
+  nin: [UnsignedInt!]
+  gt: UnsignedInt
+  ngt: UnsignedInt
+  gte: UnsignedInt
+  ngte: UnsignedInt
+  lt: UnsignedInt
+  nlt: UnsignedInt
+  lte: UnsignedInt
+  nlte: UnsignedInt
+}
+
+input ListFilterInputTypeOfUAPropertyFilterInput {
+  all: UAPropertyFilterInput
+  none: UAPropertyFilterInput
+  some: UAPropertyFilterInput
+  any: Boolean
+}
+
+input NodesetSortInput {
+  nodesetXml: SortEnumType
+  identifier: SortEnumType
+  namespaceUri: UriSortInput
+  version: SortEnumType
+  publicationDate: SortEnumType
+  lastModifiedDate: SortEnumType
+  validationStatus: SortEnumType
+}
+
+# An edge in a connection.
+type NodeSetsEdge {
+  # A cursor for use in pagination.
+  cursor: String!
+
+  # The item at the end of the edge.
+  node: CloudLibNodeSetModel
+}
+
+# An edge in a connection.
+type AllNodesEdge {
+  # A cursor for use in pagination.
+  cursor: String!
+
+  # The item at the end of the edge.
+  node: NodeModel
+}
+
+type Category {
+  name: String!
+  description: String
+  iconUrl: URL
+}
+
+# An edge in a connection.
+type CategoriesEdge {
+  # A cursor for use in pagination.
+  cursor: String!
+
+  # The item at the end of the edge.
+  node: Category
+}
+
+type Organisation {
+  name: String!
+  description: String
+  logoUrl: URL
+  contactEmail: String
+  website: URL
+}
+
+# An edge in a connection.
+type OrganisationsEdge {
+  # A cursor for use in pagination.
+  cursor: String!
+
+  # The item at the end of the edge.
+  node: Organisation
+}
+
+type UANameSpace {
+  nodeset: Nodeset!
+  title: String!
+  contributor: Organisation!
+  license: License!
+  copyrightText: String!
+  description: String!
+  category: Category!
+  documentationUrl: URL
+  iconUrl: URL
+  licenseUrl: URL
+  keywords: [String]
+  purchasingInformationUrl: URL
+  releaseNotesUrl: URL
+  testSpecificationUrl: URL
+  supportedLocales: [String]
+  numberOfDownloads: UnsignedInt!
+  validationStatus: String
+  additionalProperties: [UAProperty]
+}
+
+# An edge in a connection.
+type NamespacesEdge {
+  # A cursor for use in pagination.
+  cursor: String!
+
+  # The item at the end of the edge.
+  node: UANameSpace
+}
+
+input UriHostNameTypeOperationFilterInput {
+  eq: UriHostNameType
+  neq: UriHostNameType
+  in: [UriHostNameType!]
+  nin: [UriHostNameType!]
+}
+
+input ComparableDateTimeOperationFilterInput {
+  eq: DateTime
+  neq: DateTime
+  in: [DateTime!]
+  nin: [DateTime!]
+  gt: DateTime
+  ngt: DateTime
+  gte: DateTime
+  ngte: DateTime
+  lt: DateTime
+  nlt: DateTime
+  lte: DateTime
+  nlte: DateTime
+}
+
+input ListFilterInputTypeOfCloudLibRequiredModelInfoFilterInput {
+  all: CloudLibRequiredModelInfoFilterInput
+  none: CloudLibRequiredModelInfoFilterInput
+  some: CloudLibRequiredModelInfoFilterInput
+  any: Boolean
+}
+
+input UAPropertyFilterInput {
+  and: [UAPropertyFilterInput!]
+  or: [UAPropertyFilterInput!]
+  name: StringOperationFilterInput
+  value: StringOperationFilterInput
+}
+
+input CloudLibRequiredModelInfoFilterInput {
+  and: [CloudLibRequiredModelInfoFilterInput!]
+  or: [CloudLibRequiredModelInfoFilterInput!]
+  namespaceUri: StringOperationFilterInput
+  publicationDate: ComparableNullableOfDateTimeOperationFilterInput
+  version: StringOperationFilterInput
+  availableModel: NodesetFilterInput
+}
+
+enum UriHostNameType {
+  UNKNOWN
+  BASIC
+  DNS
+  I_PV4
+  I_PV6
+}
+
+type UAProperty {
+  name: String
+  value: String
+}
+
+scalar URL
+
+enum License {
+  MIT
+  APACHE_LICENSE20
+  CUSTOM
+}
+
+type VariabletypeModel {
+  id: Int!
+  nodesetId: Long!
+  browseName: String
+  value: String
+  nameSpace: String
+}
+
+type ReferencetypeModel {
+  id: Int!
+  nodesetId: Long!
+  browseName: String
+  value: String
+  nameSpace: String
+}
+
+type DatatypeModel {
+  id: Int!
+  nodesetId: Long!
+  browseName: String
+  value: String
+  nameSpace: String
+}
+
+type ObjecttypeModel {
+  id: Int!
+  nodesetId: Long!
+  browseName: String
+  value: String
+  nameSpace: String
+}
+
+type NodeSetGraphQLLegacy {
+  nodesetXml: String
+  identifier: UnsignedInt!
+  namespaceUri: String
+  version: String
+  publicationDate: DateTime!
+  lastModifiedDate: DateTime!
+}
+
+type MetadataModel {
+  id: Int!
+  nodesetId: Long!
+  name: String
+  value: String
+}
+
+type Nodeset {
+  nodesetXml: String
+  identifier: UnsignedInt!
+  namespaceUri: URL
+  version: String
+  publicationDate: DateTime!
+  lastModifiedDate: DateTime!
+  validationStatus: String
+  requiredModels: [CloudLibRequiredModelInfo]
+}
+
+# The `TimeSpan` scalar represents an ISO-8601 compliant duration type.
+scalar TimeSpan
+
+type CloudLibRequiredModelInfo {
+  namespaceUri: String
+  publicationDate: DateTime
+  version: String
+  availableModel: Nodeset
+}
