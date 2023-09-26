@@ -42,7 +42,6 @@ namespace Opc.Ua.Cloud.Library
     using HotChocolate.Data;
     using Microsoft.AspNetCore.Authentication;
     using Microsoft.AspNetCore.Authentication.OAuth;
-    using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.DataProtection;
     using Microsoft.AspNetCore.Hosting;
@@ -55,8 +54,14 @@ namespace Opc.Ua.Cloud.Library
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Hosting;
     using Microsoft.Extensions.Logging;
+#if AZURE_AD
+    using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+    using Microsoft.IdentityModel.Logging;
+    using Microsoft.Identity.Web;
+#endif
     using Microsoft.OpenApi.Models;
     using Opc.Ua.Cloud.Library.Interfaces;
+    using Microsoft.AspNetCore.Authorization;
 
     public class Startup
     {
@@ -81,8 +86,8 @@ namespace Opc.Ua.Cloud.Library
             services.AddDbContext<AppDbContext>(ServiceLifetime.Transient);
 
             services.AddDefaultIdentity<IdentityUser>(options =>
-                    //require confirmation mail if email sender API Key is set
-                    options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["EmailSenderAPIKey"])
+                      //require confirmation mail if email sender API Key is set
+                      options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["EmailSenderAPIKey"])
                     )
                 .AddRoles<IdentityRole>()
                 .AddEntityFrameworkStores<AppDbContext>();
@@ -104,53 +109,74 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddAuthentication()
                 .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null)
-                .AddOAuth("OAuth", "OPC Foundation", options =>
-                {
-                    options.AuthorizationEndpoint = "https://opcfoundation.org/oauth/authorize/";
-                    options.TokenEndpoint = "https://opcfoundation.org/oauth/token/";
-                    options.UserInformationEndpoint = "https://opcfoundation.org/oauth/me";
+                ;
 
-                    options.AccessDeniedPath = new PathString("/Account/AccessDenied");
-                    options.CallbackPath = new PathString("/Account/ExternalLogin");
+            if (Configuration["OAuth2ClientId"] != null)
+            {
+                services.AddAuthentication()
+                    .AddOAuth("OAuth", "OPC Foundation", options => {
+                        options.AuthorizationEndpoint = "https://opcfoundation.org/oauth/authorize/";
+                        options.TokenEndpoint = "https://opcfoundation.org/oauth/token/";
+                        options.UserInformationEndpoint = "https://opcfoundation.org/oauth/me";
 
-                    options.ClientId = Configuration["OAuth2ClientId"];
-                    options.ClientSecret = Configuration["OAuth2ClientSecret"];
+                        options.AccessDeniedPath = new PathString("/Account/AccessDenied");
+                        options.CallbackPath = new PathString("/Account/ExternalLogin");
 
-                    options.SaveTokens = true;
+                        options.ClientId = Configuration["OAuth2ClientId"];
+                        options.ClientSecret = Configuration["OAuth2ClientSecret"];
 
-                    options.CorrelationCookie.SameSite = SameSiteMode.Strict;
-                    options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
+                        options.SaveTokens = true;
 
-                    options.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "ID");
-                    options.ClaimActions.MapJsonKey(ClaimTypes.Name, "display_name");
-                    options.ClaimActions.MapJsonKey(ClaimTypes.Email, "user_email");
+                        options.CorrelationCookie.SameSite = SameSiteMode.Strict;
+                        options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
 
-                    options.Events = new OAuthEvents {
-                        OnCreatingTicket = async context =>
-                        {
-                            List<AuthenticationToken> tokens = (List<AuthenticationToken>)context.Properties.GetTokens();
+                        options.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "ID");
+                        options.ClaimActions.MapJsonKey(ClaimTypes.Name, "display_name");
+                        options.ClaimActions.MapJsonKey(ClaimTypes.Email, "user_email");
 
-                            tokens.Add(new AuthenticationToken() {
-                                Name = "TicketCreated",
-                                Value = DateTime.UtcNow.ToString(DateTimeFormatInfo.InvariantInfo)
-                            });
+                        options.Events = new OAuthEvents {
+                            OnCreatingTicket = async context => {
+                                List<AuthenticationToken> tokens = (List<AuthenticationToken>)context.Properties.GetTokens();
 
-                            context.Properties.StoreTokens(tokens);
+                                tokens.Add(new AuthenticationToken() {
+                                    Name = "TicketCreated",
+                                    Value = DateTime.UtcNow.ToString(DateTimeFormatInfo.InvariantInfo)
+                                });
 
-                            HttpResponseMessage response = await context.Backchannel.GetAsync($"{context.Options.UserInformationEndpoint}?access_token={context.AccessToken}").ConfigureAwait(false);
-                            response.EnsureSuccessStatusCode();
+                                context.Properties.StoreTokens(tokens);
 
-                            string json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                            JsonElement user = JsonDocument.Parse(json).RootElement;
+                                HttpResponseMessage response = await context.Backchannel.GetAsync($"{context.Options.UserInformationEndpoint}?access_token={context.AccessToken}").ConfigureAwait(false);
+                                response.EnsureSuccessStatusCode();
 
-                            context.RunClaimActions(user);
-                        }
-                    };
-                });
+                                string json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                                JsonElement user = JsonDocument.Parse(json).RootElement;
+
+                                context.RunClaimActions(user);
+                            }
+                        };
+                    });
+            }
+
+#if AZURE_AD
+            if (Configuration.GetSection("AzureAd")?["ClientId"] != null)
+            {
+                services.AddAuthentication()
+                    .AddMicrosoftIdentityWebApp(Configuration,
+                        configSectionName: "AzureAd",
+                        openIdConnectScheme: "AzureAd",
+                        displayName: Configuration["AADDisplayName"] ?? "Microsoft Account")
+                    ;
+            }
+#if DEBUG
+            IdentityModelEventSource.ShowPII = true;
+#endif
+
+#endif
 
             services.AddAuthorization(options => {
                 options.AddPolicy("ApprovalPolicy", policy => policy.RequireRole("Administrator"));
                 options.AddPolicy("UserAdministrationPolicy", policy => policy.RequireRole("Administrator"));
+                options.AddPolicy("DeletePolicy", policy => policy.RequireRole("Administrator"));
             });
 
             services.AddSwaggerGen(options => {
@@ -165,6 +191,11 @@ namespace Opc.Ua.Cloud.Library
                     }
                 });
 
+                options.AddSecurityDefinition("basicAuth", new OpenApiSecurityScheme {
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "basic"
+                });
+
                 options.AddSecurityRequirement(new OpenApiSecurityRequirement
                 {
                     {
@@ -173,7 +204,7 @@ namespace Opc.Ua.Cloud.Library
                                 Reference = new OpenApiReference
                                 {
                                     Type = ReferenceType.SecurityScheme,
-                                    Id = "basic"
+                                    Id = "basicAuth"
                                 }
                             },
                             Array.Empty<string>()
@@ -220,13 +251,25 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddHttpContextAccessor();
 
-            services.AddGraphQLServer()
-                .AddAuthorization()
-                .SetPagingOptions(new HotChocolate.Types.Pagination.PagingOptions {
+
+            HotChocolate.Types.Pagination.PagingOptions paginationConfig;
+            var section = Configuration.GetSection("GraphQLPagination");
+            if (section.Exists())
+            {
+                paginationConfig = section.Get<HotChocolate.Types.Pagination.PagingOptions>();
+            }
+            else
+            {
+                paginationConfig = new HotChocolate.Types.Pagination.PagingOptions {
                     IncludeTotalCount = true,
                     DefaultPageSize = 100,
                     MaxPageSize = 100,
-                })
+                };
+            }
+
+            services.AddGraphQLServer()
+                .AddAuthorization()
+                .SetPagingOptions(paginationConfig)
                 .AddFiltering(fd => {
                     fd.AddDefaults().BindRuntimeType<UInt32, UnsignedIntOperationFilterInputType>();
                     fd.AddDefaults().BindRuntimeType<UInt32?, UnsignedIntOperationFilterInputType>();
@@ -252,7 +295,16 @@ namespace Opc.Ua.Cloud.Library
             });
 
             services.AddServerSideBlazor();
+#if AZURE_AD
+            // Required to make Azure AD login work as ASP.Net External Identity: Change the SignInScheme to External after ALL other configuration have run.
+            services
+              .AddOptions()
+              .PostConfigureAll<OpenIdConnectOptions>(o => {
+                  o.SignInScheme = IdentityConstants.ExternalScheme;
+              });
+#endif
         }
+
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, AppDbContext appDbContext)
@@ -287,7 +339,7 @@ namespace Opc.Ua.Cloud.Library
                 });
             app.UseGraphQLGraphiQL("/graphiql", new GraphQL.Server.Ui.GraphiQL.GraphiQLOptions {
                 ExplorerExtensionEnabled = true,
-
+                RequestCredentials = GraphQL.Server.Ui.GraphiQL.RequestCredentials.Include,
             });
 
             app.UseEndpoints(endpoints => {
@@ -298,7 +350,7 @@ namespace Opc.Ua.Cloud.Library
                 endpoints.MapRazorPages();
                 endpoints.MapBlazorHub();
                 endpoints.MapGraphQL()
-                    .RequireAuthorization(new AuthorizeAttribute { AuthenticationSchemes = "BasicAuthentication" })
+                    .RequireAuthorization(new AuthorizeAttribute() { AuthenticationSchemes = "BasicAuthentication" })
                     .WithOptions(new GraphQLServerOptions {
                         EnableGetRequests = true,
                         Tool = { Enable = false },

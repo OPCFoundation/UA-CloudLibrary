@@ -189,7 +189,7 @@
         {
             SearchKeywords = keywords;
             CurrentPage = 1;
-            fetchData();
+            _ = fetchData();
         }
     }
     private void OnPageSizeChanged(Microsoft.AspNetCore.Components.ChangeEventArgs patharg)
@@ -198,7 +198,7 @@
         {
             PAGE_SIZE = pageSize;
             CurrentPage = 1;
-            fetchData();
+            _ = fetchData();
         }
     }
     private string ModalClass = "";
@@ -226,10 +226,9 @@
     private string[] SearchKeywords { get; set; } = new[] { "*" };
 
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-
-        fetchData();
+        await fetchData();
     }
 
     private async Task DownloadFileFromURL(NamespaceMetaDataModel item)
@@ -265,7 +264,7 @@
         if (!CurrentPage.Equals(newPage))
         {
             CurrentPage = newPage;
-            fetchData();
+            _ = fetchData();
         }
 
     }
@@ -274,7 +273,7 @@
         changePageAbsolute(this.CurrentPage + increment);
     }
 
-    private async void fetchData()
+    private async Task fetchData()
     {
         Loading = true;
         var query = HttpUtility.ParseQueryString(string.Empty);

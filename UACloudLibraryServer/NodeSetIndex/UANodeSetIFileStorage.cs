@@ -31,6 +31,7 @@ using System;
 using System.Linq;
 using CESMII.OpcUa.NodeSetImporter;
 using CESMII.OpcUa.NodeSetModel.EF;
+using Opc.Ua.Cloud.Library.Controllers;
 using Opc.Ua.Cloud.Library.Interfaces;
 
 namespace Opc.Ua.Cloud.Library

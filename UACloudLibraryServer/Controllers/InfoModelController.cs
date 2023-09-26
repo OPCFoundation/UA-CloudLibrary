@@ -27,19 +27,21 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace Opc.Ua.Cloud.Library
+namespace Opc.Ua.Cloud.Library.Controllers
 {
     using System;
     using System.Collections.Generic;
     using System.ComponentModel.DataAnnotations;
     using System.Globalization;
     using System.IO;
+    using System.Linq;
     using System.Net;
     using System.Text;
     using System.Threading.Tasks;
     using Extensions;
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
+    using Microsoft.EntityFrameworkCore;
     using Microsoft.Extensions.Logging;
     using Opc.Ua.Cloud.Library.Interfaces;
     using Opc.Ua.Cloud.Library.Models;
@@ -143,30 +145,44 @@ namespace Opc.Ua.Cloud.Library
             return new ObjectResult(uaNamespace) { StatusCode = (int)HttpStatusCode.OK };
         }
 
-#if DEBUG
+        [Authorize(Policy = "DeletePolicy")]
         [HttpGet]
         [Route("/infomodel/delete/{identifier}")]
         [SwaggerResponse(statusCode: 200, type: typeof(UANameSpace), description: "The OPC UA Information model and its metadata.")]
         [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The identifier provided could not be parsed.")]
         [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The identifier provided could not be found.")]
         public async Task<IActionResult> DeleteNamespaceAsync(
-            [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier)
+            [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier,
+            [FromQuery][SwaggerParameter("Delete even if other nodesets depend on this nodeset.")] bool forceDelete = false)
         {
-            string nodesetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
-            if (string.IsNullOrEmpty(nodesetXml))
-            {
-                return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
-            }
-
             uint nodeSetID = 0;
             if (!uint.TryParse(identifier, out nodeSetID))
             {
                 return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
+            string nodesetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(nodesetXml))
+            {
+                return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
+            }
+
+            var nodeSetMeta = await (_database.GetNodeSets(identifier).FirstOrDefaultAsync());
+            if (nodeSetMeta != null)
+            {
+                var dependentNodeSets = await _database.GetNodeSets().Where(n => n.RequiredModels.Any(rm => rm.AvailableModel == nodeSetMeta)).ToListAsync();
+                if (dependentNodeSets.Any())
+                {
+                    var message = $"NodeSet {nodeSetMeta} is used by the following nodesets: {string.Join(",", dependentNodeSets.Select(n => n.ToString()))}";
+                    if (!forceDelete)
+                    {
+                        return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.Conflict };
+                    }
+                    _logger.LogWarning($"{message}. Deleting anyway because forceDelete was specified. Nodeset Index may be incomplete.");
+                }
+            }
             var uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID).ConfigureAwait(false);
             uaNamespace.Nodeset.NodesetXml = nodesetXml;
-            await _indexer.DeleteNodeSetIndex(identifier).ConfigureAwait(false);
 
             await _database.DeleteAllRecordsForNodesetAsync(nodeSetID).ConfigureAwait(false);
 
@@ -174,7 +190,6 @@ namespace Opc.Ua.Cloud.Library
 
             return new ObjectResult(uaNamespace) { StatusCode = (int)HttpStatusCode.OK };
         }
-#endif
 
         [HttpPut]
         [Route("/infomodel/upload")]
@@ -188,6 +203,10 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
+                if (uaNamespace?.Nodeset?.NodesetXml == null)
+                {
+                    return new ObjectResult($"No nodeset XML was specified") { StatusCode = (int)HttpStatusCode.BadRequest };
+                }
                 UANodeSet nodeSet = null;
                 try
                 {
@@ -228,12 +247,12 @@ namespace Opc.Ua.Cloud.Library
                                 {
                                     return new ObjectResult($"Nodeset exists but existing nodeset had no model entry.") { StatusCode = (int)HttpStatusCode.Conflict };
                                 }
-                                if (!firstModel.PublicationDateSpecified || firstModel.PublicationDate == nodeSet.Models[0].PublicationDate)
+                                if ((!firstModel.PublicationDateSpecified && !nodeSet.Models[0].PublicationDateSpecified) || firstModel.PublicationDate == nodeSet.Models[0].PublicationDate)
                                 {
                                     if (!overwrite)
                                     {
                                         // nodeset already exists
-                                        return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
+                                        return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing legacy entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
                                     }
                                 }
                                 else

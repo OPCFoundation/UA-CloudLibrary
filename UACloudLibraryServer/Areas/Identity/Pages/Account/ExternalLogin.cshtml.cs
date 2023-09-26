@@ -128,8 +128,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
                 ProviderDisplayName = info.ProviderDisplayName;
                 if (info.Principal.HasClaim(c => c.Type == ClaimTypes.Email))
                 {
-                    Input = new InputModel
-                    {
+                    Input = new InputModel {
                         Email = info.Principal.FindFirstValue(ClaimTypes.Email)
                     };
                 }

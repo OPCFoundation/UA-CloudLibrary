@@ -7,7 +7,7 @@
 		<DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
 		<DockerfileContext>./..</DockerfileContext>
 		<DockerComposeProjectPath>..\docker-compose.dcproj</DockerComposeProjectPath>
-		<DefineConstants>$(DEFINECONSTANTS);NOLEGACY</DefineConstants>
+		<DefineConstants>$(DEFINECONSTANTS);NOLEGACY;AZURE_AD</DefineConstants>
 	</PropertyGroup>
 
 	<PropertyGroup Condition=" '$(RunConfiguration)' == 'UA_CloudLibrary' " />
@@ -43,11 +43,11 @@
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="6.0.16" />
-		<PackageReference Include="HotChocolate" Version="13.0.5" />
-		<PackageReference Include="HotChocolate.Data" Version="13.0.5" />
-		<PackageReference Include="HotChocolate.Types.Scalars" Version="13.0.5" />
-		<PackageReference Include="HotChocolate.AspNetCore" Version="13.0.5" />
-		<PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="13.0.5" />
+		<PackageReference Include="HotChocolate" Version="13.5.1" />
+		<PackageReference Include="HotChocolate.Data" Version="13.5.1" />
+		<PackageReference Include="HotChocolate.Types.Scalars" Version="13.5.1" />
+		<PackageReference Include="HotChocolate.AspNetCore" Version="13.5.1" />
+		<PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="13.5.1" />
 		<PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="1.0.14" />
 		<PackageReference Include="CESMII.OpcUa.NodeSetModel.EF" Version="1.0.14" />
 		<PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="1.0.14" />
@@ -79,6 +79,9 @@
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
 		<PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="6.4.0" />
 		<PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="6.4.0" />
+	</ItemGroup>
+	<ItemGroup Condition="$(DEFINECONSTANTS.Contains('AZURE_AD'))">
+		<PackageReference Include="Microsoft.Identity.Web" Version="1.25.1" />
 	</ItemGroup>
 	<ItemGroup>
 	  <PackageReference Update="Nerdbank.GitVersioning" Version="3.6.128" />
