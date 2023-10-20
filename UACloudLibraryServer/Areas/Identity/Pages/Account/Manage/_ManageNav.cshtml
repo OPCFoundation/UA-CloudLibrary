@@ -1,6 +1,11 @@
 ﻿@inject SignInManager<IdentityUser> SignInManager
 @{
     var hasExternalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync().ConfigureAwait(false)).Any();
+#if APIKEY_AUTH
+    bool apiKeyAuth = true;
+#else
+    bool apiKeyAuth = false;
+#endif
 }
 <ul class="nav nav-pills flex-column">
     <li class="nav-item"><a class="nav-link @ManageNavPages.IndexNavClass(ViewContext)" id="profile" asp-page="./Index">Profile</a></li>
@@ -9,6 +14,10 @@
     @if (hasExternalLogins)
     {
         <li id="external-logins" class="nav-item"><a id="external-login" class="nav-link @ManageNavPages.ExternalLoginsNavClass(ViewContext)" asp-page="./ExternalLogins">External logins</a></li>
+    }
+    @if (apiKeyAuth)
+    {
+        <li class="nav-item"><a class="nav-link @ManageNavPages.ManageApiKeysNavClass(ViewContext)" id="manage-api-keys" asp-page="./ManageApiKeys">API Keys</a></li>
     }
     <li class="nav-item"><a class="nav-link @ManageNavPages.PersonalDataNavClass(ViewContext)" id="personal-data" asp-page="./PersonalData">Personal data</a></li>
 </ul>

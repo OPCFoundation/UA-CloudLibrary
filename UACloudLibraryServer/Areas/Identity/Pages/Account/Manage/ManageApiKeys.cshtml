@@ -1,0 +1,91 @@
+﻿@page
+@model ManageApiKeysModel
+@{
+    ViewData["Title"] = "Manage API Keys";
+    ViewData["ActivePage"] = ManageNavPages.ManageApiKeys;
+}
+
+<h3>@ViewData["Title"]</h3>
+<partial name="_StatusMessage" for="StatusMessage" />
+<div class="row">
+    @if (!string.IsNullOrEmpty(Model.GeneratedApiKey))
+    {
+        <div class="col-md-12">
+            <h2>
+                Generated Key
+            </h2>
+            <table class="table">
+                <tbody>
+                    <tr>
+                        <td>
+                            <label>Name:</label>
+                        </td>
+                        <td>
+                            @Model.GeneratedApiKeyName
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <label>Key:</label>
+                        </td>
+                        <td>
+                            @Model.GeneratedApiKey
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="alert">
+                Usage: Add an HTTP Header X-Api-key with the API key as the header value. 
+                Note that the key name does not need to be provided separately for authentication.
+            </div>
+        </div>
+    }
+    <div class="col-md-6">
+        <h2>
+            Generate a new API key
+        </h2>
+        <div>
+            API keys are intended for non-interactive services that need to call the REST and GraphQL APIs. They have all the permissions of the user who created them, including any Administrator role membership.
+        </div>
+        <form id="create-api-key-form" method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div class="form-floating">
+                <input asp-for="Input.NewApiKeyName" class="form-control" aria-required="true" />
+                <label asp-for="Input.NewApiKeyName" class="form-label"></label>
+                <span asp-validation-for="Input.NewApiKeyName" class="text-danger"></span>
+            </div>
+            <button type="submit" class="w-100 btn btn-lg btn-primary">Generate API Key</button>
+        </form>
+    </div>
+    @if (Model.ApiKeysAndNames?.Any() == true)
+    {
+        <div class="col-md-6">
+            <h2>
+                Existing API keys
+            </h2>
+            <table class="table">
+                <tbody>
+                    @foreach (var apiKeyAndName in Model.ApiKeysAndNames)
+                    {
+                        <tr>
+                            <td>@apiKeyAndName.KeyName</td>
+                            <td>@apiKeyAndName.KeyPrefix...</td>
+                            <td>
+                                <form asp-page-handler="DeleteApiKey" method="post" id="@($"remove-login-{apiKeyAndName.KeyName}")">
+                                    <div>
+                                        <input asp-for="@apiKeyAndName.KeyName" name="ApiKeyToDelete" type="hidden" />
+                                        <button type="submit" class="btn btn-primary" title="Remove API key @apiKeyAndName.KeyName">Delete</button>
+                                    </div>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

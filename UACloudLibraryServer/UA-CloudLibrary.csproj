@@ -7,7 +7,7 @@
 		<DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
 		<DockerfileContext>./..</DockerfileContext>
 		<DockerComposeProjectPath>..\docker-compose.dcproj</DockerComposeProjectPath>
-		<DefineConstants>$(DEFINECONSTANTS);NOLEGACY;AZURE_AD</DefineConstants>
+		<DefineConstants>$(DEFINECONSTANTS);NOLEGACY;AZURE_AD;APIKEY_AUTH</DefineConstants>
 	</PropertyGroup>
 
 	<PropertyGroup Condition=" '$(RunConfiguration)' == 'UA_CloudLibrary' " />
