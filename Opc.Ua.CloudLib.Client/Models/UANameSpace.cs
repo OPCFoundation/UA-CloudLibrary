@@ -30,24 +30,10 @@
 namespace Opc.Ua.Cloud.Library.Client
 {
     using System;
+    using System.Collections.Generic;
     using Newtonsoft.Json;
 
     /// <summary>License Enumeration</summary>
-    public enum License
-    {
-        /// <summary>
-        /// MIT License
-        /// </summary>
-        MIT,
-        /// <summary>
-        /// Apache 2.0 License
-        /// </summary>
-        ApacheLicense20,
-        /// <summary>
-        /// Custom License model <see cref="UANameSpace.LicenseUrl"/>
-        /// </summary>
-        Custom
-    }
     /// <summary>Contains the metadata of the nodeset and the nodeset itself</summary>
     public class UANameSpace
     {
@@ -55,7 +41,7 @@ namespace Opc.Ua.Cloud.Library.Client
         public UANameSpace()
         {
             Title = string.Empty;
-            License = License.Custom;
+            License = string.Empty;
             CopyrightText = string.Empty;
             Contributor = new Organisation();
             Description = string.Empty;
@@ -81,7 +67,7 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <summary>Gets or sets the license.</summary>
         /// <value>The license.</value>
         [JsonProperty("license")]
-        public License License { get; set; }
+        public string License { get; set; }
 
         /// <summary>Gets or sets the copyright text.</summary>
         /// <value>The copyright text.</value>
@@ -156,10 +142,42 @@ namespace Opc.Ua.Cloud.Library.Client
         [JsonProperty("numberOfDownloads")]
         public uint NumberOfDownloads { get; set; }
 
+        /// <summary>
+        /// The time the nodeset was uploaded to the cloud library
+        /// </summary>
+        [JsonProperty("creationTime")]
+        public DateTime? CreationTime { get; set; }
+
+
+        /// <summary>Gets or sets the validation status.</summary>
+        /// <value>Status: Parsed, Validaded, Error + message</value>
+        [JsonProperty("validationStatus")]
+        public string ValidationStatus { get; set; }
+
+        /// <summary>
+        /// Status
+        /// </summary>
+        [JsonProperty("approvalStatus")]
+        public string ApprovalStatus { get; set; }
+        /// <summary>
+        /// Additional information about the status
+        /// </summary>
+        [JsonProperty("approvalInformation")]
+        public string ApprovalInformation { get; set; }
+
         /// <summary>Gets or sets the additional properties.</summary>
         /// <value>The additional properties.</value>
         [JsonProperty("additionalProperties")]
         public UAProperty[] AdditionalProperties { get; set; }
+
+        /// <summary>
+        /// String representation for logging and debugging
+        /// </summary>
+        /// <returns></returns>
+        public override string ToString()
+        {
+            return $"{Title} {Nodeset} {ValidationStatus}";
+        }
     }
 
     /// <summary>Property Class</summary>
@@ -277,6 +295,11 @@ namespace Opc.Ua.Cloud.Library.Client
         [JsonProperty("version")]
         public string Version { get; set; }
 
+        /// <summary>Gets or sets the validation status.</summary>
+        /// <value>The validation status.</value>
+        [JsonProperty("validationStatus")]
+        public string ValidationStatus { get; set; }
+
         /// <summary>Gets or sets the publication date.</summary>
         /// <value>The publication date.</value>
         [JsonProperty("publicationDate")]
@@ -286,5 +309,49 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <value>The last modified date.</value>
         [JsonProperty("lastModifiedDate")]
         public DateTime LastModifiedDate { get; set; }
+        /// <summary>
+        /// Nodesets that this nodeset depends on
+        /// </summary>
+        [JsonProperty("requiredModels")]
+        public List<RequiredModelInfo> RequiredModels { get; set; }
+
+        /// <summary>
+        /// Meta data about the node set that are not captured in the nodeset itself
+        /// </summary>
+        [JsonProperty("metadata")]
+        public UANameSpace Metadata { get; set; }
+
+        /// <summary>
+        /// String representation for logging and debugging
+        /// </summary>
+        /// <returns></returns>
+        public override string ToString()
+        {
+            return $"{NamespaceUri?.OriginalString} {PublicationDate} {Version} {Identifier} {ValidationStatus}";
+        }
     }
+
+    /// <summary>
+    /// Information about dependencies of a nodeset
+    /// </summary>
+    public class RequiredModelInfo
+    {
+        /// <summary>
+        /// The namespace URI of the dependency
+        /// </summary>
+        public string NamespaceUri { get; set; }
+        /// <summary>
+        /// The minimum required publication date of the dependency
+        /// </summary>
+        public DateTime? PublicationDate { get; set; }
+        /// <summary>
+        /// The informational version of the dependency
+        /// </summary>
+        public string Version { get; set; }
+        /// <summary>
+        /// The best match currently available in the cloud library. null if no match (no nodeset for this namespace uri or only node sets with older publication dates).
+        /// </summary>
+        public Nodeset AvailableModel { get; set; }
+    }
+
 }

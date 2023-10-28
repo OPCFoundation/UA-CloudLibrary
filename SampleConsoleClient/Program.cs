@@ -32,6 +32,7 @@ namespace SampleConsoleClient
     using System;
     using System.Collections.Generic;
     using System.Globalization;
+    using System.Linq;
     using System.Net.Http;
     using System.Text;
     using System.Threading.Tasks;
@@ -69,48 +70,96 @@ namespace SampleConsoleClient
             Console.WriteLine();
             Console.WriteLine("Testing GraphQL interface (see https://graphql.org/learn/ for details)...");
 
-            GraphQLHttpClientOptions options = new GraphQLHttpClientOptions {
-                EndPoint = new Uri(args[0] + "/graphql"),
-                HttpMessageHandler = new MessageHandlerWithAuthHeader(args[1], args[2])
-            };
-
-            GraphQLHttpClient graphQLClient = new GraphQLHttpClient(options, new NewtonsoftJsonSerializer());
-
-            Console.WriteLine();
-            Console.WriteLine("Testing objectType query (the other OPC UA types are very similar!)");
-            GraphQLRequest request = new GraphQLRequest {
-                Query = @"query {
+            var objectTypeQuery = @"query {
                             objectType {
                                 browseName
                                 value
                                 nameSpace
                                 nodesetId
                             }
-                        }"
+                        }";
+            try
+            {
+                Console.WriteLine();
+                Console.WriteLine("Testing graphql objectType via plain HTTPClient");
+
+                HttpClient webClient = new HttpClient {
+                    BaseAddress = new Uri(args[0])
+                };
+
+                webClient.DefaultRequestHeaders.Add("Authorization", "basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(args[1] + ":" + args[2])));
+                var queryBodyJson = JsonConvert.SerializeObject(new JObject { { "query", objectTypeQuery } });
+                Uri address = new Uri(webClient.BaseAddress, "graphql");
+                var response2 = webClient.Send(new HttpRequestMessage(HttpMethod.Post, address) {
+                    Content = new StringContent(queryBodyJson, null, "application/json"),
+                });
+                Console.WriteLine("Response: " + response2.StatusCode.ToString());
+                var responseString = response2.Content.ReadAsStringAsync().Result;
+                if (!response2.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"HTTP status: {response2.StatusCode} {responseString}");
+                }
+                if (!string.IsNullOrEmpty(responseString))
+                {
+                    var parsedJson = JsonConvert.DeserializeObject<JObject>(responseString);
+                    var responseJson = parsedJson["data"];
+                    Console.WriteLine(JsonConvert.SerializeObject(responseJson, Formatting.Indented));
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+
+            GraphQLHttpClientOptions options = new GraphQLHttpClientOptions {
+                EndPoint = new Uri(new Uri(args[0]), "/graphql"),
+                HttpMessageHandler = new MessageHandlerWithAuthHeader(args[1], args[2])
             };
 
-            GraphQLResponse<JObject> response = await graphQLClient.SendQueryAsync<JObject>(request).ConfigureAwait(false);
-            Console.WriteLine(JsonConvert.SerializeObject(response.Data, Formatting.Indented));
+            GraphQLHttpClient graphQLClient = new GraphQLHttpClient(options, new NewtonsoftJsonSerializer());
+            try
+            {
+                Console.WriteLine();
+                Console.WriteLine("Testing objectType query (the other OPC UA types are very similar!) via GraphQLHttpClient client");
+                GraphQLRequest request = new GraphQLRequest {
+                    Query = objectTypeQuery
+                };
+                GraphQLResponse<JObject> response = await graphQLClient.SendQueryAsync<JObject>(request).ConfigureAwait(false);
+                Console.WriteLine(JsonConvert.SerializeObject(response.Data, Formatting.Indented));
 
-            Console.WriteLine();
-            Console.WriteLine("Testing metadata query");
-            request = new GraphQLRequest {
-                Query = @"query {
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+
+            try
+            {
+                Console.WriteLine();
+                Console.WriteLine("Testing metadata query");
+                var request = new GraphQLRequest {
+                    Query = @"query {
                             metadata {
                                 name
                                 value
                                 nodesetId
                             }
                         }"
-            };
+                };
 
-            response = await graphQLClient.SendQueryAsync<JObject>(request).ConfigureAwait(false);
-            Console.WriteLine(JsonConvert.SerializeObject(response.Data, Formatting.Indented));
-
-            Console.WriteLine();
-            Console.WriteLine("Testing NameSpace query");
-            request = new GraphQLRequest {
-                Query = @"query {
+                var response = await graphQLClient.SendQueryAsync<JObject>(request).ConfigureAwait(false);
+                Console.WriteLine(JsonConvert.SerializeObject(response.Data, Formatting.Indented));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+            try
+            {
+                Console.WriteLine();
+                Console.WriteLine("Testing NameSpace query");
+                var request = new GraphQLRequest {
+                    Query = @"query {
                             nameSpace(
                                 limit: 10
                                 offset: 0
@@ -147,11 +196,15 @@ namespace SampleConsoleClient
                                 }
                             }
                         }"
-            };
+                };
 
-            response = await graphQLClient.SendQueryAsync<JObject>(request).ConfigureAwait(false);
-            Console.WriteLine(JsonConvert.SerializeObject(response.Data, Formatting.Indented));
-
+                var response = await graphQLClient.SendQueryAsync<JObject>(request).ConfigureAwait(false);
+                Console.WriteLine(JsonConvert.SerializeObject(response.Data, Formatting.Indented));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
             graphQLClient.Dispose();
         }
 
@@ -170,26 +223,37 @@ namespace SampleConsoleClient
             Console.WriteLine("Testing /infomodel/find?keywords");
 
             // return everything (keywords=*, other keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
-            string address = webClient.BaseAddress.ToString() + "infomodel/find?keywords=" + Uri.EscapeDataString("*");
+            Uri address = new Uri(webClient.BaseAddress, "infomodel/find?keywords=" + Uri.EscapeDataString("*"));
             var response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
             Console.WriteLine("Response: " + response.StatusCode.ToString());
-            UANodesetResult[] identifiers = JsonConvert.DeserializeObject<UANodesetResult[]>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
-            for (var i = 0; i < identifiers.Length; i++)
+            var responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            UANodesetResult[] identifiers = null;
+            if (!string.IsNullOrEmpty(responseString))
             {
-                Console.WriteLine(JsonConvert.SerializeObject(identifiers[i], Formatting.Indented));
+                identifiers = JsonConvert.DeserializeObject<UANodesetResult[]>(responseString);
+                for (var i = 0; i < identifiers.Length; i++)
+                {
+                    Console.WriteLine(JsonConvert.SerializeObject(identifiers[i], Formatting.Indented));
+                }
             }
-
             Console.WriteLine();
             Console.WriteLine("Testing /infomodel/download/{identifier}");
 
-            // pick the first identifier returned previously
-            string identifier = identifiers[0].Id.ToString(CultureInfo.InvariantCulture);
-            address = webClient.BaseAddress.ToString() + "infomodel/download/" + Uri.EscapeDataString(identifier);
-            response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
+            if (identifiers != null)
+            {
+                // pick the first identifier returned previously
+                string identifier = identifiers[0].Id.ToString(CultureInfo.InvariantCulture);
+                address = new Uri(webClient.BaseAddress, "infomodel/download/" + Uri.EscapeDataString(identifier));
+                response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
 
-            Console.WriteLine("Response: " + response.StatusCode.ToString());
-            Console.WriteLine(response.Content.ReadAsStringAsync().ConfigureAwait(false));
-
+                Console.WriteLine("Response: " + response.StatusCode.ToString());
+                var responseStr = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                Console.WriteLine(responseStr);
+            }
+            else
+            {
+                Console.WriteLine("Skipped download test because of failure in previous test.");
+            }
             Console.WriteLine();
             Console.WriteLine("For sample code to test /infomodel/upload, see https://github.com/digitaltwinconsortium/UANodesetWebViewer/blob/main/Applications/Controllers/UACL.cs");
 
@@ -208,11 +272,17 @@ namespace SampleConsoleClient
                 Console.WriteLine("\nTesting the namespace query, this will fall back to the REST interface if GraphQL is not available.");
                 List<WhereExpression> filter = new List<WhereExpression>();
                 filter.Add(new WhereExpression(SearchField.orgname, "microsoft", ComparisonType.like));
+#pragma warning disable CS0618 // Type or member is obsolete
                 List<UANameSpace> nameSpaces = await client.GetNameSpacesAsync(10, 0, filter).ConfigureAwait(false);
-                if (nameSpaces.Count > 0)
+#pragma warning restore CS0618 // Type or member is obsolete
+                if (nameSpaces?.Count > 0)
                 {
                     Console.WriteLine("Title: {0}", nameSpaces[0].Title);
                     Console.WriteLine("Total number of address spaces: {0}", nameSpaces.Count);
+                }
+                else
+                {
+                    Console.WriteLine("Error: no namespaces returned.");
                 }
 
                 Console.WriteLine("\nTesting object query");
@@ -230,7 +300,7 @@ namespace SampleConsoleClient
                 }
 
                 Console.WriteLine("\nTesting query and convertion of metadata");
-                List<UANameSpace> finalResult = await client.GetConvertedMetadataAsync().ConfigureAwait(false);
+                List<UANameSpace> finalResult = await client.GetConvertedMetadataAsync(0, 100).ConfigureAwait(false);
                 foreach (UANameSpace result in finalResult)
                 {
                     Console.WriteLine($"{result.Title} by {result.Contributor.Name}");
@@ -241,10 +311,54 @@ namespace SampleConsoleClient
                 Console.WriteLine(ex.Message);
             }
 
-            Console.WriteLine("\nUsing the rest API");
-            List<UANodesetResult> restResult = await client.GetBasicNodesetInformationAsync().ConfigureAwait(false);
-            if (restResult.Count > 0)
+            List<UANodesetResult> restResult = await client.GetBasicNodesetInformationAsync(0, 100).ConfigureAwait(false);
+            if (restResult?.Count > 0)
             {
+
+                Console.WriteLine();
+                Console.WriteLine("Testing nodeset dependency query");
+                var identifier = restResult[0].Id.ToString(CultureInfo.InvariantCulture);
+                var nodeSets = await client.GetNodeSetDependencies(identifier: identifier).ConfigureAwait(false);
+                if (nodeSets?.Count > 0)
+                {
+                    foreach (var nodeSet in nodeSets)
+                    {
+                        Console.WriteLine($"Dependencies for {nodeSet.Identifier} {nodeSet.NamespaceUri} {nodeSet.PublicationDate} ({nodeSet.Version}):");
+                        foreach (var requiredNodeSet in nodeSet.RequiredModels)
+                        {
+                            Console.WriteLine($"Required: {requiredNodeSet.NamespaceUri} {requiredNodeSet.PublicationDate} ({requiredNodeSet.Version}). Available in Cloud Library: {requiredNodeSet.AvailableModel?.Identifier} {requiredNodeSet.AvailableModel?.PublicationDate} ({requiredNodeSet.AvailableModel?.Version})");
+                        }
+                    }
+                }
+                Console.WriteLine();
+                Console.WriteLine("Testing nodeset dependency query by namespace and publication date");
+                var namespaceUri = restResult[0].NameSpaceUri;
+                var publicationDate = restResult[0].PublicationDate.HasValue && restResult[0].PublicationDate.Value.Kind == DateTimeKind.Unspecified ?
+                    DateTime.SpecifyKind(restResult[0].PublicationDate.Value, DateTimeKind.Utc)
+                    : restResult[0].PublicationDate;
+                var nodeSetsByNamespace = await client.GetNodeSetDependencies(modelUri: namespaceUri, publicationDate: publicationDate).ConfigureAwait(false);
+                var dependenciesByNamespace = nodeSetsByNamespace
+                    .SelectMany(n => n.RequiredModels).Where(r => r != null)
+                    .Select(r => (r.AvailableModel?.Identifier, r.NamespaceUri, r.PublicationDate))
+                    .OrderBy(m => m.Identifier).ThenBy(m => m.NamespaceUri).Distinct()
+                    .ToList();
+                var dependenciesByIdentifier = nodeSets
+                    .SelectMany(n => n.RequiredModels).Where(r => r != null)
+                    .Select(r => (r.AvailableModel?.Identifier, r.NamespaceUri, r.PublicationDate))
+                    .OrderBy(m => m.Identifier).ThenBy(m => m.NamespaceUri).Distinct()
+                    .ToList();
+                if (!dependenciesByIdentifier.SequenceEqual(dependenciesByNamespace))
+                {
+                    Console.WriteLine($"FAIL: returned dependencies are different.");
+                    Console.WriteLine($"For identifier {identifier}: {string.Join(" ", dependenciesByIdentifier)}.");
+                    Console.WriteLine($"For namespace {namespaceUri} / {publicationDate}: {string.Join(" ", dependenciesByNamespace)}");
+                }
+                else
+                {
+                    Console.WriteLine("Passed.");
+                }
+
+                Console.WriteLine("\nUsing the rest API");
                 Console.WriteLine("Testing download of nodeset");
                 UANameSpace result = await client.DownloadNodesetAsync(restResult[0].Id.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
                 if (!string.IsNullOrEmpty(result.Nodeset.NodesetXml))
@@ -252,6 +366,10 @@ namespace SampleConsoleClient
                     Console.WriteLine("Nodeset Downloaded");
                     Console.WriteLine(result.Nodeset.NodesetXml);
                 }
+            }
+            else
+            {
+                Console.WriteLine("Skipped download test because of failure in previous test.");
             }
         }
     }

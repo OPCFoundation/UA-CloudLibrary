@@ -30,6 +30,7 @@
 namespace Opc.Ua.Cloud.Library
 {
     using System;
+    using System.Collections.Generic;
     using System.Linq;
     using System.Net.Http.Headers;
     using System.Security.Claims;
@@ -37,6 +38,7 @@ namespace Opc.Ua.Cloud.Library
     using System.Text.Encodings.Web;
     using System.Threading.Tasks;
     using Microsoft.AspNetCore.Authentication;
+    using Microsoft.AspNetCore.Identity;
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Options;
     using Microsoft.Extensions.Primitives;
@@ -44,10 +46,12 @@ namespace Opc.Ua.Cloud.Library
 
     public class BasicAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
     {
-        private IUserService _userService;
+        private readonly IUserService _userService;
+        private readonly SignInManager<IdentityUser> _signInManager;
 
         public BasicAuthenticationHandler(
             IUserService userService,
+            SignInManager<IdentityUser> signInManager,
             IOptionsMonitor<AuthenticationSchemeOptions> options,
             ILoggerFactory logger,
             UrlEncoder encoder,
@@ -55,15 +59,27 @@ namespace Opc.Ua.Cloud.Library
             : base(options, logger, encoder, clock)
         {
             _userService = userService;
+            _signInManager = signInManager;
         }
 
         protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
         {
             string username = null;
+            IEnumerable<Claim> claims = null;
             try
             {
                 if (StringValues.IsNullOrEmpty(Request.Headers["Authorization"]))
                 {
+
+                    if (_signInManager.IsSignedIn(Request.HttpContext.User))
+                    {
+                        // Allow a previously authenticated, signed in user (for example via ASP.Net cookies from the graphiql browser)
+                        ClaimsPrincipal principal2 = new ClaimsPrincipal(Request.HttpContext.User.Identity);
+                        AuthenticationTicket ticket2 = new AuthenticationTicket(principal2, Scheme.Name);
+
+                        return AuthenticateResult.Success(ticket2);
+                    }
+
                     throw new ArgumentException("Authentication header missing in request!");
                 }
 
@@ -72,7 +88,8 @@ namespace Opc.Ua.Cloud.Library
                 username = credentials.FirstOrDefault();
                 string password = credentials.LastOrDefault();
 
-                if (!await _userService.ValidateCredentialsAsync(username, password).ConfigureAwait(false))
+                claims = await _userService.ValidateCredentialsAsync(username, password).ConfigureAwait(false);
+                if (claims?.Any() != true)
                 {
                     throw new ArgumentException("Invalid credentials");
                 }
@@ -82,9 +99,10 @@ namespace Opc.Ua.Cloud.Library
                 return AuthenticateResult.Fail($"Authentication failed: {ex.Message}");
             }
 
-            Claim[] claims = new[] {
-                new Claim(ClaimTypes.Name, username)
-            };
+            if (claims == null)
+            {
+                throw new ArgumentException("Invalid credentials");
+            }
 
             ClaimsIdentity identity = new ClaimsIdentity(claims, Scheme.Name);
             ClaimsPrincipal principal = new ClaimsPrincipal(identity);

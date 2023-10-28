@@ -34,6 +34,21 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+
+    - name: Start PostgreSQL on Ubuntu
+      run: |
+        sudo systemctl start postgresql.service
+        pg_isready
+    - name: Create additional user
+      run: |
+        sudo -u postgres psql --command="CREATE USER testuser SUPERUSER PASSWORD 'password'" --command="\du"
+    - name: Create test database with proper collation
+      run: |
+        sudo -u postgres psql --command="create database cloudlib_test with LC_COLLATE = 'en_US.UTF8' LC_CTYPE = 'en_US.UTF8' TEMPLATE template0"
+    - name: List existing databases
+      run: |
+        sudo -u postgres psql -l --command="\du"
+    
     - name: 🤘 checkout
       uses: actions/checkout@v2
       with:
@@ -51,10 +66,22 @@ jobs:
     - name: Restore dependencies SampleConsoleClient
       run: dotnet restore
       working-directory: SampleConsoleClient
+    - name: Restore dependencies CloudLibClientTests
+      run: dotnet restore
+      working-directory: Tests/CloudLibClientTests
+    - name: Restore dependencies CloudLibSync
+      working-directory: CloudLibSync
+      run: dotnet restore
+    - name: Restore dependencies CloudLibSyncAzureFunction
+      working-directory: CloudLibSyncAzureFunction
+      run: dotnet restore
     - name: Build
       run: dotnet build UA-CloudLibrary.sln --configuration Release --no-restore
     - name: Test
-      run: dotnet test UA-CloudLibrary.sln --no-build --verbosity normal
+      run: dotnet test UA-CloudLibrary.sln --no-build --configuration Release --verbosity normal  -l:"console;verbosity=normal"
+    - name: List databases after test run
+      run: |
+        sudo -u postgres psql -l --command="\du"
     - name: pack NuGet
       run: dotnet pack Opc.Ua.CloudLib.Client/Opc.Ua.Cloud.Library.Client.csproj --configuration Release
     - name: add github nuget-feed#

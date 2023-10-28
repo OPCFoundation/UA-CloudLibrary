@@ -66,12 +66,32 @@ namespace Opc.Ua.Cloud.Library.Client
             client.DefaultRequestHeaders.Authorization = authentication;
         }
 
+        public RestClient(HttpClient httpClient)
+        {
+            client = httpClient;
+        }
+
         public void Dispose()
         {
             client.Dispose();
         }
 
+        [Obsolete("Use GetBasicNodesetInformationAsync with offset and limit")]
         public async Task<List<UANodesetResult>> GetBasicNodesetInformationAsync(List<string> keywords = null)
+        {
+            var nodeSetResults = new List<UANodesetResult>();
+            int offset = 0;
+            int limit = 100;
+            do
+            {
+                var results = await GetBasicNodesetInformationAsync(offset, limit, keywords).ConfigureAwait(false);
+                nodeSetResults.AddRange(results);
+                offset += limit;
+            } while (nodeSetResults.Count == limit);
+            return nodeSetResults;
+        }
+
+        public async Task<List<UANodesetResult>> GetBasicNodesetInformationAsync(int offset, int limit, List<string> keywords = null)
         {
             if (keywords == null)
             {
@@ -79,26 +99,38 @@ namespace Opc.Ua.Cloud.Library.Client
             }
 
             // keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
-            string address = client.BaseAddress.ToString() + "infomodel/find" + PrepareArgumentsString(keywords);
+            var relativeUri = $"infomodel/find{PrepareArgumentsString(keywords)}&offset={offset}&limit={limit}";
+            Uri address = new Uri(client.BaseAddress, relativeUri);
             HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
 
             List<UANodesetResult> info = null;
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                info = JsonConvert.DeserializeObject<List<UANodesetResult>>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+                var responseJson = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                info = JsonConvert.DeserializeObject<List<UANodesetResult>>(responseJson);
             }
 
             return info;
         }
 
-        public async Task<UANameSpace> DownloadNodesetAsync(string identifier)
+        public Task<UANameSpace> DownloadNodesetAsync(string identifier)
         {
-            string address = Path.Combine(client.BaseAddress.ToString(), "infomodel/download/", Uri.EscapeDataString(identifier));
+            return DownloadNodesetAsync(identifier, false);
+        }
+        public async Task<UANameSpace> DownloadNodesetAsync(string identifier, bool metadataOnly)
+        {
+            var request = $"infomodel/download/{Uri.EscapeDataString(identifier)}";
+            if (metadataOnly)
+            {
+                request += $"?{nameof(metadataOnly)}=true";
+            }
+            var address = new Uri(client.BaseAddress, request);
             HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
             UANameSpace resultType = null;
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                resultType = JsonConvert.DeserializeObject<UANameSpace>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+                var responseJson = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                resultType = JsonConvert.DeserializeObject<UANameSpace>(responseJson, new JsonSerializerSettings { DateTimeZoneHandling = DateTimeZoneHandling.Utc });
             }
 
             return resultType;
@@ -106,7 +138,7 @@ namespace Opc.Ua.Cloud.Library.Client
 
         public async Task<(string NamespaceUri, string Identifier)[]> GetNamespaceIdsAsync()
         {
-            string address = Path.Combine(client.BaseAddress.ToString(), "infomodel/namespaces/");
+            Uri address = new Uri(client.BaseAddress, "infomodel/namespaces/");
             HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
             (string namespaceUri, string identifier)[] resultType = null;
             if (response.StatusCode == HttpStatusCode.OK)
@@ -129,11 +161,11 @@ namespace Opc.Ua.Cloud.Library.Client
             {
                 if (i == 0)
                 {
-                    stringBuilder.Append("?");
+                    stringBuilder.Append('?');
                 }
                 else
                 {
-                    stringBuilder.Append("&");
+                    stringBuilder.Append('&');
                 }
 
                 stringBuilder.Append("keywords=" + Uri.EscapeDataString(arguments[i]));
@@ -142,10 +174,13 @@ namespace Opc.Ua.Cloud.Library.Client
             return stringBuilder.ToString();
         }
 
-        internal async Task<(HttpStatusCode Status, string Message)> UploadNamespaceAsync(UANameSpace nameSpace)
+        internal async Task<(HttpStatusCode Status, string Message)> UploadNamespaceAsync(UANameSpace nameSpace, bool overwrite = false)
         {
             // upload infomodel to cloud library
-            var uploadAddress = client.BaseAddress != null ? new Uri(client.BaseAddress, "infomodel/upload") : null;
+            var uploadAddress = client.BaseAddress != null ?
+                new Uri(client.BaseAddress, $"infomodel/upload{((overwrite) ? "?overwrite=true" : "")}") :
+                null;
+
             HttpContent content = new StringContent(JsonConvert.SerializeObject(nameSpace), Encoding.UTF8, "application/json");
 
             var uploadResponse = await client.SendAsync(new HttpRequestMessage(HttpMethod.Put, uploadAddress) { Content = content }).ConfigureAwait(false);

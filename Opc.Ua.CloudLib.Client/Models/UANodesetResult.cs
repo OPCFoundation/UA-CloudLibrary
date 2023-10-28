@@ -29,6 +29,8 @@
 
 namespace Opc.Ua.Cloud.Library.Client
 {
+    using System;
+    using System.Collections.Generic;
     using Newtonsoft.Json;
     /// <summary>GraphQL Result for nodeset queries</summary>
     public class UANodesetResult
@@ -58,15 +60,96 @@ namespace Opc.Ua.Cloud.Library.Client
         [JsonProperty(PropertyName = "version")]
         public string Version { get; set; }
 
-        /// <summary>Gets or sets the creation time.</summary>
+        /// <summary>Gets or sets the publication date.</summary>
         /// <value>The creation time.</value>
-        [JsonProperty(PropertyName = "nodesetCreationTime")]
-        public System.DateTime? CreationTime { get; set; }
+        [JsonProperty(PropertyName = "publicationDate")]
+        public System.DateTime? PublicationDate { get; set; }
 
         /// <summary>
         /// Gets or sets the namespace Uri.
         /// </summary>
         [JsonProperty(PropertyName = "nodesetNamespaceUri")]
         public string NameSpaceUri { get; set; }
+
+        /// <summary>
+        /// Validation status of the nodeset
+        /// </summary>
+        public string ValidationStatus { get; set; }
+        /// <summary>
+        /// Indicates the nodesets that this nodesets depends on
+        /// </summary>
+        public List<RequiredModelInfo> RequiredNodesets { get; set; }
+
+        /// <summary>
+        /// Copyright
+        /// </summary>
+        public string CopyrightText { get; set; }
+
+        /// <summary>
+        /// Description
+        /// </summary>
+        public string Description { get; set; }
+
+        /// <summary>
+        /// Category
+        /// </summary>
+        public Category Category { get; set; }
+
+        /// <summary>
+        /// Link to additional documentation, specifications, GitHub, etc.
+        /// For example, If the address space is based on a standard or official UA Information Model, this links to the standard or the OPC specification URL.
+        /// </summary>
+        public Uri DocumentationUrl { get; set; }
+
+        /// <summary>
+        /// Link to an icon that can be used to represent this node set
+        /// </summary>
+        public Uri IconUrl { get; set; }
+
+        /// <summary>
+        /// Link to the license text
+        /// </summary>
+        public Uri LicenseUrl { get; set; }
+
+        /// <summary>
+        /// Keywords
+        /// </summary>
+        public string[] Keywords { get; set; }
+
+        /// <summary>
+        /// Link to purchasing information
+        /// </summary>
+        public Uri PurchasingInformationUrl { get; set; }
+
+        /// <summary>
+        /// Link to Release Notes
+        /// </summary>
+        public Uri ReleaseNotesUrl { get; set; }
+
+        /// <summary>
+        /// Link to test specification
+        /// </summary>
+        public Uri TestSpecificationUrl { get; set; }
+
+        /// <summary>
+        /// Supported ISO language codes
+        /// </summary>
+        public string[] SupportedLocales { get; set; }
+
+        /// <summary>
+        /// Number of downloads
+        /// </summary>
+        public uint NumberOfDownloads { get; set; }
+
+        /// <summary>
+        /// The time the nodeset was uploaded to the cloud library
+        /// </summary>
+        [JsonProperty(PropertyName = "creationTime")]
+        public System.DateTime? CreationTime { get; set; }
+
+        /// <summary>
+        /// Additional properties
+        /// </summary>
+        public UAProperty[] AdditionalProperties { get; set; }
     }
 }

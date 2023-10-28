@@ -29,26 +29,67 @@
 
 namespace Opc.Ua.Cloud.Library
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Threading.Tasks;
+
+    using CESMII.OpcUa.NodeSetModel;
+    using Opc.Ua.Cloud.Library.DbContextModels;
     using Opc.Ua.Cloud.Library.Models;
+    using Opc.Ua.Export;
 
     public interface IDatabase
     {
-        UANodesetResult[] FindNodesets(string[] keywords);
+        UANodesetResult[] FindNodesets(string[] keywords, int? offset, int? limit);
+        IQueryable<CloudLibNodeSetModel> GetNodeSets(string identifier = null, string modelUri = null, DateTime? publicationDate = null, string[] keywords = null);
 
-        bool AddMetaDataToNodeSet(uint nodesetId, string name, string value);
+        Task<string> AddMetaDataAsync(UANameSpace uaNamespace, UANodeSet nodeSet, uint legacyNodesetHashCode, string userId);
 
-        bool UpdateMetaDataForNodeSet(uint nodesetId, string name, string value);
+        Task<uint> IncrementDownloadCountAsync(uint nodesetId);
 
-        bool AddUATypeToNodeset(uint nodesetId, UATypes uaType, string browseName, string displayName, string nameSpace);
+        Task<bool> DeleteAllRecordsForNodesetAsync(uint nodesetId);
 
-        bool DeleteAllRecordsForNodeset(uint nodesetId);
-
-        public void RetrieveAllMetadata(uint nodesetId, UANameSpace nameSpace);
-
-        string RetrieveMetaData(uint nodesetId, string metaDataTag);
+        Task<UANameSpace> RetrieveAllMetadataAsync(uint nodesetId);
 
         string[] GetAllNamespacesAndNodesets();
 
         string[] GetAllNamesAndNodesets();
+
+        IQueryable<ObjectTypeModel> GetObjectTypes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null);
+        IQueryable<VariableTypeModel> GetVariableTypes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null);
+        IQueryable<DataTypeModel> GetDataTypes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null);
+        IQueryable<PropertyModel> GetProperties(string modelUri = null, DateTime? publicationDate = null, string nodeId = null);
+        IQueryable<DataVariableModel> GetDataVariables(string modelUri = null, DateTime? publicationDate = null, string nodeId = null);
+        IQueryable<ReferenceTypeModel> GetReferenceTypes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null);
+        IQueryable<InterfaceModel> GetInterfaces(string modelUri = null, DateTime? publicationDate = null, string nodeId = null);
+        IQueryable<ObjectModel> GetObjects(string modelUri = null, DateTime? publicationDate = null, string nodeId = null);
+        IQueryable<NodeModel> GetAllNodes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null);
+
+        IQueryable<CategoryModel> GetCategories();
+        IQueryable<OrganisationModel> GetOrganisations();
+
+        IQueryable<NamespaceMetaDataModel> GetNamespaces();
+        int GetNamespaceTotalCount();
+
+        Task<NamespaceMetaDataModel> ApproveNamespaceAsync(string identifier, ApprovalStatus status, string approvalInformation, List<UAProperty> additionalProperties);
+        IQueryable<CloudLibNodeSetModel> GetNodeSetsPendingApproval();
+
+#if !NOLEGACY
+        IQueryable<MetadataModel> GetMetadataModel(); // CODE REVIEW: is this still required? Moving to legacy section for now
+        IQueryable<DatatypeModel> GetDataType();
+        IQueryable<QueryModel.NodeSetGraphQLLegacy> GetNodeSet();
+        IQueryable<ObjecttypeModel> GetObjectType();
+        IQueryable<ReferencetypeModel> GetReferenceType();
+        IQueryable<VariabletypeModel> GetVariableType();
+#endif // NOLEGACY
     }
+    public enum ApprovalStatus
+    {
+        Pending,
+        Approved,
+        Rejected,
+        Canceled,
+    }
+
 }

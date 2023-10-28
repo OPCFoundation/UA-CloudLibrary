@@ -29,29 +29,35 @@
 
 namespace Opc.Ua.Cloud.Library.Models
 {
+    using System;
+    using System.Collections.Generic;
     using Newtonsoft.Json;
 
-    public class UANodesetResult
+    public class UANodesetResult : UANameSpace
     {
         [JsonProperty(PropertyName = "nodesetId")]
-        public uint Id { get; set; }
+        public uint LegacyId { get => Nodeset?.Identifier ?? 0; }
 
         [JsonProperty(PropertyName = "nodesetTitle")]
-        public string Title { get; set; }
+        public string LegacyTitle { get => Title; }
 
         [JsonProperty(PropertyName = "orgName")]
-        public string Contributor { get; set; }
+        public string LegacyOrgName { get => Contributor?.Name; }
 
-        [JsonProperty(PropertyName = "license")]
-        public string License { get; set; }
-
+        // TODO enum vs. string & compat
         [JsonProperty(PropertyName = "version")]
-        public string Version { get; set; }
+        public string LegacyVersion { get => Nodeset?.Version; }
 
-        [JsonProperty(PropertyName = "nodesetCreationTime")]
-        public System.DateTime? CreationTime { get; set; }
+        [JsonProperty(PropertyName = "publicationDate")]
+        public System.DateTime? LegacyPublicationDate { get => Nodeset?.PublicationDate; }
 
         [JsonProperty(PropertyName = "nodesetNamespaceUri")]
-        public string NameSpaceUri { get; set; }
+        public string LegacyNamespaceUri
+        {
+            get => Nodeset?.NamespaceUri?.OriginalString;
+        }
+
+        [JsonProperty(PropertyName = "requiredNodesets")]
+        public List<CloudLibRequiredModelInfo> LegacyRequiredNodesets { get => Nodeset?.RequiredModels; }
     }
 }

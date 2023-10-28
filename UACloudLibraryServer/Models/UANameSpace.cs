@@ -30,6 +30,7 @@
 namespace Opc.Ua.Cloud.Library.Models
 {
     using System;
+    using System.Collections.Generic;
     using System.ComponentModel.DataAnnotations;
 
     public enum License
@@ -39,49 +40,25 @@ namespace Opc.Ua.Cloud.Library.Models
         Custom
     }
 
-    public class UANameSpace
+    public class UANameSpaceMetadata
     {
-        public UANameSpace()
-        {
-            Title = string.Empty;
-            License = License.Custom;
-            CopyrightText = string.Empty;
-            Contributor = new Organisation();
-            Description = string.Empty;
-            Category = new Category();
-            Nodeset = new Nodeset();
-            DocumentationUrl = null;
-            IconUrl = null;
-            LicenseUrl = null;
-            Keywords = Array.Empty<string>();
-            PurchasingInformationUrl = null;
-            ReleaseNotesUrl = null;
-            TestSpecificationUrl = null;
-            SupportedLocales = Array.Empty<string>();
-            NumberOfDownloads = 0;
-            AdditionalProperties = null;
-        }
-
         [Required]
         public string Title { get; set; }
 
         [Required]
-        public License License { get; set; }
+        public Organisation Contributor { get; set; }
+
+        [Required]
+        public string License { get; set; }
 
         [Required]
         public string CopyrightText { get; set; }
-
-        [Required]
-        public Organisation Contributor { get; set; }
 
         [Required]
         public string Description { get; set; }
 
         [Required]
         public Category Category { get; set; }
-
-        [Required]
-        public Nodeset Nodeset { get; set; }
 
         /// <summary>
         /// Link to additional documentation, specifications, GitHub, etc.
@@ -106,10 +83,49 @@ namespace Opc.Ua.Cloud.Library.Models
         /// </summary>
         public string[] SupportedLocales { get; set; }
 
-        public uint NumberOfDownloads { get; set; }
-
         public UAProperty[] AdditionalProperties { get; set; }
+
+        public UANameSpaceMetadata()
+        {
+            Title = string.Empty;
+            License = null;
+            CopyrightText = string.Empty;
+            Contributor = new Organisation();
+            Description = string.Empty;
+            Category = new Category();
+            DocumentationUrl = null;
+            IconUrl = null;
+            LicenseUrl = null;
+            Keywords = Array.Empty<string>();
+            PurchasingInformationUrl = null;
+            ReleaseNotesUrl = null;
+            TestSpecificationUrl = null;
+            SupportedLocales = Array.Empty<string>();
+            AdditionalProperties = null;
+        }
+        public override string ToString()
+        {
+            return $"{Title} {Contributor} {Category}";
+        }
     }
+
+    public class UANameSpace : UANameSpaceMetadata
+    {
+        public UANameSpace()
+        {
+            CreationTime = null;
+            NumberOfDownloads = 0;
+            Nodeset = new Nodeset();
+        }
+        [Required]
+        public Nodeset Nodeset { get; set; }
+        /// <summary>
+        /// Time the nodeset was submitted to the cloud library
+        /// </summary>
+        public DateTime? CreationTime { get; set; }
+        public uint NumberOfDownloads { get; set; }
+    }
+
 
     public class UAProperty
     {
@@ -204,9 +220,9 @@ namespace Opc.Ua.Cloud.Library.Models
             Version = string.Empty;
             PublicationDate = DateTime.MinValue;
             LastModifiedDate = DateTime.MinValue;
+            ValidationStatus = null;
         }
 
-        [Required]
         public string NodesetXml { get; set; }
 
         public uint Identifier { get; set; }
@@ -218,5 +234,31 @@ namespace Opc.Ua.Cloud.Library.Models
         public DateTime PublicationDate { get; set; }
 
         public DateTime LastModifiedDate { get; set; }
+        public string ValidationStatus { get; set; }
+
+        public List<CloudLibRequiredModelInfo> RequiredModels { get; set; }
+    }
+
+    /// <summary>
+    /// Contains information about dependencies of a nodeset
+    /// </summary>
+    public class CloudLibRequiredModelInfo
+    {
+        /// <summary>
+        /// The namespace URI of the dependency
+        /// </summary>
+        public string NamespaceUri { get; set; }
+        /// <summary>
+        /// The minimum required publication date of the dependency
+        /// </summary>
+        public DateTime? PublicationDate { get; set; }
+        /// <summary>
+        /// The informational version of the dependency
+        /// </summary>
+        public string Version { get; set; }
+        /// <summary>
+        /// The best match currently available in the cloud library. null if no match (no nodeset for this namespace uri or only node sets with older publication dates).
+        /// </summary>
+        public Nodeset AvailableModel { get; set; }
     }
 }
