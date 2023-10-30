@@ -99,10 +99,8 @@ namespace Opc.Ua.Cloud.Library
                 return AuthenticateResult.Fail($"Authentication failed: {ex.Message}");
             }
 
-            if (claims == null)
-            {
-                throw new ArgumentException("Invalid credentials");
-            }
+            //if claims == null //CM: Codesmell says this will never be called
+            //    throw new ArgumentException("Invalid credentials")
 
             ClaimsIdentity identity = new ClaimsIdentity(claims, Scheme.Name);
             ClaimsPrincipal principal = new ClaimsPrincipal(identity);

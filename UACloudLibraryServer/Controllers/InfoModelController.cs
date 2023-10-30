@@ -55,7 +55,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         private readonly IFileStorage _storage;
         private readonly IDatabase _database;
         private readonly ILogger _logger;
-        private readonly NodeSetModelIndexer _indexer;
+        //private readonly NodeSetModelIndexer _indexer //CM: CodeSmell says remove
         private readonly NodeSetModelIndexerFactory _nodeSetIndexerFactory;
 
         public InfoModelController(IFileStorage storage, IDatabase database, ILoggerFactory logger, NodeSetModelIndexer indexer, NodeSetModelIndexerFactory nodeSetIndexerFactory)
@@ -63,7 +63,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             _storage = storage;
             _database = database;
             _logger = logger.CreateLogger("InfoModelController");
-            _indexer = indexer;
+            //_indexer = indexer
             _nodeSetIndexerFactory = nodeSetIndexerFactory;
         }
 
@@ -171,7 +171,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             if (nodeSetMeta != null)
             {
                 var dependentNodeSets = await _database.GetNodeSets().Where(n => n.RequiredModels.Any(rm => rm.AvailableModel == nodeSetMeta)).ToListAsync();
-                if (dependentNodeSets.Any())
+                if (dependentNodeSets?.Count > 0)
                 {
                     var message = $"NodeSet {nodeSetMeta} is used by the following nodesets: {string.Join(",", dependentNodeSets.Select(n => n.ToString()))}";
                     if (!forceDelete)
@@ -220,62 +220,62 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 uint legacyNodesetHashCode;
                 // generate a unique hash code
                 uint nodesetHashCode = GenerateHashCode(nodeSet);
+
+                if (nodesetHashCode == 0)
                 {
-                    if (nodesetHashCode == 0)
-                    {
-                        return new ObjectResult("Nodeset invalid. Please make sure it includes a valid Model URI and publication date!") { StatusCode = (int)HttpStatusCode.BadRequest };
-                    }
+                    return new ObjectResult("Nodeset invalid. Please make sure it includes a valid Model URI and publication date!") { StatusCode = (int)HttpStatusCode.BadRequest };
+                }
 
-                    if (nodeSet.Models.Length != 1)
-                    {
-                        return new ObjectResult("Nodeset not supported. Please make sure it includes exactly one Model!") { StatusCode = (int)HttpStatusCode.BadRequest };
-                    }
+                if (nodeSet.Models.Length != 1)
+                {
+                    return new ObjectResult("Nodeset not supported. Please make sure it includes exactly one Model!") { StatusCode = (int)HttpStatusCode.BadRequest };
+                }
 
-                    // check if the nodeset already exists in the database for the legacy hashcode algorithm
-                    legacyNodesetHashCode = GenerateHashCodeLegacy(nodeSet);
-                    if (legacyNodesetHashCode != 0)
-                    {
-                        string legacyNodeSetXml = await _storage.DownloadFileAsync(legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                // check if the nodeset already exists in the database for the legacy hashcode algorithm
+                legacyNodesetHashCode = GenerateHashCodeLegacy(nodeSet);
+                if (legacyNodesetHashCode != 0)
+                {
+                    string legacyNodeSetXml = await _storage.DownloadFileAsync(legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
 
-                        if (!string.IsNullOrEmpty(legacyNodeSetXml))
+                    if (!string.IsNullOrEmpty(legacyNodeSetXml))
+                    {
+                        try
                         {
-                            try
+                            var legacyNodeSet = ReadUANodeSet(legacyNodeSetXml);
+                            var firstModel = legacyNodeSet.Models.Length > 0 ? legacyNodeSet.Models[0] : null;
+                            if (firstModel == null)
                             {
-                                var legacyNodeSet = ReadUANodeSet(legacyNodeSetXml);
-                                var firstModel = legacyNodeSet.Models.Length > 0 ? legacyNodeSet.Models[0] : null;
-                                if (firstModel == null)
+                                return new ObjectResult($"Nodeset exists but existing nodeset had no model entry.") { StatusCode = (int)HttpStatusCode.Conflict };
+                            }
+                            if ((!firstModel.PublicationDateSpecified && !nodeSet.Models[0].PublicationDateSpecified) || firstModel.PublicationDate == nodeSet.Models[0].PublicationDate)
+                            {
+                                if (!overwrite)
                                 {
-                                    return new ObjectResult($"Nodeset exists but existing nodeset had no model entry.") { StatusCode = (int)HttpStatusCode.Conflict };
-                                }
-                                if ((!firstModel.PublicationDateSpecified && !nodeSet.Models[0].PublicationDateSpecified) || firstModel.PublicationDate == nodeSet.Models[0].PublicationDate)
-                                {
-                                    if (!overwrite)
-                                    {
-                                        // nodeset already exists
-                                        return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing legacy entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
-                                    }
-                                }
-                                else
-                                {
-                                    // New nodeset is a different version from the legacy nodeset: don't touch the legacy nodeset
-                                    legacyNodesetHashCode = 0;
+                                    // nodeset already exists
+                                    return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing legacy entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
                                 }
                             }
-                            catch (Exception ex)
+                            else
                             {
-                                return new ObjectResult($"Nodeset exists but existing nodeset could not be validated: {ex.Message}.") { StatusCode = (int)HttpStatusCode.Conflict };
-                            }
-
-                            // check contributors match if nodeset already exists
-                            string contributorNameLegacy = (await _database.RetrieveAllMetadataAsync(legacyNodesetHashCode).ConfigureAwait(false))?.Contributor?.Name;
-                            if (!string.IsNullOrEmpty(legacyNodeSetXml) && !string.IsNullOrEmpty(contributorNameLegacy) && (!string.Equals(uaNamespace.Contributor.Name, contributorNameLegacy, StringComparison.Ordinal)))
-                            {
-                                return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
+                                // New nodeset is a different version from the legacy nodeset: don't touch the legacy nodeset
+                                legacyNodesetHashCode = 0;
                             }
                         }
+                        catch (Exception ex)
+                        {
+                            return new ObjectResult($"Nodeset exists but existing nodeset could not be validated: {ex.Message}.") { StatusCode = (int)HttpStatusCode.Conflict };
+                        }
+
+                        // check contributors match if nodeset already exists
+                        string contributorNameLegacy = (await _database.RetrieveAllMetadataAsync(legacyNodesetHashCode).ConfigureAwait(false))?.Contributor?.Name;
+                        if (!string.IsNullOrEmpty(legacyNodeSetXml) && !string.IsNullOrEmpty(contributorNameLegacy) && (!string.Equals(uaNamespace.Contributor.Name, contributorNameLegacy, StringComparison.Ordinal)))
+                        {
+                            return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
+                        }
                     }
-                    uaNamespace.Nodeset.Identifier = nodesetHashCode;
                 }
+                uaNamespace.Nodeset.Identifier = nodesetHashCode;
+
 
                 // check if the nodeset already exists in the database for the new hashcode algorithm
                 string result = await _storage.FindFileAsync(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
@@ -288,7 +288,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                         return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
                     }
                     // nodeset metadata not found: allow overwrite of orphaned blob
-                    overwrite = true;
+                    //overwrite = true //CM: CodeSmell says this is not used. Can it be removed here?
                 }
 
                 // check contributors match if nodeset already exists
@@ -352,7 +352,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                         var legacyHashCodeStr = legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture);
                         if (!string.IsNullOrEmpty(await _storage.FindFileAsync(legacyHashCodeStr).ConfigureAwait(false)))
                         {
-                            //await _storage.DeleteFileAsync(legacyHashCodeStr).ConfigureAwait(false);
+                            //await _storage.DeleteFileAsync(legacyHashCodeStr).ConfigureAwait(false)
                         }
                     }
                     catch (Exception ex)

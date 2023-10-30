@@ -48,11 +48,11 @@ namespace Opc.Ua.Cloud.Library
         public NodeSetModelIndexerFactory(IServiceScopeFactory serviceScopeFactory, ILogger<NodeSetModelIndexer> logger)
         {
             _serviceScopeFactory = serviceScopeFactory;
-            _logger = logger;
+            //_logger = logger
         }
 
         private readonly IServiceScopeFactory _serviceScopeFactory;
-        private readonly ILogger<NodeSetModelIndexer> _logger;
+        //private readonly ILogger<NodeSetModelIndexer> _logger
 
         public NodeSetModelIndexer Create()
         {
@@ -122,7 +122,7 @@ namespace Opc.Ua.Cloud.Library
                 var savedTime = sw.ElapsedMilliseconds;
                 _logger.LogInformation($"Finished indexing nodeset {modelUri} {identifier}: {savedTime - validatedTime} ms. Total: {savedTime} ms.");
 #if DEBUG
-                var nodeSet = loadedNodesetModels.FirstOrDefault(nsm => nsm.ModelUri == modelUri);
+                var nodeSet = loadedNodesetModels.Find(nsm => nsm.ModelUri == modelUri);
                 if (nodeSet != null)
                 {
                     var clNodeSet = nodeSet as CloudLibNodeSetModel;
@@ -210,7 +210,7 @@ namespace Opc.Ua.Cloud.Library
 
 
         static bool bIndexing = false;
-        static object _indexingLock = new object();
+        static readonly object _indexingLock = new object();
         public static async Task IndexNodeSetsAsync(NodeSetModelIndexerFactory factory)
         {
             lock (_indexingLock)

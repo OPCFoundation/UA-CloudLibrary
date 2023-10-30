@@ -43,6 +43,7 @@ namespace Opc.Ua.Cloud.Library
     {
         UANodesetResult[] FindNodesets(string[] keywords, int? offset, int? limit);
         IQueryable<CloudLibNodeSetModel> GetNodeSets(string identifier = null, string modelUri = null, DateTime? publicationDate = null, string[] keywords = null);
+        IQueryable<CloudLibNodeSetModel> GetNodeSets2(List<string> identifiers = null, string modelUri = null, DateTime? publicationDate = null, string[] keywords = null);
 
         Task<string> AddMetaDataAsync(UANameSpace uaNamespace, UANodeSet nodeSet, uint legacyNodesetHashCode, string userId);
 

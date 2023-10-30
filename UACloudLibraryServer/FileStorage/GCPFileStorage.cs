@@ -42,7 +42,9 @@ namespace Opc.Ua.Cloud.Library
     /// <summary>
     /// GCP storage class
     /// </summary>
+#pragma warning disable S101 // Types should be named in PascalCase
     public class GCPFileStorage : IFileStorage
+#pragma warning restore S101 // Types should be named in PascalCase
     {
         private readonly string _bucket;
         private readonly StorageClient _gcsClient;
@@ -159,13 +161,11 @@ namespace Opc.Ua.Cloud.Library
             try
             {
                 await _gcsClient.DeleteObjectAsync(_bucket, name, cancellationToken: cancellationToken).ConfigureAwait(false);
-                return;
-
+                
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error finding file {name}");
-                return;
             }
         }
     }

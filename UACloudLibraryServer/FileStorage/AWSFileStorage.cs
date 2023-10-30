@@ -45,7 +45,9 @@ namespace Opc.Ua.Cloud.Library
     /// <summary>
     /// AWS S3 storage class
     /// </summary>
+#pragma warning disable S101 // Types should be named in PascalCase
     public class AWSFileStorage : IFileStorage
+#pragma warning restore S101 // Types should be named in PascalCase
     {
         private readonly string _bucket;
         private readonly string _prefix;
@@ -203,12 +205,10 @@ namespace Opc.Ua.Cloud.Library
 
                 await _s3Client.DeleteObjectAsync(_bucket, key, cancellationToken).ConfigureAwait(false);
 
-                return;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error deleting file {name}");
-                return;
             }
         }
     }

@@ -50,7 +50,9 @@ namespace Opc.Ua.Cloud.Library.Client
     /// <summary>
     /// This class handles the quering and conversion of the response
     /// </summary>
+#pragma warning disable S3881 // "IDisposable" should be implemented correctly
     public partial class UACloudLibClient : IDisposable
+#pragma warning restore S3881 // "IDisposable" should be implemented correctly
     {
         /// <summary>The standard endpoint</summary>
 #pragma warning disable S1075 // URIs should not be hardcoded
@@ -82,7 +84,9 @@ namespace Opc.Ua.Cloud.Library.Client
 
         /// <summary>Sets the password.</summary>
         /// <value>The password.</value>
+#pragma warning disable S2376 // Write-only properties should not be used
         public string Password
+#pragma warning restore S2376 // Write-only properties should not be used
         {
             set { _password = value; UserDataChanged(); }
         }
@@ -187,7 +191,7 @@ namespace Opc.Ua.Cloud.Library.Client
                 string message = response.Errors[0].Message;
                 if (response.Errors[0].Extensions?.TryGetValue("message", out var messageObj) == true && messageObj != null)
                 {
-                    message = messageObj?.ToString();
+                    message = messageObj.ToString();
                 }
                 throw new GraphQlException(message);
             }
@@ -520,7 +524,7 @@ namespace Opc.Ua.Cloud.Library.Client
                 var graphQlResult = await SendAndConvertAsync<GraphQlResult<GraphQLNodeSet>>(request).ConfigureAwait(false);
                 result = new GraphQlResult<Nodeset>(graphQlResult) {
                     TotalCount = graphQlResult.TotalCount,
-                    Edges = graphQlResult?.Edges.Select(n =>
+                    Edges = graphQlResult.Edges.Select(n =>
                         new GraphQlNodeAndCursor<Nodeset> {
                             Cursor = n.Cursor,
                             Node = n.Node.ToNodeSet(),
@@ -635,6 +639,7 @@ namespace Opc.Ua.Cloud.Library.Client
         {
             var request = new GraphQLRequest();
             var totalCountFragment = noTotalCount ? "" : "totalCount ";
+#pragma warning disable S3358 // Ternary operators should not be nested
             var metadataFragment = noMetadata ? "" : @"
           metadata {
             contributor {
@@ -672,6 +677,7 @@ namespace Opc.Ua.Cloud.Library.Client
             approvalInformation
           }
             ";
+#pragma warning restore S3358 // Ternary operators should not be nested
 
             var requiredModelFragment = noRequiredModels ? "" : @"
           requiredModels {
@@ -773,8 +779,8 @@ query MyQuery ({variableParams}$after: String, $first: Int, $before: String, $la
                 request.Variables = new {
                     namespaceUri = namespaceUri,
                     publicationDate = publicationDate,
-                    propName = additionalProperty?.Name,
-                    propValue = additionalProperty?.Value,
+                    propName = additionalProperty.Name,
+                    propValue = additionalProperty.Value,
                     after = after,
                     first = first,
                     before = before,
@@ -795,8 +801,8 @@ query MyQuery ({variableParams}$after: String, $first: Int, $before: String, $la
             else if (additionalProperty != null)
             {
                 request.Variables = new {
-                    propName = additionalProperty?.Name,
-                    propValue = additionalProperty?.Value,
+                    propName = additionalProperty.Name,
+                    propValue = additionalProperty.Value,
                     after = after,
                     first = first,
                     before = before,
@@ -819,7 +825,7 @@ query MyQuery ({variableParams}$after: String, $first: Int, $before: String, $la
                 var graphQlResult = await SendAndConvertAsync<GraphQlResult<GraphQLNodeSet>>(request).ConfigureAwait(false);
                 result = new GraphQlResult<Nodeset>(graphQlResult) {
                     TotalCount = graphQlResult.TotalCount,
-                    Edges = graphQlResult?.Edges.Select(n =>
+                    Edges = graphQlResult.Edges.Select(n =>
                         new GraphQlNodeAndCursor<Nodeset> {
                             Cursor = n.Cursor,
                             Node = n.Node.ToNodeSet(),
@@ -876,8 +882,8 @@ mutation ApprovalMutation ($newStatus: ApprovalStatus!, $identifier: String, $ap
                     identifier = nodeSetId,
                     newStatus = newStatus,
                     approvalInfo = statusInfo,
-                    propName = additionalProperty?.Name,
-                    propValue = additionalProperty?.Value,
+                    propName = additionalProperty.Name,
+                    propValue = additionalProperty.Value,
                 };
             }
             else
@@ -1005,7 +1011,7 @@ query MyQuery ($identifier: String, $modelUri: String, $publicationDate: DateTim
                 }
                 else
                 {
-                    // TODO Introduce a way to retrieve nodeset by namespace uri and publication date via REST
+                    // TOD Introduce a way to retrieve nodeset by namespace uri and publication date via REST
 #pragma warning disable CS0618 // Type or member is obsolete
                     var allNamespaces = await _restClient.GetBasicNodesetInformationAsync().ConfigureAwait(false);
 #pragma warning restore CS0618 // Type or member is obsolete
@@ -1028,7 +1034,9 @@ query MyQuery ($identifier: String, $modelUri: String, $publicationDate: DateTim
         /// <typeparam name="T"></typeparam>
         class GraphQLNodeResponse<T>
         {
+#pragma warning disable S1144 // Unused private types or members should be removed
             public List<T> nodes { get; set; }
+#pragma warning restore S1144 // Unused private types or members should be removed
         }
 
         /// <summary>

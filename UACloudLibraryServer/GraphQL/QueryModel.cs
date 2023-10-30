@@ -30,6 +30,7 @@
 namespace Opc.Ua.Cloud.Library
 {
     using System;
+    using System.Collections.Generic;
     using System.Linq;
     using CESMII.OpcUa.NodeSetModel;
     using HotChocolate;
@@ -49,6 +50,22 @@ namespace Opc.Ua.Cloud.Library
             string identifier = null, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string[] keywords = null)
         {
             var query = dp.GetNodeSets(identifier, modelUri ?? nodeSetUrl, publicationDate, keywords);
+
+            // Make sure the result is ordered even if the graphl query didn't specify an order so that pagination works correctly
+            var orderByArgument = context.ArgumentLiteral<IValueNode>("order");
+            if (orderByArgument == NullValueNode.Default || orderByArgument == null)
+            {
+                query = query.OrderBy(nsm => nsm.ModelUri).ThenBy(nsm => nsm.PublicationDate);
+            }
+
+            return query;
+        }
+
+        [UsePaging, UseFiltering, UseSorting]
+        public IQueryable<CloudLibNodeSetModel> GetNodeSets2([Service(ServiceKind.Synchronized)] IDatabase dp, IResolverContext context,
+            List<string> identifiers = null, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string[] keywords = null)
+        {
+            var query = dp.GetNodeSets2(identifiers, modelUri ?? nodeSetUrl, publicationDate, keywords);
 
             // Make sure the result is ordered even if the graphl query didn't specify an order so that pagination works correctly
             var orderByArgument = context.ArgumentLiteral<IValueNode>("order");

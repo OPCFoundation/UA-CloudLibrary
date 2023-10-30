@@ -56,7 +56,9 @@ namespace CloudLibClient.Tests
                     var storage = scope.ServiceProvider.GetRequiredService<IFileStorage>();
                     if (storage is LocalFileStorage localStorage)
                     {
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
                         _ = localStorage.DeleteAllFilesAsync().Result;
+#pragma warning restore xUnit1031 // Do not use blocking task operations in test method
                     }
                 }
             }

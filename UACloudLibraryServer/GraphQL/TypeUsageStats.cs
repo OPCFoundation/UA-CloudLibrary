@@ -36,7 +36,7 @@ namespace Opc.Ua.Cloud.Library
                 .SelectMany(nm => nm.Objects/*.Where(o => o.NodeSet.ModelUri != o.TypeDefinition.NodeSet.ModelUri)*/
                 .Select(om => new { ObjectType = om.TypeDefinition, Namespace = om.NodeSet.ModelUri, BrowseName = om.BrowseName }))
                 .Distinct()
-                .ToList()
+                //.ToList() //CM: CodeSmell says to drop this but then dataTypeInVariableStats becomes IQuerable instead of IEnumerable
                 .GroupBy(a => a.ObjectType.BrowseName, (key, a) =>
                     a.Select(a => new TypeStats {
                         Namespace = a.ObjectType.NodeSet.ModelUri,
@@ -62,7 +62,7 @@ namespace Opc.Ua.Cloud.Library
                 .SelectMany(nm => nm.Properties/*.Where(p => p.NodeSet.ModelUri != p.TypeDefinition.NodeSet.ModelUri)*/
                 .Select(p => new { DataType = p.DataType, Namespace = p.NodeSet.ModelUri, BrowseName = p.BrowseName }))
                 .Distinct()
-                .ToList()
+                //.ToList() //CM: CodeSmell says to drop this but then dataTypeInVariableStats becomes IQuerable instead of IEnumerable
                 .Concat(
                     _dbContext.nodeSets
                     .SelectMany(nm => nm.DataVariables/*.Where(dv => dv.NodeSet.ModelUri != dv.TypeDefinition.NodeSet.ModelUri)*/
@@ -95,7 +95,7 @@ namespace Opc.Ua.Cloud.Library
                 .SelectMany(nm => nm.DataTypes.SelectMany(dt => dt.StructureFields.Select(sf => new { StructureFieldDT = sf.DataType, ReferencingNamespace = dt.NodeSet.ModelUri, ReferencingBrowseName = dt.BrowseName }))/*.Where(o => o.NodeSet.ModelUri != o.TypeDefinition.NodeSet.ModelUri)*/
                 .Select(sf => new { DataType = sf.StructureFieldDT, Namespace = sf.ReferencingNamespace, BrowseName = sf.ReferencingBrowseName }))
                 .Distinct()
-                .ToList()
+                //.ToList() //CM: See above
                 .GroupBy(a => a.DataType.BrowseName, (key, a) =>
                     a.Select(a => new TypeStats {
                         Namespace = a.DataType.NodeSet.ModelUri,
@@ -125,7 +125,7 @@ namespace Opc.Ua.Cloud.Library
                     Namespace = ot.NodeSet.ModelUri,
                     NodeClass = nameof(ObjectTypeModel),
                     SubTypeCount = ot.SubTypes.Count,
-                    SubTypeExternalCount = ot.SubTypes.Where(st => st.SuperType.NodeSet.ModelUri != st.NodeSet.ModelUri).Count(),
+                    SubTypeExternalCount = ot.SubTypes.Count(st => st.SuperType.NodeSet.ModelUri != st.NodeSet.ModelUri),
                     NodeSetsExternal = ot.SubTypes.Where(st => st.SuperType.NodeSet.ModelUri != st.NodeSet.ModelUri).Select(st => st.NodeSet.ModelUri).Distinct(),
                 })
                 .ToList();
@@ -138,7 +138,7 @@ namespace Opc.Ua.Cloud.Library
                     Namespace = ot.NodeSet.ModelUri,
                     NodeClass = nameof(VariableTypeModel),
                     SubTypeCount = ot.SubTypes.Count,
-                    SubTypeExternalCount = ot.SubTypes.Where(st => st.SuperType.NodeSet.ModelUri != st.NodeSet.ModelUri).Count(),
+                    SubTypeExternalCount = ot.SubTypes.Count(st => st.SuperType.NodeSet.ModelUri != st.NodeSet.ModelUri),
                     NodeSetsExternal = ot.SubTypes.Where(st => st.SuperType.NodeSet.ModelUri != st.NodeSet.ModelUri).Select(st => st.NodeSet.ModelUri).Distinct(),
                 })
                 .ToList();
@@ -151,7 +151,7 @@ namespace Opc.Ua.Cloud.Library
                     Namespace = ot.NodeSet.ModelUri,
                     NodeClass = nameof(DataTypeModel),
                     SubTypeCount = ot.SubTypes.Count,
-                    SubTypeExternalCount = ot.SubTypes.Where(st => st.SuperType.NodeSet.ModelUri != st.NodeSet.ModelUri).Count(),
+                    SubTypeExternalCount = ot.SubTypes.Count(st => st.SuperType.NodeSet.ModelUri != st.NodeSet.ModelUri),
                     NodeSetsExternal = ot.SubTypes.Where(st => st.SuperType.NodeSet.ModelUri != st.NodeSet.ModelUri).Select(st => st.NodeSet.ModelUri).Distinct(),
                 })
                 .ToList();

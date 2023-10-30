@@ -111,6 +111,7 @@ namespace Opc.Ua.Cloud.Library
 
             nameSpace.Nodeset.Identifier = nodesetId;
 
+#pragma warning disable S6580 // Use a format provider when parsing date and time
             if (DateTime.TryParse(allMetaData.GetValueOrDefault("nodesetcreationtime"), out DateTime parsedDateTime))
             {
                 nameSpace.Nodeset.PublicationDate = parsedDateTime;
@@ -125,6 +126,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 nameSpace.CreationTime = parsedDateTime;
             }
+#pragma warning restore S6580 // Use a format provider when parsing date and time
 
             nameSpace.Title = allMetaData.GetValueOrDefault("nodesettitle", string.Empty);
 
@@ -136,7 +138,7 @@ namespace Opc.Ua.Cloud.Library
             }
             if (model?.RequiredModels != null)
             {
-                nameSpace.Nodeset.RequiredModels = model?.RequiredModels.Select(rm => {
+                nameSpace.Nodeset.RequiredModels = model.RequiredModels.Select(rm => {
                     Nodeset availableModel = null;
                     if (rm.AvailableModel != null)
                     {
@@ -281,14 +283,14 @@ namespace Opc.Ua.Cloud.Library
             };
 
         static Dictionary<string, string> legacyFilterNames = new Dictionary<string, string> {
-            // TODO add all filter name maps
-            // TODO Potentially support different mappings for each type
+            // TOD add all filter name maps
+            // TOD Potentially support different mappings for each type
             { "nodesetTitle", "Title" },
         };
 
-        private Expression<Func<TModel, bool>> ApplyWhereExpression<TModel>(string where)
+        internal Expression<Func<TModel, bool>> ApplyWhereExpression<TModel>(string where)
         {
-            //List<long> nodesetIds = null;
+            //List<long> nodesetIds = null
 
             List<string> fields = new List<string>();
             List<string> comparions = new List<string>();
@@ -303,11 +305,11 @@ namespace Opc.Ua.Cloud.Library
                 try
                 {
                     JArray whereExpression = (JArray)JsonConvert.DeserializeObject(where);
-                    foreach (JObject clause in whereExpression)
+                    foreach (var first in whereExpression.Select(s => s.First))
                     {
-                        fields.Add(((JProperty)clause.First).Name);
-                        comparions.Add(((JProperty)((JObject)clause.First.First).First).Name);
-                        values.Add(((JValue)((JObject)clause.First.First).First.First).Value.ToString());
+                        fields.Add(((JProperty)first).Name);
+                        comparions.Add(((JProperty)((JObject)first.First).First).Name);
+                        values.Add(((JValue)((JObject)first.First).First.First).Value.ToString());
                     }
                 }
                 catch (Exception)
@@ -319,7 +321,7 @@ namespace Opc.Ua.Cloud.Library
                 var paramExp = Expression.Parameter(typeof(TModel), typeof(TModel).Name);
                 if ((fields.Count > 0) && (fields.Count == comparions.Count) && (fields.Count == values.Count))
                 {
-                    //nodesetIds = new List<long>();
+                    //nodesetIds = new List<long>()
 
                     for (int i = 0; i < fields.Count; i++)
                     {
@@ -352,23 +354,23 @@ namespace Opc.Ua.Cloud.Library
                         if (comparions[i] == "equals")
                         {
                             comparison = Expression.Equal(memberExp, valueExp);
-                            //List<MetadataModel> results = _dbContext.Metadata.Where(p => (p.Name == fields[i]) && (p.Value == values[i])).ToList();
-                            //nodesetIds.AddRange(results.Select(p => p.NodesetId).Distinct().ToList());
+                            //List<MetadataModel> results = _dbContext.Metadata.Where(p => (p.Name == fields[i]) && (p.Value == values[i])).ToList()
+                            //nodesetIds.AddRange(results.Select(p => p.NodesetId).Distinct().ToList())
                         }
                         else if (comparions[i] == "contains")
                         {
                             comparison = Expression.Equal(memberExp, valueExp);
-                            //List<MetadataModel> results = _dbContext.Metadata.Where(p => (p.Name == fields[i]) && p.Value.Contains(values[i])).ToList();
-                            //nodesetIds.AddRange(results.Select(p => p.NodesetId).Distinct().ToList());
+                            //List<MetadataModel> results = _dbContext.Metadata.Where(p => (p.Name == fields[i]) && p.Value.Contains(values[i])).ToList()
+                            //nodesetIds.AddRange(results.Select(p => p.NodesetId).Distinct().ToList())
                         }
                         else if (comparions[i] == "like")
                         {
                             comparison = Expression.Equal(memberExp, valueExp);
 
                             //#pragma warning disable CA1304 // Specify CultureInfo
-                            //                            List<MetadataModel> results = _dbContext.Metadata.Where(p => (p.Name == fields[i]) && p.Value.ToLower().Contains(values[i].ToLower())).ToList();
+                            //                            List<MetadataModel> results = _dbContext.Metadata.Where(p => (p.Name == fields[i]) && p.Value.ToLower().Contains(values[i].ToLower())).ToList()
                             //#pragma warning restore CA1304 // Specify CultureInfo
-                            //                            nodesetIds.AddRange(results.Select(p => p.NodesetId).Distinct().ToList());
+                            //                            nodesetIds.AddRange(results.Select(p => p.NodesetId).Distinct().ToList())
                         }
                         if (comparison != null)
                         {
@@ -388,7 +390,7 @@ namespace Opc.Ua.Cloud.Library
                 else
                 {
                     // where expression was invalid, return empty list
-                    //nodesetIds = new List<long>();
+                    //nodesetIds = new List<long>()
                     return null;
                 }
             }
@@ -396,10 +398,10 @@ namespace Opc.Ua.Cloud.Library
             {
                 // where expression was not specified, so get all distinct nodeset IDs
                 return /*Expression.Lambda<Func<TModel, bool>>*/(TModel x) => true; //Expression.Constant(true)
-                //nodesetIds = _dbContext.Metadata.Select(p => p.NodesetId).Distinct().ToList();
+                //nodesetIds = _dbContext.Metadata.Select(p => p.NodesetId).Distinct().ToList()
             }
 
-            //return nodesetIds;
+            //return nodesetIds
         }
     }
 }

@@ -4,7 +4,9 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Opc.Ua.Cloud.Library
 {
+#pragma warning disable CS8981 // The type name only contains lower-cased ascii characters. Such names may become reserved for the language.
     public partial class instrumentrange : Migration
+#pragma warning restore CS8981 // The type name only contains lower-cased ascii characters. Such names may become reserved for the language.
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {

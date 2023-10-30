@@ -36,12 +36,12 @@ namespace CloudLibClient.Tests
             var uploadJson = File.ReadAllText(fileName);
 
             var addressSpace = JsonConvert.DeserializeObject<UANameSpace>(uploadJson);
-            var response = await client.UploadNodeSetAsync(addressSpace).ConfigureAwait(false);
+            var response = await client.UploadNodeSetAsync(addressSpace);
             if (response.Status == HttpStatusCode.OK)
             {
                 output.WriteLine($"Uploaded {addressSpace?.Nodeset.NamespaceUri}, {addressSpace?.Nodeset.Identifier}");
                 var uploadedIdentifier = response.Message;
-                var approvalResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "APPROVED", null, null).ConfigureAwait(false);
+                var approvalResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "APPROVED", null, null);
                 Assert.NotNull(approvalResult);
                 Assert.Equal("APPROVED", approvalResult.ApprovalStatus);
             }
@@ -60,7 +60,7 @@ namespace CloudLibClient.Tests
 
             var expectedNodeSetCount = TestNamespaceFiles.GetFiles().Count();
 
-            await WaitForIndexAsync(client, expectedNodeSetCount).ConfigureAwait(false);
+            await WaitForIndexAsync(client, expectedNodeSetCount);
         }
 
         internal static async Task WaitForIndexAsync(HttpClient client, int expectedNodeSetCount)

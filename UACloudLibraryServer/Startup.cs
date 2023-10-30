@@ -65,6 +65,8 @@ namespace Opc.Ua.Cloud.Library
 
     public class Startup
     {
+        private const string opcOrg = "https://opcfoundation.org/";
+
         public Startup(IConfiguration configuration, IWebHostEnvironment environment)
         {
             Configuration = configuration;
@@ -187,7 +189,7 @@ namespace Opc.Ua.Cloud.Library
                     Contact = new OpenApiContact {
                         Name = "OPC Foundation",
                         Email = "office@opcfoundation.org",
-                        Url = new Uri("https://opcfoundation.org/")
+                        Url = new Uri(opcOrg)
                     }
                 });
 

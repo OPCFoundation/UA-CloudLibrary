@@ -42,13 +42,13 @@ namespace Opc.Ua.Cloud.Library.Controllers
     [ApiController]
     public class AccessController : ControllerBase
     {
-        private readonly IDatabase _database;
-        private readonly ILogger _logger;
+        //private readonly IDatabase _database //CM CodeSmell requires removal
+        //private readonly ILogger _logger
 
         public AccessController(IDatabase database, ILoggerFactory logger)
         {
-            _database = database;
-            _logger = logger.CreateLogger("ApprovalController");
+            //_database = database
+            //_logger = logger.CreateLogger("ApprovalController")
         }
 
         [HttpPut]

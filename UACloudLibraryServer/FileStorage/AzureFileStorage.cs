@@ -112,7 +112,9 @@ namespace Opc.Ua.Cloud.Library
                         BlobProperties properties = await blob.GetPropertiesAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
                         if (file.Length != properties.ContentLength)
                         {
+#pragma warning disable S112 // General exceptions should never be thrown
                             throw new Exception("Could not verify upload!");
+#pragma warning restore S112 // General exceptions should never be thrown
                         }
 
                         return name;
@@ -142,9 +144,10 @@ namespace Opc.Ua.Cloud.Library
                     await container.CreateIfNotExistsAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
 
                     var resultSegment = container.GetBlobsAsync();
+#pragma warning disable S3267 // Loops should be simplified with "LINQ" expressions
                     await foreach (BlobItem blobItem in resultSegment.ConfigureAwait(false))
                     {
-                        if (blobItem.Name.Equals(name))
+                        if (blobItem.Name.Equals(name, StringComparison.Ordinal))
                         {
                             // Get a reference to the blob
                             BlobClient blob = container.GetBlobClient(blobItem.Name);
@@ -159,13 +162,16 @@ namespace Opc.Ua.Cloud.Library
                                 BlobProperties properties = await blob.GetPropertiesAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
                                 if (file.Length != properties.ContentLength)
                                 {
+#pragma warning disable S112 // General exceptions should never be thrown
                                     throw new Exception("Could not verify upload!");
+#pragma warning restore S112 // General exceptions should never be thrown
                                 }
 
                                 return Encoding.UTF8.GetString(file.ToArray());
                             }
                         }
                     }
+#pragma warning restore S3267 // Loops should be simplified with "LINQ" expressions
                 }
 
                 return string.Empty;
@@ -186,15 +192,13 @@ namespace Opc.Ua.Cloud.Library
                     // open blob storage
                     BlobContainerClient container = new BlobContainerClient(Environment.GetEnvironmentVariable("BlobStorageConnectionString"), "uacloudlib");
 
-                    var response = await container.DeleteBlobAsync(name, cancellationToken: cancellationToken).ConfigureAwait(false);
+                    await container.DeleteBlobAsync(name, cancellationToken: cancellationToken).ConfigureAwait(false);
                 }
 
-                return;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
-                return;
             }
         }
 

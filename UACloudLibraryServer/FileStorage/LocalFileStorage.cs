@@ -96,7 +96,7 @@ namespace Opc.Ua.Cloud.Library
                 {
                     Directory.CreateDirectory(_rootDir);
                 }
-                await File.WriteAllTextAsync(Path.Combine(_rootDir, name), content).ConfigureAwait(false);
+                await File.WriteAllTextAsync(Path.Combine(_rootDir, name), content, cancellationToken).ConfigureAwait(false);
                 return name;
             }
             catch (Exception ex)
@@ -113,7 +113,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                return await File.ReadAllTextAsync(Path.Combine(_rootDir, name)).ConfigureAwait(false);
+                return await File.ReadAllTextAsync(Path.Combine(_rootDir, name),cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

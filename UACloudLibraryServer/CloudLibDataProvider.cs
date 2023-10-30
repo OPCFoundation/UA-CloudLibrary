@@ -32,6 +32,42 @@ namespace Opc.Ua.Cloud.Library
 
         }
 
+        public IQueryable<CloudLibNodeSetModel> GetNodeSets2(
+    List<string> identifiers = null,
+    string modelUri = null,
+    DateTime? publicationDate = null,
+    string[] keywords = null)
+        {
+
+            IQueryable<CloudLibNodeSetModel> nodeSets;
+            if (identifiers?.Count > 0)
+            {
+                if (modelUri != null || publicationDate != null || keywords != null)
+                {
+                    throw new ArgumentException($"Must not specify other parameters when providing identifier.");
+                }
+                // Return unapproved nodesets only if request by identifier, but not in queries
+                nodeSets = _dbContext.nodeSetsWithUnapproved.AsQueryable().Where(nsm => identifiers.Contains(nsm.Identifier));
+            }
+            else
+            {
+                var nodeSetQuery = SearchNodesets(keywords);
+                if (modelUri != null && publicationDate != null)
+                {
+                    nodeSets = nodeSetQuery.Where(nsm => nsm.ModelUri == modelUri && nsm.PublicationDate == publicationDate);
+                }
+                else if (modelUri != null)
+                {
+                    nodeSets = nodeSetQuery.Where(nsm => nsm.ModelUri == modelUri);
+                }
+                else
+                {
+                    nodeSets = nodeSetQuery;
+                }
+            }
+            return nodeSets;
+        }
+
         public IQueryable<CloudLibNodeSetModel> GetNodeSets(
             string identifier = null,
             string modelUri = null,
@@ -211,7 +247,7 @@ namespace Opc.Ua.Cloud.Library
                         await _dbContext.nodeSetsWithUnapproved.AddAsync(nodeSetModel).ConfigureAwait(false);
                     }
 
-                    // TODO validate that user has permission for this organisation
+                    // TOD validate that user has permission for this organisation
                     OrganisationModel contributor = uaNamespace.Contributor.Name != null ?
                         await _dbContext.Organisations.FirstOrDefaultAsync(c => c.Name == uaNamespace.Contributor.Name).ConfigureAwait(false)
                         : null;
@@ -486,7 +522,7 @@ namespace Opc.Ua.Cloud.Library
                     }
                     else
                     {
-                        var existingProp = nodeSetMeta.AdditionalProperties.FirstOrDefault(p => p.Name == prop.Name);
+                        var existingProp = nodeSetMeta.AdditionalProperties.Find(p => p.Name == prop.Name);
                         if (existingProp != null)
                         {
                             existingProp.Value = prop.Value;
@@ -503,7 +539,7 @@ namespace Opc.Ua.Cloud.Library
                 }
             }
             await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-            var nodeSetMetaSaved = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync().ConfigureAwait(false);
+            var nodeSetMetaSaved = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == identifier).ConfigureAwait(false);
             return nodeSetMetaSaved;
         }
 
@@ -543,7 +579,7 @@ namespace Opc.Ua.Cloud.Library
                 "2" => "Custom",
                 _ => uaNamespace.License,
             };
-            // TODO Validate license Expression
+            // TOD Validate license Expression
             entity.License = licenseExpression;
             entity.CopyrightText = uaNamespace.CopyrightText;
             entity.Description = uaNamespace.Description;
@@ -562,7 +598,9 @@ namespace Opc.Ua.Cloud.Library
             entity.TestSpecificationUrl = uaNamespace.TestSpecificationUrl?.ToString();
             entity.SupportedLocales = uaNamespace.SupportedLocales;
             entity.NumberOfDownloads = uaNamespace.NumberOfDownloads;
+#pragma warning disable S2589 // Change select as it always returns same result
             entity.AdditionalProperties = uaNamespace.AdditionalProperties?.Select(p => new AdditionalPropertyModel { NodeSetId = identifier, Name = p.Name, Value = p.Value })?.ToList();
+#pragma warning restore S2589 // Change select as it always returns same result
             entity.ApprovalStatus = ApprovalStatus.Pending;
         }
 
@@ -606,7 +644,9 @@ namespace Opc.Ua.Cloud.Library
             uaNamespace.TestSpecificationUrl = model.TestSpecificationUrl != null ? new Uri(model.TestSpecificationUrl) : null;
             uaNamespace.SupportedLocales = model.SupportedLocales;
             uaNamespace.NumberOfDownloads = model.NumberOfDownloads;
+#pragma warning disable S2589 // Change select as it always returns same result
             uaNamespace.AdditionalProperties = model.AdditionalProperties?.Select(p => new UAProperty { Name = p.Name, Value = p.Value })?.ToArray();
+#pragma warning restore S2589 // Change select as it always returns same result
         }
 
         private void MapToCategory(Category category, CategoryModel model)
