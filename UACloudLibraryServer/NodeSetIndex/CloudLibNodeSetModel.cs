@@ -31,6 +31,7 @@ using System;
 using System.Threading.Tasks;
 using CESMII.OpcUa.NodeSetModel;
 using CESMII.OpcUa.NodeSetModel.EF;
+using CESMII.OpcUa.NodeSetModel.Opc.Extensions;
 using Opc.Ua.Cloud.Library.DbContextModels;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Export;
@@ -52,7 +53,7 @@ namespace Opc.Ua.Cloud.Library
             nodeSetModel.ModelUri = model.ModelUri;
             nodeSetModel.Version = model.Version;
             nodeSetModel.PublicationDate = model.PublicationDateSpecified
-                ? model.PublicationDate
+                ? model.GetNormalizedPublicationDate() //model.PublicationDate
                 : DateTime.MinValue; // Upload without a publication date is disallowed, but there are 2 nodesets already in the cloudlibrary 
 
             if (model.RequiredModel != null)

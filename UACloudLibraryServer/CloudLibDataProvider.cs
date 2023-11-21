@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
@@ -8,9 +7,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CESMII.OpcUa.NodeSetModel;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Logging;
-using NpgsqlTypes;
 using Opc.Ua.Cloud.Library.DbContextModels;
 using Opc.Ua.Cloud.Library.Interfaces;
 using Opc.Ua.Cloud.Library.Models;
@@ -236,7 +233,7 @@ namespace Opc.Ua.Cloud.Library
                     }
 
                     var nodeSetModel = await NodeSetModelIndexer.CreateNodeSetModelFromNodeSetAsync(_dbContext, nodeSet, uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture), userId).ConfigureAwait(false);
-                    var existingModel = await _dbContext.nodeSetsWithUnapproved.FindAsync(nodeSetModel.ModelUri, nodeSetModel.PublicationDate).ConfigureAwait(false);
+                    var existingModel = await _dbContext.nodeSetsWithUnapproved.FindAsync(nodeSetModel.ModelUri, nodeSetModel.PublicationDate==null?null : nodeSetModel.PublicationDate).ConfigureAwait(false);
                     if (existingModel != null)
                     {
                         message = "Error: nodeset still exists after delete.";
