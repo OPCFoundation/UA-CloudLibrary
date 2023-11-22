@@ -129,7 +129,7 @@ namespace Opc.Ua.CloudLib.Sync
                     var toSync = sourceNodeSetResult.Edges
                         .Select(e => e.Node)
                         .Where(source => !targetNodesets
-                            .Any(target =>
+                            .Exists(target =>
                                 source.NamespaceUri?.OriginalString== target.NamespaceUri?.OriginalString
                                 && (source.PublicationDate == target.PublicationDate || (source.Identifier != 0 && source.Identifier == target.Identifier))
                         )).ToList();
@@ -246,6 +246,93 @@ namespace Opc.Ua.CloudLib.Sync
                 }
             }
         }
+
+        /// <summary>
+        /// Uploads nodesets from a local directory to a Cloud Library
+        /// </summary>
+        /// <param name="targetUrl"></param>
+        /// <param name="targetUserName"></param>
+        /// <param name="targetPassword"></param>
+        /// <param name="localDir"></param>
+        /// <param name="fileName"></param>
+        /// <returns></returns>
+        public async Task UploadListAsync(string targetUrl, string targetUserName, string targetPassword, string localDir) //, Dictionary<string, UANameSpace> namespaceList)
+        {
+            var fName = localDir + Path.DirectorySeparatorChar + "List.json";
+            if (!File.Exists(fName))
+            {
+                _logger.LogInformation($"{localDir}/list.json not found. Please add a JSON file with the list of all NodeSets to upload in the 'localDir' folder.");
+                return;
+            }
+            var txt = File.ReadAllText(fName);
+            Dictionary<string, UANameSpace>? namespaceList = JsonConvert.DeserializeObject<Dictionary<string, UANameSpace>>(txt);
+
+            if (namespaceList?.Any() != true)
+            {
+                _logger.LogInformation($"{localDir}/list.json is empty. Please add a JSON file with the list of all NodeSets to upload in the 'localDir' folder.");
+                return;
+            }
+
+            var targetClient = new UACloudLibClient(targetUrl, targetUserName, targetPassword);
+
+            foreach (var file in namespaceList.Keys)
+            {
+                var addressSpace = namespaceList[file];
+                if (addressSpace == null)
+                {
+                    _logger.LogInformation($"Error uploading {file}: failed to parse.");
+                    continue;
+                }
+                if (addressSpace.Nodeset == null || string.IsNullOrEmpty(addressSpace.Nodeset.NodesetXml))
+                {
+                    var xmlFile = Path.Combine(localDir + Path.DirectorySeparatorChar + file);
+                    if (File.Exists(xmlFile))
+                    {
+                        var xml = File.ReadAllText(xmlFile);
+                        addressSpace.Nodeset = new Nodeset { NodesetXml = xml };
+                    }
+                }
+                if (addressSpace.Nodeset == null || string.IsNullOrEmpty(addressSpace.Nodeset.NodesetXml))
+                {
+                    _logger.LogInformation($"Error uploading {file}: no Nodeset found in file.");
+                    continue;
+                }
+                if (addressSpace.Nodeset.RequiredModels != null)
+                {
+                    addressSpace.Nodeset.RequiredModels = null;
+                }
+                if (string.IsNullOrEmpty(addressSpace.Title))
+                {
+                    addressSpace.Title = file;
+                }
+                if (string.IsNullOrEmpty(addressSpace.Description))
+                {
+                    addressSpace.Description = file;
+                }
+                if (string.IsNullOrEmpty(addressSpace.CopyrightText))
+                {
+                    addressSpace.CopyrightText = file;
+                }
+                if (string.IsNullOrEmpty(addressSpace.Category?.Name))
+                {
+                    addressSpace.Category = new Category { Name = file };
+                }
+                if (string.IsNullOrEmpty(addressSpace.Contributor?.Name))
+                {
+                    addressSpace.Contributor = new Organisation { Name = file };
+                }
+                var response = await targetClient.UploadNodeSetAsync(addressSpace).ConfigureAwait(false);
+                if (response.Status == System.Net.HttpStatusCode.OK)
+                {
+                    _logger.LogInformation($"Uploaded {addressSpace.Nodeset.NamespaceUri}, {addressSpace.Nodeset.Identifier}");
+                }
+                else
+                {
+                    _logger.LogError($"Error uploading {addressSpace.Nodeset.NamespaceUri}, {addressSpace.Nodeset.Identifier}: {response.Status} {response.Message}");
+                }
+            }
+        }
+
 
         private (string? ModelUri, DateTime? PublicationDate, bool Changed) VerifyAndFixupNodeSetMeta(UANameSpace uaNamespace)
         {
