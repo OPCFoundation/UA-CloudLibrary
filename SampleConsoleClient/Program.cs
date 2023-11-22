@@ -44,7 +44,7 @@ namespace SampleConsoleClient
     using Opc.Ua.Cloud.Library.Client;
     using Opc.Ua.Cloud.Library.Client.Models;
 
-    class Program
+    static class Program
     {
         static async Task Main(string[] args)
         {

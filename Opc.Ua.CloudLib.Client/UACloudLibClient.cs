@@ -1144,7 +1144,9 @@ query MyQuery ($identifier: String, $modelUri: String, $publicationDate: DateTim
         /// </summary>
         /// <param name="info"></param>
         /// <param name="context"></param>
+#pragma warning disable SYSLIB0051 // Type or member is obsolete
         protected GraphQlException(System.Runtime.Serialization.SerializationInfo info, System.Runtime.Serialization.StreamingContext context) : base(info, context)
+#pragma warning restore SYSLIB0051 // Type or member is obsolete
         {
         }
     }
@@ -1181,7 +1183,9 @@ query MyQuery ($identifier: String, $modelUri: String, $publicationDate: DateTim
         /// </summary>
         /// <param name="info"></param>
         /// <param name="context"></param>
+#pragma warning disable SYSLIB0051 // Type or member is obsolete
         protected GraphQlNotSupportedException(System.Runtime.Serialization.SerializationInfo info, System.Runtime.Serialization.StreamingContext context) : base(info, context)
+#pragma warning restore SYSLIB0051 // Type or member is obsolete
         {
         }
     }
