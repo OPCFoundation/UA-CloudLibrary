@@ -6,6 +6,7 @@ using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CESMII.OpcUa.NodeSetModel;
+using CESMII.OpcUa.NodeSetModel.Opc.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Opc.Ua.Cloud.Library.DbContextModels;
@@ -233,7 +234,7 @@ namespace Opc.Ua.Cloud.Library
                     }
 
                     var nodeSetModel = await NodeSetModelIndexer.CreateNodeSetModelFromNodeSetAsync(_dbContext, nodeSet, uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture), userId).ConfigureAwait(false);
-                    var existingModel = await _dbContext.nodeSetsWithUnapproved.FindAsync(nodeSetModel.ModelUri, nodeSetModel.PublicationDate==null?null : nodeSetModel.PublicationDate).ConfigureAwait(false);
+                    var existingModel = await _dbContext.nodeSetsWithUnapproved.FindAsync(nodeSetModel.ModelUri, nodeSetModel.PublicationDate).ConfigureAwait(false);
                     if (existingModel != null)
                     {
                         message = "Error: nodeset still exists after delete.";
@@ -559,7 +560,15 @@ namespace Opc.Ua.Cloud.Library
         {
             var identifier = nodeSetModel != null ? nodeSetModel.Identifier : uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
             entity.NodesetId = identifier;
-            entity.CreationTime = uaNamespace.CreationTime ?? DateTime.Now;
+            if (uaNamespace.CreationTime != null)
+            {
+                entity.CreationTime = uaNamespace.CreationTime.GetNormalizedPublicationDate();
+            }
+            else
+            {
+                entity.CreationTime = DateTime.Now;
+            }
+
             entity.NodeSet = nodeSetModel;
             entity.Title = uaNamespace.Title;
             entity.ContributorId = contributor?.Id ?? 0;
