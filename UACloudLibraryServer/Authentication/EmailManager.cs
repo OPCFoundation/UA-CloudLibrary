@@ -30,7 +30,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
                 CultureInfo.InvariantCulture,
                 EmailTemplate,
                 action,
-                HtmlEncoder.Default.Encode(url));
+                url);
 
             await emailSender.SendEmailAsync(
                 email,
