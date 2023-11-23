@@ -53,9 +53,9 @@ namespace Opc.Ua.Cloud.Library
                     From = new EmailAddress(emailFrom),
                     ReplyTo = new EmailAddress(emailReplyTo),
                     Subject = subject,
-                    PlainTextContent = htmlMessage,
-                    HtmlContent = htmlMessage + "<div><p><a href=mailto:unsubscribe@opcfoundation.org>Unsubscribe from these emails</a></p></div>"
+                    HtmlContent = htmlMessage
                 };
+
                 msg.AddTo(new EmailAddress(email));
 
                 // Disable click tracking.
