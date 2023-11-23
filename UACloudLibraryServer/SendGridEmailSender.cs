@@ -53,9 +53,9 @@ namespace Opc.Ua.Cloud.Library
                     From = new EmailAddress(emailFrom),
                     ReplyTo = new EmailAddress(emailReplyTo),
                     Subject = subject,
-                    PlainTextContent = htmlMessage,
                     HtmlContent = htmlMessage
                 };
+
                 msg.AddTo(new EmailAddress(email));
 
                 // Disable click tracking.

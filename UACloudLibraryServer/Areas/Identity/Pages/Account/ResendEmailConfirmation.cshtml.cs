@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
+using Opc.Ua.Cloud.Library.Authentication;
 
 namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
 {
@@ -75,10 +76,14 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
                 pageHandler: null,
                 values: new { userId = userId, code = code },
                 protocol: Request.Scheme);
-            await _emailSender.SendEmailAsync(
+
+            await EmailManager.Send(
+                _emailSender,
                 Input.Email,
-                "Confirm your email",
-                $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.").ConfigureAwait(false);
+                "UA Cloud Library - Verify Your Email",
+                "Please verify your email.",
+                callbackUrl
+            ).ConfigureAwait(false);
 
             ModelState.AddModelError(string.Empty, "Verification email sent. Please check your email.");
             return Page();

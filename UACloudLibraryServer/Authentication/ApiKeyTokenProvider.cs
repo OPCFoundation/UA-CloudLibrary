@@ -62,10 +62,6 @@ namespace Opc.Ua.Cloud.Library.Authentication
             {
                 var secretBytes = RandomNumberGenerator.GetBytes(32);
 
-                // base64 encode to obfuscate the userid/key name
-                //var apiKeyPrefixBytes = Encoding.UTF8.GetBytes($"{user.Id}/{purpose.Replace("/", "_", StringComparison.Ordinal)}/");
-                //var apiKeyBytes = apiKeyPrefixBytes.Concat(secretBytes).ToArray();
-
                 // Make it Base64URL
                 var apiKey = Convert.ToBase64String(secretBytes).Replace("+", "-", StringComparison.Ordinal).Replace("/", "_", StringComparison.Ordinal);
                 return Task.FromResult(apiKey);
@@ -126,39 +122,10 @@ namespace Opc.Ua.Cloud.Library.Authentication
                 }
             }
             throw new ArgumentException($"Key not found");
-
-            //// API Key is in Base64URL encoding
-            //var apiKeyBytes = Convert.FromBase64String(apiKey.Replace("-", "+", StringComparison.Ordinal).Replace("_", "/", StringComparison.Ordinal));
-
-            //// Format after decoding: <userid>/<keyname>/<secret as byte array>
-            //int firstSlash = -1;
-            //int secondSlash = -1;
-            //for (int i = 0; i < apiKeyBytes.Length; i++)
-            //{
-            //    if (apiKeyBytes[i] == '/')
-            //    {
-            //        if (firstSlash == -1)
-            //        {
-            //            firstSlash = i;
-            //        }
-            //        else
-            //        {
-            //            secondSlash = i;
-            //            break;
-            //        }
-            //    }
-            //}
-            //if (secondSlash < 0)
-            //{
-            //    throw new ArgumentException($"Invalid API key format");
-            //}
-            //var userId = Encoding.UTF8.GetString(apiKeyBytes, 0, firstSlash);
-            //var apiKeyName = Encoding.UTF8.GetString(apiKeyBytes, firstSlash + 1, secondSlash - firstSlash - 1);
-            //return (userId, apiKeyName);
         }
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         /// <param name="userManager">UserManager to use to generate and set the key.</param>
         /// <param name="user">User for who to generate the key for.</param>
@@ -197,26 +164,17 @@ namespace Opc.Ua.Cloud.Library.Authentication
     {
         public IEnumerable<string> Errors { get; private set; }
 
-        public ApiKeyGenerationException()
-        {
-        }
+        public ApiKeyGenerationException() {}
 
         public ApiKeyGenerationException(string message, IEnumerable<string> enumerable) : base(message)
         {
             Errors = enumerable;
         }
 
-        public ApiKeyGenerationException(string message) : base(message)
-        {
-        }
+        public ApiKeyGenerationException(string message) : base(message) {}
 
-        public ApiKeyGenerationException(string message, Exception innerException) : base(message, innerException)
-        {
-        }
+        public ApiKeyGenerationException(string message, Exception innerException) : base(message, innerException) {}
 
-        protected ApiKeyGenerationException(SerializationInfo info, StreamingContext context) : base(info, context)
-        {
-        }
+        protected ApiKeyGenerationException(SerializationInfo info, StreamingContext context) : base(info, context) {}
     }
-
 }
