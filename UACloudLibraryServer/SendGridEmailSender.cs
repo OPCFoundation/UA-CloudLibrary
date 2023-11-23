@@ -54,7 +54,7 @@ namespace Opc.Ua.Cloud.Library
                     ReplyTo = new EmailAddress(emailReplyTo),
                     Subject = subject,
                     PlainTextContent = htmlMessage,
-                    HtmlContent = htmlMessage
+                    HtmlContent = htmlMessage + "<div><p><a href=mailto:unsubscribe@opcfoundation.org>Unsubscribe from these emails</a></p></div>"
                 };
                 msg.AddTo(new EmailAddress(email));
 

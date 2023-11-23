@@ -52,8 +52,8 @@ namespace Opc.Ua.Cloud.Library
                     From = emailFrom,
                     TrackOpens = true,
                     Subject = subject,
-                    TextBody = htmlMessage,
-                    HtmlBody = htmlMessage,
+                    TextBody = htmlMessage+ "<div><p><a href=mailto:unsubscribe@opcfoundation.org>Unsubscribe from these emails</a></p></div>",
+                    HtmlBody = htmlMessage + "<div><p><a href=mailto:unsubscribe@opcfoundation.org>Unsubscribe from these emails</a></p></div>",
                     MessageStream = "outbound",
                     Tag = "UA Cloud Library"
                 };
