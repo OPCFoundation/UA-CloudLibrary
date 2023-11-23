@@ -52,6 +52,44 @@ Hosting on AWS requires the identity/role used to have policies allowing access 
 Hosting on GCP requires an identity used to have policies allowing access to the GCS bucket.
 In case file based authentication is used, please set the envionment variable GOOGLE_APPLICATION_CREDENTIALS pointing to the SA-Key.
 
+## Microsoft Identity Platform Login (aka Azure AD, Microsoft Entra Id)
+
+1. Create an application registration for an ASP.Net web app using Microsoft identity, as per the [documentation](https://learn.microsoft.com/en-us/azure/active-directory/develop/scenario-web-app-sign-user-app-registration?tabs=aspnetcore).
+
+    Specifically:
+ 
+    - Redirect UIs:
+
+        https://(servername)/Identity/Account/ExternalLogin
+
+        https://(servername)/signin-oidc
+
+        https://(servername)/
+
+    - Front Channel logout URL:
+
+        https://(servername)/signout-oidc
+
+    - Select ID tokens (no need for Access tokens).
+ 
+2. Add an Administrator App role:
+    - Name and Description per your conventions
+    - Value must be "Administrator"
+
+3. Assign administrator role to the desired users.
+ 
+4. Configure the server to use the application:
+
+```json
+  "AzureAd": {
+    "Instance": "https://login.microsoftonline.com/",
+    "ClientId": "<clientid>", //"[Enter the Client Id (Application ID obtained from the Azure portal), e.g. ba74781c2-53c2-442a-97c2-3d60re42f403]",
+    "TenantId": "<tenantid>", //"[Enter 'common', or 'organizations' or the Tenant Id (Obtained from the Azure portal. Select 'Endpoints' from the 'App 
+  }
+```
+
+You can use the corresponding environment variables (AzureAd__XYZ ) or Azure configuration names (AzureAd:XYZ).
+
 ## Deployment
 
 Docker containers are automatically built for the UA Cloud Library. The latest version is always available via:

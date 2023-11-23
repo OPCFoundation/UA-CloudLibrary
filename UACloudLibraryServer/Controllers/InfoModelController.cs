@@ -48,22 +48,20 @@ namespace Opc.Ua.Cloud.Library.Controllers
     using Opc.Ua.Export;
     using Swashbuckle.AspNetCore.Annotations;
 
-    [Authorize(AuthenticationSchemes = "BasicAuthentication")]
+    [Authorize(AuthenticationSchemes = UserService.APIAuthorizationSchemes)]
     [ApiController]
     public class InfoModelController : ControllerBase
     {
         private readonly IFileStorage _storage;
         private readonly IDatabase _database;
         private readonly ILogger _logger;
-        private readonly NodeSetModelIndexer _indexer;
         private readonly NodeSetModelIndexerFactory _nodeSetIndexerFactory;
 
-        public InfoModelController(IFileStorage storage, IDatabase database, ILoggerFactory logger, NodeSetModelIndexer indexer, NodeSetModelIndexerFactory nodeSetIndexerFactory)
+        public InfoModelController(IFileStorage storage, IDatabase database, ILoggerFactory logger, NodeSetModelIndexerFactory nodeSetIndexerFactory)
         {
             _storage = storage;
             _database = database;
             _logger = logger.CreateLogger("InfoModelController");
-            _indexer = indexer;
             _nodeSetIndexerFactory = nodeSetIndexerFactory;
         }
 

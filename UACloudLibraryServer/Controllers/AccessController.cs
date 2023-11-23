@@ -38,17 +38,13 @@ namespace Opc.Ua.Cloud.Library.Controllers
     using Microsoft.Extensions.Logging;
     using Swashbuckle.AspNetCore.Annotations;
 
-    [Authorize(AuthenticationSchemes = "BasicAuthentication")]
+    [Authorize(AuthenticationSchemes = UserService.APIAuthorizationSchemes)]
     [ApiController]
     public class AccessController : ControllerBase
     {
-        private readonly IDatabase _database;
-        private readonly ILogger _logger;
 
-        public AccessController(IDatabase database, ILoggerFactory logger)
+        public AccessController()
         {
-            _database = database;
-            _logger = logger.CreateLogger("ApprovalController");
         }
 
         [HttpPut]
