@@ -27,10 +27,9 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-namespace Opc.Ua.Cloud.Library
+namespace Opc.Ua.Cloud.Library.Authentication
 {
     using System;
-    using System.Collections.Generic;
     using System.Linq;
     using System.Net.Http.Headers;
     using System.Security.Claims;
@@ -38,20 +37,16 @@ namespace Opc.Ua.Cloud.Library
     using System.Text.Encodings.Web;
     using System.Threading.Tasks;
     using Microsoft.AspNetCore.Authentication;
-    using Microsoft.AspNetCore.Identity;
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Options;
-    using Microsoft.Extensions.Primitives;
     using Opc.Ua.Cloud.Library.Interfaces;
 
     public class BasicAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
     {
         private readonly IUserService _userService;
-        private readonly SignInManager<IdentityUser> _signInManager;
 
         public BasicAuthenticationHandler(
             IUserService userService,
-            SignInManager<IdentityUser> signInManager,
             IOptionsMonitor<AuthenticationSchemeOptions> options,
             ILoggerFactory logger,
             UrlEncoder encoder,
@@ -61,54 +56,38 @@ namespace Opc.Ua.Cloud.Library
 #pragma warning restore CS0618 // Type or member is obsolete
         {
             _userService = userService;
-            _signInManager = signInManager;
         }
 
         protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
         {
-            string username = null;
-            IEnumerable<Claim> claims = null;
             try
             {
-                if (StringValues.IsNullOrEmpty(Request.Headers["Authorization"]))
+                if (!Request.Headers.TryGetValue("Authorization", out var authHeaderStringValue))
                 {
-
-                    if (_signInManager.IsSignedIn(Request.HttpContext.User))
-                    {
-                        // Allow a previously authenticated, signed in user (for example via ASP.Net cookies from the graphiql browser)
-                        ClaimsPrincipal principal2 = new ClaimsPrincipal(Request.HttpContext.User.Identity);
-                        AuthenticationTicket ticket2 = new AuthenticationTicket(principal2, Scheme.Name);
-
-                        return AuthenticateResult.Success(ticket2);
-                    }
-
-                    throw new ArgumentException("Authentication header missing in request!");
+                    return AuthenticateResult.NoResult();
                 }
 
-                AuthenticationHeaderValue authHeader = AuthenticationHeaderValue.Parse(Request.Headers["Authorization"]);
+                var authHeader = AuthenticationHeaderValue.Parse(authHeaderStringValue);
                 string[] credentials = Encoding.UTF8.GetString(Convert.FromBase64String(authHeader.Parameter)).Split(':');
-                username = credentials.FirstOrDefault();
+                var username = credentials.FirstOrDefault();
                 string password = credentials.LastOrDefault();
 
-                claims = await _userService.ValidateCredentialsAsync(username, password).ConfigureAwait(false);
+                var claims = await _userService.ValidateCredentialsAsync(username, password).ConfigureAwait(false);
                 if (claims?.Any() != true)
                 {
                     throw new ArgumentException("Invalid credentials");
                 }
+                var identity = new ClaimsIdentity(claims, Scheme.Name);
+                var principal = new ClaimsPrincipal(identity);
+                var ticket = new AuthenticationTicket(principal, Scheme.Name);
+
+                return AuthenticateResult.Success(ticket);
             }
             catch (Exception ex)
             {
-                return AuthenticateResult.Fail($"Authentication failed: {ex.Message}");
+                return AuthenticateResult.Fail($"Error during Authentication: {ex.Message}");
             }
 
-            //if claims == null //CM: Codesmell says this will never be called
-            //    throw new ArgumentException("Invalid credentials")
-
-            ClaimsIdentity identity = new ClaimsIdentity(claims, Scheme.Name);
-            ClaimsPrincipal principal = new ClaimsPrincipal(identity);
-            AuthenticationTicket ticket = new AuthenticationTicket(principal, Scheme.Name);
-
-            return AuthenticateResult.Success(ticket);
         }
     }
 }

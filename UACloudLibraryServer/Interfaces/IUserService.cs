@@ -36,6 +36,7 @@ namespace Opc.Ua.Cloud.Library.Interfaces
     public interface IUserService
     {
         Task<IEnumerable<Claim>> ValidateCredentialsAsync(string username, string password);
+        Task<IEnumerable<Claim>> ValidateApiKeyAsync(string apiKey);
     }
 }
 

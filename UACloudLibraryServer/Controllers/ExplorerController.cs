@@ -32,7 +32,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Opc.Ua.Cloud.Library.Controllers
 {
-    [Authorize(AuthenticationSchemes = "BasicAuthentication")]
+    [Authorize(AuthenticationSchemes = "SignedInUserAuthentication")]
     public class ExplorerController : Controller
     {
         // GET
