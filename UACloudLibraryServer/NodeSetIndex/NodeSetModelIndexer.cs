@@ -46,14 +46,12 @@ namespace Opc.Ua.Cloud.Library
 {
     public class NodeSetModelIndexerFactory
     {
-        public NodeSetModelIndexerFactory(IServiceScopeFactory serviceScopeFactory, ILogger<NodeSetModelIndexer> logger)
+        public NodeSetModelIndexerFactory(IServiceScopeFactory serviceScopeFactory)
         {
             _serviceScopeFactory = serviceScopeFactory;
-            //_logger = logger
         }
 
         private readonly IServiceScopeFactory _serviceScopeFactory;
-        //private readonly ILogger<NodeSetModelIndexer> _logger
 
         public NodeSetModelIndexer Create()
         {
@@ -162,7 +160,7 @@ namespace Opc.Ua.Cloud.Library
         {
             var nodeSetModel = await CloudLibNodeSetModel.FromModelAsync(nodeSet.Models[0], dbContext).ConfigureAwait(false);
             nodeSetModel.Identifier = identifier;
-            nodeSetModel.LastModifiedDate = nodeSet.LastModifiedSpecified ? ((DateTime?) nodeSet.LastModified).GetNormalizedPublicationDate() : null;
+            nodeSetModel.LastModifiedDate = nodeSet.LastModifiedSpecified ? nodeSet.LastModified : null;
             return nodeSetModel;
         }
 

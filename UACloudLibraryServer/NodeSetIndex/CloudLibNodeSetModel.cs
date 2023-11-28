@@ -61,7 +61,7 @@ namespace Opc.Ua.Cloud.Library
                     var existingNodeSet = await DbOpcUaContext.GetMatchingOrHigherNodeSetAsync(dbContext, requiredModel.ModelUri, requiredModel.PublicationDateSpecified ? requiredModel.PublicationDate : null, requiredModel.Version).ConfigureAwait(false);
                     var requiredModelInfo = new RequiredModelInfo {
                         ModelUri = requiredModel.ModelUri,
-                        PublicationDate = requiredModel.PublicationDateSpecified ? ((DateTime?) requiredModel.PublicationDate).GetNormalizedPublicationDate() : null,
+                        PublicationDate = requiredModel.PublicationDateSpecified ? ((DateTime?)requiredModel.PublicationDate).GetNormalizedPublicationDate() : null,
                         Version = requiredModel.Version,
                         AvailableModel = existingNodeSet,
                     };
