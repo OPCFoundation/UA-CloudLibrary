@@ -91,8 +91,9 @@ namespace Opc.Ua.CloudLib.Sync
         /// <param name="targetUrl"></param>
         /// <param name="targetUserName"></param>
         /// <param name="targetPassword"></param>
+        /// <param name="ForceUpload"></param>
         /// <returns></returns>
-        public async Task SynchronizeAsync(string sourceUrl, string sourceUserName, string sourcePassword, string targetUrl, string targetUserName, string targetPassword)
+        public async Task SynchronizeAsync(string sourceUrl, string sourceUserName, string sourcePassword, string targetUrl, string targetUserName, string targetPassword, string ForceUpload)
         {
             var sourceClient = new UACloudLibClient(sourceUrl, sourceUserName, sourcePassword);
             var targetClient = new UACloudLibClient(targetUrl, targetUserName, targetPassword);
@@ -126,13 +127,20 @@ namespace Opc.Ua.CloudLib.Sync
                     sourceNodeSetResult = await sourceClient.GetNodeSetsAsync(after: sourceCursor, first: 50).ConfigureAwait(false);
 
                     // Get the ones that are not already on the target
-                    var toSync = sourceNodeSetResult.Edges
+                    List<Opc.Ua.Cloud.Library.Client.Nodeset> toSync;
+                    if (ForceUpload?.Equals("true") == true)
+                        toSync = sourceNodeSetResult.Edges.Select(e => e.Node).ToList();
+                    else
+                    {
+                        toSync = sourceNodeSetResult.Edges
                         .Select(e => e.Node)
                         .Where(source => !targetNodesets
                             .Exists(target =>
                                 source.NamespaceUri?.OriginalString== target.NamespaceUri?.OriginalString
                                 && (source.PublicationDate == target.PublicationDate || (source.Identifier != 0 && source.Identifier == target.Identifier))
                         )).ToList();
+                    }
+
                     foreach (var nodeSet in toSync)
                     {
                         // Download each NodeSet

@@ -32,6 +32,7 @@ namespace CloudLibSyncApp
               new Argument<string>("targetUrl") { },
               new Argument<string>("targetUserName") {},
               new Argument<string>("targetPassword") {},
+              new Option<string>("--force", () => "false") { },
         };
             syncCommand.Handler = CommandHandler.Create(new CloudLibSync(this).SynchronizeAsync);
 
