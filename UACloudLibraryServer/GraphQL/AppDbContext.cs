@@ -154,6 +154,7 @@ namespace Opc.Ua.Cloud.Library
                 .Property(nsm => nsm.ValidationStatus)
                     .HasConversion<string>();
             builder.Entity<NodeSetModel>()
+                .Ignore(nsm => nsm.HeaderComments)
                 .HasAlternateKey(nm => nm.Identifier)
                 ;
 
