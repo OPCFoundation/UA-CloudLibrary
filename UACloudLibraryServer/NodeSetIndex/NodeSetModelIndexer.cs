@@ -160,7 +160,7 @@ namespace Opc.Ua.Cloud.Library
         {
             var nodeSetModel = await CloudLibNodeSetModel.FromModelAsync(nodeSet.Models[0], dbContext).ConfigureAwait(false);
             nodeSetModel.Identifier = identifier;
-            nodeSetModel.LastModifiedDate = nodeSet.LastModifiedSpecified ? ((DateTime?) nodeSet.LastModified).GetNormalizedPublicationDate() : null;
+            nodeSetModel.LastModifiedDate = nodeSet.LastModifiedSpecified ? ((DateTime?)nodeSet.LastModified).GetNormalizedPublicationDate() : null;
             return nodeSetModel;
         }
 
