@@ -34,6 +34,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CESMII.OpcUa.NodeSetModel;
 using CESMII.OpcUa.NodeSetModel.Factory.Opc;
+using CESMII.OpcUa.NodeSetModel.Opc.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -45,14 +46,12 @@ namespace Opc.Ua.Cloud.Library
 {
     public class NodeSetModelIndexerFactory
     {
-        public NodeSetModelIndexerFactory(IServiceScopeFactory serviceScopeFactory, ILogger<NodeSetModelIndexer> logger)
+        public NodeSetModelIndexerFactory(IServiceScopeFactory serviceScopeFactory)
         {
             _serviceScopeFactory = serviceScopeFactory;
-            _logger = logger;
         }
 
         private readonly IServiceScopeFactory _serviceScopeFactory;
-        private readonly ILogger<NodeSetModelIndexer> _logger;
 
         public NodeSetModelIndexer Create()
         {
@@ -161,7 +160,7 @@ namespace Opc.Ua.Cloud.Library
         {
             var nodeSetModel = await CloudLibNodeSetModel.FromModelAsync(nodeSet.Models[0], dbContext).ConfigureAwait(false);
             nodeSetModel.Identifier = identifier;
-            nodeSetModel.LastModifiedDate = nodeSet.LastModifiedSpecified ? nodeSet.LastModified : null;
+            nodeSetModel.LastModifiedDate = nodeSet.LastModifiedSpecified ? ((DateTime?) nodeSet.LastModified).GetNormalizedPublicationDate() : null;
             return nodeSetModel;
         }
 

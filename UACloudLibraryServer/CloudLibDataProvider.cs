@@ -7,6 +7,7 @@ using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CESMII.OpcUa.NodeSetModel;
+using CESMII.OpcUa.NodeSetModel.Opc.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Logging;
@@ -530,7 +531,15 @@ namespace Opc.Ua.Cloud.Library
         {
             var identifier = nodeSetModel != null ? nodeSetModel.Identifier : uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
             entity.NodesetId = identifier;
-            entity.CreationTime = uaNamespace.CreationTime ?? DateTime.Now;
+            if (uaNamespace.CreationTime != null)
+            {
+                entity.CreationTime = uaNamespace.CreationTime.GetNormalizedPublicationDate();
+            }
+            else
+            {
+                entity.CreationTime = DateTime.Now;
+            }
+
             entity.NodeSet = nodeSetModel;
             entity.Title = uaNamespace.Title;
             entity.ContributorId = contributor?.Id ?? 0;
