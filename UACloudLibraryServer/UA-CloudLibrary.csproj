@@ -9,7 +9,9 @@
 		<DockerComposeProjectPath>..\docker-compose.dcproj</DockerComposeProjectPath>
 		<DefineConstants>$(DEFINECONSTANTS);NOLEGACY;AZURE_AD;APIKEY_AUTH</DefineConstants>
 	</PropertyGroup>
-
+    <ItemGroup>
+        <InternalsVisibleTo Include="CloudLibClient.Tests" />
+    </ItemGroup>
 	<PropertyGroup Condition=" '$(RunConfiguration)' == 'UA_CloudLibrary' " />
 
 	<ItemGroup Condition="$(DEFINECONSTANTS.Contains('NOLEGACY'))">
@@ -48,10 +50,10 @@
 		<PackageReference Include="HotChocolate.Types.Scalars" Version="13.5.1" />
 		<PackageReference Include="HotChocolate.AspNetCore" Version="13.5.1" />
 		<PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="13.5.1" />
-		<PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="1.0.14" />
-		<PackageReference Include="CESMII.OpcUa.NodeSetModel.EF" Version="1.0.14" />
-		<PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="1.0.14" />
-		<PackageReference Include="CESMII.OpcUa.NodeSetModel" Version="1.0.14" />
+        <PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="2.0.2" />
+        <PackageReference Include="CESMII.OpcUa.NodeSetModel.EF" Version="2.0.2" />
+        <PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="2.0.2" />
+        <PackageReference Include="CESMII.OpcUa.NodeSetModel" Version="2.0.2" />
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="GraphQL.Server.Ui.GraphiQL" Version="7.4.0" />

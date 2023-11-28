@@ -42,6 +42,9 @@ namespace Opc.Ua.Cloud.Library
                 b.Property<string>("Documentation")
                     .HasColumnType("text");
 
+                b.Property<string>("NodeIdIdentifier")
+                    .HasColumnType("text");
+
                 b.Property<string>("NodeSetUnknownNodesModelUri")
                     .HasColumnType("text");
 
@@ -639,6 +642,12 @@ namespace Opc.Ua.Cloud.Library
                 b.Property<string>("ModellingRule")
                     .HasColumnType("text");
 
+                b.Property<string>("NodeSetMethodsModelUri")
+                    .HasColumnType("text");
+
+                b.Property<DateTime?>("NodeSetMethodsPublicationDate")
+                    .HasColumnType("timestamp with time zone");
+
                 b.Property<string>("ParentModelUri")
                     .HasColumnType("text");
 
@@ -657,6 +666,8 @@ namespace Opc.Ua.Cloud.Library
                 b.Property<DateTime?>("TypeDefinitionNodeSetPublicationDate")
                     .HasColumnType("timestamp with time zone");
 
+                b.HasIndex("NodeSetMethodsModelUri", "NodeSetMethodsPublicationDate");
+
                 b.HasIndex("ParentNodeId", "ParentModelUri", "ParentPublicationDate");
 
                 b.HasIndex("TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate");
@@ -666,6 +677,9 @@ namespace Opc.Ua.Cloud.Library
 
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.ObjectModel", b => {
                 b.HasBaseType("CESMII.OpcUa.NodeSetModel.NodeModel");
+
+                b.Property<byte?>("EventNotifier")
+                    .HasColumnType("smallint");
 
                 b.Property<string>("ModellingRule")
                     .HasColumnType("text");
@@ -1061,9 +1075,6 @@ namespace Opc.Ua.Cloud.Library
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
 
-                    b1.Property<string>("Reference")
-                        .HasColumnType("text");
-
                     b1.Property<string>("ReferenceTypeModelUri")
                         .HasColumnType("text");
 
@@ -1123,9 +1134,6 @@ namespace Opc.Ua.Cloud.Library
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
-
-                    b1.Property<string>("Reference")
-                        .HasColumnType("text");
 
                     b1.Property<string>("ReferenceTypeModelUri")
                         .HasColumnType("text");
@@ -1423,6 +1431,11 @@ namespace Opc.Ua.Cloud.Library
             });
 
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.MethodModel", b => {
+                b.HasOne("CESMII.OpcUa.NodeSetModel.NodeSetModel", null)
+                    .WithMany("Methods")
+                    .HasForeignKey("NodeSetMethodsModelUri", "NodeSetMethodsPublicationDate")
+                    .OnDelete(DeleteBehavior.Cascade);
+
                 b.HasOne("CESMII.OpcUa.NodeSetModel.NodeModel", null)
                     .WithOne()
                     .HasForeignKey("CESMII.OpcUa.NodeSetModel.MethodModel", "NodeId", "NodeSetModelUri", "NodeSetPublicationDate")
@@ -1611,6 +1624,9 @@ namespace Opc.Ua.Cloud.Library
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
 
+                    b1.Property<bool>("AllowSubTypes")
+                        .HasColumnType("boolean");
+
                     b1.Property<string>("ArrayDimensions")
                         .HasColumnType("text");
 
@@ -1633,6 +1649,9 @@ namespace Opc.Ua.Cloud.Library
                         .HasColumnType("bigint");
 
                     b1.Property<string>("Name")
+                        .HasColumnType("text");
+
+                    b1.Property<string>("SymbolicName")
                         .HasColumnType("text");
 
                     b1.Property<int?>("ValueRank")
@@ -1708,6 +1727,9 @@ namespace Opc.Ua.Cloud.Library
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
 
                     b1.Property<string>("Name")
+                        .HasColumnType("text");
+
+                    b1.Property<string>("SymbolicName")
                         .HasColumnType("text");
 
                     b1.Property<long>("Value")
@@ -1936,6 +1958,8 @@ namespace Opc.Ua.Cloud.Library
                 b.Navigation("DataVariables");
 
                 b.Navigation("Interfaces");
+
+                b.Navigation("Methods");
 
                 b.Navigation("ObjectTypes");
 
