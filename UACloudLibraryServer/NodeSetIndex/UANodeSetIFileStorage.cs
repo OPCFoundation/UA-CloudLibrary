@@ -56,7 +56,7 @@ namespace Opc.Ua.Cloud.Library
             var nodeSet = InfoModelController.ReadUANodeSet(nodeSetXml);
             // Assumption: exactly one nodeSetXml was passed into UANodeSetImport.ImportNodeSets and it's the first one being added.
             bool isNew = !results.Models.Any();
-            var modelInfo = results.AddModelAndDependencies(nodeSet, nodeSet.Models?[0], null, isNew);
+            var modelInfo = results.AddModelAndDependencies(nodeSet, null, nodeSet.Models?[0], null, isNew);
             modelInfo.Model.RequestedForThisImport = requested;
             return modelInfo.Added;
         }

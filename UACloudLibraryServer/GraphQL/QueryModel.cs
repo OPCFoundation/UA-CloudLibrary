@@ -107,6 +107,11 @@ namespace Opc.Ua.Cloud.Library
         {
             return dp.GetObjects(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
+        [UsePaging, UseFiltering, UseSorting]
+        public IQueryable<MethodModel> GetMethods([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        {
+            return dp.GetMethods(modelUri ?? nodeSetUrl, publicationDate, nodeId);
+        }
 
         [UsePaging, UseFiltering, UseSorting]
         public IQueryable<NodeModel> GetAllNodes([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
@@ -221,6 +226,7 @@ namespace Opc.Ua.Cloud.Library
             ConfigureField(descriptor.Field(f => f.DataTypes));
             ConfigureField(descriptor.Field(f => f.Interfaces));
             ConfigureField(descriptor.Field(f => f.Objects));
+            ConfigureField(descriptor.Field(f => f.Methods));
             ConfigureField(descriptor.Field(f => f.Properties));
             ConfigureField(descriptor.Field(f => f.DataVariables));
             ConfigureField(descriptor.Field(f => f.ReferenceTypes));
