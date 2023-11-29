@@ -162,13 +162,6 @@ namespace Opc.Ua.Cloud.Library
                         return "Error(s) occurred validating the Captcha response. Please contact your system administrator.";
                     }
 
-                    // check reCaptcha response action
-                    //if (recaptchaResponse.action.ToUpper() != expected_action.ToUpper())
-                    //{
-                    //    //Logging.Log(new Logging.LogItem { Msg = $"Google RecCaptcha action doesn't match:\nExpected action: {expected_action} Given action: {recaptcha_response.action}" }, DefaultLogValues);
-                    //    return (recaptchaResponse, false);
-                    //}
-
                     // anything less than 0.5 is a bot
                     if (recaptchaResponse.score < _captchaSettings.BotThreshold)
                     {
@@ -191,7 +184,6 @@ namespace Opc.Ua.Cloud.Library
             }
             finally
             {
-                // Dispose once all HttpClient calls are complete. This is not necessary if the containing object will be disposed of; for example in this case the HttpClient instance will be disposed automatically when the application terminates so the following call is superfluous.
                 client.Dispose();
             }
         }
