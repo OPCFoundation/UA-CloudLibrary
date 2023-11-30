@@ -101,6 +101,8 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddTransient<IDatabase, CloudLibDataProvider>();
 
+            services.AddScoped<ICaptchaValidation, CaptchaValidation>();
+
             if (!string.IsNullOrEmpty(Configuration["UseSendGridEmailSender"]))
             {
                 services.AddTransient<IEmailSender, SendGridEmailSender>();
@@ -119,6 +121,11 @@ namespace Opc.Ua.Cloud.Library
                 .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKeyAuthentication", null);
 #endif
             ;
+
+            //for captcha validation call
+            //add httpclient service for dependency injection
+            //https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-6.0
+            services.AddHttpClient();
 
             if (Configuration["OAuth2ClientId"] != null)
             {

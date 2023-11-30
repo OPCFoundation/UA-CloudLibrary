@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Configuration;
 using Opc.Ua.Cloud.Library.Authentication;
 
 namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
@@ -20,15 +21,23 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
         private readonly UserManager<IdentityUser> _userManager;
         private readonly SignInManager<IdentityUser> _signInManager;
         private readonly IEmailSender _emailSender;
+        private readonly Interfaces.ICaptchaValidation _captchaValidation;
+        private readonly CaptchaSettings _captchaSettings;
 
         public EmailModel(
             UserManager<IdentityUser> userManager,
             SignInManager<IdentityUser> signInManager,
-            IEmailSender emailSender)
+            IEmailSender emailSender,
+            IConfiguration configuration,
+            Interfaces.ICaptchaValidation captchaValidation)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _emailSender = emailSender;
+            _captchaValidation = captchaValidation;
+
+            _captchaSettings = new CaptchaSettings();
+            configuration.GetSection("CaptchaSettings").Bind(_captchaSettings);
         }
 
         /// <summary>
@@ -42,6 +51,17 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public bool IsEmailConfirmed { get; set; }
+
+        /// <summary>
+        /// Populate values for cshtml to use
+        /// </summary>
+        public CaptchaSettings CaptchaSettings { get { return _captchaSettings; } }
+
+        /// <summary>
+        /// Populate a token returned from client side call to Google Captcha
+        /// </summary>
+        [BindProperty]
+        public string CaptchaResponseToken { get; set; }
 
         /// <summary>
         ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
@@ -105,6 +125,9 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
                 return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
             }
 
+            var captchaResult = await _captchaValidation.ValidateCaptcha(CaptchaResponseToken);
+            if (!string.IsNullOrEmpty(captchaResult)) ModelState.AddModelError("CaptchaResponseToken", captchaResult);
+
             if (!ModelState.IsValid)
             {
                 await LoadAsync(user);
@@ -146,6 +169,10 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
             {
                 return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
             }
+
+            //Captcha validate
+            var captchaResult = await _captchaValidation.ValidateCaptcha(CaptchaResponseToken);
+            if (!string.IsNullOrEmpty(captchaResult)) ModelState.AddModelError("CaptchaResponseToken", captchaResult);
 
             if (!ModelState.IsValid)
             {
