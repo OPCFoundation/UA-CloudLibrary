@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Opc.Ua.Cloud.Library.Authentication;
 
@@ -30,13 +31,20 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
         private readonly IUserEmailStore<IdentityUser> _emailStore;
         private readonly ILogger<RegisterModel> _logger;
         private readonly IEmailSender _emailSender;
+        private readonly IConfiguration _configuration;
+        private readonly Interfaces.ICaptchaValidation _captchaValidation;
+        private readonly CaptchaSettings _captchaSettings;
+
+        public bool AllowSelfRegistration { get; set; } = true;
 
         public RegisterModel(
             UserManager<IdentityUser> userManager,
             IUserStore<IdentityUser> userStore,
             SignInManager<IdentityUser> signInManager,
             ILogger<RegisterModel> logger,
-            IEmailSender emailSender)
+            IEmailSender emailSender,
+            IConfiguration configuration,
+            Interfaces.ICaptchaValidation captchaValidation)
         {
             _userManager = userManager;
             _userStore = userStore;
@@ -44,6 +52,13 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
             _signInManager = signInManager;
             _logger = logger;
             _emailSender = emailSender;
+            _configuration = configuration;
+            _captchaValidation = captchaValidation;
+
+            _captchaSettings = new CaptchaSettings();
+            configuration.GetSection("CaptchaSettings").Bind(_captchaSettings);
+
+            AllowSelfRegistration = configuration.GetValue<bool?>(nameof(AllowSelfRegistration)) != false;
         }
 
         /// <summary>
@@ -64,6 +79,17 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public IList<AuthenticationScheme> ExternalLogins { get; set; }
+
+        /// <summary>
+        /// Populate values for cshtml to use
+        /// </summary>
+        public CaptchaSettings CaptchaSettings { get { return _captchaSettings; } }
+
+        /// <summary>
+        /// Populate a token returned from client side call to Google Captcha
+        /// </summary>
+        [BindProperty]
+        public string CaptchaResponseToken { get; set; }
 
         /// <summary>
         ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
@@ -109,8 +135,17 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
 
         public async Task<IActionResult> OnPostAsync(string returnUrl = null)
         {
+            if (!AllowSelfRegistration)
+            {
+                return Page();
+            }
             returnUrl ??= Url.Content("~/");
             ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync().ConfigureAwait(false)).ToList();
+
+            //Captcha validate
+            var captchaResult = await _captchaValidation.ValidateCaptcha(CaptchaResponseToken);
+            if (!string.IsNullOrEmpty(captchaResult)) ModelState.AddModelError("CaptchaResponseToken", captchaResult);
+
             if (ModelState.IsValid)
             {
                 var user = CreateUser();
