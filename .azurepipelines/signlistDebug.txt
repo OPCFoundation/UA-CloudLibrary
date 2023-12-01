@@ -1,2 +1,0 @@
-Opc.Ua.CloudLib.Client\bin\Debug\netstandard2.0\Opc.Ua.Cloud.Library.Client.dll
-Opc.Ua.CloudLib.Client\bin\Debug\net6.0\Opc.Ua.Cloud.Library.Client.dll

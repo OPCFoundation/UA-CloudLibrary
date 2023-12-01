@@ -1,7 +1,7 @@
-# .NET Desktop
-# Build and run tests for .NET Desktop or Windows classic desktop solutions.
+# ASP.NET Core (.NET Framework)
+# Build and test ASP.NET Core projects targeting the full .NET Framework.
 # Add steps that publish symbols, save build artifacts, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/apps/windows/dot-net
+# https://docs.microsoft.com/azure/devops/pipelines/languages/dotnet-core
 
 trigger:
 - main
@@ -10,9 +10,15 @@ pool:
   vmImage: 'windows-latest'
 
 variables:
-  solution: '**/*.sln'
-  buildPlatform: 'Any CPU'
-  buildConfiguration: 'Release'
+  - group: codesign
+  - name: solution 
+    value: '**/*.sln'
+  - name: buildPlatform 
+    value: 'Any CPU'
+  - name: buildConfiguration 
+    value: 'Release'
+  - name: signinglist
+    value: '.azurepipelines/signlist$(buildConfiguration).txt'
 
 steps:
 - task: NuGetToolInstaller@1
@@ -21,13 +27,52 @@ steps:
   inputs:
     restoreSolution: '$(solution)'
 
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'custom'
+    custom: 'tool'
+    arguments: 'install --version 3.0.0 --tool-path . azuresigntool'
+  displayName: Install AzureSignTool
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'custom'
+    custom: 'tool'
+    arguments: 'install --version 3.0.45 --tool-path . NuGetKeyVaultSignTool'
+  displayName: Install NuGetKeyVaultSignTool
 - task: VSBuild@1
   inputs:
     solution: '$(solution)'
+    msbuildArgs: '/p:GeneratePackageOnBuild=true /p:PackageOutputPath="$(Build.ArtifactStagingDirectory)"'
     platform: '$(buildPlatform)'
     configuration: '$(buildConfiguration)'
 
-- task: VSTest@2
+- task: CmdLine@2
+  displayName: 'Sign Assemblies'
+  condition: ne( variables['SigningClientSecret'], '')
   inputs:
-    platform: '$(buildPlatform)'
-    configuration: '$(buildConfiguration)'
+    script: |
+      azuresigntool sign -du "$(SigningURL)" -kvu "$(SigningVaultURL)" -kvt "$(SigningTenantId)" -kvi "$(SigningClientId)" -tr http://timestamp.digicert.com -td sha384 -kvs "$(SigningClientSecret)" -kvc "$(SigningCertName)" -v -ifl ${{ variables.signinglist }}
+        
+- task: CmdLine@2
+  displayName: 'List of nuget packages to sign'
+  inputs:
+    script: |
+      dir /b /s $(Build.ArtifactStagingDirectory)\OPCFoundation.*.*nupkg > .\nupkglist.txt
+      type .\nupkglist.txt
+- task: CmdLine@2
+  displayName: Sign Nuget packages
+  condition: and(succeeded(), ne( variables['SigningClientSecret'], ''))
+  continueOnError: true
+  inputs:
+    script: |
+      NuGetKeyVaultSignTool sign $(Build.ArtifactStagingDirectory)/**/OPCFoundation.*.nupkg --file-digest sha256 --timestamp-rfc3161 http://timestamp.digicert.com --timestamp-digest sha256 --azure-key-vault-url "$(SigningVaultURL)" --azure-key-vault-client-id "$(SigningClientId)" --azure-key-vault-tenant-id "$(SigningTenantId)" --azure-key-vault-client-secret "$(SigningClientSecret)" --azure-key-vault-certificate "$(SigningCertName)" 
+      NuGetKeyVaultSignTool sign $(Build.ArtifactStagingDirectory)/**/OPCFoundation.*.snupkg --file-digest sha256 --timestamp-rfc3161 http://timestamp.digicert.com --timestamp-digest sha256 --azure-key-vault-url "$(SigningVaultURL)" --azure-key-vault-client-id "$(SigningClientId)" --azure-key-vault-tenant-id "$(SigningTenantId)" --azure-key-vault-client-secret "$(SigningClientSecret)" --azure-key-vault-certificate "$(SigningCertName)" 
+
+- task: NuGetCommand@2
+  displayName: Upload Nuget
+  inputs:
+    command: 'push'
+    packagesToPush: '$(Build.ArtifactStagingDirectory)/**/OPCFoundation.*.nupkg'
+    nuGetFeedType: 'internal'
+    publishVstsFeed: 'opcua-testbuild/OPCFoundation.AcmeWidgets'
+    allowPackageConflicts: true

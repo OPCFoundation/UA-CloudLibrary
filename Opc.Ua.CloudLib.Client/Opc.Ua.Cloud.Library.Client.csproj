@@ -10,9 +10,10 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageLicenseFile></PackageLicenseFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
     <!-- Highest language version supported by .NET Standard 2.0 and .NET framework -->
     <LangVersion>7.3</LangVersion>
+    <Copyright>Copyright © 2020-2023 OPC Foundation, Inc</Copyright>
   </PropertyGroup>
 
   <ItemGroup>
