@@ -14,8 +14,13 @@ variables:
     value: 'Release'
   - name: signinglist
     value: '.azurepipelines/signlist$(buildConfiguration).txt'
+  - name: vstsfeed
+    value: 'opcua-cloudlibrary/preview'
 
 steps:
+- checkout: self
+  fetchDepth: 0
+  
 - task: NuGetToolInstaller@1
 
 - task: NuGetCommand@2
@@ -28,12 +33,14 @@ steps:
     custom: 'tool'
     arguments: 'install --version 3.0.0 --tool-path . azuresigntool'
   displayName: Install AzureSignTool
+  
 - task: DotNetCoreCLI@2
   inputs:
     command: 'custom'
     custom: 'tool'
     arguments: 'install --version 3.0.45 --tool-path . NuGetKeyVaultSignTool'
   displayName: Install NuGetKeyVaultSignTool
+  
 - task: VSBuild@1
   inputs:
     solution: '$(solution)'
@@ -69,5 +76,5 @@ steps:
     command: 'push'
     packagesToPush: '$(Build.ArtifactStagingDirectory)/**/OPCFoundation.*.nupkg'
     nuGetFeedType: 'internal'
-    publishVstsFeed: 'opcua-cloudlibrary/preview'
+    publishVstsFeed: $(vstsfeed)
     allowPackageConflicts: true
