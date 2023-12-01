@@ -95,11 +95,10 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
                     values: new { area = "Identity", code },
                     protocol: Request.Scheme);
 
-                await EmailManager.Send(
+                //notify user of password reset w/ reset link
+                await EmailManager.SendPasswordReset(
                     _emailSender,
                     Input.Email,
-                    "UA Cloud Library - Reset Password",
-                    "We received a request to reset your password.",
                     callbackUrl
                 ).ConfigureAwait(false);
 

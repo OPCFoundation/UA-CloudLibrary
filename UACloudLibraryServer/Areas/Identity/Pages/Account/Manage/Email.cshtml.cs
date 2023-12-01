@@ -146,11 +146,9 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
                     values: new { area = "Identity", userId = userId, email = Input.NewEmail, code = code },
                     protocol: Request.Scheme);
 
-                await EmailManager.Send(
+                await EmailManager.SendConfirmEmailChange(
                     _emailSender,
                     Input.NewEmail,
-                    "UA Cloud Library - Confirm New Email",
-                    "Please confirm your new email address.",
                     callbackUrl
                 ).ConfigureAwait(false);
 
@@ -190,11 +188,9 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
                 values: new { area = "Identity", userId = userId, code = code },
                 protocol: Request.Scheme);
 
-            await EmailManager.Send(
+            await EmailManager.SendReconfirmEmail(
                 _emailSender,
                 Input.NewEmail,
-                "UA Cloud Library - Verify Your Email",
-                "Please verify your email address.",
                 callbackUrl
             ).ConfigureAwait(false);
 

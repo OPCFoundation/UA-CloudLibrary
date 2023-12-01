@@ -28,6 +28,7 @@
  * ======================================================================*/
 
 using System.Globalization;
+using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity.UI.Services;
 
@@ -42,7 +43,7 @@ namespace Opc.Ua.Cloud.Library
             <p>&nbsp;</p>
             <p><p>{0} Please <a href=""{1}"">click here</a> to continue.</p>
             <p>If the above link does not work, please copy and paste the link below into your browser’s address bar and press enter:</p>
-            <p>{1}</p>
+            <p>{2}</p>
             <p>If you experience difficulty with this site, please reply to this email for help.</p>
             </p>
             <p><strong>OPC Foundation</strong><br>
@@ -52,18 +53,45 @@ namespace Opc.Ua.Cloud.Library
             <p style=""text-align: center""><a href=""mailto:unsubscribe@opcfoundation.org?subject=Unsubscribe%20from%20UA%20Cloud%20Library%20Emails&body="">Click here to unsubscribe.</a></p></p>
             ";
 
-        public static async Task Send(IEmailSender emailSender, string email, string subject, string action, string url)
+
+        private static async Task Send(IEmailSender emailSender, string email, string subject, string action, string url)
         {
             var body = string.Format(
                 CultureInfo.InvariantCulture,
                 EmailTemplate,
                 action,
+                HtmlEncoder.Default.Encode(url),
                 url);
 
             await emailSender.SendEmailAsync(
                 email,
                 subject,
                 body).ConfigureAwait(false);
+        }
+
+        internal static Task SendConfirmRegistration(IEmailSender emailSender, string email, string url, bool requireConfirmedAccount)
+        {
+            return Send(emailSender, email, "UA Cloud Library - Confirm Your Email", "Please confirm your email to complete registration.", url);
+        }
+		
+        internal static Task SendConfirmExternalEmail(IEmailSender emailSender, string email, string url)
+        {
+            return Send(emailSender, email, "UA Cloud Library - Confirm Your Email", "Please confirm your email to complete registration.", url);
+        }
+
+        internal static Task SendConfirmEmailChange(IEmailSender emailSender, string newEmail, string url)
+        {
+            return Send(emailSender, newEmail, "UA Cloud Library - Confirm New Email", "Please confirm your new email address.", url);
+        }
+
+        internal static Task SendPasswordReset(IEmailSender emailSender, string email, string url)
+        {
+            return Send(emailSender, email, "UA Cloud Library - Reset Password", "We received a request to reset your password.", url);
+        }
+
+        internal static Task SendReconfirmEmail(IEmailSender emailSender, string newEmail, string url)
+        {
+            return Send(emailSender, newEmail, "UA Cloud Library - Verify Your Email","Please verify your email address.", url);
         }
     }
 }

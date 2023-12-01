@@ -172,11 +172,9 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
                             values: new { area = "Identity", userId = userId, code = code },
                             protocol: Request.Scheme);
 
-                        await EmailManager.Send(
+                        await EmailManager.SendConfirmExternalEmail(
                             _emailSender,
                             Input.Email,
-                            "UA Cloud Library - Confirm Your Email",
-                            "Please confirm your email to complete registration.",
                             callbackUrl
                         ).ConfigureAwait(false);
 

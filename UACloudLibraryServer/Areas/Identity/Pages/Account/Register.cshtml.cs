@@ -167,12 +167,12 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
                         values: new { area = "Identity", userId = userId, code = code, returnUrl = returnUrl },
                         protocol: Request.Scheme);
 
-                    await EmailManager.Send(
+                    //notify registering user
+                    await EmailManager.SendConfirmRegistration(
                         _emailSender,
                         Input.Email,
-                        "UA Cloud Library - Confirm Your Email",
-                        "Please confirm your email to complete registration.",
-                        callbackUrl
+                        callbackUrl,
+                        _userManager.Options.SignIn.RequireConfirmedAccount
                     ).ConfigureAwait(false);
 
                     if (_userManager.Options.SignIn.RequireConfirmedAccount)
