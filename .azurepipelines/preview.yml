@@ -77,7 +77,7 @@ jobs:
     inputs:
       command: build
       projects: 'UA-CloudLibrary-Client.sln'
-      arguments: '--no-incremental --configuration ${{parameters.config}} ${{ variables.msbuildversion }} ${{ variables.msbuildsign }}'
+      arguments: '--no-incremental --configuration ${{parameters.config}} ${{ variables.msbuildversion }}'
   - task: CmdLine@2
     displayName: 'List of assemblies to sign'
     inputs:
