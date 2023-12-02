@@ -61,15 +61,18 @@ jobs:
     inputs:
       targetType: filePath
       filePath: ./.azurepipelines/set-version.ps1
-  - task: NuGetCommand@2
-    displayName: Restore
+  - task: DotNetCoreCLI@2
+    displayName: Restore ${{parameters.config}}
     inputs:
-      restoreSolution: '$(solution)'
-  - task: VSBuild@1
+      command: restore
+      projects: 'UA Core Library.sln'
+      arguments: '--configuration ${{parameters.config}}'
+  - task: DotNetCoreCLI@2
+    displayName: Build ${{parameters.config}}
     inputs:
-      solution: 'UA-CloudLibrary-Client.sln'
-      msbuildArgs: '${{ variables.msbuildversion }}'
-      configuration: '${{parameters.config}}'
+      command: build
+      projects: 'UA Core Library.sln'
+      arguments: '--no-incremental --configuration ${{parameters.config}} ${{ variables.msbuildversion }}'
   - task: CmdLine@2
     displayName: 'List of assemblies to sign'
     inputs:
