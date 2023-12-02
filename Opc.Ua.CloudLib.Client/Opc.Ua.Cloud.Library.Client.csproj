@@ -10,9 +10,11 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageLicenseFile></PackageLicenseFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
     <!-- Highest language version supported by .NET Standard 2.0 and .NET framework -->
     <LangVersion>7.3</LangVersion>
+    <Copyright>Copyright © 2020-2023 OPC Foundation, Inc</Copyright>
+    <NoWarn>$(NoWarn);NU1504</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,7 +32,7 @@
     <PackageReference Include="GraphQL.Client" Version="4.0.2" />
     <PackageReference Include="GraphQL.Client.Serializer.Newtonsoft" Version="4.0.2" />
     <PackageReference Include="GraphQL.Query.Builder" Version="2.0.1" />
-   
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
   <PropertyGroup Condition="'$(SignAssembly)' == 'true'">
