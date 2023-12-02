@@ -72,12 +72,11 @@ jobs:
       command: restore
       projects: 'UA-CloudLibrary-Client.sln'
       arguments: '--configuration ${{parameters.config}}'
-  - task: DotNetCoreCLI@2
-    displayName: Build ${{parameters.config}}
+  - task: VSBuild@1
     inputs:
-      command: build
-      projects: 'UA-CloudLibrary-Client.sln'
-      arguments: '--no-incremental --configuration ${{parameters.config}} ${{ variables.msbuildversion }}'
+      solution: 'UA-CloudLibrary-Client.sln'
+      msbuildArgs: '${{ variables.msbuildversion }}'
+      configuration: '${{parameters.config}}'
   - task: CmdLine@2
     displayName: 'List of assemblies to sign'
     inputs:
