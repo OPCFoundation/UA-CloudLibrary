@@ -14,6 +14,7 @@
     <!-- Highest language version supported by .NET Standard 2.0 and .NET framework -->
     <LangVersion>7.3</LangVersion>
     <Copyright>Copyright © 2020-2023 OPC Foundation, Inc</Copyright>
+    <NoWarn>$(NoWarn);NU1504</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -32,12 +33,6 @@
     <PackageReference Include="GraphQL.Client.Serializer.Newtonsoft" Version="4.0.2" />
     <PackageReference Include="GraphQL.Query.Builder" Version="2.0.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="8.0.0">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Update="Nerdbank.GitVersioning" Version="3.6.133" />
-   
   </ItemGroup>
 
   <PropertyGroup Condition="'$(SignAssembly)' == 'true'">
