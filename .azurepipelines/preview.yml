@@ -41,11 +41,6 @@ jobs:
       packageType: 'sdk'
       version: '6.0.x'
       includePreviewVersions: false  
-  - task: DownloadSecureFile@1
-    name: strongnamefile
-    displayName: 'Download Strong Name Key'
-    inputs:
-      secureFile: 'OPCFoundation.NetStandard.Key.snk'
   - task: DotNetCoreCLI@2
     inputs:
       command: 'custom'
@@ -67,6 +62,7 @@ jobs:
       targetType: filePath
       filePath: ./.azurepipelines/set-version.ps1
   - task: NuGetCommand@2
+    displayName: Restore
     inputs:
       restoreSolution: '$(solution)'
   - task: VSBuild@1
