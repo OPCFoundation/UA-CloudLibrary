@@ -76,7 +76,7 @@ namespace Opc.Ua.Cloud.Library.Client
             client.Dispose();
         }
 
-        [Obsolete("Use GetBasicNodesetInformationAsync with offset and limit")]
+        [Obsolete("Use GetBasicNodesetInformationAsync with offset and limit.")]
         public async Task<List<UANodesetResult>> GetBasicNodesetInformationAsync(List<string> keywords = null)
         {
             var nodeSetResults = new List<UANodesetResult>();
