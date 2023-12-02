@@ -33,6 +33,8 @@ jobs:
   - name: signinglist
     value: '.azurepipelines/signlist${{parameters.config}}.txt'
   steps:
+  - checkout: self
+    fetchDepth: 0
   - task: UseDotNet@2
     displayName: 'Install .NET 6.0'
     inputs:
