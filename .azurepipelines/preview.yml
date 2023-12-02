@@ -34,6 +34,8 @@ jobs:
     value: '$(NBGV_Version)$(NBGV_PrereleaseVersion)'
   - name: signinglist
     value: '.azurepipelines/signlist${{parameters.config}}.txt'
+  - name: vstsfeed
+    value: 'opcua-netstandard/opcua-preview'
   steps:
   - checkout: self
     fetchDepth: 0
@@ -122,5 +124,5 @@ jobs:
         command: 'push'
         packagesToPush: '$(Build.ArtifactStagingDirectory)/**/OPCFoundation.*.nupkg'
         nuGetFeedType: 'internal'
-        publishVstsFeed: '$(VSTSFEED)'
+        publishVstsFeed: '$(vstsfeed)'
         allowPackageConflicts: true
