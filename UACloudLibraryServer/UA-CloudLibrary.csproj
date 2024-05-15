@@ -34,58 +34,65 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Amazon.AspNetCore.DataProtection.SSM" Version="3.1.0" />
-		<PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="3.7.7" />
-		<PackageReference Include="AWSSDK.S3" Version="3.7.104.10" />
-		<PackageReference Include="AWSSDK.SecurityToken" Version="3.7.101.60" />
-		<PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.3.2" />
-		<PackageReference Include="Azure.Storage.Blobs" Version="12.16.0" />
-		<PackageReference Include="Google.Cloud.Storage.V1" Version="4.5.0" />
+		<PackageReference Include="Amazon.AspNetCore.DataProtection.SSM" Version="3.2.1" />
+		<PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="3.7.300" />
+		<PackageReference Include="AWSSDK.S3" Version="3.7.307.31" />
+		<PackageReference Include="AWSSDK.SecurityToken" Version="3.7.300.90" />
+		<PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.3.4" />
+		<PackageReference Include="Azure.Identity" Version="1.11.3" />
+		<PackageReference Include="Azure.Storage.Blobs" Version="12.19.1" />
+		<PackageReference Include="Google.Cloud.Storage.V1" Version="4.10.0" />
 		<PackageReference Include="Google.Cloud.AspNetCore.DataProtection.Storage" Version="1.0.0-alpha03" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="6.0.16" />
-		<PackageReference Include="HotChocolate" Version="13.5.1" />
-		<PackageReference Include="HotChocolate.Data" Version="13.5.1" />
-		<PackageReference Include="HotChocolate.Types.Scalars" Version="13.5.1" />
-		<PackageReference Include="HotChocolate.AspNetCore" Version="13.5.1" />
-		<PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="13.5.1" />
-        <PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="2.0.2" />
-        <PackageReference Include="CESMII.OpcUa.NodeSetModel.EF" Version="2.0.2" />
-        <PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="2.0.2" />
-        <PackageReference Include="CESMII.OpcUa.NodeSetModel" Version="2.0.2" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="6.0.29" />
+		<PackageReference Include="HotChocolate" Version="13.9.3" />
+		<PackageReference Include="HotChocolate.Data" Version="13.9.3" />
+		<PackageReference Include="HotChocolate.Types.Scalars" Version="13.9.3" />
+		<PackageReference Include="HotChocolate.AspNetCore" Version="13.9.3" />
+		<PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="13.9.3" />
+        <PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="2.0.3" />
+        <PackageReference Include="CESMII.OpcUa.NodeSetModel.EF" Version="2.0.3" />
+        <PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="2.0.3" />
+        <PackageReference Include="CESMII.OpcUa.NodeSetModel" Version="2.0.3" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="GraphQL.Server.Ui.GraphiQL" Version="7.4.0" />
-		<PackageReference Include="GraphQL.Server.Ui.Playground" Version="7.4.0" />
-		<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="6.0.16" />
-		<PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="6.0.16" />
-		<PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="6.0.16" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.16" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.16">
+		<PackageReference Include="GraphQL.Server.Ui.GraphiQL" Version="7.7.1" />
+		<PackageReference Include="GraphQL.Server.Ui.Playground" Version="7.7.1" />
+		<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="6.0.29" />
+		<PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="6.0.29" />
+		<PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="6.0.29" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.29" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.29">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Proxies" Version="6.0.16" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="6.0.16">
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Proxies" Version="6.0.29" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="6.0.29">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.18.1" />
-		<PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="6.0.13" />
-		<PackageReference Include="Npgsql" Version="6.0.9" />
-		<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="6.0.8" />
-		<PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Core" Version="1.4.372.76" />
-		<PackageReference Include="Postmark" Version="4.7.7" />
-		<PackageReference Include="SendGrid" Version="9.28.1" />
-		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
-		<PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="6.4.0" />
-		<PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="6.4.0" />
+		<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.20.1" />
+		<PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="6.0.16" />
+		<PackageReference Include="Npgsql" Version="6.0.11" />
+		<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="6.0.29" />
+		<PackageReference Include="NuGet.Packaging" Version="6.9.1" />
+		<PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Core" Version="1.5.374.36" />
+		<PackageReference Include="Postmark" Version="5.0.0" />
+		<PackageReference Include="SendGrid" Version="9.29.3" />
+		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+		<PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="6.5.0" />
+		<PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="6.5.0" />
+		<PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
 	</ItemGroup>
 	<ItemGroup Condition="$(DEFINECONSTANTS.Contains('AZURE_AD'))">
-		<PackageReference Include="Microsoft.Identity.Web" Version="1.25.1" />
+		<PackageReference Include="Microsoft.Identity.Web" Version="2.18.1" />
 	</ItemGroup>
 	<ItemGroup>
-	  <PackageReference Update="Nerdbank.GitVersioning" Version="3.6.128" />
+	  <PackageReference Update="Microsoft.SourceLink.GitHub" Version="8.0.0">
+	    <PrivateAssets>all</PrivateAssets>
+	    <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+	  </PackageReference>
+	  <PackageReference Update="Nerdbank.GitVersioning" Version="3.6.133" />
 	</ItemGroup>
 </Project>
