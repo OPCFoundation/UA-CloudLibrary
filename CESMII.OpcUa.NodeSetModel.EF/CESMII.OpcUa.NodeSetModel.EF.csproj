@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net6.0</TargetFrameworks>
+    <Configurations>Debug;Release;Staging</Configurations>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+	<PackageIcon>cesmii.png</PackageIcon>
+	<Version>0.1</Version>
+	<Authors>Markus Horstmann</Authors>
+	<Company>CESMII</Company>
+	<Product></Product>
+	<NeutralLanguage>en</NeutralLanguage>
+	<Description>OPC UA Node Set Model mapping for Entity Framework</Description>
+	<Copyright>Copyright © 2022 CESMII</Copyright>
+	<PackageLicenseExpression>BSD-3-Clause</PackageLicenseExpression>
+  </PropertyGroup>
+
+	<ItemGroup>
+		<None Include=".\..\cesmii.png" Pack="true" PackagePath=""/>
+	</ItemGroup>
+
+	<ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.3" />
+	<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="6.0.3" />
+	<PackageReference Include="Microsoft.EntityFrameworkCore.Proxies" Version="6.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CESMII.OpcUa.NodeSetModel.Factory.Opc\CESMII.OpcUa.NodeSetModel.Factory.Opc.csproj" />
+	  <ProjectReference Include="..\CESMII.OpcUa.NodeSetModel\CESMII.OpcUa.NodeSetModel.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -52,10 +52,6 @@
 		<PackageReference Include="HotChocolate.Types.Scalars" Version="13.9.7" />
 		<PackageReference Include="HotChocolate.AspNetCore" Version="13.9.7" />
 		<PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="13.9.7" />
-        <PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="2.0.3" />
-        <PackageReference Include="CESMII.OpcUa.NodeSetModel.EF" Version="2.0.3" />
-        <PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="2.0.3" />
-        <PackageReference Include="CESMII.OpcUa.NodeSetModel" Version="2.0.3" />
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="GraphQL.Server.Ui.GraphiQL" Version="7.7.1" />
@@ -88,6 +84,12 @@
 	</ItemGroup>
 	<ItemGroup Condition="$(DEFINECONSTANTS.Contains('AZURE_AD'))">
 		<PackageReference Include="Microsoft.Identity.Web" Version="2.20.0" />
+	</ItemGroup>
+	<ItemGroup>
+	  <ProjectReference Include="..\CESMII.OpcUa.NodeSetImporter\CESMII.OpcUa.NodeSetImporter.csproj" />
+	  <ProjectReference Include="..\CESMII.OpcUa.NodeSetModel.EF\CESMII.OpcUa.NodeSetModel.EF.csproj" />
+	  <ProjectReference Include="..\CESMII.OpcUa.NodeSetModel.Factory.Opc\CESMII.OpcUa.NodeSetModel.Factory.Opc.csproj" />
+	  <ProjectReference Include="..\CESMII.OpcUa.NodeSetModel\CESMII.OpcUa.NodeSetModel.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 	  <PackageReference Update="Microsoft.SourceLink.GitHub" Version="8.0.0">
