@@ -94,7 +94,7 @@ namespace CESMII.OpcUa.NodeSetModel.Factory.Opc
                     }
                 }
             }
-            
+
             // Ensure references that are implicitly used by the importer get resolved into the OPC model
             ReferenceTypeModelFactoryOpc.Create(opcContext, opcContext.GetNode(ReferenceTypes.HasSubtype), null, out _);
             ReferenceTypeModelFactoryOpc.Create(opcContext, opcContext.GetNode(ReferenceTypes.HasModellingRule), null, out _);
@@ -789,7 +789,7 @@ namespace CESMII.OpcUa.NodeSetModel.Factory.Opc
                     }
                     else if (nodeModel is MethodModel method)
                     {
-                        nodesetModel.Methods.Add(method);    
+                        nodesetModel.Methods.Add(method);
                     }
                     else if (nodeModel is ReferenceTypeModel referenceType)
                     {
@@ -938,7 +938,7 @@ namespace CESMII.OpcUa.NodeSetModel.Factory.Opc
             InitializeDataTypeInfo(_model, opcContext, variableNode, recursionDepth);
             if (variableNode.AccessLevelEx != 1) _model.AccessLevel = variableNode.AccessLevelEx;
             // deprecated if (variableNode.UserAccessLevel != 1) _model.UserAccessLevel = variableNode.UserAccessLevel;
-            if (variableNode.AccessRestrictions != 0) _model.AccessRestrictions = (ushort)variableNode.AccessRestrictions;
+            if (variableNode.AccessRestrictions.HasValue && (variableNode.AccessRestrictions != 0)) _model.AccessRestrictions = (ushort)variableNode.AccessRestrictions;
             if (variableNode.WriteMask != 0) _model.WriteMask = (uint)variableNode.WriteMask;
             if (variableNode.UserWriteMask != 0) _model.UserWriteMask = (uint)variableNode.UserWriteMask;
             if (variableNode.MinimumSamplingInterval != 0)
@@ -1105,7 +1105,7 @@ namespace CESMII.OpcUa.NodeSetModel.Factory.Opc
                     }
                 }
             }
-        
+
             //if (argumentVariable.OtherReferencedNodes?.Any() != true && argumentVariable.OtherReferencingNodes?.Any() != true)
             //{
             //    var argumentProperty = NodeModelOpcExtensions.GetArgumentProperty(methodModel, browseName, modelArguments, opcContext);
