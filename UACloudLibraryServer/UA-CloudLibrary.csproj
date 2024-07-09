@@ -52,10 +52,10 @@
 		<PackageReference Include="HotChocolate.Types.Scalars" Version="13.9.7" />
 		<PackageReference Include="HotChocolate.AspNetCore" Version="13.9.7" />
 		<PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="13.9.7" />
-        <PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="2.0.2" />
-        <PackageReference Include="CESMII.OpcUa.NodeSetModel.EF" Version="2.0.2" />
-        <PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="2.0.2" />
-        <PackageReference Include="CESMII.OpcUa.NodeSetModel" Version="2.0.2" />
+        <PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="1.0.18" />
+        <PackageReference Include="CESMII.OpcUa.NodeSetModel.EF" Version="1.0.18" />
+        <PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="1.0.18" />
+        <PackageReference Include="CESMII.OpcUa.NodeSetModel" Version="1.0.18" />
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="GraphQL.Server.Ui.GraphiQL" Version="7.7.1" />
@@ -73,6 +73,7 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0" />
 		<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.21.0" />
 		<PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="6.0.16" />
 		<PackageReference Include="Npgsql" Version="6.0.11" />
