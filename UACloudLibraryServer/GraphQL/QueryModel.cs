@@ -227,7 +227,7 @@ namespace Opc.Ua.Cloud.Library
             ConfigureField(descriptor.Field(f => f.DataTypes));
             ConfigureField(descriptor.Field(f => f.Interfaces));
             ConfigureField(descriptor.Field(f => f.Objects));
-            //ConfigureField(descriptor.Field(f => f.Methods));
+            ConfigureField(descriptor.Field(f => f.Methods));
             ConfigureField(descriptor.Field(f => f.Properties));
             ConfigureField(descriptor.Field(f => f.DataVariables));
             ConfigureField(descriptor.Field(f => f.ReferenceTypes));

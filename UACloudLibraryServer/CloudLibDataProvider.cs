@@ -109,10 +109,10 @@ namespace Opc.Ua.Cloud.Library
             return GetNodeModels<ObjectModel>(nsm => nsm.Objects, modelUri, publicationDate, nodeId);
         }
 
-        //public IQueryable<MethodModel> GetMethods(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
-        //{
-        //    return GetNodeModels<MethodModel>(nsm => nsm.Methods, modelUri, publicationDate, nodeId);
-        //}
+        public IQueryable<MethodModel> GetMethods(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
+        {
+            return GetNodeModels<MethodModel>(nsm => nsm.Methods, modelUri, publicationDate, nodeId);
+        }
 
         public IQueryable<NodeModel> GetAllNodes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
         {
