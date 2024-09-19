@@ -1,6 +1,28 @@
 ﻿/* Please see documentation at https://docs.microsoft.com/aspnet/core/client-side/bundling-and-minification
 for details on configuring this project to bundle and minify static web assets. */
 
+/*-------------------------------------------*/
+/*NEW - Import same font as Profile Designer       */
+/*-------------------------------------------*/
+@import url(https://fonts.googleapis.com/css2?family=Bitter:wght@300;400;600;700&display=swap);
+@import url(https://fonts.googleapis.com/css2?family=Open%20Sans:wght@300;400;600;700&display=swap);
+
+/*-------------------------------------------*/
+/*NEW - Bootstrap overrides                        */
+/*-------------------------------------------*/
+.bg-primary {
+    background-color:#4084ef !important; 
+}
+.bg-dark {
+    background-color: #2a3439 !important;
+}
+
+/*-------------------------------------------*/
+/*-------------------------------------------*/
+/*Existing CSS from original fork below here */
+/*  (unless override specified)              */
+/*-------------------------------------------*/
+/*-------------------------------------------*/
 a.navbar-brand {
   white-space: normal;
   text-align: center;
@@ -68,4 +90,267 @@ body {
   width: 100%;
   white-space: nowrap;
   line-height: 60px; /* Vertically center the text there */
+}
+
+/*-------------------------------------------*/
+/*Common CSS values used in Profile Designer */
+/*-------------------------------------------*/
+h1 {
+    font-family: "Bitter",sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.7rem
+}
+
+h2, h3, h4 {
+    font-family: "Bitter",sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1.15rem
+}
+
+p {
+    line-height: 1.3rem;
+    margin-bottom: .8rem
+}
+
+.cursor-pointer:hover {
+    cursor: pointer
+}
+
+.headline-1 {
+    font-size: 1.5rem;
+    line-height: 1.7rem
+}
+
+.headline-1, .headline-2 {
+    font-family: "Bitter",sans-serif;
+    font-weight: 700
+}
+
+.headline-2 {
+    font-size: 1.2rem;
+    line-height: 1.3rem
+}
+
+.headline-3, .headline-4 {
+    font-family: "Bitter",sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 18px
+}
+
+.headline-4 {
+    letter-spacing: -.014em
+}
+
+a {
+    font-family: "Open Sans",sans-serif;
+    font-style: normal;
+    font-weight: 400;
+    font-size: .9rem;
+    color: #2d76a7
+}
+
+/*-------------------------------------------*/
+/*Helper classes.                            */
+/*-------------------------------------------*/
+.text-white {
+    color: #fff;
+}
+
+/*---------------------------------------------------*/
+/*Header overrides to align with other CESMII sites. */
+/*---------------------------------------------------*/
+header {
+    height: auto;
+    background-color: #4084ef;
+    border-bottom: 1px solid;
+    align-items: center
+}
+
+    header, header .navbar-brand {
+        color: #fff
+    }
+
+        header .navbar-brand:hover {
+            color: unset;
+            opacity: .9
+        }
+
+        header .navbar-brand img {
+            height: 34px
+        }
+
+        header .nav-link {
+            font-family: "Open Sans",sans-serif;
+            color: #fff !important;
+            opacity: .9
+        }
+
+            header .nav-link:hover {
+                opacity: .75
+            }
+
+/*-------------------------------------------*/
+/*Button overrides                           */
+/*-------------------------------------------*/
+.btn {
+    display: inline-block;
+    font-weight: 400;
+    color: #212529;
+    text-align: center;
+    vertical-align: middle;
+    -webkit-user-select: none;
+    user-select: none;
+    background-color: transparent;
+    border: 1px solid transparent;
+    padding: .375rem .75rem;
+    font-size: 1rem;
+    line-height: 1.5;
+    border-radius: .25rem;
+    transition: color .15s ease-in-out,background-color .15s ease-in-out,border-color .15s ease-in-out,box-shadow .15s ease-in-out
+}
+
+@media(prefers-reduced-motion:reduce) {
+    .btn {
+        transition: none
+    }
+}
+
+.btn:hover {
+    color: #212529;
+    text-decoration: none
+}
+
+.btn.focus, .btn:focus {
+    outline: 0;
+    box-shadow: 0 0 0 .2rem rgba(0,123,255,.25)
+}
+
+.btn.disabled, .btn:disabled {
+    opacity: .65
+}
+
+.btn:not(:disabled):not(.disabled) {
+    cursor: pointer
+}
+
+a.btn.disabled, fieldset:disabled a.btn {
+    pointer-events: none
+}
+
+.btn-primary {
+    color: #fff;
+    background-color: #4084ef;
+    border-color: #4084ef
+}
+
+    .btn-primary.focus, .btn-primary:focus, .btn-primary:hover {
+        color: #fff;
+        background-color: #1d6dec;
+        border-color: #1366e9
+    }
+
+    .btn-primary.focus, .btn-primary:focus {
+        box-shadow: 0 0 0 .2rem rgba(93,150,241,.5)
+    }
+
+    .btn-primary.disabled, .btn-primary:disabled {
+        color: #fff;
+        background-color: #4084ef;
+        border-color: #4084ef
+    }
+
+    .btn-primary:not(:disabled):not(.disabled).active, .btn-primary:not(:disabled):not(.disabled):active, .show > .btn-primary.dropdown-toggle {
+        color: #fff;
+        background-color: #1366e9;
+        border-color: #1261dd
+    }
+
+        .btn-primary:not(:disabled):not(.disabled).active:focus, .btn-primary:not(:disabled):not(.disabled):active:focus, .show > .btn-primary.dropdown-toggle:focus {
+            box-shadow: 0 0 0 .2rem rgba(93,150,241,.5)
+        }
+
+.btn-secondary {
+    color: #fff;
+    background-color: #2e2b26;
+    border-color: #2e2b26
+}
+
+    .btn-secondary.focus, .btn-secondary:focus, .btn-secondary:hover {
+        color: #fff;
+        background-color: #191715;
+        border-color: #12110f
+    }
+
+    .btn-secondary.focus, .btn-secondary:focus {
+        box-shadow: 0 0 0 .2rem rgba(77,75,71,.5)
+    }
+
+    .btn-secondary.disabled, .btn-secondary:disabled {
+        color: #fff;
+        background-color: #2e2b26;
+        border-color: #2e2b26
+    }
+
+    .btn-secondary:not(:disabled):not(.disabled).active, .btn-secondary:not(:disabled):not(.disabled):active, .show > .btn-secondary.dropdown-toggle {
+        color: #fff;
+        background-color: #12110f;
+        border-color: #0b0a09
+    }
+
+        .btn-secondary:not(:disabled):not(.disabled).active:focus, .btn-secondary:not(:disabled):not(.disabled):active:focus, .show > .btn-secondary.dropdown-toggle:focus {
+            box-shadow: 0 0 0 .2rem rgba(77,75,71,.5)
+        }
+
+
+/*-------------------------------------------*/
+/*Tile Settings                              */
+/*-------------------------------------------*/
+.tile-link {
+    font: unset;
+    color: unset
+}
+
+.tile-link:hover {
+    text-decoration: unset;
+    cursor: pointer;
+}
+
+.tile-link img {
+    max-height:60px;
+    width:auto;
+    border-radius: 20px 0px 0px 0px;
+}
+
+.tile-link:hover img {
+    opacity: .8
+}
+
+.tile-link .tile-body {
+    background-color: #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,.3);
+    border-radius: 20px;
+    border-color: #fff;
+}
+
+.tile-link:hover .tile-body {
+    box-shadow: 0 4px 12px rgba(0,0,0,.6);
+    border-color: rgba(93,150,241,.7)
+}
+
+.tile-link .tile-body .card-img-top {
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px
+}
+
+/*-------------------------------------------*/
+/*Footer Settings                            */
+/*-------------------------------------------*/
+footer {
+    position:fixed;
+}
+footer a {
+    color: inherit;
 }

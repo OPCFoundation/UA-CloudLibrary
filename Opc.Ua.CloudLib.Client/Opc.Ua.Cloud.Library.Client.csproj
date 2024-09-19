@@ -13,8 +13,6 @@
     <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
     <!-- Highest language version supported by .NET Standard 2.0 and .NET framework -->
     <LangVersion>7.3</LangVersion>
-    <Copyright>Copyright © 2020-2023 OPC Foundation, Inc</Copyright>
-    <NoWarn>$(NoWarn);NU1504</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
