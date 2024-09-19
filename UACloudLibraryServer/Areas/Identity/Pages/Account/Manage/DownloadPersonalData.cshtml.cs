@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Primitives;
 
 namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 {
@@ -59,7 +60,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
             personalData.Add($"Authenticator Key", await _userManager.GetAuthenticatorKeyAsync(user).ConfigureAwait(false));
 
-            Response.Headers.Add("Content-Disposition", "attachment; filename=PersonalData.json");
+            _ = Response.Headers.Append(new KeyValuePair<string, StringValues>("Content-Disposition", "attachment; filename=PersonalData.json"));
             return new FileContentResult(JsonSerializer.SerializeToUtf8Bytes(personalData), "application/json");
         }
     }

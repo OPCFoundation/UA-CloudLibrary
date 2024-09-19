@@ -2,14 +2,14 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="GraphQL.Client" Version="4.0.2" />
-    <PackageReference Include="GraphQL.Client.Serializer.Newtonsoft" Version="4.0.2" />
-    <PackageReference Include="GitInfo" Version="2.2.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="6.0.31" />
+    <PackageReference Include="GraphQL.Client" Version="6.1.0" />
+    <PackageReference Include="GraphQL.Client.Serializer.Newtonsoft" Version="6.1.0" />
+    <PackageReference Include="GitInfo" Version="3.3.5" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.8" />
   </ItemGroup>
 
   <ItemGroup>
@@ -21,7 +21,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Update="Nerdbank.GitVersioning" Version="3.6.139" />
+    <PackageReference Update="Nerdbank.GitVersioning" Version="3.6.143" />
   </ItemGroup>
 
 </Project>
