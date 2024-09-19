@@ -11,7 +11,7 @@ for details on configuring this project to bundle and minify static web assets. 
 /*NEW - Bootstrap overrides                        */
 /*-------------------------------------------*/
 .bg-primary {
-    background-color:#4084ef !important; 
+    background-color:#4084ef !important;
 }
 .bg-dark {
     background-color: #2a3439 !important;
@@ -175,16 +175,16 @@ header {
 
         header .navbar-brand:hover {
             color: unset;
-            opacity: .9
+            opacity: .75
         }
 
         header .navbar-brand img {
-            height: 34px
+            height: 50px
         }
 
         header .nav-link {
             font-family: "Open Sans",sans-serif;
-            color: #fff !important;
+            color: #000 !important;
             opacity: .9
         }
 
