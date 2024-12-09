@@ -27,20 +27,20 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using HotChocolate;
+using HotChocolate.Authorization;
+using HotChocolate.Data;
+using HotChocolate.Language;
+using HotChocolate.Resolvers;
+using HotChocolate.Types;
+using Opc.Ua.Cloud.Library.DbContextModels;
+using Opc.Ua.Cloud.Library.Models;
+
 namespace Opc.Ua.Cloud.Library
 {
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Threading.Tasks;
-    using HotChocolate;
-    using HotChocolate.Authorization;
-    using HotChocolate.Data;
-    using HotChocolate.Language;
-    using HotChocolate.Resolvers;
-    using HotChocolate.Types;
-    using Opc.Ua.Cloud.Library.DbContextModels;
-    using Opc.Ua.Cloud.Library.Models;
-
     [Authorize]
     public partial class MutationModel
     {
@@ -56,9 +56,9 @@ namespace Opc.Ua.Cloud.Library
         }
 
         [Authorize(Policy = "ApprovalPolicy")]
-        public async Task<NamespaceMetaDataModel> ApproveNodeSetAsync([Service(ServiceKind.Synchronized)] IDatabase db, ApprovalInput input)
+        public async Task<NamespaceMetaDataModel> ApproveNodeSetAsync([Service()] IDatabase db, ApprovalInput input)
         {
-            var nodeSet = await db.ApproveNamespaceAsync(input.Identifier, input.Status, input.ApprovalInformation, input.AdditionalProperties).ConfigureAwait(false);
+            NamespaceMetaDataModel nodeSet = await db.ApproveNamespaceAsync(input.Identifier, input.Status, input.ApprovalInformation, input.AdditionalProperties).ConfigureAwait(false);
             return nodeSet;
         }
 
@@ -67,12 +67,12 @@ namespace Opc.Ua.Cloud.Library
     public partial class QueryModel
     {
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<CloudLibNodeSetModel> GetNodeSetsPendingApproval([Service(ServiceKind.Synchronized)] IDatabase dp, IResolverContext context)
+        public IQueryable<CloudLibNodeSetModel> GetNodeSetsPendingApproval([Service()] IDatabase dp, IResolverContext context)
         {
-            var query = dp.GetNodeSetsPendingApproval();
+            IQueryable<CloudLibNodeSetModel> query = dp.GetNodeSetsPendingApproval();
 
             // Make sure the result is ordered even if the graphl query didn't specify an order so that pagination works correctly
-            var orderByArgument = context.ArgumentLiteral<IValueNode>("order");
+            IValueNode orderByArgument = context.ArgumentLiteral<IValueNode>("order");
             if (orderByArgument == NullValueNode.Default || orderByArgument == null)
             {
                 query = query.OrderBy(nsm => nsm.ModelUri).ThenBy(nsm => nsm.PublicationDate);

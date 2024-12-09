@@ -11,7 +11,7 @@ using Opc.Ua.Cloud.Library.Client;
 using Opc.Ua.CloudLib.Sync;
 
 [assembly: FunctionsStartup(typeof(CloudLibSyncAzureFunction.CloudSyncFunctionStartup))]
-
+[assembly: CLSCompliant(false)]
 namespace CloudLibSyncAzureFunction
 {
 
@@ -39,15 +39,18 @@ namespace CloudLibSyncAzureFunction
         {
             if (options == null || options.Value == null)
             {
-                throw new ArgumentNullException(nameof(CloudLibSyncOptions));
+                string error = nameof(CloudLibSyncOptions);
+                throw new ArgumentNullException(error);
             }
             if (options.Value.Source == null)
             {
-                throw new ArgumentNullException(nameof(options.Value.Source));
+                string error = nameof(options.Value.Source);
+                throw new ArgumentNullException(error);
             }
             if (options.Value.Target == null)
             {
-                throw new ArgumentNullException(nameof(options.Value.Target));
+                string error = nameof(options.Value.Target);
+                throw new ArgumentNullException(error);
             }
             _options = options.Value;
         }

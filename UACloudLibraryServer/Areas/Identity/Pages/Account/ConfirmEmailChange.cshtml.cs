@@ -36,14 +36,14 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
                 return RedirectToPage("/Index");
             }
 
-            var user = await _userManager.FindByIdAsync(userId).ConfigureAwait(false);
+            IdentityUser user = await _userManager.FindByIdAsync(userId).ConfigureAwait(false);
             if (user == null)
             {
                 return NotFound($"Unable to load user with ID '{userId}'.");
             }
 
             code = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code));
-            var result = await _userManager.ChangeEmailAsync(user, email, code).ConfigureAwait(false);
+            IdentityResult result = await _userManager.ChangeEmailAsync(user, email, code).ConfigureAwait(false);
             if (!result.Succeeded)
             {
                 StatusMessage = "Error changing email.";
@@ -52,7 +52,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
 
             // In our UI email and user name are one and the same, so when we update the email
             // we need to update the user name.
-            var setUserNameResult = await _userManager.SetUserNameAsync(user, email).ConfigureAwait(false);
+            IdentityResult setUserNameResult = await _userManager.SetUserNameAsync(user, email).ConfigureAwait(false);
             if (!setUserNameResult.Succeeded)
             {
                 StatusMessage = "Error changing user name.";

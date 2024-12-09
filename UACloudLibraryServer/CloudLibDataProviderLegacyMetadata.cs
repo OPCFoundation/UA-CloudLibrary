@@ -34,16 +34,16 @@ namespace Opc.Ua.Cloud.Library
 
             bool legacyMigrationError = false;
 #pragma warning disable CA1305 // Specify IFormatProvider - .ToString(0 runs in DB
-            var missingLegacyMetaDataIds = await _dbContext.LegacyMetadata
+            List<long> missingLegacyMetaDataIds = await _dbContext.LegacyMetadata
                 .Select(md => md.NodesetId)
                 .Distinct()
                 .Where(id => !_dbContext.NamespaceMetaDataWithUnapproved.Any(nmd => nmd.NodesetId == id.ToString()))
                 .ToListAsync().ConfigureAwait(false);
 #pragma warning restore CA1305 // Specify IFormatProvider
             _logger.LogInformation($"Migrating legacy metadata for {missingLegacyMetaDataIds.Count} nodesets.");
-            foreach (var legacyNodesetId in missingLegacyMetaDataIds)
+            foreach (long legacyNodesetId in missingLegacyMetaDataIds)
             {
-                var uaNamespace = await RetrieveAllLegacyMetadataAsync((uint)legacyNodesetId).ConfigureAwait(false);
+                UANameSpace uaNamespace = await RetrieveAllLegacyMetadataAsync((uint)legacyNodesetId).ConfigureAwait(false);
                 if (uaNamespace == null)
                 {
                     legacyMigrationError = true;
@@ -53,13 +53,13 @@ namespace Opc.Ua.Cloud.Library
                 try
                 {
                     _logger.LogDebug($"Downloading nodeset for legacy metadata migration {legacyNodesetId}");
-                    var nodeSetXml = await storage.DownloadFileAsync(legacyNodesetId.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                    string nodeSetXml = await storage.DownloadFileAsync(legacyNodesetId.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
 
                     if (nodeSetXml != null)
                     {
                         _logger.LogDebug($"Parsing missing nodeset for legacy metadata migration {legacyNodesetId}");
-                        var uaNodeSet = InfoModelController.ReadUANodeSet(nodeSetXml);
-                        var message = await AddMetaDataAsync(uaNamespace, uaNodeSet, 0, null).ConfigureAwait(false);
+                        Export.UANodeSet uaNodeSet = InfoModelController.ReadUANodeSet(nodeSetXml);
+                        string message = await AddMetaDataAsync(uaNamespace, uaNodeSet, 0, null).ConfigureAwait(false);
                         if (!string.IsNullOrEmpty(message))
                         {
                             legacyMigrationError = true;
@@ -94,8 +94,8 @@ namespace Opc.Ua.Cloud.Library
             try
             {
                 nameSpace = new();
-                var allMetaData = await _dbContext.LegacyMetadata.Where(md => md.NodesetId == nodesetId).ToListAsync().ConfigureAwait(false);
-                var model = GetNamespaceUriForNodeset(nodesetId.ToString(CultureInfo.InvariantCulture));
+                List<MetadataModel> allMetaData = await _dbContext.LegacyMetadata.Where(md => md.NodesetId == nodesetId).ToListAsync().ConfigureAwait(false);
+                CloudLibNodeSetModel model = GetNamespaceUriForNodeset(nodesetId.ToString(CultureInfo.InvariantCulture));
                 ConvertNodeSetMetadata(nodesetId, allMetaData, model, nameSpace);
             }
             catch (Exception ex)
@@ -141,7 +141,7 @@ namespace Opc.Ua.Cloud.Library
                     if (rm.AvailableModel != null)
                     {
                         uint? identifier = null;
-                        if (uint.TryParse(rm.AvailableModel?.Identifier, out var identifierParsed))
+                        if (uint.TryParse(rm.AvailableModel?.Identifier, out uint identifierParsed))
                         {
                             identifier = identifierParsed;
                         }
@@ -188,7 +188,7 @@ namespace Opc.Ua.Cloud.Library
 
             nameSpace.Category.Description = allMetaData.GetValueOrDefault("addressspacedescription", string.Empty);
 
-            var uri = allMetaData.GetValueOrDefault("addressspaceiconurl");
+            string uri = allMetaData.GetValueOrDefault("addressspaceiconurl");
             if (!string.IsNullOrEmpty(uri))
             {
                 nameSpace.Category.IconUrl = new Uri(uri);
@@ -268,17 +268,17 @@ namespace Opc.Ua.Cloud.Library
             }
 
             var additionalProperties = allMetaData.Where(kv => !_knownProperties.Contains(kv.Key)).ToList();
-            if (additionalProperties.Any())
+            if (additionalProperties.Count != 0)
             {
                 nameSpace.AdditionalProperties = additionalProperties.Select(p => new UAProperty { Name = p.Key, Value = p.Value }).OrderBy(p => p.Name).ToArray();
             }
         }
 
-        static readonly string[] _knownProperties = new string[] {
+        static readonly string[] _knownProperties = [
             "addressspacedescription", "addressspaceiconurl", "addressspacename", "copyright", "creationtime", "description", "documentationurl", "iconurl",
             "keywords", "license", "licenseurl", "locales", "nodesetcreationtime", "nodesetmodifiedtime", "nodesettitle", "numdownloads",
             "orgcontact", "orgdescription", "orglogo", "orgname", "orgwebsite", "purchasinginfo", "releasenotes", "testspecification", "validationstatus", "version",
-            };
+            ];
 
         static Dictionary<string, string> legacyFilterNames = new Dictionary<string, string> {
             // TODO add all filter name maps
@@ -316,7 +316,7 @@ namespace Opc.Ua.Cloud.Library
                 }
 
                 // apply where expression
-                var paramExp = Expression.Parameter(typeof(TModel), typeof(TModel).Name);
+                ParameterExpression paramExp = Expression.Parameter(typeof(TModel), typeof(TModel).Name);
                 if ((fields.Count > 0) && (fields.Count == comparions.Count) && (fields.Count == values.Count))
                 {
                     //nodesetIds = new List<long>();
@@ -334,20 +334,20 @@ namespace Opc.Ua.Cloud.Library
                             fields[i] = "nodesetmodifiedtime";
                         }
 
-                        if (legacyFilterNames.TryGetValue(fields[i], out var newName))
+                        if (legacyFilterNames.TryGetValue(fields[i], out string newName))
                         {
                             fields[i] = newName;
                         }
 
                         // do the search
-                        var propMemberInfo = typeof(TModel).GetProperty(fields[i]);
+                        System.Reflection.PropertyInfo propMemberInfo = typeof(TModel).GetProperty(fields[i]);
                         if (propMemberInfo == null)
                         {
                             // Field not found: fail
                             return null;
                         }
-                        var memberExp = Expression.MakeMemberAccess(paramExp, propMemberInfo);
-                        var valueExp = Expression.Constant(values[i]);
+                        MemberExpression memberExp = Expression.MakeMemberAccess(paramExp, propMemberInfo);
+                        ConstantExpression valueExp = Expression.Constant(values[i]);
                         Expression comparison = null;
                         if (comparions[i] == "equals")
                         {

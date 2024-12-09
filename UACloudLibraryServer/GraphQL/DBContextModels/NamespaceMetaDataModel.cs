@@ -27,18 +27,18 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Globalization;
+using System.Linq;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Opc.Ua.Cloud.Library.Models;
+
 namespace Opc.Ua.Cloud.Library.DbContextModels
 {
-    using System;
-    using System.Collections.Generic;
-    using System.ComponentModel.DataAnnotations;
-    using System.ComponentModel.DataAnnotations.Schema;
-    using System.Globalization;
-    using System.Linq;
-    using Microsoft.EntityFrameworkCore;
-    using Microsoft.EntityFrameworkCore.Metadata.Internal;
-    using Opc.Ua.Cloud.Library.Models;
-
     [Table("NamespaceMeta")]
     public partial class NamespaceMetaDataModel
     {

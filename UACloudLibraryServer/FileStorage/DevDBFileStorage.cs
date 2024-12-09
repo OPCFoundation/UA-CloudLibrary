@@ -27,19 +27,19 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.ComponentModel.DataAnnotations;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Opc.Ua.Cloud.Library.Interfaces;
+
 namespace Opc.Ua.Cloud.Library
 {
-    using System;
-    using System.ComponentModel.DataAnnotations;
-    using System.IO;
-    using System.Threading;
-    using System.Threading.Tasks;
-    using Microsoft.EntityFrameworkCore;
-    using Microsoft.EntityFrameworkCore.ChangeTracking;
-    using Microsoft.Extensions.Configuration;
-    using Microsoft.Extensions.Logging;
-    using Opc.Ua.Cloud.Library.Interfaces;
-
     /// <summary>
     /// Database storage class: single store makes some development scenarios easier
 	/// For example: database deletion/recreate leaves DB out of sync with file store)
@@ -66,7 +66,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                var existingFile = await _dbContext.FindAsync<DevDbFiles>(name).ConfigureAwait(false);
+                DevDbFiles existingFile = await _dbContext.FindAsync<DevDbFiles>(name).ConfigureAwait(false);
                 if (existingFile != null)
                 {
                     return name;
@@ -90,7 +90,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                var existingFile = await _dbContext.FindAsync<DevDbFiles>(name).ConfigureAwait(false);
+                DevDbFiles existingFile = await _dbContext.FindAsync<DevDbFiles>(name).ConfigureAwait(false);
                 if (existingFile != null)
                 {
                     existingFile.Blob = content;
@@ -104,7 +104,7 @@ namespace Opc.Ua.Cloud.Library
                     };
                     _dbContext.Add(newFile);
                 }
-                await _dbContext.SaveChangesAsync(true).ConfigureAwait(false);
+                await _dbContext.SaveChangesAsync(true, cancellationToken).ConfigureAwait(false);
                 return name;
             }
             catch (Exception ex)
@@ -121,7 +121,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                var existingFile = await _dbContext.FindAsync<DevDbFiles>(name).ConfigureAwait(false);
+                DevDbFiles existingFile = await _dbContext.FindAsync<DevDbFiles>(name).ConfigureAwait(false);
                 return existingFile?.Blob;
             }
             catch (Exception ex)
@@ -134,11 +134,11 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                var existingFile = await _dbContext.FindAsync<DevDbFiles>(name).ConfigureAwait(false);
+                DevDbFiles existingFile = await _dbContext.FindAsync<DevDbFiles>(name).ConfigureAwait(false);
                 if (existingFile != null)
                 {
                     _dbContext.Remove(existingFile);
-                    await _dbContext.SaveChangesAsync(true).ConfigureAwait(false);
+                    await _dbContext.SaveChangesAsync(true, cancellationToken).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)

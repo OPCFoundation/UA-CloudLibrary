@@ -27,43 +27,44 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Net.Http;
+using System.Security.Claims;
+using System.Text.Json;
+using Amazon.S3;
+using GraphQL.Server.Ui.Playground;
+using HotChocolate.AspNetCore;
+using HotChocolate.Data;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OAuth;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+#if AZURE_AD
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.IdentityModel.Logging;
+using Microsoft.Identity.Web;
+#endif
+using Microsoft.OpenApi.Models;
+using Opc.Ua.Cloud.Library.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Opc.Ua.Cloud.Library.Authentication;
+
+[assembly: CLSCompliant(false)]
 namespace Opc.Ua.Cloud.Library
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Globalization;
-    using System.IO;
-    using System.Net.Http;
-    using System.Security.Claims;
-    using System.Text.Json;
-    using Amazon.S3;
-    using GraphQL.Server.Ui.Playground;
-    using HotChocolate.AspNetCore;
-    using HotChocolate.Data;
-    using Microsoft.AspNetCore.Authentication;
-    using Microsoft.AspNetCore.Authentication.OAuth;
-    using Microsoft.AspNetCore.Builder;
-    using Microsoft.AspNetCore.DataProtection;
-    using Microsoft.AspNetCore.Hosting;
-    using Microsoft.AspNetCore.Http;
-    using Microsoft.AspNetCore.Identity;
-    using Microsoft.AspNetCore.Identity.UI.Services;
-    using Microsoft.AspNetCore.Server.Kestrel.Core;
-    using Microsoft.EntityFrameworkCore;
-    using Microsoft.Extensions.Configuration;
-    using Microsoft.Extensions.DependencyInjection;
-    using Microsoft.Extensions.Hosting;
-    using Microsoft.Extensions.Logging;
-#if AZURE_AD
-    using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-    using Microsoft.IdentityModel.Logging;
-    using Microsoft.Identity.Web;
-#endif
-    using Microsoft.OpenApi.Models;
-    using Opc.Ua.Cloud.Library.Interfaces;
-    using Microsoft.AspNetCore.Authorization;
-    using Opc.Ua.Cloud.Library.Authentication;
-
     public class Startup
     {
         public Startup(IConfiguration configuration, IWebHostEnvironment environment)
@@ -280,7 +281,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 case "Azure": services.AddSingleton<IFileStorage, AzureFileStorage>(); break;
                 case "AWS":
-                    var awsOptions = Configuration.GetAWSOptions();
+                    Amazon.Extensions.NETCore.Setup.AWSOptions awsOptions = Configuration.GetAWSOptions();
                     services.AddDefaultAWSOptions(awsOptions);
                     services.AddAWSService<IAmazonS3>();
                     services.AddSingleton<IFileStorage, AWSFileStorage>();
@@ -295,7 +296,7 @@ namespace Opc.Ua.Cloud.Library
                 }
             }
 
-            var serviceName = Configuration["Application"] ?? "UACloudLibrary";
+            string serviceName = Configuration["Application"] ?? "UACloudLibrary";
 
             // setup data protection
             switch (Configuration["HostingPlatform"])
@@ -310,7 +311,7 @@ namespace Opc.Ua.Cloud.Library
 
 
             HotChocolate.Types.Pagination.PagingOptions paginationConfig;
-            var section = Configuration.GetSection("GraphQLPagination");
+            IConfigurationSection section = Configuration.GetSection("GraphQLPagination");
             if (section.Exists())
             {
                 paginationConfig = section.Get<HotChocolate.Types.Pagination.PagingOptions>();
@@ -326,7 +327,11 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddGraphQLServer()
                 .AddAuthorization()
-                .SetPagingOptions(paginationConfig)
+                .ModifyPagingOptions(o => {
+                    o.IncludeTotalCount = paginationConfig.IncludeTotalCount;
+                    o.DefaultPageSize = paginationConfig.DefaultPageSize;
+                    o.MaxPageSize = paginationConfig.MaxPageSize;
+                })
                 .AddFiltering(fd => {
                     fd.AddDefaults().BindRuntimeType<UInt32, UnsignedIntOperationFilterInputType>();
                     fd.AddDefaults().BindRuntimeType<UInt32?, UnsignedIntOperationFilterInputType>();
@@ -389,13 +394,7 @@ namespace Opc.Ua.Cloud.Library
 
             app.UseAuthorization();
 
-            app.UseGraphQLPlayground(
-                "/graphqlui",
-                new PlaygroundOptions() {
-                    RequestCredentials = RequestCredentials.Include
-                });
             app.UseGraphQLGraphiQL("/graphiql", new GraphQL.Server.Ui.GraphiQL.GraphiQLOptions {
-                ExplorerExtensionEnabled = true,
                 RequestCredentials = GraphQL.Server.Ui.GraphiQL.RequestCredentials.Include,
             });
 

@@ -4,7 +4,7 @@ using Opc.Ua.Cloud.Library.Client;
 
 namespace CloudLibClient.Tests
 {
-    internal class OrganisationComparer : IEqualityComparer<Organisation>
+    internal sealed class OrganisationComparer : IEqualityComparer<Organisation>
     {
         public bool Equals(Organisation x, Organisation y)
         {
@@ -25,7 +25,7 @@ namespace CloudLibClient.Tests
         }
     }
 
-    internal class CategoryComparer : IEqualityComparer<Category>
+    internal sealed class CategoryComparer : IEqualityComparer<Category>
     {
         public bool Equals(Category x, Category y)
         {
@@ -44,7 +44,7 @@ namespace CloudLibClient.Tests
         }
     }
 
-    internal class RequiredModelInfoComparer : IEqualityComparer<RequiredModelInfo>
+    internal sealed class RequiredModelInfoComparer : IEqualityComparer<RequiredModelInfo>
     {
         public bool Equals(RequiredModelInfo x, RequiredModelInfo y)
         {
@@ -60,7 +60,7 @@ namespace CloudLibClient.Tests
             throw new System.NotImplementedException();
         }
     }
-    internal class UAPropertyComparer : IEqualityComparer<UAProperty>
+    internal sealed class UAPropertyComparer : IEqualityComparer<UAProperty>
     {
         public bool Equals(UAProperty x, UAProperty y)
         {

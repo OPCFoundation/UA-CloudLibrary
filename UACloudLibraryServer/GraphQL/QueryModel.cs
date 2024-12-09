@@ -27,31 +27,31 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Linq;
+using CESMII.OpcUa.NodeSetModel;
+using HotChocolate;
+using HotChocolate.Authorization;
+using HotChocolate.Data;
+using HotChocolate.Data.Filters;
+using HotChocolate.Language;
+using HotChocolate.Resolvers;
+using HotChocolate.Types;
+using Opc.Ua.Cloud.Library.DbContextModels;
+
 namespace Opc.Ua.Cloud.Library
 {
-    using System;
-    using System.Linq;
-    using CESMII.OpcUa.NodeSetModel;
-    using HotChocolate;
-    using HotChocolate.Authorization;
-    using HotChocolate.Data;
-    using HotChocolate.Data.Filters;
-    using HotChocolate.Language;
-    using HotChocolate.Resolvers;
-    using HotChocolate.Types;
-    using Opc.Ua.Cloud.Library.DbContextModels;
-
     [Authorize]
     public partial class QueryModel
     {
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<CloudLibNodeSetModel> GetNodeSets([Service(ServiceKind.Synchronized)] IDatabase dp, IResolverContext context,
+        public IQueryable<CloudLibNodeSetModel> GetNodeSets([Service()] IDatabase dp, IResolverContext context,
             string identifier = null, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string[] keywords = null)
         {
-            var query = dp.GetNodeSets(identifier, modelUri ?? nodeSetUrl, publicationDate, keywords);
+            IQueryable<CloudLibNodeSetModel> query = dp.GetNodeSets(identifier, modelUri ?? nodeSetUrl, publicationDate, keywords);
 
             // Make sure the result is ordered even if the graphl query didn't specify an order so that pagination works correctly
-            var orderByArgument = context.ArgumentLiteral<IValueNode>("order");
+            IValueNode orderByArgument = context.ArgumentLiteral<IValueNode>("order");
             if (orderByArgument == NullValueNode.Default || orderByArgument == null)
             {
                 query = query.OrderBy(nsm => nsm.ModelUri).ThenBy(nsm => nsm.PublicationDate);
@@ -61,49 +61,49 @@ namespace Opc.Ua.Cloud.Library
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<ObjectTypeModel> GetObjectTypes([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<ObjectTypeModel> GetObjectTypes([Service] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
             return dp.GetObjectTypes(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<VariableTypeModel> GetVariableTypes([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<VariableTypeModel> GetVariableTypes([Service] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
             return dp.GetVariableTypes(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<DataTypeModel> GetDataTypes([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<DataTypeModel> GetDataTypes([Service] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
             return dp.GetDataTypes(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<PropertyModel> GetProperties([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<PropertyModel> GetProperties([Service] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
             return dp.GetProperties(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<DataVariableModel> GetDataVariables([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<DataVariableModel> GetDataVariables([Service] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
             return dp.GetDataVariables(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<ReferenceTypeModel> GetReferenceTypes([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<ReferenceTypeModel> GetReferenceTypes([Service] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
             return dp.GetReferenceTypes(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<InterfaceModel> GetInterfaces([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<InterfaceModel> GetInterfaces([Service] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
             return dp.GetInterfaces(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<ObjectModel> GetObjects([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<ObjectModel> GetObjects([Service] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
             return dp.GetObjects(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
@@ -115,19 +115,19 @@ namespace Opc.Ua.Cloud.Library
         //}
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<NodeModel> GetAllNodes([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<NodeModel> GetAllNodes([Service] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
         {
             return dp.GetAllNodes(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<CategoryModel> GetCategories([Service(ServiceKind.Synchronized)] IDatabase dp)
+        public IQueryable<CategoryModel> GetCategories([Service] IDatabase dp)
         {
             return dp.GetCategories();
         }
 
         [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<OrganisationModel> GetOrganisations([Service(ServiceKind.Synchronized)] IDatabase dp)
+        public IQueryable<OrganisationModel> GetOrganisations([Service] IDatabase dp)
         {
             return dp.GetOrganisations();
         }
@@ -137,7 +137,7 @@ namespace Opc.Ua.Cloud.Library
 
         [UsePaging, UseFiltering, UseSorting]
         [Obsolete("Use NodeSets.Metadata instead.")]
-        public Task<List<Models.UANameSpace>> GetNamespaces([Service(ServiceKind.Synchronized)] IDatabase dp)
+        public Task<List<Models.UANameSpace>> GetNamespaces([Service] IDatabase dp)
         {
             // TODO Return IQueryable to make GraphQL filtering and pagination more efficient.
             return dp.GetNamespaces(short.MaxValue, 0, null, null);
@@ -160,55 +160,55 @@ namespace Opc.Ua.Cloud.Library
         }
 
         [Obsolete("Use namespaces instead.")]
-        public Task<List<Models.UANameSpace>> GetNameSpace([Service(ServiceKind.Synchronized)] IDatabase dp, int limit, int offset, string where, string orderBy)
+        public Task<List<Models.UANameSpace>> GetNameSpace([Service] IDatabase dp, int limit, int offset, string where, string orderBy)
         {
             return dp.GetNamespaces(limit, offset, where, orderBy);
         }
 
         [Obsolete("Use categories instead.")]
-        public Task<List<Models.Category>> GetCategory([Service(ServiceKind.Synchronized)] IDatabase dp, int limit, int offset, string where, string orderBy)
+        public Task<List<Models.Category>> GetCategory([Service] IDatabase dp, int limit, int offset, string where, string orderBy)
         {
             return dp.GetCategory(limit, offset, where, orderBy);
         }
 
         [Obsolete("Use namespaces and namespaces.additionalProperties instead.")]
-        public IQueryable<MetadataModel> GetMetadata([Service(ServiceKind.Synchronized)] IDatabase dp)
+        public IQueryable<MetadataModel> GetMetadata([Service] IDatabase dp)
         {
             return dp.GetMetadataModel();
         }
 
         [Obsolete("Use organizations instead.")]
-        public Task<List<Models.Organisation>> GetOrganisation([Service(ServiceKind.Synchronized)] IDatabase dp, int limit, int offset, string where, string orderBy)
+        public Task<List<Models.Organisation>> GetOrganisation([Service] IDatabase dp, int limit, int offset, string where, string orderBy)
         {
             return dp.GetOrganisation(limit, offset, where, orderBy);
         }
 
         [Obsolete("Use nodeSets instead.")]
-        public IQueryable<NodeSetGraphQLLegacy> GetNodeSet([Service(ServiceKind.Synchronized)] IDatabase dp)
+        public IQueryable<NodeSetGraphQLLegacy> GetNodeSet([Service] IDatabase dp)
         {
             return dp.GetNodeSet();
         }
 
         [Obsolete("Use objectTypes instead.")]
-        public IQueryable<ObjecttypeModel> GetObjectType([Service(ServiceKind.Synchronized)] IDatabase dp)
+        public IQueryable<ObjecttypeModel> GetObjectType([Service] IDatabase dp)
         {
             return dp.GetObjectType();
         }
 
         [Obsolete("Use dataTypes instead.")]
-        public IQueryable<DatatypeModel> GetDataType([Service(ServiceKind.Synchronized)] IDatabase dp)
+        public IQueryable<DatatypeModel> GetDataType([Service] IDatabase dp)
         {
             return dp.GetDataType();
         }
 
         [Obsolete("Use referenceTypes instead.")]
-        public IQueryable<ReferencetypeModel> GetReferenceType([Service(ServiceKind.Synchronized)] IDatabase dp)
+        public IQueryable<ReferencetypeModel> GetReferenceType([Service] IDatabase dp)
         {
             return dp.GetReferenceType();
         }
 
         [Obsolete("Use variableTypes instead.")]
-        public IQueryable<VariabletypeModel> GetVariableType([Service(ServiceKind.Synchronized)] IDatabase dp)
+        public IQueryable<VariabletypeModel> GetVariableType([Service] IDatabase dp)
         {
             return dp.GetVariableType();
         }

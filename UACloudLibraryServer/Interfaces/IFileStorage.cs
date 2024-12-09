@@ -27,11 +27,11 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System.Threading;
+using System.Threading.Tasks;
+
 namespace Opc.Ua.Cloud.Library.Interfaces
 {
-    using System.Threading;
-    using System.Threading.Tasks;
-
     public interface IFileStorage
     {
         /// <summary>

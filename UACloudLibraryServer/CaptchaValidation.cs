@@ -27,18 +27,17 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using Opc.Ua.Cloud.Library.Interfaces;
+
 namespace Opc.Ua.Cloud.Library
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Net.Http;
-    using System.Threading.Tasks;
-    using Microsoft.Extensions.Configuration;
-    using Microsoft.Extensions.Logging;
-    using Newtonsoft.Json;
-    using Opc.Ua.Cloud.Library.Interfaces;
-
-
     public class CaptchaSettings
     {
         public string SiteVerifyUrl { get; set; }
@@ -57,10 +56,10 @@ namespace Opc.Ua.Cloud.Library
         public bool success { get; set; }
         public double score { get; set; }
         public string action { get; set; }
-        public DateTime challenge_ts { get; set; }
+        public DateTime challengeTs { get; set; }
         public string hostname { get; set; }
         [JsonProperty("error-codes")]
-        public List<string> error_codes { get; set; }
+        public List<string> errorCodes { get; set; }
     }
 
     public class CaptchaValidation : Interfaces.ICaptchaValidation
@@ -141,14 +140,14 @@ namespace Opc.Ua.Cloud.Library
                     //basic error with call
                     if (!response.IsSuccessStatusCode)
                     {
-                        var msg = $"{(int)response.StatusCode}-{response.ReasonPhrase}";
+                        string msg = $"{(int)response.StatusCode}-{response.ReasonPhrase}";
                         _logger.LogCritical($"ValidateCaptcha|Error occurred in the API call: {msg}");
                         return "An error occurred validating the Captcha response. Please contact your system administrator.";
                     }
 
                     //check the reCaptcha response
-                    var data = response.Content.ReadAsStringAsync().Result;  //Make sure to add a reference to System.Net.Http.Formatting.dll
-                    var recaptchaResponse = Newtonsoft.Json.JsonConvert.DeserializeObject<ReCaptchaResponse>(data);
+                    string data = response.Content.ReadAsStringAsync().Result;  //Make sure to add a reference to System.Net.Http.Formatting.dll
+                    ReCaptchaResponse recaptchaResponse = Newtonsoft.Json.JsonConvert.DeserializeObject<ReCaptchaResponse>(data);
                     if (recaptchaResponse == null)
                     {
                         _logger.LogCritical($"ValidateCaptcha|Expected Google reCaptcha response was null");
@@ -157,7 +156,7 @@ namespace Opc.Ua.Cloud.Library
 
                     if (!recaptchaResponse.success)
                     {
-                        var errors = string.Join(",", recaptchaResponse.error_codes);
+                        string errors = string.Join(",", recaptchaResponse.errorCodes);
                         _logger.LogCritical($"ValidateCaptcha| Google reCaptcha returned error(s): {errors}");
                         return "Error(s) occurred validating the Captcha response. Please contact your system administrator.";
                     }
@@ -178,7 +177,7 @@ namespace Opc.Ua.Cloud.Library
             }
             catch (Exception ex)
             {
-                var msg = $"ValidateCaptcha|Unexpected error occurred in the API call: {ex.Message}";
+                string msg = $"ValidateCaptcha|Unexpected error occurred in the API call: {ex.Message}";
                 _logger.LogCritical(ex, msg);
                 return "An unexpected error occurred validating the Captcha response. Please contact your system administrator.";
             }

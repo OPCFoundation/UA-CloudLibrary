@@ -53,10 +53,10 @@ namespace Opc.Ua.Cloud.Library
         public bool AddNodeSet(UANodeSetImportResult results, string nodeSetXml, object TenantID, bool requested)
         {
             // Assume already added to cloudlib storage before
-            var nodeSet = InfoModelController.ReadUANodeSet(nodeSetXml);
+            Export.UANodeSet nodeSet = InfoModelController.ReadUANodeSet(nodeSetXml);
             // Assumption: exactly one nodeSetXml was passed into UANodeSetImport.ImportNodeSets and it's the first one being added.
-            bool isNew = !results.Models.Any();
-            var modelInfo = results.AddModelAndDependencies(nodeSet, null, nodeSet.Models?[0], null, isNew);
+            bool isNew = (results.Models.Count == 0);
+            (ModelValue Model, bool Added) modelInfo = results.AddModelAndDependencies(nodeSet, null, nodeSet.Models?[0], null, isNew);
             modelInfo.Model.RequestedForThisImport = requested;
             return modelInfo.Added;
         }
@@ -78,7 +78,7 @@ namespace Opc.Ua.Cloud.Library
             if (matchingNodeSet != null)
             {
                 string tFileName = matchingNodeSet.Identifier;
-                var nodeSetXml = _storage.DownloadFileAsync(tFileName).Result;
+                string nodeSetXml = _storage.DownloadFileAsync(tFileName).Result;
                 if (nodeSetXml != null)
                 {
                     AddNodeSet(results, nodeSetXml, TenantID, false);

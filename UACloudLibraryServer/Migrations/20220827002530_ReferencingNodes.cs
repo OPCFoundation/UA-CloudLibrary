@@ -29,19 +29,19 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_Nodes_OtherReferencingNodes_Nodes_OwnerNodeId_OwnerModelUri~",
                         columns: x => new { x.OwnerNodeId, x.OwnerModelUri, x.OwnerPublicationDate },
                         principalTable: "Nodes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_Nodes_OtherReferencingNodes_Nodes_ReferencingNodeId_Referen~",
                         columns: x => new { x.ReferencingNodeId, x.ReferencingModelUri, x.ReferencingPublicationDate },
                         principalTable: "Nodes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
                 });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Nodes_OtherReferencingNodes_ReferencingNodeId_ReferencingMo~",
                 table: "Nodes_OtherReferencingNodes",
-                columns: new[] { "ReferencingNodeId", "ReferencingModelUri", "ReferencingPublicationDate" });
+                columns: ["ReferencingNodeId", "ReferencingModelUri", "ReferencingPublicationDate"]);
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)

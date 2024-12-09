@@ -27,10 +27,10 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using Newtonsoft.Json;
+
 namespace Opc.Ua.Cloud.Library.Client.Models
 {
-    using Newtonsoft.Json;
-
     /// <summary>GraphQL Result for metadata queries</summary>
     [JsonObject("metadata")]
     public class MetadataResult

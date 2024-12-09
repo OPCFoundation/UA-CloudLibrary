@@ -4,9 +4,6 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using Opc.Ua.Cloud.Library;
 
 #nullable disable
 
@@ -14,7 +11,7 @@ namespace Opc.Ua.Cloud.Library
 {
     [DbContext(typeof(AppDbContext))]
     [Migration("20221217024820_metadatacleanup")]
-    partial class metadatacleanup
+    partial class MetadataCleanup
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {

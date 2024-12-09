@@ -27,19 +27,19 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Security.Claims;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Opc.Ua.Cloud.Library.Authentication;
+using Opc.Ua.Cloud.Library.Interfaces;
+
 namespace Opc.Ua.Cloud.Library
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Security.Claims;
-    using System.Threading.Tasks;
-    using Microsoft.AspNetCore.Identity;
-    using Microsoft.Extensions.Configuration;
-    using Microsoft.Extensions.Logging;
-    using Opc.Ua.Cloud.Library.Authentication;
-    using Opc.Ua.Cloud.Library.Interfaces;
-
     public class UserService : IUserService
     {
         private readonly UserManager<IdentityUser> _userManager;
@@ -118,8 +118,8 @@ namespace Opc.Ua.Cloud.Library
                 }
                 List<Claim> claims = new();
                 claims.Add(new Claim(ClaimTypes.Name, username));
-                var roles = await _userManager.GetRolesAsync(user).ConfigureAwait(false);
-                foreach (var role in roles)
+                IList<string> roles = await _userManager.GetRolesAsync(user).ConfigureAwait(false);
+                foreach (string role in roles)
                 {
                     claims.Add(new Claim(ClaimTypes.Role, role));
                 }
@@ -130,9 +130,9 @@ namespace Opc.Ua.Cloud.Library
 
         public async Task<IEnumerable<Claim>> ValidateApiKeyAsync(string apiKey)
         {
-            var parsedApiKey = await _apiKeyTokenProvider.FindUserForApiKey(apiKey, _userManager).ConfigureAwait(false);
+            (string UserId, string ApiKeyName) parsedApiKey = await _apiKeyTokenProvider.FindUserForApiKey(apiKey, _userManager).ConfigureAwait(false);
 
-            var user = await _userManager.FindByIdAsync(parsedApiKey.UserId).ConfigureAwait(false);
+            IdentityUser user = await _userManager.FindByIdAsync(parsedApiKey.UserId).ConfigureAwait(false);
             if (user == null)
             {
                 return null;
@@ -142,8 +142,8 @@ namespace Opc.Ua.Cloud.Library
                 return null;
             }
             List<Claim> claims = new();
-            var roles = await _userManager.GetRolesAsync(user).ConfigureAwait(false);
-            foreach (var role in roles)
+            IList<string> roles = await _userManager.GetRolesAsync(user).ConfigureAwait(false);
+            foreach (string role in roles)
             {
                 claims.Add(new Claim(ClaimTypes.Role, role));
             }

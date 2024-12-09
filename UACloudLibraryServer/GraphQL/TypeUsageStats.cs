@@ -10,7 +10,7 @@ namespace Opc.Ua.Cloud.Library
     public partial class QueryModel
     {
         [UseFiltering, UseSorting]
-        public List<TypeStats> GetTypeUsageStats([Service(ServiceKind.Synchronized)] IDatabase dp)
+        public List<TypeStats> GetTypeUsageStats([Service()] IDatabase dp)
         {
             return (dp as CloudLibDataProvider).GetTypeUsageStats();
         }
@@ -32,7 +32,7 @@ namespace Opc.Ua.Cloud.Library
     {
         public /*Dictionary<string, */List<TypeStats> GetTypeUsageStats()
         {
-            var objectTypesInObjectsStats = _dbContext.nodeSets
+            IEnumerable<TypeStats> objectTypesInObjectsStats = _dbContext.nodeSets
                 .SelectMany(nm => nm.Objects/*.Where(o => o.NodeSet.ModelUri != o.TypeDefinition.NodeSet.ModelUri)*/
                 .Select(om => new { ObjectType = om.TypeDefinition, Namespace = om.NodeSet.ModelUri, BrowseName = om.BrowseName }))
                 .Distinct()
@@ -58,7 +58,7 @@ namespace Opc.Ua.Cloud.Library
                     }))
                 ;
 
-            var dataTypeInVariablesStats = _dbContext.nodeSets
+            IEnumerable<TypeStats> dataTypeInVariablesStats = _dbContext.nodeSets
                 .SelectMany(nm => nm.Properties/*.Where(p => p.NodeSet.ModelUri != p.TypeDefinition.NodeSet.ModelUri)*/
                 .Select(p => new { DataType = p.DataType, Namespace = p.NodeSet.ModelUri, BrowseName = p.BrowseName }))
                 .Distinct()
@@ -91,7 +91,7 @@ namespace Opc.Ua.Cloud.Library
                     }))
                 ;
 
-            var dataTypeInStructsStats = _dbContext.nodeSets
+            IEnumerable<TypeStats> dataTypeInStructsStats = _dbContext.nodeSets
                 .SelectMany(nm => nm.DataTypes.SelectMany(dt => dt.StructureFields.Select(sf => new { StructureFieldDT = sf.DataType, ReferencingNamespace = dt.NodeSet.ModelUri, ReferencingBrowseName = dt.BrowseName }))/*.Where(o => o.NodeSet.ModelUri != o.TypeDefinition.NodeSet.ModelUri)*/
                 .Select(sf => new { DataType = sf.StructureFieldDT, Namespace = sf.ReferencingNamespace, BrowseName = sf.ReferencingBrowseName }))
                 .Distinct()

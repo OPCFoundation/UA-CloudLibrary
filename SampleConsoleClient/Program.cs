@@ -27,24 +27,25 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Net.Http;
+using System.Text;
+using System.Threading.Tasks;
+using GraphQL;
+using GraphQL.Client.Http;
+using GraphQL.Client.Serializer.Newtonsoft;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Opc.Ua.Cloud.Library.Client;
+using Opc.Ua.Cloud.Library.Client.Models;
+
+[assembly: CLSCompliant(false)]
 namespace SampleConsoleClient
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Globalization;
-    using System.Linq;
-    using System.Net.Http;
-    using System.Text;
-    using System.Threading.Tasks;
-    using GraphQL;
-    using GraphQL.Client.Http;
-    using GraphQL.Client.Serializer.Newtonsoft;
-    using Newtonsoft.Json;
-    using Newtonsoft.Json.Linq;
-    using Opc.Ua.Cloud.Library.Client;
-    using Opc.Ua.Cloud.Library.Client.Models;
-
-    class Program
+    public class Program
     {
         static async Task Main(string[] args)
         {
@@ -70,7 +71,7 @@ namespace SampleConsoleClient
             Console.WriteLine();
             Console.WriteLine("Testing GraphQL interface (see https://graphql.org/learn/ for details)...");
 
-            var objectTypeQuery = @"query {
+            string objectTypeQuery = @"query {
                             objectType {
                                 browseName
                                 value
@@ -88,21 +89,21 @@ namespace SampleConsoleClient
                 };
 
                 webClient.DefaultRequestHeaders.Add("Authorization", "basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(args[1] + ":" + args[2])));
-                var queryBodyJson = JsonConvert.SerializeObject(new JObject { { "query", objectTypeQuery } });
+                string queryBodyJson = JsonConvert.SerializeObject(new JObject { { "query", objectTypeQuery } });
                 Uri address = new Uri(webClient.BaseAddress, "graphql");
-                var response2 = webClient.Send(new HttpRequestMessage(HttpMethod.Post, address) {
+                HttpResponseMessage response2 = webClient.Send(new HttpRequestMessage(HttpMethod.Post, address) {
                     Content = new StringContent(queryBodyJson, null, "application/json"),
                 });
                 Console.WriteLine("Response: " + response2.StatusCode.ToString());
-                var responseString = response2.Content.ReadAsStringAsync().Result;
+                string responseString = response2.Content.ReadAsStringAsync().Result;
                 if (!response2.IsSuccessStatusCode)
                 {
                     Console.WriteLine($"HTTP status: {response2.StatusCode} {responseString}");
                 }
                 if (!string.IsNullOrEmpty(responseString))
                 {
-                    var parsedJson = JsonConvert.DeserializeObject<JObject>(responseString);
-                    var responseJson = parsedJson["data"];
+                    JObject parsedJson = JsonConvert.DeserializeObject<JObject>(responseString);
+                    JToken responseJson = parsedJson["data"];
                     Console.WriteLine(JsonConvert.SerializeObject(responseJson, Formatting.Indented));
                 }
             }
@@ -147,7 +148,7 @@ namespace SampleConsoleClient
                         }"
                 };
 
-                var response = await graphQLClient.SendQueryAsync<JObject>(request).ConfigureAwait(false);
+                GraphQLResponse<JObject> response = await graphQLClient.SendQueryAsync<JObject>(request).ConfigureAwait(false);
                 Console.WriteLine(JsonConvert.SerializeObject(response.Data, Formatting.Indented));
             }
             catch (Exception ex)
@@ -198,7 +199,7 @@ namespace SampleConsoleClient
                         }"
                 };
 
-                var response = await graphQLClient.SendQueryAsync<JObject>(request).ConfigureAwait(false);
+                GraphQLResponse<JObject> response = await graphQLClient.SendQueryAsync<JObject>(request).ConfigureAwait(false);
                 Console.WriteLine(JsonConvert.SerializeObject(response.Data, Formatting.Indented));
             }
             catch (Exception ex)
@@ -224,14 +225,14 @@ namespace SampleConsoleClient
 
             // return everything (keywords=*, other keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
             Uri address = new Uri(webClient.BaseAddress, "infomodel/find?keywords=" + Uri.EscapeDataString("*"));
-            var response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
+            HttpResponseMessage response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
             Console.WriteLine("Response: " + response.StatusCode.ToString());
-            var responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            string responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             UANodesetResult[] identifiers = null;
             if (!string.IsNullOrEmpty(responseString))
             {
                 identifiers = JsonConvert.DeserializeObject<UANodesetResult[]>(responseString);
-                for (var i = 0; i < identifiers.Length; i++)
+                for (int i = 0; i < identifiers.Length; i++)
                 {
                     Console.WriteLine(JsonConvert.SerializeObject(identifiers[i], Formatting.Indented));
                 }
@@ -247,7 +248,7 @@ namespace SampleConsoleClient
                 response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
 
                 Console.WriteLine("Response: " + response.StatusCode.ToString());
-                var responseStr = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                string responseStr = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 Console.WriteLine(responseStr);
             }
             else
@@ -317,14 +318,14 @@ namespace SampleConsoleClient
 
                 Console.WriteLine();
                 Console.WriteLine("Testing nodeset dependency query");
-                var identifier = restResult[0].Id.ToString(CultureInfo.InvariantCulture);
-                var nodeSets = await client.GetNodeSetDependencies(identifier: identifier).ConfigureAwait(false);
+                string identifier = restResult[0].Id.ToString(CultureInfo.InvariantCulture);
+                List<Nodeset> nodeSets = await client.GetNodeSetDependencies(identifier: identifier).ConfigureAwait(false);
                 if (nodeSets?.Count > 0)
                 {
-                    foreach (var nodeSet in nodeSets)
+                    foreach (Nodeset nodeSet in nodeSets)
                     {
                         Console.WriteLine($"Dependencies for {nodeSet.Identifier} {nodeSet.NamespaceUri} {nodeSet.PublicationDate} ({nodeSet.Version}):");
-                        foreach (var requiredNodeSet in nodeSet.RequiredModels)
+                        foreach (RequiredModelInfo requiredNodeSet in nodeSet.RequiredModels)
                         {
                             Console.WriteLine($"Required: {requiredNodeSet.NamespaceUri} {requiredNodeSet.PublicationDate} ({requiredNodeSet.Version}). Available in Cloud Library: {requiredNodeSet.AvailableModel?.Identifier} {requiredNodeSet.AvailableModel?.PublicationDate} ({requiredNodeSet.AvailableModel?.Version})");
                         }
@@ -332,11 +333,11 @@ namespace SampleConsoleClient
                 }
                 Console.WriteLine();
                 Console.WriteLine("Testing nodeset dependency query by namespace and publication date");
-                var namespaceUri = restResult[0].NameSpaceUri;
-                var publicationDate = restResult[0].PublicationDate.HasValue && restResult[0].PublicationDate.Value.Kind == DateTimeKind.Unspecified ?
+                string namespaceUri = restResult[0].NameSpaceUri;
+                DateTime? publicationDate = restResult[0].PublicationDate.HasValue && restResult[0].PublicationDate.Value.Kind == DateTimeKind.Unspecified ?
                     DateTime.SpecifyKind(restResult[0].PublicationDate.Value, DateTimeKind.Utc)
                     : restResult[0].PublicationDate;
-                var nodeSetsByNamespace = await client.GetNodeSetDependencies(modelUri: namespaceUri, publicationDate: publicationDate).ConfigureAwait(false);
+                List<Nodeset> nodeSetsByNamespace = await client.GetNodeSetDependencies(modelUri: namespaceUri, publicationDate: publicationDate).ConfigureAwait(false);
                 var dependenciesByNamespace = nodeSetsByNamespace
                     .SelectMany(n => n.RequiredModels).Where(r => r != null)
                     .Select(r => (r.AvailableModel?.Identifier, r.NamespaceUri, r.PublicationDate))

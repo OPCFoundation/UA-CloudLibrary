@@ -60,10 +60,10 @@ namespace Opc.Ua.Cloud.Library.Authentication
         {
             if (!string.IsNullOrEmpty(purpose))
             {
-                var secretBytes = RandomNumberGenerator.GetBytes(32);
+                byte[] secretBytes = RandomNumberGenerator.GetBytes(32);
 
                 // Make it Base64URL
-                var apiKey = Convert.ToBase64String(secretBytes).Replace("+", "-", StringComparison.Ordinal).Replace("/", "_", StringComparison.Ordinal);
+                string apiKey = Convert.ToBase64String(secretBytes).Replace("+", "-", StringComparison.Ordinal).Replace("/", "_", StringComparison.Ordinal);
                 return Task.FromResult(apiKey);
             }
             throw new ArgumentException($"Unknown purpose {purpose}.");
@@ -73,12 +73,12 @@ namespace Opc.Ua.Cloud.Library.Authentication
         {
             if (!string.IsNullOrEmpty(purpose))
             {
-                var authTokenHash = await manager.GetAuthenticationTokenAsync(user, ApiKeyProviderName, purpose).ConfigureAwait(false);
+                string authTokenHash = await manager.GetAuthenticationTokenAsync(user, ApiKeyProviderName, purpose).ConfigureAwait(false);
                 if (authTokenHash == null || authTokenHash.Length < 4)
                 {
                     return false;
                 }
-                var result = manager.PasswordHasher.VerifyHashedPassword(user, authTokenHash.Substring(4), token);
+                PasswordVerificationResult result = manager.PasswordHasher.VerifyHashedPassword(user, authTokenHash.Substring(4), token);
                 if (result == PasswordVerificationResult.Success || result == PasswordVerificationResult.SuccessRehashNeeded)
                 {
                     return true;
@@ -96,21 +96,21 @@ namespace Opc.Ua.Cloud.Library.Authentication
                 throw new ArgumentException($"Invalid API key format");
             }
             // Don't keep the full API key in memory
-            var partialApiKey = apiKey.Substring(0, apiKey.Length - 16);
-            if (_apiKeyToUserMap.TryGetValue(partialApiKey, out var cachedUserAndKeyName) && cachedUserAndKeyName.UserId != "collision")
+            string partialApiKey = apiKey.Substring(0, apiKey.Length - 16);
+            if (_apiKeyToUserMap.TryGetValue(partialApiKey, out (string UserId, string apiKeyName) cachedUserAndKeyName) && cachedUserAndKeyName.UserId != "collision")
             {
                 return cachedUserAndKeyName;
             }
-            var prefix = apiKey.Substring(0, 4);
-            var candidateTokens = await _appDbContext.UserTokens.Where(t => t.LoginProvider == ApiKeyTokenProvider.ApiKeyProviderName && t.Value.StartsWith(prefix)).ToListAsync().ConfigureAwait(false);
+            string prefix = apiKey.Substring(0, 4);
+            List<IdentityUserToken<string>> candidateTokens = await _appDbContext.UserTokens.Where(t => t.LoginProvider == ApiKeyTokenProvider.ApiKeyProviderName && t.Value.StartsWith(prefix)).ToListAsync().ConfigureAwait(false);
 
-            foreach (var candidateToken in candidateTokens)
+            foreach (IdentityUserToken<string> candidateToken in candidateTokens)
             {
-                var user = await manager.FindByIdAsync(candidateToken.UserId).ConfigureAwait(false);
-                var result = manager.PasswordHasher.VerifyHashedPassword(user, candidateToken.Value.Substring(4), apiKey);
+                IdentityUser user = await manager.FindByIdAsync(candidateToken.UserId).ConfigureAwait(false);
+                PasswordVerificationResult result = manager.PasswordHasher.VerifyHashedPassword(user, candidateToken.Value.Substring(4), apiKey);
                 if (result == PasswordVerificationResult.Success || result == PasswordVerificationResult.SuccessRehashNeeded)
                 {
-                    var newUserAndKeyName = (user.Id, candidateToken.Name);
+                    (string Id, string Name) newUserAndKeyName = (user.Id, candidateToken.Name);
 
                     if (cachedUserAndKeyName.UserId != "collision" && !_apiKeyToUserMap.TryAdd(partialApiKey, newUserAndKeyName))
                     {
@@ -134,17 +134,17 @@ namespace Opc.Ua.Cloud.Library.Authentication
         /// <exception cref="ApiKeyGenerationException"></exception>
         public static async Task<string> GenerateAndSetAuthenticationTokenAsync(UserManager<IdentityUser> userManager, IdentityUser user, string newApiKeyName)
         {
-            var existingToken = await userManager.GetAuthenticationTokenAsync(user, ApiKeyProviderName, newApiKeyName).ConfigureAwait(false);
+            string existingToken = await userManager.GetAuthenticationTokenAsync(user, ApiKeyProviderName, newApiKeyName).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(existingToken))
             {
                 return null;
             }
 
-            var newApiKey = await userManager.GenerateUserTokenAsync(user, ApiKeyProviderName, newApiKeyName).ConfigureAwait(false);
+            string newApiKey = await userManager.GenerateUserTokenAsync(user, ApiKeyProviderName, newApiKeyName).ConfigureAwait(false);
             // Store the first 4 bytes of the unhashed key for more efficient key lookup
-            var newApiKeyHash = $"{newApiKey.Substring(0, 4)}{userManager.PasswordHasher.HashPassword(user, newApiKey)}";
+            string newApiKeyHash = $"{newApiKey.Substring(0, 4)}{userManager.PasswordHasher.HashPassword(user, newApiKey)}";
 
-            var setTokenResult = await userManager.SetAuthenticationTokenAsync(user, ApiKeyProviderName, newApiKeyName, newApiKeyHash).ConfigureAwait(false);
+            IdentityResult setTokenResult = await userManager.SetAuthenticationTokenAsync(user, ApiKeyProviderName, newApiKeyName, newApiKeyHash).ConfigureAwait(false);
             if (!setTokenResult.Succeeded)
             {
                 throw new ApiKeyGenerationException("Error saving key.", setTokenResult.Errors.Select(e => e.Description).ToList());
@@ -154,7 +154,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
 
         public async Task<List<(string KeyName, string KeyPrefix)>> GetUserApiKeysAsync(IdentityUser user)
         {
-            var tokens = await _appDbContext.UserTokens.Where(t => t.UserId == user.Id && t.LoginProvider == ApiKeyTokenProvider.ApiKeyProviderName).ToListAsync().ConfigureAwait(false);
+            List<IdentityUserToken<string>> tokens = await _appDbContext.UserTokens.Where(t => t.UserId == user.Id && t.LoginProvider == ApiKeyTokenProvider.ApiKeyProviderName).ToListAsync().ConfigureAwait(false);
             return tokens.Select(t => (t.Name, t.Value.Substring(0, 4))).ToList();
         }
     }
@@ -170,11 +170,5 @@ namespace Opc.Ua.Cloud.Library.Authentication
         {
             Errors = enumerable;
         }
-
-        public ApiKeyGenerationException(string message) : base(message) { }
-
-        public ApiKeyGenerationException(string message, Exception innerException) : base(message, innerException) { }
-
-        protected ApiKeyGenerationException(SerializationInfo info, StreamingContext context) : base(info, context) { }
     }
 }

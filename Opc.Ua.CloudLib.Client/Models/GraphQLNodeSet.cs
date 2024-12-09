@@ -27,14 +27,13 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+
 namespace Opc.Ua.Cloud.Library.Client
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Globalization;
-    using System.Linq;
-
-
     /// <summary>
     /// GraphQL version of the class
     /// </summary>

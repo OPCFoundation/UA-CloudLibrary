@@ -27,10 +27,10 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Opc.Ua.Cloud.Library.DbContextModels
 {
-    using System.ComponentModel.DataAnnotations.Schema;
-
     [Table("metadata")]
     public partial class MetadataModel
     {
