@@ -36,12 +36,12 @@ namespace CloudLibClient.Tests
             var uploadJson = File.ReadAllText(fileName);
 
             var addressSpace = JsonConvert.DeserializeObject<UANameSpace>(uploadJson);
-            var response = await client.UploadNodeSetAsync(addressSpace).ConfigureAwait(false);
+            var response = await client.UploadNodeSetAsync(addressSpace).ConfigureAwait(true);
             if (response.Status == HttpStatusCode.OK)
             {
                 output.WriteLine($"Uploaded {addressSpace?.Nodeset.NamespaceUri}, {addressSpace?.Nodeset.Identifier}");
                 var uploadedIdentifier = response.Message;
-                var approvalResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "APPROVED", null, null).ConfigureAwait(false);
+                var approvalResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "APPROVED", null, null).ConfigureAwait(true);
                 Assert.NotNull(approvalResult);
                 Assert.Equal("APPROVED", approvalResult.ApprovalStatus);
             }
@@ -60,7 +60,7 @@ namespace CloudLibClient.Tests
 
             var expectedNodeSetCount = TestNamespaceFiles.GetFiles().Count();
 
-            await WaitForIndexAsync(client, expectedNodeSetCount).ConfigureAwait(false);
+            await WaitForIndexAsync(client, expectedNodeSetCount).ConfigureAwait(true);
         }
 
         internal static async Task WaitForIndexAsync(HttpClient client, int expectedNodeSetCount)
@@ -68,11 +68,11 @@ namespace CloudLibClient.Tests
             bool bIndexing;
             do
             {
-                var counts = await GetNodeSetCountsAsync(client).ConfigureAwait(false);
+                var counts = await GetNodeSetCountsAsync(client).ConfigureAwait(true);
                 bIndexing = counts.All < expectedNodeSetCount || counts.NotIndexed != 0;
                 if (bIndexing)
                 {
-                    await Task.Delay(5000).ConfigureAwait(false);
+                    await Task.Delay(5000).ConfigureAwait(true);
                 }
             }
             while (bIndexing);
@@ -91,10 +91,10 @@ namespace CloudLibClient.Tests
                         }"
                     } });
             var address = new Uri(client.BaseAddress, "graphql");
-            var response2 = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, address) { Content = new StringContent(queryBodyJson, null, "application/json"), }).ConfigureAwait(false);
+            var response2 = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, address) { Content = new StringContent(queryBodyJson, null, "application/json"), }).ConfigureAwait(true);
             Assert.True(response2.IsSuccessStatusCode, "Failed to read nodeset status");
 
-            var responseString = await response2.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var responseString = await response2.Content.ReadAsStringAsync().ConfigureAwait(true);
             Assert.False(string.IsNullOrEmpty(responseString), "null or empty response reading nodeset status.");
 
             var parsedJson = JsonConvert.DeserializeObject<JObject>(responseString);

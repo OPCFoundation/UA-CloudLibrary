@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Opc.Ua.Cloud.Library;
@@ -20,7 +21,7 @@ namespace CloudLibClient.Tests
             "DeleteCloudLibDBAndStore": false,
             "IgnoreUploadConflict" :  true
           }
-       Set DeleteCloudlibDBAndStore to true to wipe the db before every test run      
+       Set DeleteCloudlibDBAndStore to true to wipe the db before every test run
     */
     [Collection("_init0")]
     public class TestSetup : IClassFixture<CustomWebApplicationFactory<Opc.Ua.Cloud.Library.Startup>>
@@ -35,7 +36,7 @@ namespace CloudLibClient.Tests
         }
 
         [Fact]
-        public void Setup()
+        public async Task Setup()
         {
             if (_factory.TestConfig.DeleteCloudLibDBAndStore && InstantiationCount == 1)
             {
@@ -56,7 +57,7 @@ namespace CloudLibClient.Tests
                     var storage = scope.ServiceProvider.GetRequiredService<IFileStorage>();
                     if (storage is LocalFileStorage localStorage)
                     {
-                        _ = localStorage.DeleteAllFilesAsync().Result;
+                        _ = await localStorage.DeleteAllFilesAsync().ConfigureAwait(true);
                     }
                 }
             }

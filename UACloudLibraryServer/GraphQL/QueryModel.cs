@@ -107,11 +107,12 @@ namespace Opc.Ua.Cloud.Library
         {
             return dp.GetObjects(modelUri ?? nodeSetUrl, publicationDate, nodeId);
         }
-        [UsePaging, UseFiltering, UseSorting]
-        public IQueryable<MethodModel> GetMethods([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
-        {
-            return dp.GetMethods(modelUri ?? nodeSetUrl, publicationDate, nodeId);
-        }
+
+        //[UsePaging, UseFiltering, UseSorting]
+        //public IQueryable<MethodModel> GetMethods([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)
+        //{
+        //    return dp.GetMethods(modelUri ?? nodeSetUrl, publicationDate, nodeId);
+        //}
 
         [UsePaging, UseFiltering, UseSorting]
         public IQueryable<NodeModel> GetAllNodes([Service(ServiceKind.Synchronized)] IDatabase dp, string modelUri = null, string nodeSetUrl = null, DateTime? publicationDate = null, string nodeId = null)

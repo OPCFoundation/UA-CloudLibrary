@@ -175,12 +175,12 @@ namespace Opc.Ua.Cloud.Library.Client
         {
             if (_forceRestTestHook)
             {
-                throw new GraphQlNotSupportedException("Failing graphql query to force REST fallback");
+                throw new NotSupportedException("Failing graphql query to force REST fallback");
             }
             GraphQLResponse<JObject> response = await _client.SendQueryAsync<JObject>(request).ConfigureAwait(false);
             if (response == null)
             {
-                throw new GraphQlException("Internal error: null response.");
+                throw new Exception("Internal error: null response.");
             }
             if (response.Errors?.Length > 0)
             {
@@ -189,7 +189,7 @@ namespace Opc.Ua.Cloud.Library.Client
                 {
                     message = messageObj?.ToString();
                 }
-                throw new GraphQlException(message);
+                throw new Exception(message);
             }
 
             string dataJson = response.Data?.First?.First?.ToString();
@@ -534,7 +534,7 @@ namespace Opc.Ua.Cloud.Library.Client
 #endif
             {
                 Console.WriteLine("Error: " + ex.Message + " Cloud Library does not support GraphQL.");
-                throw new GraphQlNotSupportedException("Cloud Library does not support GraphQL.", ex);
+                throw new NotSupportedException("Cloud Library does not support GraphQL.", ex);
             }
         }
 
@@ -615,7 +615,7 @@ namespace Opc.Ua.Cloud.Library.Client
         }
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         /// <param name="namespaceUri"></param>
         /// <param name="publicationDate"></param>
@@ -629,7 +629,7 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <param name="noRequiredModels"></param>
         /// <param name="noCreationTime"></param>
         /// <returns></returns>
-        /// <exception cref="GraphQlNotSupportedException"></exception>
+        /// <exception cref="NotSupportedException"></exception>
         public async Task<GraphQlResult<Nodeset>> GetNodeSetsPendingApprovalAsync(string namespaceUri = null, DateTime? publicationDate = null, UAProperty additionalProperty = null,
     string after = null, int? first = null, int? last = null, string before = null, bool noMetadata = false, bool noTotalCount = false, bool noRequiredModels = false, bool noCreationTime = true)
         {
@@ -833,7 +833,7 @@ query MyQuery ({variableParams}$after: String, $first: Int, $before: String, $la
 #endif
             {
                 Console.WriteLine("Error: " + ex.Message + " Cloud Library does not support GraphQL.");
-                throw new GraphQlNotSupportedException("Cloud Library does not support GraphQL.", ex);
+                throw new NotSupportedException("Cloud Library does not support GraphQL.", ex);
             }
         }
         /// <summary>
@@ -844,7 +844,7 @@ query MyQuery ({variableParams}$after: String, $first: Int, $before: String, $la
         /// <param name="statusInfo">Optional comment to explain the status, especially REJECTED</param>
         /// <param name="additionalProperty">Additional properties to be set or removed on the approved nodeset. Value = null or empty string removes the property.</param>
         /// <returns>The approved namespace metadata if update succeeded. NULL or exception if failed.</returns>
-        /// <exception cref="GraphQlNotSupportedException"></exception>
+        /// <exception cref="NotSupportedException"></exception>
         public async Task<UANameSpace> UpdateApprovalStatusAsync(string nodeSetId, string newStatus, string statusInfo, UAProperty additionalProperty)
         {
             var request = new GraphQLRequest();
@@ -899,7 +899,7 @@ mutation ApprovalMutation ($newStatus: ApprovalStatus!, $identifier: String, $ap
 #endif
             {
                 Console.WriteLine("Error: " + ex.Message + " Cloud Library does not support GraphQL.");
-                throw new GraphQlNotSupportedException("Cloud Library does not support GraphQL.", ex);
+                throw new NotSupportedException("Cloud Library does not support GraphQL.", ex);
             }
         }
 
@@ -1100,81 +1100,6 @@ query MyQuery ($identifier: String, $modelUri: String, $publicationDate: DateTim
         {
             Authentication = new AuthenticationHeaderValue("basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(_username + ":" + _password)));
             _client.HttpClient.DefaultRequestHeaders.Authorization = Authentication;
-        }
-    }
-
-    /// <summary>
-    /// UA Cloud Lib client exception with GraphQl query
-    /// </summary>
-    [Serializable]
-    public class GraphQlException : Exception
-    {
-        /// <summary>
-        /// 
-        /// </summary>
-        public GraphQlException()
-        {
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="message"></param>
-        public GraphQlException(string message) : base(message)
-        {
-        }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="message"></param>
-        /// <param name="innerException"></param>
-        public GraphQlException(string message, Exception innerException) : base(message, innerException)
-        {
-        }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="info"></param>
-        /// <param name="context"></param>
-        protected GraphQlException(System.Runtime.Serialization.SerializationInfo info, System.Runtime.Serialization.StreamingContext context) : base(info, context)
-        {
-        }
-    }
-
-    /// <summary>
-    /// Cloud Library does not support GraphQl
-    /// </summary>
-    [Serializable]
-    public class GraphQlNotSupportedException : Exception
-    {
-        /// <summary>
-        /// 
-        /// </summary>
-        public GraphQlNotSupportedException()
-        {
-        }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="message"></param>
-        public GraphQlNotSupportedException(string message) : base(message)
-        {
-        }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="message"></param>
-        /// <param name="innerException"></param>
-        public GraphQlNotSupportedException(string message, Exception innerException) : base(message, innerException)
-        {
-        }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="info"></param>
-        /// <param name="context"></param>
-        protected GraphQlNotSupportedException(System.Runtime.Serialization.SerializationInfo info, System.Runtime.Serialization.StreamingContext context) : base(info, context)
-        {
         }
     }
 }

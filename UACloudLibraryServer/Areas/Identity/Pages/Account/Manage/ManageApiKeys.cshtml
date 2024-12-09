@@ -7,19 +7,6 @@
 
 <h3>@ViewData["Title"]</h3>
 <partial name="_StatusMessage" for="StatusMessage" />
-<script type="module" src="~/lib/clipboard-copy-element/dist/index.js"></script>
-<script>
-    document.addEventListener('clipboard-copy', function (event) {
-        const notice = event.target.querySelector('.notice')
-        notice.hidden = false
-        const copyButton = event.target.querySelector('.copyButton')
-        copyButton.hidden = true
-        setTimeout(function () {
-            notice.hidden = true
-            copyButton.hidden = false
-        }, 1000)
-    })
-</script>
 <div class="row">
     @if (!string.IsNullOrEmpty(Model.GeneratedApiKey))
     {
@@ -44,26 +31,13 @@
                         <td>
                             <div>
                             @Model.GeneratedApiKey
-                                <clipboard-copy value="@Model.GeneratedApiKey" title="Copy to clipboard" class="btn btn-sm" style="line-height: 1;vertical-align: top;padding-top: 0px;padding-bottom: 0px">
-                                    <span class="copyButton">
-                                        <svg height="16" width="16">
-                                            <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
-                                            <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
-                                        </svg>
-                                    </span>
-                                    <span class="notice" hidden>
-                                        <svg height="16" width="16">
-                                            <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"></path>
-                                        </svg>
-                                    </span>
-                                </clipboard-copy>
                             </div>
                         </td>
                     </tr>
                 </tbody>
             </table>
             <div class="alert">
-                Usage: Add an HTTP Header X-Api-key with the API key as the header value. 
+                Usage: Add an HTTP Header X-Api-key with the API key as the header value.
                 Note that the key name does not need to be provided separately for authentication.
             </div>
         </div>
