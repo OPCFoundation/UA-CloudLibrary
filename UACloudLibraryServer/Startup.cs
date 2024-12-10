@@ -61,6 +61,7 @@ using Microsoft.OpenApi.Models;
 using Opc.Ua.Cloud.Library.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Opc.Ua.Cloud.Library.Authentication;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 [assembly: CLSCompliant(false)]
 namespace Opc.Ua.Cloud.Library
@@ -85,7 +86,9 @@ namespace Opc.Ua.Cloud.Library
             services.AddRazorPages();
 
             // Setup database context for ASP.NetCore Identity Scaffolding
-            services.AddDbContext<AppDbContext>(ServiceLifetime.Transient);
+            services.AddDbContext<AppDbContext>(
+                options => options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)),
+                ServiceLifetime.Transient);
 
             services.AddDefaultIdentity<IdentityUser>(options =>
                       //require confirmation mail if email sender API Key is set
@@ -95,8 +98,7 @@ namespace Opc.Ua.Cloud.Library
 #if APIKEY_AUTH
                 .AddTokenProvider<ApiKeyTokenProvider>(ApiKeyTokenProvider.ApiKeyProviderName)
 #endif
-                .AddEntityFrameworkStores<AppDbContext>()
-                ;
+                .AddEntityFrameworkStores<AppDbContext>();
 
             services.AddScoped<IUserService, UserService>();
 
