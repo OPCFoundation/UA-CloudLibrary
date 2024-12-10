@@ -35,7 +35,6 @@ using System.Net.Http;
 using System.Security.Claims;
 using System.Text.Json;
 using Amazon.S3;
-using GraphQL.Server.Ui.Playground;
 using HotChocolate.AspNetCore;
 using HotChocolate.Data;
 using Microsoft.AspNetCore.Authentication;
@@ -62,6 +61,8 @@ using Opc.Ua.Cloud.Library.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Opc.Ua.Cloud.Library.Authentication;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using System.Net.Sockets;
+using System.Threading.Tasks;
 
 [assembly: CLSCompliant(false)]
 namespace Opc.Ua.Cloud.Library
@@ -373,7 +374,27 @@ namespace Opc.Ua.Cloud.Library
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, AppDbContext appDbContext)
         {
-            appDbContext.Database.Migrate();
+            uint retryCount = 0;
+            while (retryCount < 12)
+            {
+                try
+                {
+                    appDbContext.Database.Migrate();
+                    break;
+                }
+                catch (SocketException)
+                {
+                    Console.WriteLine("Database not yet available or unknown, retrying...");
+                    Task.Delay(5000).GetAwaiter().GetResult();
+                    retryCount++;
+                }
+            }
+
+            if (retryCount == 12)
+            {
+                // database permanently unavailable
+                throw new InvalidOperationException("Database not available, exiting!");
+            }
 
             if (env.IsDevelopment())
             {
