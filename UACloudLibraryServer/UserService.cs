@@ -79,20 +79,20 @@ namespace Opc.Ua.Cloud.Library
                 {
                     passwordFromEnvironment = _config.GetValue<string>("ServicePassword");
                 }
+
                 if (string.IsNullOrEmpty(passwordFromEnvironment))
                 {
                     _logger.LogError("ServicePassword env variable not set, please set it before trying to log in with admin credentials!");
                     return null;
                 }
+
                 if (!password.Equals(passwordFromEnvironment, StringComparison.OrdinalIgnoreCase))
                 {
                     return null;
                 }
-                List<Claim> claims = new() {
-                    new Claim(ClaimTypes.Name, username)
-                };
 
-                claims.Add(new Claim(ClaimTypes.Role, "Administrator"));
+                List<Claim> claims = [new Claim(ClaimTypes.Name, username), new Claim(ClaimTypes.Role, "Administrator")];
+
                 return claims;
             }
             else
@@ -101,6 +101,7 @@ namespace Opc.Ua.Cloud.Library
                 {
                     return null;
                 }
+
                 IdentityUser user = await _userManager.FindByNameAsync(username).ConfigureAwait(false);
                 if (user == null)
                 {
@@ -111,18 +112,20 @@ namespace Opc.Ua.Cloud.Library
                 {
                     return null;
                 }
+
                 PasswordVerificationResult result = _userManager.PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
                 if (result != PasswordVerificationResult.Success)
                 {
                     return null;
                 }
-                List<Claim> claims = new();
-                claims.Add(new Claim(ClaimTypes.Name, username));
+
+                List<Claim> claims = [new Claim(ClaimTypes.Name, username)];
                 IList<string> roles = await _userManager.GetRolesAsync(user).ConfigureAwait(false);
                 foreach (string role in roles)
                 {
                     claims.Add(new Claim(ClaimTypes.Role, role));
                 }
+
                 claims.AddRange(await this._userManager.GetClaimsAsync(user).ConfigureAwait(false));
                 return claims;
             }
@@ -137,21 +140,25 @@ namespace Opc.Ua.Cloud.Library
             {
                 return null;
             }
+
             if (!await _userManager.VerifyUserTokenAsync(user, ApiKeyTokenProvider.ApiKeyProviderName, parsedApiKey.ApiKeyName, apiKey).ConfigureAwait(false))
             {
                 return null;
             }
+
             List<Claim> claims = new();
             IList<string> roles = await _userManager.GetRolesAsync(user).ConfigureAwait(false);
             foreach (string role in roles)
             {
                 claims.Add(new Claim(ClaimTypes.Role, role));
             }
+
             claims.AddRange(await this._userManager.GetClaimsAsync(user).ConfigureAwait(false));
             if (!claims.Any(c => c.Type == ClaimTypes.Name))
             {
                 claims.Add(new Claim(ClaimTypes.Name, user.UserName));
             }
+
             return claims;
         }
     }
