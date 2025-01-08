@@ -2,8 +2,6 @@ using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
-#nullable disable
-
 namespace Opc.Ua.Cloud.Library
 {
     public partial class ReferenceTypeUpdate : Migration
@@ -38,16 +36,16 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_ReferenceTypes_InverseName_ReferenceTypes_ReferenceTypeMode~",
                         columns: x => new { x.ReferenceTypeModelNodeId, x.ReferenceTypeModelNodeSetModelUri, x.ReferenceTypeModelNodeSetPublicationDate },
                         principalTable: "ReferenceTypes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.AddForeignKey(
                 name: "FK_ReferenceTypes_BaseTypes_NodeId_NodeSetModelUri_NodeSetPubl~",
                 table: "ReferenceTypes",
-                columns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                columns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                 principalTable: "BaseTypes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                 onDelete: ReferentialAction.Cascade);
         }
 
@@ -67,9 +65,9 @@ namespace Opc.Ua.Cloud.Library
             migrationBuilder.AddForeignKey(
                 name: "FK_ReferenceTypes_Nodes_NodeId_NodeSetModelUri_NodeSetPublicat~",
                 table: "ReferenceTypes",
-                columns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                columns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                 principalTable: "Nodes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                 onDelete: ReferentialAction.Cascade);
         }
     }

@@ -4,17 +4,12 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using Opc.Ua.Cloud.Library;
-
-#nullable disable
 
 namespace Opc.Ua.Cloud.Library
 {
     [DbContext(typeof(AppDbContext))]
     [Migration("20230608191754_creationtime")]
-    partial class creationtime
+    partial class CreationTime
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {

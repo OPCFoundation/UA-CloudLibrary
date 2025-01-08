@@ -3,7 +3,8 @@ using System.CommandLine.NamingConventionBinder;
 using Microsoft.Extensions.Logging;
 using Opc.Ua.CloudLib.Sync;
 
-class Program : ILogger
+[assembly: CLSCompliant(false)]
+sealed class Program : ILogger
 {
     public static Task<int> Main(string[] args)
     {

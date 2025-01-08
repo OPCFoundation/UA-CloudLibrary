@@ -28,6 +28,7 @@
  * ======================================================================*/
 
 using System.Globalization;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity.UI.Services;
 
@@ -35,7 +36,7 @@ namespace Opc.Ua.Cloud.Library
 {
     public class EmailManager
     {
-        const string EmailTemplate = @"
+        private static readonly CompositeFormat EmailTemplate = CompositeFormat.Parse(@"
             <meta http-equiv=""Content-Type"" content=""text/html; charset=utf-8"">
             <p><img decoding=""async"" class=""alignnone wp-image-1095"" style=""margin: 0px; border: 0px none;"" src=""https://opcfoundation.org/wp-content/uploads/2013/09/OPC_Logo_500x72-300x110.jpg"" alt=""OPC Foundation Logo"" width=""240"" height=""95""></p>
             <p><b>The Industrial Interoperability Standard ™</b></p>
@@ -50,11 +51,11 @@ namespace Opc.Ua.Cloud.Library
             Scottsdale, Arizona 85260-1868 US<br>
             +1 (480) 483-6644<br>
             <p style=""text-align: center""><a href=""mailto:unsubscribe@opcfoundation.org?subject=Unsubscribe%20from%20UA%20Cloud%20Library%20Emails&body="">Click here to unsubscribe.</a></p></p>
-            ";
+            ");
 
         public static async Task Send(IEmailSender emailSender, string email, string subject, string action, string url)
         {
-            var body = string.Format(
+            string body = string.Format(
                 CultureInfo.InvariantCulture,
                 EmailTemplate,
                 action,

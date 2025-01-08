@@ -27,18 +27,17 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.IO;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Google.Cloud.Storage.V1;
+using Microsoft.Extensions.Logging;
+using Opc.Ua.Cloud.Library.Interfaces;
+
 namespace Opc.Ua.Cloud.Library
 {
-    using System;
-    using System.IO;
-    using System.Text;
-    using System.Threading;
-    using System.Threading.Tasks;
-    using Google.Cloud.Storage.V1;
-    using Microsoft.Extensions.Logging;
-    using Opc.Ua.Cloud.Library.Interfaces;
-
-
     /// <summary>
     /// GCP storage class
     /// </summary>
@@ -102,7 +101,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 var ms = new MemoryStream(Encoding.UTF8.GetBytes(content));
 
-                var response = await _gcsClient.UploadObjectAsync(_bucket, name, "text/plain", ms, cancellationToken: cancellationToken).ConfigureAwait(false);
+                Google.Apis.Storage.v1.Data.Object response = await _gcsClient.UploadObjectAsync(_bucket, name, "text/plain", ms, cancellationToken: cancellationToken).ConfigureAwait(false);
 
                 if (response.Size > 0)
                 {

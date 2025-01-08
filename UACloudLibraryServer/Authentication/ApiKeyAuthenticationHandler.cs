@@ -27,18 +27,18 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Linq;
+using System.Security.Claims;
+using System.Text.Encodings.Web;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Opc.Ua.Cloud.Library.Interfaces;
+
 namespace Opc.Ua.Cloud.Library.Authentication
 {
-    using System;
-    using System.Linq;
-    using System.Security.Claims;
-    using System.Text.Encodings.Web;
-    using System.Threading.Tasks;
-    using Microsoft.AspNetCore.Authentication;
-    using Microsoft.Extensions.Logging;
-    using Microsoft.Extensions.Options;
-    using Opc.Ua.Cloud.Library.Interfaces;
-
     public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
     {
         private readonly IUserService _userService;
@@ -47,9 +47,8 @@ namespace Opc.Ua.Cloud.Library.Authentication
             IUserService userService,
             IOptionsMonitor<AuthenticationSchemeOptions> options,
             ILoggerFactory logger,
-            UrlEncoder encoder,
-            ISystemClock clock)
-            : base(options, logger, encoder, clock)
+            UrlEncoder encoder)
+            : base(options, logger, encoder)
         {
             _userService = userService;
         }
@@ -58,8 +57,8 @@ namespace Opc.Ua.Cloud.Library.Authentication
         {
             try
             {
-                var apiKeyHeader = Request.Headers["x-api-key"];
-                if (!apiKeyHeader.Any())
+                Microsoft.Extensions.Primitives.StringValues apiKeyHeader = Request.Headers["x-api-key"];
+                if (apiKeyHeader.Count == 0)
                 {
                     return AuthenticateResult.NoResult();
                 }
@@ -68,7 +67,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
                 {
                     return AuthenticateResult.Fail("Invalid x-api-key header");
                 }
-                var claims = await _userService.ValidateApiKeyAsync(apiKeyHeader[0]).ConfigureAwait(false);
+                System.Collections.Generic.IEnumerable<Claim> claims = await _userService.ValidateApiKeyAsync(apiKeyHeader[0]).ConfigureAwait(false);
                 if (claims?.Any() != true)
                 {
                     return AuthenticateResult.Fail("Invalid credentials");

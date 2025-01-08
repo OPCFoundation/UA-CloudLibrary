@@ -95,7 +95,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
         private async Task LoadAsync(IdentityUser user)
         {
-            var email = await _userManager.GetEmailAsync(user).ConfigureAwait(false);
+            string email = await _userManager.GetEmailAsync(user).ConfigureAwait(false);
             Email = email;
 
             Input = new InputModel {
@@ -107,7 +107,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
         public async Task<IActionResult> OnGetAsync()
         {
-            var user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
+            IdentityUser user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
             if (user == null)
             {
                 return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
@@ -119,13 +119,13 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
         public async Task<IActionResult> OnPostChangeEmailAsync()
         {
-            var user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
+            IdentityUser user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
             if (user == null)
             {
                 return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
             }
 
-            var captchaResult = await _captchaValidation.ValidateCaptcha(CaptchaResponseToken);
+            string captchaResult = await _captchaValidation.ValidateCaptcha(CaptchaResponseToken);
             if (!string.IsNullOrEmpty(captchaResult)) ModelState.AddModelError("CaptchaResponseToken", captchaResult);
 
             if (!ModelState.IsValid)
@@ -134,13 +134,13 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
                 return Page();
             }
 
-            var email = await _userManager.GetEmailAsync(user).ConfigureAwait(false);
+            string email = await _userManager.GetEmailAsync(user).ConfigureAwait(false);
             if (Input.NewEmail != email)
             {
-                var userId = await _userManager.GetUserIdAsync(user).ConfigureAwait(false);
-                var code = await _userManager.GenerateChangeEmailTokenAsync(user, Input.NewEmail).ConfigureAwait(false);
+                string userId = await _userManager.GetUserIdAsync(user).ConfigureAwait(false);
+                string code = await _userManager.GenerateChangeEmailTokenAsync(user, Input.NewEmail).ConfigureAwait(false);
                 code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-                var callbackUrl = Url.Page(
+                string callbackUrl = Url.Page(
                     "/Account/ConfirmEmailChange",
                     pageHandler: null,
                     values: new { area = "Identity", userId = userId, email = Input.NewEmail, code = code },
@@ -164,14 +164,14 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
         public async Task<IActionResult> OnPostSendVerificationEmailAsync()
         {
-            var user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
+            IdentityUser user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
             if (user == null)
             {
                 return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
             }
 
             //Captcha validate
-            var captchaResult = await _captchaValidation.ValidateCaptcha(CaptchaResponseToken);
+            string captchaResult = await _captchaValidation.ValidateCaptcha(CaptchaResponseToken);
             if (!string.IsNullOrEmpty(captchaResult)) ModelState.AddModelError("CaptchaResponseToken", captchaResult);
 
             if (!ModelState.IsValid)
@@ -180,11 +180,11 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
                 return Page();
             }
 
-            var userId = await _userManager.GetUserIdAsync(user).ConfigureAwait(false);
-            var email = await _userManager.GetEmailAsync(user).ConfigureAwait(false);
-            var code = await _userManager.GenerateEmailConfirmationTokenAsync(user).ConfigureAwait(false);
+            string userId = await _userManager.GetUserIdAsync(user).ConfigureAwait(false);
+            string email = await _userManager.GetEmailAsync(user).ConfigureAwait(false);
+            string code = await _userManager.GenerateEmailConfirmationTokenAsync(user).ConfigureAwait(false);
             code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-            var callbackUrl = Url.Page(
+            string callbackUrl = Url.Page(
                 "/Account/ConfirmEmail",
                 pageHandler: null,
                 values: new { area = "Identity", userId = userId, code = code },

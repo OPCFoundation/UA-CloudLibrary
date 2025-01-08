@@ -27,17 +27,17 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Security.Claims;
+using System.Text.Encodings.Web;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+
 namespace Opc.Ua.Cloud.Library.Authentication
 {
-    using System;
-    using System.Security.Claims;
-    using System.Text.Encodings.Web;
-    using System.Threading.Tasks;
-    using Microsoft.AspNetCore.Authentication;
-    using Microsoft.AspNetCore.Identity;
-    using Microsoft.Extensions.Logging;
-    using Microsoft.Extensions.Options;
-
     public class SignedInUserAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
     {
         private readonly SignInManager<IdentityUser> _signInManager;
@@ -46,9 +46,8 @@ namespace Opc.Ua.Cloud.Library.Authentication
             SignInManager<IdentityUser> signInManager,
             IOptionsMonitor<AuthenticationSchemeOptions> options,
             ILoggerFactory logger,
-            UrlEncoder encoder,
-            ISystemClock clock)
-            : base(options, logger, encoder, clock)
+            UrlEncoder encoder)
+            : base(options, logger, encoder)
         {
             _signInManager = signInManager;
         }

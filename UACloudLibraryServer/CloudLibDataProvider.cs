@@ -52,7 +52,7 @@ namespace Opc.Ua.Cloud.Library
             }
             else
             {
-                var nodeSetQuery = SearchNodesets(keywords);
+                IQueryable<CloudLibNodeSetModel> nodeSetQuery = SearchNodesets(keywords);
                 if (modelUri != null && publicationDate != null)
                 {
                     nodeSets = nodeSetQuery.Where(nsm => nsm.ModelUri == modelUri && nsm.PublicationDate == publicationDate);
@@ -204,8 +204,8 @@ namespace Opc.Ua.Cloud.Library
                         return;
                     }
 
-                    var nodeSetModel = await NodeSetModelIndexer.CreateNodeSetModelFromNodeSetAsync(_dbContext, nodeSet, uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture), userId).ConfigureAwait(false);
-                    var existingModel = await _dbContext.nodeSetsWithUnapproved.FindAsync(nodeSetModel.ModelUri, nodeSetModel.PublicationDate).ConfigureAwait(false);
+                    CloudLibNodeSetModel nodeSetModel = await NodeSetModelIndexer.CreateNodeSetModelFromNodeSetAsync(_dbContext, nodeSet, uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture), userId).ConfigureAwait(false);
+                    CloudLibNodeSetModel existingModel = await _dbContext.nodeSetsWithUnapproved.FindAsync(nodeSetModel.ModelUri, nodeSetModel.PublicationDate).ConfigureAwait(false);
                     if (existingModel != null)
                     {
                         message = "Error: nodeset still exists after delete.";
@@ -251,9 +251,9 @@ namespace Opc.Ua.Cloud.Library
 
         public async Task<uint> IncrementDownloadCountAsync(uint nodesetId)
         {
-            var namespaceMeta = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+            NamespaceMetaDataModel namespaceMeta = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
             namespaceMeta.NumberOfDownloads++;
-            var newCount = namespaceMeta.NumberOfDownloads;
+            uint newCount = namespaceMeta.NumberOfDownloads;
             await _dbContext.SaveChangesAsync().ConfigureAwait(false);
             return newCount;
         }
@@ -262,11 +262,11 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                var nodesetIdStr = nodesetId.ToString(CultureInfo.InvariantCulture);
+                string nodesetIdStr = nodesetId.ToString(CultureInfo.InvariantCulture);
                 List<CloudLibNodeSetModel> deletedNodeSets = new();
                 await DeleteNodeSetIndexForNodesetAsync(nodesetIdStr, deletedNodeSets).ConfigureAwait(false);
 
-                var namespaceModel = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetIdStr).ConfigureAwait(false);
+                NamespaceMetaDataModel namespaceModel = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetIdStr).ConfigureAwait(false);
                 if (namespaceModel != null)
                 {
                     _dbContext.NamespaceMetaDataWithUnapproved.Remove(namespaceModel);
@@ -276,11 +276,11 @@ namespace Opc.Ua.Cloud.Library
 
                 // Re-add nodesets that were removed because they depend on the nodeset being deleted
                 // This will cause them to be reindexed later on
-                foreach (var deletedNodeSet in deletedNodeSets)
+                foreach (CloudLibNodeSetModel deletedNodeSet in deletedNodeSets)
                 {
                     if (deletedNodeSet.Identifier != nodesetIdStr)
                     {
-                        var nodeSetModel = NodeSetModelIndexer.CreateNodeSetModelFromNodeSet(deletedNodeSet);
+                        CloudLibNodeSetModel nodeSetModel = NodeSetModelIndexer.CreateNodeSetModelFromNodeSet(deletedNodeSet);
                         await _dbContext.nodeSetsWithUnapproved.AddAsync(nodeSetModel).ConfigureAwait(false);
                     }
                 }
@@ -297,10 +297,10 @@ namespace Opc.Ua.Cloud.Library
         }
         public async Task DeleteNodeSetIndexForNodesetAsync(string nodesetId, List<CloudLibNodeSetModel> deletedNodeSets)
         {
-            var nodeSetModel = await _dbContext.nodeSetsWithUnapproved.FirstOrDefaultAsync(n => n.Identifier == nodesetId).ConfigureAwait(false);
+            CloudLibNodeSetModel nodeSetModel = await _dbContext.nodeSetsWithUnapproved.FirstOrDefaultAsync(n => n.Identifier == nodesetId).ConfigureAwait(false);
             if (nodeSetModel != null)
             {
-                foreach (var dependentNodeset in _dbContext.nodeSetsWithUnapproved
+                foreach (CloudLibNodeSetModel dependentNodeset in _dbContext.nodeSetsWithUnapproved
                     .Where(n => n.RequiredModels
                         .Any(rm => rm.AvailableModel.ModelUri == nodeSetModel.ModelUri && rm.AvailableModel.PublicationDate == nodeSetModel.PublicationDate)))
                 {
@@ -321,7 +321,7 @@ namespace Opc.Ua.Cloud.Library
             try
             {
 #pragma warning disable CA1305 // Specify IFormatProvider: runs in database with single culture, can not use culture invariant
-                var namespaceModel = await _dbContext.NamespaceMetaDataWithUnapproved
+                NamespaceMetaDataModel namespaceModel = await _dbContext.NamespaceMetaDataWithUnapproved
                     .Where(md => md.NodesetId == nodesetId.ToString())
                     .Include(md => md.NodeSet)
                     .FirstOrDefaultAsync().ConfigureAwait(false);
@@ -344,7 +344,7 @@ namespace Opc.Ua.Cloud.Library
         {
             IQueryable<CloudLibNodeSetModel> matchingNodeSets;
 
-            if (keywords?.Any() == true && keywords[0] != "*")
+            if ((keywords?.Length != 0) && (keywords[0] != "*"))
             {
                 string keywordRegex = $".*({string.Join('|', keywords)}).*";
 #pragma warning disable CA1305 // Specify IFormatProvider - ToString() runs in the database, cultureinfo not supported
@@ -385,7 +385,7 @@ namespace Opc.Ua.Cloud.Library
                 .Select(n => _dbContext.NamespaceMetaData.Where(nmd => nmd.NodesetId == n.Identifier).Include(nmd => nmd.NodeSet).FirstOrDefault())
                 .ToList();
 
-            var nodesetResults = uaNamespaceModel.Select(nameSpace => {
+            UANodesetResult[] nodesetResults = uaNamespaceModel.Select(nameSpace => {
                 var result = new UANodesetResult();
                 MapToNamespace(result, nameSpace);
 
@@ -399,7 +399,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                var namesAndIds = _dbContext.nodeSets.Select(nsm => new { nsm.ModelUri, nsm.Identifier }).Select(n => $"{n.ModelUri},{n.Identifier}").ToArray();
+                string[] namesAndIds = _dbContext.nodeSets.Select(nsm => new { nsm.ModelUri, nsm.Identifier, nsm.Version, nsm.PublicationDate }).Select(n => $"{n.ModelUri},{n.Identifier},{n.Version},{n.PublicationDate}").ToArray();
                 return namesAndIds;
             }
             catch (Exception ex)
@@ -414,7 +414,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                var model = _dbContext.nodeSets.FirstOrDefault(nsm => nsm.Identifier == nodesetId);
+                CloudLibNodeSetModel model = _dbContext.nodeSets.FirstOrDefault(nsm => nsm.Identifier == nodesetId);
                 return model;
             }
             catch (Exception ex)
@@ -430,7 +430,7 @@ namespace Opc.Ua.Cloud.Library
             try
             {
                 var categoryAndNodesetIds = _dbContext.NamespaceMetaData.Select(md => new { md.Category.Name, md.NodesetId }).ToList();
-                var namesAndNodesetsString = categoryAndNodesetIds.Select(cn => $"{cn.Name},{cn.NodesetId}").ToArray();
+                string[] namesAndNodesetsString = categoryAndNodesetIds.Select(cn => $"{cn.Name},{cn.NodesetId}").ToArray();
                 return namesAndNodesetsString;
             }
             catch (Exception ex)
@@ -456,7 +456,7 @@ namespace Opc.Ua.Cloud.Library
 
         public async Task<NamespaceMetaDataModel> ApproveNamespaceAsync(string identifier, ApprovalStatus status, string approvalInformation, List<UAProperty> additionalProperties)
         {
-            var nodeSetMeta = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync().ConfigureAwait(false);
+            NamespaceMetaDataModel nodeSetMeta = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync().ConfigureAwait(false);
             if (nodeSetMeta == null) return null;
 
             nodeSetMeta.ApprovalStatus = status;
@@ -483,7 +483,7 @@ namespace Opc.Ua.Cloud.Library
             _dbContext.Attach(nodeSetMeta);
             if (additionalProperties != null)
             {
-                foreach (var prop in additionalProperties)
+                foreach (UAProperty prop in additionalProperties)
                 {
                     if (string.IsNullOrEmpty(prop.Value))
                     {
@@ -491,7 +491,7 @@ namespace Opc.Ua.Cloud.Library
                     }
                     else
                     {
-                        var existingProp = nodeSetMeta.AdditionalProperties.FirstOrDefault(p => p.Name == prop.Name);
+                        AdditionalPropertyModel existingProp = nodeSetMeta.AdditionalProperties.FirstOrDefault(p => p.Name == prop.Name);
                         if (existingProp != null)
                         {
                             existingProp.Value = prop.Value;
@@ -508,7 +508,7 @@ namespace Opc.Ua.Cloud.Library
                 }
             }
             await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-            var nodeSetMetaSaved = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync().ConfigureAwait(false);
+            NamespaceMetaDataModel nodeSetMetaSaved = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync().ConfigureAwait(false);
             return nodeSetMetaSaved;
         }
 
@@ -529,7 +529,7 @@ namespace Opc.Ua.Cloud.Library
 
         private void MapToEntity(ref NamespaceMetaDataModel entity, UANameSpace uaNamespace, CloudLibNodeSetModel nodeSetModel, OrganisationModel contributor, CategoryModel category)
         {
-            var identifier = nodeSetModel != null ? nodeSetModel.Identifier : uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
+            string identifier = nodeSetModel != null ? nodeSetModel.Identifier : uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
             entity.NodesetId = identifier;
             if (uaNamespace.CreationTime != null)
             {
@@ -550,7 +550,7 @@ namespace Opc.Ua.Cloud.Library
                 LogoUrl = uaNamespace.Contributor.LogoUrl?.ToString(),
                 Website = uaNamespace.Contributor.Website?.ToString(),
             };
-            var licenseExpression = uaNamespace.License switch {
+            string licenseExpression = uaNamespace.License switch {
                 "0" => "MIT",
                 "1" or "ApacheLicense20" => "Apache-2.0",
                 "2" => "Custom",

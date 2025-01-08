@@ -60,7 +60,7 @@ namespace CloudLibClient.Tests
 
         internal UACloudLibClient CreateCloudLibClient()
         {
-            var httpClient = CreateAuthorizedClient();
+            HttpClient httpClient = CreateAuthorizedClient();
             var client = new UACloudLibClient(httpClient);
             // Ensure all test cases hit GraphQL. Set to true in the test case if explicitly testing fallbacks
             client._allowRestFallback = false;
@@ -68,7 +68,7 @@ namespace CloudLibClient.Tests
         }
         internal HttpClient CreateAuthorizedClient()
         {
-            var httpClient = CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { });
+            HttpClient httpClient = CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { });
 
             string temp = Convert.ToBase64String(Encoding.UTF8.GetBytes("admin" + ":" + "testpw"));
             httpClient.DefaultRequestHeaders.Add("Authorization", "basic " + temp);

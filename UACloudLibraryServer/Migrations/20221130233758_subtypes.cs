@@ -1,10 +1,8 @@
 using Microsoft.EntityFrameworkCore.Migrations;
 
-#nullable disable
-
 namespace Opc.Ua.Cloud.Library
 {
-    public partial class subtypes : Migration
+    public partial class Subtypes : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {

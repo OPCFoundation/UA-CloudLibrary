@@ -27,43 +27,46 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Net.Http;
+using System.Security.Claims;
+using System.Text.Json;
+using Amazon.S3;
+using HotChocolate.AspNetCore;
+using HotChocolate.Data;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OAuth;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+#if AZURE_AD
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.IdentityModel.Logging;
+using Microsoft.Identity.Web;
+#endif
+using Microsoft.OpenApi.Models;
+using Opc.Ua.Cloud.Library.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Opc.Ua.Cloud.Library.Authentication;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using System.Net.Sockets;
+using System.Threading.Tasks;
+
+[assembly: CLSCompliant(false)]
 namespace Opc.Ua.Cloud.Library
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Globalization;
-    using System.IO;
-    using System.Net.Http;
-    using System.Security.Claims;
-    using System.Text.Json;
-    using Amazon.S3;
-    using GraphQL.Server.Ui.Playground;
-    using HotChocolate.AspNetCore;
-    using HotChocolate.Data;
-    using Microsoft.AspNetCore.Authentication;
-    using Microsoft.AspNetCore.Authentication.OAuth;
-    using Microsoft.AspNetCore.Builder;
-    using Microsoft.AspNetCore.DataProtection;
-    using Microsoft.AspNetCore.Hosting;
-    using Microsoft.AspNetCore.Http;
-    using Microsoft.AspNetCore.Identity;
-    using Microsoft.AspNetCore.Identity.UI.Services;
-    using Microsoft.AspNetCore.Server.Kestrel.Core;
-    using Microsoft.EntityFrameworkCore;
-    using Microsoft.Extensions.Configuration;
-    using Microsoft.Extensions.DependencyInjection;
-    using Microsoft.Extensions.Hosting;
-    using Microsoft.Extensions.Logging;
-#if AZURE_AD
-    using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-    using Microsoft.IdentityModel.Logging;
-    using Microsoft.Identity.Web;
-#endif
-    using Microsoft.OpenApi.Models;
-    using Opc.Ua.Cloud.Library.Interfaces;
-    using Microsoft.AspNetCore.Authorization;
-    using Opc.Ua.Cloud.Library.Authentication;
-
     public class Startup
     {
         public Startup(IConfiguration configuration, IWebHostEnvironment environment)
@@ -84,7 +87,9 @@ namespace Opc.Ua.Cloud.Library
             services.AddRazorPages();
 
             // Setup database context for ASP.NetCore Identity Scaffolding
-            services.AddDbContext<AppDbContext>(ServiceLifetime.Transient);
+            services.AddDbContext<AppDbContext>(
+                options => options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)),
+                ServiceLifetime.Transient);
 
             services.AddDefaultIdentity<IdentityUser>(options =>
                       //require confirmation mail if email sender API Key is set
@@ -94,8 +99,7 @@ namespace Opc.Ua.Cloud.Library
 #if APIKEY_AUTH
                 .AddTokenProvider<ApiKeyTokenProvider>(ApiKeyTokenProvider.ApiKeyProviderName)
 #endif
-                .AddEntityFrameworkStores<AppDbContext>()
-                ;
+                .AddEntityFrameworkStores<AppDbContext>();
 
             services.AddScoped<IUserService, UserService>();
 
@@ -280,7 +284,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 case "Azure": services.AddSingleton<IFileStorage, AzureFileStorage>(); break;
                 case "AWS":
-                    var awsOptions = Configuration.GetAWSOptions();
+                    Amazon.Extensions.NETCore.Setup.AWSOptions awsOptions = Configuration.GetAWSOptions();
                     services.AddDefaultAWSOptions(awsOptions);
                     services.AddAWSService<IAmazonS3>();
                     services.AddSingleton<IFileStorage, AWSFileStorage>();
@@ -295,7 +299,7 @@ namespace Opc.Ua.Cloud.Library
                 }
             }
 
-            var serviceName = Configuration["Application"] ?? "UACloudLibrary";
+            string serviceName = Configuration["Application"] ?? "UACloudLibrary";
 
             // setup data protection
             switch (Configuration["HostingPlatform"])
@@ -310,7 +314,7 @@ namespace Opc.Ua.Cloud.Library
 
 
             HotChocolate.Types.Pagination.PagingOptions paginationConfig;
-            var section = Configuration.GetSection("GraphQLPagination");
+            IConfigurationSection section = Configuration.GetSection("GraphQLPagination");
             if (section.Exists())
             {
                 paginationConfig = section.Get<HotChocolate.Types.Pagination.PagingOptions>();
@@ -326,7 +330,11 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddGraphQLServer()
                 .AddAuthorization()
-                .SetPagingOptions(paginationConfig)
+                .ModifyPagingOptions(o => {
+                    o.IncludeTotalCount = paginationConfig.IncludeTotalCount;
+                    o.DefaultPageSize = paginationConfig.DefaultPageSize;
+                    o.MaxPageSize = paginationConfig.MaxPageSize;
+                })
                 .AddFiltering(fd => {
                     fd.AddDefaults().BindRuntimeType<UInt32, UnsignedIntOperationFilterInputType>();
                     fd.AddDefaults().BindRuntimeType<UInt32?, UnsignedIntOperationFilterInputType>();
@@ -366,7 +374,27 @@ namespace Opc.Ua.Cloud.Library
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, AppDbContext appDbContext)
         {
-            appDbContext.Database.Migrate();
+            uint retryCount = 0;
+            while (retryCount < 12)
+            {
+                try
+                {
+                    appDbContext.Database.Migrate();
+                    break;
+                }
+                catch (SocketException)
+                {
+                    Console.WriteLine("Database not yet available or unknown, retrying...");
+                    Task.Delay(5000).GetAwaiter().GetResult();
+                    retryCount++;
+                }
+            }
+
+            if (retryCount == 12)
+            {
+                // database permanently unavailable
+                throw new InvalidOperationException("Database not available, exiting!");
+            }
 
             if (env.IsDevelopment())
             {
@@ -389,13 +417,7 @@ namespace Opc.Ua.Cloud.Library
 
             app.UseAuthorization();
 
-            app.UseGraphQLPlayground(
-                "/graphqlui",
-                new PlaygroundOptions() {
-                    RequestCredentials = RequestCredentials.Include
-                });
             app.UseGraphQLGraphiQL("/graphiql", new GraphQL.Server.Ui.GraphiQL.GraphiQLOptions {
-                ExplorerExtensionEnabled = true,
                 RequestCredentials = GraphQL.Server.Ui.GraphiQL.RequestCredentials.Include,
             });
 

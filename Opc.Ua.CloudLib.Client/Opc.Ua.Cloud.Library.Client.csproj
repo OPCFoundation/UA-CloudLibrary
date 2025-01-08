@@ -3,7 +3,7 @@
   <PropertyGroup>
     <AssemblyName>Opc.Ua.Cloud.Library.Client</AssemblyName>
     <PackageId>OPCFoundation.NetStandard.Opc.Ua.Cloud.Library.Client</PackageId>
-    <TargetFrameworks>net8.0;netstandard2.0</TargetFrameworks>
+    <TargetFrameworks>net9.0;netstandard2.1</TargetFrameworks>
     <RootNamespace>Opc.Ua.Cloud.Library.Client</RootNamespace>
     <Description>OPC UA Cloud Library Client Class Library</Description>
     <IsPackable>true</IsPackable>
@@ -29,7 +29,7 @@
   <ItemGroup>
     <PackageReference Include="GraphQL.Client" Version="6.1.0" />
     <PackageReference Include="GraphQL.Client.Serializer.Newtonsoft" Version="6.1.0" />
-    <PackageReference Include="GraphQL.Query.Builder" Version="2.2.0" />
+    <PackageReference Include="GraphQL.Query.Builder" Version="2.2.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
@@ -39,7 +39,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Update="Nerdbank.GitVersioning" Version="3.6.143" />
+    <PackageReference Update="Nerdbank.GitVersioning" Version="3.6.146" />
   </ItemGroup>
 
 

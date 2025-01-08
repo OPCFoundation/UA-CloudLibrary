@@ -27,20 +27,20 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Linq;
+using System.Net.Http.Headers;
+using System.Security.Claims;
+using System.Text;
+using System.Text.Encodings.Web;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Opc.Ua.Cloud.Library.Interfaces;
+
 namespace Opc.Ua.Cloud.Library.Authentication
 {
-    using System;
-    using System.Linq;
-    using System.Net.Http.Headers;
-    using System.Security.Claims;
-    using System.Text;
-    using System.Text.Encodings.Web;
-    using System.Threading.Tasks;
-    using Microsoft.AspNetCore.Authentication;
-    using Microsoft.Extensions.Logging;
-    using Microsoft.Extensions.Options;
-    using Opc.Ua.Cloud.Library.Interfaces;
-
     public class BasicAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
     {
         private readonly IUserService _userService;
@@ -49,9 +49,8 @@ namespace Opc.Ua.Cloud.Library.Authentication
             IUserService userService,
             IOptionsMonitor<AuthenticationSchemeOptions> options,
             ILoggerFactory logger,
-            UrlEncoder encoder,
-            ISystemClock clock)
-            : base(options, logger, encoder, clock)
+            UrlEncoder encoder)
+            : base(options, logger, encoder)
         {
             _userService = userService;
         }
@@ -60,17 +59,17 @@ namespace Opc.Ua.Cloud.Library.Authentication
         {
             try
             {
-                if (!Request.Headers.TryGetValue("Authorization", out var authHeaderStringValue))
+                if (!Request.Headers.TryGetValue("Authorization", out Microsoft.Extensions.Primitives.StringValues authHeaderStringValue))
                 {
                     return AuthenticateResult.NoResult();
                 }
 
                 var authHeader = AuthenticationHeaderValue.Parse(authHeaderStringValue);
                 string[] credentials = Encoding.UTF8.GetString(Convert.FromBase64String(authHeader.Parameter)).Split(':');
-                var username = credentials.FirstOrDefault();
+                string username = credentials.FirstOrDefault();
                 string password = credentials.LastOrDefault();
 
-                var claims = await _userService.ValidateCredentialsAsync(username, password).ConfigureAwait(false);
+                System.Collections.Generic.IEnumerable<Claim> claims = await _userService.ValidateCredentialsAsync(username, password).ConfigureAwait(false);
                 if (claims?.Any() != true)
                 {
                     throw new ArgumentException("Invalid credentials");

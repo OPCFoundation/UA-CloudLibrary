@@ -27,12 +27,12 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+
 namespace Opc.Ua.Cloud.Library.Client
 {
-    using System;
-    using System.Collections.Generic;
-    using Newtonsoft.Json;
-
     /// <summary>License Enumeration</summary>
     /// <summary>Contains the metadata of the nodeset and the nodeset itself</summary>
     public class UANameSpace

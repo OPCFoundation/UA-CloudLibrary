@@ -143,25 +143,25 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
             ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync().ConfigureAwait(false)).ToList();
 
             //Captcha validate
-            var captchaResult = await _captchaValidation.ValidateCaptcha(CaptchaResponseToken);
+            string captchaResult = await _captchaValidation.ValidateCaptcha(CaptchaResponseToken);
             if (!string.IsNullOrEmpty(captchaResult)) ModelState.AddModelError("CaptchaResponseToken", captchaResult);
 
             if (ModelState.IsValid)
             {
-                var user = CreateUser();
+                IdentityUser user = CreateUser();
 
                 await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None).ConfigureAwait(false);
                 await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None).ConfigureAwait(false);
-                var result = await _userManager.CreateAsync(user, Input.Password).ConfigureAwait(false);
+                IdentityResult result = await _userManager.CreateAsync(user, Input.Password).ConfigureAwait(false);
 
                 if (result.Succeeded)
                 {
                     _logger.LogInformation("User created a new account with password.");
 
-                    var userId = await _userManager.GetUserIdAsync(user).ConfigureAwait(false);
-                    var code = await _userManager.GenerateEmailConfirmationTokenAsync(user).ConfigureAwait(false);
+                    string userId = await _userManager.GetUserIdAsync(user).ConfigureAwait(false);
+                    string code = await _userManager.GenerateEmailConfirmationTokenAsync(user).ConfigureAwait(false);
                     code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-                    var callbackUrl = Url.Page(
+                    string callbackUrl = Url.Page(
                         "/Account/ConfirmEmail",
                         pageHandler: null,
                         values: new { area = "Identity", userId = userId, code = code, returnUrl = returnUrl },
@@ -185,7 +185,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
                         return LocalRedirect(returnUrl);
                     }
                 }
-                foreach (var error in result.Errors)
+                foreach (IdentityError error in result.Errors)
                 {
                     ModelState.AddModelError(string.Empty, error.Description);
                 }

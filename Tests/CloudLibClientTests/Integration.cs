@@ -41,12 +41,12 @@ namespace CloudLibClient.Tests
             if (_factory.TestConfig.DeleteCloudLibDBAndStore && InstantiationCount == 1)
             {
                 // Start the app
-                var client = _factory.CreateAuthorizedClient();
+                System.Net.Http.HttpClient client = _factory.CreateAuthorizedClient();
                 Assert.NotNull(client);
 
-                using (var scope = _factory.Server.Services.CreateScope())
+                using (IServiceScope scope = _factory.Server.Services.CreateScope())
                 {
-                    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    AppDbContext dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                     if (dbContext.nodeSets.Any())
                     {
                         dbContext.Database.EnsureDeleted();
@@ -54,7 +54,7 @@ namespace CloudLibClient.Tests
                         dbContext.Database.Migrate();
                     }
 
-                    var storage = scope.ServiceProvider.GetRequiredService<IFileStorage>();
+                    IFileStorage storage = scope.ServiceProvider.GetRequiredService<IFileStorage>();
                     if (storage is LocalFileStorage localStorage)
                     {
                         _ = await localStorage.DeleteAllFilesAsync().ConfigureAwait(true);
@@ -64,17 +64,17 @@ namespace CloudLibClient.Tests
         }
     }
 
-    internal class TestNamespaceFiles : IEnumerable<object[]>
+    internal sealed class TestNamespaceFiles : IEnumerable<object[]>
     {
         internal static string[] GetFiles()
         {
-            var nodeSetFiles = Directory.GetFiles(UploadAndIndex.strTestNamespacesDirectory);
+            string[] nodeSetFiles = Directory.GetFiles(UploadAndIndex.strTestNamespacesDirectory);
             return nodeSetFiles;
         }
 
         public IEnumerator<object[]> GetEnumerator()
         {
-            var files = GetFiles();
+            string[] files = GetFiles();
             return files.Select(f => new object[] { f }).GetEnumerator();
         }
 

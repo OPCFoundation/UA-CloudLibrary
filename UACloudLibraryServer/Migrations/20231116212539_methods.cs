@@ -1,11 +1,9 @@
 using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
-#nullable disable
-
 namespace Opc.Ua.Cloud.Library
 {
-    public partial class basetypemodel : Migration
+    public partial class BasetypeModel : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -24,14 +22,14 @@ namespace Opc.Ua.Cloud.Library
             migrationBuilder.CreateIndex(
                 name: "IX_Methods_NodeSetMethodsModelUri_NodeSetMethodsPublicationDate",
                 table: "Methods",
-                columns: new[] { "NodeSetMethodsModelUri", "NodeSetMethodsPublicationDate" });
+                columns: ["NodeSetMethodsModelUri", "NodeSetMethodsPublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Methods_NodeSets_NodeSetMethodsModelUri_NodeSetMethodsPubli~",
                 table: "Methods",
-                columns: new[] { "NodeSetMethodsModelUri", "NodeSetMethodsPublicationDate" },
+                columns: ["NodeSetMethodsModelUri", "NodeSetMethodsPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" },
+                principalColumns: ["ModelUri", "PublicationDate"],
                 onDelete: ReferentialAction.Cascade);
         }
 

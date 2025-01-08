@@ -63,7 +63,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
         public async Task<IActionResult> OnGetAsync()
         {
-            var user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
+            IdentityUser user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
             if (user == null)
             {
                 return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
@@ -75,16 +75,16 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
         public async Task<IActionResult> OnPostDeleteApiKeyAsync(string apiKeyToDelete)
         {
-            var user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
+            IdentityUser user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
             if (user == null)
             {
                 return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
             }
 
-            var removeResult = await _userManager.RemoveAuthenticationTokenAsync(user, ApiKeyTokenProvider.ApiKeyProviderName, apiKeyToDelete).ConfigureAwait(false);
+            IdentityResult removeResult = await _userManager.RemoveAuthenticationTokenAsync(user, ApiKeyTokenProvider.ApiKeyProviderName, apiKeyToDelete).ConfigureAwait(false);
             if (!removeResult.Succeeded)
             {
-                foreach (var error in removeResult.Errors)
+                foreach (IdentityError error in removeResult.Errors)
                 {
                     ModelState.AddModelError(string.Empty, error.Description);
                 }
@@ -103,17 +103,17 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
             try
             {
-                var user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
+                IdentityUser user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
                 if (user == null)
                 {
                     return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
                 }
 
-                var newApiKeyName = Input.NewApiKeyName;
+                string newApiKeyName = Input.NewApiKeyName;
 
                 try
                 {
-                    var newApiKey = await ApiKeyTokenProvider.GenerateAndSetAuthenticationTokenAsync(_userManager, user, newApiKeyName).ConfigureAwait(false);
+                    string newApiKey = await ApiKeyTokenProvider.GenerateAndSetAuthenticationTokenAsync(_userManager, user, newApiKeyName).ConfigureAwait(false);
                     if (string.IsNullOrEmpty(newApiKey))
                     {
                         ModelState.AddModelError(string.Empty, "A key with this name already exists.");
@@ -126,7 +126,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
                 }
                 catch (ApiKeyGenerationException ex)
                 {
-                    foreach (var error in ex.Errors)
+                    foreach (string error in ex.Errors)
                     {
                         ModelState.AddModelError(string.Empty, error);
                     }

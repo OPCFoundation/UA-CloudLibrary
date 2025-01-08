@@ -73,12 +73,12 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
         public async Task<IActionResult> OnPostAsync()
         {
             //Captcha validate
-            var captchaResult = await _captchaValidation.ValidateCaptcha(CaptchaResponseToken);
+            string captchaResult = await _captchaValidation.ValidateCaptcha(CaptchaResponseToken);
             if (!string.IsNullOrEmpty(captchaResult)) ModelState.AddModelError("CaptchaResponseToken", captchaResult);
 
             if (ModelState.IsValid)
             {
-                var user = await _userManager.FindByEmailAsync(Input.Email).ConfigureAwait(false);
+                IdentityUser user = await _userManager.FindByEmailAsync(Input.Email).ConfigureAwait(false);
                 if (user == null || !(await _userManager.IsEmailConfirmedAsync(user).ConfigureAwait(false)))
                 {
                     // Don't reveal that the user does not exist or is not confirmed
@@ -87,9 +87,9 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
 
                 // For more information on how to enable account confirmation and password reset please
                 // visit https://go.microsoft.com/fwlink/?LinkID=532713
-                var code = await _userManager.GeneratePasswordResetTokenAsync(user).ConfigureAwait(false);
+                string code = await _userManager.GeneratePasswordResetTokenAsync(user).ConfigureAwait(false);
                 code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-                var callbackUrl = Url.Page(
+                string callbackUrl = Url.Page(
                     "/Account/ResetPassword",
                     pageHandler: null,
                     values: new { area = "Identity", code },

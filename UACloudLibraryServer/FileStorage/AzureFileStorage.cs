@@ -27,18 +27,18 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.IO;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
+using Microsoft.Extensions.Logging;
+using Opc.Ua.Cloud.Library.Interfaces;
+
 namespace Opc.Ua.Cloud.Library
 {
-    using System;
-    using System.IO;
-    using System.Text;
-    using System.Threading;
-    using System.Threading.Tasks;
-    using Azure.Storage.Blobs;
-    using Azure.Storage.Blobs.Models;
-    using Microsoft.Extensions.Logging;
-    using Opc.Ua.Cloud.Library.Interfaces;
-
     /// <summary>
     /// Azure storage class
     /// </summary>
@@ -67,7 +67,7 @@ namespace Opc.Ua.Cloud.Library
                     BlobContainerClient container = new BlobContainerClient(Environment.GetEnvironmentVariable("BlobStorageConnectionString"), "uacloudlib");
                     await container.CreateIfNotExistsAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
 
-                    var resultSegment = container.GetBlobsAsync();
+                    Azure.AsyncPageable<BlobItem> resultSegment = container.GetBlobsAsync(cancellationToken: cancellationToken);
                     await foreach (BlobItem blobItem in resultSegment.ConfigureAwait(false))
                     {
                         if (blobItem.Name == name)
@@ -112,7 +112,7 @@ namespace Opc.Ua.Cloud.Library
                         BlobProperties properties = await blob.GetPropertiesAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
                         if (file.Length != properties.ContentLength)
                         {
-                            throw new Exception("Could not verify upload!");
+                            throw new InvalidOperationException("Could not verify upload!");
                         }
 
                         return name;
@@ -141,10 +141,10 @@ namespace Opc.Ua.Cloud.Library
                     BlobContainerClient container = new BlobContainerClient(Environment.GetEnvironmentVariable("BlobStorageConnectionString"), "uacloudlib");
                     await container.CreateIfNotExistsAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
 
-                    var resultSegment = container.GetBlobsAsync();
+                    Azure.AsyncPageable<BlobItem> resultSegment = container.GetBlobsAsync(cancellationToken: cancellationToken);
                     await foreach (BlobItem blobItem in resultSegment.ConfigureAwait(false))
                     {
-                        if (blobItem.Name.Equals(name))
+                        if (blobItem.Name.Equals(name, StringComparison.Ordinal))
                         {
                             // Get a reference to the blob
                             BlobClient blob = container.GetBlobClient(blobItem.Name);
@@ -159,7 +159,7 @@ namespace Opc.Ua.Cloud.Library
                                 BlobProperties properties = await blob.GetPropertiesAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
                                 if (file.Length != properties.ContentLength)
                                 {
-                                    throw new Exception("Could not verify upload!");
+                                    throw new InvalidOperationException("Could not verify upload!");
                                 }
 
                                 return Encoding.UTF8.GetString(file.ToArray());
@@ -186,7 +186,7 @@ namespace Opc.Ua.Cloud.Library
                     // open blob storage
                     BlobContainerClient container = new BlobContainerClient(Environment.GetEnvironmentVariable("BlobStorageConnectionString"), "uacloudlib");
 
-                    var response = await container.DeleteBlobAsync(name, cancellationToken: cancellationToken).ConfigureAwait(false);
+                    Azure.Response response = await container.DeleteBlobAsync(name, cancellationToken: cancellationToken).ConfigureAwait(false);
                 }
 
                 return;

@@ -27,13 +27,13 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+
 namespace Opc.Ua.Cloud.Library.Client
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Text;
-
     /// <summary>Enum to select the search field</summary>
     public enum SearchField
     {
@@ -106,19 +106,19 @@ namespace Opc.Ua.Cloud.Library.Client
             }
             else
             {
-                query.Append("[");
+                query.Append('[');
 
                 if (filter != null)
                 {
                     foreach (WhereExpression e in filter)
                     {
                         query.Append(e.Expression);
-                        query.Append(",");
+                        query.Append(',');
                     }
                 }
 
                 query.Remove(query.Length - 1, 1);
-                query.Append("]");
+                query.Append(']');
 
                 return query.ToString();
             }
@@ -130,12 +130,14 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <param name="comparison">The comparison.</param>
         public void SetExpression(SearchField field, string value, ComparisonType comparison)
         {
+#pragma warning disable CA2263 // Prefer generic overload when type is known
             if (!string.IsNullOrEmpty(value) && Enum.IsDefined(typeof(SearchField), field) && Enum.IsDefined(typeof(ComparisonType), comparison))
             {
                 Expression = "{'" + field.ToString() + "': {'" + comparison.ToString() + "': '" + value + "'}}";
 
                 Value = value;
             }
+#pragma warning restore CA2263 // Prefer generic overload when type is known
         }
     }
 }

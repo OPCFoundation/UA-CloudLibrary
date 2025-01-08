@@ -1,11 +1,9 @@
 using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
-#nullable disable
-
 namespace Opc.Ua.Cloud.Library
 {
-    public partial class creationtime : Migration
+    public partial class CreationTime : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {

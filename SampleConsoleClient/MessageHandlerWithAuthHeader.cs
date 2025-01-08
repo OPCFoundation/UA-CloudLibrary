@@ -27,15 +27,15 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Net.Http;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+
 namespace SampleConsoleClient
 {
-    using System;
-    using System.Net.Http;
-    using System.Text;
-    using System.Threading;
-    using System.Threading.Tasks;
-
-    class MessageHandlerWithAuthHeader : DelegatingHandler
+    public class MessageHandlerWithAuthHeader : DelegatingHandler
     {
         private string _username = string.Empty;
         private string _password = string.Empty;

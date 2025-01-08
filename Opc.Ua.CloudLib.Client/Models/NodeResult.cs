@@ -27,12 +27,12 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
 namespace Opc.Ua.Cloud.Library.Client
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-
     /// <summary>
     /// Captures a GraphQL node and it's cursor (GraphQL edge)
     /// </summary>

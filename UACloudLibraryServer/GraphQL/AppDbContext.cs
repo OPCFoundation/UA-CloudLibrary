@@ -27,18 +27,18 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.IO;
+using System.Linq;
+using CESMII.OpcUa.NodeSetModel;
+using CESMII.OpcUa.NodeSetModel.EF;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Opc.Ua.Cloud.Library.DbContextModels;
+
 namespace Opc.Ua.Cloud.Library
 {
-    using System;
-    using System.IO;
-    using System.Linq;
-    using CESMII.OpcUa.NodeSetModel;
-    using CESMII.OpcUa.NodeSetModel.EF;
-    using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-    using Microsoft.EntityFrameworkCore;
-    using Microsoft.Extensions.Configuration;
-    using Opc.Ua.Cloud.Library.DbContextModels;
-
     public class AppDbContext : IdentityDbContext
     {
         public AppDbContext(DbContextOptions options, IConfiguration configuration)
@@ -77,7 +77,7 @@ namespace Opc.Ua.Cloud.Library
 
         public static string CreateConnectionString(IConfiguration configuration)
         {
-            var connectionString = configuration.GetConnectionString("CloudLibraryPostgreSQL");
+            string connectionString = configuration.GetConnectionString("CloudLibraryPostgreSQL");
             if (string.IsNullOrEmpty(connectionString))
             {
                 connectionString = CreateConnectionStringFromEnvironment();
@@ -102,7 +102,6 @@ namespace Opc.Ua.Cloud.Library
 
 
         // map to our tables
-
         public IQueryable<NamespaceMetaDataModel> NamespaceMetaData
         {
             get => _approvalRequired
@@ -150,13 +149,14 @@ namespace Opc.Ua.Cloud.Library
             base.OnModelCreating(builder);
 
             NodeSetModelContext.CreateModel(builder, true);
+
             builder.Entity<CloudLibNodeSetModel>()
                 .Property(nsm => nsm.ValidationStatus)
-                    .HasConversion<string>();
+                .HasConversion<string>();
+
             builder.Entity<NodeSetModel>()
                 .Ignore(nsm => nsm.HeaderComments)
-                .HasAlternateKey(nm => nm.Identifier)
-                ;
+                .HasAlternateKey(nm => nm.Identifier);
 
             builder.Entity<NodeModel>()
                 .Ignore(nm => nm.AllReferencedNodes);
@@ -164,12 +164,14 @@ namespace Opc.Ua.Cloud.Library
             builder.Entity<NodeModel>()
                 .HasIndex(nm => new { nm.BrowseName })
                 .HasMethod("GIN")
-                .IsTsVectorExpressionIndex("english")
-                ;
+                .IsTsVectorExpressionIndex("english");
+
             NamespaceMetaDataModel.OnModelCreating(builder);
+
 #if !NOLEGACYMIGRATION
             builder.Entity<MetadataModel>().HasKey(k => k.Id);
 #endif
+
             DevDbFileStorage.OnModelCreating(builder);
         }
 

@@ -41,11 +41,11 @@ namespace Opc.Ua.CloudLib.Sync
                 // Get all NodeSets
                 nodeSetResult = await sourceClient.GetNodeSetsAsync(after: cursor, first: 50).ConfigureAwait(false);
 
-                foreach (var nodeSetAndCursor in nodeSetResult.Edges)
+                foreach (GraphQlNodeAndCursor<Nodeset>? nodeSetAndCursor in nodeSetResult.Edges)
                 {
                     // Download each NodeSet
-                    var identifier = nodeSetAndCursor.Node.Identifier.ToString(CultureInfo.InvariantCulture);
-                    var uaNamespace = await sourceClient.DownloadNodesetAsync(identifier).ConfigureAwait(false);
+                    string identifier = nodeSetAndCursor.Node.Identifier.ToString(CultureInfo.InvariantCulture);
+                    UANameSpace uaNamespace = await sourceClient.DownloadNodesetAsync(identifier).ConfigureAwait(false);
 
                     if (uaNamespace?.Nodeset != null)
                     {
@@ -55,9 +55,9 @@ namespace Opc.Ua.CloudLib.Sync
                         }
 
 
-                        var original = JsonConvert.SerializeObject(uaNamespace, Formatting.Indented);
-                        var namespaceKey = VerifyAndFixupNodeSetMeta(uaNamespace);
-                        var fileName = GetFileNameForNamespaceUri(namespaceKey.ModelUri, namespaceKey.PublicationDate);
+                        string original = JsonConvert.SerializeObject(uaNamespace, Formatting.Indented);
+                        (string? ModelUri, DateTime? PublicationDate, bool Changed) namespaceKey = VerifyAndFixupNodeSetMeta(uaNamespace);
+                        string fileName = GetFileNameForNamespaceUri(namespaceKey.ModelUri, namespaceKey.PublicationDate);
 
                         File.WriteAllText(Path.Combine(localDir, $"{fileName}.{identifier}.json"), JsonConvert.SerializeObject(uaNamespace, Formatting.Indented));
 
@@ -133,17 +133,17 @@ namespace Opc.Ua.CloudLib.Sync
                                 source.NamespaceUri?.OriginalString== target.NamespaceUri?.OriginalString
                                 && (source.PublicationDate == target.PublicationDate || (source.Identifier != 0 && source.Identifier == target.Identifier))
                         )).ToList();
-                    foreach (var nodeSet in toSync)
+                    foreach (Nodeset? nodeSet in toSync)
                     {
                         // Download each NodeSet
-                        var identifier = nodeSet.Identifier.ToString(CultureInfo.InvariantCulture);
-                        var uaNamespace = await sourceClient.DownloadNodesetAsync(identifier).ConfigureAwait(false);
+                        string identifier = nodeSet.Identifier.ToString(CultureInfo.InvariantCulture);
+                        UANameSpace uaNamespace = await sourceClient.DownloadNodesetAsync(identifier).ConfigureAwait(false);
 
                         try
                         {
                             VerifyAndFixupNodeSetMeta(uaNamespace);
                             // upload NodeSet to target cloud library
-                            var response = await targetClient.UploadNodeSetAsync(uaNamespace).ConfigureAwait(false);
+                            (System.Net.HttpStatusCode Status, string Message) response = await targetClient.UploadNodeSetAsync(uaNamespace).ConfigureAwait(false);
                             if (response.Status == System.Net.HttpStatusCode.OK)
                             {
                                 bAdded = true;
@@ -187,11 +187,11 @@ namespace Opc.Ua.CloudLib.Sync
                 filesToUpload.AddRange(Directory.GetFiles(localDir));
             }
 
-            foreach (var file in filesToUpload)
+            foreach (string file in filesToUpload)
             {
-                var uploadJson = File.ReadAllText(file);
+                string uploadJson = File.ReadAllText(file);
 
-                var addressSpace = JsonConvert.DeserializeObject<UANameSpace>(uploadJson);
+                UANameSpace? addressSpace = JsonConvert.DeserializeObject<UANameSpace>(uploadJson);
                 if (addressSpace == null)
                 {
                     _logger.LogInformation($"Error uploading {file}: failed to parse.");
@@ -199,10 +199,10 @@ namespace Opc.Ua.CloudLib.Sync
                 }
                 if (addressSpace.Nodeset == null || string.IsNullOrEmpty(addressSpace.Nodeset.NodesetXml))
                 {
-                    var xmlFile = Path.Combine(Path.GetDirectoryName(file)??file, Path.GetFileNameWithoutExtension(file) + ".xml");
+                    string xmlFile = Path.Combine(Path.GetDirectoryName(file)??file, Path.GetFileNameWithoutExtension(file) + ".xml");
                     if (File.Exists(xmlFile))
                     {
-                        var xml = File.ReadAllText(xmlFile);
+                        string xml = File.ReadAllText(xmlFile);
                         addressSpace.Nodeset = new Nodeset { NodesetXml = xml };
                     }
                 }
@@ -235,7 +235,7 @@ namespace Opc.Ua.CloudLib.Sync
                 {
                     addressSpace.Contributor = new Organisation { Name = file };
                 }
-                var response = await targetClient.UploadNodeSetAsync(addressSpace).ConfigureAwait(false);
+                (System.Net.HttpStatusCode Status, string Message) response = await targetClient.UploadNodeSetAsync(addressSpace).ConfigureAwait(false);
                 if (response.Status == System.Net.HttpStatusCode.OK)
                 {
                     _logger.LogInformation($"Uploaded {addressSpace.Nodeset.NamespaceUri}, {addressSpace.Nodeset.Identifier}");
@@ -250,16 +250,16 @@ namespace Opc.Ua.CloudLib.Sync
         private (string? ModelUri, DateTime? PublicationDate, bool Changed) VerifyAndFixupNodeSetMeta(UANameSpace uaNamespace)
         {
             bool changed = false;
-            var nodeset = uaNamespace.Nodeset;
-            var namespaceUri = nodeset?.NamespaceUri?.OriginalString;
-            var publicationDate = nodeset?.PublicationDate;
+            Nodeset? nodeset = uaNamespace.Nodeset;
+            string? namespaceUri = nodeset?.NamespaceUri?.OriginalString;
+            DateTime? publicationDate = nodeset?.PublicationDate;
 
             if (nodeset?.NodesetXml != null)
             {
                 using (var ms = new MemoryStream(Encoding.UTF8.GetBytes(nodeset.NodesetXml)))
                 {
                     var nodeSet = UANodeSet.Read(ms);
-                    var firstModel = nodeSet.Models?.FirstOrDefault();
+                    ModelTableEntry? firstModel = nodeSet.Models?.FirstOrDefault();
                     if (firstModel != null)
                     {
                         if (firstModel.PublicationDateSpecified && firstModel.PublicationDate != DateTime.MinValue && firstModel.PublicationDate != nodeset.PublicationDate)
@@ -324,10 +324,10 @@ namespace Opc.Ua.CloudLib.Sync
 
         private static string GetFileNameForNamespaceUri(string? modelUri, DateTime? publicationDate)
         {
-            var tFile = modelUri?.Replace("http://", "", StringComparison.OrdinalIgnoreCase) ?? "";
+            string tFile = modelUri?.Replace("http://", "", StringComparison.OrdinalIgnoreCase) ?? "";
             tFile = tFile.Replace('/', '.');
             tFile = tFile.Replace(':', '_');
-            if (!tFile.EndsWith(".", StringComparison.Ordinal)) tFile += ".";
+            if (!tFile.EndsWith('.')) tFile += ".";
             if (publicationDate != null && publicationDate.Value != default)
             {
                 if (publicationDate.Value.TimeOfDay == TimeSpan.Zero)
@@ -345,8 +345,8 @@ namespace Opc.Ua.CloudLib.Sync
 
         static void SaveNodeSetAsXmlFile(UANameSpace? nameSpace, string directoryPath)
         {
-            var modelUri = nameSpace?.Nodeset?.NamespaceUri?.OriginalString;
-            var publicationDate = nameSpace?.Nodeset?.PublicationDate;
+            string? modelUri = nameSpace?.Nodeset?.NamespaceUri?.OriginalString;
+            DateTime? publicationDate = nameSpace?.Nodeset?.PublicationDate;
             if ((modelUri == null || publicationDate == null) && nameSpace?.Nodeset != null)
             {
                 var ms = new MemoryStream(Encoding.UTF8.GetBytes(nameSpace.Nodeset.NodesetXml));

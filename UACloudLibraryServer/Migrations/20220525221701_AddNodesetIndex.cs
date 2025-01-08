@@ -47,7 +47,7 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_Nodes_NodeSets_NodeSetModelUri_NodeSetPublicationDate",
                         columns: x => new { x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" },
+                        principalColumns: ["ModelUri", "PublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -70,12 +70,12 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_RequiredModelInfo_NodeSets_AvailableModelModelUri_Available~",
                         columns: x => new { x.AvailableModelModelUri, x.AvailableModelPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" });
+                        principalColumns: ["ModelUri", "PublicationDate"]);
                     table.ForeignKey(
                         name: "FK_RequiredModelInfo_NodeSets_NodeSetModelModelUri_NodeSetMode~",
                         columns: x => new { x.NodeSetModelModelUri, x.NodeSetModelPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" },
+                        principalColumns: ["ModelUri", "PublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -96,18 +96,18 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_BaseTypes_BaseTypes_SuperTypeNodeId_SuperTypeNodeSetModelUr~",
                         columns: x => new { x.SuperTypeNodeId, x.SuperTypeNodeSetModelUri, x.SuperTypeNodeSetPublicationDate },
                         principalTable: "BaseTypes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
                     table.ForeignKey(
                         name: "FK_BaseTypes_Nodes_NodeId_NodeSetModelUri_NodeSetPublicationDa~",
                         columns: x => new { x.NodeId, x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "Nodes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_BaseTypes_NodeSets_NodeSetModelUri_NodeSetPublicationDate",
                         columns: x => new { x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" },
+                        principalColumns: ["ModelUri", "PublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -130,12 +130,12 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_ChildAndReference_Nodes_ChildNodeId_ChildNodeSetModelUri_Ch~",
                         columns: x => new { x.ChildNodeId, x.ChildNodeSetModelUri, x.ChildNodeSetPublicationDate },
                         principalTable: "Nodes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
                     table.ForeignKey(
                         name: "FK_ChildAndReference_Nodes_NodeModelNodeId_NodeModelNodeSetMod~",
                         columns: x => new { x.NodeModelNodeId, x.NodeModelNodeSetModelUri, x.NodeModelNodeSetPublicationDate },
                         principalTable: "Nodes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -156,7 +156,7 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_Nodes_Description_Nodes_NodeModelNodeId_NodeModelNodeSetMod~",
                         columns: x => new { x.NodeModelNodeId, x.NodeModelNodeSetModelUri, x.NodeModelNodeSetPublicationDate },
                         principalTable: "Nodes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -177,7 +177,7 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_Nodes_DisplayName_Nodes_NodeModelNodeId_NodeModelNodeSetMod~",
                         columns: x => new { x.NodeModelNodeId, x.NodeModelNodeSetModelUri, x.NodeModelNodeSetPublicationDate },
                         principalTable: "Nodes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -196,18 +196,18 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_ReferenceTypes_Nodes_NodeId_NodeSetModelUri_NodeSetPublicat~",
                         columns: x => new { x.NodeId, x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "Nodes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_ReferenceTypes_NodeSets_NodeSetModelModelUri_NodeSetModelPu~",
                         columns: x => new { x.NodeSetModelModelUri, x.NodeSetModelPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" });
+                        principalColumns: ["ModelUri", "PublicationDate"]);
                     table.ForeignKey(
                         name: "FK_ReferenceTypes_NodeSets_NodeSetModelUri_NodeSetPublicationD~",
                         columns: x => new { x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" },
+                        principalColumns: ["ModelUri", "PublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -226,18 +226,18 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_DataTypes_BaseTypes_NodeId_NodeSetModelUri_NodeSetPublicati~",
                         columns: x => new { x.NodeId, x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "BaseTypes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_DataTypes_NodeSets_NodeSetModelModelUri_NodeSetModelPublica~",
                         columns: x => new { x.NodeSetModelModelUri, x.NodeSetModelPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" });
+                        principalColumns: ["ModelUri", "PublicationDate"]);
                     table.ForeignKey(
                         name: "FK_DataTypes_NodeSets_NodeSetModelUri_NodeSetPublicationDate",
                         columns: x => new { x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" },
+                        principalColumns: ["ModelUri", "PublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -261,23 +261,23 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_Methods_BaseTypes_TypeDefinitionNodeId_TypeDefinitionNodeSe~",
                         columns: x => new { x.TypeDefinitionNodeId, x.TypeDefinitionNodeSetModelUri, x.TypeDefinitionNodeSetPublicationDate },
                         principalTable: "BaseTypes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
                     table.ForeignKey(
                         name: "FK_Methods_Nodes_NodeId_NodeSetModelUri_NodeSetPublicationDate",
                         columns: x => new { x.NodeId, x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "Nodes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_Methods_Nodes_ParentNodeId_ParentNodeSetModelUri_ParentNode~",
                         columns: x => new { x.ParentNodeId, x.ParentNodeSetModelUri, x.ParentNodeSetPublicationDate },
                         principalTable: "Nodes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
                     table.ForeignKey(
                         name: "FK_Methods_NodeSets_NodeSetModelUri_NodeSetPublicationDate",
                         columns: x => new { x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" },
+                        principalColumns: ["ModelUri", "PublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -299,23 +299,23 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_ObjectTypes_BaseTypes_NodeId_NodeSetModelUri_NodeSetPublica~",
                         columns: x => new { x.NodeId, x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "BaseTypes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_ObjectTypes_Nodes_NodeModelNodeId_NodeModelNodeSetModelUri_~",
                         columns: x => new { x.NodeModelNodeId, x.NodeModelNodeSetModelUri, x.NodeModelNodeSetPublicationDate },
                         principalTable: "Nodes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
                     table.ForeignKey(
                         name: "FK_ObjectTypes_NodeSets_NodeSetModelModelUri_NodeSetModelPubli~",
                         columns: x => new { x.NodeSetModelModelUri, x.NodeSetModelPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" });
+                        principalColumns: ["ModelUri", "PublicationDate"]);
                     table.ForeignKey(
                         name: "FK_ObjectTypes_NodeSets_NodeSetModelUri_NodeSetPublicationDate",
                         columns: x => new { x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" },
+                        principalColumns: ["ModelUri", "PublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -334,18 +334,18 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_VariableTypes_BaseTypes_NodeId_NodeSetModelUri_NodeSetPubli~",
                         columns: x => new { x.NodeId, x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "BaseTypes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_VariableTypes_NodeSets_NodeSetModelModelUri_NodeSetModelPub~",
                         columns: x => new { x.NodeSetModelModelUri, x.NodeSetModelPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" });
+                        principalColumns: ["ModelUri", "PublicationDate"]);
                     table.ForeignKey(
                         name: "FK_VariableTypes_NodeSets_NodeSetModelUri_NodeSetPublicationDa~",
                         columns: x => new { x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" },
+                        principalColumns: ["ModelUri", "PublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -369,12 +369,12 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_StructureField_BaseTypes_DataTypeNodeId_DataTypeNodeSetMode~",
                         columns: x => new { x.DataTypeNodeId, x.DataTypeNodeSetModelUri, x.DataTypeNodeSetPublicationDate },
                         principalTable: "BaseTypes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
                     table.ForeignKey(
                         name: "FK_StructureField_DataTypes_DataTypeModelNodeId_DataTypeModelN~",
                         columns: x => new { x.DataTypeModelNodeId, x.DataTypeModelNodeSetModelUri, x.DataTypeModelNodeSetPublicationDate },
                         principalTable: "DataTypes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -395,7 +395,7 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_UaEnumField_DataTypes_DataTypeModelNodeId_DataTypeModelNode~",
                         columns: x => new { x.DataTypeModelNodeId, x.DataTypeModelNodeSetModelUri, x.DataTypeModelNodeSetPublicationDate },
                         principalTable: "DataTypes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -417,23 +417,23 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_Interfaces_Nodes_NodeModelNodeId1_NodeModelNodeSetModelUri1~",
                         columns: x => new { x.NodeModelNodeId1, x.NodeModelNodeSetModelUri1, x.NodeModelNodeSetPublicationDate1 },
                         principalTable: "Nodes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
                     table.ForeignKey(
                         name: "FK_Interfaces_NodeSets_NodeSetModelModelUri1_NodeSetModelPubli~",
                         columns: x => new { x.NodeSetModelModelUri1, x.NodeSetModelPublicationDate1 },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" });
+                        principalColumns: ["ModelUri", "PublicationDate"]);
                     table.ForeignKey(
                         name: "FK_Interfaces_NodeSets_NodeSetModelUri_NodeSetPublicationDate",
                         columns: x => new { x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" },
+                        principalColumns: ["ModelUri", "PublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_Interfaces_ObjectTypes_NodeId_NodeSetModelUri_NodeSetPublic~",
                         columns: x => new { x.NodeId, x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "ObjectTypes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -459,29 +459,29 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_Objects_Nodes_NodeId_NodeSetModelUri_NodeSetPublicationDate",
                         columns: x => new { x.NodeId, x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "Nodes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_Objects_Nodes_ParentNodeId_ParentNodeSetModelUri_ParentNode~",
                         columns: x => new { x.ParentNodeId, x.ParentNodeSetModelUri, x.ParentNodeSetPublicationDate },
                         principalTable: "Nodes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
                     table.ForeignKey(
                         name: "FK_Objects_NodeSets_NodeSetModelModelUri_NodeSetModelPublicati~",
                         columns: x => new { x.NodeSetModelModelUri, x.NodeSetModelPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" });
+                        principalColumns: ["ModelUri", "PublicationDate"]);
                     table.ForeignKey(
                         name: "FK_Objects_NodeSets_NodeSetModelUri_NodeSetPublicationDate",
                         columns: x => new { x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" },
+                        principalColumns: ["ModelUri", "PublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_Objects_ObjectTypes_TypeDefinitionNodeId_TypeDefinitionNode~",
                         columns: x => new { x.TypeDefinitionNodeId, x.TypeDefinitionNodeSetModelUri, x.TypeDefinitionNodeSetPublicationDate },
                         principalTable: "ObjectTypes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
                 });
 
             migrationBuilder.CreateTable(
@@ -527,29 +527,29 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_Variables_BaseTypes_DataTypeNodeId_DataTypeNodeSetModelUri_~",
                         columns: x => new { x.DataTypeNodeId, x.DataTypeNodeSetModelUri, x.DataTypeNodeSetPublicationDate },
                         principalTable: "BaseTypes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
                     table.ForeignKey(
                         name: "FK_Variables_Nodes_NodeId_NodeSetModelUri_NodeSetPublicationDa~",
                         columns: x => new { x.NodeId, x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "Nodes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_Variables_Nodes_ParentNodeId_ParentNodeSetModelUri_ParentNo~",
                         columns: x => new { x.ParentNodeId, x.ParentNodeSetModelUri, x.ParentNodeSetPublicationDate },
                         principalTable: "Nodes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
                     table.ForeignKey(
                         name: "FK_Variables_NodeSets_NodeSetModelUri_NodeSetPublicationDate",
                         columns: x => new { x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" },
+                        principalColumns: ["ModelUri", "PublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_Variables_VariableTypes_TypeDefinitionNodeId_TypeDefinition~",
                         columns: x => new { x.TypeDefinitionNodeId, x.TypeDefinitionNodeSetModelUri, x.TypeDefinitionNodeSetPublicationDate },
                         principalTable: "VariableTypes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
                 });
 
             migrationBuilder.CreateTable(
@@ -570,7 +570,7 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_StructureField_Description_StructureField_StructureFieldDat~",
                         columns: x => new { x.StructureFieldDataTypeModelNodeId, x.StructureFieldDataTypeModelNodeSetModelUri, x.StructureFieldDataTypeModelNodeSetPublicationDate, x.StructureFieldId },
                         principalTable: "StructureField",
-                        principalColumns: new[] { "DataTypeModelNodeId", "DataTypeModelNodeSetModelUri", "DataTypeModelNodeSetPublicationDate", "Id" },
+                        principalColumns: ["DataTypeModelNodeId", "DataTypeModelNodeSetModelUri", "DataTypeModelNodeSetPublicationDate", "Id"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -592,7 +592,7 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_UaEnumField_Description_UaEnumField_UaEnumFieldDataTypeMode~",
                         columns: x => new { x.UaEnumFieldDataTypeModelNodeId, x.UaEnumFieldDataTypeModelNodeSetModelUri, x.UaEnumFieldDataTypeModelNodeSetPublicationDate, x.UaEnumFieldId },
                         principalTable: "UaEnumField",
-                        principalColumns: new[] { "DataTypeModelNodeId", "DataTypeModelNodeSetModelUri", "DataTypeModelNodeSetPublicationDate", "Id" },
+                        principalColumns: ["DataTypeModelNodeId", "DataTypeModelNodeSetModelUri", "DataTypeModelNodeSetPublicationDate", "Id"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -614,7 +614,7 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_UaEnumField_DisplayName_UaEnumField_UaEnumFieldDataTypeMode~",
                         columns: x => new { x.UaEnumFieldDataTypeModelNodeId, x.UaEnumFieldDataTypeModelNodeSetModelUri, x.UaEnumFieldDataTypeModelNodeSetPublicationDate, x.UaEnumFieldId },
                         principalTable: "UaEnumField",
-                        principalColumns: new[] { "DataTypeModelNodeId", "DataTypeModelNodeSetModelUri", "DataTypeModelNodeSetPublicationDate", "Id" },
+                        principalColumns: ["DataTypeModelNodeId", "DataTypeModelNodeSetModelUri", "DataTypeModelNodeSetPublicationDate", "Id"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -636,23 +636,23 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_DataVariables_Nodes_NodeModelNodeId_NodeModelNodeSetModelUr~",
                         columns: x => new { x.NodeModelNodeId, x.NodeModelNodeSetModelUri, x.NodeModelNodeSetPublicationDate },
                         principalTable: "Nodes",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
                     table.ForeignKey(
                         name: "FK_DataVariables_NodeSets_NodeSetModelModelUri_NodeSetModelPub~",
                         columns: x => new { x.NodeSetModelModelUri, x.NodeSetModelPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" });
+                        principalColumns: ["ModelUri", "PublicationDate"]);
                     table.ForeignKey(
                         name: "FK_DataVariables_NodeSets_NodeSetModelUri_NodeSetPublicationDa~",
                         columns: x => new { x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" },
+                        principalColumns: ["ModelUri", "PublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_DataVariables_Variables_NodeId_NodeSetModelUri_NodeSetPubli~",
                         columns: x => new { x.NodeId, x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "Variables",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -671,190 +671,190 @@ namespace Opc.Ua.Cloud.Library
                         name: "FK_Properties_NodeSets_NodeSetModelModelUri_NodeSetModelPublic~",
                         columns: x => new { x.NodeSetModelModelUri, x.NodeSetModelPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" });
+                        principalColumns: ["ModelUri", "PublicationDate"]);
                     table.ForeignKey(
                         name: "FK_Properties_NodeSets_NodeSetModelUri_NodeSetPublicationDate",
                         columns: x => new { x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "NodeSets",
-                        principalColumns: new[] { "ModelUri", "PublicationDate" },
+                        principalColumns: ["ModelUri", "PublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_Properties_Variables_NodeId_NodeSetModelUri_NodeSetPublicat~",
                         columns: x => new { x.NodeId, x.NodeSetModelUri, x.NodeSetPublicationDate },
                         principalTable: "Variables",
-                        principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                        principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateIndex(
                 name: "IX_BaseTypes_NodeSetModelUri_NodeSetPublicationDate",
                 table: "BaseTypes",
-                columns: new[] { "NodeSetModelUri", "NodeSetPublicationDate" });
+                columns: ["NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_BaseTypes_SuperTypeNodeId_SuperTypeNodeSetModelUri_SuperTyp~",
                 table: "BaseTypes",
-                columns: new[] { "SuperTypeNodeId", "SuperTypeNodeSetModelUri", "SuperTypeNodeSetPublicationDate" });
+                columns: ["SuperTypeNodeId", "SuperTypeNodeSetModelUri", "SuperTypeNodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ChildAndReference_ChildNodeId_ChildNodeSetModelUri_ChildNod~",
                 table: "ChildAndReference",
-                columns: new[] { "ChildNodeId", "ChildNodeSetModelUri", "ChildNodeSetPublicationDate" });
+                columns: ["ChildNodeId", "ChildNodeSetModelUri", "ChildNodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_DataTypes_NodeSetModelModelUri_NodeSetModelPublicationDate",
                 table: "DataTypes",
-                columns: new[] { "NodeSetModelModelUri", "NodeSetModelPublicationDate" });
+                columns: ["NodeSetModelModelUri", "NodeSetModelPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_DataTypes_NodeSetModelUri_NodeSetPublicationDate",
                 table: "DataTypes",
-                columns: new[] { "NodeSetModelUri", "NodeSetPublicationDate" });
+                columns: ["NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_DataVariables_NodeModelNodeId_NodeModelNodeSetModelUri_Node~",
                 table: "DataVariables",
-                columns: new[] { "NodeModelNodeId", "NodeModelNodeSetModelUri", "NodeModelNodeSetPublicationDate" });
+                columns: ["NodeModelNodeId", "NodeModelNodeSetModelUri", "NodeModelNodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_DataVariables_NodeSetModelModelUri_NodeSetModelPublicationD~",
                 table: "DataVariables",
-                columns: new[] { "NodeSetModelModelUri", "NodeSetModelPublicationDate" });
+                columns: ["NodeSetModelModelUri", "NodeSetModelPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_DataVariables_NodeSetModelUri_NodeSetPublicationDate",
                 table: "DataVariables",
-                columns: new[] { "NodeSetModelUri", "NodeSetPublicationDate" });
+                columns: ["NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Interfaces_NodeModelNodeId1_NodeModelNodeSetModelUri1_NodeM~",
                 table: "Interfaces",
-                columns: new[] { "NodeModelNodeId1", "NodeModelNodeSetModelUri1", "NodeModelNodeSetPublicationDate1" });
+                columns: ["NodeModelNodeId1", "NodeModelNodeSetModelUri1", "NodeModelNodeSetPublicationDate1"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Interfaces_NodeSetModelModelUri1_NodeSetModelPublicationDat~",
                 table: "Interfaces",
-                columns: new[] { "NodeSetModelModelUri1", "NodeSetModelPublicationDate1" });
+                columns: ["NodeSetModelModelUri1", "NodeSetModelPublicationDate1"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Interfaces_NodeSetModelUri_NodeSetPublicationDate",
                 table: "Interfaces",
-                columns: new[] { "NodeSetModelUri", "NodeSetPublicationDate" });
+                columns: ["NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Methods_NodeSetModelUri_NodeSetPublicationDate",
                 table: "Methods",
-                columns: new[] { "NodeSetModelUri", "NodeSetPublicationDate" });
+                columns: ["NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Methods_ParentNodeId_ParentNodeSetModelUri_ParentNodeSetPub~",
                 table: "Methods",
-                columns: new[] { "ParentNodeId", "ParentNodeSetModelUri", "ParentNodeSetPublicationDate" });
+                columns: ["ParentNodeId", "ParentNodeSetModelUri", "ParentNodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Methods_TypeDefinitionNodeId_TypeDefinitionNodeSetModelUri_~",
                 table: "Methods",
-                columns: new[] { "TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate" });
+                columns: ["TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Nodes_NodeSetModelUri_NodeSetPublicationDate",
                 table: "Nodes",
-                columns: new[] { "NodeSetModelUri", "NodeSetPublicationDate" });
+                columns: ["NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Objects_NodeSetModelModelUri_NodeSetModelPublicationDate",
                 table: "Objects",
-                columns: new[] { "NodeSetModelModelUri", "NodeSetModelPublicationDate" });
+                columns: ["NodeSetModelModelUri", "NodeSetModelPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Objects_NodeSetModelUri_NodeSetPublicationDate",
                 table: "Objects",
-                columns: new[] { "NodeSetModelUri", "NodeSetPublicationDate" });
+                columns: ["NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Objects_ParentNodeId_ParentNodeSetModelUri_ParentNodeSetPub~",
                 table: "Objects",
-                columns: new[] { "ParentNodeId", "ParentNodeSetModelUri", "ParentNodeSetPublicationDate" });
+                columns: ["ParentNodeId", "ParentNodeSetModelUri", "ParentNodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Objects_TypeDefinitionNodeId_TypeDefinitionNodeSetModelUri_~",
                 table: "Objects",
-                columns: new[] { "TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate" });
+                columns: ["TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ObjectTypes_NodeModelNodeId_NodeModelNodeSetModelUri_NodeMo~",
                 table: "ObjectTypes",
-                columns: new[] { "NodeModelNodeId", "NodeModelNodeSetModelUri", "NodeModelNodeSetPublicationDate" });
+                columns: ["NodeModelNodeId", "NodeModelNodeSetModelUri", "NodeModelNodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ObjectTypes_NodeSetModelModelUri_NodeSetModelPublicationDate",
                 table: "ObjectTypes",
-                columns: new[] { "NodeSetModelModelUri", "NodeSetModelPublicationDate" });
+                columns: ["NodeSetModelModelUri", "NodeSetModelPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ObjectTypes_NodeSetModelUri_NodeSetPublicationDate",
                 table: "ObjectTypes",
-                columns: new[] { "NodeSetModelUri", "NodeSetPublicationDate" });
+                columns: ["NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Properties_NodeSetModelModelUri_NodeSetModelPublicationDate",
                 table: "Properties",
-                columns: new[] { "NodeSetModelModelUri", "NodeSetModelPublicationDate" });
+                columns: ["NodeSetModelModelUri", "NodeSetModelPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Properties_NodeSetModelUri_NodeSetPublicationDate",
                 table: "Properties",
-                columns: new[] { "NodeSetModelUri", "NodeSetPublicationDate" });
+                columns: ["NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ReferenceTypes_NodeSetModelModelUri_NodeSetModelPublication~",
                 table: "ReferenceTypes",
-                columns: new[] { "NodeSetModelModelUri", "NodeSetModelPublicationDate" });
+                columns: ["NodeSetModelModelUri", "NodeSetModelPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ReferenceTypes_NodeSetModelUri_NodeSetPublicationDate",
                 table: "ReferenceTypes",
-                columns: new[] { "NodeSetModelUri", "NodeSetPublicationDate" });
+                columns: ["NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_RequiredModelInfo_AvailableModelModelUri_AvailableModelPubl~",
                 table: "RequiredModelInfo",
-                columns: new[] { "AvailableModelModelUri", "AvailableModelPublicationDate" });
+                columns: ["AvailableModelModelUri", "AvailableModelPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_StructureField_DataTypeNodeId_DataTypeNodeSetModelUri_DataT~",
                 table: "StructureField",
-                columns: new[] { "DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate" });
+                columns: ["DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Variables_DataTypeNodeId_DataTypeNodeSetModelUri_DataTypeNo~",
                 table: "Variables",
-                columns: new[] { "DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate" });
+                columns: ["DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Variables_NodeSetModelUri_NodeSetPublicationDate",
                 table: "Variables",
-                columns: new[] { "NodeSetModelUri", "NodeSetPublicationDate" });
+                columns: ["NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Variables_ParentNodeId_ParentNodeSetModelUri_ParentNodeSetP~",
                 table: "Variables",
-                columns: new[] { "ParentNodeId", "ParentNodeSetModelUri", "ParentNodeSetPublicationDate" });
+                columns: ["ParentNodeId", "ParentNodeSetModelUri", "ParentNodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Variables_TypeDefinitionNodeId_TypeDefinitionNodeSetModelUr~",
                 table: "Variables",
-                columns: new[] { "TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate" });
+                columns: ["TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_VariableTypes_NodeSetModelModelUri_NodeSetModelPublicationD~",
                 table: "VariableTypes",
-                columns: new[] { "NodeSetModelModelUri", "NodeSetModelPublicationDate" });
+                columns: ["NodeSetModelModelUri", "NodeSetModelPublicationDate"]);
 
             migrationBuilder.CreateIndex(
                 name: "IX_VariableTypes_NodeSetModelUri_NodeSetPublicationDate",
                 table: "VariableTypes",
-                columns: new[] { "NodeSetModelUri", "NodeSetPublicationDate" });
+                columns: ["NodeSetModelUri", "NodeSetPublicationDate"]);
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)

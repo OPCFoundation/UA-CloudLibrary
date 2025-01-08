@@ -27,12 +27,12 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+
 namespace Opc.Ua.Cloud.Library.Models
 {
-    using System;
-    using System.Collections.Generic;
-    using System.ComponentModel.DataAnnotations;
-
     public enum License
     {
         MIT,

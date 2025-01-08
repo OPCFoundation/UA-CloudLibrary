@@ -27,26 +27,26 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Threading.Tasks;
+using global::Opc.Ua.Cloud.Library.Client.Models;
+using GraphQL;
+using GraphQL.Client.Http;
+using GraphQL.Client.Serializer.Newtonsoft;
+using GraphQL.Query.Builder;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
+[assembly: CLSCompliant(false)]
 namespace Opc.Ua.Cloud.Library.Client
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Globalization;
-    using System.Linq;
-    using System.Net;
-    using System.Net.Http;
-    using System.Net.Http.Headers;
-    using System.Text;
-    using System.Threading.Tasks;
-    using global::Opc.Ua.Cloud.Library.Client.Models;
-    using GraphQL;
-    using GraphQL.Client.Http;
-    using GraphQL.Client.Serializer.Newtonsoft;
-    using GraphQL.Query.Builder;
-    using Newtonsoft.Json;
-    using Newtonsoft.Json.Linq;
-
-
     /// <summary>
     /// This class handles the quering and conversion of the response
     /// </summary>
@@ -180,16 +180,16 @@ namespace Opc.Ua.Cloud.Library.Client
             GraphQLResponse<JObject> response = await _client.SendQueryAsync<JObject>(request).ConfigureAwait(false);
             if (response == null)
             {
-                throw new Exception("Internal error: null response.");
+                throw new InvalidOperationException("Internal error: null response.");
             }
             if (response.Errors?.Length > 0)
             {
                 string message = response.Errors[0].Message;
-                if (response.Errors[0].Extensions?.TryGetValue("message", out var messageObj) == true && messageObj != null)
+                if (response.Errors[0].Extensions?.TryGetValue("message", out object messageObj) == true && messageObj != null)
                 {
                     message = messageObj?.ToString();
                 }
-                throw new Exception(message);
+                throw new InvalidOperationException(message);
             }
 
             string dataJson = response.Data?.First?.First?.ToString();
@@ -299,7 +299,7 @@ namespace Opc.Ua.Cloud.Library.Client
             int limit = 100;
             do
             {
-                var results = await GetConvertedMetadataAsync(offset, limit).ConfigureAwait(false);
+                List<UANameSpace> results = await GetConvertedMetadataAsync(offset, limit).ConfigureAwait(false);
                 nameSpaceResults.AddRange(results);
                 offset += limit;
             } while (nameSpaceResults.Count == limit);
@@ -517,7 +517,7 @@ namespace Opc.Ua.Cloud.Library.Client
             GraphQlResult<Nodeset> result = null;
             try
             {
-                var graphQlResult = await SendAndConvertAsync<GraphQlResult<GraphQLNodeSet>>(request).ConfigureAwait(false);
+                GraphQlResult<GraphQLNodeSet> graphQlResult = await SendAndConvertAsync<GraphQlResult<GraphQLNodeSet>>(request).ConfigureAwait(false);
                 result = new GraphQlResult<Nodeset>(graphQlResult) {
                     TotalCount = graphQlResult.TotalCount,
                     Edges = graphQlResult?.Edges.Select(n =>
@@ -529,7 +529,7 @@ namespace Opc.Ua.Cloud.Library.Client
                 return result;
             }
             catch (HttpRequestException ex)
-#if !NETSTANDARD2_0
+#if !NETSTANDARD2_1
             when (ex.StatusCode == HttpStatusCode.NotFound)
 #endif
             {
@@ -634,8 +634,8 @@ namespace Opc.Ua.Cloud.Library.Client
     string after = null, int? first = null, int? last = null, string before = null, bool noMetadata = false, bool noTotalCount = false, bool noRequiredModels = false, bool noCreationTime = true)
         {
             var request = new GraphQLRequest();
-            var totalCountFragment = noTotalCount ? "" : "totalCount ";
-            var metadataFragment = noMetadata ? "" : @"
+            string totalCountFragment = noTotalCount ? "" : "totalCount ";
+            string metadataFragment = noMetadata ? "" : @"
           metadata {
             contributor {
               description
@@ -673,7 +673,7 @@ namespace Opc.Ua.Cloud.Library.Client
           }
             ";
 
-            var requiredModelFragment = noRequiredModels ? "" : @"
+            string requiredModelFragment = noRequiredModels ? "" : @"
           requiredModels {
             modelUri
             publicationDate
@@ -816,7 +816,7 @@ query MyQuery ({variableParams}$after: String, $first: Int, $before: String, $la
             GraphQlResult<Nodeset> result = null;
             try
             {
-                var graphQlResult = await SendAndConvertAsync<GraphQlResult<GraphQLNodeSet>>(request).ConfigureAwait(false);
+                GraphQlResult<GraphQLNodeSet> graphQlResult = await SendAndConvertAsync<GraphQlResult<GraphQLNodeSet>>(request).ConfigureAwait(false);
                 result = new GraphQlResult<Nodeset>(graphQlResult) {
                     TotalCount = graphQlResult.TotalCount,
                     Edges = graphQlResult?.Edges.Select(n =>
@@ -828,7 +828,7 @@ query MyQuery ({variableParams}$after: String, $first: Int, $before: String, $la
                 return result;
             }
             catch (HttpRequestException ex)
-#if !NETSTANDARD2_0
+#if !NETSTANDARD2_1
             when (ex.StatusCode == HttpStatusCode.NotFound)
 #endif
             {
@@ -890,11 +890,11 @@ mutation ApprovalMutation ($newStatus: ApprovalStatus!, $identifier: String, $ap
             }
             try
             {
-                var result = await SendAndConvertAsync<UANameSpace>(request).ConfigureAwait(false);
+                UANameSpace result = await SendAndConvertAsync<UANameSpace>(request).ConfigureAwait(false);
                 return result;
             }
             catch (HttpRequestException ex)
-#if !NETSTANDARD2_0
+#if !NETSTANDARD2_1
             when (ex.StatusCode == HttpStatusCode.NotFound)
 #endif
             {
@@ -1007,14 +1007,14 @@ query MyQuery ($identifier: String, $modelUri: String, $publicationDate: DateTim
                 {
                     // TODO Introduce a way to retrieve nodeset by namespace uri and publication date via REST
 #pragma warning disable CS0618 // Type or member is obsolete
-                    var allNamespaces = await _restClient.GetBasicNodesetInformationAsync().ConfigureAwait(false);
+                    List<UANodesetResult> allNamespaces = await _restClient.GetBasicNodesetInformationAsync().ConfigureAwait(false);
 #pragma warning restore CS0618 // Type or member is obsolete
-                    var namespaceResults = allNamespaces.Where(n => n.NameSpaceUri == modelUri && (publicationDate == null || n.PublicationDate == publicationDate));
+                    IEnumerable<UANodesetResult> namespaceResults = allNamespaces.Where(n => n.NameSpaceUri == modelUri && (publicationDate == null || n.PublicationDate == publicationDate));
                     identifiers = namespaceResults.Select(nr => nr.Id.ToString(CultureInfo.InvariantCulture)).ToList();
                 }
-                foreach (var id in identifiers)
+                foreach (string id in identifiers)
                 {
-                    var uaNamespace = await _restClient.DownloadNodesetAsync(id, true).ConfigureAwait(false);
+                    UANameSpace uaNamespace = await _restClient.DownloadNodesetAsync(id, true).ConfigureAwait(false);
                     uaNamespace.Nodeset.LastModifiedDate = default; // Match GraphQL
                     nodeSetAndDependencies.Add(uaNamespace.Nodeset);
                 }

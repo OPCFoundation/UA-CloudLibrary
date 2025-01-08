@@ -31,23 +31,23 @@ namespace CloudLibClient.Tests
         [ClassData(typeof(TestNamespaceFiles))]
         public async Task UploadNodeSets(string fileName)
         {
-            var client = _factory.CreateCloudLibClient();
+            UACloudLibClient client = _factory.CreateCloudLibClient();
 
-            var uploadJson = File.ReadAllText(fileName);
+            string uploadJson = File.ReadAllText(fileName);
 
-            var addressSpace = JsonConvert.DeserializeObject<UANameSpace>(uploadJson);
-            var response = await client.UploadNodeSetAsync(addressSpace).ConfigureAwait(true);
+            UANameSpace addressSpace = JsonConvert.DeserializeObject<UANameSpace>(uploadJson);
+            (HttpStatusCode Status, string Message) response = await client.UploadNodeSetAsync(addressSpace).ConfigureAwait(true);
             if (response.Status == HttpStatusCode.OK)
             {
                 output.WriteLine($"Uploaded {addressSpace?.Nodeset.NamespaceUri}, {addressSpace?.Nodeset.Identifier}");
-                var uploadedIdentifier = response.Message;
-                var approvalResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "APPROVED", null, null).ConfigureAwait(true);
+                string uploadedIdentifier = response.Message;
+                UANameSpace approvalResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "APPROVED", null, null).ConfigureAwait(true);
                 Assert.NotNull(approvalResult);
                 Assert.Equal("APPROVED", approvalResult.ApprovalStatus);
             }
             else
             {
-                if (!(_factory.TestConfig.IgnoreUploadConflict && (response.Status == HttpStatusCode.Conflict || response.Message.Contains("Nodeset already exists"))))
+                if (!(_factory.TestConfig.IgnoreUploadConflict && (response.Status == HttpStatusCode.Conflict || response.Message.Contains("Nodeset already exists", StringComparison.Ordinal))))
                 {
                     Assert.Equal(HttpStatusCode.OK, response.Status);
                 }
@@ -56,9 +56,9 @@ namespace CloudLibClient.Tests
         [Fact]
         public async Task WaitForIndex()
         {
-            var client = _factory.CreateAuthorizedClient();
+            HttpClient client = _factory.CreateAuthorizedClient();
 
-            var expectedNodeSetCount = TestNamespaceFiles.GetFiles().Count();
+            int expectedNodeSetCount = TestNamespaceFiles.GetFiles().Length;
 
             await WaitForIndexAsync(client, expectedNodeSetCount).ConfigureAwait(true);
         }
@@ -68,7 +68,7 @@ namespace CloudLibClient.Tests
             bool bIndexing;
             do
             {
-                var counts = await GetNodeSetCountsAsync(client).ConfigureAwait(true);
+                (int All, int NotIndexed) counts = await GetNodeSetCountsAsync(client).ConfigureAwait(true);
                 bIndexing = counts.All < expectedNodeSetCount || counts.NotIndexed != 0;
                 if (bIndexing)
                 {
@@ -80,7 +80,7 @@ namespace CloudLibClient.Tests
 
         static async Task<(int All, int NotIndexed)> GetNodeSetCountsAsync(HttpClient client)
         {
-            var queryBodyJson = JsonConvert.SerializeObject(new JObject { { "query", @"
+            string queryBodyJson = JsonConvert.SerializeObject(new JObject { { "query", @"
                         {
                           notIndexed: nodeSets(where: {validationStatus: {neq: INDEXED}}) {
                             totalCount
@@ -91,15 +91,15 @@ namespace CloudLibClient.Tests
                         }"
                     } });
             var address = new Uri(client.BaseAddress, "graphql");
-            var response2 = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, address) { Content = new StringContent(queryBodyJson, null, "application/json"), }).ConfigureAwait(true);
+            HttpResponseMessage response2 = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, address) { Content = new StringContent(queryBodyJson, null, "application/json"), }).ConfigureAwait(true);
             Assert.True(response2.IsSuccessStatusCode, "Failed to read nodeset status");
 
-            var responseString = await response2.Content.ReadAsStringAsync().ConfigureAwait(true);
+            string responseString = await response2.Content.ReadAsStringAsync().ConfigureAwait(true);
             Assert.False(string.IsNullOrEmpty(responseString), "null or empty response reading nodeset status.");
 
-            var parsedJson = JsonConvert.DeserializeObject<JObject>(responseString);
-            var notIndexed = parsedJson["data"]["notIndexed"]["totalCount"].Value<int>();
-            var allCount = parsedJson["data"]["all"]["totalCount"].Value<int>();
+            JObject parsedJson = JsonConvert.DeserializeObject<JObject>(responseString);
+            int notIndexed = parsedJson["data"]["notIndexed"]["totalCount"].Value<int>();
+            int allCount = parsedJson["data"]["all"]["totalCount"].Value<int>();
             return (allCount, notIndexed);
         }
     }
