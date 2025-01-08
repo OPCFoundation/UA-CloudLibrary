@@ -346,7 +346,14 @@ namespace Opc.Ua.Cloud.Library
                 .AddType<CloudLibNodeSetModelType>()
                 .BindRuntimeType<UInt32, HotChocolate.Types.UnsignedIntType>()
                 .BindRuntimeType<UInt16, HotChocolate.Types.UnsignedShortType>()
-                ;
+                .ModifyCostOptions(options =>
+                {
+                    options.MaxFieldCost = 1_000;
+                    options.MaxTypeCost = 1_000;
+                    options.EnforceCostLimits = false;
+                    options.ApplyCostDefaults = false;
+                    options.DefaultResolverCost = 10.0;
+                });
 
             services.AddScoped<NodeSetModelIndexer>();
             services.AddScoped<NodeSetModelIndexerFactory>();
