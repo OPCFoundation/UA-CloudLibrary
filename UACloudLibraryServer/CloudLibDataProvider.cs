@@ -344,7 +344,7 @@ namespace Opc.Ua.Cloud.Library
         {
             IQueryable<CloudLibNodeSetModel> matchingNodeSets;
 
-            if ((keywords?.Length != 0) && (keywords[0] != "*"))
+            if ((keywords != null) && (keywords.Length != 0) && (keywords[0] != "*"))
             {
                 string keywordRegex = $".*({string.Join('|', keywords)}).*";
 #pragma warning disable CA1305 // Specify IFormatProvider - ToString() runs in the database, cultureinfo not supported
