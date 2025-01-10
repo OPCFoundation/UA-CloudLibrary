@@ -76,21 +76,6 @@ namespace Opc.Ua.Cloud.Library.Client
             client.Dispose();
         }
 
-        [Obsolete("Use GetBasicNodesetInformationAsync with offset and limit.")]
-        public async Task<List<UANodesetResult>> GetBasicNodesetInformationAsync(List<string> keywords = null)
-        {
-            var nodeSetResults = new List<UANodesetResult>();
-            int offset = 0;
-            int limit = 100;
-            do
-            {
-                List<UANodesetResult> results = await GetBasicNodesetInformationAsync(offset, limit, keywords).ConfigureAwait(false);
-                nodeSetResults.AddRange(results);
-                offset += limit;
-            } while (nodeSetResults.Count == limit);
-            return nodeSetResults;
-        }
-
         public async Task<List<UANodesetResult>> GetBasicNodesetInformationAsync(int offset, int limit, List<string> keywords = null)
         {
             if (keywords == null)
@@ -117,6 +102,7 @@ namespace Opc.Ua.Cloud.Library.Client
         {
             return DownloadNodesetAsync(identifier, false);
         }
+
         public async Task<UANameSpace> DownloadNodesetAsync(string identifier, bool metadataOnly)
         {
             string request = $"infomodel/download/{Uri.EscapeDataString(identifier)}";

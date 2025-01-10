@@ -359,9 +359,8 @@ namespace CloudLibClient.Tests
             client._forceRestTestHook = forceRest;
             client._allowRestFallback = true; // GraphQL support was deprecated and is removed now: allow fallback to REST until the client uses new GraphQL mechanisms.
 
-#pragma warning disable CS0618 // Type or member is obsolete
-            List<UANameSpace> restResult = await client.GetConvertedMetadataAsync().ConfigureAwait(true);
-#pragma warning restore CS0618 // Type or member is obsolete
+            List<UANameSpace> restResult = await client.GetConvertedMetadataAsync(0, 10).ConfigureAwait(true);
+
             Assert.True(restResult?.Count > 0, "Failed to get node set information.");
 
             UANameSpace convertedMetaData = restResult.FirstOrDefault(n => n.Nodeset.NamespaceUri?.OriginalString == strTestNamespaceUri);
@@ -369,6 +368,7 @@ namespace CloudLibClient.Tests
             {
                 convertedMetaData = restResult.FirstOrDefault(n => n.Title == strTestNamespaceTitle || string.Equals(n.Category.Name, strTestNamespaceTitle, StringComparison.OrdinalIgnoreCase));
             }
+
             Assert.True(convertedMetaData != null, $"Test Nodeset {strTestNamespaceUri} not found");
             Assert.True(string.IsNullOrEmpty(convertedMetaData.Nodeset.NodesetXml));
             Assert.True(convertedMetaData.Nodeset.Identifier != 0);
