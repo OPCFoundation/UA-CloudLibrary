@@ -125,10 +125,8 @@ namespace SampleConsoleClient
             UACloudLibClient client = new UACloudLibClient(args[0], args[1], args[2]);
 
             Console.WriteLine("\nTesting the GraphQL API");
-
-            string[] keywords = { "plastic", "robot", "machine" };
-            GraphQlResult<Nodeset> finalResult2 = await client.GetNodeSetsAsync(noMetadata: true, noRequiredModels: true, noTotalCount: true, noCreationTime: true).ConfigureAwait(true);
-            Console.WriteLine($"{finalResult2}");
+            GraphQlResult<Nodeset> finalResult2 = await client.GetNodeSetsAsync(modelUri: "http://opcfoundation.org/UA/ADI/").ConfigureAwait(true);
+            Console.WriteLine($"{finalResult2.Edges[0].Node.ToString()}");
 
             Console.WriteLine("\nTesting query and convertion of metadata");
             List<UANameSpace> finalResult = await client.GetConvertedMetadataAsync(0, 100).ConfigureAwait(false);
