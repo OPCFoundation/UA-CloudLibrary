@@ -21,7 +21,7 @@ services:
   pgadmin:
     image: "dpage/pgadmin4"
     ports:
-      - 8080:80
+      - 80:8080
     environment:
       PGADMIN_DEFAULT_EMAIL: no-reply@opcfoundation.org
       PGADMIN_DEFAULT_PASSWORD: uacloudlib
