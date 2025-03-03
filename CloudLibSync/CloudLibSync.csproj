@@ -9,8 +9,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Opc.Ua.CloudLib.Client\Opc.Ua.Cloud.Library.Client.csproj" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.0" />
-	  <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Core" Version="1.5.374.158" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.2" />
+	  <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Core" Version="1.5.375.457" />
 	  <PackageReference Include="System.CommandLine" Version="2.0.0-beta3.22114.1" />
 	  <PackageReference Include="System.CommandLine.NamingConventionBinder" Version="2.0.0-beta3.22114.1" />
   </ItemGroup>
@@ -20,7 +20,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Update="Nerdbank.GitVersioning" Version="3.6.146" />
+    <PackageReference Update="Nerdbank.GitVersioning" Version="3.7.115" />
   </ItemGroup>
 
 </Project>
