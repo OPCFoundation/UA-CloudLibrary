@@ -1,17 +1,18 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Text.Json;
+using System.Text.Json.Schema;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CESMII.OpcUa.NodeSetModel;
 using CESMII.OpcUa.NodeSetModel.Opc.Extensions;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Logging;
-using NpgsqlTypes;
 using Opc.Ua.Cloud.Library.DbContextModels;
 using Opc.Ua.Cloud.Library.Interfaces;
 using Opc.Ua.Cloud.Library.Models;
@@ -171,11 +172,13 @@ namespace Opc.Ua.Cloud.Library
             {
                 nodeSets = _dbContext.nodeSets.AsQueryable();
             }
+
             IQueryable<T> nodeModels = nodeSets.SelectMany(selector);
             if (!string.IsNullOrEmpty(nodeId))
             {
                 nodeModels = nodeModels.Where(ot => ot.NodeId == nodeId);
             }
+
             return nodeModels;
         }
 
@@ -395,19 +398,19 @@ namespace Opc.Ua.Cloud.Library
         }
 
 
-        public string[] GetAllNamespacesAndNodesets()
+        public Task<string[]> GetAllNamespacesAndNodesets()
         {
             try
             {
                 string[] namesAndIds = _dbContext.nodeSets.Select(nsm => new { nsm.ModelUri, nsm.Identifier, nsm.Version, nsm.PublicationDate }).Select(n => $"{n.ModelUri},{n.Identifier},{n.Version},{n.PublicationDate}").ToArray();
-                return namesAndIds;
+                return Task.FromResult(namesAndIds);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
             }
 
-            return Array.Empty<string>();
+            return Task.FromResult(Array.Empty<string>());
         }
 
         private CloudLibNodeSetModel GetNamespaceUriForNodeset(string nodesetId)
@@ -425,20 +428,20 @@ namespace Opc.Ua.Cloud.Library
             return null;
         }
 
-        public string[] GetAllNamesAndNodesets()
+        public Task<string[]> GetAllNamesAndNodesets()
         {
             try
             {
                 var categoryAndNodesetIds = _dbContext.NamespaceMetaData.Select(md => new { md.Category.Name, md.NodesetId }).ToList();
                 string[] namesAndNodesetsString = categoryAndNodesetIds.Select(cn => $"{cn.Name},{cn.NodesetId}").ToArray();
-                return namesAndNodesetsString;
+                return Task.FromResult(namesAndNodesetsString);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
             }
 
-            return Array.Empty<string>();
+            return Task.FromResult(Array.Empty<string>());
         }
 
 
@@ -657,12 +660,75 @@ namespace Opc.Ua.Cloud.Library
             org.LogoUrl = model.LogoUrl != null ? new Uri(model.LogoUrl) : null;
         }
 
+        public async Task<string[]> GetAllTypes(string nodeSetID)
+        {
+            CloudLibNodeSetModel nodeSetMeta = await GetNodeSets(nodeSetID).FirstOrDefaultAsync().ConfigureAwait(false);
+            if (nodeSetMeta != null)
+            {
+                List<NodeModel> types = new();
+                types.AddRange(GetObjectTypes(nodeSetMeta.ModelUri));
+                types.AddRange(GetVariableTypes(nodeSetMeta.ModelUri));
+                types.AddRange(GetDataTypes(nodeSetMeta.ModelUri));
+                types.AddRange(GetReferenceTypes(nodeSetMeta.ModelUri));
+
+                List<string> typeList = new();
+                foreach(NodeModel model in types)
+                {
+                    typeList.Add(model.BrowseName + ";" + model.NodeIdIdentifier);
+                }
+
+                return typeList.ToArray();
+            }
+
+            return Array.Empty<string>();
+        }
+
+        public Task<string> GetUAType(string expandedNodeId)
+        {
+            // create a substring from expandedNodeId by removing "nsu=" from the start and parsing until the first ";"
+            string modelUri = expandedNodeId.Substring(4, expandedNodeId.IndexOf(';', StringComparison.OrdinalIgnoreCase) - 4);
+
+            JsonSerializerOptions options = new JsonSerializerOptions(JsonSerializerDefaults.Web) {
+                MaxDepth = 100,
+                WriteIndented = true,
+                TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
+                ReferenceHandler = ReferenceHandler.IgnoreCycles
+            };
+
+            ObjectTypeModel objectModel = GetNodeModels<ObjectTypeModel>(nsm => nsm.ObjectTypes, modelUri, null, expandedNodeId).FirstOrDefault();
+            if (objectModel != null)
+            {
+                return Task.FromResult("\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAObjectType)).ToString() + ",\r\n\"Value\": \"" + objectModel.BrowseName + "\"");
+            }
+
+            VariableTypeModel variableModel = GetNodeModels<VariableTypeModel>(nsm => nsm.VariableTypes, modelUri, null, expandedNodeId).FirstOrDefault();
+            if (variableModel != null)
+            {
+                return Task.FromResult("\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAVariableType)).ToString() + ",\r\n\"Value\": \"" + variableModel.BrowseName + "\"");
+            }
+
+            DataTypeModel dataModel = GetNodeModels<DataTypeModel>(nsm => nsm.DataTypes, modelUri, null, expandedNodeId).FirstOrDefault();
+            if (dataModel != null)
+            {
+                string fields = JsonSerializer.Serialize(dataModel.StructureFields, options);
+                return Task.FromResult("\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UADataType)).ToString() + ",\r\n\"Value\": \"" + dataModel.BrowseName + "\",\r\n\"Structure Fields\": " + fields);
+            }
+
+            ReferenceTypeModel referenceModel = GetNodeModels<ReferenceTypeModel>(nsm => nsm.ReferenceTypes, modelUri, null, expandedNodeId).FirstOrDefault();
+            if (referenceModel != null)
+            {
+                return Task.FromResult("\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAReferenceType)).ToString() + ",\r\n\"Value\": \"" + referenceModel.BrowseName + "\"");
+            }
+
+            return Task.FromResult(string.Empty);
+        }
+
 #if !NOLEGACY
         #region legacy
 
         public IQueryable<MetadataModel> GetMetadataModel()
         {
-            // TODO retrieve well-known properties from NamespaceMetaDataMoel
+            // TODO retrieve well-known properties from NamespaceMetaDataModel
             return _dbContext.Metadata.AsQueryable();
         }
 

@@ -45,6 +45,7 @@ using Opc.Ua.Cloud.Library.Interfaces;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Export;
 using Swashbuckle.AspNetCore.Annotations;
+using static HotChocolate.ErrorCodes;
 
 namespace Opc.Ua.Cloud.Library.Controllers
 {
@@ -83,7 +84,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 200, type: typeof(string[]), description: "All OPC UA Information Model namespace URIs and associated identifiers of the models found in the UA Cloud Library.")]
         public IActionResult GetAllNamespacesandIdentifiersAsync()
         {
-            string[] results = _database.GetAllNamespacesAndNodesets();
+            string[] results = _database.GetAllNamespacesAndNodesets().GetAwaiter().GetResult();
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -92,8 +93,54 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 200, type: typeof(string[]), description: "All OPC UA Information Model names and associated identifiers of the models found in the UA Cloud Library.")]
         public IActionResult GetAllNamesandIdentifiersAsync()
         {
-            string[] results = _database.GetAllNamesAndNodesets();
+            string[] results = _database.GetAllNamesAndNodesets().GetAwaiter().GetResult();
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
+        }
+
+        [HttpGet]
+        [Route("/infomodel/types/{identifier}")]
+        [SwaggerResponse(statusCode: 200, type: typeof(string[]), description: "The OPC UA Information model types.")]
+        [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The identifier provided could not be parsed.")]
+        [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The identifier provided could not be found.")]
+        public async Task<IActionResult> GetAllTypesAsync(
+            [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier
+            )
+        {
+            if (!uint.TryParse(identifier, out uint nodeSetID))
+            {
+                return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
+            }
+
+            string[] types = await _database.GetAllTypes(identifier).ConfigureAwait(false);
+            if ((types == null) || (types.Length == 0))
+            {
+                return new ObjectResult("Failed to find nodeset metadata") { StatusCode = (int)HttpStatusCode.NotFound };
+            }
+
+            return new ObjectResult(types) { StatusCode = (int)HttpStatusCode.OK };
+        }
+
+        [HttpGet]
+        [Route("/infomodel/type")]
+        [SwaggerResponse(statusCode: 200, type: typeof(string), description: "The OPC UA type and its metadata.")]
+        [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The expended node ID provided could not be parsed.")]
+        [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The expended node ID provided could not be found.")]
+        public async Task<IActionResult> GetTypeAsync(
+            [FromQuery][SwaggerParameter("The expanded node ID of the type requested, starting with nsu=.")] string expandedNodeId
+            )
+        {
+            if (string.IsNullOrEmpty(expandedNodeId) || !expandedNodeId.StartsWith("nsu=", StringComparison.InvariantCulture))
+            {
+                return new ObjectResult("Could not parse expanded node ID") { StatusCode = (int)HttpStatusCode.BadRequest };
+            }
+
+            string typeInfo = await _database.GetUAType(expandedNodeId).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(typeInfo))
+            {
+                return new ObjectResult("Failed to find type information") { StatusCode = (int)HttpStatusCode.NotFound };
+            }
+
+            return new ObjectResult(typeInfo) { StatusCode = (int)HttpStatusCode.OK };
         }
 
         [HttpGet]

@@ -41,12 +41,19 @@ namespace Opc.Ua.Cloud.Library
     public class CloudLibNodeSetModel : NodeSetModel
     {
         public virtual NamespaceMetaDataModel Metadata { get; set; }
+
         public ValidationStatus ValidationStatus { get; set; }
+
         public string ValidationStatusInfo { get; set; }
+
         public TimeSpan ValidationElapsedTime { get; set; }
+
         public DateTime? ValidationFinishedTime { get; set; }
+
         public string[] ValidationErrors { get; set; }
+
         public DateTime? LastModifiedDate { get; set; }
+
         internal static async Task<CloudLibNodeSetModel> FromModelAsync(ModelTableEntry model, AppDbContext dbContext)
         {
             var nodeSetModel = new CloudLibNodeSetModel();

@@ -117,12 +117,12 @@ namespace Opc.Ua.Cloud.Library.Models
             NumberOfDownloads = 0;
             Nodeset = new Nodeset();
         }
+
         [Required]
         public Nodeset Nodeset { get; set; }
-        /// <summary>
-        /// Time the nodeset was submitted to the cloud library
-        /// </summary>
+
         public DateTime? CreationTime { get; set; }
+
         public uint NumberOfDownloads { get; set; }
     }
 
@@ -234,6 +234,7 @@ namespace Opc.Ua.Cloud.Library.Models
         public DateTime PublicationDate { get; set; }
 
         public DateTime LastModifiedDate { get; set; }
+
         public string ValidationStatus { get; set; }
 
         public List<CloudLibRequiredModelInfo> RequiredModels { get; set; }
