@@ -674,7 +674,17 @@ namespace Opc.Ua.Cloud.Library
                 List<string> typeList = new();
                 foreach(NodeModel model in types)
                 {
-                    typeList.Add(model.BrowseName + ";" + model.NodeIdIdentifier);
+                    string expandedNodeIdWithBrowseName = "nsu=" + model.BrowseName + ";" + model.NodeIdIdentifier;
+                    string[] tokens = expandedNodeIdWithBrowseName.Split(';');
+                    if (tokens.Length >= 3)
+                    {
+                        string temp = tokens[1];
+                        tokens[1] = tokens[2];
+                        tokens[2] = temp;
+                    }
+                    expandedNodeIdWithBrowseName = string.Join(";", tokens);
+
+                    typeList.Add(expandedNodeIdWithBrowseName);
                 }
 
                 return typeList.ToArray();
@@ -698,26 +708,73 @@ namespace Opc.Ua.Cloud.Library
             ObjectTypeModel objectModel = GetNodeModels<ObjectTypeModel>(nsm => nsm.ObjectTypes, modelUri, null, expandedNodeId).FirstOrDefault();
             if (objectModel != null)
             {
-                return Task.FromResult("\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAObjectType)).ToString() + ",\r\n\"Value\": \"" + objectModel.BrowseName + "\"");
+                string expandedNodeIdWithBrowseName = "nsu=" + objectModel.BrowseName + ";" + objectModel.NodeIdIdentifier;
+                string[] tokens = expandedNodeIdWithBrowseName.Split(';');
+                if (tokens.Length >= 3)
+                {
+                    string temp = tokens[1];
+                    tokens[1] = tokens[2];
+                    tokens[2] = temp;
+                }
+                expandedNodeIdWithBrowseName = string.Join(";", tokens);
+
+                return Task.FromResult("\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAObjectType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\"");
             }
 
             VariableTypeModel variableModel = GetNodeModels<VariableTypeModel>(nsm => nsm.VariableTypes, modelUri, null, expandedNodeId).FirstOrDefault();
             if (variableModel != null)
             {
-                return Task.FromResult("\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAVariableType)).ToString() + ",\r\n\"Value\": \"" + variableModel.BrowseName + "\"");
+                string expandedNodeIdWithBrowseName = "nsu=" + variableModel.BrowseName + ";" + variableModel.NodeIdIdentifier;
+                string[] tokens = expandedNodeIdWithBrowseName.Split(';');
+                if (tokens.Length >= 3)
+                {
+                    string temp = tokens[1];
+                    tokens[1] = tokens[2];
+                    tokens[2] = temp;
+                }
+                expandedNodeIdWithBrowseName = string.Join(";", tokens);
+
+                return Task.FromResult("\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAVariableType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\"");
             }
 
             DataTypeModel dataModel = GetNodeModels<DataTypeModel>(nsm => nsm.DataTypes, modelUri, null, expandedNodeId).FirstOrDefault();
             if (dataModel != null)
             {
-                string fields = JsonSerializer.Serialize(dataModel.StructureFields, options);
-                return Task.FromResult("\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UADataType)).ToString() + ",\r\n\"Value\": \"" + dataModel.BrowseName + "\",\r\n\"Structure Fields\": " + fields);
+                string expandedNodeIdWithBrowseName = "nsu=" + dataModel.BrowseName + ";" + dataModel.NodeIdIdentifier;
+                string[] tokens = expandedNodeIdWithBrowseName.Split(';');
+                if (tokens.Length >= 3)
+                {
+                    string temp = tokens[1];
+                    tokens[1] = tokens[2];
+                    tokens[2] = temp;
+                }
+                expandedNodeIdWithBrowseName = string.Join(";", tokens);
+
+                List<string> fields = new();
+                foreach (DataTypeModel.StructureField field in dataModel.StructureFields)
+                {
+                    fields.Add(field.DataType.NodeId + ":"  + field.DataType.BrowseName + ":" + field.Name);
+                }
+
+                string fieldsSerialized = JsonSerializer.Serialize(fields, options);
+
+                return Task.FromResult("\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UADataType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\",\r\n\"Structure Fields\": " + fieldsSerialized);
             }
 
             ReferenceTypeModel referenceModel = GetNodeModels<ReferenceTypeModel>(nsm => nsm.ReferenceTypes, modelUri, null, expandedNodeId).FirstOrDefault();
             if (referenceModel != null)
             {
-                return Task.FromResult("\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAReferenceType)).ToString() + ",\r\n\"Value\": \"" + referenceModel.BrowseName + "\"");
+                string expandedNodeIdWithBrowseName = "nsu=" + referenceModel.BrowseName + ";" + referenceModel.NodeIdIdentifier;
+                string[] tokens = expandedNodeIdWithBrowseName.Split(';');
+                if (tokens.Length >= 3)
+                {
+                    string temp = tokens[1];
+                    tokens[1] = tokens[2];
+                    tokens[2] = temp;
+                }
+                expandedNodeIdWithBrowseName = string.Join(";", tokens);
+
+                return Task.FromResult("\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAReferenceType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\"");
             }
 
             return Task.FromResult(string.Empty);

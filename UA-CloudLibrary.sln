@@ -41,6 +41,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudLibSync", "CloudLibSyn
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudLibSyncAzureFunction", "CloudLibSyncAzureFunction\CloudLibSyncAzureFunction.csproj", "{6A7EF892-71D1-4076-AD10-7F67F276528B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CESMII.OpcUa.NodeSetModel.EF", "CESMII.OpcUa.NodeSetModel.EF\CESMII.OpcUa.NodeSetModel.EF.csproj", "{E4CFEDF0-98F3-54BF-16F9-F622CE6BB9F5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -90,6 +92,12 @@ Global
 		{6A7EF892-71D1-4076-AD10-7F67F276528B}.Release|Any CPU.Build.0 = Release|Any CPU
 		{6A7EF892-71D1-4076-AD10-7F67F276528B}.Staging|Any CPU.ActiveCfg = Release|Any CPU
 		{6A7EF892-71D1-4076-AD10-7F67F276528B}.Staging|Any CPU.Build.0 = Release|Any CPU
+		{E4CFEDF0-98F3-54BF-16F9-F622CE6BB9F5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E4CFEDF0-98F3-54BF-16F9-F622CE6BB9F5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E4CFEDF0-98F3-54BF-16F9-F622CE6BB9F5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E4CFEDF0-98F3-54BF-16F9-F622CE6BB9F5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E4CFEDF0-98F3-54BF-16F9-F622CE6BB9F5}.Staging|Any CPU.ActiveCfg = Staging|Any CPU
+		{E4CFEDF0-98F3-54BF-16F9-F622CE6BB9F5}.Staging|Any CPU.Build.0 = Staging|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -41,10 +41,9 @@
 		<PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.5.0" />
 		<PackageReference Include="Azure.Identity" Version="1.13.2" />
 		<PackageReference Include="Azure.Storage.Blobs" Version="12.23.0" />
-		<PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="2.1.2" />
-		<PackageReference Include="CESMII.OpcUa.NodeSetModel" Version="2.1.2" />
-		<PackageReference Include="CESMII.OpcUa.NodeSetModel.EF" Version="2.1.2" />
-		<PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="2.1.2" />
+    <PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="2.1.2" />
+    <PackageReference Include="CESMII.OpcUa.NodeSetModel" Version="2.1.2" />
+    <PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="2.1.2" />
 		<PackageReference Include="Google.Cloud.Storage.V1" Version="4.10.0" />
 		<PackageReference Include="Google.Cloud.AspNetCore.DataProtection.Storage" Version="1.0.0-alpha03" />
 		<PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.2" />
@@ -86,5 +85,8 @@
 	</ItemGroup>
 	<ItemGroup Condition="$(DEFINECONSTANTS.Contains('AZURE_AD'))">
 		<PackageReference Include="Microsoft.Identity.Web" Version="3.7.1" />
+	</ItemGroup>
+	<ItemGroup>
+	  <ProjectReference Include="..\CESMII.OpcUa.NodeSetModel.EF\CESMII.OpcUa.NodeSetModel.EF.csproj" />
 	</ItemGroup>
 </Project>
