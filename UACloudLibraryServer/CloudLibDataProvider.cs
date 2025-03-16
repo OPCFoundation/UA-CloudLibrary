@@ -718,7 +718,7 @@ namespace Opc.Ua.Cloud.Library
                 }
                 expandedNodeIdWithBrowseName = string.Join(";", tokens);
 
-                return Task.FromResult("\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAObjectType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\"");
+                return Task.FromResult("{\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAObjectType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\"}");
             }
 
             VariableTypeModel variableModel = GetNodeModels<VariableTypeModel>(nsm => nsm.VariableTypes, modelUri, null, expandedNodeId).FirstOrDefault();
@@ -734,7 +734,7 @@ namespace Opc.Ua.Cloud.Library
                 }
                 expandedNodeIdWithBrowseName = string.Join(";", tokens);
 
-                return Task.FromResult("\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAVariableType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\"");
+                return Task.FromResult("{\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAVariableType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\"}");
             }
 
             DataTypeModel dataModel = GetNodeModels<DataTypeModel>(nsm => nsm.DataTypes, modelUri, null, expandedNodeId).FirstOrDefault();
@@ -758,7 +758,7 @@ namespace Opc.Ua.Cloud.Library
 
                 string fieldsSerialized = JsonSerializer.Serialize(fields, options);
 
-                return Task.FromResult("\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UADataType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\",\r\n\"Structure Fields\": " + fieldsSerialized);
+                return Task.FromResult("{\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UADataType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\",\r\n\"Structure Fields\": " + fieldsSerialized + "}");
             }
 
             ReferenceTypeModel referenceModel = GetNodeModels<ReferenceTypeModel>(nsm => nsm.ReferenceTypes, modelUri, null, expandedNodeId).FirstOrDefault();
@@ -774,10 +774,10 @@ namespace Opc.Ua.Cloud.Library
                 }
                 expandedNodeIdWithBrowseName = string.Join(";", tokens);
 
-                return Task.FromResult("\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAReferenceType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\"");
+                return Task.FromResult("{\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAReferenceType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\"}");
             }
 
-            return Task.FromResult(string.Empty);
+            return Task.FromResult("{}");
         }
 
 #if !NOLEGACY
