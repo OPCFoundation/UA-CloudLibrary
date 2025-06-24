@@ -46,6 +46,7 @@
     <PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="2.1.3" />
 		<PackageReference Include="Google.Cloud.Storage.V1" Version="4.13.0" />
 		<PackageReference Include="Google.Cloud.AspNetCore.DataProtection.Storage" Version="1.0.0-alpha03" />
+		<PackageReference Include="JsonSubTypes" Version="2.0.1" />
 		<PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.5" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.5" />
 		<PackageReference Include="HotChocolate" Version="15.1.4" />
