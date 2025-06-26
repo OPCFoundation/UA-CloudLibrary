@@ -1,25 +1,25 @@
-﻿
+
 namespace AdminShell
 {
-    using Newtonsoft.Json;
     using System;
     using System.ComponentModel.DataAnnotations;
     using System.Runtime.Serialization;
     using System.Xml;
     using System.Xml.Serialization;
+    using Newtonsoft.Json;
 
     [DataContract]
     public class Key
     {
         [Required]
-        [DataMember(Name="type")]
-        [XmlAttribute(AttributeName="type")]
+        [DataMember(Name = "type")]
+        [XmlAttribute(AttributeName = "type")]
         [MetaModelName("Key.Type")]
         public KeyElements Type { get; set; }
 
         [Required]
         [XmlText]
-        [DataMember(Name="value")]
+        [DataMember(Name = "value")]
         [MetaModelName("Key.Value")]
         public string Value { get; set; }
 
@@ -35,7 +35,7 @@ namespace AdminShell
 
         public Key(string type, string value)
         {
-            Type = (KeyElements) Enum.Parse(typeof(KeyElements), type, true);
+            Type = (KeyElements)Enum.Parse(typeof(KeyElements), type, true);
             Value = value;
         }
 

@@ -1,11 +1,11 @@
-﻿
+
 namespace AdminShell
 {
-    using Newtonsoft.Json;
     using System.Collections.Generic;
     using System.ComponentModel.DataAnnotations;
     using System.Runtime.Serialization;
     using System.Xml.Serialization;
+    using Newtonsoft.Json;
 
     [DataContract]
     public class Entity : SubmodelElement

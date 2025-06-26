@@ -1,4 +1,4 @@
-﻿
+
 namespace AdminShell
 {
     using System.Runtime.Serialization;
@@ -8,7 +8,7 @@ namespace AdminShell
     [DataContract]
     public class Kind
     {
-        [DataMember(Name ="kind")]
+        [DataMember(Name = "kind")]
         [XmlText]
         public string kind = "Instance";
 

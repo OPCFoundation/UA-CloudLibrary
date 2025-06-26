@@ -1,4 +1,4 @@
-﻿
+
 using System.Runtime.Serialization;
 using System.Xml.Serialization;
 
@@ -7,7 +7,7 @@ namespace AdminShell
     [DataContract]
     public class Resource
     {
-        [DataMember(Name ="path")]
+        [DataMember(Name = "path")]
         [XmlElement(ElementName = "path")]
         [MetaModelName("Resource.Path")]
         public string Path = string.Empty;

@@ -7,19 +7,19 @@ namespace AdminShell
     [DataContract]
     public class Message
     {
-        [DataMember(Name="code")]
+        [DataMember(Name = "code")]
         [XmlElement(ElementName = "code")]
         public string Code { get; set; }
 
-        [DataMember(Name="messageType")]
+        [DataMember(Name = "messageType")]
         [XmlElement(ElementName = "messageType")]
         public MessageTypeEnum? MessageType { get; set; }
 
-        [DataMember(Name="text")]
+        [DataMember(Name = "text")]
         [XmlElement(ElementName = "text")]
         public string Text { get; set; }
 
-        [DataMember(Name="timestamp")]
+        [DataMember(Name = "timestamp")]
         [XmlElement(ElementName = "timestamp")]
         public string Timestamp { get; set; }
     }

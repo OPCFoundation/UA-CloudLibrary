@@ -51,20 +51,20 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-	    public virtual IActionResult GetAllSubmodelElements([FromRoute][Required] string submodelIdentifier, [FromQuery] int limit, [FromQuery] string cursor, [FromQuery] string level, [FromQuery] string extent, [FromQuery] string diff)
-	    {
+        public virtual IActionResult GetAllSubmodelElements([FromRoute][Required] string submodelIdentifier, [FromQuery] int limit, [FromQuery] string cursor, [FromQuery] string level, [FromQuery] string extent, [FromQuery] string diff)
+        {
             string decodedSubmodelIdentifier = null;
             if (submodelIdentifier != null)
             {
                 decodedSubmodelIdentifier = Base64UrlEncoder.Decode(submodelIdentifier);
             }
 
-		    List<SubmodelElement> submodelElements = _aasEnvService.GetAllSubmodelElementsFromSubmodel(decodedSubmodelIdentifier);
+            List<SubmodelElement> submodelElements = _aasEnvService.GetAllSubmodelElementsFromSubmodel(decodedSubmodelIdentifier);
 
-		    PagedResult<SubmodelElement> output = PagedResult<SubmodelElement>.ToPagedList(submodelElements, new PaginationParameters(cursor, limit));
+            PagedResult<SubmodelElement> output = PagedResult<SubmodelElement>.ToPagedList(submodelElements, new PaginationParameters(cursor, limit));
 
-		    return new ObjectResult(output);
-	    }
+            return new ObjectResult(output);
+        }
 
         /// <summary>
         /// Returns all Submodels
@@ -102,10 +102,10 @@ namespace AdminShell
 
             List<Submodel> submodelList = _aasEnvService.GetAllSubmodels(reference, idShort);
 
-	        PagedResult<Submodel> output = PagedResult<Submodel>.ToPagedList(submodelList, new PaginationParameters(cursor, limit));
+            PagedResult<Submodel> output = PagedResult<Submodel>.ToPagedList(submodelList, new PaginationParameters(cursor, limit));
 
             return new ObjectResult(output);
-		}
+        }
 
         /// <summary>
         /// Returns a specific Submodel
@@ -163,40 +163,39 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 405, type: typeof(Result), description: "Method not allowed - Download only valid for File submodel element")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual async Task<IActionResult> GetFileByPath([FromRoute][Required]string submodelIdentifier, [FromRoute][Required]string idShortPath)
-	    {
-	        string decodedSubmodelIdentifier = Base64UrlEncoder.Decode(submodelIdentifier);
+        public virtual async Task<IActionResult> GetFileByPath([FromRoute][Required] string submodelIdentifier, [FromRoute][Required] string idShortPath)
+        {
+            string decodedSubmodelIdentifier = Base64UrlEncoder.Decode(submodelIdentifier);
 
-	        if (decodedSubmodelIdentifier == null)
-	        {
-	            throw new ArgumentException($"Cannot proceed as {nameof(decodedSubmodelIdentifier)} is null");
-	        }
+            if (decodedSubmodelIdentifier == null)
+            {
+                throw new ArgumentException($"Cannot proceed as {nameof(decodedSubmodelIdentifier)} is null");
+            }
 
-	        string fileName = _aasEnvService.GetFileByPath(decodedSubmodelIdentifier, idShortPath, out byte[] content, out long fileSize);
+            string fileName = _aasEnvService.GetFileByPath(decodedSubmodelIdentifier, idShortPath, out byte[] content, out long fileSize);
 
-	        // content-disposition so that the aasx file can be downloaded from the web browser.
-	        ContentDisposition contentDisposition = new()
-	        {
-	            FileName = fileName ?? throw new ArgumentException(nameof(fileName)),
-	            Inline   = fileName.EndsWith(".pdf", StringComparison.InvariantCulture)
-	        };
+            // content-disposition so that the aasx file can be downloaded from the web browser.
+            ContentDisposition contentDisposition = new() {
+                FileName = fileName ?? throw new ArgumentException(nameof(fileName)),
+                Inline = fileName.EndsWith(".pdf", StringComparison.InvariantCulture)
+            };
 
-	        HttpContext.Response.Headers.Append("Content-Disposition", contentDisposition.ToString());
-	        HttpContext.Response.ContentLength = fileSize;
-	        if (fileName.EndsWith(".svg", StringComparison.InvariantCulture))
-	        {
-	            HttpContext.Response.ContentType = "image/svg+xml";
-	        }
+            HttpContext.Response.Headers.Append("Content-Disposition", contentDisposition.ToString());
+            HttpContext.Response.ContentLength = fileSize;
+            if (fileName.EndsWith(".svg", StringComparison.InvariantCulture))
+            {
+                HttpContext.Response.ContentType = "image/svg+xml";
+            }
 
-	        if (fileName.EndsWith(".pdf", StringComparison.InvariantCulture))
-	        {
-	            HttpContext.Response.ContentType = "application/pdf";
-	        }
+            if (fileName.EndsWith(".pdf", StringComparison.InvariantCulture))
+            {
+                HttpContext.Response.ContentType = "application/pdf";
+            }
 
-	        await HttpContext.Response.Body.WriteAsync(content);
+            await HttpContext.Response.Body.WriteAsync(content);
 
-	        return new EmptyResult();
-	    }
+            return new EmptyResult();
+        }
 
 
         /// <summary>
@@ -223,7 +222,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual IActionResult GetSubmodelElementByPath([FromRoute][Required]string submodelIdentifier, [FromRoute][Required]string idShortPath, [FromQuery]string level, [FromQuery]string extent)
+        public virtual IActionResult GetSubmodelElementByPath([FromRoute][Required] string submodelIdentifier, [FromRoute][Required] string idShortPath, [FromQuery] string level, [FromQuery] string extent)
         {
             string decodedSubmodelIdentifier = null;
             if (submodelIdentifier != null)
@@ -231,9 +230,9 @@ namespace AdminShell
                 decodedSubmodelIdentifier = Base64UrlEncoder.Decode(submodelIdentifier);
             }
 
-	        SubmodelElement output = _aasEnvService.GetSubmodelElementByPath(decodedSubmodelIdentifier, idShortPath);
+            SubmodelElement output = _aasEnvService.GetSubmodelElementByPath(decodedSubmodelIdentifier, idShortPath);
 
-	        return new ObjectResult(output);
-	    }
+            return new ObjectResult(output);
+        }
     }
 }

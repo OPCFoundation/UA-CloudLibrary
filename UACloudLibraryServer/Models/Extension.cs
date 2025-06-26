@@ -1,9 +1,9 @@
 
-using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.Serialization;
 using System.Xml.Serialization;
+using Newtonsoft.Json;
 
 namespace AdminShell
 {
@@ -11,11 +11,11 @@ namespace AdminShell
     public class Extension : HasSemantics
     {
         [Required]
-        [DataMember(Name="name")]
+        [DataMember(Name = "name")]
         [XmlElement(ElementName = "name")]
         public string Name { get; set; } = string.Empty;
 
-        [DataMember(Name="refersTo")]
+        [DataMember(Name = "refersTo")]
         [XmlArray(ElementName = "refersTo")]
         public List<ModelReference> RefersTo { get; set; } = new();
 

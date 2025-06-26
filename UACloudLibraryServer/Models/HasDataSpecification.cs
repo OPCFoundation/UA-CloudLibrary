@@ -1,4 +1,4 @@
-﻿
+
 namespace AdminShell
 {
     using System.Collections.Generic;
@@ -11,8 +11,8 @@ namespace AdminShell
     [DataContract]
     public class HasDataSpecification : List<EmbeddedDataSpecification>
     {
-        [DataMember(Name="reference")]
-        [XmlArray(ElementName="reference")]
+        [DataMember(Name = "reference")]
+        [XmlArray(ElementName = "reference")]
         public List<Reference> Reference { get; set; } = new();
 
         public HasDataSpecification() { }
