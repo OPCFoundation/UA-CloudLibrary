@@ -2,33 +2,34 @@ name: .NET
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main pyao_unittests]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   dotnet-format:
     runs-on: windows-latest
     steps:
-      - name: 🤘 checkout
+      - name: 01_checkout
         uses: actions/checkout@v2
         with:
           submodules: recursive
           fetch-depth: 0
-      - name: ⚙ dotnet
+      - name: 02_dotnet
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: '9.0.x'
-      - name: Workaround
+      - name: 03_Workaround
         #https://github.com/dotnet/format/issues/1433#issuecomment-1055920818
         run: dotnet tool install -g dotnet-format --version "9.*" --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/index.json
-      - name: ✓ ensure format UA-CloudLibrary Server
+      - name: 04_ensure format UA-CloudLibrary Server
         working-directory: UACloudLibraryServer
         run: dotnet-format --verify-no-changes -v:diag --exclude ~/.nuget
-      - name: ✓ ensure format UA-CloudLibrary .NET Client
+      - name: 05_ensure format UA-CloudLibrary .NET Client
         working-directory: Opc.Ua.CloudLib.Client
         run: dotnet-format --verify-no-changes -v:diag --exclude ~/.nuget
-      - name: ✓ ensure format UA-CloudLibrary SampleConsoleClient
+      - name: 06_ensure format UA-CloudLibrary SampleConsoleClient
         working-directory: SampleConsoleClient
         run: dotnet-format --verify-no-changes -v:diag --exclude ~/.nuget
   build:
