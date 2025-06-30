@@ -7,6 +7,7 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+
 jobs:
   dotnet-format:
     runs-on: windows-latest
