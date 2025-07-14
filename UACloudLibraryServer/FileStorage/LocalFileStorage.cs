@@ -27,16 +27,16 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Opc.Ua.Cloud.Library.Interfaces;
+
 namespace Opc.Ua.Cloud.Library
 {
-    using System;
-    using System.IO;
-    using System.Threading;
-    using System.Threading.Tasks;
-    using Microsoft.Extensions.Configuration;
-    using Microsoft.Extensions.Logging;
-    using Opc.Ua.Cloud.Library.Interfaces;
-
     /// <summary>
     /// Azure storage class
     /// </summary>
@@ -51,7 +51,7 @@ namespace Opc.Ua.Cloud.Library
         public LocalFileStorage(ILoggerFactory logger, IConfiguration configuration)
         {
             _logger = logger.CreateLogger("LocalFileStorage");
-            var rootDir = configuration.GetSection("LocalFileStorage")?.GetValue<string>("RootDirectory");
+            string rootDir = configuration.GetSection("LocalFileStorage")?.GetValue<string>("RootDirectory");
             if (string.IsNullOrEmpty(rootDir))
             {
                 _rootDir = Path.Combine(Path.GetTempPath(), "CloudLib");
@@ -96,7 +96,7 @@ namespace Opc.Ua.Cloud.Library
                 {
                     Directory.CreateDirectory(_rootDir);
                 }
-                await File.WriteAllTextAsync(Path.Combine(_rootDir, name), content).ConfigureAwait(false);
+                await File.WriteAllTextAsync(Path.Combine(_rootDir, name), content, cancellationToken).ConfigureAwait(false);
                 return name;
             }
             catch (Exception ex)
@@ -113,7 +113,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                return await File.ReadAllTextAsync(Path.Combine(_rootDir, name)).ConfigureAwait(false);
+                return await File.ReadAllTextAsync(Path.Combine(_rootDir, name), cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

@@ -27,28 +27,23 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System.ComponentModel.DataAnnotations;
+using System.Net;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Annotations;
+
 namespace Opc.Ua.Cloud.Library.Controllers
 {
-    using System.ComponentModel.DataAnnotations;
-    using System.Net;
-    using System.Threading.Tasks;
-    using Microsoft.AspNetCore.Authorization;
-    using Microsoft.AspNetCore.Identity;
-    using Microsoft.AspNetCore.Mvc;
-    using Microsoft.Extensions.Logging;
-    using Swashbuckle.AspNetCore.Annotations;
-
-    [Authorize(AuthenticationSchemes = "BasicAuthentication")]
+    [Authorize(AuthenticationSchemes = UserService.APIAuthorizationSchemes)]
     [ApiController]
     public class AccessController : ControllerBase
     {
-        private readonly IDatabase _database;
-        private readonly ILogger _logger;
 
-        public AccessController(IDatabase database, ILoggerFactory logger)
+        public AccessController()
         {
-            _database = database;
-            _logger = logger.CreateLogger("ApprovalController");
         }
 
         [HttpPut]
@@ -62,7 +57,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             [FromServices] RoleManager<IdentityRole> roleManager
             )
         {
-            var result = await roleManager.CreateAsync(new IdentityRole { Name = roleName }).ConfigureAwait(false);
+            IdentityResult result = await roleManager.CreateAsync(new IdentityRole { Name = roleName }).ConfigureAwait(false);
             if (!result.Succeeded)
             {
                 return this.BadRequest(result);
@@ -81,12 +76,12 @@ namespace Opc.Ua.Cloud.Library.Controllers
             [FromServices] UserManager<IdentityUser> userManager
             )
         {
-            var user = await userManager.FindByIdAsync(userId).ConfigureAwait(false);
+            IdentityUser user = await userManager.FindByIdAsync(userId).ConfigureAwait(false);
             if (user == null)
             {
                 return NotFound();
             }
-            var result = await userManager.AddToRoleAsync(user, roleName).ConfigureAwait(false);
+            IdentityResult result = await userManager.AddToRoleAsync(user, roleName).ConfigureAwait(false);
             if (!result.Succeeded)
             {
                 return this.BadRequest(result);

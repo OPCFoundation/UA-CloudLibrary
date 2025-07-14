@@ -27,14 +27,14 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using global::Opc.Ua.Cloud.Library.Client.Models;
+
 namespace Opc.Ua.Cloud.Library.Client
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Globalization;
-    using System.Linq;
-    using global::Opc.Ua.Cloud.Library.Client.Models;
-
     static class MetadataConverter
     {
         /// <summary>
@@ -49,14 +49,15 @@ namespace Opc.Ua.Cloud.Library.Client
                 foreach (MetadataResult item in metadata)
                 {
                     string id = item.NodesetID.ToString(CultureInfo.InvariantCulture);
-                    if (!nameSpaces.ContainsKey(id))
+                    if (!nameSpaces.TryGetValue(id, out UANameSpace value))
                     {
                         var uaNamespace = new UANameSpace();
                         uaNamespace.Nodeset.Identifier = (uint)item.NodesetID;
-                        nameSpaces.Add(id, uaNamespace);
+                        value = uaNamespace;
+                        nameSpaces.Add(id, value);
                     }
 
-                    ConvertCases(nameSpaces[id], item);
+                    ConvertCases(value, item);
                 }
             }
 
@@ -146,6 +147,8 @@ namespace Opc.Ua.Cloud.Library.Client
             return result;
         }
 
+        internal static readonly char[] separator = new char[] { ',' };
+
         /// <summary>
         /// Switch case with all the names for the members
         /// </summary>
@@ -173,10 +176,10 @@ namespace Opc.Ua.Cloud.Library.Client
                     nameSpace.PurchasingInformationUrl = new Uri(metadata.Value);
                     break;
                 case "keywords":
-                    nameSpace.Keywords = metadata.Value.Split(new char[] { ',' });
+                    nameSpace.Keywords = metadata.Value.Split(separator);
                     break;
                 case "locales":
-                    nameSpace.SupportedLocales = metadata.Value.Split(new char[] { ',' });
+                    nameSpace.SupportedLocales = metadata.Value.Split(separator);
                     break;
                 case "numdownloads":
                     nameSpace.NumberOfDownloads = System.Convert.ToUInt32(metadata.Value, CultureInfo.InvariantCulture);
@@ -237,7 +240,7 @@ namespace Opc.Ua.Cloud.Library.Client
                 #endregion
                 default:
                 {
-                    var additionalProps = nameSpace.AdditionalProperties?.ToList() ?? new List<UAProperty>();
+                    List<UAProperty> additionalProps = nameSpace.AdditionalProperties?.ToList() ?? new List<UAProperty>();
                     additionalProps.Add(new UAProperty { Name = metadata.Name, Value = metadata.Value });
                     nameSpace.AdditionalProperties = additionalProps.ToArray();
                     break;

@@ -3,14 +3,14 @@
   <PropertyGroup>
     <AssemblyName>Opc.Ua.Cloud.Library.Client</AssemblyName>
     <PackageId>OPCFoundation.NetStandard.Opc.Ua.Cloud.Library.Client</PackageId>
-    <TargetFrameworks>net6.0;netstandard2.0</TargetFrameworks>
+    <TargetFrameworks>net9.0;netstandard2.1</TargetFrameworks>
     <RootNamespace>Opc.Ua.Cloud.Library.Client</RootNamespace>
     <Description>OPC UA Cloud Library Client Class Library</Description>
     <IsPackable>true</IsPackable>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageLicenseFile></PackageLicenseFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
     <!-- Highest language version supported by .NET Standard 2.0 and .NET framework -->
     <LangVersion>7.3</LangVersion>
   </PropertyGroup>
@@ -27,10 +27,26 @@
 
 
   <ItemGroup>
-    <PackageReference Include="GraphQL.Client" Version="4.0.2" />
-    <PackageReference Include="GraphQL.Client.Serializer.Newtonsoft" Version="4.0.2" />
-    <PackageReference Include="GraphQL.Query.Builder" Version="2.0.1" />
-   
+    <PackageReference Include="GraphQL.Client" Version="6.1.0" />
+    <PackageReference Include="GraphQL.Client.Serializer.Newtonsoft" Version="6.1.0" />
+    <PackageReference Include="GraphQL.Query.Builder" Version="2.2.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="8.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Update="Nerdbank.GitVersioning" Version="3.7.115" />
+  </ItemGroup>
+
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net6.0'">
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing">
+      <Version>6.0.33</Version>
+    </PackageReference>
   </ItemGroup>
 
   <PropertyGroup Condition="'$(SignAssembly)' == 'true'">

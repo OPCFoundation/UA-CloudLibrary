@@ -27,18 +27,18 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+using CESMII.OpcUa.NodeSetModel;
+using Opc.Ua.Cloud.Library.DbContextModels;
+using Opc.Ua.Cloud.Library.Models;
+using Opc.Ua.Export;
+
 namespace Opc.Ua.Cloud.Library
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Threading.Tasks;
-
-    using CESMII.OpcUa.NodeSetModel;
-    using Opc.Ua.Cloud.Library.DbContextModels;
-    using Opc.Ua.Cloud.Library.Models;
-    using Opc.Ua.Export;
-
     public interface IDatabase
     {
         UANodesetResult[] FindNodesets(string[] keywords, int? offset, int? limit);
@@ -52,27 +52,44 @@ namespace Opc.Ua.Cloud.Library
 
         Task<UANameSpace> RetrieveAllMetadataAsync(uint nodesetId);
 
-        string[] GetAllNamespacesAndNodesets();
+        Task<string[]> GetAllNamespacesAndNodesets();
 
-        string[] GetAllNamesAndNodesets();
+        Task<string[]> GetAllNamesAndNodesets();
+
+        Task<string[]> GetAllTypes(string nodeSetID);
+
+        Task<string> GetUAType(string expandedNodeId);
 
         IQueryable<ObjectTypeModel> GetObjectTypes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null);
+
         IQueryable<VariableTypeModel> GetVariableTypes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null);
+
         IQueryable<DataTypeModel> GetDataTypes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null);
+
         IQueryable<PropertyModel> GetProperties(string modelUri = null, DateTime? publicationDate = null, string nodeId = null);
+
         IQueryable<DataVariableModel> GetDataVariables(string modelUri = null, DateTime? publicationDate = null, string nodeId = null);
+
         IQueryable<ReferenceTypeModel> GetReferenceTypes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null);
+
         IQueryable<InterfaceModel> GetInterfaces(string modelUri = null, DateTime? publicationDate = null, string nodeId = null);
+
         IQueryable<ObjectModel> GetObjects(string modelUri = null, DateTime? publicationDate = null, string nodeId = null);
+
+        IQueryable<MethodModel> GetMethods(string modelUri = null, DateTime? publicationDate = null, string nodeId = null);
+
         IQueryable<NodeModel> GetAllNodes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null);
 
         IQueryable<CategoryModel> GetCategories();
+
         IQueryable<OrganisationModel> GetOrganisations();
 
         IQueryable<NamespaceMetaDataModel> GetNamespaces();
+
         int GetNamespaceTotalCount();
 
         Task<NamespaceMetaDataModel> ApproveNamespaceAsync(string identifier, ApprovalStatus status, string approvalInformation, List<UAProperty> additionalProperties);
+
         IQueryable<CloudLibNodeSetModel> GetNodeSetsPendingApproval();
 
 #if !NOLEGACY

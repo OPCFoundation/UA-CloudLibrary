@@ -4,17 +4,12 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using Opc.Ua.Cloud.Library;
-
-#nullable disable
 
 namespace Opc.Ua.Cloud.Library
 {
     [DbContext(typeof(AppDbContext))]
     [Migration("20230309012709_instrumentrange")]
-    partial class instrumentrange
+    partial class InstrumentRange
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {

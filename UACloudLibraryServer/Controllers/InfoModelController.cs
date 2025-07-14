@@ -27,43 +27,42 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Text;
+using System.Threading.Tasks;
+using Extensions;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Opc.Ua.Cloud.Library.Interfaces;
+using Opc.Ua.Cloud.Library.Models;
+using Opc.Ua.Export;
+using Swashbuckle.AspNetCore.Annotations;
+using static HotChocolate.ErrorCodes;
+
 namespace Opc.Ua.Cloud.Library.Controllers
 {
-    using System;
-    using System.Collections.Generic;
-    using System.ComponentModel.DataAnnotations;
-    using System.Globalization;
-    using System.IO;
-    using System.Linq;
-    using System.Net;
-    using System.Text;
-    using System.Threading.Tasks;
-    using Extensions;
-    using Microsoft.AspNetCore.Authorization;
-    using Microsoft.AspNetCore.Mvc;
-    using Microsoft.EntityFrameworkCore;
-    using Microsoft.Extensions.Logging;
-    using Opc.Ua.Cloud.Library.Interfaces;
-    using Opc.Ua.Cloud.Library.Models;
-    using Opc.Ua.Export;
-    using Swashbuckle.AspNetCore.Annotations;
-
-    [Authorize(AuthenticationSchemes = "BasicAuthentication")]
+    [Authorize(AuthenticationSchemes = UserService.APIAuthorizationSchemes)]
     [ApiController]
     public class InfoModelController : ControllerBase
     {
         private readonly IFileStorage _storage;
         private readonly IDatabase _database;
         private readonly ILogger _logger;
-        private readonly NodeSetModelIndexer _indexer;
         private readonly NodeSetModelIndexerFactory _nodeSetIndexerFactory;
 
-        public InfoModelController(IFileStorage storage, IDatabase database, ILoggerFactory logger, NodeSetModelIndexer indexer, NodeSetModelIndexerFactory nodeSetIndexerFactory)
+        public InfoModelController(IFileStorage storage, IDatabase database, ILoggerFactory logger, NodeSetModelIndexerFactory nodeSetIndexerFactory)
         {
             _storage = storage;
             _database = database;
             _logger = logger.CreateLogger("InfoModelController");
-            _indexer = indexer;
             _nodeSetIndexerFactory = nodeSetIndexerFactory;
         }
 
@@ -85,7 +84,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 200, type: typeof(string[]), description: "All OPC UA Information Model namespace URIs and associated identifiers of the models found in the UA Cloud Library.")]
         public IActionResult GetAllNamespacesandIdentifiersAsync()
         {
-            string[] results = _database.GetAllNamespacesAndNodesets();
+            string[] results = _database.GetAllNamespacesAndNodesets().GetAwaiter().GetResult();
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -94,8 +93,54 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 200, type: typeof(string[]), description: "All OPC UA Information Model names and associated identifiers of the models found in the UA Cloud Library.")]
         public IActionResult GetAllNamesandIdentifiersAsync()
         {
-            string[] results = _database.GetAllNamesAndNodesets();
+            string[] results = _database.GetAllNamesAndNodesets().GetAwaiter().GetResult();
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
+        }
+
+        [HttpGet]
+        [Route("/infomodel/types/{identifier}")]
+        [SwaggerResponse(statusCode: 200, type: typeof(string[]), description: "The OPC UA Information model types.")]
+        [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The identifier provided could not be parsed.")]
+        [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The identifier provided could not be found.")]
+        public async Task<IActionResult> GetAllTypesAsync(
+            [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier
+            )
+        {
+            if (!uint.TryParse(identifier, out uint nodeSetID))
+            {
+                return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
+            }
+
+            string[] types = await _database.GetAllTypes(identifier).ConfigureAwait(false);
+            if ((types == null) || (types.Length == 0))
+            {
+                return new ObjectResult("Failed to find nodeset metadata") { StatusCode = (int)HttpStatusCode.NotFound };
+            }
+
+            return new ObjectResult(types) { StatusCode = (int)HttpStatusCode.OK };
+        }
+
+        [HttpGet]
+        [Route("/infomodel/type")]
+        [SwaggerResponse(statusCode: 200, type: typeof(string), description: "The OPC UA type and its metadata.")]
+        [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The expended node ID provided could not be parsed.")]
+        [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The expended node ID provided could not be found.")]
+        public async Task<IActionResult> GetTypeAsync(
+            [FromQuery][SwaggerParameter("The expanded node ID of the type requested, starting with nsu=.")] string expandedNodeId
+            )
+        {
+            if (string.IsNullOrEmpty(expandedNodeId) || !expandedNodeId.StartsWith("nsu=", StringComparison.InvariantCulture))
+            {
+                return new ObjectResult("Could not parse expanded node ID") { StatusCode = (int)HttpStatusCode.BadRequest };
+            }
+
+            string typeInfo = await _database.GetUAType(expandedNodeId).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(typeInfo))
+            {
+                return new ObjectResult("Failed to find type information") { StatusCode = (int)HttpStatusCode.NotFound };
+            }
+
+            return new ObjectResult(typeInfo) { StatusCode = (int)HttpStatusCode.OK };
         }
 
         [HttpGet]
@@ -130,7 +175,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult(nodesetXml) { StatusCode = (int)HttpStatusCode.OK };
             }
 
-            var uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID).ConfigureAwait(false);
+            UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID).ConfigureAwait(false);
             if (uaNamespace == null)
             {
                 return new ObjectResult("Failed to find nodeset metadata") { StatusCode = (int)HttpStatusCode.NotFound };
@@ -167,13 +212,13 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
             }
 
-            var nodeSetMeta = await (_database.GetNodeSets(identifier).FirstOrDefaultAsync());
+            CloudLibNodeSetModel nodeSetMeta = await (_database.GetNodeSets(identifier).FirstOrDefaultAsync());
             if (nodeSetMeta != null)
             {
-                var dependentNodeSets = await _database.GetNodeSets().Where(n => n.RequiredModels.Any(rm => rm.AvailableModel == nodeSetMeta)).ToListAsync();
-                if (dependentNodeSets.Any())
+                List<CloudLibNodeSetModel> dependentNodeSets = await _database.GetNodeSets().Where(n => n.RequiredModels.Any(rm => rm.AvailableModel == nodeSetMeta)).ToListAsync();
+                if (dependentNodeSets.Count != 0)
                 {
-                    var message = $"NodeSet {nodeSetMeta} is used by the following nodesets: {string.Join(",", dependentNodeSets.Select(n => n.ToString()))}";
+                    string message = $"NodeSet {nodeSetMeta} is used by the following nodesets: {string.Join(",", dependentNodeSets.Select(n => n.ToString()))}";
                     if (!forceDelete)
                     {
                         return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.Conflict };
@@ -181,7 +226,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     _logger.LogWarning($"{message}. Deleting anyway because forceDelete was specified. Nodeset Index may be incomplete.");
                 }
             }
-            var uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID).ConfigureAwait(false);
+            UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID).ConfigureAwait(false);
             uaNamespace.Nodeset.NodesetXml = nodesetXml;
 
             await _database.DeleteAllRecordsForNodesetAsync(nodeSetID).ConfigureAwait(false);
@@ -241,8 +286,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
                         {
                             try
                             {
-                                var legacyNodeSet = ReadUANodeSet(legacyNodeSetXml);
-                                var firstModel = legacyNodeSet.Models.Length > 0 ? legacyNodeSet.Models[0] : null;
+                                UANodeSet legacyNodeSet = ReadUANodeSet(legacyNodeSetXml);
+                                ModelTableEntry firstModel = legacyNodeSet.Models.Length > 0 ? legacyNodeSet.Models[0] : null;
                                 if (firstModel == null)
                                 {
                                     return new ObjectResult($"Nodeset exists but existing nodeset had no model entry.") { StatusCode = (int)HttpStatusCode.Conflict };
@@ -281,7 +326,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 string result = await _storage.FindFileAsync(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
                 if (!string.IsNullOrEmpty(result) && !overwrite)
                 {
-                    var existingNamespace = await _database.RetrieveAllMetadataAsync(uaNamespace.Nodeset.Identifier).ConfigureAwait(false);
+                    UANameSpace existingNamespace = await _database.RetrieveAllMetadataAsync(uaNamespace.Nodeset.Identifier).ConfigureAwait(false);
                     if (existingNamespace != null)
                     {
                         // nodeset already exists
@@ -337,8 +382,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.InternalServerError };
                 }
 
-                var userId = User.Identity.Name;
-                var dbMessage = await _database.AddMetaDataAsync(uaNamespace, nodeSet, legacyNodesetHashCode, userId).ConfigureAwait(false);
+                string userId = User.Identity.Name;
+                string dbMessage = await _database.AddMetaDataAsync(uaNamespace, nodeSet, legacyNodesetHashCode, userId).ConfigureAwait(false);
                 if (!string.IsNullOrEmpty(dbMessage))
                 {
                     _logger.LogError(dbMessage);
@@ -349,7 +394,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 {
                     try
                     {
-                        var legacyHashCodeStr = legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture);
+                        string legacyHashCodeStr = legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture);
                         if (!string.IsNullOrEmpty(await _storage.FindFileAsync(legacyHashCodeStr).ConfigureAwait(false)))
                         {
                             //await _storage.DeleteFileAsync(legacyHashCodeStr).ConfigureAwait(false);
@@ -402,7 +447,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                             if (Uri.IsWellFormedUriString(model.ModelUri, UriKind.Absolute) && model.PublicationDateSpecified)
                             {
                                 hashCode ^= model.ModelUri.GetDeterministicHashCode();
-                                hashCode ^= model.PublicationDate.ToString().GetDeterministicHashCode();
+                                hashCode ^= model.PublicationDate.ToString(CultureInfo.InvariantCulture).GetDeterministicHashCode();
                             }
                             else
                             {

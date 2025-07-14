@@ -64,6 +64,9 @@
                                                         Version: @item.NodeSet.Version
                                                     </div>
                                                     <div>
+                                                        Published: @item.NodeSet.PublicationDate
+                                                    </div>
+                                                    <div>
                                                         Downloads: @item.NumberOfDownloads
                                                     </div>
                                                 </div>
@@ -223,7 +226,7 @@
     private int TotalCount = 0;
     private int AllPages = 0;
 
-    private string[] SearchKeywords { get; set; } = new[] { "*" };
+    private string[] SearchKeywords { get; set; } = new[] { "" };
 
 
     protected override async Task OnInitializedAsync()

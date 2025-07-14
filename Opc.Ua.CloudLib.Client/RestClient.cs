@@ -27,19 +27,19 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+
 namespace Opc.Ua.Cloud.Library.Client
 {
-    using System;
-    using System.Collections.Generic;
-    using System.IO;
-    using System.Linq;
-    using System.Net;
-    using System.Net.Http;
-    using System.Net.Http.Headers;
-    using System.Text;
-    using System.Threading.Tasks;
-    using Newtonsoft.Json;
-
     /// <summary>
     /// For use when the provider doesn't have a GraphQL interface and the downloading of nodesets
     /// </summary>
@@ -76,21 +76,6 @@ namespace Opc.Ua.Cloud.Library.Client
             client.Dispose();
         }
 
-        [Obsolete("Use GetBasicNodesetInformationAsync with offset and limit")]
-        public async Task<List<UANodesetResult>> GetBasicNodesetInformationAsync(List<string> keywords = null)
-        {
-            var nodeSetResults = new List<UANodesetResult>();
-            int offset = 0;
-            int limit = 100;
-            do
-            {
-                var results = await GetBasicNodesetInformationAsync(offset, limit, keywords).ConfigureAwait(false);
-                nodeSetResults.AddRange(results);
-                offset += limit;
-            } while (nodeSetResults.Count == limit);
-            return nodeSetResults;
-        }
-
         public async Task<List<UANodesetResult>> GetBasicNodesetInformationAsync(int offset, int limit, List<string> keywords = null)
         {
             if (keywords == null)
@@ -99,14 +84,14 @@ namespace Opc.Ua.Cloud.Library.Client
             }
 
             // keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
-            var relativeUri = $"infomodel/find{PrepareArgumentsString(keywords)}&offset={offset}&limit={limit}";
+            string relativeUri = $"infomodel/find{PrepareArgumentsString(keywords)}&offset={offset}&limit={limit}";
             Uri address = new Uri(client.BaseAddress, relativeUri);
             HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
 
             List<UANodesetResult> info = null;
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                var responseJson = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                string responseJson = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 info = JsonConvert.DeserializeObject<List<UANodesetResult>>(responseJson);
             }
 
@@ -117,9 +102,10 @@ namespace Opc.Ua.Cloud.Library.Client
         {
             return DownloadNodesetAsync(identifier, false);
         }
+
         public async Task<UANameSpace> DownloadNodesetAsync(string identifier, bool metadataOnly)
         {
-            var request = $"infomodel/download/{Uri.EscapeDataString(identifier)}";
+            string request = $"infomodel/download/{Uri.EscapeDataString(identifier)}";
             if (metadataOnly)
             {
                 request += $"?{nameof(metadataOnly)}=true";
@@ -129,7 +115,7 @@ namespace Opc.Ua.Cloud.Library.Client
             UANameSpace resultType = null;
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                var responseJson = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                string responseJson = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 resultType = JsonConvert.DeserializeObject<UANameSpace>(responseJson, new JsonSerializerSettings { DateTimeZoneHandling = DateTimeZoneHandling.Utc });
             }
 
@@ -143,10 +129,10 @@ namespace Opc.Ua.Cloud.Library.Client
             (string namespaceUri, string identifier)[] resultType = null;
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                var responseStr = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                var result = JsonConvert.DeserializeObject<string[]>(responseStr);
+                string responseStr = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                string[] result = JsonConvert.DeserializeObject<string[]>(responseStr);
                 resultType = result.Select(str => {
-                    var parts = str.Split(',');
+                    string[] parts = str.Split(',');
                     return (parts[0], parts[1]);
                 }).ToArray();
             }
@@ -177,14 +163,14 @@ namespace Opc.Ua.Cloud.Library.Client
         internal async Task<(HttpStatusCode Status, string Message)> UploadNamespaceAsync(UANameSpace nameSpace, bool overwrite = false)
         {
             // upload infomodel to cloud library
-            var uploadAddress = client.BaseAddress != null ?
+            Uri uploadAddress = client.BaseAddress != null ?
                 new Uri(client.BaseAddress, $"infomodel/upload{((overwrite) ? "?overwrite=true" : "")}") :
                 null;
 
             HttpContent content = new StringContent(JsonConvert.SerializeObject(nameSpace), Encoding.UTF8, "application/json");
 
-            var uploadResponse = await client.SendAsync(new HttpRequestMessage(HttpMethod.Put, uploadAddress) { Content = content }).ConfigureAwait(false);
-            var uploadResponseStr = await uploadResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+            HttpResponseMessage uploadResponse = await client.SendAsync(new HttpRequestMessage(HttpMethod.Put, uploadAddress) { Content = content }).ConfigureAwait(false);
+            string uploadResponseStr = await uploadResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
             return (uploadResponse.StatusCode, $"{uploadResponseStr}");
         }
     }

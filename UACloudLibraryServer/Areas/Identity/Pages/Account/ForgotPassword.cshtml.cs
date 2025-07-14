@@ -11,6 +11,9 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Configuration;
+using Opc.Ua.Cloud.Library.Authentication;
+using Opc.Ua.Cloud.Library.Interfaces;
 
 namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
 {
@@ -18,12 +21,32 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
     {
         private readonly UserManager<IdentityUser> _userManager;
         private readonly IEmailSender _emailSender;
+        private readonly Interfaces.ICaptchaValidation _captchaValidation;
+        private readonly CaptchaSettings _captchaSettings;
 
-        public ForgotPasswordModel(UserManager<IdentityUser> userManager, IEmailSender emailSender)
+        public ForgotPasswordModel(
+            UserManager<IdentityUser> userManager,
+            IEmailSender emailSender,
+            IConfiguration configuration,
+            Interfaces.ICaptchaValidation captchaValidation)
         {
             _userManager = userManager;
             _emailSender = emailSender;
+            _captchaValidation = captchaValidation;
+
+            _captchaSettings = new CaptchaSettings();
+            configuration.GetSection("CaptchaSettings").Bind(_captchaSettings);
         }
+
+        /// Populate values for cshtml to use
+        /// </summary>
+        public CaptchaSettings CaptchaSettings { get { return _captchaSettings; } }
+
+        /// <summary>
+        /// Populate a token returned from client side call to Google Captcha
+        /// </summary>
+        [BindProperty]
+        public string CaptchaResponseToken { get; set; }
 
         /// <summary>
         ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
@@ -49,9 +72,13 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
 
         public async Task<IActionResult> OnPostAsync()
         {
+            //Captcha validate
+            string captchaResult = await _captchaValidation.ValidateCaptcha(CaptchaResponseToken);
+            if (!string.IsNullOrEmpty(captchaResult)) ModelState.AddModelError("CaptchaResponseToken", captchaResult);
+
             if (ModelState.IsValid)
             {
-                var user = await _userManager.FindByEmailAsync(Input.Email).ConfigureAwait(false);
+                IdentityUser user = await _userManager.FindByEmailAsync(Input.Email).ConfigureAwait(false);
                 if (user == null || !(await _userManager.IsEmailConfirmedAsync(user).ConfigureAwait(false)))
                 {
                     // Don't reveal that the user does not exist or is not confirmed
@@ -60,18 +87,21 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
 
                 // For more information on how to enable account confirmation and password reset please
                 // visit https://go.microsoft.com/fwlink/?LinkID=532713
-                var code = await _userManager.GeneratePasswordResetTokenAsync(user).ConfigureAwait(false);
+                string code = await _userManager.GeneratePasswordResetTokenAsync(user).ConfigureAwait(false);
                 code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-                var callbackUrl = Url.Page(
+                string callbackUrl = Url.Page(
                     "/Account/ResetPassword",
                     pageHandler: null,
                     values: new { area = "Identity", code },
                     protocol: Request.Scheme);
 
-                await _emailSender.SendEmailAsync(
+                await EmailManager.Send(
+                    _emailSender,
                     Input.Email,
-                    "Reset Password",
-                    $"Please reset your password by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.").ConfigureAwait(false);
+                    "UA Cloud Library - Reset Password",
+                    "We received a request to reset your password.",
+                    callbackUrl
+                ).ConfigureAwait(false);
 
                 return RedirectToPage("./ForgotPasswordConfirmation");
             }

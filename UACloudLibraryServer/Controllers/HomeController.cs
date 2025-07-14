@@ -27,26 +27,17 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System.Diagnostics;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Opc.Ua.Cloud.Library.Models;
+
 namespace Opc.Ua.Cloud.Library.Controllers
 {
-    using System.Diagnostics;
-    using Microsoft.AspNetCore.Authorization;
-    using Microsoft.AspNetCore.Mvc;
-    using Opc.Ua.Cloud.Library.Models;
-
     [Authorize]
     public class HomeController : Controller
     {
-        public HomeController()
-        {
-        }
-
         public IActionResult Index()
-        {
-            return View();
-        }
-
-        public IActionResult Privacy()
         {
             return View();
         }

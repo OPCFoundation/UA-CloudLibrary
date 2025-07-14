@@ -8,16 +8,19 @@
     <link rel="stylesheet" href="~/css/site.css" />
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+    <header class="bg-transparent">
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light text-dark bg-white border-bottom mb-3">
             <div class="container">
-                <img src="~/logo.jpg"/>
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">UA Cloud Library</a>
-                <button class="navbar-toggler" type="button" data-toggle="collapse" data-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
+                <div class="d-flex align-items-center">
+                    <a class="navbar-brand headline-2 text-nowrap" asp-area="" asp-controller="Home" asp-action="Index">
+                        <img class="logo mr-3 mb-2" src="~/logo.jpg" alt="OPCF Logo" />
+                        UA Cloud Library
+                    </a>
+                </div>
+                <button class="navbar-toggler" type="button" data-toggle="collapse" data-target=".navbar-collapse" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex flex-sm-row-reverse">
+                <div class="navbar-collapse text-dark collapse d-sm-inline-flex flex-sm-row-reverse">
                     <partial name="_LoginPartial" />
                     <ul class="navbar-nav flex-grow-1">
                     </ul>
@@ -26,14 +29,14 @@
         </nav>
     </header>
     <div class="container">
-        <main role="main" class="pb-3">
+        <main role="main" class="pb-3 mb-4">
             @RenderBody()
         </main>
     </div>
 
-    <footer class="border-top footer text-muted">
+    <footer class="border-top footer text-light bg-dark">
         <div class="container">
-            &copy; 2022 - OPC Foundation - <a href="https://github.com/OPCFoundation/UA-CloudLibrary/tree/@ThisAssembly.GitCommitId" target="_blank">@ThisAssembly.AssemblyInformationalVersion</a> - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+            &copy; 2022 - 2025 OPC Foundation - <a href="https://github.com/OPCFoundation/UA-CloudLibrary/tree/@ThisAssembly.GitCommitId" target="_blank">@ThisAssembly.AssemblyInformationalVersion</a> - <a href="https://opcfoundation.org/privacy-policy" target="_blank">Privacy</a>
         </div>
     </footer>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>

@@ -2,34 +2,57 @@
 @model RegisterModel
 @{
     ViewData["Title"] = "Register";
+    var _reCaptchaUrl = $"{@Model.CaptchaSettings.ClientApiUrl}{@Model.CaptchaSettings.SiteKey}";
 }
 
 <h1>@ViewData["Title"]</h1>
 
 <div class="row">
-    <div class="col-md-4">
-        <form id="registerForm" asp-route-returnUrl="@Model.ReturnUrl" method="post">
-            <h2>Create a new account.</h2>
-            <hr />
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            <div class="form-floating">
-                <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" />
-                <label asp-for="Input.Email"></label>
-                <span asp-validation-for="Input.Email" class="text-danger"></span>
-            </div>
-            <div class="form-floating">
-                <input asp-for="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" />
-                <label asp-for="Input.Password"></label>
-                <span asp-validation-for="Input.Password" class="text-danger"></span>
-            </div>
-            <div class="form-floating">
-                <input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" />
-                <label asp-for="Input.ConfirmPassword"></label>
-                <span asp-validation-for="Input.ConfirmPassword" class="text-danger"></span>
-            </div>
-            <button id="registerSubmit" type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
-        </form>
-    </div>
+    @if (Model.AllowSelfRegistration)
+    {
+        <div class="col-md-4">
+	    <form id="registerForm" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="mb-2">
+	        <h2>Create a new account.</h2>
+	        <hr />
+	        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+	        <span asp-validation-for="CaptchaResponseToken" class="text-danger"></span>
+	        <div class="form-floating">
+	            <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" />
+	            <label asp-for="Input.Email"></label>
+	            <span asp-validation-for="Input.Email" class="text-danger"></span>
+	        </div>
+	        <div class="form-floating">
+	            <input asp-for="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" />
+	            <label asp-for="Input.Password"></label>
+	            <span asp-validation-for="Input.Password" class="text-danger"></span>
+	        </div>
+	        <div class="form-floating">
+	            <input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" />
+	            <label asp-for="Input.ConfirmPassword"></label>
+	            <span asp-validation-for="Input.ConfirmPassword" class="text-danger"></span>
+	        </div>
+	        <input type="hidden" asp-for="CaptchaResponseToken" id="CaptchaResponseToken" />
+	        @if (!Model.CaptchaSettings.Enabled)
+            {
+                <button id="registerSubmit" type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
+            }
+            else
+            {
+	            <button id="registerSubmit" type="button" class="w-100 btn btn-lg btn-primary">Register</button>
+            }
+	    </form>
+        </div>
+    }
+    else
+    {
+        <div class="col-md-4 col-md-offset-2">
+            <section>
+	            <h2>Create a new account.</h2>
+                <hr/>
+                <span class="text-danger">Creation of local accounts is currently unavailable.</span>
+            </section>
+        </div>
+    }
     <div class="col-md-6 col-md-offset-2">
         <section>
             <h3>Use another service to register.</h3>
@@ -64,4 +87,24 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+
+    @if (Model.CaptchaSettings.Enabled) {
+        <script src='@_reCaptchaUrl' ></script>
+        <script>
+            
+            function reCaptchaExecute() {
+                grecaptcha.execute('@Model.CaptchaSettings.SiteKey', { action: 'register' }).then(function (token) {
+                    //populate token value in hidden field
+                    document.getElementById("CaptchaResponseToken").value = token;
+                    //submit form
+                    $('#registerForm').submit();
+                });
+            }
+            
+            //wire up register button to execute reCaptcha before submitting
+            const btnRegisterSubmit = document.getElementById("registerSubmit");
+            btnRegisterSubmit.addEventListener('click', reCaptchaExecute, false);
+            //Note - if run on load, the token expires after 2 mins
+        </script>
+    }
 }

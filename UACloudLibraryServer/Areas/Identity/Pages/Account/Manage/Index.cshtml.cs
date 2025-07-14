@@ -60,8 +60,8 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
         private async Task LoadAsync(IdentityUser user)
         {
-            var userName = await _userManager.GetUserNameAsync(user).ConfigureAwait(false);
-            var phoneNumber = await _userManager.GetPhoneNumberAsync(user).ConfigureAwait(false);
+            string userName = await _userManager.GetUserNameAsync(user).ConfigureAwait(false);
+            string phoneNumber = await _userManager.GetPhoneNumberAsync(user).ConfigureAwait(false);
 
             Username = userName;
 
@@ -72,7 +72,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
         public async Task<IActionResult> OnGetAsync()
         {
-            var user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
+            IdentityUser user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
             if (user == null)
             {
                 return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
@@ -84,7 +84,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
         public async Task<IActionResult> OnPostAsync()
         {
-            var user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
+            IdentityUser user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
             if (user == null)
             {
                 return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
@@ -96,10 +96,10 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
                 return Page();
             }
 
-            var phoneNumber = await _userManager.GetPhoneNumberAsync(user).ConfigureAwait(false);
+            string phoneNumber = await _userManager.GetPhoneNumberAsync(user).ConfigureAwait(false);
             if (Input.PhoneNumber != phoneNumber)
             {
-                var setPhoneResult = await _userManager.SetPhoneNumberAsync(user, Input.PhoneNumber).ConfigureAwait(false);
+                IdentityResult setPhoneResult = await _userManager.SetPhoneNumberAsync(user, Input.PhoneNumber).ConfigureAwait(false);
                 if (!setPhoneResult.Succeeded)
                 {
                     StatusMessage = "Unexpected error when trying to set phone number.";

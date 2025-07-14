@@ -39,23 +39,23 @@ namespace Opc.Ua.Cloud.Library
     {
         public Task SendEmailAsync(string email, string subject, string htmlMessage)
         {
-            var apiKey = Environment.GetEnvironmentVariable("EmailSenderAPIKey");
+            string apiKey = Environment.GetEnvironmentVariable("EmailSenderAPIKey");
             if (!string.IsNullOrEmpty(apiKey))
             {
                 SendGridClient client = new SendGridClient(apiKey);
-                var emailFrom = Environment.GetEnvironmentVariable("RegistrationEmailFrom");
+                string emailFrom = Environment.GetEnvironmentVariable("RegistrationEmailFrom");
                 if (string.IsNullOrEmpty(emailFrom)) emailFrom = "office@opcfoundation.org";
 
-                var emailReplyTo = Environment.GetEnvironmentVariable("RegistrationEmailReplyTo");
+                string emailReplyTo = Environment.GetEnvironmentVariable("RegistrationEmailReplyTo");
                 if (string.IsNullOrEmpty(emailReplyTo)) emailReplyTo = "no-reply@opcfoundation.org";
 
                 SendGridMessage msg = new SendGridMessage() {
                     From = new EmailAddress(emailFrom),
                     ReplyTo = new EmailAddress(emailReplyTo),
                     Subject = subject,
-                    PlainTextContent = htmlMessage,
                     HtmlContent = htmlMessage
                 };
+
                 msg.AddTo(new EmailAddress(email));
 
                 // Disable click tracking.

@@ -33,22 +33,22 @@ namespace CloudLibClient.Tests
         [InlineData(true)]
         public async Task GetNodeSetDependencies(bool forceRest)
         {
-            var client = _factory.CreateCloudLibClient();
+            UACloudLibClient client = _factory.CreateCloudLibClient();
             if (forceRest)
             {
                 client._forceRestTestHook = forceRest;
                 client._allowRestFallback = true;
             }
 
-            var nodeSetInfo = await GetBasicNodeSetInfoForNamespaceAsync(client, strTestNamespaceUri).ConfigureAwait(false);
+            UANodesetResult nodeSetInfo = await GetBasicNodeSetInfoForNamespaceAsync(client, strTestNamespaceUri).ConfigureAwait(true);
 
             Assert.True(nodeSetInfo != null, "Nodeset not found");
-            var identifier = nodeSetInfo.Id.ToString(CultureInfo.InvariantCulture);
+            string identifier = nodeSetInfo.Id.ToString(CultureInfo.InvariantCulture);
 
-            var nodeSetsById = await client.GetNodeSetDependencies(identifier: identifier).ConfigureAwait(false);
+            List<Nodeset> nodeSetsById = await client.GetNodeSetDependencies(identifier: identifier).ConfigureAwait(true);
 
             Assert.True(nodeSetsById?.Count == 1);
-            var nodeSet = nodeSetsById[0];
+            Nodeset nodeSet = nodeSetsById[0];
 
             UANameSpace uploadedNamespace = GetUploadedTestNamespace();
 
@@ -61,19 +61,19 @@ namespace CloudLibClient.Tests
             Assert.True(string.IsNullOrEmpty(nodeSet.NodesetXml));
 
             Console.WriteLine($"Dependencies for {nodeSet.Identifier} {nodeSet.NamespaceUri} {nodeSet.PublicationDate} ({nodeSet.Version}):");
-            foreach (var requiredNodeSet in nodeSet.RequiredModels)
+            foreach (RequiredModelInfo requiredNodeSet in nodeSet.RequiredModels)
             {
                 Console.WriteLine($"Required: {requiredNodeSet.NamespaceUri} {requiredNodeSet.PublicationDate} ({requiredNodeSet.Version}). Available in Cloud Library: {requiredNodeSet.AvailableModel?.Identifier} {requiredNodeSet.AvailableModel?.PublicationDate} ({requiredNodeSet.AvailableModel?.Version})");
             }
 
             VerifyRequiredModels(uploadedNamespace, nodeSet.RequiredModels);
 
-            var namespaceUri = nodeSetInfo.NameSpaceUri;
-            var publicationDate = nodeSetInfo.PublicationDate.HasValue && nodeSetInfo.PublicationDate.Value.Kind == DateTimeKind.Unspecified ?
+            string namespaceUri = nodeSetInfo.NameSpaceUri;
+            DateTime? publicationDate = nodeSetInfo.PublicationDate.HasValue && nodeSetInfo.PublicationDate.Value.Kind == DateTimeKind.Unspecified ?
                 DateTime.SpecifyKind(nodeSetInfo.PublicationDate.Value, DateTimeKind.Utc)
                 : nodeSetInfo.PublicationDate;
 
-            List<Nodeset> nodeSetsByNamespace = await client.GetNodeSetDependencies(modelUri: namespaceUri, publicationDate: publicationDate).ConfigureAwait(false);
+            List<Nodeset> nodeSetsByNamespace = await client.GetNodeSetDependencies(modelUri: namespaceUri, publicationDate: publicationDate).ConfigureAwait(true);
 
             var dependenciesByNamespace = nodeSetsByNamespace
                 .SelectMany(n => n.RequiredModels).Where(r => r != null)
@@ -90,7 +90,7 @@ namespace CloudLibClient.Tests
                 Console.WriteLine($"FAIL: returned dependencies are different.");
                 Console.WriteLine($"For identifier {identifier}: {string.Join(" ", dependenciesByIdentifier)}.");
                 Console.WriteLine($"For namespace {namespaceUri} / {publicationDate}: {string.Join(" ", dependenciesByNamespace)}");
-                Assert.True(false, "Returned dependencies are different. See log for details.");
+                Assert.Fail("Returned dependencies are different. See log for details.");
             }
             else
             {
@@ -149,13 +149,13 @@ namespace CloudLibClient.Tests
         [Fact]
         public async Task DownloadNodesetAsync()
         {
-            var client = _factory.CreateCloudLibClient();
+            UACloudLibClient client = _factory.CreateCloudLibClient();
 
-            var nodeSetsResult = await client.GetNodeSetsAsync(modelUri: strTestNamespaceUri).ConfigureAwait(false);
+            GraphQlResult<Nodeset> nodeSetsResult = await client.GetNodeSetsAsync(modelUri: strTestNamespaceUri).ConfigureAwait(true);
             Assert.True(nodeSetsResult.TotalCount > 0, "Failed to download node set info");
-            var testNodeSet = nodeSetsResult.Nodes.FirstOrDefault(r => r.NamespaceUri.OriginalString == strTestNamespaceUri);
+            Nodeset testNodeSet = nodeSetsResult.Nodes.FirstOrDefault(r => r.NamespaceUri.OriginalString == strTestNamespaceUri);
 
-            UANameSpace downloadedNamespace = await client.DownloadNodesetAsync(testNodeSet.Identifier).ConfigureAwait(false);
+            UANameSpace downloadedNamespace = await client.DownloadNodesetAsync(testNodeSet.Identifier).ConfigureAwait(true);
 
             Assert.NotNull(downloadedNamespace);
             Assert.Equal(downloadedNamespace.Nodeset.NamespaceUri.OriginalString, testNodeSet.NamespaceUri.OriginalString);
@@ -165,12 +165,12 @@ namespace CloudLibClient.Tests
 
             Assert.Equal(uploadedNamespace.Nodeset.NodesetXml, downloadedNamespace.Nodeset.NodesetXml);
 
-            var identifier = downloadedNamespace.Nodeset.Identifier;
+            uint identifier = downloadedNamespace.Nodeset.Identifier;
             Assert.True(identifier == testNodeSet.Identifier);
 
             Assert.Equal("INDEXED", downloadedNamespace.Nodeset.ValidationStatus, ignoreCase: true);
 
-            var uploadedUaNodeSet = VerifyRequiredModels(uploadedNamespace, downloadedNamespace.Nodeset.RequiredModels);
+            UANodeSet uploadedUaNodeSet = VerifyRequiredModels(uploadedNamespace, downloadedNamespace.Nodeset.RequiredModels);
             Assert.Equal(uploadedUaNodeSet.LastModified, downloadedNamespace.Nodeset.LastModifiedDate);
             Assert.Equal(uploadedUaNodeSet.Models[0].ModelUri, downloadedNamespace.Nodeset.NamespaceUri.OriginalString);
             Assert.Equal(uploadedUaNodeSet.Models[0].PublicationDate, downloadedNamespace.Nodeset.PublicationDate);
@@ -208,17 +208,17 @@ namespace CloudLibClient.Tests
         const string strTestDependingNamespaceFilename = "cloudlibtests.dependingtestnodeset001.V1_2.NodeSet2.xml.0.json";
         private static UANameSpace GetUploadedTestNamespace()
         {
-            var uploadedJson = File.ReadAllText(Path.Combine("TestNamespaces", strTestNamespaceFilename));
-            var uploadedNamespace = JsonConvert.DeserializeObject<UANameSpace>(uploadedJson);
+            string uploadedJson = File.ReadAllText(Path.Combine("TestNamespaces", strTestNamespaceFilename));
+            UANameSpace uploadedNamespace = JsonConvert.DeserializeObject<UANameSpace>(uploadedJson);
             return uploadedNamespace;
         }
 
         [Fact]
         public async Task GetBasicNodesetInformationAsync()
         {
-            var client = _factory.CreateCloudLibClient();
+            UACloudLibClient client = _factory.CreateCloudLibClient();
 
-            var basicNodesetInfo = await GetBasicNodeSetInfoForNamespaceAsync(client, strTestNamespaceUri).ConfigureAwait(false);
+            UANodesetResult basicNodesetInfo = await GetBasicNodeSetInfoForNamespaceAsync(client, strTestNamespaceUri).ConfigureAwait(true);
             Assert.True(basicNodesetInfo != null, $"Test Nodeset {strTestNamespaceUri} not found");
             Assert.True(basicNodesetInfo.Id != 0);
 
@@ -235,11 +235,11 @@ namespace CloudLibClient.Tests
         [Fact]
         public async Task GetNamespaceIdsAsync()
         {
-            var client = _factory.CreateCloudLibClient();
+            UACloudLibClient client = _factory.CreateCloudLibClient();
 
-            var restResult = await client.GetNamespaceIdsAsync().ConfigureAwait(false);
+            (string NamespaceUri, string Identifier)[] restResult = await client.GetNamespaceIdsAsync().ConfigureAwait(true);
             Assert.True(restResult?.Length > 0, "Failed to download namespace ids");
-            var testNodeSet = restResult.FirstOrDefault(r => r.NamespaceUri == strTestNamespaceUri);
+            (string NamespaceUri, string Identifier) testNodeSet = restResult.FirstOrDefault(r => r.NamespaceUri == strTestNamespaceUri);
             Assert.NotNull(testNodeSet.NamespaceUri);
             Assert.NotNull(testNodeSet.Identifier);
         }
@@ -254,7 +254,7 @@ namespace CloudLibClient.Tests
 
         public async Task GetNodeSetsAsync(bool noMetadata, bool noRequiredModels, bool noTotalCount, bool noCreationTime)
         {
-            var client = _factory.CreateCloudLibClient();
+            UACloudLibClient client = _factory.CreateCloudLibClient();
             string cursor = null;
             int limit = 10;
             Nodeset testNodeSet;
@@ -262,7 +262,7 @@ namespace CloudLibClient.Tests
             int? totalCount = null;
             do
             {
-                var result = await client.GetNodeSetsAsync(after: cursor, first: limit, noRequiredModels: noRequiredModels, noMetadata: noMetadata, noTotalCount: noTotalCount, noCreationTime: noCreationTime).ConfigureAwait(false);
+                GraphQlResult<Nodeset> result = await client.GetNodeSetsAsync(after: cursor, first: limit, noRequiredModels: noRequiredModels, noMetadata: noMetadata, noTotalCount: noTotalCount, noCreationTime: noCreationTime).ConfigureAwait(true);
                 Assert.True(cursor == null || result.Edges?.Count > 0, "Failed to get node set information.");
 
                 testNodeSet = result.Edges.FirstOrDefault(n => n.Node.NamespaceUri.OriginalString == strTestNamespaceUri)?.Node;
@@ -318,7 +318,7 @@ namespace CloudLibClient.Tests
             }
             if (noRequiredModels)
             {
-                Assert.True(testNodeSet.RequiredModels?.Any() != true);
+                Assert.True(testNodeSet.RequiredModels?.Count == 0);
             }
             else
             {
@@ -344,9 +344,9 @@ namespace CloudLibClient.Tests
         [InlineData(new[] { "machine" }, 33)]
         public async Task GetNodeSetsFilteredAsync(string[] keywords, int expectedCount)
         {
-            var client = _factory.CreateCloudLibClient();
+            UACloudLibClient client = _factory.CreateCloudLibClient();
 
-            var result = await client.GetNodeSetsAsync(keywords: keywords).ConfigureAwait(false);
+            GraphQlResult<Nodeset> result = await client.GetNodeSetsAsync(keywords: keywords).ConfigureAwait(true);
             Assert.Equal(expectedCount, result.TotalCount);
         }
 
@@ -355,13 +355,12 @@ namespace CloudLibClient.Tests
         [InlineData(true)]
         public async Task GetConvertedMetadataAsync(bool forceRest)
         {
-            var client = _factory.CreateCloudLibClient();
+            UACloudLibClient client = _factory.CreateCloudLibClient();
             client._forceRestTestHook = forceRest;
             client._allowRestFallback = true; // GraphQL support was deprecated and is removed now: allow fallback to REST until the client uses new GraphQL mechanisms.
 
-#pragma warning disable CS0618 // Type or member is obsolete
-            List<UANameSpace> restResult = await client.GetConvertedMetadataAsync().ConfigureAwait(false);
-#pragma warning restore CS0618 // Type or member is obsolete
+            List<UANameSpace> restResult = await client.GetConvertedMetadataAsync(0, 10).ConfigureAwait(true);
+
             Assert.True(restResult?.Count > 0, "Failed to get node set information.");
 
             UANameSpace convertedMetaData = restResult.FirstOrDefault(n => n.Nodeset.NamespaceUri?.OriginalString == strTestNamespaceUri);
@@ -369,6 +368,7 @@ namespace CloudLibClient.Tests
             {
                 convertedMetaData = restResult.FirstOrDefault(n => n.Title == strTestNamespaceTitle || string.Equals(n.Category.Name, strTestNamespaceTitle, StringComparison.OrdinalIgnoreCase));
             }
+
             Assert.True(convertedMetaData != null, $"Test Nodeset {strTestNamespaceUri} not found");
             Assert.True(string.IsNullOrEmpty(convertedMetaData.Nodeset.NodesetXml));
             Assert.True(convertedMetaData.Nodeset.Identifier != 0);
@@ -406,25 +406,25 @@ namespace CloudLibClient.Tests
         [InlineData("OtherTestNamespaces", strTestDependingNamespaceFilename, false, strTestNamespaceUpdateFilename)] // Depends on test namespace 1.02
         public async Task UpdateNodeSet(string path, string fileName, bool uploadConflictExpected = false, string dependentNodeSet = null)
         {
-            var client = _factory.CreateCloudLibClient();
+            UACloudLibClient client = _factory.CreateCloudLibClient();
 
-            var expectedNodeSetCount = (await client.GetNodeSetsAsync().ConfigureAwait(false)).TotalCount;
+            int expectedNodeSetCount = (await client.GetNodeSetsAsync().ConfigureAwait(true)).TotalCount;
 
             string uploadedIdentifier = null;
-            var uploadJson = File.ReadAllText(Path.Combine(path, fileName));
-            var addressSpace = JsonConvert.DeserializeObject<UANameSpace>(uploadJson);
-            var response = await client.UploadNodeSetAsync(addressSpace).ConfigureAwait(false);
+            string uploadJson = File.ReadAllText(Path.Combine(path, fileName));
+            UANameSpace addressSpace = JsonConvert.DeserializeObject<UANameSpace>(uploadJson);
+            (HttpStatusCode Status, string Message) response = await client.UploadNodeSetAsync(addressSpace).ConfigureAwait(true);
             if (response.Status == HttpStatusCode.OK)
             {
                 output.WriteLine($"Uploaded {addressSpace?.Nodeset.NamespaceUri}, {addressSpace?.Nodeset.Identifier}");
                 uploadedIdentifier = response.Message;
-                var approvalResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "APPROVED", null, null).ConfigureAwait(false);
+                UANameSpace approvalResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "APPROVED", null, null).ConfigureAwait(true);
                 Assert.NotNull(approvalResult);
                 Assert.Equal("APPROVED", approvalResult.ApprovalStatus);
             }
             else
             {
-                if (response.Status == HttpStatusCode.Conflict || response.Message.Contains("Nodeset already exists", StringComparison.InvariantCultureIgnoreCase))
+                if (response.Status == HttpStatusCode.Conflict || response.Message.Contains("Nodeset already exists", StringComparison.OrdinalIgnoreCase))
                 {
                     Assert.True(uploadConflictExpected || _factory.TestConfig.IgnoreUploadConflict,
                             $"Error uploading {addressSpace?.Nodeset.NamespaceUri}, {addressSpace?.Nodeset.Identifier}: {response.Status} {response.Message}");
@@ -440,7 +440,7 @@ namespace CloudLibClient.Tests
                 }
             }
             // Upload again should cause conflict
-            response = await client.UploadNodeSetAsync(addressSpace).ConfigureAwait(false);
+            response = await client.UploadNodeSetAsync(addressSpace).ConfigureAwait(true);
             Assert.Equal(HttpStatusCode.Conflict, response.Status);
 
             GraphQlResult<Nodeset> nodeSetInfo;
@@ -451,9 +451,9 @@ namespace CloudLibClient.Tests
             string requiredIdentifier = null;
             do
             {
-                nodeSetInfo = await client.GetNodeSetsAsync(modelUri: addressSpace.Nodeset.NamespaceUri.OriginalString, publicationDate: addressSpace.Nodeset.PublicationDate).ConfigureAwait(false);
+                nodeSetInfo = await client.GetNodeSetsAsync(modelUri: addressSpace.Nodeset.NamespaceUri.OriginalString, publicationDate: addressSpace.Nodeset.PublicationDate).ConfigureAwait(true);
                 Assert.NotEmpty(nodeSetInfo.Nodes);
-                var uploadedNode = nodeSetInfo.Nodes.Where(n => n.NamespaceUri.OriginalString == addressSpace.Nodeset.NamespaceUri.OriginalString && n.PublicationDate == addressSpace.Nodeset.PublicationDate).FirstOrDefault();
+                Nodeset uploadedNode = nodeSetInfo.Nodes.Where(n => n.NamespaceUri.OriginalString == addressSpace.Nodeset.NamespaceUri.OriginalString && n.PublicationDate == addressSpace.Nodeset.PublicationDate).FirstOrDefault();
                 Assert.Contains(uploadedNode, nodeSetInfo.Nodes);
                 if (dependentNodeSet != null && !dependencyUploaded)
                 {
@@ -467,13 +467,13 @@ namespace CloudLibClient.Tests
                         // Verify that the dependency is missing
                         Assert.Equal("ERROR", uploadedNode.ValidationStatus);
 
-                        var requiredUploadJson = File.ReadAllText(Path.Combine(path, dependentNodeSet));
-                        var requiredAddressSpace = JsonConvert.DeserializeObject<UANameSpace>(requiredUploadJson);
-                        response = await client.UploadNodeSetAsync(requiredAddressSpace).ConfigureAwait(false);
+                        string requiredUploadJson = File.ReadAllText(Path.Combine(path, dependentNodeSet));
+                        UANameSpace requiredAddressSpace = JsonConvert.DeserializeObject<UANameSpace>(requiredUploadJson);
+                        response = await client.UploadNodeSetAsync(requiredAddressSpace).ConfigureAwait(true);
                         Assert.Equal(HttpStatusCode.OK, response.Status);
                         requiredIdentifier = response.Message;
 
-                        var approvalResult = await client.UpdateApprovalStatusAsync(requiredIdentifier, "APPROVED", null, null);
+                        UANameSpace approvalResult = await client.UpdateApprovalStatusAsync(requiredIdentifier, "APPROVED", null, null);
                         Assert.NotNull(approvalResult);
                         Assert.Equal("APPROVED", approvalResult.ApprovalStatus);
 
@@ -491,21 +491,21 @@ namespace CloudLibClient.Tests
                     }
                 }
             } while (notIndexed);
-            await UploadAndIndex.WaitForIndexAsync(_factory.CreateAuthorizedClient(), expectedNodeSetCount).ConfigureAwait(false);
+            await UploadAndIndex.WaitForIndexAsync(_factory.CreateAuthorizedClient(), expectedNodeSetCount).ConfigureAwait(true);
 
             // Upload with override
-            response = await client.UploadNodeSetAsync(addressSpace, true).ConfigureAwait(false);
+            response = await client.UploadNodeSetAsync(addressSpace, true).ConfigureAwait(true);
             Assert.Equal(HttpStatusCode.OK, response.Status);
             {
                 uploadedIdentifier = response.Message;
-                var approvalResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "APPROVED", null, null).ConfigureAwait(false);
+                UANameSpace approvalResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "APPROVED", null, null).ConfigureAwait(true);
                 Assert.NotNull(approvalResult);
                 Assert.Equal("APPROVED", approvalResult.ApprovalStatus);
             }
             // Wait for indexing
             do
             {
-                nodeSetInfo = await client.GetNodeSetsAsync(modelUri: addressSpace.Nodeset.NamespaceUri.OriginalString, publicationDate: addressSpace.Nodeset.PublicationDate).ConfigureAwait(false);
+                nodeSetInfo = await client.GetNodeSetsAsync(modelUri: addressSpace.Nodeset.NamespaceUri.OriginalString, publicationDate: addressSpace.Nodeset.PublicationDate).ConfigureAwait(true);
                 notIndexed = nodeSetInfo.TotalCount == 1 && nodeSetInfo.Edges[0].Node.ValidationStatus != "INDEXED";
                 if (notIndexed)
                 {
@@ -515,13 +515,13 @@ namespace CloudLibClient.Tests
             await UploadAndIndex.WaitForIndexAsync(_factory.CreateAuthorizedClient(), expectedNodeSetCount);
             if (!uploadConflictExpected && uploadedIdentifier != null)
             {
-                var cancelResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "CANCELED", "Test cleanup", null);
+                UANameSpace cancelResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "CANCELED", "Test cleanup", null);
                 Assert.NotNull(cancelResult);
                 Assert.Equal("CANCELED", cancelResult.ApprovalStatus);
             }
             if (requiredIdentifier != null)
             {
-                var cancelResult = await client.UpdateApprovalStatusAsync(requiredIdentifier, "CANCELED", "Test cleanup", null);
+                UANameSpace cancelResult = await client.UpdateApprovalStatusAsync(requiredIdentifier, "CANCELED", "Test cleanup", null);
                 Assert.NotNull(cancelResult);
                 Assert.Equal("CANCELED", cancelResult.ApprovalStatus);
             }
@@ -530,7 +530,7 @@ namespace CloudLibClient.Tests
             addressSpace.Nodeset.NodesetXml = null;
             await client.UploadNodeSetAsync(addressSpace, false);
 
-            await UploadAndIndex.WaitForIndexAsync(_factory.CreateAuthorizedClient(), expectedNodeSetCount).ConfigureAwait(false);
+            await UploadAndIndex.WaitForIndexAsync(_factory.CreateAuthorizedClient(), expectedNodeSetCount).ConfigureAwait(true);
         }
     }
 }

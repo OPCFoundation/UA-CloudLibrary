@@ -1,16 +1,18 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Text.Json;
+using System.Text.Json.Schema;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CESMII.OpcUa.NodeSetModel;
+using CESMII.OpcUa.NodeSetModel.Opc.Extensions;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Logging;
-using NpgsqlTypes;
 using Opc.Ua.Cloud.Library.DbContextModels;
 using Opc.Ua.Cloud.Library.Interfaces;
 using Opc.Ua.Cloud.Library.Models;
@@ -51,7 +53,7 @@ namespace Opc.Ua.Cloud.Library
             }
             else
             {
-                var nodeSetQuery = SearchNodesets(keywords);
+                IQueryable<CloudLibNodeSetModel> nodeSetQuery = SearchNodesets(keywords);
                 if (modelUri != null && publicationDate != null)
                 {
                     nodeSets = nodeSetQuery.Where(nsm => nsm.ModelUri == modelUri && nsm.PublicationDate == publicationDate);
@@ -108,6 +110,10 @@ namespace Opc.Ua.Cloud.Library
             return GetNodeModels<ObjectModel>(nsm => nsm.Objects, modelUri, publicationDate, nodeId);
         }
 
+        public IQueryable<MethodModel> GetMethods(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
+        {
+            return GetNodeModels<MethodModel>(nsm => nsm.Methods, modelUri, publicationDate, nodeId);
+        }
 
         public IQueryable<NodeModel> GetAllNodes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
         {
@@ -166,11 +172,13 @@ namespace Opc.Ua.Cloud.Library
             {
                 nodeSets = _dbContext.nodeSets.AsQueryable();
             }
+
             IQueryable<T> nodeModels = nodeSets.SelectMany(selector);
             if (!string.IsNullOrEmpty(nodeId))
             {
                 nodeModels = nodeModels.Where(ot => ot.NodeId == nodeId);
             }
+
             return nodeModels;
         }
 
@@ -199,8 +207,8 @@ namespace Opc.Ua.Cloud.Library
                         return;
                     }
 
-                    var nodeSetModel = await NodeSetModelIndexer.CreateNodeSetModelFromNodeSetAsync(_dbContext, nodeSet, uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture), userId).ConfigureAwait(false);
-                    var existingModel = await _dbContext.nodeSetsWithUnapproved.FindAsync(nodeSetModel.ModelUri, nodeSetModel.PublicationDate).ConfigureAwait(false);
+                    CloudLibNodeSetModel nodeSetModel = await NodeSetModelIndexer.CreateNodeSetModelFromNodeSetAsync(_dbContext, nodeSet, uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture), userId).ConfigureAwait(false);
+                    CloudLibNodeSetModel existingModel = await _dbContext.nodeSetsWithUnapproved.FindAsync(nodeSetModel.ModelUri, nodeSetModel.PublicationDate).ConfigureAwait(false);
                     if (existingModel != null)
                     {
                         message = "Error: nodeset still exists after delete.";
@@ -246,9 +254,9 @@ namespace Opc.Ua.Cloud.Library
 
         public async Task<uint> IncrementDownloadCountAsync(uint nodesetId)
         {
-            var namespaceMeta = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+            NamespaceMetaDataModel namespaceMeta = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
             namespaceMeta.NumberOfDownloads++;
-            var newCount = namespaceMeta.NumberOfDownloads;
+            uint newCount = namespaceMeta.NumberOfDownloads;
             await _dbContext.SaveChangesAsync().ConfigureAwait(false);
             return newCount;
         }
@@ -257,11 +265,11 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                var nodesetIdStr = nodesetId.ToString(CultureInfo.InvariantCulture);
+                string nodesetIdStr = nodesetId.ToString(CultureInfo.InvariantCulture);
                 List<CloudLibNodeSetModel> deletedNodeSets = new();
                 await DeleteNodeSetIndexForNodesetAsync(nodesetIdStr, deletedNodeSets).ConfigureAwait(false);
 
-                var namespaceModel = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetIdStr).ConfigureAwait(false);
+                NamespaceMetaDataModel namespaceModel = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetIdStr).ConfigureAwait(false);
                 if (namespaceModel != null)
                 {
                     _dbContext.NamespaceMetaDataWithUnapproved.Remove(namespaceModel);
@@ -271,11 +279,11 @@ namespace Opc.Ua.Cloud.Library
 
                 // Re-add nodesets that were removed because they depend on the nodeset being deleted
                 // This will cause them to be reindexed later on
-                foreach (var deletedNodeSet in deletedNodeSets)
+                foreach (CloudLibNodeSetModel deletedNodeSet in deletedNodeSets)
                 {
                     if (deletedNodeSet.Identifier != nodesetIdStr)
                     {
-                        var nodeSetModel = NodeSetModelIndexer.CreateNodeSetModelFromNodeSet(deletedNodeSet);
+                        CloudLibNodeSetModel nodeSetModel = NodeSetModelIndexer.CreateNodeSetModelFromNodeSet(deletedNodeSet);
                         await _dbContext.nodeSetsWithUnapproved.AddAsync(nodeSetModel).ConfigureAwait(false);
                     }
                 }
@@ -292,10 +300,10 @@ namespace Opc.Ua.Cloud.Library
         }
         public async Task DeleteNodeSetIndexForNodesetAsync(string nodesetId, List<CloudLibNodeSetModel> deletedNodeSets)
         {
-            var nodeSetModel = await _dbContext.nodeSetsWithUnapproved.FirstOrDefaultAsync(n => n.Identifier == nodesetId).ConfigureAwait(false);
+            CloudLibNodeSetModel nodeSetModel = await _dbContext.nodeSetsWithUnapproved.FirstOrDefaultAsync(n => n.Identifier == nodesetId).ConfigureAwait(false);
             if (nodeSetModel != null)
             {
-                foreach (var dependentNodeset in _dbContext.nodeSetsWithUnapproved
+                foreach (CloudLibNodeSetModel dependentNodeset in _dbContext.nodeSetsWithUnapproved
                     .Where(n => n.RequiredModels
                         .Any(rm => rm.AvailableModel.ModelUri == nodeSetModel.ModelUri && rm.AvailableModel.PublicationDate == nodeSetModel.PublicationDate)))
                 {
@@ -316,7 +324,7 @@ namespace Opc.Ua.Cloud.Library
             try
             {
 #pragma warning disable CA1305 // Specify IFormatProvider: runs in database with single culture, can not use culture invariant
-                var namespaceModel = await _dbContext.NamespaceMetaDataWithUnapproved
+                NamespaceMetaDataModel namespaceModel = await _dbContext.NamespaceMetaDataWithUnapproved
                     .Where(md => md.NodesetId == nodesetId.ToString())
                     .Include(md => md.NodeSet)
                     .FirstOrDefaultAsync().ConfigureAwait(false);
@@ -339,7 +347,7 @@ namespace Opc.Ua.Cloud.Library
         {
             IQueryable<CloudLibNodeSetModel> matchingNodeSets;
 
-            if (keywords?.Any() == true && keywords[0] != "*")
+            if ((keywords != null) && (keywords.Length != 0) && (keywords[0] != "*"))
             {
                 string keywordRegex = $".*({string.Join('|', keywords)}).*";
 #pragma warning disable CA1305 // Specify IFormatProvider - ToString() runs in the database, cultureinfo not supported
@@ -380,7 +388,7 @@ namespace Opc.Ua.Cloud.Library
                 .Select(n => _dbContext.NamespaceMetaData.Where(nmd => nmd.NodesetId == n.Identifier).Include(nmd => nmd.NodeSet).FirstOrDefault())
                 .ToList();
 
-            var nodesetResults = uaNamespaceModel.Select(nameSpace => {
+            UANodesetResult[] nodesetResults = uaNamespaceModel.Select(nameSpace => {
                 var result = new UANodesetResult();
                 MapToNamespace(result, nameSpace);
 
@@ -390,26 +398,26 @@ namespace Opc.Ua.Cloud.Library
         }
 
 
-        public string[] GetAllNamespacesAndNodesets()
+        public Task<string[]> GetAllNamespacesAndNodesets()
         {
             try
             {
-                var namesAndIds = _dbContext.nodeSets.Select(nsm => new { nsm.ModelUri, nsm.Identifier }).Select(n => $"{n.ModelUri},{n.Identifier}").ToArray();
-                return namesAndIds;
+                string[] namesAndIds = _dbContext.nodeSets.Select(nsm => new { nsm.ModelUri, nsm.Identifier, nsm.Version, nsm.PublicationDate }).Select(n => $"{n.ModelUri},{n.Identifier},{n.Version},{n.PublicationDate}").ToArray();
+                return Task.FromResult(namesAndIds);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
             }
 
-            return Array.Empty<string>();
+            return Task.FromResult(Array.Empty<string>());
         }
 
         private CloudLibNodeSetModel GetNamespaceUriForNodeset(string nodesetId)
         {
             try
             {
-                var model = _dbContext.nodeSets.FirstOrDefault(nsm => nsm.Identifier == nodesetId);
+                CloudLibNodeSetModel model = _dbContext.nodeSets.FirstOrDefault(nsm => nsm.Identifier == nodesetId);
                 return model;
             }
             catch (Exception ex)
@@ -420,20 +428,20 @@ namespace Opc.Ua.Cloud.Library
             return null;
         }
 
-        public string[] GetAllNamesAndNodesets()
+        public Task<string[]> GetAllNamesAndNodesets()
         {
             try
             {
                 var categoryAndNodesetIds = _dbContext.NamespaceMetaData.Select(md => new { md.Category.Name, md.NodesetId }).ToList();
-                var namesAndNodesetsString = categoryAndNodesetIds.Select(cn => $"{cn.Name},{cn.NodesetId}").ToArray();
-                return namesAndNodesetsString;
+                string[] namesAndNodesetsString = categoryAndNodesetIds.Select(cn => $"{cn.Name},{cn.NodesetId}").ToArray();
+                return Task.FromResult(namesAndNodesetsString);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
             }
 
-            return Array.Empty<string>();
+            return Task.FromResult(Array.Empty<string>());
         }
 
 
@@ -451,7 +459,7 @@ namespace Opc.Ua.Cloud.Library
 
         public async Task<NamespaceMetaDataModel> ApproveNamespaceAsync(string identifier, ApprovalStatus status, string approvalInformation, List<UAProperty> additionalProperties)
         {
-            var nodeSetMeta = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync().ConfigureAwait(false);
+            NamespaceMetaDataModel nodeSetMeta = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync().ConfigureAwait(false);
             if (nodeSetMeta == null) return null;
 
             nodeSetMeta.ApprovalStatus = status;
@@ -478,7 +486,7 @@ namespace Opc.Ua.Cloud.Library
             _dbContext.Attach(nodeSetMeta);
             if (additionalProperties != null)
             {
-                foreach (var prop in additionalProperties)
+                foreach (UAProperty prop in additionalProperties)
                 {
                     if (string.IsNullOrEmpty(prop.Value))
                     {
@@ -486,7 +494,7 @@ namespace Opc.Ua.Cloud.Library
                     }
                     else
                     {
-                        var existingProp = nodeSetMeta.AdditionalProperties.FirstOrDefault(p => p.Name == prop.Name);
+                        AdditionalPropertyModel existingProp = nodeSetMeta.AdditionalProperties.FirstOrDefault(p => p.Name == prop.Name);
                         if (existingProp != null)
                         {
                             existingProp.Value = prop.Value;
@@ -503,7 +511,7 @@ namespace Opc.Ua.Cloud.Library
                 }
             }
             await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-            var nodeSetMetaSaved = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync().ConfigureAwait(false);
+            NamespaceMetaDataModel nodeSetMetaSaved = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync().ConfigureAwait(false);
             return nodeSetMetaSaved;
         }
 
@@ -524,9 +532,17 @@ namespace Opc.Ua.Cloud.Library
 
         private void MapToEntity(ref NamespaceMetaDataModel entity, UANameSpace uaNamespace, CloudLibNodeSetModel nodeSetModel, OrganisationModel contributor, CategoryModel category)
         {
-            var identifier = nodeSetModel != null ? nodeSetModel.Identifier : uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
+            string identifier = nodeSetModel != null ? nodeSetModel.Identifier : uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
             entity.NodesetId = identifier;
-            entity.CreationTime = uaNamespace.CreationTime ?? DateTime.Now;
+            if (uaNamespace.CreationTime != null)
+            {
+                entity.CreationTime = uaNamespace.CreationTime.GetNormalizedPublicationDate();
+            }
+            else
+            {
+                entity.CreationTime = DateTime.Now;
+            }
+
             entity.NodeSet = nodeSetModel;
             entity.Title = uaNamespace.Title;
             entity.ContributorId = contributor?.Id ?? 0;
@@ -537,7 +553,7 @@ namespace Opc.Ua.Cloud.Library
                 LogoUrl = uaNamespace.Contributor.LogoUrl?.ToString(),
                 Website = uaNamespace.Contributor.Website?.ToString(),
             };
-            var licenseExpression = uaNamespace.License switch {
+            string licenseExpression = uaNamespace.License switch {
                 "0" => "MIT",
                 "1" or "ApacheLicense20" => "Apache-2.0",
                 "2" => "Custom",
@@ -644,12 +660,132 @@ namespace Opc.Ua.Cloud.Library
             org.LogoUrl = model.LogoUrl != null ? new Uri(model.LogoUrl) : null;
         }
 
+        public async Task<string[]> GetAllTypes(string nodeSetID)
+        {
+            CloudLibNodeSetModel nodeSetMeta = await GetNodeSets(nodeSetID).FirstOrDefaultAsync().ConfigureAwait(false);
+            if (nodeSetMeta != null)
+            {
+                List<NodeModel> types = new();
+                types.AddRange(GetObjectTypes(nodeSetMeta.ModelUri));
+                types.AddRange(GetVariableTypes(nodeSetMeta.ModelUri));
+                types.AddRange(GetDataTypes(nodeSetMeta.ModelUri));
+                types.AddRange(GetReferenceTypes(nodeSetMeta.ModelUri));
+
+                List<string> typeList = new();
+                foreach(NodeModel model in types)
+                {
+                    string expandedNodeIdWithBrowseName = "nsu=" + model.BrowseName + ";" + model.NodeIdIdentifier;
+                    string[] tokens = expandedNodeIdWithBrowseName.Split(';');
+                    if (tokens.Length >= 3)
+                    {
+                        string temp = tokens[1];
+                        tokens[1] = tokens[2];
+                        tokens[2] = temp;
+                    }
+                    expandedNodeIdWithBrowseName = string.Join(";", tokens);
+
+                    typeList.Add(expandedNodeIdWithBrowseName);
+                }
+
+                return typeList.ToArray();
+            }
+
+            return Array.Empty<string>();
+        }
+
+        public Task<string> GetUAType(string expandedNodeId)
+        {
+            // create a substring from expandedNodeId by removing "nsu=" from the start and parsing until the first ";"
+            string modelUri = expandedNodeId.Substring(4, expandedNodeId.IndexOf(';', StringComparison.OrdinalIgnoreCase) - 4);
+
+            JsonSerializerOptions options = new JsonSerializerOptions(JsonSerializerDefaults.Web) {
+                MaxDepth = 100,
+                WriteIndented = true,
+                TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
+                ReferenceHandler = ReferenceHandler.IgnoreCycles
+            };
+
+            ObjectTypeModel objectModel = GetNodeModels<ObjectTypeModel>(nsm => nsm.ObjectTypes, modelUri, null, expandedNodeId).FirstOrDefault();
+            if (objectModel != null)
+            {
+                string expandedNodeIdWithBrowseName = "nsu=" + objectModel.BrowseName + ";" + objectModel.NodeIdIdentifier;
+                string[] tokens = expandedNodeIdWithBrowseName.Split(';');
+                if (tokens.Length >= 3)
+                {
+                    string temp = tokens[1];
+                    tokens[1] = tokens[2];
+                    tokens[2] = temp;
+                }
+                expandedNodeIdWithBrowseName = string.Join(";", tokens);
+
+                return Task.FromResult("{\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAObjectType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\"}");
+            }
+
+            VariableTypeModel variableModel = GetNodeModels<VariableTypeModel>(nsm => nsm.VariableTypes, modelUri, null, expandedNodeId).FirstOrDefault();
+            if (variableModel != null)
+            {
+                string expandedNodeIdWithBrowseName = "nsu=" + variableModel.BrowseName + ";" + variableModel.NodeIdIdentifier;
+                string[] tokens = expandedNodeIdWithBrowseName.Split(';');
+                if (tokens.Length >= 3)
+                {
+                    string temp = tokens[1];
+                    tokens[1] = tokens[2];
+                    tokens[2] = temp;
+                }
+                expandedNodeIdWithBrowseName = string.Join(";", tokens);
+
+                return Task.FromResult("{\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAVariableType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\"}");
+            }
+
+            DataTypeModel dataModel = GetNodeModels<DataTypeModel>(nsm => nsm.DataTypes, modelUri, null, expandedNodeId).FirstOrDefault();
+            if (dataModel != null)
+            {
+                string expandedNodeIdWithBrowseName = "nsu=" + dataModel.BrowseName + ";" + dataModel.NodeIdIdentifier;
+                string[] tokens = expandedNodeIdWithBrowseName.Split(';');
+                if (tokens.Length >= 3)
+                {
+                    string temp = tokens[1];
+                    tokens[1] = tokens[2];
+                    tokens[2] = temp;
+                }
+                expandedNodeIdWithBrowseName = string.Join(";", tokens);
+
+                List<string> fields = new();
+                foreach (DataTypeModel.StructureField field in dataModel.StructureFields)
+                {
+                    fields.Add(field.DataType.NodeId + ":"  + field.DataType.BrowseName + ":" + field.Name);
+                }
+
+                string fieldsSerialized = JsonSerializer.Serialize(fields, options);
+
+                return Task.FromResult("{\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UADataType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\",\r\n\"Structure Fields\": " + fieldsSerialized + "}");
+            }
+
+            ReferenceTypeModel referenceModel = GetNodeModels<ReferenceTypeModel>(nsm => nsm.ReferenceTypes, modelUri, null, expandedNodeId).FirstOrDefault();
+            if (referenceModel != null)
+            {
+                string expandedNodeIdWithBrowseName = "nsu=" + referenceModel.BrowseName + ";" + referenceModel.NodeIdIdentifier;
+                string[] tokens = expandedNodeIdWithBrowseName.Split(';');
+                if (tokens.Length >= 3)
+                {
+                    string temp = tokens[1];
+                    tokens[1] = tokens[2];
+                    tokens[2] = temp;
+                }
+                expandedNodeIdWithBrowseName = string.Join(";", tokens);
+
+                return Task.FromResult("{\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAReferenceType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\"}");
+            }
+
+            return Task.FromResult("{}");
+        }
+
 #if !NOLEGACY
         #region legacy
 
         public IQueryable<MetadataModel> GetMetadataModel()
         {
-            // TODO retrieve well-known properties from NamespaceMetaDataMoel
+            // TODO retrieve well-known properties from NamespaceMetaDataModel
             return _dbContext.Metadata.AsQueryable();
         }
 

@@ -27,12 +27,12 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Linq.Expressions;
+using GraphQL.Query.Builder;
+
 namespace Opc.Ua.Cloud.Library.Client
 {
-    using System;
-    using System.Linq.Expressions;
-    using GraphQL.Query.Builder;
-
     static class GraphQlExtensions
     {
         public static IQuery<TSource> AddFields<TSource>(this IQuery<TSource> This, Func<IQuery<TSource>, IQuery<TSource>> addFields, bool skip = false)

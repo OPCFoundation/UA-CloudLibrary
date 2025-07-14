@@ -27,21 +27,21 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.IO;
+using System.Net;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Amazon.S3;
+using Amazon.S3.Model;
+using Amazon.S3.Util;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Opc.Ua.Cloud.Library.Interfaces;
+
 namespace Opc.Ua.Cloud.Library
 {
-    using System;
-    using System.IO;
-    using System.Net;
-    using System.Text;
-    using System.Threading;
-    using System.Threading.Tasks;
-    using Amazon.S3;
-    using Amazon.S3.Model;
-    using Amazon.S3.Util;
-    using Microsoft.Extensions.Configuration;
-    using Microsoft.Extensions.Logging;
-    using Opc.Ua.Cloud.Library.Interfaces;
-
     /// <summary>
     /// AWS S3 storage class
     /// </summary>
@@ -60,7 +60,7 @@ namespace Opc.Ua.Cloud.Library
         {
             _s3Client = s3Client;
             _logger = logger.CreateLogger("AWSFileStorage");
-            var connStr = config["BlobStorageConnectionString"];
+            string connStr = config["BlobStorageConnectionString"];
             if (connStr != null)
             {
                 try
@@ -96,7 +96,7 @@ namespace Opc.Ua.Cloud.Library
 
             try
             {
-                var key = string.IsNullOrEmpty(_prefix) ? name : _prefix + name;
+                string key = string.IsNullOrEmpty(_prefix) ? name : _prefix + name;
 
                 await _s3Client.GetObjectMetadataAsync(_bucket, key, cancellationToken).ConfigureAwait(false);
 
@@ -122,7 +122,7 @@ namespace Opc.Ua.Cloud.Library
 
             try
             {
-                var key = string.IsNullOrEmpty(_prefix) ? name : _prefix + name;
+                string key = string.IsNullOrEmpty(_prefix) ? name : _prefix + name;
 
                 var ms = new MemoryStream(Encoding.UTF8.GetBytes(content));
 
@@ -132,7 +132,7 @@ namespace Opc.Ua.Cloud.Library
                     InputStream = ms
                 };
 
-                var response = await _s3Client.PutObjectAsync(putRequest, cancellationToken).ConfigureAwait(false);
+                PutObjectResponse response = await _s3Client.PutObjectAsync(putRequest, cancellationToken).ConfigureAwait(false);
                 if (response.HttpStatusCode == HttpStatusCode.OK)
                 {
                     return name;
@@ -164,14 +164,14 @@ namespace Opc.Ua.Cloud.Library
 
             try
             {
-                var key = string.IsNullOrEmpty(_prefix) ? name : _prefix + name;
+                string key = string.IsNullOrEmpty(_prefix) ? name : _prefix + name;
 
                 var req = new GetObjectRequest {
                     BucketName = _bucket,
                     Key = key
                 };
 
-                var res = await _s3Client.GetObjectAsync(req, cancellationToken).ConfigureAwait(false);
+                GetObjectResponse res = await _s3Client.GetObjectAsync(req, cancellationToken).ConfigureAwait(false);
 
                 using (var reader = new StreamReader(res.ResponseStream))
                 {
@@ -199,7 +199,7 @@ namespace Opc.Ua.Cloud.Library
 
             try
             {
-                var key = string.IsNullOrEmpty(_prefix) ? name : _prefix + name;
+                string key = string.IsNullOrEmpty(_prefix) ? name : _prefix + name;
 
                 await _s3Client.DeleteObjectAsync(_bucket, key, cancellationToken).ConfigureAwait(false);
 

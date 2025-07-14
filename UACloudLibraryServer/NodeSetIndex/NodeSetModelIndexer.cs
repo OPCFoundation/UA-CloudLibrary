@@ -34,6 +34,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CESMII.OpcUa.NodeSetModel;
 using CESMII.OpcUa.NodeSetModel.Factory.Opc;
+using CESMII.OpcUa.NodeSetModel.Opc.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -45,22 +46,20 @@ namespace Opc.Ua.Cloud.Library
 {
     public class NodeSetModelIndexerFactory
     {
-        public NodeSetModelIndexerFactory(IServiceScopeFactory serviceScopeFactory, ILogger<NodeSetModelIndexer> logger)
+        public NodeSetModelIndexerFactory(IServiceScopeFactory serviceScopeFactory)
         {
             _serviceScopeFactory = serviceScopeFactory;
-            _logger = logger;
         }
 
         private readonly IServiceScopeFactory _serviceScopeFactory;
-        private readonly ILogger<NodeSetModelIndexer> _logger;
 
         public NodeSetModelIndexer Create()
         {
-            var scope = _serviceScopeFactory.CreateScope();
-            var appDbContext = scope.ServiceProvider.GetService<AppDbContext>();
-            var fileStore = scope.ServiceProvider.GetService<IFileStorage>();
-            var database = scope.ServiceProvider.GetService<IDatabase>();
-            var logger = scope.ServiceProvider.GetService<ILogger<NodeSetModelIndexer>>();
+            IServiceScope scope = _serviceScopeFactory.CreateScope();
+            AppDbContext appDbContext = scope.ServiceProvider.GetService<AppDbContext>();
+            IFileStorage fileStore = scope.ServiceProvider.GetService<IFileStorage>();
+            IDatabase database = scope.ServiceProvider.GetService<IDatabase>();
+            ILogger<NodeSetModelIndexer> logger = scope.ServiceProvider.GetService<ILogger<NodeSetModelIndexer>>();
             return new NodeSetModelIndexer(appDbContext, logger, fileStore, database, scope);
         }
     }
@@ -94,9 +93,9 @@ namespace Opc.Ua.Cloud.Library
 
                 var sw = Stopwatch.StartNew();
 
-                var loadedNodesetModels = await ImportNodeSetModelAsync(nodeSetXML, identifier).ConfigureAwait(false);
+                List<NodeSetModel> loadedNodesetModels = await ImportNodeSetModelAsync(nodeSetXML, identifier).ConfigureAwait(false);
 
-                foreach (var nodeSetModel in loadedNodesetModels)
+                foreach (NodeSetModel nodeSetModel in loadedNodesetModels)
                 {
                     nodeSetModel.Identifier = identifier;
                     var clNodeSet = nodeSetModel as CloudLibNodeSetModel;
@@ -115,14 +114,14 @@ namespace Opc.Ua.Cloud.Library
                         _dbContext.nodeSetsWithUnapproved.Update(clNodeSet);
                     }
                 }
-                var validatedTime = sw.ElapsedMilliseconds;
+                long validatedTime = sw.ElapsedMilliseconds;
                 _logger.LogInformation($"Finished validating nodeset {modelUri} {identifier}: {validatedTime} ms.");
 
                 await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-                var savedTime = sw.ElapsedMilliseconds;
+                long savedTime = sw.ElapsedMilliseconds;
                 _logger.LogInformation($"Finished indexing nodeset {modelUri} {identifier}: {savedTime - validatedTime} ms. Total: {savedTime} ms.");
 #if DEBUG
-                var nodeSet = loadedNodesetModels.FirstOrDefault(nsm => nsm.ModelUri == modelUri);
+                NodeSetModel nodeSet = loadedNodesetModels.FirstOrDefault(nsm => nsm.ModelUri == modelUri);
                 if (nodeSet != null)
                 {
                     var clNodeSet = nodeSet as CloudLibNodeSetModel;
@@ -152,16 +151,16 @@ namespace Opc.Ua.Cloud.Library
 
         public async Task<CloudLibNodeSetModel> CreateNodeSetModelFromNodeSetAsync(UANodeSet nodeSet, string identifier, string userId)
         {
-            var nodeSetModel = await CreateNodeSetModelFromNodeSetAsync(_dbContext, nodeSet, identifier, userId).ConfigureAwait(false);
+            CloudLibNodeSetModel nodeSetModel = await CreateNodeSetModelFromNodeSetAsync(_dbContext, nodeSet, identifier, userId).ConfigureAwait(false);
             await _dbContext.AddAsync(nodeSetModel).ConfigureAwait(false);
             await _dbContext.SaveChangesAsync().ConfigureAwait(false);
             return nodeSetModel;
         }
         public static async Task<CloudLibNodeSetModel> CreateNodeSetModelFromNodeSetAsync(AppDbContext dbContext, UANodeSet nodeSet, string identifier, string userId)
         {
-            var nodeSetModel = await CloudLibNodeSetModel.FromModelAsync(nodeSet.Models[0], dbContext).ConfigureAwait(false);
+            CloudLibNodeSetModel nodeSetModel = await CloudLibNodeSetModel.FromModelAsync(nodeSet.Models[0], dbContext).ConfigureAwait(false);
             nodeSetModel.Identifier = identifier;
-            nodeSetModel.LastModifiedDate = nodeSet.LastModifiedSpecified ? nodeSet.LastModified : null;
+            nodeSetModel.LastModifiedDate = nodeSet.LastModifiedSpecified ? ((DateTime?)nodeSet.LastModified).GetNormalizedPublicationDate() : null;
             return nodeSetModel;
         }
 
@@ -181,16 +180,16 @@ namespace Opc.Ua.Cloud.Library
 
         public async Task DeleteNodeSetIndex(string identifier)
         {
-            var existingNodeSet = _dbContext.nodeSets.AsQueryable().Where(n => n.Identifier == identifier).FirstOrDefault();
+            CloudLibNodeSetModel existingNodeSet = _dbContext.nodeSets.AsQueryable().Where(n => n.Identifier == identifier).FirstOrDefault();
             if (existingNodeSet != null)
             {
                 var nodes = _dbContext.nodeModels.Where(nm => nm.NodeSet == existingNodeSet).ToList();
-                foreach (var node in nodes)
+                foreach (NodeModel node in nodes)
                 {
                     try
                     {
-                        var referencesToNode = await _dbContext.nodeModels.Where(nm => nm.OtherReferencedNodes.Any(reference => reference.Node == node)).ToListAsync().ConfigureAwait(false);
-                        foreach (var referencingNode in referencesToNode)
+                        List<NodeModel> referencesToNode = await _dbContext.nodeModels.Where(nm => nm.OtherReferencedNodes.Any(reference => reference.Node == node)).ToListAsync().ConfigureAwait(false);
+                        foreach (NodeModel referencingNode in referencesToNode)
                         {
                             referencingNode.OtherReferencedNodes.RemoveAll(reference => reference.Node == node);
                             _dbContext.Update(referencingNode);
@@ -220,9 +219,9 @@ namespace Opc.Ua.Cloud.Library
             }
             try
             {
-                using (var indexer = factory.Create())
+                using (NodeSetModelIndexer indexer = factory.Create())
                 {
-                    var logger = indexer._logger;
+                    ILogger logger = indexer._logger;
                     try
                     {
                         int changedCount = 0;
@@ -264,16 +263,16 @@ namespace Opc.Ua.Cloud.Library
 
         private static async Task<int> IndexNodeSetsInternalAsync(NodeSetModelIndexerFactory factory)
         {
-            var nodeSetIndexer = factory.Create();
+            NodeSetModelIndexer nodeSetIndexer = factory.Create();
             try
             {
                 await nodeSetIndexer.IndexMissingNodeSets().ConfigureAwait(false);
 
-                var unvalidatedNodeSets = await nodeSetIndexer._dbContext.nodeSetsWithUnapproved.Where(n => n.ValidationStatus != ValidationStatus.Indexed)
+                List<CloudLibNodeSetModel> unvalidatedNodeSets = await nodeSetIndexer._dbContext.nodeSetsWithUnapproved.Where(n => n.ValidationStatus != ValidationStatus.Indexed)
                     .ToListAsync().ConfigureAwait(false);
 
                 int changedCount = 0;
-                foreach (var nodeSet in unvalidatedNodeSets)
+                foreach (CloudLibNodeSetModel nodeSet in unvalidatedNodeSets)
                 {
                     try
                     {
@@ -301,7 +300,7 @@ namespace Opc.Ua.Cloud.Library
         private async Task<bool> IndexNodeSetModelAsync(string identifier, string modelUri, DateTime? publicationDate)
         {
             bool bChanged = false;
-            var nodeSetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
+            string nodeSetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
             if (nodeSetXml != null)
             {
                 CloudLibNodeSetModel nodeSetModel = null;
@@ -314,7 +313,7 @@ namespace Opc.Ua.Cloud.Library
                         return false;
                     }
                     (ValidationStatus Status, string Info) previousValidationStatus = (nodeSetModel.ValidationStatus, nodeSetModel.ValidationStatusInfo);
-                    var newValidationStatus = await this.IndexNodeSetModelAsync(nodeSetModel.ModelUri, nodeSetXml, identifier).ConfigureAwait(false);
+                    (ValidationStatus Status, string Info) newValidationStatus = await this.IndexNodeSetModelAsync(nodeSetModel.ModelUri, nodeSetXml, identifier).ConfigureAwait(false);
                     nodeSetModel.ValidationStatus = newValidationStatus.Status;
                     nodeSetModel.ValidationStatusInfo = newValidationStatus.Info;
                     if (previousValidationStatus.Status != nodeSetModel.ValidationStatus || previousValidationStatus.Info != nodeSetModel.ValidationStatusInfo)
@@ -361,24 +360,24 @@ namespace Opc.Ua.Cloud.Library
                     _logger.LogError(ex, $"Error during legacy metadata migration");
                 }
 
-                var missingNodeSetIds = await _dbContext.NamespaceMetaDataWithUnapproved
+                List<string> missingNodeSetIds = await _dbContext.NamespaceMetaDataWithUnapproved
                     .Where(nmd => !_dbContext.nodeSetsWithUnapproved.Any(n => n.Identifier == nmd.NodesetId))
                     .Select(nmd => nmd.NodesetId)
                     .ToListAsync().ConfigureAwait(false);
 
-                foreach (var missingNodeSetId in missingNodeSetIds)
+                foreach (string missingNodeSetId in missingNodeSetIds)
                 {
                     try
                     {
                         _logger.LogDebug($"Dowloading missing nodeset {missingNodeSetId}");
-                        var nodeSetXml = await _storage.DownloadFileAsync(missingNodeSetId).ConfigureAwait(false);
+                        string nodeSetXml = await _storage.DownloadFileAsync(missingNodeSetId).ConfigureAwait(false);
 
                         if (nodeSetXml != null)
                         {
                             _logger.LogDebug($"Parsing missing nodeset {missingNodeSetId}");
-                            var uaNodeSet = InfoModelController.ReadUANodeSet(nodeSetXml);
+                            UANodeSet uaNodeSet = InfoModelController.ReadUANodeSet(nodeSetXml);
 
-                            var existingNodeSet = await _dbContext.nodeSets.FirstOrDefaultAsync(n => n.ModelUri == uaNodeSet.Models[0].ModelUri && n.PublicationDate == uaNodeSet.Models[0].PublicationDate).ConfigureAwait(false);
+                            CloudLibNodeSetModel existingNodeSet = await _dbContext.nodeSets.FirstOrDefaultAsync(n => n.ModelUri == uaNodeSet.Models[0].ModelUri && n.PublicationDate == uaNodeSet.Models[0].PublicationDate).ConfigureAwait(false);
                             if (existingNodeSet != null)
                             {
                                 _logger.LogWarning($"Metadata vs. NodeSets inconsistency for {existingNodeSet}: Metadata NodeSetId {missingNodeSetId} vs. NodeSet {existingNodeSet.Identifier}");
@@ -386,7 +385,7 @@ namespace Opc.Ua.Cloud.Library
                             else
                             {
                                 _logger.LogDebug($"Indexing missing nodeset {missingNodeSetId}");
-                                var nodeSetModel = await CreateNodeSetModelFromNodeSetAsync(uaNodeSet, missingNodeSetId, null).ConfigureAwait(false);
+                                CloudLibNodeSetModel nodeSetModel = await CreateNodeSetModelFromNodeSetAsync(uaNodeSet, missingNodeSetId, null).ConfigureAwait(false);
 
                                 _logger.LogWarning($"Database inconsistency: Created index entry for nodeset {missingNodeSetId} {nodeSetModel}");
                             }
@@ -403,7 +402,7 @@ namespace Opc.Ua.Cloud.Library
                     finally
                     {
                         // Acquire a new context for each nodeset in case a nodeset fails to index but leaves the _dbContext "tainted" (for example PublicationDate == null)
-                        var newDbContext = _scope.ServiceProvider.GetService<AppDbContext>();
+                        AppDbContext newDbContext = _scope.ServiceProvider.GetService<AppDbContext>();
                         if (newDbContext != _dbContext)
                         {
                             _dbContext.Dispose();

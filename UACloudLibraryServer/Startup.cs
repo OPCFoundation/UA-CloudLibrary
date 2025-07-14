@@ -27,42 +27,46 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Net.Http;
+using System.Security.Claims;
+using System.Text.Json;
+using Amazon.S3;
+using HotChocolate.AspNetCore;
+using HotChocolate.Data;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OAuth;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+#if AZURE_AD
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.IdentityModel.Logging;
+using Microsoft.Identity.Web;
+#endif
+using Microsoft.OpenApi.Models;
+using Opc.Ua.Cloud.Library.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Opc.Ua.Cloud.Library.Authentication;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using System.Net.Sockets;
+using System.Threading.Tasks;
+
+[assembly: CLSCompliant(false)]
 namespace Opc.Ua.Cloud.Library
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Globalization;
-    using System.IO;
-    using System.Net.Http;
-    using System.Security.Claims;
-    using System.Text.Json;
-    using Amazon.S3;
-    using GraphQL.Server.Ui.Playground;
-    using HotChocolate.AspNetCore;
-    using HotChocolate.Data;
-    using Microsoft.AspNetCore.Authentication;
-    using Microsoft.AspNetCore.Authentication.OAuth;
-    using Microsoft.AspNetCore.Builder;
-    using Microsoft.AspNetCore.DataProtection;
-    using Microsoft.AspNetCore.Hosting;
-    using Microsoft.AspNetCore.Http;
-    using Microsoft.AspNetCore.Identity;
-    using Microsoft.AspNetCore.Identity.UI.Services;
-    using Microsoft.AspNetCore.Server.Kestrel.Core;
-    using Microsoft.EntityFrameworkCore;
-    using Microsoft.Extensions.Configuration;
-    using Microsoft.Extensions.DependencyInjection;
-    using Microsoft.Extensions.Hosting;
-    using Microsoft.Extensions.Logging;
-#if AZURE_AD
-    using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-    using Microsoft.IdentityModel.Logging;
-    using Microsoft.Identity.Web;
-#endif
-    using Microsoft.OpenApi.Models;
-    using Opc.Ua.Cloud.Library.Interfaces;
-    using Microsoft.AspNetCore.Authorization;
-
     public class Startup
     {
         public Startup(IConfiguration configuration, IWebHostEnvironment environment)
@@ -83,18 +87,25 @@ namespace Opc.Ua.Cloud.Library
             services.AddRazorPages();
 
             // Setup database context for ASP.NetCore Identity Scaffolding
-            services.AddDbContext<AppDbContext>(ServiceLifetime.Transient);
+            services.AddDbContext<AppDbContext>(
+                options => options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)),
+                ServiceLifetime.Transient);
 
             services.AddDefaultIdentity<IdentityUser>(options =>
                       //require confirmation mail if email sender API Key is set
                       options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["EmailSenderAPIKey"])
                     )
                 .AddRoles<IdentityRole>()
+#if APIKEY_AUTH
+                .AddTokenProvider<ApiKeyTokenProvider>(ApiKeyTokenProvider.ApiKeyProviderName)
+#endif
                 .AddEntityFrameworkStores<AppDbContext>();
 
             services.AddScoped<IUserService, UserService>();
 
             services.AddTransient<IDatabase, CloudLibDataProvider>();
+
+            services.AddScoped<ICaptchaValidation, CaptchaValidation>();
 
             if (!string.IsNullOrEmpty(Configuration["UseSendGridEmailSender"]))
             {
@@ -109,7 +120,16 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddAuthentication()
                 .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null)
-                ;
+                .AddScheme<AuthenticationSchemeOptions, SignedInUserAuthenticationHandler>("SignedInUserAuthentication", null)
+#if APIKEY_AUTH
+                .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKeyAuthentication", null);
+#endif
+            ;
+
+            //for captcha validation call
+            //add httpclient service for dependency injection
+            //https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-6.0
+            services.AddHttpClient();
 
             if (Configuration["OAuth2ClientId"] != null)
             {
@@ -160,12 +180,29 @@ namespace Opc.Ua.Cloud.Library
 #if AZURE_AD
             if (Configuration.GetSection("AzureAd")?["ClientId"] != null)
             {
+                // Web UI access
                 services.AddAuthentication()
                     .AddMicrosoftIdentityWebApp(Configuration,
                         configSectionName: "AzureAd",
                         openIdConnectScheme: "AzureAd",
                         displayName: Configuration["AADDisplayName"] ?? "Microsoft Account")
                     ;
+                // Allow access to API via Bearer tokens (for service identities etc.)
+                services.AddAuthentication()
+                    .AddMicrosoftIdentityWebApi(
+                        Configuration,
+                        configSectionName: "AzureAd",
+                        jwtBearerScheme: "Bearer",
+                        subscribeToJwtBearerMiddlewareDiagnosticsEvents: true
+                        )
+                    ;
+            }
+            else
+            {
+                // Need to register a Bearer scheme or the authorization attributes cause errors
+                services.AddAuthentication()
+                    .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("Bearer", null);
+
             }
 #if DEBUG
             IdentityModelEventSource.ShowPII = true;
@@ -211,6 +248,30 @@ namespace Opc.Ua.Cloud.Library
                     }
                 });
 
+#if APIKEY_AUTH
+                options.AddSecurityDefinition("ApiKeyAuth", new OpenApiSecurityScheme {
+                    Type = SecuritySchemeType.ApiKey,
+                    In = ParameterLocation.Header,
+                    Name = "X-API-Key",
+                    //Scheme = "basic"
+                });
+
+                options.AddSecurityRequirement(new OpenApiSecurityRequirement
+            {
+                    {
+                          new OpenApiSecurityScheme
+                            {
+                                Reference = new OpenApiReference
+                                {
+                                    Type = ReferenceType.SecurityScheme,
+                                    Id = "ApiKeyAuth"
+                                }
+                            },
+                            Array.Empty<string>()
+                    }
+                });
+#endif
+
                 options.CustomSchemaIds(type => type.ToString());
 
                 options.EnableAnnotations();
@@ -223,7 +284,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 case "Azure": services.AddSingleton<IFileStorage, AzureFileStorage>(); break;
                 case "AWS":
-                    var awsOptions = Configuration.GetAWSOptions();
+                    Amazon.Extensions.NETCore.Setup.AWSOptions awsOptions = Configuration.GetAWSOptions();
                     services.AddDefaultAWSOptions(awsOptions);
                     services.AddAWSService<IAmazonS3>();
                     services.AddSingleton<IFileStorage, AWSFileStorage>();
@@ -238,7 +299,7 @@ namespace Opc.Ua.Cloud.Library
                 }
             }
 
-            var serviceName = Configuration["Application"] ?? "UACloudLibrary";
+            string serviceName = Configuration["Application"] ?? "UACloudLibrary";
 
             // setup data protection
             switch (Configuration["HostingPlatform"])
@@ -253,7 +314,7 @@ namespace Opc.Ua.Cloud.Library
 
 
             HotChocolate.Types.Pagination.PagingOptions paginationConfig;
-            var section = Configuration.GetSection("GraphQLPagination");
+            IConfigurationSection section = Configuration.GetSection("GraphQLPagination");
             if (section.Exists())
             {
                 paginationConfig = section.Get<HotChocolate.Types.Pagination.PagingOptions>();
@@ -269,7 +330,11 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddGraphQLServer()
                 .AddAuthorization()
-                .SetPagingOptions(paginationConfig)
+                .ModifyPagingOptions(o => {
+                    o.IncludeTotalCount = paginationConfig.IncludeTotalCount;
+                    o.DefaultPageSize = paginationConfig.DefaultPageSize;
+                    o.MaxPageSize = paginationConfig.MaxPageSize;
+                })
                 .AddFiltering(fd => {
                     fd.AddDefaults().BindRuntimeType<UInt32, UnsignedIntOperationFilterInputType>();
                     fd.AddDefaults().BindRuntimeType<UInt32?, UnsignedIntOperationFilterInputType>();
@@ -281,7 +346,14 @@ namespace Opc.Ua.Cloud.Library
                 .AddType<CloudLibNodeSetModelType>()
                 .BindRuntimeType<UInt32, HotChocolate.Types.UnsignedIntType>()
                 .BindRuntimeType<UInt16, HotChocolate.Types.UnsignedShortType>()
-                ;
+                .ModifyCostOptions(options =>
+                {
+                    options.MaxFieldCost = 1_000;
+                    options.MaxTypeCost = 1_000;
+                    options.EnforceCostLimits = false;
+                    options.ApplyCostDefaults = false;
+                    options.DefaultResolverCost = 10.0;
+                });
 
             services.AddScoped<NodeSetModelIndexer>();
             services.AddScoped<NodeSetModelIndexerFactory>();
@@ -309,7 +381,27 @@ namespace Opc.Ua.Cloud.Library
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, AppDbContext appDbContext)
         {
-            appDbContext.Database.Migrate();
+            uint retryCount = 0;
+            while (retryCount < 12)
+            {
+                try
+                {
+                    appDbContext.Database.Migrate();
+                    break;
+                }
+                catch (SocketException)
+                {
+                    Console.WriteLine("Database not yet available or unknown, retrying...");
+                    Task.Delay(5000).GetAwaiter().GetResult();
+                    retryCount++;
+                }
+            }
+
+            if (retryCount == 12)
+            {
+                // database permanently unavailable
+                throw new InvalidOperationException("Database not available, exiting!");
+            }
 
             if (env.IsDevelopment())
             {
@@ -332,13 +424,7 @@ namespace Opc.Ua.Cloud.Library
 
             app.UseAuthorization();
 
-            app.UseGraphQLPlayground(
-                "/graphqlui",
-                new PlaygroundOptions() {
-                    RequestCredentials = RequestCredentials.Include
-                });
             app.UseGraphQLGraphiQL("/graphiql", new GraphQL.Server.Ui.GraphiQL.GraphiQLOptions {
-                ExplorerExtensionEnabled = true,
                 RequestCredentials = GraphQL.Server.Ui.GraphiQL.RequestCredentials.Include,
             });
 
@@ -350,7 +436,7 @@ namespace Opc.Ua.Cloud.Library
                 endpoints.MapRazorPages();
                 endpoints.MapBlazorHub();
                 endpoints.MapGraphQL()
-                    .RequireAuthorization(new AuthorizeAttribute() { AuthenticationSchemes = "BasicAuthentication" })
+                    .RequireAuthorization(new AuthorizeAttribute() { AuthenticationSchemes = UserService.APIAuthorizationSchemes })
                     .WithOptions(new GraphQLServerOptions {
                         EnableGetRequests = true,
                         Tool = { Enable = false },

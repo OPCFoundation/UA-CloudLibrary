@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Opc.Ua.Cloud.Library;
@@ -20,7 +21,7 @@ namespace CloudLibClient.Tests
             "DeleteCloudLibDBAndStore": false,
             "IgnoreUploadConflict" :  true
           }
-       Set DeleteCloudlibDBAndStore to true to wipe the db before every test run      
+       Set DeleteCloudlibDBAndStore to true to wipe the db before every test run
     */
     [Collection("_init0")]
     public class TestSetup : IClassFixture<CustomWebApplicationFactory<Opc.Ua.Cloud.Library.Startup>>
@@ -35,17 +36,17 @@ namespace CloudLibClient.Tests
         }
 
         [Fact]
-        public void Setup()
+        public async Task Setup()
         {
             if (_factory.TestConfig.DeleteCloudLibDBAndStore && InstantiationCount == 1)
             {
                 // Start the app
-                var client = _factory.CreateAuthorizedClient();
+                System.Net.Http.HttpClient client = _factory.CreateAuthorizedClient();
                 Assert.NotNull(client);
 
-                using (var scope = _factory.Server.Services.CreateScope())
+                using (IServiceScope scope = _factory.Server.Services.CreateScope())
                 {
-                    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    AppDbContext dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                     if (dbContext.nodeSets.Any())
                     {
                         dbContext.Database.EnsureDeleted();
@@ -53,27 +54,27 @@ namespace CloudLibClient.Tests
                         dbContext.Database.Migrate();
                     }
 
-                    var storage = scope.ServiceProvider.GetRequiredService<IFileStorage>();
+                    IFileStorage storage = scope.ServiceProvider.GetRequiredService<IFileStorage>();
                     if (storage is LocalFileStorage localStorage)
                     {
-                        _ = localStorage.DeleteAllFilesAsync().Result;
+                        _ = await localStorage.DeleteAllFilesAsync().ConfigureAwait(true);
                     }
                 }
             }
         }
     }
 
-    internal class TestNamespaceFiles : IEnumerable<object[]>
+    internal sealed class TestNamespaceFiles : IEnumerable<object[]>
     {
         internal static string[] GetFiles()
         {
-            var nodeSetFiles = Directory.GetFiles(UploadAndIndex.strTestNamespacesDirectory);
+            string[] nodeSetFiles = Directory.GetFiles(UploadAndIndex.strTestNamespacesDirectory);
             return nodeSetFiles;
         }
 
         public IEnumerator<object[]> GetEnumerator()
         {
-            var files = GetFiles();
+            string[] files = GetFiles();
             return files.Select(f => new object[] { f }).GetEnumerator();
         }
 

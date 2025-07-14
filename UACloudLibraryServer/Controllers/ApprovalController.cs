@@ -27,18 +27,17 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System.ComponentModel.DataAnnotations;
+using System.Net;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using Swashbuckle.AspNetCore.Annotations;
+
 namespace Opc.Ua.Cloud.Library.Controllers
 {
-    using System.ComponentModel.DataAnnotations;
-    using System.Net;
-    using System.Threading.Tasks;
-    using Microsoft.AspNetCore.Authorization;
-    using Microsoft.AspNetCore.Identity;
-    using Microsoft.AspNetCore.Mvc;
-    using Microsoft.Extensions.Logging;
-    using Swashbuckle.AspNetCore.Annotations;
-
-    [Authorize(AuthenticationSchemes = "BasicAuthentication")]
+    [Authorize(AuthenticationSchemes = UserService.APIAuthorizationSchemes)]
     [ApiController]
     public class ApprovalController : ControllerBase
     {

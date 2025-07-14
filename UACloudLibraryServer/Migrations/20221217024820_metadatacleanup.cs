@@ -2,11 +2,9 @@ using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
-#nullable disable
-
 namespace Opc.Ua.Cloud.Library
 {
-    public partial class metadatacleanup : Migration
+    public partial class MetadataCleanup : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -245,7 +243,7 @@ namespace Opc.Ua.Cloud.Library
             migrationBuilder.CreateIndex(
                 name: "IX_NamespaceMeta_Title_Description",
                 table: "NamespaceMeta",
-                columns: new[] { "Title", "Description" })
+                columns: ["Title", "Description"])
                 .Annotation("Npgsql:IndexMethod", "GIN")
                 .Annotation("Npgsql:TsVectorConfig", "english");
 
@@ -258,81 +256,81 @@ namespace Opc.Ua.Cloud.Library
             migrationBuilder.AddForeignKey(
                 name: "FK_BaseTypes_BaseTypes_SuperTypeNodeId_SuperTypeNodeSetModelUr~",
                 table: "BaseTypes",
-                columns: new[] { "SuperTypeNodeId", "SuperTypeNodeSetModelUri", "SuperTypeNodeSetPublicationDate" },
+                columns: ["SuperTypeNodeId", "SuperTypeNodeSetModelUri", "SuperTypeNodeSetPublicationDate"],
                 principalTable: "BaseTypes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_DataTypes_NodeSets_NodeSetDataTypesModelUri_NodeSetDataType~",
                 table: "DataTypes",
-                columns: new[] { "NodeSetDataTypesModelUri", "NodeSetDataTypesPublicationDate" },
+                columns: ["NodeSetDataTypesModelUri", "NodeSetDataTypesPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" },
+                principalColumns: ["ModelUri", "PublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_DataVariables_Nodes_ParentNodeId_ParentModelUri_ParentPubli~",
                 table: "DataVariables",
-                columns: new[] { "ParentNodeId", "ParentModelUri", "ParentPublicationDate" },
+                columns: ["ParentNodeId", "ParentModelUri", "ParentPublicationDate"],
                 principalTable: "Nodes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_DataVariables_NodeSets_NodeSetDataVariablesModelUri_NodeSet~",
                 table: "DataVariables",
-                columns: new[] { "NodeSetDataVariablesModelUri", "NodeSetDataVariablesPublicationDate" },
+                columns: ["NodeSetDataVariablesModelUri", "NodeSetDataVariablesPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" },
+                principalColumns: ["ModelUri", "PublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Interfaces_NodeSets_NodeSetInterfacesModelUri_NodeSetInterf~",
                 table: "Interfaces",
-                columns: new[] { "NodeSetInterfacesModelUri", "NodeSetInterfacesPublicationDate" },
+                columns: ["NodeSetInterfacesModelUri", "NodeSetInterfacesPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" },
+                principalColumns: ["ModelUri", "PublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Methods_Methods_TypeDefinitionNodeId_TypeDefinitionNodeSetM~",
                 table: "Methods",
-                columns: new[] { "TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate" },
+                columns: ["TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate"],
                 principalTable: "Methods",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Methods_Nodes_ParentNodeId_ParentModelUri_ParentPublication~",
                 table: "Methods",
-                columns: new[] { "ParentNodeId", "ParentModelUri", "ParentPublicationDate" },
+                columns: ["ParentNodeId", "ParentModelUri", "ParentPublicationDate"],
                 principalTable: "Nodes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Nodes_NodeSets_NodeSetUnknownNodesModelUri_NodeSetUnknownNo~",
                 table: "Nodes",
-                columns: new[] { "NodeSetUnknownNodesModelUri", "NodeSetUnknownNodesPublicationDate" },
+                columns: ["NodeSetUnknownNodesModelUri", "NodeSetUnknownNodesPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" },
+                principalColumns: ["ModelUri", "PublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Nodes_OtherReferencedNodes_Nodes_ReferencedNodeId_Reference~",
                 table: "Nodes_OtherReferencedNodes",
-                columns: new[] { "ReferencedNodeId", "ReferencedModelUri", "ReferencedPublicationDate" },
+                columns: ["ReferencedNodeId", "ReferencedModelUri", "ReferencedPublicationDate"],
                 principalTable: "Nodes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Nodes_OtherReferencingNodes_Nodes_ReferencingNodeId_Referen~",
                 table: "Nodes_OtherReferencingNodes",
-                columns: new[] { "ReferencingNodeId", "ReferencingModelUri", "ReferencingPublicationDate" },
+                columns: ["ReferencingNodeId", "ReferencingModelUri", "ReferencingPublicationDate"],
                 principalTable: "Nodes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             // Don't enforce in the database as we want NamespaceMeta to be able to exist without a Nodeset and vice versa
@@ -346,105 +344,105 @@ namespace Opc.Ua.Cloud.Library
             migrationBuilder.AddForeignKey(
                 name: "FK_Objects_Nodes_ParentNodeId_ParentModelUri_ParentPublication~",
                 table: "Objects",
-                columns: new[] { "ParentNodeId", "ParentModelUri", "ParentPublicationDate" },
+                columns: ["ParentNodeId", "ParentModelUri", "ParentPublicationDate"],
                 principalTable: "Nodes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Objects_NodeSets_NodeSetObjectsModelUri_NodeSetObjectsPubli~",
                 table: "Objects",
-                columns: new[] { "NodeSetObjectsModelUri", "NodeSetObjectsPublicationDate" },
+                columns: ["NodeSetObjectsModelUri", "NodeSetObjectsPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" },
+                principalColumns: ["ModelUri", "PublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Objects_ObjectTypes_TypeDefinitionNodeId_TypeDefinitionNode~",
                 table: "Objects",
-                columns: new[] { "TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate" },
+                columns: ["TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate"],
                 principalTable: "ObjectTypes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_ObjectTypes_NodeSets_NodeSetObjectTypesModelUri_NodeSetObje~",
                 table: "ObjectTypes",
-                columns: new[] { "NodeSetObjectTypesModelUri", "NodeSetObjectTypesPublicationDate" },
+                columns: ["NodeSetObjectTypesModelUri", "NodeSetObjectTypesPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" },
+                principalColumns: ["ModelUri", "PublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Properties_Nodes_ParentNodeId_ParentModelUri_ParentPublicat~",
                 table: "Properties",
-                columns: new[] { "ParentNodeId", "ParentModelUri", "ParentPublicationDate" },
+                columns: ["ParentNodeId", "ParentModelUri", "ParentPublicationDate"],
                 principalTable: "Nodes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Properties_NodeSets_NodeSetPropertiesModelUri_NodeSetProper~",
                 table: "Properties",
-                columns: new[] { "NodeSetPropertiesModelUri", "NodeSetPropertiesPublicationDate" },
+                columns: ["NodeSetPropertiesModelUri", "NodeSetPropertiesPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" },
+                principalColumns: ["ModelUri", "PublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_ReferenceTypes_NodeSets_NodeSetReferenceTypesModelUri_NodeS~",
                 table: "ReferenceTypes",
-                columns: new[] { "NodeSetReferenceTypesModelUri", "NodeSetReferenceTypesPublicationDate" },
+                columns: ["NodeSetReferenceTypesModelUri", "NodeSetReferenceTypesPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" },
+                principalColumns: ["ModelUri", "PublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_RequiredModelInfo_NodeSets_AvailableModelModelUri_Available~",
                 table: "RequiredModelInfo",
-                columns: new[] { "AvailableModelModelUri", "AvailableModelPublicationDate" },
+                columns: ["AvailableModelModelUri", "AvailableModelPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" },
+                principalColumns: ["ModelUri", "PublicationDate"],
                 onDelete: ReferentialAction.SetNull);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_StructureField_BaseTypes_DataTypeNodeId_DataTypeNodeSetMode~",
                 table: "StructureField",
-                columns: new[] { "DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate" },
+                columns: ["DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate"],
                 principalTable: "BaseTypes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Variables_BaseTypes_DataTypeNodeId_DataTypeNodeSetModelUri_~",
                 table: "Variables",
-                columns: new[] { "DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate" },
+                columns: ["DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate"],
                 principalTable: "BaseTypes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Variables_VariableTypes_TypeDefinitionNodeId_TypeDefinition~",
                 table: "Variables",
-                columns: new[] { "TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate" },
+                columns: ["TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate"],
                 principalTable: "VariableTypes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_VariableTypes_BaseTypes_DataTypeNodeId_DataTypeNodeSetModel~",
                 table: "VariableTypes",
-                columns: new[] { "DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate" },
+                columns: ["DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate"],
                 principalTable: "BaseTypes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" },
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"],
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_VariableTypes_NodeSets_NodeSetVariableTypesModelUri_NodeSet~",
                 table: "VariableTypes",
-                columns: new[] { "NodeSetVariableTypesModelUri", "NodeSetVariableTypesPublicationDate" },
+                columns: ["NodeSetVariableTypesModelUri", "NodeSetVariableTypesPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" },
+                principalColumns: ["ModelUri", "PublicationDate"],
                 onDelete: ReferentialAction.Cascade);
         }
 
@@ -585,163 +583,163 @@ namespace Opc.Ua.Cloud.Library
             migrationBuilder.AddForeignKey(
                 name: "FK_BaseTypes_BaseTypes_SuperTypeNodeId_SuperTypeNodeSetModelUr~",
                 table: "BaseTypes",
-                columns: new[] { "SuperTypeNodeId", "SuperTypeNodeSetModelUri", "SuperTypeNodeSetPublicationDate" },
+                columns: ["SuperTypeNodeId", "SuperTypeNodeSetModelUri", "SuperTypeNodeSetPublicationDate"],
                 principalTable: "BaseTypes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_DataTypes_NodeSets_NodeSetDataTypesModelUri_NodeSetDataType~",
                 table: "DataTypes",
-                columns: new[] { "NodeSetDataTypesModelUri", "NodeSetDataTypesPublicationDate" },
+                columns: ["NodeSetDataTypesModelUri", "NodeSetDataTypesPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" });
+                principalColumns: ["ModelUri", "PublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_DataVariables_Nodes_ParentNodeId_ParentModelUri_ParentPubli~",
                 table: "DataVariables",
-                columns: new[] { "ParentNodeId", "ParentModelUri", "ParentPublicationDate" },
+                columns: ["ParentNodeId", "ParentModelUri", "ParentPublicationDate"],
                 principalTable: "Nodes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_DataVariables_NodeSets_NodeSetDataVariablesModelUri_NodeSet~",
                 table: "DataVariables",
-                columns: new[] { "NodeSetDataVariablesModelUri", "NodeSetDataVariablesPublicationDate" },
+                columns: ["NodeSetDataVariablesModelUri", "NodeSetDataVariablesPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" });
+                principalColumns: ["ModelUri", "PublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Interfaces_NodeSets_NodeSetInterfacesModelUri_NodeSetInterf~",
                 table: "Interfaces",
-                columns: new[] { "NodeSetInterfacesModelUri", "NodeSetInterfacesPublicationDate" },
+                columns: ["NodeSetInterfacesModelUri", "NodeSetInterfacesPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" });
+                principalColumns: ["ModelUri", "PublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Methods_Methods_TypeDefinitionNodeId_TypeDefinitionNodeSetM~",
                 table: "Methods",
-                columns: new[] { "TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate" },
+                columns: ["TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate"],
                 principalTable: "Methods",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Methods_Nodes_ParentNodeId_ParentModelUri_ParentPublication~",
                 table: "Methods",
-                columns: new[] { "ParentNodeId", "ParentModelUri", "ParentPublicationDate" },
+                columns: ["ParentNodeId", "ParentModelUri", "ParentPublicationDate"],
                 principalTable: "Nodes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Nodes_NodeSets_NodeSetUnknownNodesModelUri_NodeSetUnknownNo~",
                 table: "Nodes",
-                columns: new[] { "NodeSetUnknownNodesModelUri", "NodeSetUnknownNodesPublicationDate" },
+                columns: ["NodeSetUnknownNodesModelUri", "NodeSetUnknownNodesPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" });
+                principalColumns: ["ModelUri", "PublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Nodes_OtherReferencedNodes_Nodes_ReferencedNodeId_Reference~",
                 table: "Nodes_OtherReferencedNodes",
-                columns: new[] { "ReferencedNodeId", "ReferencedModelUri", "ReferencedPublicationDate" },
+                columns: ["ReferencedNodeId", "ReferencedModelUri", "ReferencedPublicationDate"],
                 principalTable: "Nodes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Nodes_OtherReferencingNodes_Nodes_ReferencingNodeId_Referen~",
                 table: "Nodes_OtherReferencingNodes",
-                columns: new[] { "ReferencingNodeId", "ReferencingModelUri", "ReferencingPublicationDate" },
+                columns: ["ReferencingNodeId", "ReferencingModelUri", "ReferencingPublicationDate"],
                 principalTable: "Nodes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Objects_Nodes_ParentNodeId_ParentModelUri_ParentPublication~",
                 table: "Objects",
-                columns: new[] { "ParentNodeId", "ParentModelUri", "ParentPublicationDate" },
+                columns: ["ParentNodeId", "ParentModelUri", "ParentPublicationDate"],
                 principalTable: "Nodes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Objects_NodeSets_NodeSetObjectsModelUri_NodeSetObjectsPubli~",
                 table: "Objects",
-                columns: new[] { "NodeSetObjectsModelUri", "NodeSetObjectsPublicationDate" },
+                columns: ["NodeSetObjectsModelUri", "NodeSetObjectsPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" });
+                principalColumns: ["ModelUri", "PublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Objects_ObjectTypes_TypeDefinitionNodeId_TypeDefinitionNode~",
                 table: "Objects",
-                columns: new[] { "TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate" },
+                columns: ["TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate"],
                 principalTable: "ObjectTypes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_ObjectTypes_NodeSets_NodeSetObjectTypesModelUri_NodeSetObje~",
                 table: "ObjectTypes",
-                columns: new[] { "NodeSetObjectTypesModelUri", "NodeSetObjectTypesPublicationDate" },
+                columns: ["NodeSetObjectTypesModelUri", "NodeSetObjectTypesPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" });
+                principalColumns: ["ModelUri", "PublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Properties_Nodes_ParentNodeId_ParentModelUri_ParentPublicat~",
                 table: "Properties",
-                columns: new[] { "ParentNodeId", "ParentModelUri", "ParentPublicationDate" },
+                columns: ["ParentNodeId", "ParentModelUri", "ParentPublicationDate"],
                 principalTable: "Nodes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Properties_NodeSets_NodeSetPropertiesModelUri_NodeSetProper~",
                 table: "Properties",
-                columns: new[] { "NodeSetPropertiesModelUri", "NodeSetPropertiesPublicationDate" },
+                columns: ["NodeSetPropertiesModelUri", "NodeSetPropertiesPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" });
+                principalColumns: ["ModelUri", "PublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_ReferenceTypes_NodeSets_NodeSetReferenceTypesModelUri_NodeS~",
                 table: "ReferenceTypes",
-                columns: new[] { "NodeSetReferenceTypesModelUri", "NodeSetReferenceTypesPublicationDate" },
+                columns: ["NodeSetReferenceTypesModelUri", "NodeSetReferenceTypesPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" });
+                principalColumns: ["ModelUri", "PublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_RequiredModelInfo_NodeSets_AvailableModelModelUri_Available~",
                 table: "RequiredModelInfo",
-                columns: new[] { "AvailableModelModelUri", "AvailableModelPublicationDate" },
+                columns: ["AvailableModelModelUri", "AvailableModelPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" });
+                principalColumns: ["ModelUri", "PublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_StructureField_BaseTypes_DataTypeNodeId_DataTypeNodeSetMode~",
                 table: "StructureField",
-                columns: new[] { "DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate" },
+                columns: ["DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate"],
                 principalTable: "BaseTypes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Variables_BaseTypes_DataTypeNodeId_DataTypeNodeSetModelUri_~",
                 table: "Variables",
-                columns: new[] { "DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate" },
+                columns: ["DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate"],
                 principalTable: "BaseTypes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Variables_VariableTypes_TypeDefinitionNodeId_TypeDefinition~",
                 table: "Variables",
-                columns: new[] { "TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate" },
+                columns: ["TypeDefinitionNodeId", "TypeDefinitionNodeSetModelUri", "TypeDefinitionNodeSetPublicationDate"],
                 principalTable: "VariableTypes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_VariableTypes_BaseTypes_DataTypeNodeId_DataTypeNodeSetModel~",
                 table: "VariableTypes",
-                columns: new[] { "DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate" },
+                columns: ["DataTypeNodeId", "DataTypeNodeSetModelUri", "DataTypeNodeSetPublicationDate"],
                 principalTable: "BaseTypes",
-                principalColumns: new[] { "NodeId", "NodeSetModelUri", "NodeSetPublicationDate" });
+                principalColumns: ["NodeId", "NodeSetModelUri", "NodeSetPublicationDate"]);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_VariableTypes_NodeSets_NodeSetVariableTypesModelUri_NodeSet~",
                 table: "VariableTypes",
-                columns: new[] { "NodeSetVariableTypesModelUri", "NodeSetVariableTypesPublicationDate" },
+                columns: ["NodeSetVariableTypesModelUri", "NodeSetVariableTypesPublicationDate"],
                 principalTable: "NodeSets",
-                principalColumns: new[] { "ModelUri", "PublicationDate" });
+                principalColumns: ["ModelUri", "PublicationDate"]);
         }
     }
 }

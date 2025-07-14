@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Primitives;
 
 namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 {
@@ -34,7 +35,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
         public async Task<IActionResult> OnPostAsync()
         {
-            var user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
+            IdentityUser user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
             if (user == null)
             {
                 return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
@@ -44,22 +45,22 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
             // Only include personal data for download
             var personalData = new Dictionary<string, string>();
-            var personalDataProps = typeof(IdentityUser).GetProperties().Where(
+            IEnumerable<System.Reflection.PropertyInfo> personalDataProps = typeof(IdentityUser).GetProperties().Where(
                             prop => Attribute.IsDefined(prop, typeof(PersonalDataAttribute)));
-            foreach (var p in personalDataProps)
+            foreach (System.Reflection.PropertyInfo p in personalDataProps)
             {
                 personalData.Add(p.Name, p.GetValue(user)?.ToString() ?? "null");
             }
 
-            var logins = await _userManager.GetLoginsAsync(user).ConfigureAwait(false);
-            foreach (var l in logins)
+            IList<UserLoginInfo> logins = await _userManager.GetLoginsAsync(user).ConfigureAwait(false);
+            foreach (UserLoginInfo l in logins)
             {
                 personalData.Add($"{l.LoginProvider} external login provider key", l.ProviderKey);
             }
 
             personalData.Add($"Authenticator Key", await _userManager.GetAuthenticatorKeyAsync(user).ConfigureAwait(false));
 
-            Response.Headers.Add("Content-Disposition", "attachment; filename=PersonalData.json");
+            _ = Response.Headers.Append(new KeyValuePair<string, StringValues>("Content-Disposition", "attachment; filename=PersonalData.json"));
             return new FileContentResult(JsonSerializer.SerializeToUtf8Bytes(personalData), "application/json");
         }
     }

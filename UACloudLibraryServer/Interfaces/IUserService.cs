@@ -27,15 +27,16 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System.Collections.Generic;
+using System.Security.Claims;
+using System.Threading.Tasks;
+
 namespace Opc.Ua.Cloud.Library.Interfaces
 {
-    using System.Collections.Generic;
-    using System.Security.Claims;
-    using System.Threading.Tasks;
-
     public interface IUserService
     {
         Task<IEnumerable<Claim>> ValidateCredentialsAsync(string username, string password);
+        Task<IEnumerable<Claim>> ValidateApiKeyAsync(string apiKey);
     }
 }
 

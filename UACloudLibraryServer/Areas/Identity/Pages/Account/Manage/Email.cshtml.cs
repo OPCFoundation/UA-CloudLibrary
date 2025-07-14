@@ -11,6 +11,8 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Configuration;
+using Opc.Ua.Cloud.Library.Authentication;
 
 namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 {
@@ -19,15 +21,23 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
         private readonly UserManager<IdentityUser> _userManager;
         private readonly SignInManager<IdentityUser> _signInManager;
         private readonly IEmailSender _emailSender;
+        private readonly Interfaces.ICaptchaValidation _captchaValidation;
+        private readonly CaptchaSettings _captchaSettings;
 
         public EmailModel(
             UserManager<IdentityUser> userManager,
             SignInManager<IdentityUser> signInManager,
-            IEmailSender emailSender)
+            IEmailSender emailSender,
+            IConfiguration configuration,
+            Interfaces.ICaptchaValidation captchaValidation)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _emailSender = emailSender;
+            _captchaValidation = captchaValidation;
+
+            _captchaSettings = new CaptchaSettings();
+            configuration.GetSection("CaptchaSettings").Bind(_captchaSettings);
         }
 
         /// <summary>
@@ -41,6 +51,17 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public bool IsEmailConfirmed { get; set; }
+
+        /// <summary>
+        /// Populate values for cshtml to use
+        /// </summary>
+        public CaptchaSettings CaptchaSettings { get { return _captchaSettings; } }
+
+        /// <summary>
+        /// Populate a token returned from client side call to Google Captcha
+        /// </summary>
+        [BindProperty]
+        public string CaptchaResponseToken { get; set; }
 
         /// <summary>
         ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
@@ -74,7 +95,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
         private async Task LoadAsync(IdentityUser user)
         {
-            var email = await _userManager.GetEmailAsync(user).ConfigureAwait(false);
+            string email = await _userManager.GetEmailAsync(user).ConfigureAwait(false);
             Email = email;
 
             Input = new InputModel {
@@ -86,7 +107,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
         public async Task<IActionResult> OnGetAsync()
         {
-            var user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
+            IdentityUser user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
             if (user == null)
             {
                 return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
@@ -98,11 +119,14 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
         public async Task<IActionResult> OnPostChangeEmailAsync()
         {
-            var user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
+            IdentityUser user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
             if (user == null)
             {
                 return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
             }
+
+            string captchaResult = await _captchaValidation.ValidateCaptcha(CaptchaResponseToken);
+            if (!string.IsNullOrEmpty(captchaResult)) ModelState.AddModelError("CaptchaResponseToken", captchaResult);
 
             if (!ModelState.IsValid)
             {
@@ -110,21 +134,25 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
                 return Page();
             }
 
-            var email = await _userManager.GetEmailAsync(user).ConfigureAwait(false);
+            string email = await _userManager.GetEmailAsync(user).ConfigureAwait(false);
             if (Input.NewEmail != email)
             {
-                var userId = await _userManager.GetUserIdAsync(user).ConfigureAwait(false);
-                var code = await _userManager.GenerateChangeEmailTokenAsync(user, Input.NewEmail).ConfigureAwait(false);
+                string userId = await _userManager.GetUserIdAsync(user).ConfigureAwait(false);
+                string code = await _userManager.GenerateChangeEmailTokenAsync(user, Input.NewEmail).ConfigureAwait(false);
                 code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-                var callbackUrl = Url.Page(
+                string callbackUrl = Url.Page(
                     "/Account/ConfirmEmailChange",
                     pageHandler: null,
                     values: new { area = "Identity", userId = userId, email = Input.NewEmail, code = code },
                     protocol: Request.Scheme);
-                await _emailSender.SendEmailAsync(
+
+                await EmailManager.Send(
+                    _emailSender,
                     Input.NewEmail,
-                    "Confirm your email",
-                    $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.").ConfigureAwait(false);
+                    "UA Cloud Library - Confirm New Email",
+                    "Please confirm your new email address.",
+                    callbackUrl
+                ).ConfigureAwait(false);
 
                 StatusMessage = "Confirmation link to change email sent. Please check your email.";
                 return RedirectToPage();
@@ -136,11 +164,15 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
         public async Task<IActionResult> OnPostSendVerificationEmailAsync()
         {
-            var user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
+            IdentityUser user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
             if (user == null)
             {
                 return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
             }
+
+            //Captcha validate
+            string captchaResult = await _captchaValidation.ValidateCaptcha(CaptchaResponseToken);
+            if (!string.IsNullOrEmpty(captchaResult)) ModelState.AddModelError("CaptchaResponseToken", captchaResult);
 
             if (!ModelState.IsValid)
             {
@@ -148,19 +180,23 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
                 return Page();
             }
 
-            var userId = await _userManager.GetUserIdAsync(user).ConfigureAwait(false);
-            var email = await _userManager.GetEmailAsync(user).ConfigureAwait(false);
-            var code = await _userManager.GenerateEmailConfirmationTokenAsync(user).ConfigureAwait(false);
+            string userId = await _userManager.GetUserIdAsync(user).ConfigureAwait(false);
+            string email = await _userManager.GetEmailAsync(user).ConfigureAwait(false);
+            string code = await _userManager.GenerateEmailConfirmationTokenAsync(user).ConfigureAwait(false);
             code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-            var callbackUrl = Url.Page(
+            string callbackUrl = Url.Page(
                 "/Account/ConfirmEmail",
                 pageHandler: null,
                 values: new { area = "Identity", userId = userId, code = code },
                 protocol: Request.Scheme);
-            await _emailSender.SendEmailAsync(
-                email,
-                "Confirm your email",
-                $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.").ConfigureAwait(false);
+
+            await EmailManager.Send(
+                _emailSender,
+                Input.NewEmail,
+                "UA Cloud Library - Verify Your Email",
+                "Please verify your email address.",
+                callbackUrl
+            ).ConfigureAwait(false);
 
             StatusMessage = "Verification email sent. Please check your email.";
             return RedirectToPage();

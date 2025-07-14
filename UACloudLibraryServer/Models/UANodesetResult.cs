@@ -27,12 +27,12 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+
 namespace Opc.Ua.Cloud.Library.Models
 {
-    using System;
-    using System.Collections.Generic;
-    using Newtonsoft.Json;
-
     public class UANodesetResult : UANameSpace
     {
         [JsonProperty(PropertyName = "nodesetId")]

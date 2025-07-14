@@ -65,13 +65,13 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
         public async Task<IActionResult> OnGetAsync()
         {
-            var user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
+            IdentityUser user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
             if (user == null)
             {
                 return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
             }
 
-            var hasPassword = await _userManager.HasPasswordAsync(user).ConfigureAwait(false);
+            bool hasPassword = await _userManager.HasPasswordAsync(user).ConfigureAwait(false);
 
             if (hasPassword)
             {
@@ -88,16 +88,16 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
                 return Page();
             }
 
-            var user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
+            IdentityUser user = await _userManager.GetUserAsync(User).ConfigureAwait(false);
             if (user == null)
             {
                 return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
             }
 
-            var addPasswordResult = await _userManager.AddPasswordAsync(user, Input.NewPassword).ConfigureAwait(false);
+            IdentityResult addPasswordResult = await _userManager.AddPasswordAsync(user, Input.NewPassword).ConfigureAwait(false);
             if (!addPasswordResult.Succeeded)
             {
-                foreach (var error in addPasswordResult.Errors)
+                foreach (IdentityError error in addPasswordResult.Errors)
                 {
                     ModelState.AddModelError(string.Empty, error.Description);
                 }

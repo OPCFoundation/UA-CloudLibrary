@@ -3,7 +3,8 @@ using System.CommandLine.NamingConventionBinder;
 using Microsoft.Extensions.Logging;
 using Opc.Ua.CloudLib.Sync;
 
-class Program : ILogger
+[assembly: CLSCompliant(false)]
+sealed class Program : ILogger
 {
     public static Task<int> Main(string[] args)
     {
@@ -66,7 +67,7 @@ class Program : ILogger
         return true;
     }
 
-    public IDisposable BeginScope<TState>(TState state)
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull
     {
         return new MemoryStream();
     }

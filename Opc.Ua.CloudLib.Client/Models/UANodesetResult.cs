@@ -27,11 +27,12 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+
 namespace Opc.Ua.Cloud.Library.Client
 {
-    using System;
-    using System.Collections.Generic;
-    using Newtonsoft.Json;
     /// <summary>GraphQL Result for nodeset queries</summary>
     public class UANodesetResult
     {
