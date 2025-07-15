@@ -41,9 +41,9 @@
 		<PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.5.0" />
 		<PackageReference Include="Azure.Identity" Version="1.14.0" />
 		<PackageReference Include="Azure.Storage.Blobs" Version="12.24.0" />
-    <PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="2.1.3" />
+    <!--<PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="2.1.3" />
     <PackageReference Include="CESMII.OpcUa.NodeSetModel" Version="2.1.3" />
-    <PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="2.1.3" />
+    <PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="2.1.3" />-->
 		<PackageReference Include="Google.Cloud.Storage.V1" Version="4.13.0" />
 		<PackageReference Include="Google.Cloud.AspNetCore.DataProtection.Storage" Version="1.0.0-alpha03" />
 		<PackageReference Include="JsonSubTypes" Version="2.0.1" />
@@ -89,5 +89,8 @@
 	</ItemGroup>
 	<ItemGroup>
 	  <ProjectReference Include="..\CESMII.OpcUa.NodeSetModel.EF\CESMII.OpcUa.NodeSetModel.EF.csproj" />
+	  <ProjectReference Include="..\CESMII\CESMII.OpcUa.NodeSetImporter\CESMII.OpcUa.NodeSetImporter.csproj" />
+	  <ProjectReference Include="..\CESMII\CESMII.OpcUa.NodeSetModel.Factory.Opc\CESMII.OpcUa.NodeSetModel.Factory.Opc.csproj" />
+	  <ProjectReference Include="..\CESMII\CESMII.OpcUa.NodeSetModel\CESMII.OpcUa.NodeSetModel.csproj" />
 	</ItemGroup>
 </Project>

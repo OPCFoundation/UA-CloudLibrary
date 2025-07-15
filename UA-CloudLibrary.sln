@@ -43,6 +43,12 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudLibSyncAzureFunction",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CESMII.OpcUa.NodeSetModel.EF", "CESMII.OpcUa.NodeSetModel.EF\CESMII.OpcUa.NodeSetModel.EF.csproj", "{E4CFEDF0-98F3-54BF-16F9-F622CE6BB9F5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CESMII.OpcUa.NodeSetImporter", "CESMII\CESMII.OpcUa.NodeSetImporter\CESMII.OpcUa.NodeSetImporter.csproj", "{5731FF04-233E-A8B4-53EF-431660BECB7B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CESMII.OpcUa.NodeSetModel", "CESMII\CESMII.OpcUa.NodeSetModel\CESMII.OpcUa.NodeSetModel.csproj", "{4B2B2BC4-4735-26A5-0F45-74F224BFE20B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CESMII.OpcUa.NodeSetModel.Factory.Opc", "CESMII\CESMII.OpcUa.NodeSetModel.Factory.Opc\CESMII.OpcUa.NodeSetModel.Factory.Opc.csproj", "{C55FC0BE-46B7-7B30-3FFB-DD19BEF1184E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -98,6 +104,24 @@ Global
 		{E4CFEDF0-98F3-54BF-16F9-F622CE6BB9F5}.Release|Any CPU.Build.0 = Release|Any CPU
 		{E4CFEDF0-98F3-54BF-16F9-F622CE6BB9F5}.Staging|Any CPU.ActiveCfg = Staging|Any CPU
 		{E4CFEDF0-98F3-54BF-16F9-F622CE6BB9F5}.Staging|Any CPU.Build.0 = Staging|Any CPU
+		{5731FF04-233E-A8B4-53EF-431660BECB7B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5731FF04-233E-A8B4-53EF-431660BECB7B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5731FF04-233E-A8B4-53EF-431660BECB7B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5731FF04-233E-A8B4-53EF-431660BECB7B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5731FF04-233E-A8B4-53EF-431660BECB7B}.Staging|Any CPU.ActiveCfg = Staging|Any CPU
+		{5731FF04-233E-A8B4-53EF-431660BECB7B}.Staging|Any CPU.Build.0 = Staging|Any CPU
+		{4B2B2BC4-4735-26A5-0F45-74F224BFE20B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4B2B2BC4-4735-26A5-0F45-74F224BFE20B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4B2B2BC4-4735-26A5-0F45-74F224BFE20B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4B2B2BC4-4735-26A5-0F45-74F224BFE20B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4B2B2BC4-4735-26A5-0F45-74F224BFE20B}.Staging|Any CPU.ActiveCfg = Staging|Any CPU
+		{4B2B2BC4-4735-26A5-0F45-74F224BFE20B}.Staging|Any CPU.Build.0 = Staging|Any CPU
+		{C55FC0BE-46B7-7B30-3FFB-DD19BEF1184E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C55FC0BE-46B7-7B30-3FFB-DD19BEF1184E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C55FC0BE-46B7-7B30-3FFB-DD19BEF1184E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C55FC0BE-46B7-7B30-3FFB-DD19BEF1184E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C55FC0BE-46B7-7B30-3FFB-DD19BEF1184E}.Staging|Any CPU.ActiveCfg = Staging|Any CPU
+		{C55FC0BE-46B7-7B30-3FFB-DD19BEF1184E}.Staging|Any CPU.Build.0 = Staging|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

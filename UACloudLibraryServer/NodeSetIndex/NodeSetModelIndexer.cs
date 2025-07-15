@@ -60,6 +60,7 @@ namespace Opc.Ua.Cloud.Library
             IFileStorage fileStore = scope.ServiceProvider.GetService<IFileStorage>();
             IDatabase database = scope.ServiceProvider.GetService<IDatabase>();
             ILogger<NodeSetModelIndexer> logger = scope.ServiceProvider.GetService<ILogger<NodeSetModelIndexer>>();
+            bool lazyLoadingAllowed = appDbContext.ChangeTracker.LazyLoadingEnabled;
             return new NodeSetModelIndexer(appDbContext, logger, fileStore, database, scope);
         }
     }
@@ -403,6 +404,7 @@ namespace Opc.Ua.Cloud.Library
                     {
                         // Acquire a new context for each nodeset in case a nodeset fails to index but leaves the _dbContext "tainted" (for example PublicationDate == null)
                         AppDbContext newDbContext = _scope.ServiceProvider.GetService<AppDbContext>();
+                        bool lazyLoadingAllowed = newDbContext.ChangeTracker.LazyLoadingEnabled;
                         if (newDbContext != _dbContext)
                         {
                             _dbContext.Dispose();

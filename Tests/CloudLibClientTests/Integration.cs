@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -47,6 +48,7 @@ namespace CloudLibClient.Tests
                 using (IServiceScope scope = _factory.Server.Services.CreateScope())
                 {
                     AppDbContext dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    bool lazyLoadingAllowed = dbContext.ChangeTracker.LazyLoadingEnabled;
                     if (dbContext.nodeSets.Any())
                     {
                         dbContext.Database.EnsureDeleted();

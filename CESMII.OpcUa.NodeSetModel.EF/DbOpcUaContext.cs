@@ -62,7 +62,11 @@ namespace CESMII.OpcUa.NodeSetModel.EF
             this._nodeSetFactory = nodeSetFactory;
         }
 
-        public override TNodeModel GetModelForNode<TNodeModel>(string nodeId)
+        protected void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder
+                .UseLazyLoadingProxies(true)
+            ;
+        public override TNodeModel GetModelForNode<TNodeModel>(string nodeId, bool bSameNamespace = true)
         {
             var model = base.GetModelForNode<TNodeModel>(nodeId);
             if (model != null) return model;
@@ -105,7 +109,21 @@ namespace CESMII.OpcUa.NodeSetModel.EF
                             nm.NodeId = nodeId;
                         }
                         );
-                        _dbContext.Attach(nodeModelDb);
+                        // _dbContext.Attach(nodeModelDb);
+                        _dbContext.Update(nodeModelDb);
+                        if (!bSameNamespace)
+                        {
+                            var info = _dbContext.ContextId;
+                            System.Diagnostics.Debug.WriteLine($"DbOpcUaContext.GetModelForNode<TNodeModel>: bSameNamespace==false CREATING PROXY for {nodeId}. Context id = {info}");
+                        }
+                    }
+                    else
+                    {
+                        if (!bSameNamespace)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"DbOpcUaContext.GetModelForNode<TNodeModel>: bSameNamespace==false Found in Cache for {nodeId}");
+                        }
+
                     }
                 }
                 nodeModelDb?.NodeSet.AllNodesByNodeId.Add(nodeModelDb.NodeId, nodeModelDb);

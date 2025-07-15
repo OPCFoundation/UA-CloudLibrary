@@ -88,7 +88,9 @@ namespace Opc.Ua.Cloud.Library
 
             // Setup database context for ASP.NetCore Identity Scaffolding
             services.AddDbContext<AppDbContext>(
-                options => options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)),
+                options => options
+                .UseLazyLoadingProxies(true)
+                .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)),
                 ServiceLifetime.Transient);
 
             services.AddDefaultIdentity<IdentityUser>(options =>
