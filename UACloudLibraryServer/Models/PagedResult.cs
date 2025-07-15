@@ -33,6 +33,6 @@ public class PagedResult<T>
             }
         }
 
-        return new PagedResult<T>(){ Result = outputList, Metadata = new PagedResultMetadata() { Cursor = (paginationParameters.Cursor + outputList.Count - 1).ToString() } };
+        return new PagedResult<T>() { Result = outputList, Metadata = new PagedResultMetadata() { Cursor = (paginationParameters.Cursor + outputList.Count - 1).ToString() } };
     }
 }

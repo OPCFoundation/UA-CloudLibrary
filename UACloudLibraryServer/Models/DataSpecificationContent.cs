@@ -1,4 +1,4 @@
-﻿
+
 using System.Runtime.Serialization;
 using System.Xml.Serialization;
 
@@ -7,8 +7,8 @@ namespace AdminShell
     [DataContract]
     public class DataSpecificationContent
     {
-        [DataMember(Name="dataSpecificationIEC61360")]
-        [XmlElement(ElementName="dataSpecificationIEC61360")]
+        [DataMember(Name = "dataSpecificationIEC61360")]
+        [XmlElement(ElementName = "dataSpecificationIEC61360")]
         public DataSpecificationIEC61360 DataSpecificationIEC61360 { get; set; } = new DataSpecificationIEC61360();
 
         public DataSpecificationContent() { }

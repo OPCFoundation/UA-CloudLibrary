@@ -1,16 +1,16 @@
 
 namespace AdminShell
 {
-    using Newtonsoft.Json;
     using System.Runtime.Serialization;
     using System.Xml.Serialization;
+    using Newtonsoft.Json;
 
     [DataContract]
     [JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum KeyElements
     {
         [EnumMember(Value = "Asset")]
-        [XmlEnum(Name ="Asset")]
+        [XmlEnum(Name = "Asset")]
         Asset = 0,
 
         [EnumMember(Value = "AssetAdministrationShell")]

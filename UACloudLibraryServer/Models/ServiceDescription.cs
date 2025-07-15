@@ -1,10 +1,10 @@
 
 namespace AdminShell
 {
-    using Newtonsoft.Json;
     using System;
     using System.Collections.Generic;
     using System.Runtime.Serialization;
+    using Newtonsoft.Json;
 
     /// <summary>
     /// The Description object enables servers to present their capabilities to the clients, in particular which profiles they implement. At least one defined profile is required. Additional, proprietary attributes might be included. Nevertheless, the server must not expect that a regular client understands them.
@@ -114,7 +114,7 @@ namespace AdminShell
             RegistryAndDiscoveryServiceSpecificationV30Enum = 15
         }
 
-        [DataMember(Name="profiles")]
+        [DataMember(Name = "profiles")]
         public List<ProfilesEnum> Profiles { get; set; }
     }
 }

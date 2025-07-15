@@ -2,95 +2,157 @@ name: .NET
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main pyao_unittests]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+
+env:
+  # Flags that is set automatically to determine whether we 
+  # are running on Github.com or within nektos/act (on Desktop).
+  ONGITHUB: true
 
 jobs:
   dotnet-format:
     runs-on: windows-latest
     steps:
-      - name: 🤘 checkout
-        uses: actions/checkout@v2
+      - name: 01_checkout
+        uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
-      - name: ⚙ dotnet
-        uses: actions/setup-dotnet@v1
+
+      - name: 02_dotnet
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
-      - name: Workaround
+
+      - name: 03_Workaround
         #https://github.com/dotnet/format/issues/1433#issuecomment-1055920818
         run: dotnet tool install -g dotnet-format --version "9.*" --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/index.json
-      - name: ✓ ensure format UA-CloudLibrary Server
+
+      - name: 04_ensure format UA-CloudLibrary Server
         working-directory: UACloudLibraryServer
         run: dotnet-format --verify-no-changes -v:diag --exclude ~/.nuget
-      - name: ✓ ensure format UA-CloudLibrary .NET Client
+
+      - name: 05_ensure format UA-CloudLibrary .NET Client
         working-directory: Opc.Ua.CloudLib.Client
         run: dotnet-format --verify-no-changes -v:diag --exclude ~/.nuget
-      - name: ✓ ensure format UA-CloudLibrary SampleConsoleClient
+
+      - name: 06_ensure format UA-CloudLibrary SampleConsoleClient
         working-directory: SampleConsoleClient
         run: dotnet-format --verify-no-changes -v:diag --exclude ~/.nuget
+
   build:
     runs-on: ubuntu-latest
     steps:
+    # Set flag that indicates whether we are running on Github or not.
+    - name: 10__Github - Set running on Github flag
+      if: github.actor == 'nektos/act'
+      run: echo "ONGITHUB=false" >> $GITHUB_ENV
 
-    - name: Start PostgreSQL on Ubuntu
+    # Run one of these two to enable access to PostgreSQL
+    # Postgres Setup step - when running on Github
+    - name: 11.1_Start PostgreSQL service on Ubuntu
+      if: env.ONGITHUB == 'true'
       run: |
         sudo systemctl start postgresql.service
+
+    # # Postgres Setup step - when running in nektos/ACT on Windows
+    # - name: 11.2_Fetch Postgres container
+    #   if: env.ONGITHUB == 'false'
+    #   run: |
+    #     sudo apt update
+
+    # Postgres Setup step - when running in nektos/ACT on Windows
+    - name: 11.3_Postgres installation
+      if: env.ONGITHUB == 'false'
+      run: |
+        sudo apt update  
+        sudo apt install -y postgresql postgresql-contrib
+
+    # Postgres Setup step - when running in nektos/ACT on Windows
+    - name: 11.4_Postgres start service
+      if: env.ONGITHUB == 'false'
+      run: |
+        sudo service postgresql start
         pg_isready
-    - name: Create additional user
+
+    # Postgres Setup step - when running in nektos/ACT on Windows
+    - name: 11.5_Postres - is it ready yet?
+      run: |
+        pg_isready
+
+    # Postgres Setup step
+    - name: 12_Create test user
       run: |
         sudo -u postgres psql --command="CREATE USER testuser SUPERUSER PASSWORD 'password'" --command="\du"
-    - name: Create test database with proper collation
+
+    # Postgres Setup step
+    - name: 13_Create test database with proper collation
       run: |
-        sudo -u postgres psql --command="create database cloudlib_test with LC_COLLATE = 'en_US.UTF8' LC_CTYPE = 'en_US.UTF8' TEMPLATE template0"
-    - name: List existing databases
+        sudo -u postgres psql --command="create database cloudlib_test with LC_COLLATE = 'C.utf8' LC_CTYPE = 'C.utf8' ENCODING = 'UTF8' TEMPLATE template0"
+
+    # Postgres Setup step - validate existing databases
+    - name: 14_List existing databases
       run: |
         sudo -u postgres psql -l --command="\du"
 
-    - name: 🤘 checkout
-      uses: actions/checkout@v2
+    - name: 15_Checkout repository
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
-    - name: ⚙ dotnet
-      uses: actions/setup-dotnet@v1
+
+    - name: 16_install .NET
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '9.0.x'
-    - name: Restore dependencies UA-CloudLibrary
+
+    - name: 17_Restore dependencies UA-CloudLibrary
       working-directory: UACloudLibraryServer
       run: dotnet restore
-    - name: Restore dependencies UA-CloudLibrary .NET Client
+
+    - name: 18_Restore dependencies UA-CloudLibrary .NET Client
       run: dotnet restore
       working-directory: Opc.Ua.CloudLib.Client
-    - name: Restore dependencies SampleConsoleClient
+
+    - name: 19_Restore dependencies SampleConsoleClient
       run: dotnet restore
       working-directory: SampleConsoleClient
-    - name: Restore dependencies CloudLibClientTests
+
+    - name: 20_Restore dependencies CloudLibClientTests
       run: dotnet restore
       working-directory: Tests/CloudLibClientTests
-    - name: Restore dependencies CloudLibSync
+
+    - name: 21_Restore dependencies CloudLibSync
       working-directory: CloudLibSync
       run: dotnet restore
-    - name: Restore dependencies CloudLibSyncAzureFunction
+
+    - name: 22_Restore dependencies CloudLibSyncAzureFunction
       working-directory: CloudLibSyncAzureFunction
       run: dotnet restore
-    - name: Build
+
+    - name: 23_Build
       run: dotnet build UA-CloudLibrary.sln --configuration Release --no-restore
-    - name: Test
+
+    - name: 24_Test
       run: dotnet test UA-CloudLibrary.sln --no-build --configuration Release --verbosity normal  -l:"console;verbosity=normal"
-    - name: List databases after test run
+
+    - name: 25_List databases after test run
       run: |
         sudo -u postgres psql -l --command="\du"
-    - name: pack NuGet
-      run: dotnet pack Opc.Ua.CloudLib.Client/Opc.Ua.Cloud.Library.Client.csproj --configuration Release
-    - name: add github nuget-feed#
-      if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
-      run: dotnet nuget add source --username ${{ github.repository_owner }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
-    - name: publish NuGet
-      if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
-      run: dotnet nuget push "Opc.Ua.CloudLib.Client/bin/Release/*.nupkg"  --source "github"
-    - name: publish NuGet Symbols
-      if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
-      run: dotnet nuget push "Opc.Ua.CloudLib.Client/bin/Release/*.snupkg"  --source "github"
+
+    # # # - name: 26_pack NuGet
+    # # #   run: dotnet pack Opc.Ua.CloudLib.Client/Opc.Ua.Cloud.Library.Client.csproj --configuration Release
+
+    # # # - name: 27_add github nuget-feed#
+    # # #   if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
+    # # #   run: dotnet nuget add source --username ${{ github.repository_owner }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+
+    # # # - name: 28_publish NuGet
+    # # #   if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
+    # # #   run: dotnet nuget push "Opc.Ua.CloudLib.Client/bin/Release/*.nupkg"  --source "github"
+
+    # # # - name: 29_publish NuGet Symbols
+    # # #   if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
+    # # #   run: dotnet nuget push "Opc.Ua.CloudLib.Client/bin/Release/*.snupkg"  --source "github"

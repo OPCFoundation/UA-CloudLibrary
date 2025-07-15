@@ -672,7 +672,7 @@ namespace Opc.Ua.Cloud.Library
                 types.AddRange(GetReferenceTypes(nodeSetMeta.ModelUri));
 
                 List<string> typeList = new();
-                foreach(NodeModel model in types)
+                foreach (NodeModel model in types)
                 {
                     string expandedNodeIdWithBrowseName = "nsu=" + model.BrowseName + ";" + model.NodeIdIdentifier;
                     string[] tokens = expandedNodeIdWithBrowseName.Split(';');
@@ -753,7 +753,7 @@ namespace Opc.Ua.Cloud.Library
                 List<string> fields = new();
                 foreach (DataTypeModel.StructureField field in dataModel.StructureFields)
                 {
-                    fields.Add(field.DataType.NodeId + ":"  + field.DataType.BrowseName + ":" + field.Name);
+                    fields.Add(field.DataType.NodeId + ":" + field.DataType.BrowseName + ":" + field.Name);
                 }
 
                 string fieldsSerialized = JsonSerializer.Serialize(fields, options);

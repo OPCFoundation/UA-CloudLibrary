@@ -1,9 +1,9 @@
-﻿
+
 namespace AdminShell
 {
     public class SemanticId : Reference
     {
-       public SemanticId(){  }
+        public SemanticId() { }
 
         public SemanticId(SemanticId src)
         {

@@ -7,16 +7,16 @@ namespace AdminShell
     [DataContract]
     public class ValueObject
     {
-        [DataMember(Name="value")]
+        [DataMember(Name = "value")]
         [XmlElement(ElementName = "value")]
         public string Value { get; set; }
 
-        [DataMember(Name="valueId")]
+        [DataMember(Name = "valueId")]
         [XmlElement(ElementName = "valueId")]
         public Reference ValueId { get; set; }
 
-        [DataMember(Name="valueType")]
+        [DataMember(Name = "valueType")]
         [XmlElement(ElementName = "valueType")]
         public string ValueType { get; set; }
-     }
+    }
 }

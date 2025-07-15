@@ -1,7 +1,7 @@
 
-using Newtonsoft.Json;
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.Serialization;
+using Newtonsoft.Json;
 
 namespace AdminShell
 {
@@ -35,21 +35,21 @@ namespace AdminShell
         /// Gets or Sets Type
         /// </summary>
         [Required]
-        [DataMember(Name="type")]
+        [DataMember(Name = "type")]
         public TypeEnum? Type { get; set; }
 
         /// <summary>
         /// Gets or Sets Key
         /// </summary>
         [Required]
-        [DataMember(Name="key")]
+        [DataMember(Name = "key")]
         public string Key { get; set; }
 
         /// <summary>
         /// Gets or Sets Value
         /// </summary>
         [Required]
-        [DataMember(Name="value")]
+        [DataMember(Name = "value")]
         public string Value { get; set; }
     }
 }

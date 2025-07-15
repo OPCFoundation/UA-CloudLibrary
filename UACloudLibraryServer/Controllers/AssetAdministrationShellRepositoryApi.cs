@@ -47,7 +47,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual IActionResult GetAllAssetAdministrationShells([FromQuery]List<string> assetIds, [FromQuery]string idShort, [FromQuery]int limit, [FromQuery]string cursor)
+        public virtual IActionResult GetAllAssetAdministrationShells([FromQuery] List<string> assetIds, [FromQuery] string idShort, [FromQuery] int limit, [FromQuery] string cursor)
         {
             List<string> reqAssetIds = new();
             foreach (string assetId in assetIds)
@@ -121,7 +121,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual IActionResult GetAllSubmodelReferences([FromRoute][Required]string aasIdentifier, [FromQuery]int limit, [FromQuery]string cursor)
+        public virtual IActionResult GetAllSubmodelReferences([FromRoute][Required] string aasIdentifier, [FromQuery] int limit, [FromQuery] string cursor)
         {
             string decodedAasIdentifier = Base64UrlEncoder.Decode(aasIdentifier);
             if (decodedAasIdentifier == null)
@@ -157,7 +157,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual IActionResult GetThumbnail([FromRoute][Required]string aasIdentifier)
+        public virtual IActionResult GetThumbnail([FromRoute][Required] string aasIdentifier)
         {
             string decodedAasIdentifier = Base64UrlEncoder.Decode(aasIdentifier);
 
@@ -199,7 +199,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual IActionResult GetAssetInformation([FromRoute][Required]string aasIdentifier)
+        public virtual IActionResult GetAssetInformation([FromRoute][Required] string aasIdentifier)
         {
             string decodedAasIdentifier = Base64UrlEncoder.Decode(aasIdentifier);
 

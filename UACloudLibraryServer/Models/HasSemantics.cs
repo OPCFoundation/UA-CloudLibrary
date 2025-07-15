@@ -7,7 +7,7 @@ namespace AdminShell
     [DataContract]
     public class HasSemantics
     {
-        [DataMember(Name="semanticId")]
+        [DataMember(Name = "semanticId")]
         [XmlElement(ElementName = "semanticId")]
         public Reference SemanticId { get; set; }
     }

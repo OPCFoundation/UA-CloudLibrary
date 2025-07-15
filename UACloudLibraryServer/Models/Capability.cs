@@ -1,4 +1,4 @@
-﻿
+
 namespace AdminShell
 {
     public class Capability : SubmodelElement

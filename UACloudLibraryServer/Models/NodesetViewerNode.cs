@@ -1,4 +1,4 @@
-﻿
+
 using System;
 using System.Collections.Generic;
 
@@ -12,7 +12,7 @@ namespace AdminShell
 
         public List<NodesetViewerNode> Children { get; set; }
 
-        public string Value { get;set; } = string.Empty;
+        public string Value { get; set; } = string.Empty;
 
         public int CompareTo(NodesetViewerNode other)
         {
