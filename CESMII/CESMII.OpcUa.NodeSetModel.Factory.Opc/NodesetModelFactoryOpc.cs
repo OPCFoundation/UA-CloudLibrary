@@ -920,14 +920,15 @@ namespace CESMII.OpcUa.NodeSetModel.Factory.Opc
                     System.Diagnostics.Debug.WriteLine($"BaseTypeModelFactoryOpc<TBaseTypeModel>.Initialize. SubType:{strSubNode} SuperType:{strSuperNode}");
 
                     _model.RemoveInheritedAttributes(_model.SuperType);
+
+                    foreach (var uaInterface in _model.Interfaces)
+                    {
+                        _model.RemoveInheritedAttributes(uaInterface);
+                    }
                 }
                 catch (Exception ex)
                 {
                     string _ = ex.ToString();
-                }
-                foreach (var uaInterface in _model.Interfaces)
-                {
-                    _model.RemoveInheritedAttributes(uaInterface);
                 }
             }
             else
