@@ -871,6 +871,15 @@ namespace CESMII.OpcUa.NodeSetModel.Factory.Opc
         }
     }
 
+    //struct NodeSetKey
+    //{
+    //    public string ModelUri;
+    //    public string Version;
+    //    public DateTime? PublicationDate;
+    //};
+
+    //private Dictionary<string, List<NodeSetKey>> DictValidNodesetKeys = new Dictionary<string, List<NodeSetKey>>();
+
     public class BaseTypeModelFactoryOpc<TBaseTypeModel> : NodeModelFactoryOpc<TBaseTypeModel> where TBaseTypeModel : BaseTypeModel, new()
     {
         protected override void Initialize(IOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
