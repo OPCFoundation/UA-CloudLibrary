@@ -190,23 +190,40 @@ namespace CESMII.OpcUa.NodeSetModel.EF
                     } while (!lookedUp && retryCount < 100);
                     if (nodeModelDb == null)
                     {
-                        NodeSetModel nsmTemp = nodeSet;
+                        string strModelUri = nodeSet.ModelUri;
+                        string strVersion = nodeSet.Version;
+                        DateTime? publicationDate = nodeSet.PublicationDate;
                         if (DictAvailableNodesets.TryGetValue(nodeSet.ModelUri, out NodeSetKey value))
                         {
-                            nsmTemp.Version = value.Version;
-                            nsmTemp.PublicationDate = value.PublicationDate;
+                            strVersion = value.Version;
+                            publicationDate = value.PublicationDate;
                         }
                         else
                         {
                             System.Diagnostics.Debug.WriteLine($"DbOpcUaContext.GetModelForNode<TNodeModel>: NOT FOUND: {nodeSet.ModelUri}");
                         }
+
+
+
                         // Not in EF cache: assume it's in the database and attach a proxy with just primary key values
                         // This avoids a database lookup for each referenced node (or the need to pre-fetch all nodes in the EF cache)
                         nodeModelDb = _dbContext.CreateProxy<TNodeModel>(nm =>
                         {
-                            // nm.NodeSet = nodeSet;
-                            nm.NodeSet = nsmTemp;
-                            nm.NodeId = nodeId;
+                            if (nodeSet.PublicationDate == publicationDate && nodeSet.Version == strVersion)
+                            {
+                                nm.NodeSet = nodeSet;
+                                nm.NodeId = nodeId;
+                            }
+                            else
+                            {
+                                NodeSetModel nsmTemp = new NodeSetModel();
+                                nsmTemp.ModelUri = strModelUri;
+                                nsmTemp.Version = strVersion;
+                                nsmTemp.PublicationDate = publicationDate;
+                                nsmTemp.Identifier = Guid.NewGuid().ToString();
+                                nm.NodeSet = nsmTemp;
+                                nm.NodeId = nodeId;
+                            }
                         }
                         );
                         // _dbContext.Attach(nodeModelDb);
