@@ -35,7 +35,7 @@ using CESMII.OpcUa.NodeSetModel.EF;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Opc.Ua.Cloud.Library.DbContextModels;
+using Opc.Ua.Cloud.Library.Models;
 
 namespace Opc.Ua.Cloud.Library
 {
@@ -112,12 +112,9 @@ namespace Opc.Ua.Cloud.Library
         // Full metadata dbset, use only for Add
         public DbSet<NamespaceMetaDataModel> NamespaceMetaDataWithUnapproved { get; set; }
 
-#if !NOLEGACYMIGRATION
-        public DbSet<MetadataModel> LegacyMetadata { get; set; }
-#endif
         public DbSet<OrganisationModel> Organisations { get; set; }
-        public DbSet<CategoryModel> Categories { get; set; }
 
+        public DbSet<CategoryModel> Categories { get; set; }
 
         // nodeSet query filtered to only approved nodesets: use for all access
         public IQueryable<CloudLibNodeSetModel> nodeSets
@@ -130,7 +127,6 @@ namespace Opc.Ua.Cloud.Library
 
         // Full dbset, use only for Add or administrator-protected queries
         public DbSet<CloudLibNodeSetModel> nodeSetsWithUnapproved { get; set; }
-
 
         // nodeModel query filtered to only approved nodesets: use for all access
         public IQueryable<NodeModel> nodeModels
@@ -166,14 +162,52 @@ namespace Opc.Ua.Cloud.Library
                 .HasMethod("GIN")
                 .IsTsVectorExpressionIndex("english");
 
-            NamespaceMetaDataModel.OnModelCreating(builder);
+            builder.Entity<OrganisationModel>()
+                .HasKey(o => o.Id);
 
-#if !NOLEGACYMIGRATION
-            builder.Entity<MetadataModel>().HasKey(k => k.Id);
-#endif
+            builder.Entity<OrganisationModel>()
+                .HasIndex(o => o.Name)
+                .IsUnique();
 
-            DevDbFileStorage.OnModelCreating(builder);
+            builder.Entity<CategoryModel>()
+                .HasKey(c => c.Id);
+
+            builder.Entity<CategoryModel>()
+                .HasIndex(c => c.Name)
+                .IsUnique();
+
+            builder.Entity<NamespaceMetaDataModel>()
+                .Ignore(md => md.ValidationStatus)
+                .HasKey(n => n.NodesetId);
+
+            builder.Entity<NamespaceMetaDataModel>()
+                .Property(nsm => nsm.ApprovalStatus)
+                .HasConversion<string>();
+
+            builder.Entity<NamespaceMetaDataModel>()
+                .HasOne(md => md.NodeSet).WithOne(nm => nm.Metadata)
+                .HasForeignKey<CloudLibNodeSetModel>(nm => nm.Identifier)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            builder.Entity<NamespaceMetaDataModel>()
+                .OwnsMany(n => n.AdditionalProperties)
+                .WithOwner(md => md.NodeSet);
+
+            builder.Entity<NamespaceMetaDataModel>()
+                .HasOne(n => n.Category)
+                .WithMany();
+
+            builder.Entity<NamespaceMetaDataModel>()
+                .HasOne(n => n.Contributor)
+                .WithMany();
+
+            builder.Entity<NamespaceMetaDataModel>()
+                .HasIndex(md => new { md.Title, md.Description, /*md.Keywords, md.Category.Name, md.Contributor*/ })
+                .HasMethod("GIN")
+                .IsTsVectorExpressionIndex("english");
+
+            DbFileStorage.OnModelCreating(builder);
         }
-
     }
 }

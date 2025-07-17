@@ -36,7 +36,7 @@ namespace CloudLibClient.Tests
         }
 
         [Fact]
-        public async Task Setup()
+        public Task Setup()
         {
             if (_factory.TestConfig.DeleteCloudLibDBAndStore && InstantiationCount == 1)
             {
@@ -53,14 +53,10 @@ namespace CloudLibClient.Tests
                         // Create tables etc., so migration does not get attributed to the first actual test
                         dbContext.Database.Migrate();
                     }
-
-                    IFileStorage storage = scope.ServiceProvider.GetRequiredService<IFileStorage>();
-                    if (storage is LocalFileStorage localStorage)
-                    {
-                        _ = await localStorage.DeleteAllFilesAsync().ConfigureAwait(true);
-                    }
                 }
             }
+
+            return Task.CompletedTask;
         }
     }
 

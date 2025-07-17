@@ -351,9 +351,6 @@ namespace Opc.Ua.Cloud.Library
                 try
                 {
                     var cloudLibProvider = (CloudLibDataProvider)_database;
-#if !NOLEGACYMIGRATION
-                    await cloudLibProvider.MigrateLegacyMetadataAsync(_storage).ConfigureAwait(false);
-#endif
                 }
                 catch (Exception ex)
                 {

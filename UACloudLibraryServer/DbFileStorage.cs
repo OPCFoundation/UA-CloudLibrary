@@ -45,7 +45,7 @@ namespace Opc.Ua.Cloud.Library
 	/// For example: database deletion/recreate leaves DB out of sync with file store)
 	/// Multiple copies collide on file store
     /// </summary>
-    public class DevDbFileStorage : IFileStorage
+    public class DbFileStorage : IFileStorage
     {
         private readonly ILogger _logger;
         private readonly AppDbContext _dbContext;
@@ -53,7 +53,7 @@ namespace Opc.Ua.Cloud.Library
         /// <summary>
         /// Default constructor
         /// </summary>
-        public DevDbFileStorage(ILoggerFactory logger, AppDbContext dbContext, IConfiguration configuration)
+        public DbFileStorage(ILoggerFactory logger, AppDbContext dbContext, IConfiguration configuration)
         {
             _logger = logger.CreateLogger("LocalFileStorage");
             _dbContext = dbContext;
@@ -66,7 +66,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                DevDbFiles existingFile = await _dbContext.FindAsync<DevDbFiles>(name).ConfigureAwait(false);
+                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name).ConfigureAwait(false);
                 if (existingFile != null)
                 {
                     return name;
@@ -90,7 +90,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                DevDbFiles existingFile = await _dbContext.FindAsync<DevDbFiles>(name).ConfigureAwait(false);
+                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name).ConfigureAwait(false);
                 if (existingFile != null)
                 {
                     existingFile.Blob = content;
@@ -98,7 +98,7 @@ namespace Opc.Ua.Cloud.Library
                 }
                 else
                 {
-                    DevDbFiles newFile = new DevDbFiles {
+                    DbFiles newFile = new DbFiles {
                         Name = name,
                         Blob = content,
                     };
@@ -121,7 +121,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                DevDbFiles existingFile = await _dbContext.FindAsync<DevDbFiles>(name).ConfigureAwait(false);
+                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name).ConfigureAwait(false);
                 return existingFile?.Blob;
             }
             catch (Exception ex)
@@ -134,7 +134,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                DevDbFiles existingFile = await _dbContext.FindAsync<DevDbFiles>(name).ConfigureAwait(false);
+                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name).ConfigureAwait(false);
                 if (existingFile != null)
                 {
                     _dbContext.Remove(existingFile);
@@ -150,13 +150,14 @@ namespace Opc.Ua.Cloud.Library
 
         internal static void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<DevDbFiles>();
+            modelBuilder.Entity<DbFiles>();
         }
     }
-    public class DevDbFiles
+    public class DbFiles
     {
         [Key]
         public string Name { get; set; }
+
         public string Blob { get; set; }
     }
 }

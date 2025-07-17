@@ -135,7 +135,7 @@ namespace Opc.Ua.Cloud.Library
                 });
 
             migrationBuilder.CreateTable(
-                name: "DevDbFiles",
+                name: "DbFiles",
                 columns: table => new {
                     Name = table.Column<string>(type: "text", nullable: false),
                     Blob = table.Column<string>(type: "text", nullable: true)
@@ -549,7 +549,7 @@ namespace Opc.Ua.Cloud.Library
                 name: "AdditionalProperties");
 
             migrationBuilder.DropTable(
-                name: "DevDbFiles");
+                name: "DbFiles");
 
             migrationBuilder.DropTable(
                 name: "NamespaceMeta");

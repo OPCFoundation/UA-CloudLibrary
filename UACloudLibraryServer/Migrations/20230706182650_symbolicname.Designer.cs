@@ -617,7 +617,7 @@ namespace Opc.Ua.Cloud.Library
                     b.ToTable("Organisations");
                 });
 
-            modelBuilder.Entity("Opc.Ua.Cloud.Library.DevDbFiles", b =>
+            modelBuilder.Entity("Opc.Ua.Cloud.Library.DbFiles", b =>
                 {
                     b.Property<string>("Name")
                         .HasColumnType("text");
@@ -627,7 +627,7 @@ namespace Opc.Ua.Cloud.Library
 
                     b.HasKey("Name");
 
-                    b.ToTable("DevDbFiles");
+                    b.ToTable("DbFiles");
                 });
 
             modelBuilder.Entity("CESMII.OpcUa.NodeSetModel.BaseTypeModel", b =>

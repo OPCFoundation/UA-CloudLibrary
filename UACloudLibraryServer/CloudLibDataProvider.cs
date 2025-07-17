@@ -13,7 +13,6 @@ using CESMII.OpcUa.NodeSetModel;
 using CESMII.OpcUa.NodeSetModel.Opc.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Opc.Ua.Cloud.Library.DbContextModels;
 using Opc.Ua.Cloud.Library.Interfaces;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Export;
@@ -779,74 +778,5 @@ namespace Opc.Ua.Cloud.Library
 
             return Task.FromResult("{}");
         }
-
-#if !NOLEGACY
-        #region legacy
-
-        public IQueryable<MetadataModel> GetMetadataModel()
-        {
-            // TODO retrieve well-known properties from NamespaceMetaDataModel
-            return _dbContext.Metadata.AsQueryable();
-        }
-
-
-        public IQueryable<QueryModel.NodeSetGraphQLLegacy> GetNodeSet()
-        {
-            return _dbContext.nodeSets.AsQueryable().Select(nsm => new QueryModel.NodeSetGraphQLLegacy {
-                Identifier = uint.Parse(nsm.Identifier, CultureInfo.InvariantCulture),
-                NamespaceUri = nsm.ModelUri,
-                Version = nsm.Version,
-                PublicationDate = nsm.PublicationDate ?? default,
-                LastModifiedDate = nsm.LastModifiedDate ?? default,
-            });
-        }
-
-        public IQueryable<ObjecttypeModel> GetObjectType()
-        {
-            var objectTypes = GetNodeModels<ObjectTypeModel>(nsm => nsm.ObjectTypes).Select(ot => new ObjecttypeModel {
-                BrowseName = ot.BrowseName,
-                NameSpace = ot.Namespace,
-                NodesetId = long.Parse(ot.NodeSet.Identifier, CultureInfo.InvariantCulture),
-                Id = ot.NodeId.GetDeterministicHashCode(),
-                Value = ot.DisplayName.FirstOrDefault().Text,
-            });
-            return objectTypes;
-        }
-
-        public IQueryable<DatatypeModel> GetDataType()
-        {
-            var dataTypes = GetNodeModels<DataTypeModel>(nsm => nsm.DataTypes).Select(dt => new DatatypeModel {
-                BrowseName = dt.BrowseName,
-                NameSpace = dt.Namespace,
-                NodesetId = long.Parse(dt.NodeSet.Identifier, CultureInfo.InvariantCulture),
-                Id = dt.NodeId.GetDeterministicHashCode(),
-                Value = dt.DisplayName.FirstOrDefault().Text,
-            });
-            return dataTypes;
-        }
-        public IQueryable<ReferencetypeModel> GetReferenceType()
-        {
-            var referenceTypes = GetNodeModels<ReferenceTypeModel>(nsm => nsm.ReferenceTypes).Select(rt => new ReferencetypeModel {
-                BrowseName = rt.BrowseName,
-                NameSpace = rt.Namespace,
-                NodesetId = long.Parse(rt.NodeSet.Identifier, CultureInfo.InvariantCulture),
-                Id = rt.NodeId.GetDeterministicHashCode(),
-                Value = rt.DisplayName.FirstOrDefault().Text,
-            });
-            return referenceTypes;
-        }
-        public IQueryable<VariabletypeModel> GetVariableType()
-        {
-            var referenceTypes = GetNodeModels<VariableTypeModel>(nsm => nsm.VariableTypes).Select(vt => new VariabletypeModel {
-                BrowseName = vt.BrowseName,
-                NameSpace = vt.Namespace,
-                NodesetId = long.Parse(vt.NodeSet.Identifier, CultureInfo.InvariantCulture),
-                Id = vt.NodeId.GetDeterministicHashCode(),
-                Value = vt.DisplayName.FirstOrDefault().Text,
-            });
-            return referenceTypes;
-        }
-        #endregion
-#endif // legacy
     }
 }

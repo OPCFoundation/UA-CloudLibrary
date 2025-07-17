@@ -33,7 +33,6 @@ using System.Linq;
 using System.Threading.Tasks;
 
 using CESMII.OpcUa.NodeSetModel;
-using Opc.Ua.Cloud.Library.DbContextModels;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Export;
 
@@ -91,15 +90,6 @@ namespace Opc.Ua.Cloud.Library
         Task<NamespaceMetaDataModel> ApproveNamespaceAsync(string identifier, ApprovalStatus status, string approvalInformation, List<UAProperty> additionalProperties);
 
         IQueryable<CloudLibNodeSetModel> GetNodeSetsPendingApproval();
-
-#if !NOLEGACY
-        IQueryable<MetadataModel> GetMetadataModel(); // CODE REVIEW: is this still required? Moving to legacy section for now
-        IQueryable<DatatypeModel> GetDataType();
-        IQueryable<QueryModel.NodeSetGraphQLLegacy> GetNodeSet();
-        IQueryable<ObjecttypeModel> GetObjectType();
-        IQueryable<ReferencetypeModel> GetReferenceType();
-        IQueryable<VariabletypeModel> GetVariableType();
-#endif // NOLEGACY
     }
     public enum ApprovalStatus
     {

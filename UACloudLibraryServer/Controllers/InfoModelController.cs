@@ -45,7 +45,6 @@ using Opc.Ua.Cloud.Library.Interfaces;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Export;
 using Swashbuckle.AspNetCore.Annotations;
-using static HotChocolate.ErrorCodes;
 
 namespace Opc.Ua.Cloud.Library.Controllers
 {

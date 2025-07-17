@@ -34,9 +34,6 @@ using System.IO;
 using System.Net.Http;
 using System.Security.Claims;
 using System.Text.Json;
-using Amazon.S3;
-using HotChocolate.AspNetCore;
-using HotChocolate.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.Builder;
@@ -58,7 +55,6 @@ using Microsoft.Identity.Web;
 #endif
 using Microsoft.OpenApi.Models;
 using Opc.Ua.Cloud.Library.Interfaces;
-using Microsoft.AspNetCore.Authorization;
 using Opc.Ua.Cloud.Library.Authentication;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using System.Net.Sockets;
@@ -107,15 +103,8 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddScoped<ICaptchaValidation, CaptchaValidation>();
 
-            if (!string.IsNullOrEmpty(Configuration["UseSendGridEmailSender"]))
-            {
-                services.AddTransient<IEmailSender, SendGridEmailSender>();
-            }
-            else
-            {
-                services.AddTransient<IEmailSender, PostmarkEmailSender>();
-            }
-
+            services.AddTransient<IEmailSender, PostmarkEmailSender>();
+            
             services.AddLogging(builder => builder.AddConsole());
 
             services.AddAuthentication()
@@ -279,25 +268,7 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddSwaggerGenNewtonsoftSupport();
 
-            // Setup file storage
-            switch (Configuration["HostingPlatform"])
-            {
-                case "Azure": services.AddSingleton<IFileStorage, AzureFileStorage>(); break;
-                case "AWS":
-                    Amazon.Extensions.NETCore.Setup.AWSOptions awsOptions = Configuration.GetAWSOptions();
-                    services.AddDefaultAWSOptions(awsOptions);
-                    services.AddAWSService<IAmazonS3>();
-                    services.AddSingleton<IFileStorage, AWSFileStorage>();
-                    break;
-                case "GCP": services.AddSingleton<IFileStorage, GCPFileStorage>(); break;
-                case "DevDB": services.AddScoped<IFileStorage, DevDbFileStorage>(); break;
-                default:
-                {
-                    services.AddSingleton<IFileStorage, LocalFileStorage>();
-                    Console.WriteLine("WARNING: Using local filesystem for storage as HostingPlatform environment variable not specified or invalid!");
-                    break;
-                }
-            }
+            services.AddScoped<IFileStorage, DbFileStorage>();
 
             string serviceName = Configuration["Application"] ?? "UACloudLibrary";
 
@@ -311,49 +282,6 @@ namespace Opc.Ua.Cloud.Library
             }
 
             services.AddHttpContextAccessor();
-
-
-            HotChocolate.Types.Pagination.PagingOptions paginationConfig;
-            IConfigurationSection section = Configuration.GetSection("GraphQLPagination");
-            if (section.Exists())
-            {
-                paginationConfig = section.Get<HotChocolate.Types.Pagination.PagingOptions>();
-            }
-            else
-            {
-                paginationConfig = new HotChocolate.Types.Pagination.PagingOptions {
-                    IncludeTotalCount = true,
-                    DefaultPageSize = 100,
-                    MaxPageSize = 100,
-                };
-            }
-
-            services.AddGraphQLServer()
-                .AddAuthorization()
-                .ModifyPagingOptions(o => {
-                    o.IncludeTotalCount = paginationConfig.IncludeTotalCount;
-                    o.DefaultPageSize = paginationConfig.DefaultPageSize;
-                    o.MaxPageSize = paginationConfig.MaxPageSize;
-                })
-                .AddFiltering(fd => {
-                    fd.AddDefaults().BindRuntimeType<UInt32, UnsignedIntOperationFilterInputType>();
-                    fd.AddDefaults().BindRuntimeType<UInt32?, UnsignedIntOperationFilterInputType>();
-                    fd.AddDefaults().BindRuntimeType<UInt16?, UnsignedShortOperationFilterInputType>();
-                })
-                .AddSorting()
-                .AddQueryType<QueryModel>()
-                .AddMutationType<MutationModel>()
-                .AddType<CloudLibNodeSetModelType>()
-                .BindRuntimeType<UInt32, HotChocolate.Types.UnsignedIntType>()
-                .BindRuntimeType<UInt16, HotChocolate.Types.UnsignedShortType>()
-                .ModifyCostOptions(options =>
-                {
-                    options.MaxFieldCost = 1_000;
-                    options.MaxTypeCost = 1_000;
-                    options.EnforceCostLimits = false;
-                    options.ApplyCostDefaults = false;
-                    options.DefaultResolverCost = 10.0;
-                });
 
             services.AddScoped<NodeSetModelIndexer>();
             services.AddScoped<NodeSetModelIndexerFactory>();
@@ -424,10 +352,6 @@ namespace Opc.Ua.Cloud.Library
 
             app.UseAuthorization();
 
-            app.UseGraphQLGraphiQL("/graphiql", new GraphQL.Server.Ui.GraphiQL.GraphiQLOptions {
-                RequestCredentials = GraphQL.Server.Ui.GraphiQL.RequestCredentials.Include,
-            });
-
             app.UseEndpoints(endpoints => {
                 endpoints.MapControllerRoute(
                     name: "default",
@@ -435,12 +359,6 @@ namespace Opc.Ua.Cloud.Library
 
                 endpoints.MapRazorPages();
                 endpoints.MapBlazorHub();
-                endpoints.MapGraphQL()
-                    .RequireAuthorization(new AuthorizeAttribute() { AuthenticationSchemes = UserService.APIAuthorizationSchemes })
-                    .WithOptions(new GraphQLServerOptions {
-                        EnableGetRequests = true,
-                        Tool = { Enable = false },
-                    });
             });
         }
     }
