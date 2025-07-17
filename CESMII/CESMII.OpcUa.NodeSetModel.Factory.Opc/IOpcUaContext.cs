@@ -32,7 +32,7 @@ namespace CESMII.OpcUa.NodeSetModel.Factory.Opc
 
         // NodesetModel cache
         NodeSetModel GetOrAddNodesetModel(ModelTableEntry model, bool createNew = true);
-        TNodeModel GetModelForNode<TNodeModel>(string nodeId, bool bSameNamespace = false) where TNodeModel : NodeModel;
+        TNodeModel GetModelForNode<TNodeModel>(string nodeId) where TNodeModel : NodeModel;
         ILogger Logger { get; }
         (string Json, bool IsScalar) JsonEncodeVariant(Variant wrappedValue, DataTypeModel dataType = null);
         Variant JsonDecodeVariant(string jsonVariant, DataTypeModel dataType = null);

@@ -904,11 +904,11 @@ namespace CESMII.OpcUa.NodeSetModel.Factory.Opc
                 }
 
                 var superTypeNodeId = opcContext.GetModelNodeId(uaType.SuperTypeId, bSameNamespace);
-                BaseTypeModel superTypeModel = opcContext.GetModelForNode<TBaseTypeModel>(superTypeNodeId, bSameNamespace);
+                BaseTypeModel superTypeModel = opcContext.GetModelForNode<TBaseTypeModel>(superTypeNodeId);
                 if (superTypeModel == null)
                 {
                     // Handle cases where the supertype is of a different model class, for example the InterfaceModel for BaseInterfaceType has a supertype ObjectTypeModel, while all other InterfaceModels have a supertype of Interfacemodel
-                    superTypeModel = opcContext.GetModelForNode<BaseTypeModel>(superTypeNodeId, bSameNamespace);
+                    superTypeModel = opcContext.GetModelForNode<BaseTypeModel>(superTypeNodeId);
                 }
                 if (superTypeModel == null)
                 {
@@ -926,7 +926,7 @@ namespace CESMII.OpcUa.NodeSetModel.Factory.Opc
                 _model.SuperType = superTypeModel;
                 try
                 {
-                    System.Diagnostics.Debug.WriteLine($"BaseTypeModelFactoryOpc<TBaseTypeModel>.Initialize. SubType:{strSubNode} SuperType:{strSuperNode}");
+                    // System.Diagnostics.Debug.WriteLine($"BaseTypeModelFactoryOpc<TBaseTypeModel>.Initialize. SubType:{strSubNode} SuperType:{strSuperNode}");
 
                     _model.RemoveInheritedAttributes(_model.SuperType);
 

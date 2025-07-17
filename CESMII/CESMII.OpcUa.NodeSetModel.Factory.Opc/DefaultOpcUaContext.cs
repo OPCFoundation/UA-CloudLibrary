@@ -97,17 +97,13 @@ namespace CESMII.OpcUa.NodeSetModel.Factory.Opc
             return _systemContext.NamespaceUris.GetString(namespaceIndex);
         }
 
-        public virtual TNodeModel GetModelForNode<TNodeModel>(string nodeId, bool bSameNamespace = true) where TNodeModel : NodeModel
+        public virtual TNodeModel GetModelForNode<TNodeModel>(string nodeId) where TNodeModel : NodeModel
         {
             foreach (var nodeSetModel in _nodesetModels.Values)
             {
                 if (nodeSetModel.AllNodesByNodeId.TryGetValue(nodeId, out var nodeModel))
                 {
                     var result = nodeModel as TNodeModel;
-                    if (!bSameNamespace)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"DefaultOpcUaContext.GetModelForNode<TNodeModel>: bSameNamespace==false result: {result}");
-                    }
                     return result;
                 }
             }
