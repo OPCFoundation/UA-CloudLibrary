@@ -137,6 +137,8 @@ jobs:
 
     - name: 24_Test
       run: dotnet test UA-CloudLibrary.sln --no-build --configuration Release --verbosity normal  -l:"console;verbosity=normal"
+      env:
+         ConnectionStrings\:CloudLibraryPostgreSQL: "Host=/var/run/postgresql;Port=5433;Database=cloudlib_test;Username=testuser;SSLMode=Prefer;Include Error Detail=true"
 
     - name: 25_List databases after test run
       run: |
