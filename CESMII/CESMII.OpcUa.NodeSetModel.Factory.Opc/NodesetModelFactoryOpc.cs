@@ -889,21 +889,20 @@ namespace CESMII.OpcUa.NodeSetModel.Factory.Opc
 
             if (uaType.SuperTypeId != null)
             {
+                // Check for namespace change when resolving a supertype
                 var NamespaceTable = opcContext.NamespaceUris;
                 string strNamespaceCurrent = NamespaceTable.GetString(opcNode.NodeId.NamespaceIndex);
-                string strSubNode = $"{strNamespaceCurrent};{opcNode.NodeId.ToString()}";
-
                 string strNamespaceSuperType = NamespaceTable.GetString(uaType.SuperTypeId.NamespaceIndex);
-                bool bSameNamespace = (strNamespaceCurrent == strNamespaceSuperType);
-                string strSuperNode = $"{strNamespaceSuperType};{uaType.SuperTypeId.ToString()}";
+                bool bNewNamespace = (strNamespaceCurrent != strNamespaceSuperType);
 
-                if (!bSameNamespace)
+                if (bNewNamespace)
                 {
-                    int i = 123;
-                    i++;
+                    string strSubNode = $"{strNamespaceCurrent};{opcNode.NodeId.ToString()}";
+                    string strSuperNode = $"{strNamespaceSuperType};{uaType.SuperTypeId.ToString()}";
+                    System.Diagnostics.Debug.WriteLine($"BaseTypeModelFactoryOpc<TBaseTypeModel>.Initialize. SuperType New Namespace From:{strSubNode} To:{strSuperNode}");
                 }
 
-                var superTypeNodeId = opcContext.GetModelNodeId(uaType.SuperTypeId, bSameNamespace);
+                var superTypeNodeId = opcContext.GetModelNodeId(uaType.SuperTypeId, bNewNamespace);
                 BaseTypeModel superTypeModel = opcContext.GetModelForNode<TBaseTypeModel>(superTypeNodeId);
                 if (superTypeModel == null)
                 {

@@ -321,7 +321,7 @@ namespace CESMII.OpcUa.NodeSetModel.Opc.Extensions
                     arguments.Add(argument);
                 }
             }
-            if (arguments.Any())
+            if (arguments.Count > 0 )
             {
                 var argumentDataType = opcContext.GetModelForNode<DataTypeModel>($"nsu={Namespaces.OpcUa};{DataTypeIds.Argument}");
                 var argumentPropertyJson = opcContext.JsonEncodeVariant(                    

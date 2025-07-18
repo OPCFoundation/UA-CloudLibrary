@@ -69,10 +69,13 @@ namespace CESMII.OpcUa.NodeSetModel.EF
                 .UseLazyLoadingProxies(true)
             ;
 
-        public override TNodeModel GetModelForNode<TNodeModel>(string nodeId)
+        public override TNodeModel GetModelForNode<TNodeModel>(string nodeId, bool bNewNamespace = false)
         {
-            var model = base.GetModelForNode<TNodeModel>(nodeId);
-            if (model != null) return model;
+            TNodeModel model = base.GetModelForNode<TNodeModel>(nodeId);
+            if (model != null)
+            {
+                return model;
+            }
 
             var uaNamespace = NodeModelUtils.GetNamespaceFromNodeId(nodeId);
             NodeModel nodeModelDb;
@@ -103,32 +106,34 @@ namespace CESMII.OpcUa.NodeSetModel.EF
                         retryCount++;
                     } while (!lookedUp && retryCount < 100);
 
-                    // If we cannot find it in the EF cache, we will query the database
-                    if (nodeModelDb == null)
+                    // If we cannot find it in the EF cache
+                    // AND the previous node is in a different namespace,
+                    // then we query the database directly
+                    if (nodeModelDb == null && bNewNamespace)
                     {
+                        System.Diagnostics.Debug.WriteLine($"GetModelForNode<TNodeModel>: New Namespace -- perform a database lookup.");
                         try
                         {
                             nodeModelDb = _dbContext.Set<NodeModel>().FirstOrDefault(nm => nm.NodeId == nodeId && nm.NodeSet.ModelUri == nodeSet.ModelUri && nm.NodeSet.PublicationDate == nodeSet.PublicationDate);
                         }
                         catch (InvalidOperationException)
                         {
-                            // re-try in case the NodeSet access caused a database query that modified the local cache
+                            // set to notify that we have not found the item in the database
                             nodeModelDb = null;
                         }
                     }
 
-                    // Not in EF cache and not in database. Hmm. Any hope this will work?
+                    // Not in EF cache and not in database.
+                    // Likely we have not yet loaded this node into the database.
+                    // Add a placeholder to remind us to check the EF cache again later.
                     if (nodeModelDb == null)
                     {
-                        // Not in EF cache: assume it's in the database and attach a proxy with just primary key values
-                        // This avoids a database lookup for each referenced node (or the need to pre-fetch all nodes in the EF cache)
                         nodeModelDb = _dbContext.CreateProxy<TNodeModel>(nm => {
                             nm.NodeSet = nodeSet;
                             nm.NodeId = nodeId;
                         }
                         );
                         _dbContext.Attach(nodeModelDb);
-
                     }
                 }
 

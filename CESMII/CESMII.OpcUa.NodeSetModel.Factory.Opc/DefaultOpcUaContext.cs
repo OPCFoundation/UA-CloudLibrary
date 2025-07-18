@@ -97,7 +97,7 @@ namespace CESMII.OpcUa.NodeSetModel.Factory.Opc
             return _systemContext.NamespaceUris.GetString(namespaceIndex);
         }
 
-        public virtual TNodeModel GetModelForNode<TNodeModel>(string nodeId) where TNodeModel : NodeModel
+        public virtual TNodeModel GetModelForNode<TNodeModel>(string nodeId, bool bNewNamespace = false) where TNodeModel : NodeModel
         {
             foreach (var nodeSetModel in _nodesetModels.Values)
             {
