@@ -52,94 +52,99 @@ jobs:
       run: echo "ONGITHUB=false" >> $GITHUB_ENV
 
     # Run one of these two to enable access to PostgreSQL
-    # Postgres Setup step - when running on Github
+    # Postgres Setup - on Github
     - name: 11.1_Start PostgreSQL service on Ubuntu
       if: env.ONGITHUB == 'true'
       run: |
         sudo systemctl start postgresql.service
 
-    # # Postgres Setup step - when running in nektos/ACT on Windows
-    # - name: 11.2_Fetch Postgres container
-    #   if: env.ONGITHUB == 'false'
-    #   run: |
-    #     sudo apt update
-
-    # Postgres Setup step - when running in nektos/ACT on Windows
-    - name: 11.3_Postgres installation
+    # Postgres Setup - on nektos/ACT
+    - name: 11.2_Postgres installation
       if: env.ONGITHUB == 'false'
       run: |
         sudo apt update  
         sudo apt install -y postgresql postgresql-contrib
 
-    # Postgres Setup step - when running in nektos/ACT on Windows
-    - name: 11.4_Postgres start service
+    # Postgres Setup - on nektos/ACT
+    - name: 11.3_Postgres start service
       if: env.ONGITHUB == 'false'
       run: |
         sudo service postgresql start
-        pg_isready
 
-    # Postgres Setup step - when running in nektos/ACT on Windows
-    - name: 11.5_Postres - is it ready yet?
+    # Postgres Check installation working
+    - name: 11.4_Postres - is it ready yet? And if so, what version are we running?
       run: |
         pg_isready
+        sudo -u postgres psql --version
 
-    # Postgres Setup step
+    # Postgres Create User
     - name: 12_Create test user
       run: |
         sudo -u postgres psql --command="CREATE USER testuser SUPERUSER PASSWORD 'password'" --command="\du"
 
-    # Postgres Setup step
+    # Postgres Create Database
     - name: 13_Create test database with proper collation
       run: |
         sudo -u postgres psql --command="create database cloudlib_test with LC_COLLATE = 'C.utf8' LC_CTYPE = 'C.utf8' ENCODING = 'UTF8' TEMPLATE template0"
 
-    # Postgres Setup step - validate existing databases
+    # Postgres Check existing databases
     - name: 14_List existing databases
       run: |
         sudo -u postgres psql -l --command="\du"
 
+    # Checkout the repository
     - name: 15_Checkout repository
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
+    # Install .NET SDK
     - name: 16_install .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '9.0.x'
 
+    # Restore dependencies for UACloudLibraryServer
     - name: 17_Restore dependencies UA-CloudLibrary
       working-directory: UACloudLibraryServer
       run: dotnet restore
 
+    # Restore dependencies for UA-CloudLibrary Client
     - name: 18_Restore dependencies UA-CloudLibrary .NET Client
       run: dotnet restore
       working-directory: Opc.Ua.CloudLib.Client
 
+    # Restore dependencies for SampleConsoleClient
     - name: 19_Restore dependencies SampleConsoleClient
       run: dotnet restore
       working-directory: SampleConsoleClient
 
+    # Restore dependencies for CloudLibClientTests
     - name: 20_Restore dependencies CloudLibClientTests
       run: dotnet restore
       working-directory: Tests/CloudLibClientTests
 
+    # Restore dependencies for CloudLibSync
     - name: 21_Restore dependencies CloudLibSync
       working-directory: CloudLibSync
       run: dotnet restore
 
+    # Restore dependencies for CloudLibSyncAzureFunction
     - name: 22_Restore dependencies CloudLibSyncAzureFunction
       working-directory: CloudLibSyncAzureFunction
       run: dotnet restore
 
+    # Build 
     - name: 23_Build
       run: dotnet build UA-CloudLibrary.sln --configuration Release --no-restore
 
+    # Run Tests
     - name: 24_Test
       run: dotnet test UA-CloudLibrary.sln --no-build --configuration Release --verbosity normal  -l:"console;verbosity=normal"
       env:
          ConnectionStrings\:CloudLibraryPostgreSQL: "Host=/var/run/postgresql;Port=5433;Database=cloudlib_test;Username=testuser;SSLMode=Prefer;Include Error Detail=true"
 
+    # Postgres Check databases after test run
     - name: 25_List databases after test run
       run: |
         sudo -u postgres psql -l --command="\du"

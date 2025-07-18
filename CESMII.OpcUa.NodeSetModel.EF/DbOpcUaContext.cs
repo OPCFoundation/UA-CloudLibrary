@@ -109,7 +109,7 @@ namespace CESMII.OpcUa.NodeSetModel.EF
                     // If we cannot find it in the EF cache
                     // AND the previous node is in a different namespace,
                     // then we query the database directly
-                    if (nodeModelDb == null && bNewNamespace)
+                    if (nodeModelDb == null) // && bNewNamespace)
                     {
                         System.Diagnostics.Debug.WriteLine($"GetModelForNode<TNodeModel>: New Namespace -- perform a database lookup.");
                         try
