@@ -19,9 +19,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Amazon.AspNetCore.DataProtection.SSM" Version="4.0.0" />
-		<PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.5.1" />
-    <PackageReference Include="Google.Cloud.AspNetCore.DataProtection.Storage" Version="1.0.0-alpha03" />
 		<PackageReference Include="Azure.Identity" Version="1.14.2" />
     <PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="2.1.3" />
     <PackageReference Include="CESMII.OpcUa.NodeSetModel" Version="2.1.3" />

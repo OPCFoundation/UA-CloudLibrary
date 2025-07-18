@@ -272,17 +272,8 @@ namespace Opc.Ua.Cloud.Library
 
             string serviceName = Configuration["Application"] ?? "UACloudLibrary";
 
-            // setup data protection
-            switch (Configuration["HostingPlatform"])
-            {
-                case "Azure": services.AddDataProtection().PersistKeysToAzureBlobStorage(Configuration["BlobStorageConnectionString"], "keys", Configuration["DataProtectionBlobName"]); break;
-                case "AWS": services.AddDataProtection().PersistKeysToAWSSystemsManager($"/{serviceName}/DataProtection"); break;
-                case "GCP": services.AddDataProtection().PersistKeysToGoogleCloudStorage(Configuration["BlobStorageConnectionString"], "DataProtectionProviderKeys.xml"); break;
-                default: services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Directory.GetCurrentDirectory())); break;
-            }
-
-            services.AddHttpContextAccessor();
-
+            services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Directory.GetCurrentDirectory()));
+            
             services.AddScoped<NodeSetModelIndexer>();
             services.AddScoped<NodeSetModelIndexerFactory>();
 
