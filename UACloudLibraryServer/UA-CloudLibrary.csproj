@@ -14,6 +14,20 @@
     </ItemGroup>
 	<PropertyGroup Condition=" '$(RunConfiguration)' == 'UA_CloudLibrary' " />
 
+  <PropertyGroup>
+    <SGenReferences></SGenReferences>
+    <SGenTypes></SGenTypes>
+    <SGenProxyTypes>false</SGenProxyTypes>
+    <SGenVerbose>true</SGenVerbose>
+    <SGenKeyFile>MyKey.snk</SGenKeyFile>
+    <SGenDelaySign>true</SGenDelaySign>
+  </PropertyGroup>
+
+  <!--<PropertyGroup>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>MyKey.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>-->
+  
 	<ItemGroup Condition="$(DEFINECONSTANTS.Contains('NOLEGACY'))">
 		<Compile Remove="GraphQL\DBContextModels\DatatypeModel.cs" />
 		<Compile Remove="GraphQL\DBContextModels\ObjecttypeModel.cs" />
@@ -71,10 +85,11 @@
     </PackageReference>
 		<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.21.2" />
 		<PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="9.0.0" />
+		<PackageReference Include="Microsoft.XmlSerializer.Generator" Version="9.0.7" />
 		<PackageReference Include="Npgsql" Version="9.0.3" />
 		<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
 		<PackageReference Include="NuGet.Packaging" Version="6.14.0" />
-		<PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Core" Version="1.5.376.213" />
+		<PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Core" Version="1.5.376.235" />
 		<PackageReference Include="Postmark" Version="5.2.0" />
 		<PackageReference Include="SendGrid" Version="9.29.3" />
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="8.1.1" />
