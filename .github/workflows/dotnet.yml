@@ -44,7 +44,7 @@ jobs:
         run: dotnet-format --verify-no-changes -v:diag --exclude ~/.nuget
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     # Set flag that indicates whether we are running on Github or not.
     - name: 10__Github - Set running on Github flag
