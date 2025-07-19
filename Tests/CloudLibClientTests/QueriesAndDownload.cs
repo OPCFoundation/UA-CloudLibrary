@@ -7,7 +7,6 @@ using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using Opc.Ua.Cloud.Library;
 using Opc.Ua.Cloud.Library.Client;
 using Opc.Ua.Export;
 using Xunit;
@@ -61,7 +60,7 @@ namespace CloudLibClient.Tests
             Assert.True(string.IsNullOrEmpty(nodeSet.NodesetXml));
 
             Console.WriteLine($"Dependencies for {nodeSet.Identifier} {nodeSet.NamespaceUri} {nodeSet.PublicationDate} ({nodeSet.Version}):");
-            foreach (RequiredModelInfo requiredNodeSet in nodeSet.RequiredModels)
+            foreach (Opc.Ua.Cloud.Library.Client.RequiredModelInfo requiredNodeSet in nodeSet.RequiredModels)
             {
                 Console.WriteLine($"Required: {requiredNodeSet.NamespaceUri} {requiredNodeSet.PublicationDate} ({requiredNodeSet.Version}). Available in Cloud Library: {requiredNodeSet.AvailableModel?.Identifier} {requiredNodeSet.AvailableModel?.PublicationDate} ({requiredNodeSet.AvailableModel?.Version})");
             }
@@ -114,7 +113,7 @@ namespace CloudLibClient.Tests
             return nodeSetInfo;
         }
 
-        private static UANodeSet VerifyRequiredModels(UANameSpace expectedNamespace, List<RequiredModelInfo> requiredModels)
+        private static UANodeSet VerifyRequiredModels(UANameSpace expectedNamespace, List<Opc.Ua.Cloud.Library.Client.RequiredModelInfo> requiredModels)
         {
             UANodeSet uaNodeSet = null;
             if (expectedNamespace != null)
@@ -128,15 +127,15 @@ namespace CloudLibClient.Tests
             return uaNodeSet;
         }
 
-        private static void VerifyRequiredModels(UANodeSet expectedUaNodeSet, List<RequiredModelInfo> requiredModels)
+        private static void VerifyRequiredModels(UANodeSet expectedUaNodeSet, List<Opc.Ua.Cloud.Library.Client.RequiredModelInfo> requiredModels)
         {
             if (expectedUaNodeSet == null && requiredModels == null)
             {
                 return;
             }
-            List<RequiredModelInfo> expectedModels;
+            List<Opc.Ua.Cloud.Library.Client.RequiredModelInfo> expectedModels;
             expectedModels = expectedUaNodeSet?.Models.SelectMany(m => m.RequiredModel).Select(rm =>
-                        new RequiredModelInfo {
+                        new Opc.Ua.Cloud.Library.Client.RequiredModelInfo {
                             NamespaceUri = rm.ModelUri,
                             PublicationDate = rm.PublicationDate,
                             Version = rm.Version,

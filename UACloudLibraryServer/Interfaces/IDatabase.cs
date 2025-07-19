@@ -31,8 +31,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-
-using CESMII.OpcUa.NodeSetModel;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Export;
 

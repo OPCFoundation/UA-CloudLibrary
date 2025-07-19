@@ -19,9 +19,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-    <PackageReference Include="CESMII.OpcUa.NodeSetImporter" Version="2.1.3" />
-    <PackageReference Include="CESMII.OpcUa.NodeSetModel" Version="2.1.3" />
-    <PackageReference Include="CESMII.OpcUa.NodeSetModel.Factory.Opc" Version="2.1.3" />
 		<PackageReference Include="JsonSubTypes" Version="2.0.1" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.7" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.7" />
@@ -47,8 +44,5 @@
 		<PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="9.0.3" />
     <PackageReference Update="Microsoft.SourceLink.GitHub" Version="8.0.0" />
     <PackageReference Update="Nerdbank.GitVersioning" Version="3.7.115" />
-	</ItemGroup>
-	<ItemGroup>
-	  <ProjectReference Include="..\CESMII.OpcUa.NodeSetModel.EF\CESMII.OpcUa.NodeSetModel.EF.csproj" />
 	</ItemGroup>
 </Project>

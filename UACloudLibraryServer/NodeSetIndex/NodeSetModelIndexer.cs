@@ -32,9 +32,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using CESMII.OpcUa.NodeSetModel;
-using CESMII.OpcUa.NodeSetModel.Factory.Opc;
-using CESMII.OpcUa.NodeSetModel.Opc.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -103,8 +100,10 @@ namespace Opc.Ua.Cloud.Library
                     {
                         throw new ArgumentException($"Internal error: unexpected nodeset model type {nodeSetModel.GetType()}");
                     }
+
                     clNodeSet.ValidationStatus = validationStatus = ValidationStatus.Indexed;
                     clNodeSet.ValidationStatusInfo = validationStatusInfo = null;
+
                     if (!_dbContext.Set<NodeSetModel>().Local.Any(nsm => nsm.ModelUri == clNodeSet.ModelUri && nsm.PublicationDate == clNodeSet.PublicationDate))
                     {
                         _dbContext.nodeSetsWithUnapproved.Add(clNodeSet);
@@ -114,6 +113,7 @@ namespace Opc.Ua.Cloud.Library
                         _dbContext.nodeSetsWithUnapproved.Update(clNodeSet);
                     }
                 }
+
                 long validatedTime = sw.ElapsedMilliseconds;
                 _logger.LogInformation($"Finished validating nodeset {modelUri} {identifier}: {validatedTime} ms.");
 
@@ -133,18 +133,19 @@ namespace Opc.Ua.Cloud.Library
 #endif
                 return (validationStatus, validationStatusInfo);
             }
-            catch (NodeSetResolverException ex)
+            catch (Exception ex)
             {
                 return (ValidationStatus.Error, ex.Message);
             }
         }
+
         public Task<List<NodeSetModel>> ImportNodeSetModelAsync(string nodeSetXML, string identifier)
         {
-            var myNodeSetCache = new UANodeSetIFileStorage(_storage, _dbContext);
+            var myNodeSetCache = new UANodeSetIFileStorage(null, _dbContext);
             var opcContext = new CloudLibDbOpcUaContext(_dbContext, _logger,
                 (model) => CloudLibNodeSetModel.FromModelAsync(model, _dbContext).Result
                 );
-            var nodesetImporter = new UANodeSetModelImporter(opcContext, myNodeSetCache);
+            var nodesetImporter = new UANodeSetModelImporter((IOpcUaContext)opcContext, myNodeSetCache);
             return nodesetImporter.ImportNodeSetModelAsync(nodeSetXML, identifier);
 
         }
@@ -156,6 +157,7 @@ namespace Opc.Ua.Cloud.Library
             await _dbContext.SaveChangesAsync().ConfigureAwait(false);
             return nodeSetModel;
         }
+
         public static async Task<CloudLibNodeSetModel> CreateNodeSetModelFromNodeSetAsync(AppDbContext dbContext, UANodeSet nodeSet, string identifier, string userId)
         {
             CloudLibNodeSetModel nodeSetModel = await CloudLibNodeSetModel.FromModelAsync(nodeSet.Models[0], dbContext).ConfigureAwait(false);
@@ -312,8 +314,10 @@ namespace Opc.Ua.Cloud.Library
                         _logger.LogWarning($"NodeSet model '{identifier}' '{modelUri}' '{publicationDate}' not found during indexing.");
                         return false;
                     }
+
                     (ValidationStatus Status, string Info) previousValidationStatus = (nodeSetModel.ValidationStatus, nodeSetModel.ValidationStatusInfo);
                     (ValidationStatus Status, string Info) newValidationStatus = await this.IndexNodeSetModelAsync(nodeSetModel.ModelUri, nodeSetXml, identifier).ConfigureAwait(false);
+
                     nodeSetModel.ValidationStatus = newValidationStatus.Status;
                     nodeSetModel.ValidationStatusInfo = newValidationStatus.Info;
                     if (previousValidationStatus.Status != nodeSetModel.ValidationStatus || previousValidationStatus.Info != nodeSetModel.ValidationStatusInfo)

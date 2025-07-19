@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 
-namespace CESMII.OpcUa.NodeSetModel.EF
+namespace Opc.Ua.Cloud.Library
 {
     public class NodeSetModelContext : DbContext
     {

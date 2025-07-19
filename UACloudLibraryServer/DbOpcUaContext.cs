@@ -31,15 +31,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using CESMII.OpcUa.NodeSetModel;
-using CESMII.OpcUa.NodeSetModel.Factory.Opc;
-using CESMII.OpcUa.NodeSetModel.Opc.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Opc.Ua;
 using Opc.Ua.Export;
 
-namespace CESMII.OpcUa.NodeSetModel.EF
+namespace Opc.Ua.Cloud.Library
 {
     public class DbOpcUaContext : DefaultOpcUaContext
     {
@@ -168,6 +164,7 @@ namespace CESMII.OpcUa.NodeSetModel.EF
         {
             return GetMatchingOrHigherNodeSetAsync(_dbContext, modelUri, publicationDate, version);
         }
+
         public static async Task<NodeSetModel> GetMatchingOrHigherNodeSetAsync(DbContext dbContext, string modelUri, DateTime? publicationDate, string version)
         {
             var matchingNodeSets = await dbContext.Set<NodeSetModel>()

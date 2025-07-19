@@ -29,9 +29,6 @@
 
 using System;
 using System.Threading.Tasks;
-using CESMII.OpcUa.NodeSetModel;
-using CESMII.OpcUa.NodeSetModel.EF;
-using CESMII.OpcUa.NodeSetModel.Opc.Extensions;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Export;
 

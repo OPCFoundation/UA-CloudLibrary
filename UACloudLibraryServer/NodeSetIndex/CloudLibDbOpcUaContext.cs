@@ -28,9 +28,6 @@
  * ======================================================================*/
 
 using System;
-using CESMII.OpcUa.NodeSetModel;
-using CESMII.OpcUa.NodeSetModel.EF;
-using CESMII.OpcUa.NodeSetModel.Factory.Opc;
 using Microsoft.Extensions.Logging;
 using Opc.Ua.Export;
 
@@ -47,7 +44,7 @@ namespace Opc.Ua.Cloud.Library
             var nodeSetModel = base.GetOrAddNodesetModel(model) as CloudLibNodeSetModel;
             if (!createNew && nodeSetModel != null && nodeSetModel.ValidationStatus != ValidationStatus.Indexed)
             {
-                throw new NodeSetResolverException($"Required NodeSet {nodeSetModel} not indexed yet.");
+                throw new Exception($"Required NodeSet {nodeSetModel} not indexed yet.");
             }
             return nodeSetModel;
         }

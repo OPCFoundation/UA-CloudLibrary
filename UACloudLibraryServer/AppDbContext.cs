@@ -30,8 +30,6 @@
 using System;
 using System.IO;
 using System.Linq;
-using CESMII.OpcUa.NodeSetModel;
-using CESMII.OpcUa.NodeSetModel.EF;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -98,8 +96,6 @@ namespace Opc.Ua.Cloud.Library
             // Build connection string using parameters from portal
             return $"Server={Host};Username={User};Database={DBname};Port={Port};Password={Password};SSLMode=Prefer";
         }
-
-
 
         // map to our tables
         public IQueryable<NamespaceMetaDataModel> NamespaceMetaData

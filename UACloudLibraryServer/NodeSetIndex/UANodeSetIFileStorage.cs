@@ -28,9 +28,6 @@
  * ======================================================================*/
 
 using System;
-using System.Linq;
-using CESMII.OpcUa.NodeSetImporter;
-using CESMII.OpcUa.NodeSetModel.EF;
 using Opc.Ua.Cloud.Library.Controllers;
 using Opc.Ua.Cloud.Library.Interfaces;
 
@@ -66,11 +63,6 @@ namespace Opc.Ua.Cloud.Library
             // Not needed as files are stored externally in the cloud library regardless of indexer state
         }
 
-        public UANodeSetImportResult FlushCache()
-        {
-            throw new System.NotImplementedException();
-        }
-
         public bool GetNodeSet(UANodeSetImportResult results, ModelNameAndVersion nameVersion, object TenantID)
         {
             // Find next higher model if no exact match
@@ -86,16 +78,6 @@ namespace Opc.Ua.Cloud.Library
                 }
             }
             return false;
-        }
-
-        public ModelValue GetNodeSetByID(string id)
-        {
-            throw new NotImplementedException();
-        }
-
-        public string GetRawModelXML(ModelValue model)
-        {
-            throw new NotImplementedException();
         }
     }
 }
