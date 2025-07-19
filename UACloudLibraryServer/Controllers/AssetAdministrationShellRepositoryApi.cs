@@ -1,13 +1,14 @@
 
 using System;
+using System.Buffers.Text;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Net.Mime;
+using System.Text;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using Opc.Ua.Cloud.Library;
 using Swashbuckle.AspNetCore.Annotations;
@@ -54,7 +55,7 @@ namespace AdminShell
             {
                 if (!string.IsNullOrEmpty(assetId))
                 {
-                    string decodedAssetIdString = Base64UrlEncoder.Decode(assetId);
+                    string decodedAssetIdString = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(assetId)));
                     JsonNode assetJsonNode = JsonNode.Parse(decodedAssetIdString);
                     string reqAssetId = assetJsonNode.ToString();
                     reqAssetIds.Add(reqAssetId);
@@ -91,7 +92,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public virtual IActionResult GetAssetAdministrationShellById([FromRoute][Required] string aasIdentifier)
         {
-            string decodedAasIdentifier = Base64UrlEncoder.Decode(aasIdentifier);
+            string decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
 
             AssetAdministrationShell aas = _aasEnvService.GetAssetAdministrationShellById(decodedAasIdentifier);
 
@@ -123,7 +124,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public virtual IActionResult GetAllSubmodelReferences([FromRoute][Required]string aasIdentifier, [FromQuery]int limit, [FromQuery]string cursor)
         {
-            string decodedAasIdentifier = Base64UrlEncoder.Decode(aasIdentifier);
+            string decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
             if (decodedAasIdentifier == null)
             {
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedAasIdentifier)} is null");
@@ -159,7 +160,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public virtual IActionResult GetThumbnail([FromRoute][Required]string aasIdentifier)
         {
-            string decodedAasIdentifier = Base64UrlEncoder.Decode(aasIdentifier);
+            string decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
 
             if (decodedAasIdentifier == null)
             {
@@ -173,7 +174,7 @@ namespace AdminShell
 
             HttpContext.Response.Headers.Append("Content-Disposition", contentDisposition.ToString());
             HttpContext.Response.ContentLength = fileSize;
-            HttpContext.Response.Body.WriteAsync(content);
+            HttpContext.Response.Body.WriteAsync(content).GetAwaiter().GetResult();
 
             return new EmptyResult();
         }
@@ -201,7 +202,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public virtual IActionResult GetAssetInformation([FromRoute][Required]string aasIdentifier)
         {
-            string decodedAasIdentifier = Base64UrlEncoder.Decode(aasIdentifier);
+            string decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
 
             if (decodedAasIdentifier == null)
             {

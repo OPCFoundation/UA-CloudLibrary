@@ -1,10 +1,11 @@
 
+using System.Buffers.Text;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Text;
 using AdminShell;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
 using Opc.Ua.Cloud.Library;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -48,13 +49,13 @@ namespace IO.Swagger.Controllers
             string reqIsCaseOf = null;
             if (!string.IsNullOrEmpty(isCaseOf))
             {
-                reqIsCaseOf = Base64UrlEncoder.Decode(isCaseOf);
+                reqIsCaseOf = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(isCaseOf)));
             }
 
             string reqDataSpecificationRef = null;
             if (!string.IsNullOrEmpty(dataSpecificationRef))
             {
-                reqDataSpecificationRef = Base64UrlEncoder.Decode(dataSpecificationRef);
+                reqDataSpecificationRef = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(dataSpecificationRef)));
             }
 
             List<ConceptDescription> cdList = new();
@@ -86,7 +87,7 @@ namespace IO.Swagger.Controllers
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public virtual IActionResult GetConceptDescriptionById([FromRoute][Required] string cdIdentifier)
         {
-            string decodedCdIdentifier = Base64UrlEncoder.Decode(cdIdentifier);
+            string decodedCdIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(cdIdentifier)));
 
             ConceptDescription output = _aasEnvService.GetConceptDescriptionById(decodedCdIdentifier);
 

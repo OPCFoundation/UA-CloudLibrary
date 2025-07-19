@@ -49,13 +49,8 @@ namespace Opc.Ua.Cloud.Library
 
         // This string is used in controller attributes: keep it in a central place
 #if APIKEY_AUTH
-#if AZURE_AD
-        // APIKEY and AZURE_AD
-        public const string APIAuthorizationSchemes = "BasicAuthentication,SignedInUserAuthentication,ApiKeyAuthentication,Bearer";
-#else
         // APIKEY_AUTH
         public const string APIAuthorizationSchemes = "BasicAuthentication,SignedInUserAuthentication,ApiKeyAuthentication";
-#endif
 #else
         // Basic only
         public const string APIAuthorizationSchemes = "BasicAuthentication,SignedInUserAuthentication";

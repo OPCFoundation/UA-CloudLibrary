@@ -48,11 +48,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-#if AZURE_AD
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-using Microsoft.IdentityModel.Logging;
-using Microsoft.Identity.Web;
-#endif
 using Microsoft.OpenApi.Models;
 using Opc.Ua.Cloud.Library.Interfaces;
 using Opc.Ua.Cloud.Library.Authentication;
@@ -110,11 +105,11 @@ namespace Opc.Ua.Cloud.Library
             services.AddAuthentication()
                 .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null)
                 .AddScheme<AuthenticationSchemeOptions, SignedInUserAuthenticationHandler>("SignedInUserAuthentication", null)
+                .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("Bearer", null)
 #if APIKEY_AUTH
                 .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKeyAuthentication", null);
 #endif
-            ;
-
+            
             //for captcha validation call
             //add httpclient service for dependency injection
             //https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-6.0
@@ -165,39 +160,6 @@ namespace Opc.Ua.Cloud.Library
                         };
                     });
             }
-
-#if AZURE_AD
-            if (Configuration.GetSection("AzureAd")?["ClientId"] != null)
-            {
-                // Web UI access
-                services.AddAuthentication()
-                    .AddMicrosoftIdentityWebApp(Configuration,
-                        configSectionName: "AzureAd",
-                        openIdConnectScheme: "AzureAd",
-                        displayName: Configuration["AADDisplayName"] ?? "Microsoft Account")
-                    ;
-                // Allow access to API via Bearer tokens (for service identities etc.)
-                services.AddAuthentication()
-                    .AddMicrosoftIdentityWebApi(
-                        Configuration,
-                        configSectionName: "AzureAd",
-                        jwtBearerScheme: "Bearer",
-                        subscribeToJwtBearerMiddlewareDiagnosticsEvents: true
-                        )
-                    ;
-            }
-            else
-            {
-                // Need to register a Bearer scheme or the authorization attributes cause errors
-                services.AddAuthentication()
-                    .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("Bearer", null);
-
-            }
-#if DEBUG
-            IdentityModelEventSource.ShowPII = true;
-#endif
-
-#endif
 
             services.AddAuthorization(options => {
                 options.AddPolicy("ApprovalPolicy", policy => policy.RequireRole("Administrator"));
@@ -286,16 +248,7 @@ namespace Opc.Ua.Cloud.Library
             });
 
             services.AddServerSideBlazor();
-#if AZURE_AD
-            // Required to make Azure AD login work as ASP.Net External Identity: Change the SignInScheme to External after ALL other configuration have run.
-            services
-              .AddOptions()
-              .PostConfigureAll<OpenIdConnectOptions>(o => {
-                  o.SignInScheme = IdentityConstants.ExternalScheme;
-              });
-#endif
         }
-
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, AppDbContext appDbContext)

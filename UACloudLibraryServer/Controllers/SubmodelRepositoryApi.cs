@@ -1,14 +1,15 @@
 
 using System;
+using System.Buffers.Text;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Net.Mime;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using Opc.Ua.Cloud.Library;
 using Swashbuckle.AspNetCore.Annotations;
@@ -56,7 +57,7 @@ namespace AdminShell
             string decodedSubmodelIdentifier = null;
             if (submodelIdentifier != null)
             {
-                decodedSubmodelIdentifier = Base64UrlEncoder.Decode(submodelIdentifier);
+                decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
             }
 
 		    List<SubmodelElement> submodelElements = _aasEnvService.GetAllSubmodelElementsFromSubmodel(decodedSubmodelIdentifier);
@@ -95,7 +96,7 @@ namespace AdminShell
             string reqSemanticId = null;
             if (semanticId != null)
             {
-                reqSemanticId = Base64UrlEncoder.Decode(semanticId);
+                reqSemanticId = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(semanticId)));
             }
 
             Reference reference = new Reference { Keys = new List<Key> { new Key("Submodel", reqSemanticId) } };
@@ -132,7 +133,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public virtual IActionResult GetSubmodelById([FromRoute][Required] string submodelIdentifier, [FromQuery] string level, [FromQuery] string extent)
         {
-            string decodedSubmodelIdentifier = Base64UrlEncoder.Decode(submodelIdentifier);
+            string decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
 
             Submodel output = _aasEnvService.GetSubmodelById(decodedSubmodelIdentifier);
 
@@ -165,7 +166,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public virtual async Task<IActionResult> GetFileByPath([FromRoute][Required]string submodelIdentifier, [FromRoute][Required]string idShortPath)
 	    {
-	        string decodedSubmodelIdentifier = Base64UrlEncoder.Decode(submodelIdentifier);
+	        string decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
 
 	        if (decodedSubmodelIdentifier == null)
 	        {
@@ -228,7 +229,7 @@ namespace AdminShell
             string decodedSubmodelIdentifier = null;
             if (submodelIdentifier != null)
             {
-                decodedSubmodelIdentifier = Base64UrlEncoder.Decode(submodelIdentifier);
+                decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
             }
 
 	        SubmodelElement output = _aasEnvService.GetSubmodelElementByPath(decodedSubmodelIdentifier, idShortPath);

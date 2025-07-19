@@ -1,10 +1,11 @@
 
+using System.Buffers.Text;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Linq;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
 using Opc.Ua.Cloud.Library;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -44,8 +45,8 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public virtual IActionResult GenerateSerializationByIds([FromQuery]List<string> aasIds, [FromQuery]List<string> submodelIds, [FromQuery]bool? includeConceptDescriptions)
         {
-            IEnumerable<string> decodedAasIds = aasIds.Select(aasId => Base64UrlEncoder.Decode(aasId)).ToList();
-            IEnumerable<string> decodedSubmodelIds = aasIds.Select(submodelIds => Base64UrlEncoder.Decode(submodelIds)).ToList();
+            IEnumerable<string> decodedAasIds = aasIds.Select(aasId => Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasId)))).ToList();
+            IEnumerable<string> decodedSubmodelIds = aasIds.Select(submodelIds => Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIds)))).ToList();
 
             dynamic outputEnv = new ExpandoObject();
             outputEnv.AssetAdministrationShells = new List<AssetAdministrationShell>();
