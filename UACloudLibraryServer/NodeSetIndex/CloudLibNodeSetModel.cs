@@ -71,9 +71,11 @@ namespace Opc.Ua.Cloud.Library
                     nodeSetModel.RequiredModels.Add(requiredModelInfo);
                 }
             }
+
             return nodeSetModel;
         }
     }
+
     public enum ValidationStatus
     {
         Parsed,

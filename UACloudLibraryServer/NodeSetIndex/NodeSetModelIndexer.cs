@@ -67,6 +67,7 @@ namespace Opc.Ua.Cloud.Library
             : this(dbContext, logger, storage, database, null)
         {
         }
+
         public NodeSetModelIndexer(AppDbContext dbContext, ILogger logger, IFileStorage storage, IDatabase database, IServiceScope scope = null)
         {
             _dbContext = dbContext;
@@ -75,6 +76,7 @@ namespace Opc.Ua.Cloud.Library
             _database = database;
             _scope = scope;
         }
+
         private AppDbContext _dbContext;
         private readonly ILogger _logger;
         private readonly IFileStorage _storage;
@@ -141,7 +143,7 @@ namespace Opc.Ua.Cloud.Library
 
         public Task<List<NodeSetModel>> ImportNodeSetModelAsync(string nodeSetXML, string identifier)
         {
-            var myNodeSetCache = new UANodeSetIFileStorage(null, _dbContext);
+            var myNodeSetCache = new UANodeSetIFileStorage(_storage, _dbContext);
             var opcContext = new CloudLibDbOpcUaContext(_dbContext, _logger,
                 (model) => CloudLibNodeSetModel.FromModelAsync(model, _dbContext).Result
                 );
@@ -177,6 +179,7 @@ namespace Opc.Ua.Cloud.Library
                 ValidationStatus = ValidationStatus.Parsed,
                 RequiredModels = nodeSetModel.RequiredModels.Select(rm => new RequiredModelInfo { ModelUri = rm.ModelUri, PublicationDate = rm.PublicationDate, Version = rm.Version }).ToList(),
             };
+
             return newNodeSetModel;
         }
 
@@ -208,10 +211,9 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
-
-
         static bool bIndexing = false;
         static object _indexingLock = new object();
+
         public static async Task IndexNodeSetsAsync(NodeSetModelIndexerFactory factory)
         {
             lock (_indexingLock)

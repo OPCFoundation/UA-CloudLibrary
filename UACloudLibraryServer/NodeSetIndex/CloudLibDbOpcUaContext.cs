@@ -46,6 +46,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 throw new Exception($"Required NodeSet {nodeSetModel} not indexed yet.");
             }
+
             return nodeSetModel;
         }
     }
