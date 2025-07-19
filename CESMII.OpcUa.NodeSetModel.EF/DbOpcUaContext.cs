@@ -78,14 +78,18 @@ namespace CESMII.OpcUa.NodeSetModel.EF
                 }
                 else
                 {
-                    // Preexisting namespace: find an entity if already in EF cache
+                    // With EF9 it is no longer possible to create proxy entities with shadow properties
+                    // TODO Find a way to optimize loading the most commonly used nodes to minimize database roundtrips
+                    // - Preload
+                    // - Find way to make proxies work for entities with shadow properties
+                    // Preexisting namespace: find an entity if already in the database
                     int retryCount = 0;
                     bool lookedUp = false;
                     do
                     {
                         try
                         {
-                            nodeModelDb = _dbContext.Set<NodeModel>().Local.FirstOrDefault(nm => nm.NodeId == nodeId && nm.NodeSet.ModelUri == nodeSet.ModelUri && nm.NodeSet.PublicationDate == nodeSet.PublicationDate);
+                            nodeModelDb = _dbContext.Set<NodeModel>().FirstOrDefault(nm => nm.NodeId == nodeId && nm.NodeSet.ModelUri == nodeSet.ModelUri && nm.NodeSet.PublicationDate == nodeSet.PublicationDate);
                             lookedUp = true;
                         }
                         catch (InvalidOperationException)
@@ -95,18 +99,6 @@ namespace CESMII.OpcUa.NodeSetModel.EF
                         }
                         retryCount++;
                     } while (!lookedUp && retryCount < 100);
-                    if (nodeModelDb == null)
-                    {
-                        // Not in EF cache: assume it's in the database and attach a proxy with just primary key values
-                        // This avoids a database lookup for each referenced node (or the need to pre-fetch all nodes in the EF cache)
-                        nodeModelDb = _dbContext.CreateProxy<TNodeModel>(nm =>
-                        {
-                            nm.NodeSet = nodeSet;
-                            nm.NodeId = nodeId;
-                        }
-                        );
-                        _dbContext.Attach(nodeModelDb);
-                    }
                 }
                 nodeModelDb?.NodeSet.AllNodesByNodeId.Add(nodeModelDb.NodeId, nodeModelDb);
             }
