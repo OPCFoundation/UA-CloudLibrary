@@ -346,8 +346,7 @@ namespace Opc.Ua.Cloud.Library
                 .AddType<CloudLibNodeSetModelType>()
                 .BindRuntimeType<UInt32, HotChocolate.Types.UnsignedIntType>()
                 .BindRuntimeType<UInt16, HotChocolate.Types.UnsignedShortType>()
-                .ModifyCostOptions(options =>
-                {
+                .ModifyCostOptions(options => {
                     options.MaxFieldCost = 1_000;
                     options.MaxTypeCost = 1_000;
                     options.EnforceCostLimits = false;

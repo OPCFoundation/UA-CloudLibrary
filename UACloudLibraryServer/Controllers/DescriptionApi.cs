@@ -25,8 +25,8 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
         public virtual IActionResult GetDescription()
         {
-            return new ObjectResult(new ServiceDescription()
-            {  Profiles = new List<ServiceDescription.ProfilesEnum>()
+            return new ObjectResult(new ServiceDescription() {
+                Profiles = new List<ServiceDescription.ProfilesEnum>()
                 {
                     ServiceDescription.ProfilesEnum.AssetAdministrationShellRepositoryServiceSpecificationV30MinimalProfileEnum,
                     ServiceDescription.ProfilesEnum.SubmodelRepositoryServiceSpecificationV30MinimalProfileEnum,

@@ -1,7 +1,7 @@
-using Opc.Ua;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Opc.Ua;
 
 namespace AdminShell
 {
@@ -24,8 +24,7 @@ namespace AdminShell
                         {
                             foreach (NodesetViewerNode a in aasList)
                             {
-                                AssetAdministrationShell aas = new()
-                                {
+                                AssetAdministrationShell aas = new() {
                                     ModelType = ModelTypes.AssetAdministrationShell,
                                     Identification = new Identifier() { Id = a.Id, Value = a.Text },
                                     IdShort = a.Id + ";" + a.Text,
@@ -109,8 +108,7 @@ namespace AdminShell
                         {
                             foreach (NodesetViewerNode subNode in submodelList)
                             {
-                                Submodel sub = new()
-                                {
+                                Submodel sub = new() {
                                     ModelType = ModelTypes.Submodel,
                                     Id = subNode.Id,
                                     Identification = new Identifier() { Id = subNode.Id, Value = subNode.Text },
@@ -179,8 +177,7 @@ namespace AdminShell
                         List<SubmodelElement> children = ReadSubmodelElementNodes(smeNode, browseDeep);
                         if (children.Count > 0)
                         {
-                            SubmodelElementList smel = new()
-                            {
+                            SubmodelElementList smel = new() {
                                 ModelType = ModelTypes.SubmodelElementCollection,
                                 DisplayName = new List<LangString>() { new LangString() { Text = smeNode.Text } },
                                 IdShort = smeNode.Text,
@@ -193,8 +190,7 @@ namespace AdminShell
                         }
                         else
                         {
-                            Property sme = new()
-                            {
+                            Property sme = new() {
                                 ModelType = ModelTypes.Property,
                                 DisplayName = new List<LangString>() { new LangString() { Text = smeNode.Text } },
                                 IdShort = smeNode.Text,
@@ -208,8 +204,7 @@ namespace AdminShell
                     else
                     {
                         // add just one property to be spec conform
-                        Property sme = new()
-                        {
+                        Property sme = new() {
                             ModelType = ModelTypes.Property,
                             DisplayName = new List<LangString>() { new LangString() { Text = smeNode.Text } },
                             IdShort = smeNode.Text,
@@ -241,8 +236,7 @@ namespace AdminShell
                         {
                             foreach (NodesetViewerNode cdNode in conceptDescrNodes)
                             {
-                                ConceptDescription cd = new()
-                                {
+                                ConceptDescription cd = new() {
                                     ModelType = ModelTypes.ConceptDescription,
                                     Identification = new Identifier() { Id = cdNode.Id, Value = cdNode.Text },
                                     IdShort = cdNode.Id + ";" + cdNode.Text,
@@ -288,8 +282,7 @@ namespace AdminShell
                             {
                                 if (a.Id.Equals(aasIdentifier))
                                 {
-                                    AssetAdministrationShell aas = new()
-                                    {
+                                    AssetAdministrationShell aas = new() {
                                         ModelType = ModelTypes.AssetAdministrationShell,
                                         Identification = new Identifier() { Id = a.Id, Value = a.Text },
                                         IdShort = a.Id + ";" + a.Text,
@@ -341,8 +334,7 @@ namespace AdminShell
                             {
                                 if (subNode.Id.Equals(submodelIdentifier))
                                 {
-                                    Submodel sub = new()
-                                    {
+                                    Submodel sub = new() {
                                         ModelType = ModelTypes.Submodel,
                                         Id = subNode.Id,
                                         Identification = new Identifier() { Id = subNode.Id, Value = subNode.Text },
@@ -382,8 +374,7 @@ namespace AdminShell
                             {
                                 if (cdNode.Id.Equals(cdIdentifier))
                                 {
-                                    ConceptDescription cd = new()
-                                    {
+                                    ConceptDescription cd = new() {
                                         ModelType = ModelTypes.ConceptDescription,
                                         Identification = new Identifier() { Id = cdNode.Id, Value = cdNode.Text },
                                         IdShort = cdNode.Id + ";" + cdNode.Text,

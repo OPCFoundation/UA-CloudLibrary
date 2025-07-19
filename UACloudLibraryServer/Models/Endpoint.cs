@@ -1,7 +1,7 @@
 
-using Newtonsoft.Json;
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.Serialization;
+using Newtonsoft.Json;
 
 namespace AdminShell
 {
@@ -13,14 +13,14 @@ namespace AdminShell
         /// </summary>
         [Required]
         [MaxLength(128)]
-        [DataMember(Name="interface")]
+        [DataMember(Name = "interface")]
         public string _Interface { get; set; }
 
         /// <summary>
         /// Gets or Sets ProtocolInformation
         /// </summary>
         [Required]
-        [DataMember(Name="protocolInformation")]
+        [DataMember(Name = "protocolInformation")]
         public ProtocolInformation ProtocolInformation { get; set; }
     }
 }

@@ -1,4 +1,4 @@
-﻿
+
 namespace AdminShell
 {
     using System.Runtime.Serialization;
@@ -12,12 +12,12 @@ namespace AdminShell
     [DataContract]
     public class Identifier
     {
-        [DataMember(Name ="value")]
+        [DataMember(Name = "value")]
         [XmlElement(ElementName = "value")]
         public string Value = string.Empty;
 
         [DataMember(Name = "idType")]
-        [XmlAttribute(AttributeName ="idType")]
+        [XmlAttribute(AttributeName = "idType")]
         public string IdType = string.Empty;
 
         [DataMember(Name = "id")]

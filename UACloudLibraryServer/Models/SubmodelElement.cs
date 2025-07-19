@@ -1,12 +1,12 @@
-﻿
+
 namespace AdminShell
 {
-    using JsonSubTypes;
-    using Newtonsoft.Json;
     using System;
     using System.Collections.Generic;
     using System.Runtime.Serialization;
     using System.Xml.Serialization;
+    using JsonSubTypes;
+    using Newtonsoft.Json;
 
     [DataContract]
     [JsonConverter(typeof(JsonSubtypes), "ModelType")]
