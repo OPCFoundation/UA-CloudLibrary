@@ -89,23 +89,6 @@ namespace CESMII.OpcUa.NodeSetModel.EF
                     {
                         try
                         {
-                            nodeModelDb = _dbContext.Set<NodeModel>().Local.FirstOrDefault(nm => nm.NodeId == nodeId && nm.NodeSet.ModelUri == nodeSet.ModelUri && nm.NodeSet.PublicationDate == nodeSet.PublicationDate);
-                            lookedUp = true;
-                        }
-                        catch (InvalidOperationException)
-                        {
-                            // re-try in case the NodeSet access caused a database query that modified the local cache
-                            nodeModelDb = null;
-                        }
-                        retryCount++;
-                    } while (!lookedUp && retryCount < 10);
-
-                    retryCount = 0;
-                    lookedUp = false;
-                    do
-                    {
-                        try
-                        {
                             nodeModelDb = _dbContext.Set<NodeModel>().FirstOrDefault(nm => nm.NodeId == nodeId && nm.NodeSet.ModelUri == nodeSet.ModelUri && nm.NodeSet.PublicationDate == nodeSet.PublicationDate);
                             lookedUp = true;
                         }
