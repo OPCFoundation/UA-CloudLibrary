@@ -479,6 +479,7 @@ namespace Opc.Ua.Cloud.Library
             }
             return false;
         }
+
         static bool ProcessEUInfoAndRanges(IOpcUaContext opcContext, NodeState referencedNode, Func<NodeModel> parentFactory)
         {
             if (referencedNode.BrowseName?.Name == BrowseNames.EngineeringUnits || (referencedNode as BaseVariableState).DataType == DataTypeIds.EUInformation)

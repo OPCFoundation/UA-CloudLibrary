@@ -47,6 +47,7 @@ namespace Opc.Ua.Cloud.Library
         {
             return CompareNodeSetVersion(modelUri, modelPublicationDate, modelVersion, publicationDateToMatch, versionToMatch) >= 0;
         }
+
         public static int? CompareNodeSetVersion(string modelUri, DateTime? modelPublicationDate, string modelVersion, DateTime? publicationDateToMatch, string versionToMatch)
         {
             if (modelUri == "http://opcfoundation.org/UA/")
@@ -106,6 +107,5 @@ namespace Opc.Ua.Cloud.Library
                 return matchingNodeSet;
             }
         }
-
     }
 }
