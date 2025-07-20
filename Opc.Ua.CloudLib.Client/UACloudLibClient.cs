@@ -738,7 +738,7 @@ namespace Opc.Ua.Cloud.Library.Client
             public List<T> nodes { get; set; }
         }
 
-         /// <summary>
+        /// <summary>
         /// Download chosen Nodeset with a REST call
         /// </summary>
         /// <param name="identifier"></param>

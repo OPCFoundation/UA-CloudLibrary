@@ -1,10 +1,10 @@
-﻿
+
 namespace AdminShell
 {
-    using Newtonsoft.Json;
     using System.ComponentModel.DataAnnotations;
     using System.Runtime.Serialization;
     using System.Xml.Serialization;
+    using Newtonsoft.Json;
 
     [DataContract]
     public class File : DataElement

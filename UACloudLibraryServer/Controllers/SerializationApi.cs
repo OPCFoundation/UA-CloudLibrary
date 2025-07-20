@@ -42,7 +42,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual IActionResult GenerateSerializationByIds([FromQuery]List<string> aasIds, [FromQuery]List<string> submodelIds, [FromQuery]bool? includeConceptDescriptions)
+        public virtual IActionResult GenerateSerializationByIds([FromQuery] List<string> aasIds, [FromQuery] List<string> submodelIds, [FromQuery] bool? includeConceptDescriptions)
         {
             IEnumerable<string> decodedAasIds = aasIds.Select(aasId => Base64UrlEncoder.Decode(aasId)).ToList();
             IEnumerable<string> decodedSubmodelIds = aasIds.Select(submodelIds => Base64UrlEncoder.Decode(submodelIds)).ToList();

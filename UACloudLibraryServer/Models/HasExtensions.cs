@@ -8,7 +8,7 @@ namespace AdminShell
     [DataContract]
     public class HasExtensions
     {
-        [DataMember(Name="extensions")]
+        [DataMember(Name = "extensions")]
         [XmlArray(ElementName = "extensions")]
         public List<Extension> Extensions { get; set; }
     }
