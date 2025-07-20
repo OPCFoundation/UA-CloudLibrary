@@ -81,7 +81,7 @@ namespace Opc.Ua.Cloud.Library
                     {
                         try
                         {
-                            nodeModelDb = _dbContext.Set<NodeModel>().Local.FirstOrDefault(nm => nm.NodeId == nodeId && nm.NodeSet.ModelUri == nodeSet.ModelUri && nm.NodeSet.PublicationDate == nodeSet.PublicationDate);
+                            nodeModelDb = _dbContext.Set<NodeModel>().FirstOrDefault(nm => nm.NodeId == nodeId && nm.NodeSet.ModelUri == nodeSet.ModelUri && nm.NodeSet.PublicationDate == nodeSet.PublicationDate);
                             lookedUp = true;
                         }
                         catch (InvalidOperationException)
@@ -90,19 +90,7 @@ namespace Opc.Ua.Cloud.Library
                             nodeModelDb = null;
                         }
                         retryCount++;
-                    } while (!lookedUp && retryCount < 100);
-                    if (nodeModelDb == null)
-                    {
-                        // Not in EF cache: assume it's in the database and attach a proxy with just primary key values
-                        // This avoids a database lookup for each referenced node (or the need to pre-fetch all nodes in the EF cache)
-                        nodeModelDb = _dbContext.CreateProxy<TNodeModel>(nm =>
-                        {
-                            nm.NodeSet = nodeSet;
-                            nm.NodeId = nodeId;
-                        }
-                        );
-                        _dbContext.Attach(nodeModelDb);
-                    }
+                    } while (!lookedUp && retryCount < 10);
                 }
                 nodeModelDb?.NodeSet.AllNodesByNodeId.Add(nodeModelDb.NodeId, nodeModelDb);
             }
