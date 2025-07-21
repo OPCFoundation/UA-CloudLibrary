@@ -8,7 +8,7 @@
 using System;
 using Opc.Ua.Export;
 
-namespace Opc.Ua.Cloud.Library
+namespace Opc.Ua.Cloud.Library.NodeSetIndex
 {
     /// <summary>
     /// Simplified class containing all important information of a NodeSet

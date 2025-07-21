@@ -29,13 +29,15 @@
 
 using System;
 using Microsoft.Extensions.Logging;
+using Opc.Ua.Cloud.Library.NodeSetIndex;
 using Opc.Ua.Export;
 
 namespace Opc.Ua.Cloud.Library
 {
     internal class CloudLibDbOpcUaContext : DbOpcUaContext
     {
-        public CloudLibDbOpcUaContext(AppDbContext dbContext, ILogger logger, Func<ModelTableEntry, CloudLibNodeSetModel> nodeSetFactory) : base(dbContext, logger, nodeSetFactory)
+        public CloudLibDbOpcUaContext(AppDbContext dbContext, ILogger logger, Func<ModelTableEntry, CloudLibNodeSetModel> nodeSetFactory)
+            : base(dbContext, logger, nodeSetFactory)
         {
         }
 

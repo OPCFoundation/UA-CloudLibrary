@@ -9,10 +9,12 @@ using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using AdminShell;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Opc.Ua.Cloud.Library.Interfaces;
 using Opc.Ua.Cloud.Library.Models;
+using Opc.Ua.Cloud.Library.NodeSetIndex;
 using Opc.Ua.Export;
 
 namespace Opc.Ua.Cloud.Library
@@ -204,7 +206,14 @@ namespace Opc.Ua.Cloud.Library
                         return;
                     }
 
-                    CloudLibNodeSetModel nodeSetModel = await NodeSetModelIndexer.CreateNodeSetModelFromNodeSetAsync(_dbContext, nodeSet, uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture), userId).ConfigureAwait(false);
+                    CloudLibNodeSetModel nodeSetModel = await CloudLibNodeSetModel.FromModelAsync(nodeSet.Models[0], _dbContext).ConfigureAwait(false);
+
+                    nodeSetModel.Identifier = uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
+                    nodeSetModel.LastModifiedDate = nodeSet.LastModifiedSpecified ? ((DateTime?)nodeSet.LastModified).GetNormalizedPublicationDate() : null;
+
+                    await _dbContext.AddAsync(nodeSetModel).ConfigureAwait(false);
+                    await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+
                     CloudLibNodeSetModel existingModel = await _dbContext.nodeSetsWithUnapproved.FindAsync(nodeSetModel.ModelUri, nodeSetModel.PublicationDate).ConfigureAwait(false);
                     if (existingModel != null)
                     {
@@ -280,8 +289,17 @@ namespace Opc.Ua.Cloud.Library
                 {
                     if (deletedNodeSet.Identifier != nodesetIdStr)
                     {
-                        CloudLibNodeSetModel nodeSetModel = NodeSetModelIndexer.CreateNodeSetModelFromNodeSet(deletedNodeSet);
-                        await _dbContext.nodeSetsWithUnapproved.AddAsync(nodeSetModel).ConfigureAwait(false);
+                        var newNodeSetModel = new CloudLibNodeSetModel {
+                            Identifier = deletedNodeSet.Identifier,
+                            ModelUri = deletedNodeSet.ModelUri,
+                            PublicationDate = deletedNodeSet.PublicationDate,
+                            Version = deletedNodeSet.Version,
+                            LastModifiedDate = deletedNodeSet.LastModifiedDate,
+                            ValidationStatus = ValidationStatus.Parsed,
+                            RequiredModels = deletedNodeSet.RequiredModels.Select(rm => new RequiredModelInfo { ModelUri = rm.ModelUri, PublicationDate = rm.PublicationDate, Version = rm.Version }).ToList(),
+                        };
+
+                        await _dbContext.nodeSetsWithUnapproved.AddAsync(newNodeSetModel).ConfigureAwait(false);
                     }
                 }
                 await _dbContext.SaveChangesAsync().ConfigureAwait(false);
@@ -295,6 +313,7 @@ namespace Opc.Ua.Cloud.Library
                 throw;
             }
         }
+
         public async Task DeleteNodeSetIndexForNodesetAsync(string nodesetId, List<CloudLibNodeSetModel> deletedNodeSets)
         {
             CloudLibNodeSetModel nodeSetModel = await _dbContext.nodeSetsWithUnapproved.FirstOrDefaultAsync(n => n.Identifier == nodesetId).ConfigureAwait(false);

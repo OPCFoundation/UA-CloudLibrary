@@ -1,7 +1,7 @@
 /* Author:      Chris Muench, C-Labs
  * Last Update: 4/8/2022
  * License:     MIT
- * 
+ *
  * Some contributions thanks to CESMII – the Smart Manufacturing Institute, 2021
  */
 
@@ -11,9 +11,10 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Export;
 
-namespace Opc.Ua.Cloud.Library
+namespace Opc.Ua.Cloud.Library.NodeSetIndex
 {
     //Glossary of Terms:
     //-----------------------------------
@@ -24,7 +25,7 @@ namespace Opc.Ua.Cloud.Library
     //UANodeSetImporter - Imports one or more OPC UA NodeSets resulting in a "NodeSetImportResult" containing all found Models and a list of missing dependencies
 
     /// <summary>
-    /// Main Importer class importing NodeSets 
+    /// Main Importer class importing NodeSets
     /// </summary>
     ///
     public interface IUANodeSetResolver
@@ -34,13 +35,11 @@ namespace Opc.Ua.Cloud.Library
 
     public class UANodeSetCacheManager
     {
-
         UANodeSetImportResult _results = new();
-        private readonly IUANodeSetCache _nodeSetCacheSystem;
+        private readonly UANodeSetIFileStorage _nodeSetCacheSystem;
         private readonly IUANodeSetResolver _nodeSetResolver;
 
-
-        public UANodeSetCacheManager(IUANodeSetCache nodeSetCacheSystem)
+        public UANodeSetCacheManager(UANodeSetIFileStorage nodeSetCacheSystem)
         {
             _nodeSetCacheSystem = nodeSetCacheSystem;
             _nodeSetResolver = null;
@@ -59,7 +58,7 @@ namespace Opc.Ua.Cloud.Library
         public UANodeSetImportResult ImportNodeSets(IEnumerable<string> nodeSetsXml, bool FailOnExisting = false, object TenantID = null)
         {
             _results.ErrorMessage = "";
-            List<ModelNameAndVersion> previousMissingModels = new List<ModelNameAndVersion>();
+            var previousMissingModels = new List<ModelNameAndVersion>();
             try
             {
                 bool rerun;
@@ -89,7 +88,8 @@ namespace Opc.Ua.Cloud.Library
                         _results.ErrorMessage = "No Nodesets specified in either nodeSetFilenames or nodeSetStreams";
                         return _results;
                     }
-                    _results.ResolveDependencies();
+
+                    _nodeSetCacheSystem.ResolveDependencies(_results);
 
                     if (_results?.MissingModels?.Any() == true)
                     {
@@ -97,7 +97,8 @@ namespace Opc.Ua.Cloud.Library
                         {
                             rerun |= _nodeSetCacheSystem.GetNodeSet(_results, t, TenantID);
                         }
-                        _results.ResolveDependencies();
+
+                        _nodeSetCacheSystem.ResolveDependencies(_results);
 
                         if (_results.MissingModels.Any())
                         {
@@ -132,9 +133,6 @@ namespace Opc.Ua.Cloud.Library
                         if (!rerun && !string.IsNullOrEmpty(_results.ErrorMessage))
                         {
                             _results.ErrorMessage = $"The following NodeSets are required: " + _results.ErrorMessage;
-                            //We must delete newly cached models as they need to be imported again into the backend
-                            if (FailOnExisting)
-                                _nodeSetCacheSystem.DeleteNewlyAddedNodeSetsFromCache(_results);
                         }
                     }
 

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Opc.Ua.Cloud.Library
+namespace Opc.Ua.Cloud.Library.NodeSetIndex
 {
     public static class NodeSetVersionUtils
     {

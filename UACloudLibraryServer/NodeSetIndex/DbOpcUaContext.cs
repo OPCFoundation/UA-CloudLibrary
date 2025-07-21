@@ -35,7 +35,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Opc.Ua.Export;
 
-namespace Opc.Ua.Cloud.Library
+namespace Opc.Ua.Cloud.Library.NodeSetIndex
 {
     public class DbOpcUaContext : DefaultOpcUaContext
     {
@@ -46,16 +46,17 @@ namespace Opc.Ua.Cloud.Library
         public DbOpcUaContext(DbContext appDbContext, ILogger logger, Func<ModelTableEntry, NodeSetModel> nodeSetFactory = null)
             : base(logger)
         {
-            this._dbContext = appDbContext;
-            this._nodeSetFactory = nodeSetFactory;
+            _dbContext = appDbContext;
+            _nodeSetFactory = nodeSetFactory;
+
             // Get all namespaces with at least one node: used for avoiding DB lookups
-            this._namespacesInDb = _dbContext.Set<NodeModel>().Select(nm => new { nm.NodeSet.ModelUri, nm.NodeSet.PublicationDate }).Distinct().AsEnumerable().Select(n => (n.ModelUri, n.PublicationDate)).ToList();
+            _namespacesInDb = _dbContext.Set<NodeModel>().Select(nm => new { nm.NodeSet.ModelUri, nm.NodeSet.PublicationDate }).Distinct().AsEnumerable().Select(n => (n.ModelUri, n.PublicationDate)).ToList();
         }
         public DbOpcUaContext(DbContext appDbContext, SystemContext systemContext, NodeStateCollection importedNodes, Dictionary<string, NodeSetModel> nodesetModels, ILogger logger, Func<ModelTableEntry, NodeSetModel> nodeSetFactory = null)
             : base(systemContext, importedNodes, nodesetModels, logger)
         {
-            this._dbContext = appDbContext;
-            this._nodeSetFactory = nodeSetFactory;
+            _dbContext = appDbContext;
+            _nodeSetFactory = nodeSetFactory;
         }
 
         public override TNodeModel GetModelForNode<TNodeModel>(string nodeId)

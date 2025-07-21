@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 
-namespace Opc.Ua.Cloud.Library
+namespace Opc.Ua.Cloud.Library.NodeSetIndex
 {
     public class NodeSetModelContext : DbContext
     {
@@ -109,7 +109,7 @@ namespace Opc.Ua.Cloud.Library
             }
             var omTd = modelBuilder.Entity<ObjectModel>()
                 .ToTable("Objects")
-                .HasOne<ObjectTypeModel>(o => o.TypeDefinition).WithMany()
+                .HasOne(o => o.TypeDefinition).WithMany()
                 ;
             if (cascadeDelete)
             {
@@ -181,16 +181,16 @@ namespace Opc.Ua.Cloud.Library
                 ;
 
             #region NodeSetModel collections
-            DeclareNodeSetCollection<ObjectTypeModel>(modelBuilder, nsm => nsm.ObjectTypes, cascadeDelete);
-            DeclareNodeSetCollection<VariableTypeModel>(modelBuilder, nsm => nsm.VariableTypes, cascadeDelete);
-            DeclareNodeSetCollection<DataTypeModel>(modelBuilder, nsm => nsm.DataTypes, cascadeDelete);
-            DeclareNodeSetCollection<ReferenceTypeModel>(modelBuilder, nsm => nsm.ReferenceTypes, cascadeDelete);
-            DeclareNodeSetCollection<ObjectModel>(modelBuilder, nsm => nsm.Objects, cascadeDelete);
-            DeclareNodeSetCollection<MethodModel>(modelBuilder, nsm => nsm.Methods, cascadeDelete);
-            DeclareNodeSetCollection<InterfaceModel>(modelBuilder, nsm => nsm.Interfaces, cascadeDelete);
-            DeclareNodeSetCollection<PropertyModel>(modelBuilder, nsm => nsm.Properties, cascadeDelete);
-            DeclareNodeSetCollection<DataVariableModel>(modelBuilder, nsm => nsm.DataVariables, cascadeDelete);
-            DeclareNodeSetCollection<NodeModel>(modelBuilder, nsm => nsm.UnknownNodes, cascadeDelete);
+            DeclareNodeSetCollection(modelBuilder, nsm => nsm.ObjectTypes, cascadeDelete);
+            DeclareNodeSetCollection(modelBuilder, nsm => nsm.VariableTypes, cascadeDelete);
+            DeclareNodeSetCollection(modelBuilder, nsm => nsm.DataTypes, cascadeDelete);
+            DeclareNodeSetCollection(modelBuilder, nsm => nsm.ReferenceTypes, cascadeDelete);
+            DeclareNodeSetCollection(modelBuilder, nsm => nsm.Objects, cascadeDelete);
+            DeclareNodeSetCollection(modelBuilder, nsm => nsm.Methods, cascadeDelete);
+            DeclareNodeSetCollection(modelBuilder, nsm => nsm.Interfaces, cascadeDelete);
+            DeclareNodeSetCollection(modelBuilder, nsm => nsm.Properties, cascadeDelete);
+            DeclareNodeSetCollection(modelBuilder, nsm => nsm.DataVariables, cascadeDelete);
+            DeclareNodeSetCollection(modelBuilder, nsm => nsm.UnknownNodes, cascadeDelete);
             #endregion
 
             #region NodeModel collections
@@ -206,7 +206,7 @@ namespace Opc.Ua.Cloud.Library
 
             {
                 var orn = modelBuilder.Entity<NodeModel>()
-                    .OwnsMany<NodeModel.NodeAndReference>(nm => nm.OtherReferencedNodes)
+                    .OwnsMany(nm => nm.OtherReferencedNodes)
                     ;
                 orn.WithOwner()
                     .HasForeignKey("OwnerNodeId", "OwnerModelUri", "OwnerPublicationDate")
@@ -245,7 +245,7 @@ namespace Opc.Ua.Cloud.Library
             }
             {
                 var orn = modelBuilder.Entity<NodeModel>()
-                    .OwnsMany<NodeModel.NodeAndReference>(nm => nm.OtherReferencingNodes)
+                    .OwnsMany(nm => nm.OtherReferencingNodes)
                     ;
                 orn.WithOwner()
                     .HasForeignKey("OwnerNodeId", "OwnerModelUri", "OwnerPublicationDate")

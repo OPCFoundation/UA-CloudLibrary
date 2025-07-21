@@ -99,7 +99,7 @@ namespace Opc.Ua.Cloud.Library
             services.AddScoped<ICaptchaValidation, CaptchaValidation>();
 
             services.AddTransient<IEmailSender, PostmarkEmailSender>();
-            
+
             services.AddLogging(builder => builder.AddConsole());
 
             services.AddAuthentication()
@@ -109,7 +109,7 @@ namespace Opc.Ua.Cloud.Library
 #if APIKEY_AUTH
                 .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKeyAuthentication", null);
 #endif
-            
+
             //for captcha validation call
             //add httpclient service for dependency injection
             //https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-6.0
@@ -235,9 +235,8 @@ namespace Opc.Ua.Cloud.Library
             string serviceName = Configuration["Application"] ?? "UACloudLibrary";
 
             services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Directory.GetCurrentDirectory()));
-            
-            services.AddScoped<NodeSetModelIndexer>();
-            services.AddScoped<NodeSetModelIndexerFactory>();
+
+            services.AddSingleton<NodeSetModelIndexer>();
 
             services.Configure<IISServerOptions>(options => {
                 options.AllowSynchronousIO = true;
