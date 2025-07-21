@@ -40,9 +40,9 @@ namespace Opc.Ua.Cloud.Library
     /// <summary>
     /// Make the UANodeSetImporter work over IFileStorage
     /// </summary>
-    public class UANodeSetIFileStorage
+    public class UANodeSetCache
     {
-        public UANodeSetIFileStorage(IFileStorage storage, AppDbContext dbContext)
+        public UANodeSetCache(IFileStorage storage, AppDbContext dbContext)
         {
             _storage = storage;
             _dbContext = dbContext;

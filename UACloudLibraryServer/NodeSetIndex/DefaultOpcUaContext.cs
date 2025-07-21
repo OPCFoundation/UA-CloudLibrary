@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Logging;
@@ -25,8 +26,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             var typeTable = new TypeTable(namespaceTable);
             _systemContext = new SystemContext() {
                 NamespaceUris = namespaceTable,
-                TypeTable = typeTable,
-                EncodeableFactory = new DynamicEncodeableFactory(EncodeableFactory.GlobalFactory),
+                TypeTable = typeTable
             };
         }
 
@@ -194,15 +194,12 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
         public virtual (string Json, bool IsScalar) JsonEncodeVariant(Variant wrappedValue, DataTypeModel dataType = null)
         {
-            return NodeModelUtils.JsonEncodeVariant(_systemContext, wrappedValue, dataType, ReencodeExtensionsAsJson, EncodeJsonScalarsAsValue);
+            throw new NotImplementedException();
         }
 
         public virtual Variant JsonDecodeVariant(string jsonVariant, DataTypeModel dataType = null)
         {
-            dataType ??= this.GetModelForNode<DataTypeModel>(this.GetModelNodeId(DataTypeIds.String));
-            var variant = NodeModelUtils.JsonDecodeVariant(jsonVariant, new ServiceMessageContext { NamespaceUris = _systemContext.NamespaceUris }, dataType, EncodeJsonScalarsAsValue);
-
-            return variant;
+            throw new NotImplementedException();
         }
 
         public string GetModelBrowseName(QualifiedName browseName)

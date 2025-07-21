@@ -64,7 +64,7 @@ namespace Opc.Ua.Cloud.Library
 
                 var sw = Stopwatch.StartNew();
 
-                var myNodeSetCache = new UANodeSetIFileStorage(_storage, _dbContext);
+                var myNodeSetCache = new UANodeSetCache(_storage, _dbContext);
                 var opcContext = new CloudLibDbOpcUaContext(_dbContext, _logger, model => CloudLibNodeSetModel.FromModelAsync(model, _dbContext).Result);
                 var nodesetImporter = new UANodeSetModelImporter((IOpcUaContext)opcContext, myNodeSetCache);
 

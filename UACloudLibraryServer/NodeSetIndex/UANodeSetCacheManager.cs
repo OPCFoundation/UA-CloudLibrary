@@ -36,10 +36,10 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
     public class UANodeSetCacheManager
     {
         UANodeSetImportResult _results = new();
-        private readonly UANodeSetIFileStorage _nodeSetCacheSystem;
+        private readonly UANodeSetCache _nodeSetCacheSystem;
         private readonly IUANodeSetResolver _nodeSetResolver;
 
-        public UANodeSetCacheManager(UANodeSetIFileStorage nodeSetCacheSystem)
+        public UANodeSetCacheManager(UANodeSetCache nodeSetCacheSystem)
         {
             _nodeSetCacheSystem = nodeSetCacheSystem;
             _nodeSetResolver = null;

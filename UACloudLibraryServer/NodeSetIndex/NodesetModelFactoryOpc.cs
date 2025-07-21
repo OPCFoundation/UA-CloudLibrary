@@ -1111,10 +1111,6 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             base.Initialize(opcContext, opcNode, recursionDepth);
             var variableTypeState = opcNode as BaseVariableTypeState;
             InitializeDataTypeInfo(_model, opcContext, variableTypeState, recursionDepth);
-            //variableTypeState.ValueRank
-            //variableTypeState.Value
-            //variableTypeState.ArrayDimensions
-            //_model.
         }
 
         internal static void InitializeDataTypeInfo(VariableTypeModel model, IOpcUaContext opcContext, BaseVariableTypeState variableTypeNode, int recursionDepth)
@@ -1125,6 +1121,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
         internal static void InitializeDataTypeInfo(IVariableDataTypeInfo model, IOpcUaContext opcContext, string variableNodeDiagInfo, NodeId dataTypeNodeId, int valueRank, ReadOnlyList<uint> arrayDimensions, Variant wrappedValue, int recursionDepth)
         {
             var dataType = opcContext.GetNode(dataTypeNodeId);
+
             if (dataType is DataTypeState)
             {
                 model.DataType = Create<DataTypeModelFactoryOpc, DataTypeModel>(opcContext, dataType as DataTypeState, null, recursionDepth);
@@ -1140,6 +1137,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     throw new Exception($"{variableNodeDiagInfo}: Unexpected node state {dataTypeNodeId}/{dataType?.GetType().FullName}.");
                 }
             }
+
             if (valueRank != -1)
             {
                 model.ValueRank = valueRank;
@@ -1148,14 +1146,15 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     model.ArrayDimensions = string.Join(",", arrayDimensions);
                 }
             }
+
             if (wrappedValue.Value != null)
             {
                 var encodedValue = opcContext.JsonEncodeVariant(wrappedValue, model.DataType);
                 model.Value = encodedValue.Json;
             }
         }
-
     }
+
     public class DataTypeModelFactoryOpc : BaseTypeModelFactoryOpc<DataTypeModel>
     {
         protected override void Initialize(IOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
@@ -1215,6 +1214,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                             {
                                 throw new Exception($"Unable to find node state for data type {field.DataType} in {opcNode}");
                             }
+
                             throw new Exception($"Unexpected node state {dataType?.GetType()?.FullName} for data type {field.DataType} in {opcNode}");
                         }
                     }

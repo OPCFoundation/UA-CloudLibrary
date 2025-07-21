@@ -23,7 +23,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
         private readonly UANodeSetCacheManager _nodeSetCacheManager;
         private readonly IOpcUaContext _opcContext;
 
-        public UANodeSetModelImporter(IOpcUaContext opcContext, UANodeSetIFileStorage nodeSetCache)
+        public UANodeSetModelImporter(IOpcUaContext opcContext, UANodeSetCache nodeSetCache)
         {
             _opcContext = opcContext;
             _nodeSetCacheManager = new UANodeSetCacheManager(nodeSetCache);
