@@ -32,12 +32,9 @@
       "environmentVariables": {
         "PostgreSQLEndpoint": "localhost",
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "HostingPlatform": "Azure",
         "PostgreSQLUsername": "",
         "PostgreSQLPassword": "",
-        "BlobStorageConnectionString": "",
-        "EmailSenderAPIKey": "",
-        "DataProtectionBlobName": ""
+        "EmailSenderAPIKey": ""
       },
       "publishAllPorts": true,
       "useSSL": true
