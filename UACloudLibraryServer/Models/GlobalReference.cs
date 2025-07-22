@@ -1,19 +1,19 @@
-﻿
+
 namespace AdminShell
 {
-    using Newtonsoft.Json;
     using System.Collections.Generic;
     using System.ComponentModel.DataAnnotations;
     using System.Runtime.Serialization;
     using System.Xml.Serialization;
+    using Newtonsoft.Json;
 
     [DataContract]
     public class GlobalReference : Reference
     {
         [Required]
-        [DataMember(Name="value")]
-        [XmlArray(ElementName="values")]
-        [XmlArrayItem(ElementName="value")]
+        [DataMember(Name = "value")]
+        [XmlArray(ElementName = "values")]
+        [XmlArrayItem(ElementName = "value")]
         public List<Identifier> Value { get; set; } = new();
 
         public GlobalReference() : base() { }

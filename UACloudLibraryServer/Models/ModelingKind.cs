@@ -1,9 +1,9 @@
 
 namespace AdminShell
 {
-    using Newtonsoft.Json;
     using System.Runtime.Serialization;
     using System.Xml.Serialization;
+    using Newtonsoft.Json;
 
     [DataContract]
     [JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]

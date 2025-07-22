@@ -75,7 +75,11 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 }
                 else
                 {
-                    // Preexisting namespace: find an entity if already in EF cache
+                    // With EF9 it is no longer possible to create proxy entities with shadow properties
+                    // TODO Find a way to optimize loading the most commonly used nodes to minimize database roundtrips
+                    // - Preload
+                    // - Find way to make proxies work for entities with shadow properties
+                    // Preexisting namespace: find an entity if already in the database
                     int retryCount = 0;
                     bool lookedUp = false;
                     do

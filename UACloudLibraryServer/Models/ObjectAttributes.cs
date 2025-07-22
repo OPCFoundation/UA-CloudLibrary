@@ -8,7 +8,7 @@ namespace AdminShell
     [DataContract]
     public class ObjectAttributes
     {
-        [DataMember(Name="objectAttribute")]
+        [DataMember(Name = "objectAttribute")]
         [XmlArray(ElementName = "objectAttribute")]
         public List<Property> ObjectAttribute { get; set; }
     }

@@ -1,18 +1,18 @@
-﻿
+
 namespace AdminShell
 {
-    using Newtonsoft.Json;
     using System.ComponentModel.DataAnnotations;
     using System.Runtime.Serialization;
     using System.Xml.Serialization;
+    using Newtonsoft.Json;
 
     [DataContract]
-    [XmlType(TypeName="langString")]
+    [XmlType(TypeName = "langString")]
     public class LangString
     {
         [Required]
-        [DataMember(Name="language")]
-        [XmlAttribute(AttributeName="lang")]
+        [DataMember(Name = "language")]
+        [XmlAttribute(AttributeName = "lang")]
         [MetaModelName("LangString.Language")]
         public string Language { get; set; } = "en";
 

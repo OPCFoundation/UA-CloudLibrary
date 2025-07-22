@@ -10,19 +10,19 @@ namespace AdminShell
         /// <summary>
         /// Gets or Sets Description
         /// </summary>
-        [DataMember(Name="description")]
+        [DataMember(Name = "description")]
         public List<LangString> Description { get; set; }
 
         /// <summary>
         /// Gets or Sets DisplayName
         /// </summary>
-        [DataMember(Name="displayName")]
+        [DataMember(Name = "displayName")]
         public List<LangString> DisplayName { get; set; }
 
         /// <summary>
         /// Gets or Sets Extensions
         /// </summary>
-        [DataMember(Name="extensions")]
+        [DataMember(Name = "extensions")]
         public List<Extension> Extensions { get; set; }
     }
 }

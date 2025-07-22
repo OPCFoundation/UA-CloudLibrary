@@ -15,11 +15,11 @@ namespace AdminShell
             Version = administration.Version;
         }
 
-        [DataMember(Name="revision")]
-        [XmlElement(ElementName= "revision")]
+        [DataMember(Name = "revision")]
+        [XmlElement(ElementName = "revision")]
         public string Revision { get; set; }
 
-        [DataMember(Name="version")]
+        [DataMember(Name = "version")]
         [XmlElement(ElementName = "version")]
         public string Version { get; set; }
     }
