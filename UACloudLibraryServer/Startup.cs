@@ -105,7 +105,6 @@ namespace Opc.Ua.Cloud.Library
             services.AddAuthentication()
                 .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null)
                 .AddScheme<AuthenticationSchemeOptions, SignedInUserAuthenticationHandler>("SignedInUserAuthentication", null)
-                .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("Bearer", null)
 #if APIKEY_AUTH
                 .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKeyAuthentication", null);
 #endif
