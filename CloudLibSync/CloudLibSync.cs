@@ -34,17 +34,17 @@ namespace Opc.Ua.CloudLib.Sync
         {
             var sourceClient = new UACloudLibClient(sourceUrl, sourceUserName, sourcePassword);
 
-            GraphQlResult<Nodeset> nodeSetResult;
-            string? cursor = null;
+            List<UANodesetResult> nodeSetResult;
+            int cursor = 0;
             do
             {
                 // Get all NodeSets
-                nodeSetResult = await sourceClient.GetNodeSetsAsync(after: cursor, first: 50).ConfigureAwait(false);
+                nodeSetResult = await sourceClient.GetBasicNodesetInformationAsync(cursor, 50).ConfigureAwait(false);
 
-                foreach (GraphQlNodeAndCursor<Nodeset>? nodeSetAndCursor in nodeSetResult.Edges)
+                foreach (UANodesetResult nodeSetAndCursor in nodeSetResult)
                 {
                     // Download each NodeSet
-                    string identifier = nodeSetAndCursor.Node.Identifier.ToString(CultureInfo.InvariantCulture);
+                    string identifier = nodeSetAndCursor.Id.ToString(CultureInfo.InvariantCulture);
                     UANameSpace uaNamespace = await sourceClient.DownloadNodesetAsync(identifier).ConfigureAwait(false);
 
                     if (uaNamespace?.Nodeset != null)
@@ -77,9 +77,9 @@ namespace Opc.Ua.CloudLib.Sync
                         }
                     }
                 }
-                cursor = nodeSetResult.PageInfo.EndCursor;
+                cursor = nodeSetResult.Count;
             }
-            while (nodeSetResult.PageInfo.HasNextPage);
+            while (nodeSetResult.Count > 0);
         }
 
         /// <summary>

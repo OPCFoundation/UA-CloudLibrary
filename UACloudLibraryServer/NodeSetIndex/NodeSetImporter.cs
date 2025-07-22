@@ -40,9 +40,9 @@ namespace Opc.Ua.Cloud.Library
     /// <summary>
     /// Make the UANodeSetImporter work over IFileStorage
     /// </summary>
-    public class UANodeSetCache
+    public class NodeSetImporter
     {
-        public UANodeSetCache(IFileStorage storage, AppDbContext dbContext)
+        public NodeSetImporter(IFileStorage storage, AppDbContext dbContext)
         {
             _storage = storage;
             _dbContext = dbContext;
@@ -51,14 +51,14 @@ namespace Opc.Ua.Cloud.Library
         private readonly IFileStorage _storage;
         private readonly AppDbContext _dbContext;
 
-        public bool AddNodeSet(UANodeSetImportResult results, string nodeSetXml, object TenantID, bool requested)
+        public bool ImportNodeSet(UANodeSetImportResult results, string nodeSetXml, object TenantID, bool requested)
         {
             // Assume already added to cloudlib storage before
             Export.UANodeSet nodeSet = InfoModelController.ReadUANodeSet(nodeSetXml);
 
             // Assumption: exactly one nodeSetXml was passed into UANodeSetImport.ImportNodeSets and it's the first one being added.
             bool isNew = (results.Models.Count == 0);
-            (ModelValue Model, bool Added) modelInfo = AddModelAndDependencies(results, nodeSet, null, nodeSet.Models?[0], null, isNew);
+            (ModelValue Model, bool Added) modelInfo = ImportModelAndDependencies(results, nodeSet, null, nodeSet.Models?[0], null, isNew);
             modelInfo.Model.RequestedForThisImport = requested;
 
             return modelInfo.Added;
@@ -73,7 +73,7 @@ namespace Opc.Ua.Cloud.Library
         /// <param name="filePath"></param>
         /// <param name="WasNewSet"></param>
         /// <returns>The ModelValue created or found in the results</returns>
-        public (ModelValue Model, bool Added) AddModelAndDependencies(UANodeSetImportResult results, UANodeSet nodeSet, string headerComment, ModelTableEntry ns, string filePath, bool wasNewFile)
+        public (ModelValue Model, bool Added) ImportModelAndDependencies(UANodeSetImportResult results, UANodeSet nodeSet, string headerComment, ModelTableEntry ns, string filePath, bool wasNewFile)
         {
             NodeModelUtils.FixupNodesetVersionFromMetadata(nodeSet, null);
             bool bAdded = false;
@@ -157,7 +157,7 @@ namespace Opc.Ua.Cloud.Library
                 string nodeSetXml = _storage.DownloadFileAsync(tFileName).Result;
                 if (nodeSetXml != null)
                 {
-                    AddNodeSet(results, nodeSetXml, TenantID, false);
+                    ImportNodeSet(results, nodeSetXml, TenantID, false);
                     return true;
                 }
             }

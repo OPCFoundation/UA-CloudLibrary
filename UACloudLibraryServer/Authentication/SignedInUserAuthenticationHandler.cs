@@ -60,7 +60,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
                 {
                     return Task.FromResult(AuthenticateResult.NoResult());
                 }
-                // Allow a previously authenticated, signed in user (for example via ASP.Net cookies from the graphiql browser)
+                // Allow a previously authenticated, signed in user (for example via ASP.Net cookies)
                 var principal2 = new ClaimsPrincipal(Request.HttpContext.User.Identity);
                 var ticket2 = new AuthenticationTicket(principal2, Scheme.Name);
 

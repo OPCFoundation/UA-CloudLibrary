@@ -291,7 +291,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             var pubDateProp = $"NodeSet{collectionName}PublicationDate";
             modelBuilder.Entity<TEntity>().Property<string>(modelProp);
             modelBuilder.Entity<TEntity>().Property<DateTime?>(pubDateProp);
-            var propFK = modelBuilder.Entity<TEntity>().HasOne("CESMII.OpcUa.NodeSetModel.NodeSetModel", null)
+            var propFK = modelBuilder.Entity<TEntity>().HasOne("Opc.Ua.Cloud.Library.NodeSetModel", null)
                 .WithMany(collectionName)
                 .HasForeignKey(modelProp, pubDateProp);
             if (cascadeDelete)

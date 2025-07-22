@@ -32,13 +32,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Opc.Ua.Cloud.Library.Controllers;
 using Opc.Ua.Cloud.Library.Interfaces;
 using Opc.Ua.Cloud.Library.NodeSetIndex;
-using Opc.Ua.Export;
 
 namespace Opc.Ua.Cloud.Library
 {
@@ -48,10 +44,10 @@ namespace Opc.Ua.Cloud.Library
         private readonly ILogger _logger;
         private readonly IFileStorage _storage;
 
-        public NodeSetModelIndexer(AppDbContext dbContext, ILogger logger, IFileStorage storage)
+        public NodeSetModelIndexer(AppDbContext dbContext, ILoggerFactory logger, IFileStorage storage)
         {
             _dbContext = dbContext;
-            _logger = logger;
+            _logger = logger.CreateLogger("NodeSetModelIndexer");
             _storage = storage;
         }
 
@@ -64,9 +60,9 @@ namespace Opc.Ua.Cloud.Library
 
                 var sw = Stopwatch.StartNew();
 
-                var myNodeSetCache = new UANodeSetCache(_storage, _dbContext);
+                var myNodeSetCache = new NodeSetImporter(_storage, _dbContext);
                 var opcContext = new CloudLibDbOpcUaContext(_dbContext, _logger, model => CloudLibNodeSetModel.FromModelAsync(model, _dbContext).Result);
-                var nodesetImporter = new UANodeSetModelImporter((IOpcUaContext)opcContext, myNodeSetCache);
+                var nodesetImporter = new NodeSetModelImporter((IOpcUaContext)opcContext, myNodeSetCache);
 
                 List<NodeSetModel> loadedNodesetModels = await nodesetImporter.ImportNodeSetModelAsync(nodeSetXML, identifier).ConfigureAwait(false);
 

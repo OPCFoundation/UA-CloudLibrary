@@ -18,15 +18,15 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
     /// <summary>
     /// Main Importer class importing NodeSets
     /// </summary>
-    public class UANodeSetModelImporter
+    public class NodeSetModelImporter
     {
-        private readonly UANodeSetCacheManager _nodeSetCacheManager;
+        private readonly NodeSetImporterManager _nodeSetCacheManager;
         private readonly IOpcUaContext _opcContext;
 
-        public UANodeSetModelImporter(IOpcUaContext opcContext, UANodeSetCache nodeSetCache)
+        public NodeSetModelImporter(IOpcUaContext opcContext, NodeSetImporter nodeSetCache)
         {
             _opcContext = opcContext;
-            _nodeSetCacheManager = new UANodeSetCacheManager(nodeSetCache);
+            _nodeSetCacheManager = new NodeSetImporterManager(nodeSetCache);
         }
 
         /// <summary>

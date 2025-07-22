@@ -33,13 +33,13 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
         Task<IEnumerable<string>> ResolveNodeSetsAsync(List<ModelNameAndVersion> missingModels);
     }
 
-    public class UANodeSetCacheManager
+    public class NodeSetImporterManager
     {
         UANodeSetImportResult _results = new();
-        private readonly UANodeSetCache _nodeSetCacheSystem;
+        private readonly NodeSetImporter _nodeSetCacheSystem;
         private readonly IUANodeSetResolver _nodeSetResolver;
 
-        public UANodeSetCacheManager(UANodeSetCache nodeSetCacheSystem)
+        public NodeSetImporterManager(NodeSetImporter nodeSetCacheSystem)
         {
             _nodeSetCacheSystem = nodeSetCacheSystem;
             _nodeSetResolver = null;
@@ -71,7 +71,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                         // Must enumerate the nodeSetsXml only once in case the caller creates/loads strings as needed (streams of files)
                         foreach (var nodeSetXml in nodeSetsXml)
                         {
-                            var JustFoundNewNodeSet = _nodeSetCacheSystem.AddNodeSet(_results, nodeSetXml, TenantID, true);
+                            var JustFoundNewNodeSet = _nodeSetCacheSystem.ImportNodeSet(_results, nodeSetXml, TenantID, true);
                             NewNodeSetFound |= JustFoundNewNodeSet;
                         }
                         nodeSetsXml = null;

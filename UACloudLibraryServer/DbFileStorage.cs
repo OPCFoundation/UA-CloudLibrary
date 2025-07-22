@@ -153,6 +153,7 @@ namespace Opc.Ua.Cloud.Library
             modelBuilder.Entity<DbFiles>();
         }
     }
+
     public class DbFiles
     {
         [Key]
