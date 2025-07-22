@@ -89,6 +89,7 @@ namespace Opc.Ua.Cloud.Library
 
         IQueryable<CloudLibNodeSetModel> GetNodeSetsPendingApproval();
     }
+
     public enum ApprovalStatus
     {
         Pending,
