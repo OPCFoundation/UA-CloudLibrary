@@ -100,43 +100,37 @@ namespace Opc.Ua.CloudLib.Sync
             bool bAdded;
             do
             {
-                List<Nodeset> targetNodesets = new();
-                GraphQlResult<Nodeset> targetNodeSetResult;
-                string? targetCursor = null;
+                List<UANodesetResult> targetNodesets = new();
+                List<UANodesetResult> targetNodeSetResult;
+                int targetCursor = 0;
                 do
                 {
-                    targetNodeSetResult = await targetClient.GetNodeSetsAsync(after: targetCursor, first: 50).ConfigureAwait(false);
-                    targetNodesets.AddRange(targetNodeSetResult.Edges.Select(e => e.Node));
-                    targetCursor = targetNodeSetResult.PageInfo.EndCursor;
-                } while (targetNodeSetResult.PageInfo.HasNextPage);
+                    targetNodeSetResult = await targetClient.GetBasicNodesetInformationAsync(targetCursor, 50).ConfigureAwait(false);
+                    targetNodesets.AddRange(targetNodeSetResult);
+                    targetCursor = targetNodeSetResult.Count;
+                }
+                while (targetNodeSetResult.Count > 0);
 
-                targetCursor = null;
-                do
-                {
-                    targetNodeSetResult = await targetClient.GetNodeSetsPendingApprovalAsync(after: targetCursor, first: 50).ConfigureAwait(false);
-                    targetNodesets.AddRange(targetNodeSetResult.Edges.Select(e => e.Node));
-                    targetCursor = targetNodeSetResult.PageInfo.EndCursor;
-                } while (targetNodeSetResult.PageInfo.HasNextPage);
                 bAdded = false;
 
-                GraphQlResult<Nodeset> sourceNodeSetResult;
-                string? sourceCursor = null;
+                List<UANodesetResult> sourceNodeSetResult;
+                int sourceCursor = 0;
                 do
                 {
-                    sourceNodeSetResult = await sourceClient.GetNodeSetsAsync(after: sourceCursor, first: 50).ConfigureAwait(false);
+                    sourceNodeSetResult = await sourceClient.GetBasicNodesetInformationAsync(sourceCursor, 50).ConfigureAwait(false);
 
                     // Get the ones that are not already on the target
-                    var toSync = sourceNodeSetResult.Edges
-                        .Select(e => e.Node)
+                    var toSync = sourceNodeSetResult
                         .Where(source => !targetNodesets
                             .Any(target =>
-                                source.NamespaceUri?.OriginalString== target.NamespaceUri?.OriginalString
-                                && (source.PublicationDate == target.PublicationDate || (source.Identifier != 0 && source.Identifier == target.Identifier))
+                                source.NameSpaceUri == target.NameSpaceUri
+                                && (source.PublicationDate == target.PublicationDate || (source.Id != 0 && source.Id == target.Id))
                         )).ToList();
-                    foreach (Nodeset? nodeSet in toSync)
+
+                    foreach (UANodesetResult? nodeSet in toSync)
                     {
                         // Download each NodeSet
-                        string identifier = nodeSet.Identifier.ToString(CultureInfo.InvariantCulture);
+                        string identifier = nodeSet.Id.ToString(CultureInfo.InvariantCulture);
                         UANameSpace uaNamespace = await sourceClient.DownloadNodesetAsync(identifier).ConfigureAwait(false);
 
                         try
@@ -159,9 +153,11 @@ namespace Opc.Ua.CloudLib.Sync
                             _logger.LogError($"Error uploading {uaNamespace.Nodeset.NamespaceUri}, {identifier}: {ex.Message}");
                         }
                     }
-                    sourceCursor = sourceNodeSetResult.PageInfo.EndCursor;
-                } while (sourceNodeSetResult.PageInfo.HasNextPage);
-            } while (bAdded);
+                    sourceCursor = sourceNodeSetResult.Count;
+                }
+                while (sourceNodeSetResult.Count > 0);
+            }
+            while (bAdded);
         }
 
         /// <summary>
