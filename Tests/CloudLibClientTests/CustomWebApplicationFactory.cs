@@ -62,8 +62,6 @@ namespace CloudLibClient.Tests
         {
             HttpClient httpClient = CreateAuthorizedClient();
             var client = new UACloudLibClient(httpClient);
-            // Ensure all test cases hit GraphQL. Set to true in the test case if explicitly testing fallbacks
-            client._allowRestFallback = false;
             return client;
         }
         internal HttpClient CreateAuthorizedClient()

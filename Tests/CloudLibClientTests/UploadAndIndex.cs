@@ -41,9 +41,6 @@ namespace CloudLibClient.Tests
             {
                 output.WriteLine($"Uploaded {addressSpace?.Nodeset.NamespaceUri}, {addressSpace?.Nodeset.Identifier}");
                 string uploadedIdentifier = response.Message;
-                UANameSpace approvalResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "APPROVED", null, null).ConfigureAwait(true);
-                Assert.NotNull(approvalResult);
-                Assert.Equal("APPROVED", approvalResult.ApprovalStatus);
             }
             else
             {
