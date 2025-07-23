@@ -255,9 +255,10 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     if (referencedNode != null)
                     {
                         throw new Exception($"Property {referencedNode} has unexpected type {referencedNode.GetType()} in {parent}");
-                }
+                    }
+
                     throw new Exception($"Property {referencedNode} not found in {parent}");
-            }
+                }
             }
             else if (referenceTypes.Any(n => n.NodeId == ReferenceTypeIds.HasProperty))
             {
@@ -267,6 +268,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     // EU Information was captured in the parent model
                     return;
                 }
+
                 // OptionSetValues are not commonly used and if they are they don't differ from the enum definitiones except for reserved bits: just preserve as regular properties/values for now so we can round trip without designer support
                 //else if (referencedNode.BrowseName?.Name == BrowseNames.OptionSetValues)
                 //{
@@ -289,6 +291,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 //        opcContext.Logger.LogInformation($"Unexpected parent {parent} of type {parent.GetType()} for OptionSetValues property {referencedNode}");
                 //    }
                 //}
+
                 if (referencedNode is PropertyState propertyState)
                 {
                     var parent = parentFactory();
@@ -322,9 +325,9 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     if (referencedNode != null)
                     {
                         throw new Exception($"Property {referencedNode} has unexpected type {referencedNode.GetType()} in {parent}");
-                }
-                    throw new Exception($"Property {referencedNode} not found in {parent}");
+                    }
 
+                    throw new Exception($"Property {referencedNode} not found in {parent}");
                 }
             }
             else if (referenceTypes.Any(n => n.NodeId == ReferenceTypeIds.HasInterface))
@@ -353,6 +356,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     {
                         throw new Exception($"Interface {referencedNode} has unexpected type {referencedNode.GetType()} in {parent}");
                     }
+
                     throw new Exception($"Interface {referencedNode} not found in {parent}");
                 }
             }
@@ -442,6 +446,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             {
                 return;
             }
+
             if (setParent
                 && (uaChildObject is InstanceModelBase uaInstance
                     || uaChildObject is NodeModel.NodeAndReference nr
@@ -455,6 +460,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     logger.LogInformation($"{uaInstance} has more than one parent. Ignored parent: {parent}, using {uaInstance.Parent}");
                 }
             }
+
             if (collection?.Contains(uaChildObject) == false)
             {
                 collection.Add(uaChildObject);
@@ -477,6 +483,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     }
                 }
             }
+
             return false;
         }
 
@@ -566,6 +573,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     return true;
                 }
             }
+
             return false;
         }
 
@@ -614,6 +622,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     // Nodesets commonly indicate that EURange are required on instances by specifying an enpty EURange in the class
                 }
             }
+
             return (range, rangeNodeId, rangeModellingRule, rangeAccessLevel);
         }
 
@@ -685,6 +694,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             {
                 baseTypes.Add(objectType);
             }
+
             var currentObjectType = objectType;
             while (currentObjectType?.SuperTypeId != null)
             {
@@ -699,6 +709,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 }
                 currentObjectType = objectSuperType as BaseTypeState;
             }
+
             return baseTypes;
         }
 
@@ -714,9 +725,11 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 // Node was captured into a parent: don't create separate model for it
                 return null;
             }
+
             string namespaceUri = opcContext.NamespaceUris.GetString(opcNode.NodeId.NamespaceIndex);
             var nodeModel = Create<TNodeModel2>(opcContext, nodeId, new ModelTableEntry { ModelUri = namespaceUri }, customState, out var created);
             var nodeModelOpc = new TNodeModelOpc { _model = nodeModel, Logger = opcContext.Logger };
+
             if (created || nodeModel.ReferencesNotResolved)
             {
                 nodeModelOpc.Initialize(opcContext, opcNode, recursionDepth);
@@ -725,6 +738,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             {
                 opcContext.Logger.LogTrace($"Using previously created node model {nodeModel} for {opcNode}");
             }
+
             return nodeModel;
         }
 
@@ -740,6 +754,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 {
                     throw new Exception($"Internal error - Type mismatch for node {nodeId}: NodeModel of type {typeof(TNodeModel2)} was previously created with type {nodeModelBase.GetType()}.");
                 }
+
                 var nodesetModel = opcContext.GetOrAddNodesetModel(opcModelInfo);
 
                 nodeModel = new TNodeModel2();
@@ -748,6 +763,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 {
                     nodesetModel.CustomState = customState;
                 }
+
                 nodeModel.NodeId = nodeId;
                 nodeModel.CustomState = customState;
                 created = true;
@@ -839,6 +855,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 {
                     throw new Exception($"Unable to resolve modelling rule {modellingRuleId}: dependency on UA nodeset not declared?");
                 }
+
                 _model.ModellingRule = modellingRule.DisplayName.Text;
             }
             if (uaInstance.Parent != null)
@@ -882,6 +899,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     // Handle cases where the supertype is of a different model class, for example the InterfaceModel for BaseInterfaceType has a supertype ObjectTypeModel, while all other InterfaceModels have a supertype of Interfacemodel
                     superTypeModel = opcContext.GetModelForNode<BaseTypeModel>(superTypeNodeId);
                 }
+
                 if (superTypeModel == null)
                 {
                     var superTypeState = opcContext.GetNode(uaType.SuperTypeId) as BaseTypeState;
@@ -895,6 +913,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                         }
                     }
                 }
+
                 _model.SuperType = superTypeModel;
                 _model.RemoveInheritedAttributes(_model.SuperType);
                 foreach (var uaInterface in _model.Interfaces)
@@ -947,11 +966,11 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 || p.BrowseName.EndsWith(BrowseNames.EnumStrings) && p.BrowseName != opcContext.GetModelBrowseName(BrowseNames.EnumStrings)
                 || p.BrowseName.EndsWith(BrowseNames.OptionSetValues) && p.BrowseName != opcContext.GetModelBrowseName(BrowseNames.OptionSetValues)
             );
+
             if (invalidBrowseNameOnTypeInformation.Any())
             {
                 opcContext.Logger.LogWarning($"Found type definition node with browsename in non-default namespace: {string.Join("", invalidBrowseNameOnTypeInformation.Select(ti => ti.BrowseName))}");
             }
-
 
             if (string.IsNullOrEmpty(_model.NodeSet.XmlSchemaUri) && variableNode.TypeDefinitionId == VariableTypeIds.DataTypeDictionaryType)
             {
@@ -1079,6 +1098,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                                 NodeId = argumentVariable.NodeId,
                                 CustomState = argumentVariable.CustomState,
                             };
+
                             VariableTypeModelFactoryOpc.InitializeDataTypeInfo(argumentModel, opcContext, $"Method {_model} Argument {arg.Name}", arg.DataType, arg.ValueRank, new ReadOnlyList<uint>(arg.ArrayDimensions, false), new Variant(arg.Value), recursionDepth);
                         }
                         else
@@ -1093,6 +1113,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                                 argumentModel.ModellingRule = "Mandatory";
                             }
                         }
+
                         modelArguments.Add(argumentModel);
                     }
                     else
@@ -1241,6 +1262,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                             {
                                 symbolicName = uaEnum?.Definition?.Field?.FirstOrDefault(f => f.Name == field.Name)?.SymbolicName;
                             }
+
                             var enumField = new DataTypeModel.UaEnumField
                             {
                                 Name = field.Name,
@@ -1249,6 +1271,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                                 Description = field.Description.ToModel(),
                                 SymbolicName = symbolicName,
                             };
+
                             _model.EnumFields.Add(enumField);
                         }
                     }

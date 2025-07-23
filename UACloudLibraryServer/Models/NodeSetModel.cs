@@ -9,8 +9,11 @@ namespace Opc.Ua.Cloud.Library
     public class NodeSetModel
     {
         public string ModelUri { get; set; }
+
         public string Version { get; set; }
+
         public DateTime? PublicationDate { get; set; }
+
         public string XmlSchemaUri { get; set; }
 
         // RequiredModels
@@ -62,26 +65,35 @@ namespace Opc.Ua.Cloud.Library
         public string HeaderComments { get; set; }
         public int? NamespaceIndex { get; set; }
     }
+
     public class RequiredModelInfo
     {
         public string ModelUri { get; set; }
+
         public string Version { get; set; }
+
         public DateTime? PublicationDate { get; set; }
+
         virtual public NodeSetModel AvailableModel { get; set; }
     }
 
     public class NodeModel
     {
         public virtual List<LocalizedText> DisplayName { get; set; }
+
         public string BrowseName { get; set; }
+
         public string SymbolicName { get; set; }
+
         public string GetBrowseName()
         {
             return BrowseName ?? $"{Namespace}:{DisplayName?.FirstOrDefault()?.Text}";
         }
 
         public virtual List<LocalizedText> Description { get; set; }
+
         public string Documentation { get; set; }
+
         /// <summary>
         /// Released, Draft, Deprecated
         /// </summary>
@@ -89,6 +101,7 @@ namespace Opc.Ua.Cloud.Library
 
         [IgnoreDataMember]
         public string Namespace { get => NodeSet?.ModelUri; }
+
         public string NodeId
         {
             get
@@ -101,10 +114,12 @@ namespace Opc.Ua.Cloud.Library
                     }
                     return $"nsu={_namespace};{NodeIdIdentifier}";
                 }
+
                 if (NodeSet.NamespaceIndex == 0)
                 {
                     return NodeIdIdentifier;
                 }
+
                 return $"ns={NodeSet.NamespaceIndex};{NodeIdIdentifier}";
             }
             set
@@ -145,6 +160,7 @@ namespace Opc.Ua.Cloud.Library
                 }
             }
         }
+
         /// <summary>
         /// null: use local node ids
         /// empty string: use NodeSet.Namespace and absolute nodeids
@@ -183,14 +199,19 @@ namespace Opc.Ua.Cloud.Library
             {
                 Text = "";
             }
+
 #nullable enable
             public string Text { get => _text; set => _text = value ?? ""; }
+
             private string _text;
 #nullable restore
+
             public string Locale { get; set; }
 
             public static implicit operator LocalizedText(string text) => text == null ? null : new LocalizedText { Text = text };
+
             public static List<LocalizedText> ListFromText(string text) => text != null ? new List<LocalizedText> { new LocalizedText { Text = text } } : new List<LocalizedText>();
+
             public override string ToString() => Text;
         }
 
@@ -219,6 +240,7 @@ namespace Opc.Ua.Cloud.Library
         /// OPC UA: HasComponent references (or of derived reference types) to a MethodType
         /// </summary>
         public virtual List<MethodModel> Methods { get; set; } = new List<MethodModel>();
+
         /// <summary>
         /// OPC UA: GeneratesEvent references (or of derived reference types)
         /// </summary>
@@ -227,6 +249,7 @@ namespace Opc.Ua.Cloud.Library
         public class NodeAndReference : IEquatable<NodeAndReference>
         {
             public virtual NodeModel Node { get; set; }
+
             public virtual NodeModel ReferenceType { get; set; }
 
             public override bool Equals(object obj)
@@ -266,6 +289,7 @@ namespace Opc.Ua.Cloud.Library
         }
 
         public virtual List<NodeAndReference> OtherReferencedNodes { get; set; } = new List<NodeAndReference>();
+
         public virtual List<NodeAndReference> OtherReferencingNodes { get; set; } = new List<NodeAndReference>();
 
         /// <summary>
@@ -280,11 +304,13 @@ namespace Opc.Ua.Cloud.Library
                 // break some recursions
                 return false;
             }
+
             updatedNodes.Add(this.NodeId);
             if (model.ModelUri == this.Namespace)
             {
                 model.AllNodesByNodeId.TryAdd(this.NodeId, this);
             }
+
             foreach (var node in Objects)
             {
                 if (model.ModelUri == node.Namespace && !model.Objects.Contains(node))
@@ -293,6 +319,7 @@ namespace Opc.Ua.Cloud.Library
                 }
                 node.UpdateIndices(model, updatedNodes);
             }
+
             foreach (var node in this.DataVariables)
             {
                 if (model.ModelUri == node.Namespace && !model.DataVariables.Contains(node))
@@ -301,6 +328,7 @@ namespace Opc.Ua.Cloud.Library
                 }
                 node.UpdateIndices(model, updatedNodes);
             }
+
             foreach (var node in this.Interfaces)
             {
                 if (model.ModelUri == node.Namespace && !model.Interfaces.Contains(node))
@@ -309,6 +337,7 @@ namespace Opc.Ua.Cloud.Library
                 }
                 node.UpdateIndices(model, updatedNodes);
             }
+
             foreach (var node in this.Methods)
             {
                 if (model.ModelUri == node.Namespace && !model.Methods.Contains(node))
@@ -317,6 +346,7 @@ namespace Opc.Ua.Cloud.Library
                 }
                 node.UpdateIndices(model, updatedNodes);
             }
+
             foreach (var node in this.Properties)
             {
                 if (model.ModelUri == node.Namespace && node is PropertyModel prop && !model.Properties.Contains(prop))
@@ -325,6 +355,7 @@ namespace Opc.Ua.Cloud.Library
                 }
                 node.UpdateIndices(model, updatedNodes);
             }
+
             foreach (var node in this.Events)
             {
                 node.UpdateIndices(model, updatedNodes);
@@ -357,6 +388,7 @@ namespace Opc.Ua.Cloud.Library
                 _parent = value;
             }
         }
+
         private NodeModel _parent;
     }
     public abstract class InstanceModel<TTypeDefinition> : InstanceModelBase where TTypeDefinition : NodeModel, new()
@@ -373,6 +405,7 @@ namespace Opc.Ua.Cloud.Library
         /// 0x8: The Object has an event history which may be updated.
         /// </summary>
         public byte? EventNotifier { get; set; }
+
         /// <summary>
         /// Not used by the model itself. Captures the many-to-many relationship between NodeModel.Objects and ObjectModel for EF
         /// </summary>
@@ -496,36 +529,54 @@ namespace Opc.Ua.Cloud.Library
             public string NamespaceUri { get; set; }
             public int? UnitId { get; set; }
         }
+
         // Engineering Units
         virtual public EngineeringUnitInfo EngineeringUnit { get; set; }
+
         /// <summary>
         /// NodeId to use for the engineering unit property. A random one can be generated by an exporter if not specified.
         /// </summary>
         public string EngUnitNodeId { get; set; }
+
         public string EngUnitModellingRule { get; set; }
+
         public uint? EngUnitAccessLevel { get; set; }
+
         // EU Range
         public double? MinValue { get; set; }
+
         public double? MaxValue { get; set; }
+
         /// <summary>
         /// NodeId to use for the EURange property. A random one can be generated by an exporter if not specified.
         /// </summary>
         public string EURangeNodeId { get; set; }
+
         public string EURangeModellingRule { get; set; }
+
         public uint? EURangeAccessLevel { get; set; }
+
         // Instrument Range
         public double? InstrumentMinValue { get; set; }
+
         public double? InstrumentMaxValue { get; set; }
+
         public string InstrumentRangeNodeId { get; set; }
+
         public string InstrumentRangeModellingRule { get; set; }
+
         public uint? InstrumentRangeAccessLevel { get; set; }
 
         public long? EnumValue { get; set; }
 
         public uint? AccessLevel { get; set; }
+
         public ushort? AccessRestrictions { get; set; }
+
         public uint? WriteMask { get; set; }
+
         public uint? UserWriteMask { get; set; }
+
         public double? MinimumSamplingInterval { get; set; }
     }
 
@@ -548,6 +599,7 @@ namespace Opc.Ua.Cloud.Library
         /// The NodeId will be NULL if there was no ArgumentDescription
         /// </summary>
         public List<VariableModel> InputArguments { get; set; }
+
         public List<VariableModel> OutputArguments { get; set; }
 
         /// <summary>
@@ -562,6 +614,7 @@ namespace Opc.Ua.Cloud.Library
         /// The inverse name for the reference.
         /// </summary>
         public List<LocalizedText> InverseName { get; set; }
+
         /// <summary>
         /// Whether the reference is symmetric.
         /// </summary>
@@ -591,6 +644,7 @@ namespace Opc.Ua.Cloud.Library
     public class VariableTypeModel : BaseTypeModel, IVariableDataTypeInfo
     {
         public virtual DataTypeModel DataType { get; set; }
+
         /// <summary>
         /// n > 1: the Value is an array with the specified number of dimensions.
         /// OneDimension(1) : The value is an array with one dimension.
@@ -600,24 +654,31 @@ namespace Opc.Ua.Cloud.Library
         /// ScalarOrOneDimension(−3): The value can be a scalar or a one dimensional array.
         /// </summary>
         public int? ValueRank { get; set; }
+
         /// <summary>
         /// Comma separated list
         /// </summary>
         public string ArrayDimensions { get; set; }
+
         public string Value { get; set; }
     }
 
     public class DataTypeModel : BaseTypeModel
     {
         public virtual List<StructureField> StructureFields { get; set; }
+
         public virtual List<UaEnumField> EnumFields { get; set; }
+
         public bool? IsOptionSet { get; set; }
 
         public class StructureField
         {
             public string Name { get; set; }
+
             public string SymbolicName { get; set; }
+
             public virtual BaseTypeModel DataType { get; set; }
+
             /// <summary>
             /// n > 1: the Value is an array with the specified number of dimensions.
             /// OneDimension(1) : The value is an array with one dimension.
@@ -627,14 +688,20 @@ namespace Opc.Ua.Cloud.Library
             /// ScalarOrOneDimension(−3): The value can be a scalar or a one dimensional array.
             /// </summary>
             public int? ValueRank { get; set; }
+
             /// <summary>
             /// Comma separated list
             /// </summary>
             public string ArrayDimensions { get; set; }
+
             public uint? MaxStringLength { get; set; }
+
             public virtual List<LocalizedText> Description { get; set; }
+
             public bool IsOptional { get; set; }
+
             public bool AllowSubTypes { get; set; }
+
             /// <summary>
             /// Used to preserve field order if stored in a relational database (via EF etc.)
             /// </summary>
@@ -670,9 +737,13 @@ namespace Opc.Ua.Cloud.Library
         public class UaEnumField
         {
             public string Name { get; set; }
+
             public string SymbolicName { get; set; }
+
             public virtual List<LocalizedText> DisplayName { get; set; }
+
             public virtual List<LocalizedText> Description { get; set; }
+
             public long Value { get; set; }
 
             public override string ToString() => $"{Name} = {Value}";
@@ -681,6 +752,7 @@ namespace Opc.Ua.Cloud.Library
         internal override bool UpdateIndices(NodeSetModel model, HashSet<string> updatedNodes)
         {
             var bUpdated = base.UpdateIndices(model, updatedNodes);
+
             if (bUpdated && StructureFields?.Any() == true)
             {
                 foreach (var field in StructureFields)
@@ -688,6 +760,7 @@ namespace Opc.Ua.Cloud.Library
                     field.DataType?.UpdateIndices(model, updatedNodes);
                 }
             }
+
             return bUpdated;
         }
 
@@ -705,6 +778,7 @@ namespace Opc.Ua.Cloud.Library
                 }
                 currentType = currentType.SuperType as DataTypeModel;
             }
+
             if (baseTypesWithFields.Count == 1)
             {
                 structureFields = baseTypesWithFields[0].StructureFields.Select(sf => new StructureFieldWithOwner(sf, baseTypesWithFields[0])).ToList();
@@ -728,8 +802,8 @@ namespace Opc.Ua.Cloud.Library
                     }
                 }
             }
+
             return structureFields;
         }
     }
-
 }

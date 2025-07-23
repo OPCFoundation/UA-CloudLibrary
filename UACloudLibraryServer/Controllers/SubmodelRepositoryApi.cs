@@ -164,9 +164,9 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 405, type: typeof(Result), description: "Method not allowed - Download only valid for File submodel element")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual async Task<IActionResult> GetFileByPath([FromRoute][Required]string submodelIdentifier, [FromRoute][Required]string idShortPath)
-	    {
-	        string decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
+        public virtual async Task<IActionResult> GetFileByPath([FromRoute][Required] string submodelIdentifier, [FromRoute][Required] string idShortPath)
+        {
+            string decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
 
             if (decodedSubmodelIdentifier == null)
             {
