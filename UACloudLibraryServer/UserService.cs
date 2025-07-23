@@ -47,15 +47,6 @@ namespace Opc.Ua.Cloud.Library
         private readonly IConfiguration _config;
         private readonly ApiKeyTokenProvider _apiKeyTokenProvider;
 
-        // This string is used in controller attributes: keep it in a central place
-#if APIKEY_AUTH
-        // APIKEY_AUTH
-        public const string APIAuthorizationSchemes = "BasicAuthentication,SignedInUserAuthentication,ApiKeyAuthentication";
-#else
-        // Basic only
-        public const string APIAuthorizationSchemes = "BasicAuthentication,SignedInUserAuthentication";
-#endif
-
         public UserService(UserManager<IdentityUser> userManager, ILoggerFactory logger, IConfiguration config, ApiKeyTokenProvider apiKeyTokenProvider)
         {
             _userManager = userManager;

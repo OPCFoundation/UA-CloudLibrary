@@ -67,6 +67,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
                 {
                     return AuthenticateResult.Fail("Invalid x-api-key header");
                 }
+
                 System.Collections.Generic.IEnumerable<Claim> claims = await _userService.ValidateApiKeyAsync(apiKeyHeader[0]).ConfigureAwait(false);
                 if (claims?.Any() != true)
                 {

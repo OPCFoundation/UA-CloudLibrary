@@ -32,8 +32,10 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Security.Claims;
 using System.Text.Json;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.Builder;
@@ -44,16 +46,15 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Identity.Web;
 using Microsoft.OpenApi.Models;
-using Opc.Ua.Cloud.Library.Interfaces;
 using Opc.Ua.Cloud.Library.Authentication;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using System.Net.Sockets;
-using System.Threading.Tasks;
+using Opc.Ua.Cloud.Library.Interfaces;
 
 [assembly: CLSCompliant(false)]
 namespace Opc.Ua.Cloud.Library
@@ -83,14 +84,11 @@ namespace Opc.Ua.Cloud.Library
                 ServiceLifetime.Transient);
 
             services.AddDefaultIdentity<IdentityUser>(options =>
-                      //require confirmation mail if email sender API Key is set
-                      options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["EmailSenderAPIKey"])
-                    )
+                options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["EmailSenderAPIKey"])
+            )
                 .AddRoles<IdentityRole>()
-#if APIKEY_AUTH
-                .AddTokenProvider<ApiKeyTokenProvider>(ApiKeyTokenProvider.ApiKeyProviderName)
-#endif
-                .AddEntityFrameworkStores<AppDbContext>();
+                .AddEntityFrameworkStores<AppDbContext>()
+                .AddTokenProvider<ApiKeyTokenProvider>(ApiKeyTokenProvider.ApiKeyProviderName);
 
             services.AddScoped<IUserService, UserService>();
 
@@ -102,17 +100,26 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddLogging(builder => builder.AddConsole());
 
-            services.AddAuthentication()
-                .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null)
-                .AddScheme<AuthenticationSchemeOptions, SignedInUserAuthenticationHandler>("SignedInUserAuthentication", null)
-#if APIKEY_AUTH
-                .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKeyAuthentication", null);
-#endif
-
             //for captcha validation call
             //add httpclient service for dependency injection
             //https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-6.0
             services.AddHttpClient();
+
+            services.AddAuthentication()
+                .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null)
+                .AddScheme<AuthenticationSchemeOptions, SignedInUserAuthenticationHandler>("SignedInUserAuthentication", null)
+                .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKeyAuthentication", null);
+
+            if (Configuration["Authentication:Microsoft:ClientId"] != null)
+            {
+                services.AddAuthentication()
+                    .AddCookie()
+                    .AddMicrosoftAccount(options => {
+                        options.ClientId = Configuration["Authentication:Microsoft:ClientId"];
+                        options.ClientSecret = Configuration["Authentication:Microsoft:ClientSecret"];
+                    })
+                    .AddMicrosoftIdentityWebApi(Configuration.GetSection("AzureAd"));
+            }
 
             if (Configuration["OAuth2ClientId"] != null)
             {
@@ -166,6 +173,26 @@ namespace Opc.Ua.Cloud.Library
                 options.AddPolicy("DeletePolicy", policy => policy.RequireRole("Administrator"));
             });
 
+            if (Configuration["APIKeyAuth"] != null)
+            {
+                services.AddAuthorization(options => {
+                    options.AddPolicy("ApiPolicy", policy => {
+                        policy.AddAuthenticationSchemes("BasicAuthentication").RequireAuthenticatedUser();
+                        policy.AddAuthenticationSchemes("SignedInUserAuthentication").RequireAuthenticatedUser();
+                        policy.AddAuthenticationSchemes("ApiKeyAuthentication").RequireAuthenticatedUser();
+                    });
+                });
+            }
+            else
+            {
+                services.AddAuthorization(options => {
+                    options.AddPolicy("ApiPolicy", policy => {
+                        policy.AddAuthenticationSchemes("BasicAuthentication", "SignedInUserAuthentication");
+                        policy.AddAuthenticationSchemes("SignedInUserAuthentication").RequireAuthenticatedUser();
+                    });
+                });
+            }
+
             services.AddSwaggerGen(options => {
                 options.SwaggerDoc("v1", new OpenApiInfo {
                     Title = "UA Cloud Library REST Service",
@@ -183,44 +210,39 @@ namespace Opc.Ua.Cloud.Library
                     Scheme = "basic"
                 });
 
-                options.AddSecurityRequirement(new OpenApiSecurityRequirement
+                options.AddSecurityRequirement(new OpenApiSecurityRequirement {
                 {
-                    {
-                          new OpenApiSecurityScheme
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
                             {
-                                Reference = new OpenApiReference
-                                {
-                                    Type = ReferenceType.SecurityScheme,
-                                    Id = "basicAuth"
-                                }
-                            },
-                            Array.Empty<string>()
-                    }
-                });
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "basicAuth"
+                            }
+                        },
+                        Array.Empty<string>()
+                }});
 
-#if APIKEY_AUTH
-                options.AddSecurityDefinition("ApiKeyAuth", new OpenApiSecurityScheme {
-                    Type = SecuritySchemeType.ApiKey,
-                    In = ParameterLocation.Header,
-                    Name = "X-API-Key",
-                    //Scheme = "basic"
-                });
+                if (Configuration["APIKeyAuth"] != null)
+                {
+                    options.AddSecurityDefinition("ApiKeyAuth", new OpenApiSecurityScheme {
+                        Type = SecuritySchemeType.ApiKey,
+                        In = ParameterLocation.Header,
+                        Name = "X-API-Key",
+                        //Scheme = "basic"
+                    });
 
-                options.AddSecurityRequirement(new OpenApiSecurityRequirement
-            {
+                    options.AddSecurityRequirement(new OpenApiSecurityRequirement {
                     {
-                          new OpenApiSecurityScheme
-                            {
-                                Reference = new OpenApiReference
-                                {
-                                    Type = ReferenceType.SecurityScheme,
-                                    Id = "ApiKeyAuth"
-                                }
-                            },
-                            Array.Empty<string>()
-                    }
-                });
-#endif
+                        new OpenApiSecurityScheme {
+                            Reference = new OpenApiReference {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "ApiKeyAuth"
+                            }
+                        },
+                        Array.Empty<string>()
+                    }});
+                }
 
                 options.CustomSchemaIds(type => type.ToString());
 
