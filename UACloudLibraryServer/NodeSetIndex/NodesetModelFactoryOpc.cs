@@ -1107,8 +1107,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                         if (argumentModel == null)
                         {
                             // No description: create an argument variable
-                            argumentModel = new VariableModel
-                            {
+                            argumentModel = new VariableModel {
                                 DisplayName = new List<NodeModel.LocalizedText> { new NodeModel.LocalizedText { Text = arg.Name } },
                                 BrowseName = arg.Name,
                                 Description = arg.Description?.ToModel(),
