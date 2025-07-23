@@ -839,7 +839,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             var variableTypeDefinition = opcContext.GetNode(uaInstance.TypeDefinitionId);
             if (variableTypeDefinition != null)
             {
-                var typeDefModel = NodeModelFactoryOpc.Create(opcContext, variableTypeDefinition, _model.CustomState, out _, recursionDepth -1); // Create<TBaseTypeModelFactoryOpc, TBaseTypeModel>(opcContext, variableTypeDefinition, null);
+                var typeDefModel = NodeModelFactoryOpc.Create(opcContext, variableTypeDefinition, _model.CustomState, out _, recursionDepth - 1); // Create<TBaseTypeModelFactoryOpc, TBaseTypeModel>(opcContext, variableTypeDefinition, null);
                 _model.TypeDefinition = typeDefModel as TBaseTypeModel;
                 if (_model.TypeDefinition == null)
                 {
@@ -1036,18 +1036,19 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     {
                         if (referencedNode is PropertyState argumentProp && argumentProp.Value is ExtensionObject[] arguments)
                         {
-                            var argumentInfo = new PropertyState<Argument[]>(methodState)
-                            {
+                            var argumentInfo = new PropertyState<Argument[]>(methodState) {
                                 NodeId = argumentProp.NodeId,
                                 TypeDefinitionId = argumentProp.TypeDefinitionId,
                                 ModellingRuleId = argumentProp.ModellingRuleId,
                                 DataType = argumentProp.DataType,
                             };
+
                             argumentInfo.Value = new Argument[arguments.Length];
                             for (int arg = 0; arg < arguments.Length; arg++)
                             {
                                 argumentInfo.Value[arg] = arguments[arg].Body as Argument;
                             }
+
                             if (referencedNode?.BrowseName == "InputArguments")
                             {
                                 methodState.InputArguments = argumentInfo;
@@ -1098,9 +1099,10 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
                         var argumentDescription = _model.OtherReferencedNodes
                             .FirstOrDefault(nr => nr.Node.GetUnqualifiedBrowseName() == arg.Name
-                                && ((nr.ReferenceType as ReferenceTypeModel).HasBaseType($"{Namespaces.OpcUa};{ReferenceTypeIds.HasArgumentDescription}")
-                                    || (nr.ReferenceType as ReferenceTypeModel).HasBaseType($"{Namespaces.OpcUa};{ReferenceTypeIds.HasOptionalInputArgumentDescription}"))
-                                );
+                             && ((nr.ReferenceType as ReferenceTypeModel).HasBaseType($"{Namespaces.OpcUa};{ReferenceTypeIds.HasArgumentDescription}")
+                             || (nr.ReferenceType as ReferenceTypeModel).HasBaseType($"{Namespaces.OpcUa};{ReferenceTypeIds.HasOptionalInputArgumentDescription}"))
+                            );
+
                         var argumentModel = argumentDescription?.Node as VariableModel;
                         if (argumentModel == null)
                         {
@@ -1225,13 +1227,14 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                             {
                                 throw new Exception($"Unable to resolve data type {dataType.DisplayName}");
                             }
+
                             string symbolicName = null;
                             if (uaStruct != null)
                             {
                                 symbolicName = uaStruct?.Definition?.Field?.FirstOrDefault(f => f.Name == field.Name)?.SymbolicName;
                             }
-                            var structureField = new DataTypeModel.StructureField
-                            {
+
+                            var structureField = new DataTypeModel.StructureField {
                                 Name = field.Name,
                                 SymbolicName = symbolicName,
                                 DataType = dataTypeModel,
@@ -1243,6 +1246,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                                 AllowSubTypes = field.IsOptional && (sd.StructureType == StructureType.StructureWithSubtypedValues || sd.StructureType == StructureType.UnionWithSubtypedValues),
                                 FieldOrder = order++,
                             };
+
                             _model.StructureFields.Add(structureField);
                         }
                         else
@@ -1279,8 +1283,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                                 symbolicName = uaEnum?.Definition?.Field?.FirstOrDefault(f => f.Name == field.Name)?.SymbolicName;
                             }
 
-                            var enumField = new DataTypeModel.UaEnumField
-                            {
+                            var enumField = new DataTypeModel.UaEnumField {
                                 Name = field.Name,
                                 DisplayName = field.DisplayName.ToModel(),
                                 Value = field.Value,
