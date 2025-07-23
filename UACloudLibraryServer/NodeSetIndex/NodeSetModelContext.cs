@@ -1,7 +1,7 @@
-using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore;
 
 namespace Opc.Ua.Cloud.Library.NodeSetIndex
 {

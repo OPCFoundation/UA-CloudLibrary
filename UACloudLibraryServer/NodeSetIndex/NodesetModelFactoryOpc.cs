@@ -235,7 +235,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     var method = Create<MethodModelFactoryOpc, MethodModel>(opcContext, methodState, parent?.CustomState, recursionDepth);
                     AddChildIfNotExists(parent, parent?.Methods, method, opcContext.Logger, organizesNodeId);
                 }
-                else if(referencedNode is PropertyState propertyState)
+                else if (referencedNode is PropertyState propertyState)
                 {
                     // Not allowed per spec, but tolerate (treat as Property)
                     var parent = parentFactory();
@@ -414,11 +414,11 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 if (referencedModel != null)
                 {
                     var referenceTypeModel = ReferenceTypeModelFactoryOpc.Create(opcContext, referenceType, null, out _, recursionDepth) as ReferenceTypeModel;
-                    var nodeAndReference = new NodeModel.NodeAndReference
-                    {
+                    var nodeAndReference = new NodeModel.NodeAndReference {
                         Node = referencedModel,
                         ReferenceType = referenceTypeModel
                     };
+
                     AddChildIfNotExists(parent, parent?.OtherReferencedNodes, nodeAndReference, opcContext.Logger, organizesNodeId, true);
 
                     // Add the reverse reference to the referencing node (parent)
@@ -837,7 +837,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             base.Initialize(opcContext, opcNode, recursionDepth);
             var uaInstance = opcNode as BaseInstanceState;
             var variableTypeDefinition = opcContext.GetNode(uaInstance.TypeDefinitionId);
-            if (variableTypeDefinition != null) //is BaseTypeState)
+            if (variableTypeDefinition != null)
             {
                 var typeDefModel = NodeModelFactoryOpc.Create(opcContext, variableTypeDefinition, _model.CustomState, out _, recursionDepth -1); // Create<TBaseTypeModelFactoryOpc, TBaseTypeModel>(opcContext, variableTypeDefinition, null);
                 _model.TypeDefinition = typeDefModel as TBaseTypeModel;
@@ -951,18 +951,34 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             var variableNode = opcNode as BaseVariableState;
 
             InitializeDataTypeInfo(_model, opcContext, variableNode, recursionDepth);
-            if (variableNode.AccessLevelEx != 1) _model.AccessLevel = variableNode.AccessLevelEx;
-            // deprecated if (variableNode.UserAccessLevel != 1) _model.UserAccessLevel = variableNode.UserAccessLevel;
-            if (variableNode.AccessRestrictions != 0) _model.AccessRestrictions = (ushort)(variableNode.AccessRestrictions == null?0:variableNode.AccessRestrictions); //Fix for latest 1.5.372 UA Core Lib
-            if (variableNode.WriteMask != 0) _model.WriteMask = (uint)variableNode.WriteMask;
-            if (variableNode.UserWriteMask != 0) _model.UserWriteMask = (uint)variableNode.UserWriteMask;
+
+            if (variableNode.AccessLevelEx != 1)
+            {
+                _model.AccessLevel = variableNode.AccessLevelEx;
+            }
+
+            if (variableNode.AccessRestrictions != 0)
+            {
+                _model.AccessRestrictions = (ushort)(variableNode.AccessRestrictions == null ? 0 : variableNode.AccessRestrictions);
+            }
+
+            if (variableNode.WriteMask != 0)
+            {
+                _model.WriteMask = (uint)variableNode.WriteMask;
+            }
+
+            if (variableNode.UserWriteMask != 0)
+            {
+                _model.UserWriteMask = (uint)variableNode.UserWriteMask;
+            }
+
             if (variableNode.MinimumSamplingInterval != 0)
             {
                 _model.MinimumSamplingInterval = variableNode.MinimumSamplingInterval;
             }
 
             var invalidBrowseNameOnTypeInformation = _model.Properties.Where(p =>
-                    p.BrowseName.EndsWith(BrowseNames.EnumValues) && p.BrowseName != opcContext.GetModelBrowseName(BrowseNames.EnumValues)
+                p.BrowseName.EndsWith(BrowseNames.EnumValues) && p.BrowseName != opcContext.GetModelBrowseName(BrowseNames.EnumValues)
                 || p.BrowseName.EndsWith(BrowseNames.EnumStrings) && p.BrowseName != opcContext.GetModelBrowseName(BrowseNames.EnumStrings)
                 || p.BrowseName.EndsWith(BrowseNames.OptionSetValues) && p.BrowseName != opcContext.GetModelBrowseName(BrowseNames.OptionSetValues)
             );

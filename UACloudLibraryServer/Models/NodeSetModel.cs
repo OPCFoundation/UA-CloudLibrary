@@ -131,9 +131,9 @@ namespace Opc.Ua.Cloud.Library
                     {
                         if (this.GetType().Name.EndsWith("ModelProxy"))
                         {
-                        // For use with EF proxies, we avoid accessing the NodeModel.NodeSet property. Instead save the namespace in a private _namespace variable
-                        _namespace = nodeIdParts[0].Substring("nsu=".Length);
-                    }
+                            // For use with EF proxies, we avoid accessing the NodeModel.NodeSet property. Instead save the namespace in a private _namespace variable
+                            _namespace = nodeIdParts[0].Substring("nsu=".Length);
+                        }
                         else
                         {
                             // Indicate that we want to use absolute nodeids
@@ -146,10 +146,12 @@ namespace Opc.Ua.Cloud.Library
                         {
                             throw new Exception($"Invalid NodeId: node ids must be absolute.");
                         }
+
                         if (nodeIdParts[0].Substring("ns=".Length) != NodeSet?.NamespaceIndex?.ToString(CultureInfo.InvariantCulture))
                         {
                             throw new Exception($"Mismatching namespace index in {value}. Expected {NodeSet.NamespaceIndex}");
                         }
+
                         _namespace = null;
                     }
                     NodeIdIdentifier = nodeIdParts[1];
