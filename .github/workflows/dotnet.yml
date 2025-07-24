@@ -1,4 +1,4 @@
-name: .NET
+name: Build CloudLibrary for .NET and Deploy Nuget Packages
 
 on:
   push:
@@ -12,12 +12,12 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: 🤘 checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
       - name: ⚙ dotnet
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
       - name: Workaround
@@ -51,11 +51,11 @@ jobs:
         sudo -u postgres psql -l --command="\du"
 
     - name: 🤘 checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
     - name: ⚙ dotnet
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '9.0.x'
     - name: Restore dependencies UA-CloudLibrary
