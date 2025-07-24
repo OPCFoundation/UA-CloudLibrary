@@ -41,7 +41,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudLibSync", "CloudLibSyn
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudLibSyncAzureFunction", "CloudLibSyncAzureFunction\CloudLibSyncAzureFunction.csproj", "{6A7EF892-71D1-4076-AD10-7F67F276528B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AzureBlobToPGTable", "AzureBlobToPGTable\AzureBlobToPGTable.csproj", "{5F0C02EA-3211-E8E3-5905-19951A45BF3C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlobToPGTable", "AzureBlobToPGTable\BlobToPGTable.csproj", "{5F0C02EA-3211-E8E3-5905-19951A45BF3C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
