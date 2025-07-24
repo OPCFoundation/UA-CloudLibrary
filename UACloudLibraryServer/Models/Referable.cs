@@ -44,18 +44,6 @@ namespace AdminShell
         public Referable Parent { get; set; }
 
         [XmlIgnore]
-        public static string CONSTANT = "CONSTANT";
-
-        [XmlIgnore]
-        public static string Category_PARAMETER = "PARAMETER";
-
-        [XmlIgnore]
-        public static string VARIABLE = "VARIABLE";
-
-        [XmlIgnore]
-        public static string[] ReferableCategoryNames = new string[] { CONSTANT, Category_PARAMETER, VARIABLE };
-
-        [XmlIgnore]
         public List<Extension> Extension { get; set; } = new();
 
         [XmlIgnore]
