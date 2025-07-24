@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Xml;
@@ -13,9 +14,9 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
     {
         public static Task<List<NodeSetModel>> LoadNodeSetAsync(IOpcUaContext opcContext, UANodeSet nodeSet, object customState, Dictionary<string, string> Aliases, bool doNotReimport = false, List<NodeState> importedNodes = null)
         {
-            if (!nodeSet.Models.Any())
+            if (nodeSet.Models.Length == 0)
             {
-                var ex = new Exception($"Invalid nodeset: no models specified");
+                var ex = new ArgumentException($"Invalid nodeset: no models specified");
                 opcContext.Logger.LogError(ex.Message);
                 throw ex;
             }
@@ -23,9 +24,9 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             // Find all models that are used by another nodeset
             var requiredModels = nodeSet.Models.Where(m => m.RequiredModel != null).SelectMany(m => m.RequiredModel).Distinct().ToList();
             var missingModels = requiredModels.Where(rm => opcContext.GetOrAddNodesetModel(rm) == null).ToList();
-            if (missingModels.Any())
+            if (missingModels.Count > 0)
             {
-                throw new Exception($"Missing dependent node sets: {string.Join(", ", missingModels)}");
+                throw new ArgumentException($"Missing dependent node sets: {string.Join(", ", missingModels)}");
             }
 
             var loadedModels = new List<NodeSetModel>();
@@ -36,7 +37,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 var nodesetModel = opcContext.GetOrAddNodesetModel(model);
                 if (nodesetModel == null)
                 {
-                    throw new Exception($"Unable to create node set: {model.ModelUri}");
+                    throw new ArgumentException($"Unable to create node set: {model.ModelUri}");
                 }
                 nodesetModel.CustomState = customState;
                 if (model.RequiredModel != null)
@@ -46,7 +47,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                         var requiredModelInfo = nodesetModel.RequiredModels.FirstOrDefault(rm => rm.ModelUri == requiredModel.ModelUri);
                         if (requiredModelInfo == null)
                         {
-                            throw new Exception("Required model not found");
+                            throw new ArgumentException("Required model not found");
                         }
                         if (requiredModelInfo != null && requiredModelInfo.AvailableModel == null)
                         {
@@ -112,7 +113,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
     public class NodeModelFactoryOpc<TNodeModel> where TNodeModel : NodeModel, new()
     {
         protected TNodeModel _model;
-        protected ILogger Logger;
+        private ILogger Logger;
 
         protected virtual void Initialize(IOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
         {
@@ -151,14 +152,14 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 var referenceType = opcContext.GetNode(reference.ReferenceTypeId) as ReferenceTypeState;
                 if (referenceType == null)
                 {
-                    throw new Exception($"Reference Type {reference.ReferenceTypeId} not found for reference from {opcNode} to {reference.TargetId} . Missing required model / node set?");
+                    throw new ArgumentException($"Reference Type {reference.ReferenceTypeId} not found for reference from {opcNode} to {reference.TargetId} . Missing required model / node set?");
                 }
                 var referenceTypes = GetBaseTypes(opcContext, referenceType);
 
                 var referencedNode = opcContext.GetNode(reference.TargetId);
                 if (referencedNode == null)
                 {
-                    throw new Exception($"Referenced node {reference.TargetId} not found for {opcNode}");
+                    throw new ArgumentException($"Referenced node {reference.TargetId} not found for {opcNode}");
                 }
 
                 if (reference.IsInverse)
@@ -254,10 +255,10 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     var parent = parentFactory();
                     if (referencedNode != null)
                     {
-                        throw new Exception($"Property {referencedNode} has unexpected type {referencedNode.GetType()} in {parent}");
+                        throw new ArgumentException($"Property {referencedNode} has unexpected type {referencedNode.GetType()} in {parent}");
                     }
 
-                    throw new Exception($"Property {referencedNode} not found in {parent}");
+                    throw new ArgumentException($"Property {referencedNode} not found in {parent}");
                 }
             }
             else if (referenceTypes.Any(n => n.NodeId == ReferenceTypeIds.HasProperty))
@@ -324,10 +325,10 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     var parent = parentFactory();
                     if (referencedNode != null)
                     {
-                        throw new Exception($"Property {referencedNode} has unexpected type {referencedNode.GetType()} in {parent}");
+                        throw new ArgumentException($"Property {referencedNode} has unexpected type {referencedNode.GetType()} in {parent}");
                     }
 
-                    throw new Exception($"Property {referencedNode} not found in {parent}");
+                    throw new ArgumentException($"Property {referencedNode} not found in {parent}");
                 }
             }
             else if (referenceTypes.Any(n => n.NodeId == ReferenceTypeIds.HasInterface))
@@ -354,10 +355,10 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     var parent = parentFactory();
                     if (referencedNode != null)
                     {
-                        throw new Exception($"Interface {referencedNode} has unexpected type {referencedNode.GetType()} in {parent}");
+                        throw new ArgumentException($"Interface {referencedNode} has unexpected type {referencedNode.GetType()} in {parent}");
                     }
 
-                    throw new Exception($"Interface {referencedNode} not found in {parent}");
+                    throw new ArgumentException($"Interface {referencedNode} not found in {parent}");
                 }
             }
             //else if (referenceTypes.Any(n => n.NodeId == ReferenceTypeIds.Organizes))
@@ -403,7 +404,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 else
                 {
                     var parent = parentFactory();
-                    throw new Exception($"Unexpected event type {referencedNode} in {parent}");
+                    throw new ArgumentException($"Unexpected event type {referencedNode} in {parent}");
                 }
             }
             else
@@ -427,7 +428,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 }
                 else
                 {
-                    new Exception($"Failed to resolve reference {referenceTypes.FirstOrDefault()} from {parent} to {referencedNode}.");
+                    new ArgumentException($"Failed to resolve reference {referenceTypes.FirstOrDefault()} from {parent} to {referencedNode}.");
                 }
                 // Potential candidates for first class representation in the model:
                 // {ns=1;i=6030} - ConnectsTo / Hierarchical
@@ -502,7 +503,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                         var modellingRule = opcContext.GetNode(modellingRuleId);
                         if (modellingRule == null)
                         {
-                            throw new Exception($"Unable to resolve modelling rule {modellingRuleId}: dependency on UA nodeset not declared?");
+                            throw new ArgumentException($"Unable to resolve modelling rule {modellingRuleId}: dependency on UA nodeset not declared?");
                         }
                         parentVariable.EngUnitModellingRule = modellingRule.DisplayName.Text;
                     }
@@ -525,15 +526,15 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                                 {
                                     if (euInfoExtension.TypeId != ObjectIds.EUInformation_Encoding_DefaultXml)
                                     {
-                                        throw new Exception($"Unable to parse Engineering units for {parentVariable}: Invalid encoding type id {euInfoExtension.TypeId}. Expected {ObjectIds.EUInformation_Encoding_DefaultXml}.");
+                                        throw new ArgumentException($"Unable to parse Engineering units for {parentVariable}: Invalid encoding type id {euInfoExtension.TypeId}. Expected {ObjectIds.EUInformation_Encoding_DefaultXml}.");
                                     }
                                     if (euInfoExtension.Body is XmlElement xmlValue)
                                     {
-                                        throw new Exception($"Unable to parse Engineering units for {parentVariable}: TypeId: {euInfoExtension.TypeId}.XML: {xmlValue.OuterXml}.");
+                                        throw new ArgumentException($"Unable to parse Engineering units for {parentVariable}: TypeId: {euInfoExtension.TypeId}.XML: {xmlValue.OuterXml}.");
                                     }
-                                    throw new Exception($"Unable to parse Engineering units for {parentVariable}: TypeId: {euInfoExtension.TypeId}. Value: {(referencedNode as BaseVariableState).Value}");
+                                    throw new ArgumentException($"Unable to parse Engineering units for {parentVariable}: TypeId: {euInfoExtension.TypeId}. Value: {(referencedNode as BaseVariableState).Value}");
                                 }
-                                throw new Exception($"Unable to parse Engineering units for {parentVariable}: {(referencedNode as BaseVariableState).Value}");
+                                throw new ArgumentException($"Unable to parse Engineering units for {parentVariable}: {(referencedNode as BaseVariableState).Value}");
                             }
                             // Nodesets commonly indicate that EUs are required on instances by specifying an empty EU in the class
                         }
@@ -590,7 +591,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 var modellingRuleNode = opcContext.GetNode(modellingRuleId);
                 if (modellingRuleNode == null)
                 {
-                    throw new Exception($"Unable to resolve modelling rule {modellingRuleId}: dependency on UA nodeset not declared?");
+                    throw new ArgumentException($"Unable to resolve modelling rule {modellingRuleId}: dependency on UA nodeset not declared?");
                 }
                 rangeModellingRule = modellingRuleNode.DisplayName.Text;
             }
@@ -609,15 +610,15 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                         {
                             if (euRangeExtension.TypeId != ObjectIds.Range_Encoding_DefaultXml)
                             {
-                                throw new Exception($"Unable to parse {referencedNode.BrowseName?.Name} for {parentVariable}: Invalid encoding type id {euRangeExtension.TypeId}. Expected {ObjectIds.Range_Encoding_DefaultXml}.");
+                                throw new ArgumentException($"Unable to parse {referencedNode.BrowseName?.Name} for {parentVariable}: Invalid encoding type id {euRangeExtension.TypeId}. Expected {ObjectIds.Range_Encoding_DefaultXml}.");
                             }
                             if (euRangeExtension.Body is XmlElement xmlValue)
                             {
-                                throw new Exception($"Unable to parse {referencedNode.BrowseName?.Name} for {parentVariable}: TypeId: {euRangeExtension.TypeId}.XML: {xmlValue.OuterXml}.");
+                                throw new ArgumentException($"Unable to parse {referencedNode.BrowseName?.Name} for {parentVariable}: TypeId: {euRangeExtension.TypeId}.XML: {xmlValue.OuterXml}.");
                             }
-                            throw new Exception($"Unable to parse {referencedNode.BrowseName?.Name} for {parentVariable}: TypeId: {euRangeExtension.TypeId}. Value: {(referencedNode as BaseVariableState).Value}");
+                            throw new ArgumentException($"Unable to parse {referencedNode.BrowseName?.Name} for {parentVariable}: TypeId: {euRangeExtension.TypeId}. Value: {(referencedNode as BaseVariableState).Value}");
                         }
-                        throw new Exception($"Unable to parse {referencedNode.BrowseName?.Name} for {parentVariable}: {(referencedNode as BaseVariableState).Value}");
+                        throw new ArgumentException($"Unable to parse {referencedNode.BrowseName?.Name} for {parentVariable}: {(referencedNode as BaseVariableState).Value}");
                     }
                     // Nodesets commonly indicate that EURange are required on instances by specifying an enpty EURange in the class
                 }
@@ -752,7 +753,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             {
                 if (nodeModelBase != null)
                 {
-                    throw new Exception($"Internal error - Type mismatch for node {nodeId}: NodeModel of type {typeof(TNodeModel2)} was previously created with type {nodeModelBase.GetType()}.");
+                    throw new ArgumentException($"Internal error - Type mismatch for node {nodeId}: NodeModel of type {typeof(TNodeModel2)} was previously created with type {nodeModelBase.GetType()}.");
                 }
 
                 var nodesetModel = opcContext.GetOrAddNodesetModel(opcModelInfo);
@@ -809,7 +810,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     }
                     else
                     {
-                        throw new Exception($"Unexpected node model type {nodeModel.GetType().FullName} for node {nodeModel}");
+                        throw new ArgumentException($"Unexpected node model type {nodeModel.GetType().FullName} for node {nodeModel}");
                     }
                 }
                 else
@@ -843,7 +844,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 _model.TypeDefinition = typeDefModel as TBaseTypeModel;
                 if (_model.TypeDefinition == null)
                 {
-                    throw new Exception($"Unexpected type definition {variableTypeDefinition} on {uaInstance}");
+                    throw new ArgumentException($"Unexpected type definition {variableTypeDefinition} on {uaInstance}");
                 }
             }
 
@@ -853,7 +854,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 var modellingRule = opcContext.GetNode(modellingRuleId);
                 if (modellingRule == null)
                 {
-                    throw new Exception($"Unable to resolve modelling rule {modellingRuleId}: dependency on UA nodeset not declared?");
+                    throw new ArgumentException($"Unable to resolve modelling rule {modellingRuleId}: dependency on UA nodeset not declared?");
                 }
 
                 _model.ModellingRule = modellingRule.DisplayName.Text;
@@ -909,7 +910,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                         superTypeModel = NodeModelFactoryOpc.Create(opcContext, superTypeState, _model.CustomState, out _, 2) as BaseTypeModel;
                         if (superTypeModel == null)
                         {
-                            throw new Exception($"Invalid node {superTypeState} is not a Base Type");
+                            throw new ArgumentException($"Invalid node {superTypeState} is not a Base Type");
                         }
                     }
                 }
@@ -978,9 +979,9 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             }
 
             var invalidBrowseNameOnTypeInformation = _model.Properties.Where(p =>
-                p.BrowseName.EndsWith(BrowseNames.EnumValues) && p.BrowseName != opcContext.GetModelBrowseName(BrowseNames.EnumValues)
-                || p.BrowseName.EndsWith(BrowseNames.EnumStrings) && p.BrowseName != opcContext.GetModelBrowseName(BrowseNames.EnumStrings)
-                || p.BrowseName.EndsWith(BrowseNames.OptionSetValues) && p.BrowseName != opcContext.GetModelBrowseName(BrowseNames.OptionSetValues)
+                p.BrowseName.EndsWith(BrowseNames.EnumValues, false, CultureInfo.InvariantCulture) && p.BrowseName != opcContext.GetModelBrowseName(BrowseNames.EnumValues)
+                || p.BrowseName.EndsWith(BrowseNames.EnumStrings, false, CultureInfo.InvariantCulture) && p.BrowseName != opcContext.GetModelBrowseName(BrowseNames.EnumStrings)
+                || p.BrowseName.EndsWith(BrowseNames.OptionSetValues, false, CultureInfo.InvariantCulture) && p.BrowseName != opcContext.GetModelBrowseName(BrowseNames.OptionSetValues)
             );
 
             if (invalidBrowseNameOnTypeInformation.Any())
@@ -1079,7 +1080,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             }
             else
             {
-                throw new Exception($"Unexpected node type for method {opcNode}");
+                throw new ArgumentException($"Unexpected node type for method {opcNode}");
             }
         }
 
@@ -1135,7 +1136,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     }
                     else
                     {
-                        throw new Exception($"Invalid data type {arg.DataType} for argument {arg.Name} in method {_model.NodeId}.");
+                        throw new ArgumentException($"Invalid data type {arg.DataType} for argument {arg.Name} in method {_model.NodeId}.");
                     }
                 }
             }
@@ -1168,18 +1169,18 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             {
                 if (dataType == null)
                 {
-                    throw new Exception($"{variableNodeDiagInfo}: did not find data type {dataTypeNodeId} (Namespace {opcContext.NamespaceUris.GetString(dataTypeNodeId.NamespaceIndex)}).");
+                    throw new ArgumentException($"{variableNodeDiagInfo}: did not find data type {dataTypeNodeId} (Namespace {opcContext.NamespaceUris.GetString(dataTypeNodeId.NamespaceIndex)}).");
                 }
                 else
                 {
-                    throw new Exception($"{variableNodeDiagInfo}: Unexpected node state {dataTypeNodeId}/{dataType?.GetType().FullName}.");
+                    throw new ArgumentException($"{variableNodeDiagInfo}: Unexpected node state {dataTypeNodeId}/{dataType?.GetType().FullName}.");
                 }
             }
 
             if (valueRank != -1)
             {
                 model.ValueRank = valueRank;
-                if (arrayDimensions != null && arrayDimensions.Any())
+                if ((arrayDimensions != null) && (arrayDimensions.Count > 0))
                 {
                     model.ArrayDimensions = string.Join(",", arrayDimensions);
                 }
@@ -1224,7 +1225,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                             var dataTypeModel = Create<DataTypeModelFactoryOpc, DataTypeModel>(opcContext, dataType as DataTypeState, null, recursionDepth);
                             if (dataTypeModel == null)
                             {
-                                throw new Exception($"Unable to resolve data type {dataType.DisplayName}");
+                                throw new ArgumentException($"Unable to resolve data type {dataType.DisplayName}");
                             }
 
                             string symbolicName = null;
@@ -1252,10 +1253,10 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                         {
                             if (dataType == null)
                             {
-                                throw new Exception($"Unable to find node state for data type {field.DataType} in {opcNode}");
+                                throw new ArgumentException($"Unable to find node state for data type {field.DataType} in {opcNode}");
                             }
 
-                            throw new Exception($"Unexpected node state {dataType?.GetType()?.FullName} for data type {field.DataType} in {opcNode}");
+                            throw new ArgumentException($"Unexpected node state {dataType?.GetType()?.FullName} for data type {field.DataType} in {opcNode}");
                         }
                     }
                 }
@@ -1295,7 +1296,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     }
                     else
                     {
-                        throw new Exception($"Unknown data type definition in {dataTypeState}");
+                        throw new ArgumentException($"Unknown data type definition in {dataTypeState}");
                     }
                 }
             }

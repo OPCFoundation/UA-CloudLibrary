@@ -56,13 +56,13 @@ namespace AdminShell
         public static string[] ReferableCategoryNames = new string[] { CONSTANT, Category_PARAMETER, VARIABLE };
 
         [XmlIgnore]
-        public List<Extension> extension = null;
+        public List<Extension> Extension { get; set; } = new();
 
         [XmlIgnore]
-        public DateTime TimeStampCreate;
+        public DateTime TimeStampCreate { get; set; }
 
         [XmlIgnore]
-        public DateTime TimeStamp;
+        public DateTime TimeStamp { get; set; }
 
         public void setTimeStamp(DateTime timeStamp)
         {

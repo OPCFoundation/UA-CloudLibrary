@@ -57,14 +57,18 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
         public enum JsonValueType
         {
+#pragma warning disable CA1720 // Identifier contains type name
             /// <summary>
             /// JSON object
             /// </summary>
             Object,
+
             /// <summary>
             /// Scalar, to be quoted
             /// </summary>
             String,
+#pragma warning restore CA1720 // Identifier contains type name
+
             /// <summary>
             /// Scalar, not to be quoted
             /// </summary>

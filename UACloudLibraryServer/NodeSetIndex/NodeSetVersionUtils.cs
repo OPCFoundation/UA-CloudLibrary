@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace Opc.Ua.Cloud.Library.NodeSetIndex
@@ -18,7 +19,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 {
                     versionPrefix = version.Substring(0, prefixLength);
                     var nodeSetsInVersionFamily = nodeSetsWithSameNamespaceUri
-                        .Where(n => string.Compare(n.Version.Substring(0, prefixLength), versionPrefix) == 0);
+                        .Where(n => string.Equals(n.Version.Substring(0, prefixLength), versionPrefix, StringComparison.OrdinalIgnoreCase));
                     matchingNodeSet = GetMatchingOrHigherNodeSetByPublicationDate(nodeSetsInVersionFamily, publicationDate);
                 }
                 else
@@ -30,7 +31,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 {
                     // no match within version family or no version requested: return the highest available from higher version family
                     matchingNodeSet = nodeSetsWithSameNamespaceUri
-                        .Where(n => versionPrefix == null || string.Compare(n.Version.Substring(0, prefixLength), versionPrefix) > 0)
+                        .Where(n => versionPrefix == null || string.Compare(n.Version.Substring(0, prefixLength), versionPrefix, StringComparison.OrdinalIgnoreCase) > 0)
                         .OrderByDescending(n => n.Version.Substring(0, prefixLength))
                         .ThenByDescending(n => n.PublicationDate)
                         .FirstOrDefault();

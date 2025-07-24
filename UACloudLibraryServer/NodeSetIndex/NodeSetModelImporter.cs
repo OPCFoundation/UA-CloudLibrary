@@ -45,11 +45,11 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             var resolvedNodeSets = _nodeSetCacheManager.ImportNodeSets(new List<string> { nodeSetXML }, failOnExistingNodeSet, tenantId);
             if (!string.IsNullOrEmpty(resolvedNodeSets.ErrorMessage))
             {
-                throw new Exception($"{resolvedNodeSets.ErrorMessage}");
+                throw new ArgumentException($"{resolvedNodeSets.ErrorMessage}");
             }
 
             var firstNewNodeset = resolvedNodeSets.Models.FirstOrDefault(m => m.NewInThisImport || m.RequestedForThisImport);
-            if (firstNewNodeset?.NodeSet?.NamespaceUris?.Any() == true)
+            if (firstNewNodeset?.NodeSet?.NamespaceUris?.Length > 0)
             {
                 // Ensure namespaces are in the context and in proper order
                 var namespaces = firstNewNodeset.NodeSet.NamespaceUris.ToList();
@@ -60,7 +60,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 namespaces.ForEach(n => _opcContext.NamespaceUris.GetIndexOrAppend(n));
                 if (!namespaces.Take(_opcContext.NamespaceUris.Count).SequenceEqual(_opcContext.NamespaceUris.ToArray().Take(namespaces.Count)))
                 {
-                    throw new Exception($"Namespace table for {firstNewNodeset} is not in the order required by the nodeset.");
+                    throw new ArgumentException($"Namespace table for {firstNewNodeset} is not in the order required by the nodeset.");
                 }
             }
 

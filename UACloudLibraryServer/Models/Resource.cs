@@ -10,11 +10,11 @@ namespace AdminShell
         [DataMember(Name = "path")]
         [XmlElement(ElementName = "path")]
         [MetaModelName("Resource.Path")]
-        public string Path = string.Empty;
+        public string Path { get; set; } = string.Empty;
 
         [DataMember(Name = "contentType")]
         [XmlElement(ElementName = "contentType")]
         [MetaModelName("Resource.ContentType")]
-        public string ContentType = string.Empty;
+        public string ContentType { get; set; } = string.Empty;
     }
 }

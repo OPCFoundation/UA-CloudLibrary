@@ -31,7 +31,7 @@ namespace AdminShell
 
         [DataMember(Name = "semanticId")]
         [XmlElement(ElementName = "semanticId")]
-        public SemanticId SemanticId = null;
+        public SemanticId SemanticId { get; set; } = null;
 
         public Qualifier() { }
 

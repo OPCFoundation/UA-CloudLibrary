@@ -34,10 +34,10 @@ namespace AdminShell
         public List<SubmodelElement> Value { get; set; } = new();
 
         [XmlIgnore]
-        public bool Ordered = false;
+        public bool Ordered { get; set; } = false;
 
         [XmlIgnore]
-        public bool AllowDuplicates = false;
+        public bool AllowDuplicates { get; set; } = false;
 
         public SubmodelElementCollection()
         {

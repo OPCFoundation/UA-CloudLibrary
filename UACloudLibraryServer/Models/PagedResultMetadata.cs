@@ -1,8 +1,11 @@
-using System.Runtime.Serialization;
-
-[DataContract]
-public class PagedResultMetadata
+namespace AdminShell
 {
-    [DataMember(Name = "cursor")]
-    public string Cursor { get; set; }
+    using System.Runtime.Serialization;
+
+    [DataContract]
+    public class PagedResultMetadata
+    {
+        [DataMember(Name = "cursor")]
+        public string Cursor { get; set; }
+    }
 }

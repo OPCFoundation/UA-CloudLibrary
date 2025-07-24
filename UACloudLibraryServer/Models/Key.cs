@@ -3,6 +3,7 @@ namespace AdminShell
 {
     using System;
     using System.ComponentModel.DataAnnotations;
+    using System.Globalization;
     using System.Runtime.Serialization;
     using System.Xml;
     using System.Xml.Serialization;
@@ -35,7 +36,7 @@ namespace AdminShell
 
         public Key(string type, string value)
         {
-            Type = (KeyElements)Enum.Parse(typeof(KeyElements), type, true);
+            Type = Enum.Parse<KeyElements>(type, true);
             Value = value;
         }
 
@@ -43,16 +44,15 @@ namespace AdminShell
         {
             if (format == 1)
             {
-                return String.Format(
-                    "({0}){1}", Type, Value);
+                return string.Format(CultureInfo.InvariantCulture, "({0}){1}", Type, Value);
             }
             if (format == 2)
             {
-                return String.Format("{0}", Value);
+                return string.Format(CultureInfo.InvariantCulture, "{0}", Value);
             }
 
             // (old) default
-            return $"[{Type}, {Value}]";
+            return string.Format(CultureInfo.InvariantCulture, "[{0}, {1}]", Type, Value);
         }
 
         public bool Matches(string type, string id, string value, MatchMode matchMode = MatchMode.Relaxed)

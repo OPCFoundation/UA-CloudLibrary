@@ -1,38 +1,41 @@
-
-using System;
-using System.Collections.Generic;
-using System.Runtime.Serialization;
-
-[DataContract]
-public class PagedResult<T>
+namespace AdminShell
 {
-    [DataMember(Name = "result")]
-    public List<T> Result { get; set; }
+    using System;
+    using System.Collections.Generic;
+    using System.Globalization;
+    using System.Runtime.Serialization;
 
-    [DataMember(Name = "paging_metadata")]
-    public PagedResultMetadata Metadata { get; set; }
-
-    public static PagedResult<T> ToPagedList(List<T> sourceList, PaginationParameters paginationParameters)
+    [DataContract]
+    public class PagedResult<T>
     {
-        List<T> outputList = new();
+        [DataMember(Name = "result")]
+        public List<T> Result { get; set; }
 
-        if (sourceList.Count > 0)
+        [DataMember(Name = "paging_metadata")]
+        public PagedResultMetadata Metadata { get; set; }
+
+        public static PagedResult<T> ToPagedList(List<T> sourceList, PaginationParameters paginationParameters)
         {
-            int startIndex = paginationParameters.Cursor;
-            int endIndex = Math.Min(sourceList.Count - 1, paginationParameters.Limit - 1);
+            List<T> outputList = new();
 
-            if (startIndex > endIndex)
+            if (sourceList.Count > 0)
             {
-                throw new ArgumentException($"Requested pagination start index ({startIndex}) is greater than the size of the source list ({sourceList.Count}).");
+                int startIndex = paginationParameters.Cursor;
+                int endIndex = Math.Min(sourceList.Count - 1, paginationParameters.Limit - 1);
+
+                if (startIndex > endIndex)
+                {
+                    throw new ArgumentException($"Requested pagination start index ({startIndex}) is greater than the size of the source list ({sourceList.Count}).");
+                }
+
+                // Build the outputList with the requested range
+                for (int i = startIndex; i <= endIndex; i++)
+                {
+                    outputList.Add(sourceList[i]);
+                }
             }
 
-            // Build the outputList with the requested range
-            for (int i = startIndex; i <= endIndex; i++)
-            {
-                outputList.Add(sourceList[i]);
-            }
+            return new PagedResult<T>() { Result = outputList, Metadata = new PagedResultMetadata() { Cursor = (paginationParameters.Cursor + outputList.Count - 1).ToString(CultureInfo.InvariantCulture) } };
         }
-
-        return new PagedResult<T>() { Result = outputList, Metadata = new PagedResultMetadata() { Cursor = (paginationParameters.Cursor + outputList.Count - 1).ToString() } };
     }
 }

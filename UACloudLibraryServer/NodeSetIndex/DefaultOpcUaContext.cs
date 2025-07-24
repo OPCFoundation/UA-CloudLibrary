@@ -11,14 +11,16 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
     public class DefaultOpcUaContext : IOpcUaContext
     {
         private readonly ISystemContext _systemContext;
+
         private readonly NodeStateCollection _importedNodes;
-        protected readonly Dictionary<string, NodeSetModel> _nodesetModels;
-        protected readonly ILogger _logger;
+
+        protected Dictionary<string, NodeSetModel> NodeSetModelDictionary { get; set; } = new Dictionary<string, NodeSetModel>();
+
+        private ILogger _logger;
 
         public DefaultOpcUaContext(ILogger logger)
         {
             _importedNodes = new NodeStateCollection();
-            _nodesetModels = new Dictionary<string, NodeSetModel>();
             _logger = logger ?? NullLogger.Instance;
 
             var namespaceTable = new NamespaceTable();
@@ -32,7 +34,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
         public DefaultOpcUaContext(Dictionary<string, NodeSetModel> nodesetModels, ILogger logger) : this(logger)
         {
-            _nodesetModels = nodesetModels;
+            NodeSetModelDictionary = nodesetModels;
             _logger = logger ?? NullLogger.Instance;
         }
 
@@ -57,7 +59,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
         public bool UseLocalNodeIds { get; set; }
 
-        public Dictionary<string, NodeSetModel> NodeSetModels => _nodesetModels;
+        public Dictionary<string, NodeSetModel> NodeSetModels => NodeSetModelDictionary;
 
         public virtual string GetModelNodeId(NodeId nodeId)
         {
@@ -102,7 +104,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
         public virtual TNodeModel GetModelForNode<TNodeModel>(string nodeId) where TNodeModel : NodeModel
         {
-            foreach (var nodeSetModel in _nodesetModels.Values)
+            foreach (var nodeSetModel in NodeSetModelDictionary.Values)
             {
                 if (nodeSetModel.AllNodesByNodeId.TryGetValue(nodeId, out var nodeModel))
                 {
@@ -116,20 +118,23 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
         public virtual NodeSetModel GetOrAddNodesetModel(ModelTableEntry model, bool createNew = true)
         {
-            if (!_nodesetModels.TryGetValue(model.ModelUri, out var nodesetModel))
+            if (!NodeSetModelDictionary.TryGetValue(model.ModelUri, out var nodesetModel))
             {
                 nodesetModel = new NodeSetModel();
                 nodesetModel.ModelUri = model.ModelUri;
                 nodesetModel.PublicationDate = model.GetNormalizedPublicationDate();
                 nodesetModel.Version = model.Version;
+
                 if (!string.IsNullOrEmpty(model.XmlSchemaUri))
                 {
                     nodesetModel.XmlSchemaUri = model.XmlSchemaUri;
                 }
+
                 if (UseLocalNodeIds)
                 {
                     nodesetModel.NamespaceIndex = NamespaceUris.GetIndexOrAppend(nodesetModel.ModelUri);
                 }
+
                 if (model.RequiredModel != null)
                 {
                     foreach (var requiredModel in model.RequiredModel)
@@ -144,7 +149,8 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                         nodesetModel.RequiredModels.Add(requiredModelInfo);
                     }
                 }
-                _nodesetModels.Add(nodesetModel.ModelUri, nodesetModel);
+
+                NodeSetModelDictionary.Add(nodesetModel.ModelUri, nodesetModel);
             }
 
             return nodesetModel;
@@ -153,13 +159,13 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
         public virtual List<NodeState> ImportUANodeSet(UANodeSet nodeSet)
         {
             var previousNodes = _importedNodes.ToList();
-            if (nodeSet.Items?.Any() == true)
+            if (nodeSet.Items?.Length > 0)
             {
                 nodeSet.Import(_systemContext, _importedNodes);
             }
 
             var newlyImportedNodes = _importedNodes.Except(previousNodes).ToList();
-            if (newlyImportedNodes.Any())
+            if (newlyImportedNodes.Count > 0)
             {
                 _importedNodesByNodeId = null;
             }

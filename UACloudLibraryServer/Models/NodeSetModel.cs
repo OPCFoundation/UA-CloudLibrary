@@ -127,9 +127,9 @@ namespace Opc.Ua.Cloud.Library
                 var nodeIdParts = value.Split(new[] { ';' }, 2);
                 if (nodeIdParts.Length > 1)
                 {
-                    if (nodeIdParts[0].StartsWith("nsu="))
+                    if (nodeIdParts[0].StartsWith("nsu=", false, CultureInfo.InvariantCulture))
                     {
-                        if (this.GetType().Name.EndsWith("ModelProxy"))
+                        if (this.GetType().Name.EndsWith("ModelProxy", false, CultureInfo.InvariantCulture))
                         {
                             // For use with EF proxies, we avoid accessing the NodeModel.NodeSet property. Instead save the namespace in a private _namespace variable
                             _namespace = nodeIdParts[0].Substring("nsu=".Length);
@@ -140,16 +140,16 @@ namespace Opc.Ua.Cloud.Library
                             _namespace = "";
                         }
                     }
-                    else if (nodeIdParts[0].StartsWith("ns="))
+                    else if (nodeIdParts[0].StartsWith("ns=", false, CultureInfo.InvariantCulture))
                     {
                         if (NodeSet?.NamespaceIndex != null)
                         {
-                            throw new Exception($"Invalid NodeId: node ids must be absolute.");
+                            throw new ArgumentException($"Invalid NodeId: node ids must be absolute.");
                         }
 
                         if (nodeIdParts[0].Substring("ns=".Length) != NodeSet?.NamespaceIndex?.ToString(CultureInfo.InvariantCulture))
                         {
-                            throw new Exception($"Mismatching namespace index in {value}. Expected {NodeSet.NamespaceIndex}");
+                            throw new ArgumentException($"Mismatching namespace index in {value}. Expected {NodeSet.NamespaceIndex}");
                         }
 
                         _namespace = null;
@@ -181,12 +181,12 @@ namespace Opc.Ua.Cloud.Library
                 var core = NodeSet.RequiredModels?.FirstOrDefault(n => n.ModelUri == "http://opcfoundation.org/UA/")?.AvailableModel;
 #pragma warning disable CS0618 // Type or member is obsolete - populating for backwards compat for now
                 return
-                    this.Properties.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("HasProperty")), Node = p })
-                    .Concat(this.DataVariables.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("HasComponent")), Node = p }))
-                    .Concat(this.Objects.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("HasComponent")), Node = p }))
-                    .Concat(this.Methods.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("HasComponent")), Node = p }))
-                    .Concat(this.Interfaces.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("HasInterface")), Node = p }))
-                    .Concat(this.Events.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("GeneratesEvent")), Node = p }))
+                    this.Properties.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("HasProperty", false, CultureInfo.InvariantCulture)), Node = p })
+                    .Concat(this.DataVariables.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("HasComponent", false, CultureInfo.InvariantCulture)), Node = p }))
+                    .Concat(this.Objects.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("HasComponent", false, CultureInfo.InvariantCulture)), Node = p }))
+                    .Concat(this.Methods.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("HasComponent", false, CultureInfo.InvariantCulture)), Node = p }))
+                    .Concat(this.Interfaces.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("HasInterface", false, CultureInfo.InvariantCulture)), Node = p }))
+                    .Concat(this.Events.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("GeneratesEvent", false, CultureInfo.InvariantCulture)), Node = p }))
                     .Concat(this.OtherReferencedNodes)
                     ;
 #pragma warning restore CS0618 // Type or member is obsolete
@@ -755,7 +755,7 @@ namespace Opc.Ua.Cloud.Library
         {
             var bUpdated = base.UpdateIndices(model, updatedNodes);
 
-            if (bUpdated && StructureFields?.Any() == true)
+            if (bUpdated && StructureFields?.Count > 0)
             {
                 foreach (var field in StructureFields)
                 {
@@ -774,7 +774,7 @@ namespace Opc.Ua.Cloud.Library
             var currentType = this;
             while (currentType != null)
             {
-                if (currentType.StructureFields?.Any() == true)
+                if (currentType.StructureFields?.Count > 0)
                 {
                     baseTypesWithFields.Add(currentType);
                 }

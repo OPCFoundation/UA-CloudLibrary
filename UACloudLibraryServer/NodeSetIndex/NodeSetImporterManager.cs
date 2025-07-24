@@ -91,7 +91,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
                     _nodeSetCacheSystem.ResolveDependencies(_results);
 
-                    if (_results?.MissingModels?.Any() == true)
+                    if (_results?.MissingModels?.Count > 0)
                     {
                         foreach (var t in _results.MissingModels.ToList())
                         {
@@ -100,7 +100,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
                         _nodeSetCacheSystem.ResolveDependencies(_results);
 
-                        if (_results.MissingModels.Any())
+                        if (_results.MissingModels.Count > 0)
                         {
                             if (_results.MissingModels.SequenceEqual(previousMissingModels))
                             {
@@ -137,8 +137,8 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     }
 
                     _results.Models = OrderByDependencies(_results.Models); // _results.Models.OrderBy(s => s.Dependencies.Count).ToList();
-                } while (rerun && _results.MissingModels.Any());
-                if (!_results.MissingModels.Any())
+                } while (rerun && _results.MissingModels.Count > 0);
+                if (_results.MissingModels.Count == 0)
                 {
                     _results.ErrorMessage = null;
                 }

@@ -1,4 +1,5 @@
 
+using System;
 using System.Buffers.Text;
 using System.Collections.Generic;
 using System.Dynamic;
@@ -55,7 +56,7 @@ namespace AdminShell
             var aasList = _aasEnvService.GetAllAssetAdministrationShells();
             foreach (var aasId in decodedAasIds)
             {
-                var foundAas = aasList.Where(a => a.Identification.Id.Equals(aasId));
+                var foundAas = aasList.Where(a => a.Identification.Id.Equals(aasId, StringComparison.OrdinalIgnoreCase));
                 if (foundAas.Any())
                 {
                     outputEnv.AssetAdministrationShells.Add(foundAas.First());
@@ -65,7 +66,7 @@ namespace AdminShell
             var submodelList = _aasEnvService.GetAllSubmodels();
             foreach (var submodelId in decodedSubmodelIds)
             {
-                var foundSubmodel = submodelList.Where(s => s.Identification.Id.Equals(submodelId));
+                var foundSubmodel = submodelList.Where(s => s.Identification.Id.Equals(submodelId, StringComparison.OrdinalIgnoreCase));
                 if (foundSubmodel.Any())
                 {
                     outputEnv.Submodels.Add(foundSubmodel.First());
