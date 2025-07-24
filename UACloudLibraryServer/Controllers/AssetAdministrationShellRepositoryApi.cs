@@ -6,6 +6,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Net.Mime;
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -158,7 +159,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual IActionResult GetThumbnail([FromRoute][Required] string aasIdentifier)
+        public virtual async Task<IActionResult> GetThumbnail([FromRoute][Required] string aasIdentifier)
         {
             string decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
 
@@ -174,7 +175,8 @@ namespace AdminShell
 
             HttpContext.Response.Headers.Append("Content-Disposition", contentDisposition.ToString());
             HttpContext.Response.ContentLength = fileSize;
-            HttpContext.Response.Body.WriteAsync(content).GetAwaiter().GetResult();
+
+            await HttpContext.Response.Body.WriteAsync(content).ConfigureAwait(false);
 
             return new EmptyResult();
         }
