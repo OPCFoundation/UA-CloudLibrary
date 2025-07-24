@@ -29,6 +29,7 @@
 
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -154,6 +155,7 @@ namespace Opc.Ua.Cloud.Library
         }
     }
 
+    [Table("DbFiles")]
     public class DbFiles
     {
         [Key]

@@ -38,9 +38,10 @@ using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Opc.Ua.Cloud.Client.Models;
 
 [assembly: CLSCompliant(false)]
-namespace Opc.Ua.Cloud.Library.Client
+namespace Opc.Ua.Cloud.Client
 {
     /// <summary>
     /// This class handles the quering and conversion of the response
@@ -107,49 +108,35 @@ namespace Opc.Ua.Cloud.Library.Client
         }
 
         /// <summary>
-        /// Gets the converted metadata.
+        /// Download chosen Nodeset with a REST call
         /// </summary>
-        /// <param name="offset"></param>
-        /// <param name="limit"></param>
-        /// <returns>List of UANameSpace</returns>
-        public async Task<List<UANameSpace>> GetConvertedMetadataAsync(int offset, int limit)
-        {
-            List<UANameSpace> convertedResult = new List<UANameSpace>();
-
-            List<UANodesetResult> infos = await _restClient.GetBasicNodesetInformationAsync(offset, limit).ConfigureAwait(false);
-
-            // Match GraphQL
-            infos.ForEach(i => {
-                i.RequiredNodesets = null;
-                i.NameSpaceUri = null;
-            });
-            convertedResult.AddRange(MetadataConverter.Convert(infos));
-
-            return convertedResult;
-        }
+        /// <param name="identifier"></param>
+        /// <param name="metadataOnly"></param>
+        public async Task<UANameSpace> DownloadNodesetAsync(string identifier, bool metadataOnly = false) => await _restClient.DownloadNodesetAsync(identifier, metadataOnly).ConfigureAwait(false);
 
         /// <summary>
         /// Download chosen Nodeset with a REST call
         /// </summary>
         /// <param name="identifier"></param>
-        public async Task<UANameSpace> DownloadNodesetAsync(string identifier) => await _restClient.DownloadNodesetAsync(identifier).ConfigureAwait(false);
-
-        /// <summary>
-        /// Download chosen Nodeset with a REST call
-        /// </summary>
-        /// <param name="identifier"></param>
-        public async Task<UANameSpace> DownloadNodesetAsync(uint identifier) => await _restClient.DownloadNodesetAsync(identifier.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+        /// <param name="metadataOnly"></param>
+        public async Task<UANameSpace> DownloadNodesetAsync(uint identifier, bool metadataOnly = false) => await _restClient.DownloadNodesetAsync(identifier.ToString(CultureInfo.InvariantCulture), metadataOnly).ConfigureAwait(false);
 
         /// <summary>
         /// Use this method if the CloudLib instance doesn't provide the GraphQL API
         /// </summary>
-        public async Task<List<UANodesetResult>> GetBasicNodesetInformationAsync(int offset, int limit, List<string> keywords = null) => await _restClient.GetBasicNodesetInformationAsync(offset, limit, keywords).ConfigureAwait(false);
+        public async Task<List<UANameSpace>> GetBasicNodesetInformationAsync(int offset, int limit, List<string> keywords = null) => await _restClient.GetBasicNodesetInformationAsync(offset, limit, keywords).ConfigureAwait(false);
 
         /// <summary>
         /// Gets all available namespaces and the corresponding node set identifier
         /// </summary>
         /// <returns></returns>
         public Task<(string NamespaceUri, string Identifier)[]> GetNamespaceIdsAsync() => _restClient.GetNamespaceIdsAsync();
+
+        /// <summary>
+        /// Gets all available namespaces and the corresponding node set identifier, version and publication date
+        /// </summary>
+        /// <returns></returns>
+        public Task<(string NamespaceUri, string Identifier, string Version, string PublicationDate)[]> GetNamespaceIdsExAsync() => _restClient.GetNamespaceIdsExAsync();
 
         /// <summary>
         /// Upload a nodeset to the cloud library

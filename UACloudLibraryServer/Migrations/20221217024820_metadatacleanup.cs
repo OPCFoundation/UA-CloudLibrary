@@ -141,7 +141,7 @@ namespace Opc.Ua.Cloud.Library
                     Blob = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table => {
-                    table.PrimaryKey("PK_DevDbFiles", x => x.Name);
+                    table.PrimaryKey("PK_DbFiles", x => x.Name);
                 });
 
             migrationBuilder.CreateTable(

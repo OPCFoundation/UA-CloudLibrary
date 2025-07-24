@@ -6,7 +6,8 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Opc.Ua.Cloud.Library.Client;
+using Opc.Ua.Cloud.Client;
+using Opc.Ua.Cloud.Client.Models;
 using Xunit;
 using Xunit.Abstractions;
 

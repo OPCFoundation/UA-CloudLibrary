@@ -17,7 +17,7 @@ namespace Opc.Ua.Cloud.Library
         public string XmlSchemaUri { get; set; }
 
         // RequiredModels
-        public virtual List<RequiredModelInfo> RequiredModels { get; set; } = new List<RequiredModelInfo>();
+        public virtual List<RequiredModelInfoModel> RequiredModels { get; set; } = new List<RequiredModelInfoModel>();
         // NamespaceUris
         // ServerUris
         // DefaultAccessRules
@@ -66,7 +66,7 @@ namespace Opc.Ua.Cloud.Library
         public int? NamespaceIndex { get; set; }
     }
 
-    public class RequiredModelInfo
+    public class RequiredModelInfoModel
     {
         public string ModelUri { get; set; }
 

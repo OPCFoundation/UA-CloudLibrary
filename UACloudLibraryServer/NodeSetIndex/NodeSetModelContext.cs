@@ -5,30 +5,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Opc.Ua.Cloud.Library.NodeSetIndex
 {
-    public class NodeSetModelContext : DbContext
+    public class NodeSetModelContext
     {
-        protected bool CascadeDelete { get; set; }
-        public NodeSetModelContext(DbContextOptions<NodeSetModelContext> options) : base(options)
-        {
-            // Blank
-        }
-
-        protected NodeSetModelContext(DbContextOptions options)
-        {
-            // Blank
-        }
-
-        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            => optionsBuilder
-                .UseLazyLoadingProxies()
-            ;
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            base.OnModelCreating(modelBuilder);
-            CreateModel(modelBuilder, CascadeDelete);
-
-        }
         public static void CreateModel(ModelBuilder modelBuilder, bool cascadeDelete = false, bool methodArgs = false)
         {
             modelBuilder.Owned<NodeModel.LocalizedText>();
@@ -36,7 +14,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             modelBuilder.Owned<VariableModel.EngineeringUnitInfo>();
             modelBuilder.Owned<DataTypeModel.StructureField>();
             modelBuilder.Owned<DataTypeModel.UaEnumField>();
-            modelBuilder.Owned<RequiredModelInfo>();
+            modelBuilder.Owned<RequiredModelInfoModel>();
 
             modelBuilder.Entity<NodeSetModel>()
                 .ToTable("NodeSets")

@@ -52,7 +52,7 @@ namespace Opc.Ua.Cloud.Library
                 });
 
             migrationBuilder.CreateTable(
-                name: "RequiredModelInfo",
+                name: "RequiredModelInfoModel",
                 columns: table => new {
                     NodeSetModelModelUri = table.Column<string>(type: "text", nullable: false),
                     NodeSetModelPublicationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
@@ -887,7 +887,7 @@ namespace Opc.Ua.Cloud.Library
                 name: "ReferenceTypes");
 
             migrationBuilder.DropTable(
-                name: "RequiredModelInfo");
+                name: "RequiredModelInfoModel");
 
             migrationBuilder.DropTable(
                 name: "StructureField_Description");

@@ -135,7 +135,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     foreach (var requiredModel in model.RequiredModel)
                     {
                         var existingNodeSet = GetOrAddNodesetModel(requiredModel);
-                        var requiredModelInfo = new RequiredModelInfo {
+                        var requiredModelInfo = new RequiredModelInfoModel {
                             ModelUri = requiredModel.ModelUri,
                             PublicationDate = requiredModel.GetNormalizedPublicationDate(),
                             Version = requiredModel.Version,

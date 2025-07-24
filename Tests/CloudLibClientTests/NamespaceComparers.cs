@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using Opc.Ua.Cloud.Library.Client;
+using Opc.Ua.Cloud.Client.Models;
+using Opc.Ua.Cloud.Client;
 
 namespace CloudLibClient.Tests
 {

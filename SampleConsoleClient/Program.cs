@@ -30,12 +30,12 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using Opc.Ua.Cloud.Library.Client;
+using Opc.Ua.Cloud.Client;
+using Opc.Ua.Cloud.Client.Models;
 
 [assembly: CLSCompliant(false)]
 namespace SampleConsoleClient
@@ -79,22 +79,22 @@ namespace SampleConsoleClient
             HttpResponseMessage response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
             Console.WriteLine("Response: " + response.StatusCode.ToString());
             string responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            UANodesetResult[] identifiers = null;
+            UANameSpace[] nodesets = null;
             if (!string.IsNullOrEmpty(responseString))
             {
-                identifiers = JsonConvert.DeserializeObject<UANodesetResult[]>(responseString);
-                for (int i = 0; i < identifiers.Length; i++)
+                nodesets = JsonConvert.DeserializeObject<UANameSpace[]>(responseString);
+                for (int i = 0; i < nodesets.Length; i++)
                 {
-                    Console.WriteLine(JsonConvert.SerializeObject(identifiers[i], Formatting.Indented));
+                    Console.WriteLine(JsonConvert.SerializeObject(nodesets[i], Formatting.Indented));
                 }
             }
             Console.WriteLine();
             Console.WriteLine("Testing /infomodel/download/{identifier}");
 
-            if (identifiers != null)
+            if (nodesets != null)
             {
                 // pick the first identifier returned previously
-                string identifier = identifiers[0].Id.ToString(CultureInfo.InvariantCulture);
+                string identifier = nodesets[0].Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
                 address = new Uri(webClient.BaseAddress, "infomodel/download/" + Uri.EscapeDataString(identifier));
                 response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
 
@@ -118,25 +118,14 @@ namespace SampleConsoleClient
 
             UACloudLibClient client = new UACloudLibClient(args[0], args[1], args[2]);
 
-
-            List<UANodesetResult> finalResult2 = await client.GetBasicNodesetInformationAsync(0, 500).ConfigureAwait(true);
-            Console.WriteLine($"{finalResult2.Count.ToString(CultureInfo.InvariantCulture)}");
-
-            Console.WriteLine("\nTesting query and convertion of metadata");
-            List<UANameSpace> finalResult = await client.GetConvertedMetadataAsync(0, 100).ConfigureAwait(false);
-            foreach (UANameSpace result in finalResult)
-            {
-                Console.WriteLine($"{result.Title} by {result.Contributor.Name}");
-            }
-
-            List<UANodesetResult> restResult = await client.GetBasicNodesetInformationAsync(0, 100).ConfigureAwait(false);
+            List<UANameSpace> restResult = await client.GetBasicNodesetInformationAsync(0, 10).ConfigureAwait(false);
             if (restResult?.Count > 0)
             {
                 Console.WriteLine("Passed.");
                 Console.WriteLine("\nUsing the rest API");
                 Console.WriteLine("Testing download of nodeset");
 
-                UANameSpace result = await client.DownloadNodesetAsync(restResult[0].Id.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                UANameSpace result = await client.DownloadNodesetAsync(restResult[0].Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
 
                 if (!string.IsNullOrEmpty(result.Nodeset.NodesetXml))
                 {

@@ -28,7 +28,7 @@ namespace AzureBlobToPGTable
                     await downloadInfo.Value.Content.CopyToAsync(file).ConfigureAwait(false);
                     string nodesetXml = Encoding.UTF8.GetString(file.ToArray());
 
-                    using (var cmd = new NpgsqlCommand("INSERT INTO \"public\".\"DevDbFiles\" (\"Name\", \"Blob\") VALUES (@blobName, @nodesetXml)", conn))
+                    using (var cmd = new NpgsqlCommand("INSERT INTO \"public\".\"DbFiles\" (\"Name\", \"Blob\") VALUES (@blobName, @nodesetXml)", conn))
                     {
                         cmd.Parameters.AddWithValue("blobName", blobItem.Name);
                         cmd.Parameters.AddWithValue("nodesetXml", nodesetXml);
@@ -37,7 +37,7 @@ namespace AzureBlobToPGTable
                     }
 
                     // verify successful insertion by reading back the data
-                    using (var verifyCmd = new NpgsqlCommand("SELECT * FROM \"public\".\"DevDbFiles\" WHERE \"Name\" = @blobName", conn))
+                    using (var verifyCmd = new NpgsqlCommand("SELECT * FROM \"public\".\"DbFiles\" WHERE \"Name\" = @blobName", conn))
                     {
                         verifyCmd.Parameters.AddWithValue("blobName", blobItem.Name);
 

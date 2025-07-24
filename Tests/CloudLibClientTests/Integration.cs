@@ -5,8 +5,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Opc.Ua.Cloud.Library;
-using Opc.Ua.Cloud.Library.Interfaces;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -27,7 +25,7 @@ namespace CloudLibClient.Tests
     public class TestSetup : IClassFixture<CustomWebApplicationFactory<Opc.Ua.Cloud.Library.Startup>>
     {
         private static int InstantiationCount;
-        private readonly CustomWebApplicationFactory<Startup> _factory;
+        private readonly CustomWebApplicationFactory<Opc.Ua.Cloud.Library.Startup> _factory;
 
         public TestSetup(CustomWebApplicationFactory<Opc.Ua.Cloud.Library.Startup> factory)
         {
@@ -46,7 +44,7 @@ namespace CloudLibClient.Tests
 
                 using (IServiceScope scope = _factory.Server.Services.CreateScope())
                 {
-                    AppDbContext dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    Opc.Ua.Cloud.Library.AppDbContext dbContext = scope.ServiceProvider.GetRequiredService<Opc.Ua.Cloud.Library.AppDbContext>();
                     if (dbContext.nodeSets.Any())
                     {
                         dbContext.Database.EnsureDeleted();

@@ -37,8 +37,9 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using Opc.Ua.Cloud.Client.Models;
 
-namespace Opc.Ua.Cloud.Library.Client
+namespace Opc.Ua.Cloud.Client
 {
     /// <summary>
     /// For use when the provider doesn't have a GraphQL interface and the downloading of nodesets
@@ -76,7 +77,7 @@ namespace Opc.Ua.Cloud.Library.Client
             client.Dispose();
         }
 
-        public async Task<List<UANodesetResult>> GetBasicNodesetInformationAsync(int offset, int limit, List<string> keywords = null)
+        public async Task<List<UANameSpace>> GetBasicNodesetInformationAsync(int offset, int limit, List<string> keywords = null)
         {
             if (keywords == null)
             {
@@ -88,19 +89,14 @@ namespace Opc.Ua.Cloud.Library.Client
             Uri address = new Uri(client.BaseAddress, relativeUri);
             HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
 
-            List<UANodesetResult> info = null;
+            List<UANameSpace> info = null;
             if (response.StatusCode == HttpStatusCode.OK)
             {
                 string responseJson = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                info = JsonConvert.DeserializeObject<List<UANodesetResult>>(responseJson);
+                info = JsonConvert.DeserializeObject<List<UANameSpace>>(responseJson);
             }
 
             return info;
-        }
-
-        public Task<UANameSpace> DownloadNodesetAsync(string identifier)
-        {
-            return DownloadNodesetAsync(identifier, false);
         }
 
         public async Task<UANameSpace> DownloadNodesetAsync(string identifier, bool metadataOnly)
@@ -127,6 +123,7 @@ namespace Opc.Ua.Cloud.Library.Client
             Uri address = new Uri(client.BaseAddress, "infomodel/namespaces/");
             HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
             (string namespaceUri, string identifier)[] resultType = null;
+
             if (response.StatusCode == HttpStatusCode.OK)
             {
                 string responseStr = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -136,6 +133,26 @@ namespace Opc.Ua.Cloud.Library.Client
                     return (parts[0], parts[1]);
                 }).ToArray();
             }
+
+            return resultType;
+        }
+
+        public async Task<(string NamespaceUri, string Identifier, string Version, string PublicationDate)[]> GetNamespaceIdsExAsync()
+        {
+            Uri address = new Uri(client.BaseAddress, "infomodel/namespaces/");
+            HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
+            (string namespaceUri, string identifier, string version, string publicationDate)[] resultType = null;
+
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                string responseStr = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                string[] result = JsonConvert.DeserializeObject<string[]>(responseStr);
+                resultType = result.Select(str => {
+                    string[] parts = str.Split(',');
+                    return (parts[0], parts[1], parts[2], parts[3]);
+                }).ToArray();
+            }
+
             return resultType;
         }
 
@@ -171,6 +188,7 @@ namespace Opc.Ua.Cloud.Library.Client
 
             HttpResponseMessage uploadResponse = await client.SendAsync(new HttpRequestMessage(HttpMethod.Put, uploadAddress) { Content = content }).ConfigureAwait(false);
             string uploadResponseStr = await uploadResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+
             return (uploadResponse.StatusCode, $"{uploadResponseStr}");
         }
     }

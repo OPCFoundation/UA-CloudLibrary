@@ -296,7 +296,7 @@ namespace Opc.Ua.Cloud.Library
                             Version = deletedNodeSet.Version,
                             LastModifiedDate = deletedNodeSet.LastModifiedDate,
                             ValidationStatus = ValidationStatus.Parsed,
-                            RequiredModels = deletedNodeSet.RequiredModels.Select(rm => new RequiredModelInfo { ModelUri = rm.ModelUri, PublicationDate = rm.PublicationDate, Version = rm.Version }).ToList(),
+                            RequiredModels = deletedNodeSet.RequiredModels.Select(rm => new RequiredModelInfoModel { ModelUri = rm.ModelUri, PublicationDate = rm.PublicationDate, Version = rm.Version }).ToList(),
                         };
 
                         await _dbContext.nodeSetsWithUnapproved.AddAsync(newNodeSetModel).ConfigureAwait(false);
@@ -395,7 +395,7 @@ namespace Opc.Ua.Cloud.Library
             return matchingNodeSets;
         }
 
-        public UANodesetResult[] FindNodesets(string[] keywords, int? offset, int? limit)
+        public UANameSpace[] FindNodesets(string[] keywords, int? offset, int? limit)
         {
             var uaNamespaceModel = SearchNodesets(keywords)
                 .OrderBy(n => n.ModelUri)
@@ -404,8 +404,8 @@ namespace Opc.Ua.Cloud.Library
                 .Select(n => _dbContext.NamespaceMetaData.Where(nmd => nmd.NodesetId == n.Identifier).Include(nmd => nmd.NodeSet).FirstOrDefault())
                 .ToList();
 
-            UANodesetResult[] nodesetResults = uaNamespaceModel.Select(nameSpace => {
-                var result = new UANodesetResult();
+            UANameSpace[] nodesetResults = uaNamespaceModel.Select(nameSpace => {
+                var result = new UANameSpace();
                 MapToNamespace(result, nameSpace);
 
                 return result;
@@ -664,7 +664,8 @@ namespace Opc.Ua.Cloud.Library
                     availableNodeSet = new();
                     MapToNodeSet(availableNodeSet, rm.AvailableModel);
                 }
-                return new CloudLibRequiredModelInfo { NamespaceUri = rm.ModelUri, PublicationDate = rm.PublicationDate, Version = rm.Version, AvailableModel = availableNodeSet };
+
+                return new RequiredModelInfo { NamespaceUri = rm.ModelUri, PublicationDate = rm.PublicationDate, Version = rm.Version, AvailableModel = availableNodeSet };
             }).ToList();
         }
         private void MapToOrganisation(Organisation org, OrganisationModel model)

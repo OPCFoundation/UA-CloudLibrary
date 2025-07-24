@@ -2,7 +2,8 @@ using System.Globalization;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using Opc.Ua.Cloud.Library.Client;
+using Opc.Ua.Cloud.Client;
+using Opc.Ua.Cloud.Client.Models;
 using Opc.Ua.Export;
 
 namespace Opc.Ua.CloudLib.Sync
@@ -34,17 +35,17 @@ namespace Opc.Ua.CloudLib.Sync
         {
             var sourceClient = new UACloudLibClient(sourceUrl, sourceUserName, sourcePassword);
 
-            List<UANodesetResult> nodeSetResult;
+            List<UANameSpace> nodeSetResult;
             int cursor = 0;
             do
             {
                 // Get all NodeSets
                 nodeSetResult = await sourceClient.GetBasicNodesetInformationAsync(cursor, 50).ConfigureAwait(false);
 
-                foreach (UANodesetResult nodeSetAndCursor in nodeSetResult)
+                foreach (UANameSpace nodeSetAndCursor in nodeSetResult)
                 {
                     // Download each NodeSet
-                    string identifier = nodeSetAndCursor.Id.ToString(CultureInfo.InvariantCulture);
+                    string identifier = nodeSetAndCursor.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
                     UANameSpace uaNamespace = await sourceClient.DownloadNodesetAsync(identifier).ConfigureAwait(false);
 
                     if (uaNamespace?.Nodeset != null)
@@ -100,8 +101,8 @@ namespace Opc.Ua.CloudLib.Sync
             bool bAdded;
             do
             {
-                List<UANodesetResult> targetNodesets = new();
-                List<UANodesetResult> targetNodeSetResult;
+                List<UANameSpace> targetNodesets = new();
+                List<UANameSpace> targetNodeSetResult;
                 int targetCursor = 0;
                 do
                 {
@@ -113,7 +114,7 @@ namespace Opc.Ua.CloudLib.Sync
 
                 bAdded = false;
 
-                List<UANodesetResult> sourceNodeSetResult;
+                List<UANameSpace> sourceNodeSetResult;
                 int sourceCursor = 0;
                 do
                 {
@@ -123,14 +124,14 @@ namespace Opc.Ua.CloudLib.Sync
                     var toSync = sourceNodeSetResult
                         .Where(source => !targetNodesets
                             .Any(target =>
-                                source.NameSpaceUri == target.NameSpaceUri
-                                && (source.PublicationDate == target.PublicationDate || (source.Id != 0 && source.Id == target.Id))
+                                source.Nodeset.NamespaceUri == target.Nodeset.NamespaceUri
+                                && (source.Nodeset.PublicationDate == target.Nodeset.PublicationDate || (source.Nodeset.Identifier != 0 && source.Nodeset.Identifier == target.Nodeset.Identifier))
                         )).ToList();
 
-                    foreach (UANodesetResult? nodeSet in toSync)
+                    foreach (UANameSpace? nodeSet in toSync)
                     {
                         // Download each NodeSet
-                        string identifier = nodeSet.Id.ToString(CultureInfo.InvariantCulture);
+                        string identifier = nodeSet.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
                         UANameSpace uaNamespace = await sourceClient.DownloadNodesetAsync(identifier).ConfigureAwait(false);
 
                         try
