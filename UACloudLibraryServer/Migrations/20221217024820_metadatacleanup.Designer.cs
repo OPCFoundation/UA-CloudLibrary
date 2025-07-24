@@ -1163,7 +1163,7 @@ namespace Opc.Ua.Cloud.Library
 
                     b1.HasIndex("AvailableModelModelUri", "AvailableModelPublicationDate");
 
-                    b1.ToTable("RequiredModelInfo");
+                    b1.ToTable("RequiredModelInfoModel");
 
                     b1.HasOne("CESMII.OpcUa.NodeSetModel.NodeSetModel", "AvailableModel")
                         .WithMany()

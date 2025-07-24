@@ -64,7 +64,7 @@ namespace Opc.Ua.Cloud.Library
 
             migrationBuilder.DropForeignKey(
                 name: "FK_RequiredModelInfo_NodeSets_NodeSetModelModelUri_NodeSetMode~",
-                table: "RequiredModelInfo");
+                table: "RequiredModelInfoModel");
 
             migrationBuilder.DropForeignKey(
                 name: "FK_Variables_Nodes_ParentNodeId_ParentNodeSetModelUri_ParentNo~",
@@ -160,12 +160,12 @@ namespace Opc.Ua.Cloud.Library
 
             migrationBuilder.RenameColumn(
                 name: "NodeSetModelPublicationDate",
-                table: "RequiredModelInfo",
+                table: "RequiredModelInfoModel",
                 newName: "DependentPublicationDate");
 
             migrationBuilder.RenameColumn(
                 name: "NodeSetModelModelUri",
-                table: "RequiredModelInfo",
+                table: "RequiredModelInfoModel",
                 newName: "DependentModelUri");
 
             migrationBuilder.RenameColumn(
@@ -835,7 +835,7 @@ namespace Opc.Ua.Cloud.Library
 
             migrationBuilder.AddForeignKey(
                 name: "FK_RequiredModelInfo_NodeSets_DependentModelUri_DependentPubli~",
-                table: "RequiredModelInfo",
+                table: "RequiredModelInfoModel",
                 columns: ["DependentModelUri", "DependentPublicationDate"],
                 principalTable: "NodeSets",
                 principalColumns: ["ModelUri", "PublicationDate"],
@@ -912,7 +912,7 @@ namespace Opc.Ua.Cloud.Library
 
             migrationBuilder.DropForeignKey(
                 name: "FK_RequiredModelInfo_NodeSets_DependentModelUri_DependentPubli~",
-                table: "RequiredModelInfo");
+                table: "RequiredModelInfoModel");
 
             migrationBuilder.DropForeignKey(
                 name: "FK_VariableTypes_BaseTypes_DataTypeNodeId_DataTypeNodeSetModel~",
@@ -1074,12 +1074,12 @@ namespace Opc.Ua.Cloud.Library
 
             migrationBuilder.RenameColumn(
                 name: "DependentPublicationDate",
-                table: "RequiredModelInfo",
+                table: "RequiredModelInfoModel",
                 newName: "NodeSetModelPublicationDate");
 
             migrationBuilder.RenameColumn(
                 name: "DependentModelUri",
-                table: "RequiredModelInfo",
+                table: "RequiredModelInfoModel",
                 newName: "NodeSetModelModelUri");
 
             migrationBuilder.RenameColumn(
@@ -1478,7 +1478,7 @@ namespace Opc.Ua.Cloud.Library
 
             migrationBuilder.AddForeignKey(
                 name: "FK_RequiredModelInfo_NodeSets_NodeSetModelModelUri_NodeSetMode~",
-                table: "RequiredModelInfo",
+                table: "RequiredModelInfoModel",
                 columns: ["NodeSetModelModelUri", "NodeSetModelPublicationDate"],
                 principalTable: "NodeSets",
                 principalColumns: ["ModelUri", "PublicationDate"],

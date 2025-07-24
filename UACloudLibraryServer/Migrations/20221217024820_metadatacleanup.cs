@@ -78,7 +78,7 @@ namespace Opc.Ua.Cloud.Library
 
             migrationBuilder.DropForeignKey(
                 name: "FK_RequiredModelInfo_NodeSets_AvailableModelModelUri_Available~",
-                table: "RequiredModelInfo");
+                table: "RequiredModelInfoModel");
 
             migrationBuilder.DropForeignKey(
                 name: "FK_StructureField_BaseTypes_DataTypeNodeId_DataTypeNodeSetMode~",
@@ -399,7 +399,7 @@ namespace Opc.Ua.Cloud.Library
 
             migrationBuilder.AddForeignKey(
                 name: "FK_RequiredModelInfo_NodeSets_AvailableModelModelUri_Available~",
-                table: "RequiredModelInfo",
+                table: "RequiredModelInfoModel",
                 columns: ["AvailableModelModelUri", "AvailableModelPublicationDate"],
                 principalTable: "NodeSets",
                 principalColumns: ["ModelUri", "PublicationDate"],
@@ -523,7 +523,7 @@ namespace Opc.Ua.Cloud.Library
 
             migrationBuilder.DropForeignKey(
                 name: "FK_RequiredModelInfo_NodeSets_AvailableModelModelUri_Available~",
-                table: "RequiredModelInfo");
+                table: "RequiredModelInfoModel");
 
             migrationBuilder.DropForeignKey(
                 name: "FK_StructureField_BaseTypes_DataTypeNodeId_DataTypeNodeSetMode~",
@@ -701,7 +701,7 @@ namespace Opc.Ua.Cloud.Library
 
             migrationBuilder.AddForeignKey(
                 name: "FK_RequiredModelInfo_NodeSets_AvailableModelModelUri_Available~",
-                table: "RequiredModelInfo",
+                table: "RequiredModelInfoModel",
                 columns: ["AvailableModelModelUri", "AvailableModelPublicationDate"],
                 principalTable: "NodeSets",
                 principalColumns: ["ModelUri", "PublicationDate"]);

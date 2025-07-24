@@ -818,7 +818,7 @@ namespace Opc.Ua.Cloud.Library
 
             migrationBuilder.CreateIndex(
                 name: "IX_RequiredModelInfo_AvailableModelModelUri_AvailableModelPubl~",
-                table: "RequiredModelInfo",
+                table: "RequiredModelInfoModel",
                 columns: ["AvailableModelModelUri", "AvailableModelPublicationDate"]);
 
             migrationBuilder.CreateIndex(
