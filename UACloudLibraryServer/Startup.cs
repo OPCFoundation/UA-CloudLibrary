@@ -366,6 +366,7 @@ namespace Opc.Ua.Cloud.Library
             });
 
             services.AddServerSideBlazor();
+            services.AddScoped<AdminShell.AssetAdministrationShellEnvironmentService>();
 #if AZURE_AD
             // Required to make Azure AD login work as ASP.Net External Identity: Change the SignInScheme to External after ALL other configuration have run.
             services
