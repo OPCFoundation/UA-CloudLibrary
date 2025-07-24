@@ -225,7 +225,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 return QualifiedName.Parse(modelBrowseName);
             }
 
-            var parts = modelBrowseName.Split(new[] { ';' }, 2);
+            var parts = modelBrowseName.Split([';'], 2);
             if (parts.Length == 1)
             {
                 return new QualifiedName(parts[0]);

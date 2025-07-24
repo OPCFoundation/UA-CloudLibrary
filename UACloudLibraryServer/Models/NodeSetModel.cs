@@ -124,7 +124,7 @@ namespace Opc.Ua.Cloud.Library
             }
             set
             {
-                var nodeIdParts = value.Split(new[] { ';' }, 2);
+                var nodeIdParts = value.Split([';'], 2);
                 if (nodeIdParts.Length > 1)
                 {
                     if (nodeIdParts[0].StartsWith("nsu=", false, CultureInfo.InvariantCulture))

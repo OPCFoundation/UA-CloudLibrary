@@ -91,7 +91,7 @@ namespace Opc.Ua.Cloud.Library
                 bAdded = true;
             }
 
-            if (ns.RequiredModel?.Any() == true)
+            if (ns.RequiredModel?.Length > 0)
             {
                 foreach (var tDep in ns.RequiredModel)
                 {

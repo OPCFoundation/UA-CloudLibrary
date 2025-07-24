@@ -44,14 +44,16 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             return model.DisplayName.FirstOrDefault()?.Text;
         }
 
-        public static string GetUnqualifiedBrowseName(this NodeModel _this)
+        public static string GetUnqualifiedBrowseName(this NodeModel nodeModel)
         {
-            var browseName = _this.GetBrowseName();
-            var parts = browseName.Split(new[] { ';' }, 2);
+            var browseName = nodeModel.GetBrowseName();
+            var parts = browseName.Split([';'], 2);
+
             if (parts.Length > 1)
             {
                 return parts[1];
             }
+
             return browseName;
         }
 

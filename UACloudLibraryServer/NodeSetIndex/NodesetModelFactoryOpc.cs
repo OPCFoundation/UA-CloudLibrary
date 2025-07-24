@@ -70,7 +70,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             }
             if (nodeSet.Items == null)
             {
-                nodeSet.Items = new UANode[0];
+                nodeSet.Items = [];
             }
 
             var newImportedNodes = opcContext.ImportUANodeSet(nodeSet);
@@ -428,7 +428,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 }
                 else
                 {
-                    new ArgumentException($"Failed to resolve reference {referenceTypes.FirstOrDefault()} from {parent} to {referencedNode}.");
+                    throw new ArgumentException($"Failed to resolve reference {referenceTypes.FirstOrDefault()} from {parent} to {referencedNode}.");
                 }
                 // Potential candidates for first class representation in the model:
                 // {ns=1;i=6030} - ConnectsTo / Hierarchical
