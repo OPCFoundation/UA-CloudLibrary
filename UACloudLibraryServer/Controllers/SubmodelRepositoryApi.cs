@@ -62,7 +62,7 @@ namespace AdminShell
 
             List<SubmodelElement> submodelElements = _aasEnvService.GetAllSubmodelElementsFromSubmodel(decodedSubmodelIdentifier);
 
-            PagedResult<SubmodelElement> output = PagedResult<SubmodelElement>.ToPagedList(submodelElements, new PaginationParameters(cursor, limit));
+            PagedResult<SubmodelElement> output = PagedResult.ToPagedList<SubmodelElement>(submodelElements, new PaginationParameters(cursor, limit));
 
             return new ObjectResult(output);
         }
@@ -103,7 +103,7 @@ namespace AdminShell
 
             List<Submodel> submodelList = _aasEnvService.GetAllSubmodels(reference, idShort);
 
-            PagedResult<Submodel> output = PagedResult<Submodel>.ToPagedList(submodelList, new PaginationParameters(cursor, limit));
+            PagedResult<Submodel> output = PagedResult.ToPagedList<Submodel>(submodelList, new PaginationParameters(cursor, limit));
 
             return new ObjectResult(output);
         }

@@ -65,7 +65,7 @@ namespace AdminShell
 
             List<AssetAdministrationShell> aasList = _aasEnvService.GetAllAssetAdministrationShells(reqAssetIds, idShort);
 
-            PagedResult<AssetAdministrationShell> output = PagedResult<AssetAdministrationShell>.ToPagedList(aasList, new PaginationParameters(cursor, limit));
+            PagedResult<AssetAdministrationShell> output = PagedResult.ToPagedList<AssetAdministrationShell>(aasList, new PaginationParameters(cursor, limit));
 
             return new ObjectResult(output);
         }
@@ -133,7 +133,7 @@ namespace AdminShell
 
             List<Reference> submodels = _aasEnvService.GetAllSubmodelReferences(decodedAasIdentifier);
 
-            PagedResult<Reference> output = PagedResult<Reference>.ToPagedList(submodels, new PaginationParameters(cursor, limit));
+            PagedResult<Reference> output = PagedResult.ToPagedList<Reference>(submodels, new PaginationParameters(cursor, limit));
 
             return new ObjectResult(output);
         }

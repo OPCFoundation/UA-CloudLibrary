@@ -61,7 +61,7 @@ namespace IO.Swagger.Controllers
             List<ConceptDescription> cdList = new();
             cdList = _aasEnvService.GetAllConceptDescriptions(idShort, reqIsCaseOf, reqDataSpecificationRef);
 
-            PagedResult<ConceptDescription> output = PagedResult<ConceptDescription>.ToPagedList(cdList, new PaginationParameters(cursor, limit));
+            PagedResult<ConceptDescription> output = PagedResult.ToPagedList<ConceptDescription>(cdList, new PaginationParameters(cursor, limit));
 
             return new ObjectResult(output);
         }

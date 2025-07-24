@@ -628,7 +628,6 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             return (range, rangeNodeId, rangeModellingRule, rangeAccessLevel);
         }
 
-
         public static NodeModel Create(IOpcUaContext opcContext, NodeState node, object customState, out bool added, int recursionDepth = int.MaxValue)
         {
             NodeModel nodeModel;

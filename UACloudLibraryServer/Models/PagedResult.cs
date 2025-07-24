@@ -13,8 +13,11 @@ namespace AdminShell
 
         [DataMember(Name = "paging_metadata")]
         public PagedResultMetadata Metadata { get; set; }
+    }
 
-        public static PagedResult<T> ToPagedList(List<T> sourceList, PaginationParameters paginationParameters)
+    public static class PagedResult
+    {
+        public static PagedResult<T> ToPagedList<T>(List<T> sourceList, PaginationParameters paginationParameters)
         {
             List<T> outputList = new();
 
