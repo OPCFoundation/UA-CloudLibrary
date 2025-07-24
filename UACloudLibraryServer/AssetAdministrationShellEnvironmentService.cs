@@ -191,7 +191,7 @@ namespace AdminShell
                         }
                         else
                         {
-                            Property sme = new() {
+                            AASProperty sme = new() {
                                 ModelType = ModelTypes.Property,
                                 DisplayName = new List<LangString>() { new LangString() { Text = smeNode.Text } },
                                 IdShort = smeNode.Text,
@@ -205,7 +205,7 @@ namespace AdminShell
                     else
                     {
                         // add just one property to be spec conform
-                        Property sme = new() {
+                        AASProperty sme = new() {
                             ModelType = ModelTypes.Property,
                             DisplayName = new List<LangString>() { new LangString() { Text = smeNode.Text } },
                             IdShort = smeNode.Text,

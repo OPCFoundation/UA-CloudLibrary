@@ -5,11 +5,11 @@ namespace AdminShell
     using System.Xml.Serialization;
 
     [DataContract]
-    public class Property : DataElement
+    public class AASProperty : DataElement
     {
         [DataMember(Name = "value")]
         [XmlElement(ElementName = "value")]
-        [MetaModelName("Property.Value")]
+        [MetaModelNameAttribute("AASProperty.Value")]
         public string Value { get; set; }
 
         [DataMember(Name = "valueId")]
@@ -18,18 +18,18 @@ namespace AdminShell
 
         [DataMember(Name = "valueType")]
         [XmlElement(ElementName = "valueType")]
-        [MetaModelName("Property.ValueType")]
+        [MetaModelNameAttribute("AASProperty.ValueType")]
         public string ValueType { get; set; }
 
-        public Property()
+        public AASProperty()
         {
             ModelType = ModelTypes.Property;
         }
 
-        public Property(SubmodelElement src)
+        public AASProperty(SubmodelElement src)
             : base(src)
         {
-            if (!(src is Property p))
+            if (!(src is AASProperty p))
             {
                 return;
             }

@@ -11,18 +11,18 @@ namespace AdminShell
     {
         [DataMember(Name = "max")]
         [XmlElement(ElementName = "max")]
-        [MetaModelName("Range.Max")]
+        [MetaModelNameAttribute("Range.Max")]
         public string Max { get; set; }
 
         [DataMember(Name = "min")]
         [XmlElement(ElementName = "min")]
-        [MetaModelName("Range.Min")]
+        [MetaModelNameAttribute("Range.Min")]
         public string Min { get; set; }
 
         [Required]
         [DataMember(Name = "valueType")]
         [XmlElement(ElementName = "valueType")]
-        [MetaModelName("Range.ValueType")]
+        [MetaModelNameAttribute("Range.ValueType")]
         public string ValueType { get; set; }
 
         public Range()

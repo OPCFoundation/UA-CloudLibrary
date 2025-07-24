@@ -10,6 +10,6 @@ namespace AdminShell
     {
         [DataMember(Name = "objectAttribute")]
         [XmlArray(ElementName = "objectAttribute")]
-        public List<Property> ObjectAttribute { get; set; }
+        public List<AASProperty> ObjectAttribute { get; set; }
     }
 }

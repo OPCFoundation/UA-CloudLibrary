@@ -112,38 +112,39 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
     }
     public class NodeModelFactoryOpc<TNodeModel> where TNodeModel : NodeModel, new()
     {
-        protected TNodeModel _model;
-        private ILogger Logger;
+        protected TNodeModel Model { get; set; }
+
+        private ILogger _logger;
 
         protected virtual void Initialize(IOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
         {
-            Logger.LogTrace($"Creating node model for {opcNode}");
+            _logger.LogTrace($"Creating node model for {opcNode}");
             // TODO capture multiple locales from a nodeset: UA library seems to offer only one locale
-            _model.DisplayName = opcNode.DisplayName.ToModel();
+            Model.DisplayName = opcNode.DisplayName.ToModel();
 
             var browseNameNamespace = opcContext.NamespaceUris.GetString(opcNode.BrowseName.NamespaceIndex);
-            _model.BrowseName = opcContext.GetModelBrowseName(opcNode.BrowseName);
-            _model.SymbolicName = opcNode.SymbolicName;
-            _model.Description = opcNode.Description.ToModel();
+            Model.BrowseName = opcContext.GetModelBrowseName(opcNode.BrowseName);
+            Model.SymbolicName = opcNode.SymbolicName;
+            Model.Description = opcNode.Description.ToModel();
             if (opcNode.Categories != null)
             {
-                if (_model.Categories == null)
+                if (Model.Categories == null)
                 {
-                    _model.Categories = new List<string>();
+                    Model.Categories = new List<string>();
                 }
-                _model.Categories.AddRange(opcNode.Categories);
+                Model.Categories.AddRange(opcNode.Categories);
             }
-            _model.Documentation = opcNode.NodeSetDocumentation;
-            _model.ReleaseStatus = opcNode.ReleaseStatus.ToString();
+            Model.Documentation = opcNode.NodeSetDocumentation;
+            Model.ReleaseStatus = opcNode.ReleaseStatus.ToString();
 
             if (recursionDepth <= 0)
             {
-                _model.ReferencesNotResolved = true;
+                Model.ReferencesNotResolved = true;
                 return;
             }
 
             recursionDepth--;
-            _model.ReferencesNotResolved = false;
+            Model.ReferencesNotResolved = false;
 
             var references = opcContext.GetHierarchyReferences(opcNode);
 
@@ -167,15 +168,15 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     // TODO UANodeSet.Import should already handle inverse references: investigate why these are not processed
                     // Workaround for now:
                     AddChildToNodeModel(
-                        () => Create(opcContext, referencedNode, _model.CustomState, out _, recursionDepth),
+                        () => Create(opcContext, referencedNode, Model.CustomState, out _, recursionDepth),
                         opcContext, referenceType, referenceTypes, opcNode, recursionDepth);
                 }
                 else
                 {
-                    AddChildToNodeModel(() => _model, opcContext, referenceType, referenceTypes, referencedNode, recursionDepth);
+                    AddChildToNodeModel(() => Model, opcContext, referenceType, referenceTypes, referencedNode, recursionDepth);
                 }
             }
-            Logger.LogTrace($"Created node model {_model} for {opcNode}");
+            _logger.LogTrace($"Created node model {Model} for {opcNode}");
         }
 
         private static void AddChildToNodeModel(Func<NodeModel> parentFactory, IOpcUaContext opcContext, ReferenceTypeState referenceType, List<BaseTypeState> referenceTypes, NodeState referencedNode, int recursionDepth)
@@ -255,10 +256,10 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     var parent = parentFactory();
                     if (referencedNode != null)
                     {
-                        throw new ArgumentException($"Property {referencedNode} has unexpected type {referencedNode.GetType()} in {parent}");
+                        throw new ArgumentException($"AASProperty {referencedNode} has unexpected type {referencedNode.GetType()} in {parent}");
                     }
 
-                    throw new ArgumentException($"Property {referencedNode} not found in {parent}");
+                    throw new ArgumentException($"AASProperty {referencedNode} not found in {parent}");
                 }
             }
             else if (referenceTypes.Any(n => n.NodeId == ReferenceTypeIds.HasProperty))
@@ -325,10 +326,10 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     var parent = parentFactory();
                     if (referencedNode != null)
                     {
-                        throw new ArgumentException($"Property {referencedNode} has unexpected type {referencedNode.GetType()} in {parent}");
+                        throw new ArgumentException($"AASProperty {referencedNode} has unexpected type {referencedNode.GetType()} in {parent}");
                     }
 
-                    throw new ArgumentException($"Property {referencedNode} not found in {parent}");
+                    throw new ArgumentException($"AASProperty {referencedNode} not found in {parent}");
                 }
             }
             else if (referenceTypes.Any(n => n.NodeId == ReferenceTypeIds.HasInterface))
@@ -729,7 +730,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
             string namespaceUri = opcContext.NamespaceUris.GetString(opcNode.NodeId.NamespaceIndex);
             var nodeModel = Create<TNodeModel2>(opcContext, nodeId, new ModelTableEntry { ModelUri = namespaceUri }, customState, out var created);
-            var nodeModelOpc = new TNodeModelOpc { _model = nodeModel, Logger = opcContext.Logger };
+            var nodeModelOpc = new TNodeModelOpc { Model = nodeModel, _logger = opcContext.Logger };
 
             if (created || nodeModel.ReferencesNotResolved)
             {
@@ -840,9 +841,9 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             var variableTypeDefinition = opcContext.GetNode(uaInstance.TypeDefinitionId);
             if (variableTypeDefinition != null)
             {
-                var typeDefModel = NodeModelFactoryOpc.Create(opcContext, variableTypeDefinition, _model.CustomState, out _, recursionDepth - 1); // Create<TBaseTypeModelFactoryOpc, TBaseTypeModel>(opcContext, variableTypeDefinition, null);
-                _model.TypeDefinition = typeDefModel as TBaseTypeModel;
-                if (_model.TypeDefinition == null)
+                var typeDefModel = NodeModelFactoryOpc.Create(opcContext, variableTypeDefinition, Model.CustomState, out _, recursionDepth - 1); // Create<TBaseTypeModelFactoryOpc, TBaseTypeModel>(opcContext, variableTypeDefinition, null);
+                Model.TypeDefinition = typeDefModel as TBaseTypeModel;
+                if (Model.TypeDefinition == null)
                 {
                     throw new ArgumentException($"Unexpected type definition {variableTypeDefinition} on {uaInstance}");
                 }
@@ -857,15 +858,15 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     throw new ArgumentException($"Unable to resolve modelling rule {modellingRuleId}: dependency on UA nodeset not declared?");
                 }
 
-                _model.ModellingRule = modellingRule.DisplayName.Text;
+                Model.ModellingRule = modellingRule.DisplayName.Text;
             }
             if (uaInstance.Parent != null)
             {
                 var instanceParent = NodeModelFactoryOpc.Create(opcContext, uaInstance.Parent, null, out _, recursionDepth - 1);
-                _model.Parent = instanceParent;
-                if (_model.Parent != instanceParent)
+                Model.Parent = instanceParent;
+                if (Model.Parent != instanceParent)
                 {
-                    opcContext.Logger.LogWarning($"{_model} has more than one parent. Ignored parent: {instanceParent}, using {_model.Parent}.");
+                    opcContext.Logger.LogWarning($"{Model} has more than one parent. Ignored parent: {instanceParent}, using {Model.Parent}.");
                 }
             }
         }
@@ -879,7 +880,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             base.Initialize(opcContext, opcNode, recursionDepth);
             if (opcNode is BaseObjectState objState)
             {
-                _model.EventNotifier = objState.EventNotifier;
+                Model.EventNotifier = objState.EventNotifier;
             }
         }
     }
@@ -907,7 +908,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     if (superTypeState != null)
                     {
                         // Always resolve basetypes, regardless of recursionDepth
-                        superTypeModel = NodeModelFactoryOpc.Create(opcContext, superTypeState, _model.CustomState, out _, 2) as BaseTypeModel;
+                        superTypeModel = NodeModelFactoryOpc.Create(opcContext, superTypeState, Model.CustomState, out _, 2) as BaseTypeModel;
                         if (superTypeModel == null)
                         {
                             throw new ArgumentException($"Invalid node {superTypeState} is not a Base Type");
@@ -915,18 +916,18 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     }
                 }
 
-                _model.SuperType = superTypeModel;
-                _model.RemoveInheritedAttributes(_model.SuperType);
-                foreach (var uaInterface in _model.Interfaces)
+                Model.SuperType = superTypeModel;
+                Model.RemoveInheritedAttributes(Model.SuperType);
+                foreach (var uaInterface in Model.Interfaces)
                 {
-                    _model.RemoveInheritedAttributes(uaInterface);
+                    Model.RemoveInheritedAttributes(uaInterface);
                 }
             }
             else
             {
-                _model.SuperType = null;
+                Model.SuperType = null;
             }
-            _model.IsAbstract = uaType.IsAbstract;
+            Model.IsAbstract = uaType.IsAbstract;
         }
 
     }
@@ -951,34 +952,34 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             base.Initialize(opcContext, opcNode, recursionDepth);
             var variableNode = opcNode as BaseVariableState;
 
-            InitializeDataTypeInfo(_model, opcContext, variableNode, recursionDepth);
+            InitializeDataTypeInfo(Model, opcContext, variableNode, recursionDepth);
 
             if (variableNode.AccessLevelEx != 1)
             {
-                _model.AccessLevel = variableNode.AccessLevelEx;
+                Model.AccessLevel = variableNode.AccessLevelEx;
             }
 
             if (variableNode.AccessRestrictions != 0)
             {
-                _model.AccessRestrictions = (ushort)(variableNode.AccessRestrictions == null ? 0 : variableNode.AccessRestrictions);
+                Model.AccessRestrictions = (ushort)(variableNode.AccessRestrictions == null ? 0 : variableNode.AccessRestrictions);
             }
 
             if (variableNode.WriteMask != 0)
             {
-                _model.WriteMask = (uint)variableNode.WriteMask;
+                Model.WriteMask = (uint)variableNode.WriteMask;
             }
 
             if (variableNode.UserWriteMask != 0)
             {
-                _model.UserWriteMask = (uint)variableNode.UserWriteMask;
+                Model.UserWriteMask = (uint)variableNode.UserWriteMask;
             }
 
             if (variableNode.MinimumSamplingInterval != 0)
             {
-                _model.MinimumSamplingInterval = variableNode.MinimumSamplingInterval;
+                Model.MinimumSamplingInterval = variableNode.MinimumSamplingInterval;
             }
 
-            var invalidBrowseNameOnTypeInformation = _model.Properties.Where(p =>
+            var invalidBrowseNameOnTypeInformation = Model.Properties.Where(p =>
                 p.BrowseName.EndsWith(BrowseNames.EnumValues, false, CultureInfo.InvariantCulture) && p.BrowseName != opcContext.GetModelBrowseName(BrowseNames.EnumValues)
                 || p.BrowseName.EndsWith(BrowseNames.EnumStrings, false, CultureInfo.InvariantCulture) && p.BrowseName != opcContext.GetModelBrowseName(BrowseNames.EnumStrings)
                 || p.BrowseName.EndsWith(BrowseNames.OptionSetValues, false, CultureInfo.InvariantCulture) && p.BrowseName != opcContext.GetModelBrowseName(BrowseNames.OptionSetValues)
@@ -989,11 +990,11 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 opcContext.Logger.LogWarning($"Found type definition node with browsename in non-default namespace: {string.Join("", invalidBrowseNameOnTypeInformation.Select(ti => ti.BrowseName))}");
             }
 
-            if (string.IsNullOrEmpty(_model.NodeSet.XmlSchemaUri) && variableNode.TypeDefinitionId == VariableTypeIds.DataTypeDictionaryType)
+            if (string.IsNullOrEmpty(Model.NodeSet.XmlSchemaUri) && variableNode.TypeDefinitionId == VariableTypeIds.DataTypeDictionaryType)
             {
                 var namespaceUriModelBrowseName = opcContext.GetModelBrowseName(BrowseNames.NamespaceUri);
-                var xmlNamespaceVariable = _model.Properties.FirstOrDefault(dv => dv.BrowseName == namespaceUriModelBrowseName);
-                if (_model.Parent.NodeId == opcContext.GetModelNodeId(ObjectIds.XmlSchema_TypeSystem))
+                var xmlNamespaceVariable = Model.Properties.FirstOrDefault(dv => dv.BrowseName == namespaceUriModelBrowseName);
+                if (Model.Parent.NodeId == opcContext.GetModelNodeId(ObjectIds.XmlSchema_TypeSystem))
                 {
                     if (xmlNamespaceVariable != null && !string.IsNullOrEmpty(xmlNamespaceVariable.Value))
                     {
@@ -1001,7 +1002,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                         var namespaceUri = variant.Value as string;
                         if (!string.IsNullOrEmpty(namespaceUri))
                         {
-                            _model.NodeSet.XmlSchemaUri = namespaceUri;
+                            Model.NodeSet.XmlSchemaUri = namespaceUri;
                         }
                     }
                 }
@@ -1064,18 +1065,18 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
                 //_model.MethodDeclarationId = opcContext.GetNodeIdWithUri(methodState.MethodDeclarationId, out var _);
                 var inputArgsModelBrowseName = opcContext.GetModelBrowseName(BrowseNames.InputArguments);
-                var inputArgs = _model.Properties.FirstOrDefault(p => p.BrowseName == inputArgsModelBrowseName);
+                var inputArgs = Model.Properties.FirstOrDefault(p => p.BrowseName == inputArgsModelBrowseName);
                 if (inputArgs != null)
                 {
-                    _model.InputArguments = new List<VariableModel>();
-                    ProcessMethodArguments(_model, BrowseNames.InputArguments, inputArgs, _model.InputArguments, opcContext, recursionDepth);
+                    Model.InputArguments = new List<VariableModel>();
+                    ProcessMethodArguments(Model, BrowseNames.InputArguments, inputArgs, Model.InputArguments, opcContext, recursionDepth);
                 }
                 var outputArgsModelBrowseName = opcContext.GetModelBrowseName(BrowseNames.OutputArguments);
-                var outputArgs = _model.Properties.FirstOrDefault(p => p.BrowseName == outputArgsModelBrowseName);
+                var outputArgs = Model.Properties.FirstOrDefault(p => p.BrowseName == outputArgsModelBrowseName);
                 if (outputArgs != null)
                 {
-                    _model.OutputArguments = new List<VariableModel>();
-                    ProcessMethodArguments(_model, BrowseNames.OutputArguments, outputArgs, _model.OutputArguments, opcContext, recursionDepth);
+                    Model.OutputArguments = new List<VariableModel>();
+                    ProcessMethodArguments(Model, BrowseNames.OutputArguments, outputArgs, Model.OutputArguments, opcContext, recursionDepth);
                 }
             }
             else
@@ -1098,7 +1099,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     {
                         var dataType = Create<DataTypeModelFactoryOpc, DataTypeModel>(opcContext, dataTypeState, null, recursionDepth);
 
-                        var argumentDescription = _model.OtherReferencedNodes
+                        var argumentDescription = Model.OtherReferencedNodes
                             .FirstOrDefault(nr => nr.Node.GetUnqualifiedBrowseName() == arg.Name
                              && ((nr.ReferenceType as ReferenceTypeModel).HasBaseType($"{Namespaces.OpcUa};{ReferenceTypeIds.HasArgumentDescription}")
                              || (nr.ReferenceType as ReferenceTypeModel).HasBaseType($"{Namespaces.OpcUa};{ReferenceTypeIds.HasOptionalInputArgumentDescription}"))
@@ -1117,7 +1118,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                                 CustomState = argumentVariable.CustomState,
                             };
 
-                            VariableTypeModelFactoryOpc.InitializeDataTypeInfo(argumentModel, opcContext, $"Method {_model} Argument {arg.Name}", arg.DataType, arg.ValueRank, new ReadOnlyList<uint>(arg.ArrayDimensions, false), new Variant(arg.Value), recursionDepth);
+                            VariableTypeModelFactoryOpc.InitializeDataTypeInfo(argumentModel, opcContext, $"Method {Model} Argument {arg.Name}", arg.DataType, arg.ValueRank, new ReadOnlyList<uint>(arg.ArrayDimensions, false), new Variant(arg.Value), recursionDepth);
                         }
                         else
                         {
@@ -1136,7 +1137,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     }
                     else
                     {
-                        throw new ArgumentException($"Invalid data type {arg.DataType} for argument {arg.Name} in method {_model.NodeId}.");
+                        throw new ArgumentException($"Invalid data type {arg.DataType} for argument {arg.Name} in method {Model.NodeId}.");
                     }
                 }
             }
@@ -1149,7 +1150,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
         {
             base.Initialize(opcContext, opcNode, recursionDepth);
             var variableTypeState = opcNode as BaseVariableTypeState;
-            InitializeDataTypeInfo(_model, opcContext, variableTypeState, recursionDepth);
+            InitializeDataTypeInfo(Model, opcContext, variableTypeState, recursionDepth);
         }
 
         internal static void InitializeDataTypeInfo(VariableTypeModel model, IOpcUaContext opcContext, BaseVariableTypeState variableTypeNode, int recursionDepth)
@@ -1206,10 +1207,10 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 var sd = dataTypeState.DataTypeDefinition.Body as StructureDefinition;
                 if (sd != null)
                 {
-                    _model.StructureFields = new List<DataTypeModel.StructureField>();
+                    Model.StructureFields = new List<DataTypeModel.StructureField>();
                     int order = 0;
                     // The OPC SDK does not put the SymbolicName into the node state: read from UANodeSet
-                    var uaNodeSet = opcContext.GetUANodeSet(_model.Namespace);
+                    var uaNodeSet = opcContext.GetUANodeSet(Model.Namespace);
                     UADataType uaStruct = null;
                     if (uaNodeSet != null)
                     {
@@ -1247,7 +1248,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                                 FieldOrder = order++,
                             };
 
-                            _model.StructureFields.Add(structureField);
+                            Model.StructureFields.Add(structureField);
                         }
                         else
                         {
@@ -1265,11 +1266,11 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     var enumFields = dataTypeState.DataTypeDefinition.Body as EnumDefinition;
                     if (enumFields != null)
                     {
-                        _model.IsOptionSet = enumFields.IsOptionSet || _model.HasBaseType(opcContext.GetModelNodeId(DataTypeIds.OptionSet));
-                        _model.EnumFields = new List<DataTypeModel.UaEnumField>();
+                        Model.IsOptionSet = enumFields.IsOptionSet || Model.HasBaseType(opcContext.GetModelNodeId(DataTypeIds.OptionSet));
+                        Model.EnumFields = new List<DataTypeModel.UaEnumField>();
 
                         // The OPC SDK does not put the SymbolicName into the node state: read from UANodeSet
-                        var uaNodeSet = opcContext.GetUANodeSet(_model.Namespace);
+                        var uaNodeSet = opcContext.GetUANodeSet(Model.Namespace);
                         UADataType uaEnum = null;
                         if (uaNodeSet != null)
                         {
@@ -1291,7 +1292,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                                 SymbolicName = symbolicName,
                             };
 
-                            _model.EnumFields.Add(enumField);
+                            Model.EnumFields.Add(enumField);
                         }
                     }
                     else
@@ -1310,8 +1311,8 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             base.Initialize(opcContext, opcNode, recursionDepth);
             var referenceTypeState = opcNode as ReferenceTypeState;
 
-            _model.InverseName = referenceTypeState.InverseName?.ToModel();
-            _model.Symmetric = referenceTypeState.Symmetric;
+            Model.InverseName = referenceTypeState.InverseName?.ToModel();
+            Model.Symmetric = referenceTypeState.Symmetric;
         }
     }
 

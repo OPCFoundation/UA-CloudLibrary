@@ -7,7 +7,7 @@ namespace AdminShell
 
     [DataContract]
     [JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
-    public enum MessageTypeEnum
+    public enum MessageType
     {
         [EnumMember(Value = "Undefined")]
         [XmlEnum(Name = "Undefined")]

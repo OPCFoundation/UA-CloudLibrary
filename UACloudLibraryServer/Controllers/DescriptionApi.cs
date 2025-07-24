@@ -26,11 +26,11 @@ namespace AdminShell
         public virtual IActionResult GetDescription()
         {
             return new ObjectResult(new ServiceDescription() {
-                Profiles = new List<ServiceDescription.ProfilesEnum>()
+                Profiles = new List<Profile>()
                 {
-                    ServiceDescription.ProfilesEnum.AssetAdministrationShellRepositoryServiceSpecificationV30MinimalProfileEnum,
-                    ServiceDescription.ProfilesEnum.SubmodelRepositoryServiceSpecificationV30MinimalProfileEnum,
-                    ServiceDescription.ProfilesEnum.RegistryServiceSpecificationV30AssetAdministrationShellRegistryEnum
+                    Profile.AssetAdministrationShellRepositoryServiceSpecificationV30MinimalProfileEnum,
+                    Profile.SubmodelRepositoryServiceSpecificationV30MinimalProfileEnum,
+                    Profile.RegistryServiceSpecificationV30AssetAdministrationShellRegistryEnum
                 }
             });
         }
