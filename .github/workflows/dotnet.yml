@@ -83,14 +83,14 @@ jobs:
     - name: List databases after test run
       run: |
         sudo -u postgres psql -l --command="\du"
-    - name: pack NuGet
-      run: dotnet pack Opc.Ua.CloudLib.Client/Opc.Ua.Cloud.Library.Client.csproj --configuration Release
-    - name: add github nuget-feed#
-      if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
-      run: dotnet nuget add source --username ${{ github.repository_owner }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
-    - name: publish NuGet
-      if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
-      run: dotnet nuget push "Opc.Ua.CloudLib.Client/bin/Release/*.nupkg"  --source "github"
-    - name: publish NuGet Symbols
-      if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
-      run: dotnet nuget push "Opc.Ua.CloudLib.Client/bin/Release/*.snupkg"  --source "github"
+    # - name: pack NuGet
+    #   run: dotnet pack Opc.Ua.CloudLib.Client/Opc.Ua.Cloud.Library.Client.csproj --configuration Release
+    # - name: add github nuget-feed#
+    #   if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
+    #   run: dotnet nuget add source --username ${{ github.repository_owner }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+    # - name: publish NuGet
+    #   if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
+    #   run: dotnet nuget push "Opc.Ua.CloudLib.Client/bin/Release/*.nupkg"  --source "github"
+    # - name: publish NuGet Symbols
+    #   if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
+    #   run: dotnet nuget push "Opc.Ua.CloudLib.Client/bin/Release/*.snupkg"  --source "github"
