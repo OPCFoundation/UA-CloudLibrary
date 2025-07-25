@@ -31,6 +31,7 @@ sealed class Program : ILogger
               new Argument<string>("targetUrl") { },
               new Argument<string>("targetUserName") {},
               new Argument<string>("targetPassword") {},
+              new Option<bool>("--overwrite", "If specified, allows existing nodesets in a CloudLibrary to be overwritten.") {},
         };
         syncCommand.Handler = CommandHandler.Create(new CloudLibSync(this).SynchronizeAsync);
 
@@ -40,8 +41,12 @@ sealed class Program : ILogger
               new Argument<string>("targetUrl") {},
               new Argument<string>("targetUserName") {},
               new Argument<string>("targetPassword") {},
-              new Option<string>("--localDir", () => "Downloads") {},
+              new Option<string>("--localDir", () => "Downloads")
+              {
+                    Description = "The local directory to store downloaded nodesets."
+              },
               new Option<string>("--fileName", "If specified, uploads only this nodeset file. Otherwise all files in --localDir are uploaded.") {},
+              new Option<bool>("--overwrite", "If specified, allows overwriting CloudLibrary items if they already exist. Otherwise only new nodesets are uploaded.") {},
             };
         uploadCommand.Handler = CommandHandler.Create(new CloudLibSync(this).UploadAsync);
 
