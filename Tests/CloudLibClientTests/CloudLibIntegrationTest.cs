@@ -55,7 +55,13 @@ namespace CloudLibClient.Tests
 
         private async Task<ICollection<UANameSpace>> PagedVsNonPagedAsync(UACloudLibClient apiClient, string[] keywords, string after, int first)
         {
-            List<UANameSpace> unpagedResult = await apiClient.GetBasicNodesetInformationAsync(int.Parse(after, CultureInfo.InvariantCulture), first, keywords.ToList()).ConfigureAwait(true);
+            int startIndex = 0;
+            if (!string.IsNullOrEmpty(after))
+            {
+                startIndex = int.Parse(after, CultureInfo.InvariantCulture);
+            }
+
+            List<UANameSpace> unpagedResult = await apiClient.GetBasicNodesetInformationAsync(startIndex, first, keywords.ToList()).ConfigureAwait(true);
             var unpaged = unpagedResult;
 
             List<UANameSpace> paged = await GetAllPaged(apiClient, keywords: keywords, after: after, first: 5).ConfigureAwait(true);
@@ -72,11 +78,16 @@ namespace CloudLibClient.Tests
         {
             bool bComplete = false;
             var paged = new List<UANameSpace>();
-            int cursor = int.Parse(after, CultureInfo.InvariantCulture);
+
+            int cursor = 0;
+            if (!string.IsNullOrEmpty(after))
+            {
+                cursor = int.Parse(after, CultureInfo.InvariantCulture);
+            }
 
             do
             {
-                List<UANameSpace> page = await apiClient.GetBasicNodesetInformationAsync(int.Parse(after, CultureInfo.InvariantCulture), first, keywords.ToList()).ConfigureAwait(true);
+                List<UANameSpace> page = await apiClient.GetBasicNodesetInformationAsync(cursor, first, keywords.ToList()).ConfigureAwait(true);
                 Assert.True(page.Count <= first, "CloudLibAsync returned more profiles than requested");
                 paged.AddRange(page);
                 if (page.Count == 0)
