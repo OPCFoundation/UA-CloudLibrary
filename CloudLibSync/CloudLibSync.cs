@@ -92,7 +92,7 @@ namespace Opc.Ua.CloudLib.Sync
         /// <param name="targetUserName"></param>
         /// <param name="targetPassword"></param>
         /// <returns></returns>
-        public async Task SynchronizeAsync(string sourceUrl, string sourceUserName, string sourcePassword, string targetUrl, string targetUserName, string targetPassword)
+        public async Task SynchronizeAsync(string sourceUrl, string sourceUserName, string sourcePassword, string targetUrl, string targetUserName, string targetPassword, bool overwrite = false)
         {
             var sourceClient = new UACloudLibClient(sourceUrl, sourceUserName, sourcePassword);
             var targetClient = new UACloudLibClient(targetUrl, targetUserName, targetPassword);
@@ -143,7 +143,7 @@ namespace Opc.Ua.CloudLib.Sync
                         {
                             VerifyAndFixupNodeSetMeta(uaNamespace);
                             // upload NodeSet to target cloud library
-                            (System.Net.HttpStatusCode Status, string Message) response = await targetClient.UploadNodeSetAsync(uaNamespace).ConfigureAwait(false);
+                            (System.Net.HttpStatusCode Status, string Message) response = await targetClient.UploadNodeSetAsync(uaNamespace, overwrite).ConfigureAwait(false);
                             if (response.Status == System.Net.HttpStatusCode.OK)
                             {
                                 bAdded = true;
@@ -173,7 +173,7 @@ namespace Opc.Ua.CloudLib.Sync
         /// <param name="localDir"></param>
         /// <param name="fileName"></param>
         /// <returns></returns>
-        public async Task UploadAsync(string targetUrl, string targetUserName, string targetPassword, string localDir, string fileName)
+        public async Task UploadAsync(string targetUrl, string targetUserName, string targetPassword, string localDir, string fileName, bool overwrite = false)
         {
             var targetClient = new UACloudLibClient(targetUrl, targetUserName, targetPassword);
 
@@ -235,7 +235,7 @@ namespace Opc.Ua.CloudLib.Sync
                 {
                     addressSpace.Contributor = new Organisation { Name = file };
                 }
-                (System.Net.HttpStatusCode Status, string Message) response = await targetClient.UploadNodeSetAsync(addressSpace).ConfigureAwait(false);
+                (System.Net.HttpStatusCode Status, string Message) response = await targetClient.UploadNodeSetAsync(addressSpace, overwrite).ConfigureAwait(false);
                 if (response.Status == System.Net.HttpStatusCode.OK)
                 {
                     _logger.LogInformation($"Uploaded {addressSpace.Nodeset.NamespaceUri}, {addressSpace.Nodeset.Identifier}");
