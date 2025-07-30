@@ -229,6 +229,7 @@ namespace Opc.Ua.Cloud.Library
                     OrganisationModel contributor = uaNamespace.Contributor.Name != null ?
                         await _dbContext.Organisations.FirstOrDefaultAsync(c => c.Name == uaNamespace.Contributor.Name).ConfigureAwait(false)
                         : null;
+
                     CategoryModel category = uaNamespace.Category.Name != null ?
                         await _dbContext.Categories.FirstOrDefaultAsync(c => c.Name == uaNamespace.Category.Name).ConfigureAwait(false)
                         : null;
@@ -326,6 +327,7 @@ namespace Opc.Ua.Cloud.Library
                     // Delete any dependent nodesets, so we can re-index them from scratch
                     await DeleteNodeSetIndexForNodesetAsync(dependentNodeset.Identifier, deletedNodeSets).ConfigureAwait(false);
                 }
+
                 if (!deletedNodeSets.Contains(nodeSetModel))
                 {
                     _dbContext.nodeSetsWithUnapproved.Remove(nodeSetModel);
@@ -569,12 +571,14 @@ namespace Opc.Ua.Cloud.Library
                 LogoUrl = uaNamespace.Contributor.LogoUrl?.ToString(),
                 Website = uaNamespace.Contributor.Website?.ToString(),
             };
+
             string licenseExpression = uaNamespace.License switch {
                 "0" => "MIT",
                 "1" or "ApacheLicense20" => "Apache-2.0",
                 "2" => "Custom",
                 _ => uaNamespace.License,
             };
+
             // TODO Validate license Expression
             entity.License = licenseExpression;
             entity.CopyrightText = uaNamespace.CopyrightText;

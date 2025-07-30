@@ -311,9 +311,5 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             //        .HasForeignKey(modelProp, pubDateProp)
             //    ;
         }
-
-        public DbSet<NodeSetModel> NodeSets { get; set; }
-
-        public DbSet<NodeModel> NodeModels { get; set; }
     }
 }

@@ -190,7 +190,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         }
 
         [Authorize(Policy = "DeletePolicy")]
-        [HttpGet]
+        [HttpDelete]
         [Route("/infomodel/delete/{identifier}")]
         [SwaggerResponse(statusCode: 200, type: typeof(UANameSpace), description: "The OPC UA Information model and its metadata.")]
         [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The identifier provided could not be parsed.")]

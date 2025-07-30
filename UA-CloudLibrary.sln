@@ -34,6 +34,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "azurepipelines", "azurepipe
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{61FA5300-FBB8-418B-8F10-B401001EC236}"
+	ProjectSection(SolutionItems) = preProject
+		Tests\TestSetup\init-user-db.sql = Tests\TestSetup\init-user-db.sql
+		Tests\TestSetup\startdb.bat = Tests\TestSetup\startdb.bat
+	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudLibClient.Tests", "Tests\CloudLibClientTests\CloudLibClient.Tests.csproj", "{469D7E06-37C7-47B4-B88E-5973BB896EE5}"
 EndProject
