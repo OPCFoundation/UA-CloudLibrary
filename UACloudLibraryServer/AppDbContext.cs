@@ -109,10 +109,6 @@ namespace Opc.Ua.Cloud.Library
         // Full metadata dbset, use only for Add
         public DbSet<NamespaceMetaDataModel> NamespaceMetaDataWithUnapproved { get; set; }
 
-        public DbSet<OrganisationModel> Organisations { get; set; }
-
-        public DbSet<CategoryModel> Categories { get; set; }
-
         // nodeSet query filtered to only approved nodesets: use for all access
         public IQueryable<CloudLibNodeSetModel> nodeSets
         {
@@ -124,18 +120,6 @@ namespace Opc.Ua.Cloud.Library
 
         // Full dbset, use only for Add or administrator-protected queries
         public DbSet<CloudLibNodeSetModel> nodeSetsWithUnapproved { get; set; }
-
-        // nodeModel query filtered to only approved nodesets: use for all access
-        public IQueryable<NodeModel> nodeModels
-        {
-            get =>
-                _approvalRequired
-                ? nodeModelsWithUnapproved.Where(n => NamespaceMetaData.Any(nmd => nmd.NodesetId == n.NodeSet.Identifier && nmd.ApprovalStatus == ApprovalStatus.Approved))
-                : nodeModelsWithUnapproved;
-        }
-
-        // Full dbset, use only for Add or administrator-protected queries
-        public DbSet<NodeModel> nodeModelsWithUnapproved { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

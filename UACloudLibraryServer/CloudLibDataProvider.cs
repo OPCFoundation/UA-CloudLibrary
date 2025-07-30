@@ -19,13 +19,13 @@ using Opc.Ua.Export;
 
 namespace Opc.Ua.Cloud.Library
 {
-    public partial class CloudLibDataProvider : IDatabase
+    public class CloudLibDataProvider
     {
         private readonly AppDbContext _dbContext = null;
-        private readonly IFileStorage _storage;
+        private readonly DbFileStorage _storage;
         private readonly ILogger _logger;
 
-        public CloudLibDataProvider(AppDbContext context, ILoggerFactory logger, IFileStorage storage)
+        public CloudLibDataProvider(AppDbContext context, ILoggerFactory logger, DbFileStorage storage)
         {
             _dbContext = context;
             _storage = storage;
@@ -47,6 +47,7 @@ namespace Opc.Ua.Cloud.Library
                 {
                     throw new ArgumentException($"Must not specify other parameters when providing identifier.");
                 }
+
                 // Return unapproved nodesets only if request by identifier, but not in queries
                 nodeSets = _dbContext.nodeSetsWithUnapproved.AsQueryable().Where(nsm => nsm.Identifier == identifier);
             }
@@ -84,66 +85,9 @@ namespace Opc.Ua.Cloud.Library
             return GetNodeModels<DataTypeModel>(nsm => nsm.DataTypes, modelUri, publicationDate, nodeId);
         }
 
-        public IQueryable<PropertyModel> GetProperties(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
-        {
-            return GetNodeModels<PropertyModel>(nsm => nsm.Properties, modelUri, publicationDate, nodeId);
-        }
-
-        public IQueryable<DataVariableModel> GetDataVariables(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
-        {
-            return GetNodeModels<DataVariableModel>(nsm => nsm.DataVariables, modelUri, publicationDate, nodeId);
-        }
-
         public IQueryable<ReferenceTypeModel> GetReferenceTypes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
         {
             return GetNodeModels<ReferenceTypeModel>(nsm => nsm.ReferenceTypes, modelUri, publicationDate, nodeId);
-        }
-
-        public IQueryable<InterfaceModel> GetInterfaces(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
-        {
-            return GetNodeModels<InterfaceModel>(nsm => nsm.Interfaces, modelUri, publicationDate, nodeId);
-        }
-
-        public IQueryable<ObjectModel> GetObjects(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
-        {
-            return GetNodeModels<ObjectModel>(nsm => nsm.Objects, modelUri, publicationDate, nodeId);
-        }
-
-        public IQueryable<MethodModel> GetMethods(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
-        {
-            return GetNodeModels<MethodModel>(nsm => nsm.Methods, modelUri, publicationDate, nodeId);
-        }
-
-        public IQueryable<NodeModel> GetAllNodes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
-        {
-            if (nodeId != null && modelUri == null)
-            {
-                var expandedNodeId = ExpandedNodeId.Parse(nodeId);
-                if (expandedNodeId?.NamespaceUri != null)
-                {
-                    modelUri = expandedNodeId.NamespaceUri;
-                }
-            }
-
-            IQueryable<NodeModel> nodeModels;
-            if (modelUri != null && publicationDate != null)
-            {
-                nodeModels = _dbContext.nodeModels.AsQueryable().Where(nm => nm.Namespace == modelUri && nm.NodeSet.PublicationDate == publicationDate);
-            }
-            else if (modelUri != null)
-            {
-                nodeModels = _dbContext.nodeModels.AsQueryable().Where(nm => nm.Namespace == modelUri);
-            }
-            else
-            {
-                nodeModels = _dbContext.nodeModels.AsQueryable();
-            }
-            if (!string.IsNullOrEmpty(nodeId))
-            {
-                nodeModels = nodeModels.Where(ot => ot.NodeId == nodeId);
-            }
-
-            return nodeModels;
         }
 
         private IQueryable<T> GetNodeModels<T>(Expression<Func<CloudLibNodeSetModel, IEnumerable<T>>> selector, string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
@@ -225,16 +169,8 @@ namespace Opc.Ua.Cloud.Library
                         await _dbContext.nodeSetsWithUnapproved.AddAsync(nodeSetModel).ConfigureAwait(false);
                     }
 
-                    // TODO validate that user has permission for this organisation
-                    OrganisationModel contributor = uaNamespace.Contributor.Name != null ?
-                        await _dbContext.Organisations.FirstOrDefaultAsync(c => c.Name == uaNamespace.Contributor.Name).ConfigureAwait(false)
-                        : null;
-                    CategoryModel category = uaNamespace.Category.Name != null ?
-                        await _dbContext.Categories.FirstOrDefaultAsync(c => c.Name == uaNamespace.Category.Name).ConfigureAwait(false)
-                        : null;
-
                     var nameSpaceModel = new NamespaceMetaDataModel();
-                    MapToEntity(ref nameSpaceModel, uaNamespace, nodeSetModel, contributor, category);
+                    MapToEntity(ref nameSpaceModel, uaNamespace, nodeSetModel);
 
                     nodeSetModel.ValidationStatus = ValidationStatus.Parsed;
                     nodeSetModel.ValidationStatusInfo = null;
@@ -380,11 +316,6 @@ namespace Opc.Ua.Cloud.Library
                             || Regex.IsMatch(md.Contributor.Name, keywordRegex, RegexOptions.IgnoreCase))
                             // Fulltext appears to be slower than regex: && EF.Functions.ToTsVector("english", md.Title + " || " + md.Description/* + " " + string.Join(' ', md.Keywords) + md.Category.Name + md.Contributor.Name*/).Matches(keywordTsQuery))
                             )
-
-                        || _dbContext.nodeModels.Any(nm => nm.NodeSet.Identifier == nsm.Identifier && Regex.IsMatch(nm.BrowseName, keywordRegex, RegexOptions.IgnoreCase))
-                        // Fulltext appears to be slower than regex: || _dbContext.nodeModels.Any(nm => nm.NodeSet.Identifier == nsm.Identifier && EF.Functions.ToTsVector("english", nm.BrowseName).Matches(keywordTsQuery))
-                        // Displayname is localized and this query is slower, even with an index. We could add a DefaultDisplayName to speed this up, if BrowseName ends up being incorrect
-                        //|| _dbContext.nodeModels.Any(nm => nm.NodeSet.Identifier == nsm.Identifier && Regex.IsMatch(nm.DisplayName.FirstOrDefault().Text, keywordRegex, RegexOptions.IgnoreCase))
                         );
 #pragma warning restore CA1305 // Specify IFormatProvider
             }
@@ -413,7 +344,6 @@ namespace Opc.Ua.Cloud.Library
             return nodesetResults;
         }
 
-
         public Task<string[]> GetAllNamespacesAndNodesets()
         {
             try
@@ -427,21 +357,6 @@ namespace Opc.Ua.Cloud.Library
             }
 
             return Task.FromResult(Array.Empty<string>());
-        }
-
-        private CloudLibNodeSetModel GetNamespaceUriForNodeset(string nodesetId)
-        {
-            try
-            {
-                CloudLibNodeSetModel model = _dbContext.nodeSets.FirstOrDefault(nsm => nsm.Identifier == nodesetId);
-                return model;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex.Message);
-            }
-
-            return null;
         }
 
         public Task<string[]> GetAllNamesAndNodesets()
@@ -458,19 +373,6 @@ namespace Opc.Ua.Cloud.Library
             }
 
             return Task.FromResult(Array.Empty<string>());
-        }
-
-
-        public IQueryable<NamespaceMetaDataModel> GetNamespaces()
-        {
-            return _dbContext.NamespaceMetaData
-                .Include(md => md.Category)
-                .Include(md => md.Contributor)
-                .Include(md => md.NodeSet);
-        }
-        public int GetNamespaceTotalCount()
-        {
-            return _dbContext.NamespaceMetaData.Count();
         }
 
         public async Task<NamespaceMetaDataModel> ApproveNamespaceAsync(string identifier, ApprovalStatus status, string approvalInformation, List<UAProperty> additionalProperties)
@@ -531,22 +433,7 @@ namespace Opc.Ua.Cloud.Library
             return nodeSetMetaSaved;
         }
 
-        public IQueryable<CloudLibNodeSetModel> GetNodeSetsPendingApproval()
-        {
-            return _dbContext.nodeSetsWithUnapproved.Where(n => _dbContext.NamespaceMetaDataWithUnapproved.Any(nmd => nmd.NodesetId == n.Identifier && nmd.ApprovalStatus != ApprovalStatus.Approved));
-        }
-
-        public IQueryable<CategoryModel> GetCategories()
-        {
-            return _dbContext.Categories;
-        }
-
-        public IQueryable<OrganisationModel> GetOrganisations()
-        {
-            return _dbContext.Organisations.AsQueryable();
-        }
-
-        private void MapToEntity(ref NamespaceMetaDataModel entity, UANameSpace uaNamespace, CloudLibNodeSetModel nodeSetModel, OrganisationModel contributor, CategoryModel category)
+        private void MapToEntity(ref NamespaceMetaDataModel entity, UANameSpace uaNamespace, CloudLibNodeSetModel nodeSetModel)
         {
             string identifier = nodeSetModel != null ? nodeSetModel.Identifier : uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
             entity.NodesetId = identifier;
@@ -561,8 +448,8 @@ namespace Opc.Ua.Cloud.Library
 
             entity.NodeSet = nodeSetModel;
             entity.Title = uaNamespace.Title;
-            entity.ContributorId = contributor?.Id ?? 0;
-            entity.Contributor = contributor ?? new OrganisationModel {
+            entity.ContributorId = 0;
+            entity.Contributor = new OrganisationModel {
                 Name = uaNamespace.Contributor.Name,
                 Description = uaNamespace.Contributor.Description,
                 ContactEmail = uaNamespace.Contributor.ContactEmail,
@@ -579,8 +466,8 @@ namespace Opc.Ua.Cloud.Library
             entity.License = licenseExpression;
             entity.CopyrightText = uaNamespace.CopyrightText;
             entity.Description = uaNamespace.Description;
-            entity.CategoryId = category?.Id ?? 0;
-            entity.Category = category ?? new CategoryModel {
+            entity.CategoryId = 0;
+            entity.Category = new CategoryModel {
                 Name = uaNamespace.Category.Name,
                 Description = uaNamespace.Category.Description,
                 IconUrl = uaNamespace.Category.IconUrl?.ToString(),
@@ -668,6 +555,7 @@ namespace Opc.Ua.Cloud.Library
                 return new RequiredModelInfo { NamespaceUri = rm.ModelUri, PublicationDate = rm.PublicationDate, Version = rm.Version, AvailableModel = availableNodeSet };
             }).ToList();
         }
+
         private void MapToOrganisation(Organisation org, OrganisationModel model)
         {
             org.Name = model.Name;

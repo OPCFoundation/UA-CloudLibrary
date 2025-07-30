@@ -51,10 +51,13 @@ namespace Opc.Ua.Cloud.Library
         /// The UA interfaces defined by this node set
         /// </summary>
         public virtual List<InterfaceModel> Interfaces { get; set; } = new List<InterfaceModel>();
+
         public virtual List<ObjectModel> Objects { get; set; } = new List<ObjectModel>();
+
         public virtual List<MethodModel> Methods { get; set; } = new();
 
         public virtual List<PropertyModel> Properties { get; set; } = new List<PropertyModel>();
+
         public virtual List<DataVariableModel> DataVariables { get; set; } = new List<DataVariableModel>();
 
         public virtual List<NodeModel> UnknownNodes { get; set; } = new List<NodeModel>();
@@ -62,7 +65,9 @@ namespace Opc.Ua.Cloud.Library
         public virtual List<ReferenceTypeModel> ReferenceTypes { get; set; } = new List<ReferenceTypeModel>();
 
         public Dictionary<string, NodeModel> AllNodesByNodeId { get; } = new Dictionary<string, NodeModel>();
+
         public string HeaderComments { get; set; }
+
         public int? NamespaceIndex { get; set; }
     }
 
@@ -171,7 +176,9 @@ namespace Opc.Ua.Cloud.Library
         private string _namespace;
 
         public string NodeIdIdentifier { get; set; }
+
         public object CustomState { get; set; }
+
         public virtual List<string> Categories { get; set; }
 
         public IEnumerable<NodeAndReference> AllReferencedNodes
@@ -362,6 +369,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 node.UpdateIndices(model, updatedNodes);
             }
+
             return true;
         }
 

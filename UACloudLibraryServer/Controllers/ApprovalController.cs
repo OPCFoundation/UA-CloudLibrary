@@ -33,6 +33,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Opc.Ua.Cloud.Library.Models;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace Opc.Ua.Cloud.Library.Controllers
@@ -41,10 +42,10 @@ namespace Opc.Ua.Cloud.Library.Controllers
     [ApiController]
     public class ApprovalController : ControllerBase
     {
-        private readonly IDatabase _database;
+        private readonly CloudLibDataProvider _database;
         private readonly ILogger _logger;
 
-        public ApprovalController(IDatabase database, ILoggerFactory logger)
+        public ApprovalController(CloudLibDataProvider database, ILoggerFactory logger)
         {
             _database = database;
             _logger = logger.CreateLogger("ApprovalController");
