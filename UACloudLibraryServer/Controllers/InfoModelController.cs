@@ -52,12 +52,12 @@ namespace Opc.Ua.Cloud.Library.Controllers
     [ApiController]
     public class InfoModelController : ControllerBase
     {
-        private readonly IFileStorage _storage;
-        private readonly IDatabase _database;
+        private readonly DbFileStorage _storage;
+        private readonly CloudLibDataProvider _database;
         private readonly ILogger _logger;
         private readonly NodeSetModelIndexer _nodeSetIndexer;
 
-        public InfoModelController(IFileStorage storage, IDatabase database, ILoggerFactory logger, NodeSetModelIndexer nodeSetIndexer)
+        public InfoModelController(DbFileStorage storage, CloudLibDataProvider database, ILoggerFactory logger, NodeSetModelIndexer nodeSetIndexer)
         {
             _storage = storage;
             _database = database;

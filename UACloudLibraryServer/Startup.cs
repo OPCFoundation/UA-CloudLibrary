@@ -92,7 +92,7 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddScoped<IUserService, UserService>();
 
-            services.AddTransient<IDatabase, CloudLibDataProvider>();
+            services.AddTransient<CloudLibDataProvider>();
 
             services.AddScoped<ICaptchaValidation, CaptchaValidation>();
 
@@ -251,7 +251,7 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddSwaggerGenNewtonsoftSupport();
 
-            services.AddScoped<IFileStorage, DbFileStorage>();
+            services.AddScoped<DbFileStorage>();
 
             string serviceName = Configuration["Application"] ?? "UACloudLibrary";
 

@@ -46,7 +46,7 @@ namespace Opc.Ua.Cloud.Library
 	/// For example: database deletion/recreate leaves DB out of sync with file store)
 	/// Multiple copies collide on file store
     /// </summary>
-    public class DbFileStorage : IFileStorage
+    public class DbFileStorage
     {
         private readonly ILogger _logger;
         private readonly AppDbContext _dbContext;

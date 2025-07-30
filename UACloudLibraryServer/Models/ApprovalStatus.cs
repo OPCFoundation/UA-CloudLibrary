@@ -27,33 +27,13 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace Opc.Ua.Cloud.Library.Interfaces
+namespace Opc.Ua.Cloud.Library.Models
 {
-    public interface IFileStorage
+    public enum ApprovalStatus
     {
-        /// <summary>
-        /// Find a file based on a unique name
-        /// </summary>
-        Task<string> FindFileAsync(string name, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Upload a nodeset from a local directory to storage
-        /// </summary>
-        Task<string> UploadFileAsync(string name, string content, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Download a nodeset from storage to a local file
-        /// </summary>
-        Task<string> DownloadFileAsync(string name, CancellationToken cancellationToken = default);
-        /// <summary>
-        /// Delete a nodeset from storage
-        /// </summary>
-        /// <param name="name"></param>
-        /// <param name="cancellationToken"></param>
-        /// <returns></returns>
-        Task DeleteFileAsync(string name, CancellationToken cancellationToken = default);
+        Pending,
+        Approved,
+        Rejected,
+        Canceled,
     }
 }

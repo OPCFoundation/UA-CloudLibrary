@@ -42,9 +42,9 @@ namespace Opc.Ua.Cloud.Library
     {
         private AppDbContext _dbContext;
         private readonly ILogger _logger;
-        private readonly IFileStorage _storage;
+        private readonly DbFileStorage _storage;
 
-        public NodeSetModelIndexer(AppDbContext dbContext, ILoggerFactory logger, IFileStorage storage)
+        public NodeSetModelIndexer(AppDbContext dbContext, ILoggerFactory logger, DbFileStorage storage)
         {
             _dbContext = dbContext;
             _logger = logger.CreateLogger("NodeSetModelIndexer");

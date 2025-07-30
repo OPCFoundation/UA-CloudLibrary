@@ -42,13 +42,13 @@ namespace Opc.Ua.Cloud.Library
     /// </summary>
     public class NodeSetImporter
     {
-        public NodeSetImporter(IFileStorage storage, AppDbContext dbContext)
+        public NodeSetImporter(DbFileStorage storage, AppDbContext dbContext)
         {
             _storage = storage;
             _dbContext = dbContext;
         }
 
-        private readonly IFileStorage _storage;
+        private readonly DbFileStorage _storage;
         private readonly AppDbContext _dbContext;
 
         public bool ImportNodeSet(UANodeSetImportResult results, string nodeSetXml, object TenantID, bool requested)
