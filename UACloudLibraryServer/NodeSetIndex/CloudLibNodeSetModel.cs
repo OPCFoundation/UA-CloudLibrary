@@ -76,11 +76,4 @@ namespace Opc.Ua.Cloud.Library
             return nodeSetModel;
         }
     }
-
-    public enum ValidationStatus
-    {
-        Parsed,
-        Indexed,
-        Error,
-    }
 }

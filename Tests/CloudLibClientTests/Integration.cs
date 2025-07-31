@@ -25,6 +25,7 @@ namespace CloudLibClient.Tests
     public class TestSetup : IClassFixture<CustomWebApplicationFactory<Opc.Ua.Cloud.Library.Startup>>
     {
         private static int InstantiationCount;
+
         private readonly CustomWebApplicationFactory<Opc.Ua.Cloud.Library.Startup> _factory;
 
         public TestSetup(CustomWebApplicationFactory<Opc.Ua.Cloud.Library.Startup> factory)
@@ -45,9 +46,10 @@ namespace CloudLibClient.Tests
                 using (IServiceScope scope = _factory.Server.Services.CreateScope())
                 {
                     Opc.Ua.Cloud.Library.AppDbContext dbContext = scope.ServiceProvider.GetRequiredService<Opc.Ua.Cloud.Library.AppDbContext>();
-                    if (dbContext.nodeSets.Any())
+                    if (dbContext.NodeSetsWithUnapproved.Any())
                     {
                         dbContext.Database.EnsureDeleted();
+
                         // Create tables etc., so migration does not get attributed to the first actual test
                         dbContext.Database.Migrate();
                     }

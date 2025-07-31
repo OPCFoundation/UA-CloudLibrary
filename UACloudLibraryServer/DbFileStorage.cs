@@ -41,6 +41,15 @@ using Opc.Ua.Cloud.Library.Interfaces;
 
 namespace Opc.Ua.Cloud.Library
 {
+    [Table("DbFiles")]
+    public class DbFiles
+    {
+        [Key]
+        public string Name { get; set; }
+
+        public string Blob { get; set; }
+    }
+
     /// <summary>
     /// Database storage class: single store makes some development scenarios easier
 	/// For example: database deletion/recreate leaves DB out of sync with file store)
@@ -148,19 +157,5 @@ namespace Opc.Ua.Cloud.Library
                 throw;
             }
         }
-
-        internal static void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            modelBuilder.Entity<DbFiles>();
-        }
-    }
-
-    [Table("DbFiles")]
-    public class DbFiles
-    {
-        [Key]
-        public string Name { get; set; }
-
-        public string Blob { get; set; }
     }
 }

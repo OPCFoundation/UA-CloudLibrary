@@ -34,6 +34,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Opc.Ua.Cloud.Library.Interfaces;
+using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Cloud.Library.NodeSetIndex;
 
 namespace Opc.Ua.Cloud.Library
@@ -80,11 +81,11 @@ namespace Opc.Ua.Cloud.Library
 
                     if (!_dbContext.Set<NodeSetModel>().Any(nsm => nsm.ModelUri == clNodeSet.ModelUri && nsm.PublicationDate == clNodeSet.PublicationDate))
                     {
-                        _dbContext.nodeSetsWithUnapproved.Add(clNodeSet);
+                        _dbContext.NodeSetsWithUnapproved.Add(clNodeSet);
                     }
                     else
                     {
-                        _dbContext.nodeSetsWithUnapproved.Update(clNodeSet);
+                        _dbContext.NodeSetsWithUnapproved.Update(clNodeSet);
                     }
                 }
 

@@ -27,30 +27,12 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-using System;
-using Microsoft.Extensions.Logging;
-using Opc.Ua.Cloud.Library.Models;
-using Opc.Ua.Cloud.Library.NodeSetIndex;
-using Opc.Ua.Export;
-
-namespace Opc.Ua.Cloud.Library
+namespace Opc.Ua.Cloud.Library.Models
 {
-    internal class CloudLibDbOpcUaContext : DbOpcUaContext
+    public enum ValidationStatus
     {
-        public CloudLibDbOpcUaContext(AppDbContext dbContext, ILogger logger, Func<ModelTableEntry, CloudLibNodeSetModel> nodeSetFactory)
-            : base(dbContext, logger, nodeSetFactory)
-        {
-        }
-
-        public override NodeSetModel GetOrAddNodesetModel(ModelTableEntry model, bool createNew = true)
-        {
-            var nodeSetModel = base.GetOrAddNodesetModel(model) as CloudLibNodeSetModel;
-            if (!createNew && nodeSetModel != null && nodeSetModel.ValidationStatus != ValidationStatus.Indexed)
-            {
-                throw new ArgumentException($"Required NodeSet {nodeSetModel} not indexed yet.");
-            }
-
-            return nodeSetModel;
-        }
+        Parsed,
+        Indexed,
+        Error,
     }
 }

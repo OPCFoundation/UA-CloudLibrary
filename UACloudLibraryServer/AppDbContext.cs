@@ -30,6 +30,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection.Emit;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -40,16 +41,13 @@ namespace Opc.Ua.Cloud.Library
 {
     public class AppDbContext : IdentityDbContext
     {
+        private readonly IConfiguration _configuration;
+
         public AppDbContext(DbContextOptions options, IConfiguration configuration)
-: base(options)
+        : base(options)
         {
             _configuration = configuration;
-            _approvalRequired = configuration.GetSection("CloudLibrary")?.GetValue<bool>("ApprovalRequired") ?? false;
         }
-
-        private readonly IConfiguration _configuration;
-        private readonly bool _approvalRequired;
-
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -77,10 +75,12 @@ namespace Opc.Ua.Cloud.Library
         public static string CreateConnectionString(IConfiguration configuration)
         {
             string connectionString = configuration.GetConnectionString("CloudLibraryPostgreSQL");
+
             if (string.IsNullOrEmpty(connectionString))
             {
                 connectionString = CreateConnectionStringFromEnvironment();
             }
+
             return connectionString;
         }
 
@@ -98,28 +98,9 @@ namespace Opc.Ua.Cloud.Library
             return $"Server={Host};Username={User};Database={DBname};Port={Port};Password={Password};SSLMode=Prefer";
         }
 
-        // map to our tables
-        public IQueryable<NamespaceMetaDataModel> NamespaceMetaData
-        {
-            get => _approvalRequired
-                ? NamespaceMetaDataWithUnapproved.Where(n => n.ApprovalStatus == ApprovalStatus.Approved)
-                : NamespaceMetaDataWithUnapproved;
-        }
-
-        // Full metadata dbset, use only for Add
         public DbSet<NamespaceMetaDataModel> NamespaceMetaDataWithUnapproved { get; set; }
 
-        // nodeSet query filtered to only approved nodesets: use for all access
-        public IQueryable<CloudLibNodeSetModel> nodeSets
-        {
-            get =>
-                _approvalRequired
-                ? nodeSetsWithUnapproved.Where(n => NamespaceMetaDataWithUnapproved.Any(nmd => nmd.NodesetId == n.Identifier && nmd.ApprovalStatus == ApprovalStatus.Approved))
-                : nodeSetsWithUnapproved;
-        }
-
-        // Full dbset, use only for Add or administrator-protected queries
-        public DbSet<CloudLibNodeSetModel> nodeSetsWithUnapproved { get; set; }
+        public DbSet<CloudLibNodeSetModel> NodeSetsWithUnapproved { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -152,17 +133,18 @@ namespace Opc.Ua.Cloud.Library
                 .HasConversion<string>();
 
             builder.Entity<NamespaceMetaDataModel>()
-                .HasOne(md => md.NodeSet).WithOne(nm => nm.Metadata)
+                .HasOne(md => md.NodeSet)
+                .WithOne(nm => nm.Metadata)
                 .HasForeignKey<CloudLibNodeSetModel>(nm => nm.Identifier)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<NamespaceMetaDataModel>()
-                .HasIndex(md => new { md.Title, md.Description, /*md.Keywords, md.Category.Name, md.Contributor*/ })
+                .HasIndex(md => new { md.Title, md.Description })
                 .HasMethod("GIN")
                 .IsTsVectorExpressionIndex("english");
 
-            DbFileStorage.OnModelCreating(builder);
+            builder.Entity<DbFiles>();
         }
     }
 }
