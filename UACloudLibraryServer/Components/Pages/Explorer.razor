@@ -43,12 +43,12 @@
                                         var item = Result[i];
                                         <div class="card h-100">
                                             <div class="card-header">
-                                                @if (!string.IsNullOrEmpty(@item.Category.Name))
+                                                @if (!string.IsNullOrEmpty(@item.Title))
                                                 {
-                                                    <span class="badge badge-primary float-right">@item.Category.Name</span>
+                                                    <span class="badge badge-primary float-right">@item.Title</span>
                                                 }
                                                 <h5 class="card-title">@item.Title</h5>
-                                                <h6 class="card-subtitle mb-2 text-muted">by @item.Contributor.Name</h6>
+                                                <h6 class="card-subtitle mb-2 text-muted">by @item.Title</h6>
                                             </div>
                                             <div class="card-body">
 
@@ -283,7 +283,7 @@
         query["filterString"] = this.FilterString;
         var dbQuery = dp.GetNodeSets(keywords: SearchKeywords)
             .Select(n => n.Metadata)
-            .OrderBy(md => md.Category.Name);
+            .OrderBy(md => md.Title);
         TotalCount = dbQuery.Count();
         int skip = (CurrentPage - 1) * PAGE_SIZE;
         Result = await dbQuery

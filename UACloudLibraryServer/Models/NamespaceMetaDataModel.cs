@@ -48,8 +48,6 @@ namespace Opc.Ua.Cloud.Library.Models
 
         public int ContributorId { get; set; }
 
-        public virtual OrganisationModel Contributor { get; set; }
-
         public string License { get; set; }
 
         public string CopyrightText { get; set; }
@@ -57,8 +55,6 @@ namespace Opc.Ua.Cloud.Library.Models
         public string Description { get; set; }
 
         public int CategoryId { get; set; }
-
-        public virtual CategoryModel Category { get; set; }
 
         /// <summary>
         /// Link to additional documentation, specifications, GitHub, etc.
@@ -92,45 +88,5 @@ namespace Opc.Ua.Cloud.Library.Models
         public string ApprovalInformation { get; set; }
 
         public string UserId { get; set; }
-
-        public virtual List<AdditionalPropertyModel> AdditionalProperties { get; set; }
-    }
-
-    [Table("AdditionalProperties")]
-    [Owned]
-    public partial class AdditionalPropertyModel
-    {
-        public string NodeSetId { get; set; }
-        public virtual NamespaceMetaDataModel NodeSet { get; set; }
-        public string Name { get; set; }
-
-        public string Value { get; set; }
-
-    }
-
-    public class OrganisationModel
-    {
-        public int Id { get; set; }
-
-        public string Name { get; set; }
-
-        public string Description { get; set; }
-
-        public string LogoUrl { get; set; }
-
-        public string ContactEmail { get; set; }
-
-        public string Website { get; set; }
-    }
-
-    public class CategoryModel
-    {
-        public int Id { get; set; }
-
-        public string Name { get; set; }
-
-        public string Description { get; set; }
-
-        public string IconUrl { get; set; }
     }
 }

@@ -67,6 +67,7 @@ namespace Opc.Ua.Cloud.Library
                     nodeSets = nodeSetQuery;
                 }
             }
+
             return nodeSets;
         }
 
@@ -313,11 +314,9 @@ namespace Opc.Ua.Cloud.Library
                             || Regex.IsMatch(md.Description, keywordRegex, RegexOptions.IgnoreCase)
                             || Regex.IsMatch(md.NodeSet.ModelUri, keywordRegex, RegexOptions.IgnoreCase)
                             || Regex.IsMatch(string.Join(",", md.Keywords), keywordRegex, RegexOptions.IgnoreCase)
-                            || Regex.IsMatch(md.Category.Name, keywordRegex, RegexOptions.IgnoreCase)
-                            || Regex.IsMatch(md.Contributor.Name, keywordRegex, RegexOptions.IgnoreCase))
-                            // Fulltext appears to be slower than regex: && EF.Functions.ToTsVector("english", md.Title + " || " + md.Description/* + " " + string.Join(' ', md.Keywords) + md.Category.Name + md.Contributor.Name*/).Matches(keywordTsQuery))
                             )
-                        );
+                        )
+                    );
 #pragma warning restore CA1305 // Specify IFormatProvider
             }
             else
@@ -364,8 +363,8 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                var categoryAndNodesetIds = _dbContext.NamespaceMetaData.Select(md => new { md.Category.Name, md.NodesetId }).ToList();
-                string[] namesAndNodesetsString = categoryAndNodesetIds.Select(cn => $"{cn.Name},{cn.NodesetId}").ToArray();
+                var categoryAndNodesetIds = _dbContext.NamespaceMetaData.Select(md => new { md.Title, md.NodesetId }).ToList();
+                string[] namesAndNodesetsString = categoryAndNodesetIds.Select(cn => $"{cn.Title},{cn.NodesetId}").ToArray();
                 return Task.FromResult(namesAndNodesetsString);
             }
             catch (Exception ex)
@@ -402,33 +401,9 @@ namespace Opc.Ua.Cloud.Library
                 }
                 return nodeSetMeta;
             }
+
             _dbContext.Attach(nodeSetMeta);
-            if (additionalProperties != null)
-            {
-                foreach (UAProperty prop in additionalProperties)
-                {
-                    if (string.IsNullOrEmpty(prop.Value))
-                    {
-                        nodeSetMeta.AdditionalProperties.RemoveAll(p => p.Name == prop.Name);
-                    }
-                    else
-                    {
-                        AdditionalPropertyModel existingProp = nodeSetMeta.AdditionalProperties.FirstOrDefault(p => p.Name == prop.Name);
-                        if (existingProp != null)
-                        {
-                            existingProp.Value = prop.Value;
-                        }
-                        else
-                        {
-                            var newProp = new AdditionalPropertyModel {
-                                Name = prop.Name,
-                                Value = prop.Value,
-                            };
-                            nodeSetMeta.AdditionalProperties.Add(newProp);
-                        }
-                    }
-                }
-            }
+
             await _dbContext.SaveChangesAsync().ConfigureAwait(false);
             NamespaceMetaDataModel nodeSetMetaSaved = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync().ConfigureAwait(false);
             return nodeSetMetaSaved;
@@ -450,13 +425,6 @@ namespace Opc.Ua.Cloud.Library
             entity.NodeSet = nodeSetModel;
             entity.Title = uaNamespace.Title;
             entity.ContributorId = 0;
-            entity.Contributor = new OrganisationModel {
-                Name = uaNamespace.Contributor.Name,
-                Description = uaNamespace.Contributor.Description,
-                ContactEmail = uaNamespace.Contributor.ContactEmail,
-                LogoUrl = uaNamespace.Contributor.LogoUrl?.ToString(),
-                Website = uaNamespace.Contributor.Website?.ToString(),
-            };
 
             string licenseExpression = uaNamespace.License switch {
                 "0" => "MIT",
@@ -470,11 +438,6 @@ namespace Opc.Ua.Cloud.Library
             entity.CopyrightText = uaNamespace.CopyrightText;
             entity.Description = uaNamespace.Description;
             entity.CategoryId = 0;
-            entity.Category = new CategoryModel {
-                Name = uaNamespace.Category.Name,
-                Description = uaNamespace.Category.Description,
-                IconUrl = uaNamespace.Category.IconUrl?.ToString(),
-            };
             entity.DocumentationUrl = uaNamespace.DocumentationUrl?.ToString();
             entity.IconUrl = uaNamespace.IconUrl?.ToString();
             entity.LicenseUrl = uaNamespace.LicenseUrl?.ToString();
@@ -484,7 +447,6 @@ namespace Opc.Ua.Cloud.Library
             entity.TestSpecificationUrl = uaNamespace.TestSpecificationUrl?.ToString();
             entity.SupportedLocales = uaNamespace.SupportedLocales;
             entity.NumberOfDownloads = uaNamespace.NumberOfDownloads;
-            entity.AdditionalProperties = uaNamespace.AdditionalProperties?.Select(p => new AdditionalPropertyModel { NodeSetId = identifier, Name = p.Name, Value = p.Value })?.ToList();
             entity.ApprovalStatus = ApprovalStatus.Pending;
         }
 
@@ -500,25 +462,10 @@ namespace Opc.Ua.Cloud.Library
             }
             uaNamespace.CreationTime = model.CreationTime;
             uaNamespace.Title = model.Title;
-            if (model.Contributor == null)
-            {
-                uaNamespace.Contributor = null;
-            }
-            else
-            {
-                MapToOrganisation(uaNamespace.Contributor, model.Contributor);
-            }
             uaNamespace.License = model.License;
             uaNamespace.CopyrightText = model.CopyrightText;
             uaNamespace.Description = model.Description;
-            if (model.Category == null)
-            {
-                uaNamespace.Category = null;
-            }
-            else
-            {
-                MapToCategory(uaNamespace.Category, model.Category);
-            }
+            uaNamespace.Category = null;
             uaNamespace.DocumentationUrl = model.DocumentationUrl != null ? new Uri(model.DocumentationUrl) : null;
             uaNamespace.IconUrl = model.IconUrl != null ? new Uri(model.IconUrl) : null;
             uaNamespace.LicenseUrl = model.LicenseUrl != null ? new Uri(model.LicenseUrl) : null;
@@ -528,14 +475,6 @@ namespace Opc.Ua.Cloud.Library
             uaNamespace.TestSpecificationUrl = model.TestSpecificationUrl != null ? new Uri(model.TestSpecificationUrl) : null;
             uaNamespace.SupportedLocales = model.SupportedLocales;
             uaNamespace.NumberOfDownloads = model.NumberOfDownloads;
-            uaNamespace.AdditionalProperties = model.AdditionalProperties?.Select(p => new UAProperty { Name = p.Name, Value = p.Value })?.ToArray();
-        }
-
-        private void MapToCategory(Category category, CategoryModel model)
-        {
-            category.Name = model.Name;
-            category.Description = model.Description;
-            category.IconUrl = model.IconUrl != null ? new Uri(model.IconUrl) : null;
         }
 
         private void MapToNodeSet(Nodeset nodeset, NodeSetModel model)
@@ -557,15 +496,6 @@ namespace Opc.Ua.Cloud.Library
 
                 return new RequiredModelInfo { NamespaceUri = rm.ModelUri, PublicationDate = rm.PublicationDate, Version = rm.Version, AvailableModel = availableNodeSet };
             }).ToList();
-        }
-
-        private void MapToOrganisation(Organisation org, OrganisationModel model)
-        {
-            org.Name = model.Name;
-            org.Description = model.Description;
-            org.ContactEmail = model.ContactEmail;
-            org.Website = model.Website != null ? new Uri(model.Website) : null;
-            org.LogoUrl = model.LogoUrl != null ? new Uri(model.LogoUrl) : null;
         }
 
         public async Task<string[]> GetAllTypes(string nodeSetID)

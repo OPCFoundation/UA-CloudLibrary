@@ -143,20 +143,6 @@ namespace Opc.Ua.Cloud.Library
                 .HasMethod("GIN")
                 .IsTsVectorExpressionIndex("english");
 
-            builder.Entity<OrganisationModel>()
-                .HasKey(o => o.Id);
-
-            builder.Entity<OrganisationModel>()
-                .HasIndex(o => o.Name)
-                .IsUnique();
-
-            builder.Entity<CategoryModel>()
-                .HasKey(c => c.Id);
-
-            builder.Entity<CategoryModel>()
-                .HasIndex(c => c.Name)
-                .IsUnique();
-
             builder.Entity<NamespaceMetaDataModel>()
                 .Ignore(md => md.ValidationStatus)
                 .HasKey(n => n.NodesetId);
@@ -170,18 +156,6 @@ namespace Opc.Ua.Cloud.Library
                 .HasForeignKey<CloudLibNodeSetModel>(nm => nm.Identifier)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.NoAction);
-
-            builder.Entity<NamespaceMetaDataModel>()
-                .OwnsMany(n => n.AdditionalProperties)
-                .WithOwner(md => md.NodeSet);
-
-            builder.Entity<NamespaceMetaDataModel>()
-                .HasOne(n => n.Category)
-                .WithMany();
-
-            builder.Entity<NamespaceMetaDataModel>()
-                .HasOne(n => n.Contributor)
-                .WithMany();
 
             builder.Entity<NamespaceMetaDataModel>()
                 .HasIndex(md => new { md.Title, md.Description, /*md.Keywords, md.Category.Name, md.Contributor*/ })
