@@ -194,6 +194,7 @@ namespace Opc.Ua.CloudLib.Sync
                     _logger.LogInformation($"Error uploading {file}: failed to parse.");
                     continue;
                 }
+
                 if (addressSpace.Nodeset == null || string.IsNullOrEmpty(addressSpace.Nodeset.NodesetXml))
                 {
                     string xmlFile = Path.Combine(Path.GetDirectoryName(file)??file, Path.GetFileNameWithoutExtension(file) + ".xml");
@@ -203,35 +204,33 @@ namespace Opc.Ua.CloudLib.Sync
                         addressSpace.Nodeset = new Nodeset { NodesetXml = xml };
                     }
                 }
+
                 if (addressSpace.Nodeset == null || string.IsNullOrEmpty(addressSpace.Nodeset.NodesetXml))
                 {
                     _logger.LogInformation($"Error uploading {file}: no Nodeset found in file.");
                     continue;
                 }
+
                 if (addressSpace.Nodeset.RequiredModels != null)
                 {
                     addressSpace.Nodeset.RequiredModels = null;
                 }
+
                 if (string.IsNullOrEmpty(addressSpace.Title))
                 {
                     addressSpace.Title = file;
                 }
+
                 if (string.IsNullOrEmpty(addressSpace.Description))
                 {
                     addressSpace.Description = file;
                 }
+
                 if (string.IsNullOrEmpty(addressSpace.CopyrightText))
                 {
                     addressSpace.CopyrightText = file;
                 }
-                if (string.IsNullOrEmpty(addressSpace.Category?.Name))
-                {
-                    addressSpace.Category = new Category { Name = file };
-                }
-                if (string.IsNullOrEmpty(addressSpace.Contributor?.Name))
-                {
-                    addressSpace.Contributor = new Organisation { Name = file };
-                }
+                
                 (System.Net.HttpStatusCode Status, string Message) response = await targetClient.UploadNodeSetAsync(addressSpace).ConfigureAwait(false);
                 if (response.Status == System.Net.HttpStatusCode.OK)
                 {
@@ -266,18 +265,21 @@ namespace Opc.Ua.CloudLib.Sync
                             nodeset.PublicationDate = publicationDate.Value;
                             changed = true;
                         }
+
                         if (firstModel.Version != nodeset.Version)
                         {
                             _logger.LogWarning($"Version  {nodeset.Version} in meta data does not match nodeset {firstModel.Version}. Fixed up.");
                             nodeset.Version = firstModel.Version;
                             changed = true;
                         }
+
                         if (nodeSet.LastModifiedSpecified && nodeSet.LastModified != nodeset.LastModifiedDate)
                         {
                             _logger.LogWarning($"Last modified date {nodeset.LastModifiedDate} in meta data does not match nodeset {nodeSet.LastModified}. Fixed up.");
                             nodeset.LastModifiedDate = nodeSet.LastModified;
                             changed = true;
                         }
+
                         if (namespaceUri == null)
                         {
                             namespaceUri = nodeSet.Models?.FirstOrDefault()?.ModelUri;
@@ -286,36 +288,30 @@ namespace Opc.Ua.CloudLib.Sync
                     }
                 }
             }
+
             if (uaNamespace.Nodeset.RequiredModels != null)
             {
                 uaNamespace.Nodeset.RequiredModels = null;
             }
+
             if (string.IsNullOrEmpty(uaNamespace.Title))
             {
                 uaNamespace.Title = nodeset?.NamespaceUri.OriginalString ?? "none";
                 changed = true;
             }
+
             if (string.IsNullOrEmpty(uaNamespace.Description))
             {
                 uaNamespace.Description = uaNamespace.Title;
                 changed = true;
             }
+
             if (string.IsNullOrEmpty(uaNamespace.CopyrightText))
             {
                 uaNamespace.CopyrightText = uaNamespace.Title;
                 changed = true;
             }
-            if (string.IsNullOrEmpty(uaNamespace.Category?.Name))
-            {
-                uaNamespace.Category = new Category { Name = uaNamespace.Title };
-                changed = true;
-            }
-            if (string.IsNullOrEmpty(uaNamespace.Contributor?.Name))
-            {
-                uaNamespace.Contributor = new Organisation { Name = uaNamespace.Title };
-                changed = true;
-            }
-
+            
             return (namespaceUri, publicationDate, changed);
         }
 
@@ -351,6 +347,7 @@ namespace Opc.Ua.CloudLib.Sync
                 modelUri = model.Models?.FirstOrDefault()?.ModelUri;
                 publicationDate = model.Models?.FirstOrDefault()?.PublicationDate;
             }
+
             string tFile = GetFileNameForNamespaceUri(modelUri, publicationDate);
             string filePath = Path.Combine(directoryPath, tFile);
             if (!Directory.Exists(directoryPath))

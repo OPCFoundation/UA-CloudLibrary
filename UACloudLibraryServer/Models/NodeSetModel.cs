@@ -179,8 +179,6 @@ namespace Opc.Ua.Cloud.Library
 
         public object CustomState { get; set; }
 
-        public virtual List<string> Categories { get; set; }
-
         public IEnumerable<NodeAndReference> AllReferencedNodes
         {
             get
@@ -194,8 +192,7 @@ namespace Opc.Ua.Cloud.Library
                     .Concat(this.Methods.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("HasComponent", false, CultureInfo.InvariantCulture)), Node = p }))
                     .Concat(this.Interfaces.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("HasInterface", false, CultureInfo.InvariantCulture)), Node = p }))
                     .Concat(this.Events.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("GeneratesEvent", false, CultureInfo.InvariantCulture)), Node = p }))
-                    .Concat(this.OtherReferencedNodes)
-                    ;
+                    .Concat(this.OtherReferencedNodes);
 #pragma warning restore CS0618 // Type or member is obsolete
             }
         }

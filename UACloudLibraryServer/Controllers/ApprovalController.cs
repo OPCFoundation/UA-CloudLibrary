@@ -63,7 +63,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             [FromQuery][SwaggerParameter("Status of the approval")] ApprovalStatus status,
             [FromQuery][SwaggerParameter("Information about the approval")] string approvalInformation)
         {
-            if (await _database.ApproveNamespaceAsync(identifier, status, approvalInformation, null).ConfigureAwait(false) != null)
+            if (await _database.ApproveNamespaceAsync(identifier, status, approvalInformation).ConfigureAwait(false) != null)
             {
                 return new ObjectResult("Approval status updated successfully") { StatusCode = (int)HttpStatusCode.OK };
             }

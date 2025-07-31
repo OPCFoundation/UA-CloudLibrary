@@ -16,12 +16,13 @@ namespace CloudLibClient.Tests
     {
         public class IntegrationTestConfig
         {
-            public bool IgnoreUploadConflict { get; set; }
+            public bool IgnoreUploadConflict { get; set; } = true;
+
             public bool DeleteCloudLibDBAndStore { get; set; }
         }
 
-
         private IntegrationTestConfig _testConfig;
+
         public IntegrationTestConfig TestConfig
         {
             get
@@ -49,8 +50,8 @@ namespace CloudLibClient.Tests
                             { "OAuth2ClientId", "Test" },
                             { "OAuth2ClientSecret", "TestSecret" }
 
-                        }))
-                        ;
+                        })
+                );
         }
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {

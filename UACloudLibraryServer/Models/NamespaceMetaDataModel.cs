@@ -46,15 +46,11 @@ namespace Opc.Ua.Cloud.Library.Models
 
         public string Title { get; set; }
 
-        public int ContributorId { get; set; }
-
         public string License { get; set; }
 
         public string CopyrightText { get; set; }
 
         public string Description { get; set; }
-
-        public int CategoryId { get; set; }
 
         /// <summary>
         /// Link to additional documentation, specifications, GitHub, etc.

@@ -126,14 +126,6 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             Model.BrowseName = opcContext.GetModelBrowseName(opcNode.BrowseName);
             Model.SymbolicName = opcNode.SymbolicName;
             Model.Description = opcNode.Description.ToModel();
-            if (opcNode.Categories != null)
-            {
-                if (Model.Categories == null)
-                {
-                    Model.Categories = new List<string>();
-                }
-                Model.Categories.AddRange(opcNode.Categories);
-            }
             Model.Documentation = opcNode.NodeSetDocumentation;
             Model.ReleaseStatus = opcNode.ReleaseStatus.ToString();
 

@@ -149,32 +149,23 @@ namespace Opc.Ua.Cloud.Library
             try
             {
                 // NodeSetModel deletion relies on database cascading delete. The deletions need to be saved for this to happen before we can re-add the same nodeset
-                // To achieve consistency across delete and re-add, the operations need to run under a database trasaction
+                // To achieve consistency across delete and re-add, the operations need to run under a database transaction
 
                 await _dbContext.Database.CreateExecutionStrategy().ExecuteInTransactionAsync(async () => {
+
                     message = null;
 
-                    // delete any existing records for this nodeset in the database
-                    if (!await DeleteAllRecordsForNodesetAsync(uaNamespace.Nodeset.Identifier).ConfigureAwait(false))
-                    {
-                        message = "Error: Could not delete existing records for nodeset!";
-                        return;
-                    }
-
+                    await DeleteAllRecordsForNodesetAsync(uaNamespace.Nodeset.Identifier).ConfigureAwait(false);
+                    
                     // delete any matching legacy nodesets
-                    if (legacyNodesetHashCode != 0 && !await DeleteAllRecordsForNodesetAsync(legacyNodesetHashCode).ConfigureAwait(false))
+                    if (legacyNodesetHashCode != 0)
                     {
-                        message = "Error: Could not delete existing legacy records for nodeset!";
-                        return;
+                        await DeleteAllRecordsForNodesetAsync(legacyNodesetHashCode).ConfigureAwait(false);
                     }
 
                     CloudLibNodeSetModel nodeSetModel = await CloudLibNodeSetModel.FromModelAsync(nodeSet.Models[0], _dbContext).ConfigureAwait(false);
-
                     nodeSetModel.Identifier = uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
                     nodeSetModel.LastModifiedDate = nodeSet.LastModifiedSpecified ? ((DateTime?)nodeSet.LastModified).GetNormalizedPublicationDate() : null;
-
-                    await _dbContext.AddAsync(nodeSetModel).ConfigureAwait(false);
-                    await _dbContext.SaveChangesAsync().ConfigureAwait(false);
 
                     CloudLibNodeSetModel existingModel = await _dbContext.NodeSetsWithUnapproved.FindAsync(nodeSetModel.ModelUri, nodeSetModel.PublicationDate).ConfigureAwait(false);
                     if (existingModel != null)
@@ -182,19 +173,17 @@ namespace Opc.Ua.Cloud.Library
                         message = "Error: nodeset still exists after delete.";
                         return;
                     }
-                    else
-                    {
-                        await _dbContext.NodeSetsWithUnapproved.AddAsync(nodeSetModel).ConfigureAwait(false);
-                    }
 
                     var nameSpaceModel = new NamespaceMetaDataModel();
                     MapToEntity(ref nameSpaceModel, uaNamespace, nodeSetModel);
 
                     nodeSetModel.ValidationStatus = ValidationStatus.Parsed;
                     nodeSetModel.ValidationStatusInfo = null;
+
                     nameSpaceModel.UserId = userId;
 
                     await _dbContext.AddAsync(nameSpaceModel).ConfigureAwait(false);
+                    await _dbContext.NodeSetsWithUnapproved.AddAsync(nodeSetModel).ConfigureAwait(false);
 
                     await _dbContext.SaveChangesAsync().ConfigureAwait(false);
                 },
@@ -221,13 +210,16 @@ namespace Opc.Ua.Cloud.Library
             return newCount;
         }
 
-        public async Task<bool> DeleteAllRecordsForNodesetAsync(uint nodesetId)
+        public async Task DeleteAllRecordsForNodesetAsync(uint nodesetId)
         {
             try
             {
                 string nodesetIdStr = nodesetId.ToString(CultureInfo.InvariantCulture);
-                List<CloudLibNodeSetModel> deletedNodeSets = new();
-                await DeleteNodeSetIndexForNodesetAsync(nodesetIdStr, deletedNodeSets).ConfigureAwait(false);
+                CloudLibNodeSetModel nodeSetModel = await _dbContext.NodeSetsWithUnapproved.FirstOrDefaultAsync(n => n.Identifier == nodesetIdStr).ConfigureAwait(false);
+                if (nodeSetModel != null)
+                {
+                    _dbContext.NodeSetsWithUnapproved.Remove(nodeSetModel);
+                }
 
                 NamespaceMetaDataModel namespaceModel = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetIdStr).ConfigureAwait(false);
                 if (namespaceModel != null)
@@ -236,56 +228,12 @@ namespace Opc.Ua.Cloud.Library
                 }
 
                 await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-
-                // Re-add nodesets that were removed because they depend on the nodeset being deleted
-                // This will cause them to be reindexed later on
-                foreach (CloudLibNodeSetModel deletedNodeSet in deletedNodeSets)
-                {
-                    if (deletedNodeSet.Identifier != nodesetIdStr)
-                    {
-                        var newNodeSetModel = new CloudLibNodeSetModel {
-                            Identifier = deletedNodeSet.Identifier,
-                            ModelUri = deletedNodeSet.ModelUri,
-                            PublicationDate = deletedNodeSet.PublicationDate,
-                            Version = deletedNodeSet.Version,
-                            LastModifiedDate = deletedNodeSet.LastModifiedDate,
-                            ValidationStatus = ValidationStatus.Parsed,
-                            RequiredModels = deletedNodeSet.RequiredModels.Select(rm => new RequiredModelInfoModel { ModelUri = rm.ModelUri, PublicationDate = rm.PublicationDate, Version = rm.Version }).ToList(),
-                        };
-
-                        await _dbContext.NodeSetsWithUnapproved.AddAsync(newNodeSetModel).ConfigureAwait(false);
-                    }
-                }
-                await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-
-                return true;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error while deleting all records for {nodesetId}");
-                // rethrow so db execution policy can do retries if so configured
+
                 throw;
-            }
-        }
-
-        public async Task DeleteNodeSetIndexForNodesetAsync(string nodesetId, List<CloudLibNodeSetModel> deletedNodeSets)
-        {
-            CloudLibNodeSetModel nodeSetModel = await _dbContext.NodeSetsWithUnapproved.FirstOrDefaultAsync(n => n.Identifier == nodesetId).ConfigureAwait(false);
-            if (nodeSetModel != null)
-            {
-                foreach (CloudLibNodeSetModel dependentNodeset in _dbContext.NodeSetsWithUnapproved
-                    .Where(n => n.RequiredModels
-                        .Any(rm => rm.AvailableModel.ModelUri == nodeSetModel.ModelUri && rm.AvailableModel.PublicationDate == nodeSetModel.PublicationDate)))
-                {
-                    // Delete any dependent nodesets, so we can re-index them from scratch
-                    await DeleteNodeSetIndexForNodesetAsync(dependentNodeset.Identifier, deletedNodeSets).ConfigureAwait(false);
-                }
-
-                if (!deletedNodeSets.Contains(nodeSetModel))
-                {
-                    _dbContext.NodeSetsWithUnapproved.Remove(nodeSetModel);
-                    deletedNodeSets.Add(nodeSetModel);
-                }
             }
         }
 
@@ -392,7 +340,7 @@ namespace Opc.Ua.Cloud.Library
             return Task.FromResult(Array.Empty<string>());
         }
 
-        public async Task<NamespaceMetaDataModel> ApproveNamespaceAsync(string identifier, ApprovalStatus status, string approvalInformation, List<UAProperty> additionalProperties)
+        public async Task<NamespaceMetaDataModel> ApproveNamespaceAsync(string identifier, ApprovalStatus status, string approvalInformation)
         {
             NamespaceMetaDataModel nodeSetMeta = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync().ConfigureAwait(false);
             if (nodeSetMeta == null) return null;
@@ -411,11 +359,8 @@ namespace Opc.Ua.Cloud.Library
                     _logger.LogWarning($"Failed to delete file on Approval cancelation for {nodeSetMeta.NodesetId}: {ex.Message}");
                 }
 
-                if (!await DeleteAllRecordsForNodesetAsync(uint.Parse(nodeSetMeta.NodesetId, CultureInfo.InvariantCulture)).ConfigureAwait(false))
-                {
-                    _logger.LogWarning($"Failed to delete records on Approval cancelation for {nodeSetMeta.NodesetId}");
-                    return null;
-                }
+                await DeleteAllRecordsForNodesetAsync(uint.Parse(nodeSetMeta.NodesetId, CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                
                 return nodeSetMeta;
             }
 
@@ -441,7 +386,6 @@ namespace Opc.Ua.Cloud.Library
 
             entity.NodeSet = nodeSetModel;
             entity.Title = uaNamespace.Title;
-            entity.ContributorId = 0;
 
             string licenseExpression = uaNamespace.License switch {
                 "0" => "MIT",
@@ -454,7 +398,6 @@ namespace Opc.Ua.Cloud.Library
             entity.License = licenseExpression;
             entity.CopyrightText = uaNamespace.CopyrightText;
             entity.Description = uaNamespace.Description;
-            entity.CategoryId = 0;
             entity.DocumentationUrl = uaNamespace.DocumentationUrl?.ToString();
             entity.IconUrl = uaNamespace.IconUrl?.ToString();
             entity.LicenseUrl = uaNamespace.LicenseUrl?.ToString();
@@ -482,7 +425,6 @@ namespace Opc.Ua.Cloud.Library
             uaNamespace.License = model.License;
             uaNamespace.CopyrightText = model.CopyrightText;
             uaNamespace.Description = model.Description;
-            uaNamespace.Category = null;
             uaNamespace.DocumentationUrl = model.DocumentationUrl != null ? new Uri(model.DocumentationUrl) : null;
             uaNamespace.IconUrl = model.IconUrl != null ? new Uri(model.IconUrl) : null;
             uaNamespace.LicenseUrl = model.LicenseUrl != null ? new Uri(model.LicenseUrl) : null;

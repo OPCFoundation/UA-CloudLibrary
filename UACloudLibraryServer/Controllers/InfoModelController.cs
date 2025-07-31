@@ -308,12 +308,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                             return new ObjectResult($"Nodeset exists but existing nodeset could not be validated: {ex.Message}.") { StatusCode = (int)HttpStatusCode.Conflict };
                         }
 
-                        // check contributors match if nodeset already exists
-                        string contributorNameLegacy = (await _database.RetrieveAllMetadataAsync(legacyNodesetHashCode).ConfigureAwait(false))?.Contributor?.Name;
-                        if (!string.IsNullOrEmpty(legacyNodeSetXml) && !string.IsNullOrEmpty(contributorNameLegacy) && (!string.Equals(uaNamespace.Contributor.Name, contributorNameLegacy, StringComparison.Ordinal)))
-                        {
-                            return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
-                        }
+                        // TODO: check contributors match if nodeset already exists
                     }
                 }
                 uaNamespace.Nodeset.Identifier = nodesetHashCode;
@@ -333,12 +328,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 overwrite = true;
             }
 
-            // check contributors match if nodeset already exists
-            string contributorName = (await _database.RetrieveAllMetadataAsync(uaNamespace.Nodeset.Identifier).ConfigureAwait(false))?.Contributor?.Name;
-            if (!string.IsNullOrEmpty(result) && !string.IsNullOrEmpty(contributorName) && (!string.Equals(uaNamespace.Contributor.Name, contributorName, StringComparison.Ordinal)))
-            {
-                return new ObjectResult("Contributor name of existing nodeset is different to the one provided.") { StatusCode = (int)HttpStatusCode.Conflict };
-            }
+            // TODO: check contributors match if nodeset already exists
 
             uaNamespace.CreationTime = DateTime.UtcNow;
 
@@ -394,7 +384,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     string legacyHashCodeStr = legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture);
                     if (!string.IsNullOrEmpty(await _storage.FindFileAsync(legacyHashCodeStr).ConfigureAwait(false)))
                     {
-                        //await _storage.DeleteFileAsync(legacyHashCodeStr).ConfigureAwait(false);
+                        await _storage.DeleteFileAsync(legacyHashCodeStr).ConfigureAwait(false);
                     }
                 }
                 catch (Exception ex)

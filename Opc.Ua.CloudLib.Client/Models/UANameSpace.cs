@@ -65,12 +65,6 @@ namespace Opc.Ua.Cloud.Client.Models
         [JsonProperty("title")]
         public string Title { get; set; }
 
-        /// <summary>Gets or sets the contributor.</summary>
-        /// <value>The contributor.</value>
-        [JsonRequired]
-        [JsonProperty("contributor")]
-        public Organisation Contributor { get; set; }
-
         /// <summary>Gets or sets the license.</summary>
         /// <value>The license.</value>
         [JsonProperty("license")]
@@ -87,12 +81,6 @@ namespace Opc.Ua.Cloud.Client.Models
 		[JsonRequired]
         [JsonProperty("description")]
         public string Description { get; set; }
-
-        /// <summary>Gets or sets the category.</summary>
-        /// <value>The category.</value>
-		[JsonRequired]
-        [JsonProperty("category")]
-        public Category Category { get; set; }
 
         /// <summary>
         /// Link to additional documentation, specifications, GitHub, etc.
@@ -138,11 +126,6 @@ namespace Opc.Ua.Cloud.Client.Models
         public string[] SupportedLocales { get; set; }
 
         /// <summary>
-        /// Custom properties that are not part of the standard metadata
-        /// </summary>
-        public UAProperty[] AdditionalProperties { get; set; }
-
-        /// <summary>
         /// Default constructor
         /// </summary>
         public UANameSpaceMetadata()
@@ -150,9 +133,7 @@ namespace Opc.Ua.Cloud.Client.Models
             Title = string.Empty;
             License = null;
             CopyrightText = string.Empty;
-            Contributor = new Organisation();
             Description = string.Empty;
-            Category = new Category();
             DocumentationUrl = null;
             IconUrl = null;
             LicenseUrl = null;
@@ -161,16 +142,6 @@ namespace Opc.Ua.Cloud.Client.Models
             ReleaseNotesUrl = null;
             TestSpecificationUrl = null;
             SupportedLocales = Array.Empty<string>();
-            AdditionalProperties = null;
-        }
-
-        /// <summary>
-        /// stringify
-        /// </summary>
-        /// <returns></returns>
-        public override string ToString()
-        {
-            return $"{Title} {Contributor} {Category}";
         }
     }
 
@@ -205,150 +176,6 @@ namespace Opc.Ua.Cloud.Client.Models
         /// Number of downloads of the nodeset
         /// </summary>
         public uint NumberOfDownloads { get; set; }
-    }
-
-    /// <summary>Property Class</summary>
-    public class UAProperty
-    {
-        /// <summary>Gets or sets the name.</summary>
-        /// <value>The name.</value>
-        [JsonProperty("name")]
-        public string Name { get; set; }
-
-        /// <summary>Gets or sets the value.</summary>
-        /// <value>The value.</value>
-        [JsonProperty("value")]
-        public string Value { get; set; }
-    }
-
-    /// <summary>
-    /// Contains the metadata for the contributor/organisation
-    /// </summary>
-    public class Organisation
-    {
-        /// <summary>Initializes a new instance of the <see cref="Organisation" /> class.</summary>
-        public Organisation()
-        {
-            Name = string.Empty;
-            Description = null;
-            LogoUrl = null;
-            ContactEmail = null;
-            Website = null;
-        }
-
-        /// <summary>Gets or sets the name.</summary>
-        /// <value>The name.</value>
-        [JsonRequired]
-        [JsonProperty("name")]
-        public string Name { get; set; }
-
-        /// <summary>Gets or sets the description.</summary>
-        /// <value>The description.</value>
-        [JsonProperty("description")]
-        public string Description { get; set; }
-
-        /// <summary>Gets or sets the logo URL.</summary>
-        /// <value>The logo URL.</value>
-        [JsonProperty("logoUrl")]
-        public Uri LogoUrl { get; set; }
-
-        /// <summary>Gets or sets the contact email.</summary>
-        /// <value>The contact email.</value>
-        [JsonProperty("contactEmail")]
-        public string ContactEmail { get; set; }
-
-        /// <summary>Gets or sets the website.</summary>
-        /// <value>The website.</value>
-        [JsonProperty("website")]
-        public Uri Website { get; set; }
-
-        /// <summary>
-        /// Equals method to compare two Organisation objects based on their Name property.
-        /// </summary>
-        /// <param name="obj"></param>
-        /// <returns></returns>
-        public override bool Equals(object obj)
-        {
-            if ((obj == null) || !this.GetType().Equals(obj.GetType()))
-            {
-                return false;
-            }
-            else
-            {
-                Organisation org = (Organisation)obj;
-                return Name.Equals(org.Name, StringComparison.Ordinal);
-            }
-        }
-
-        /// <summary>
-        /// Returns a hash code for the current object.
-        /// </summary>
-        /// <remarks>The hash code is generated based on the <see cref="Name"/> property using ordinal
-        /// string comparison.</remarks>
-        /// <returns>An integer hash code representing the current object.</returns>
-        public override int GetHashCode()
-        {
-            return Name.GetHashCode(StringComparison.Ordinal);
-        }
-    }
-
-    /// <summary>Category Class</summary>
-    public class Category
-    {
-        /// <summary>Initializes a new instance of the <see cref="Category" /> class.</summary>
-        public Category()
-        {
-            Name = string.Empty;
-            Description = null;
-            IconUrl = null;
-        }
-
-        /// <summary>Gets or sets the name.</summary>
-        /// <value>The name.</value>
-		[JsonRequired]
-        [JsonProperty("name")]
-        public string Name { get; set; }
-
-        /// <summary>Gets or sets the description.</summary>
-        /// <value>The description.</value>
-        [JsonProperty("description")]
-        public string Description { get; set; }
-
-        /// <summary>Gets or sets the icon URL.</summary>
-        /// <value>The icon URL.</value>
-        [JsonProperty("iconUrl")]
-        public Uri IconUrl { get; set; }
-
-        /// <summary>
-        /// Determines whether the specified object is equal to the current object.
-        /// </summary>
-        /// <remarks>Two objects are considered equal if they are of the same type and their <c>Name</c>
-        /// properties are equal using ordinal comparison.</remarks>
-        /// <param name="obj">The object to compare with the current object.</param>
-        /// <returns><see langword="true"/> if the specified object is equal to the current object; otherwise, <see
-        /// langword="false"/>.</returns>
-        public override bool Equals(object obj)
-        {
-            if ((obj == null) || !this.GetType().Equals(obj.GetType()))
-            {
-                return false;
-            }
-            else
-            {
-                Category org = (Category)obj;
-                return Name.Equals(org.Name, StringComparison.Ordinal);
-            }
-        }
-
-        /// <summary>
-        /// Returns a hash code for the current object.
-        /// </summary>
-        /// <returns>An integer hash code representing the current object, calculated using the <see
-        /// cref="StringComparison.Ordinal"/> comparison for the <see cref="Name"/> property.</returns>
-        public override int GetHashCode()
-        {
-            return Name.GetHashCode(StringComparison.Ordinal);
-        }
     }
 
     /// <summary>Nodeset Class</summary>

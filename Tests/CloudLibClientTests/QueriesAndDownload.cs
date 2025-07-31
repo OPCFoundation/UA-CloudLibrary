@@ -159,11 +159,6 @@ namespace CloudLibClient.Tests
             Assert.Equal(uploadedNamespace.Keywords, downloadedNamespace.Keywords);
             Assert.Equal(uploadedNamespace.LicenseUrl, downloadedNamespace.LicenseUrl);
             Assert.Equal(uploadedNamespace.TestSpecificationUrl, downloadedNamespace.TestSpecificationUrl);
-            Assert.Equal(uploadedNamespace.Category, downloadedNamespace.Category, new CategoryComparer());
-            Assert.Equal(uploadedNamespace.Contributor, downloadedNamespace.Contributor, new OrganisationComparer());
-
-            Assert.Equal(uploadedNamespace.AdditionalProperties, downloadedNamespace.AdditionalProperties, new UAPropertyComparer());
-
             Assert.Equal(uploadedNamespace.CopyrightText, downloadedNamespace.CopyrightText);
             Assert.Equal(uploadedNamespace.Description, downloadedNamespace.Description);
             Assert.Equal(uploadedNamespace.DocumentationUrl, downloadedNamespace.DocumentationUrl);
@@ -253,12 +248,7 @@ namespace CloudLibClient.Tests
             Assert.Equal(uploadedNamespace.Keywords, testNodeSet.Keywords);
             Assert.Equal(uploadedNamespace.LicenseUrl, testNodeSet.LicenseUrl);
             Assert.Equal(uploadedNamespace.TestSpecificationUrl, testNodeSet.TestSpecificationUrl);
-            Assert.Equal(uploadedNamespace.Category, testNodeSet.Category, new CategoryComparer());
-
             Assert.Equal(default, testNodeSet.Nodeset.PublicationDate);
-            Assert.Equal(uploadedNamespace.Contributor, testNodeSet.Contributor);
-
-            Assert.Equal(uploadedNamespace.AdditionalProperties.OrderBy(p => p.Name), testNodeSet.AdditionalProperties.OrderBy(p => p.Name), new UAPropertyComparer());
             Assert.Equal(uploadedNamespace.CopyrightText, testNodeSet.CopyrightText);
             Assert.Equal(uploadedNamespace.Description, testNodeSet.Description);
             Assert.Equal(uploadedNamespace.DocumentationUrl, testNodeSet.DocumentationUrl);
@@ -321,7 +311,7 @@ namespace CloudLibClient.Tests
             UANameSpace convertedMetaData = restResult.FirstOrDefault(n => n.Nodeset.NamespaceUri?.OriginalString == strTestNamespaceUri);
             if (convertedMetaData == null)
             {
-                convertedMetaData = restResult.FirstOrDefault(n => n.Title == strTestNamespaceTitle || string.Equals(n.Category.Name, strTestNamespaceTitle, StringComparison.OrdinalIgnoreCase));
+                convertedMetaData = restResult.FirstOrDefault(n => n.Title == strTestNamespaceTitle);
             }
 
             Assert.True(convertedMetaData != null, $"Test Nodeset {strTestNamespaceUri} not found");
@@ -338,10 +328,7 @@ namespace CloudLibClient.Tests
             Assert.Equal(uploadedNamespace.Keywords, convertedMetaData.Keywords);
             Assert.Equal(uploadedNamespace.LicenseUrl, convertedMetaData.LicenseUrl);
             Assert.Equal(uploadedNamespace.TestSpecificationUrl, convertedMetaData.TestSpecificationUrl);
-            Assert.Equal(uploadedNamespace.Category, convertedMetaData.Category, new CategoryComparer());
             Assert.Equal(default, convertedMetaData.Nodeset.LastModifiedDate); // REST does not return last modified date
-            Assert.Equal(uploadedNamespace.Contributor?.Name, convertedMetaData.Contributor?.Name);
-            Assert.Equal(uploadedNamespace.AdditionalProperties.OrderBy(p => p.Name), convertedMetaData.AdditionalProperties.OrderBy(p => p.Name), new UAPropertyComparer());
             Assert.Equal(uploadedNamespace.CopyrightText, convertedMetaData.CopyrightText);
             Assert.Equal(uploadedNamespace.Description, convertedMetaData.Description);
             Assert.Equal(uploadedNamespace.DocumentationUrl, convertedMetaData.DocumentationUrl);
