@@ -156,7 +156,7 @@ namespace Opc.Ua.Cloud.Library
                     message = null;
 
                     await DeleteAllRecordsForNodesetAsync(uaNamespace.Nodeset.Identifier).ConfigureAwait(false);
-                    
+
                     // delete any matching legacy nodesets
                     if (legacyNodesetHashCode != 0)
                     {
@@ -360,7 +360,7 @@ namespace Opc.Ua.Cloud.Library
                 }
 
                 await DeleteAllRecordsForNodesetAsync(uint.Parse(nodeSetMeta.NodesetId, CultureInfo.InvariantCulture)).ConfigureAwait(false);
-                
+
                 return nodeSetMeta;
             }
 
