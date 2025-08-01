@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 
-namespace Opc.Ua.Cloud.Library.NodeSetIndex
+namespace Opc.Ua.Cloud.Library
 {
     public class NodeSetModelContext
     {

@@ -393,7 +393,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 }
             }
 
-            await _nodeSetIndexer.IndexNodeSetModelAsync(uaNamespace.Nodeset.NamespaceUri.OriginalString, uaNamespace.Nodeset.NodesetXml, uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+            await _nodeSetIndexer.IndexNodeSetModelAsync(nodeSet).ConfigureAwait(false);
 
             return new ObjectResult(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)) { StatusCode = (int)HttpStatusCode.OK };
         }

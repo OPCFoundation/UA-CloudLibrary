@@ -29,11 +29,10 @@
 
 using System;
 using System.Threading.Tasks;
-using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Cloud.Library.NodeSetIndex;
 using Opc.Ua.Export;
 
-namespace Opc.Ua.Cloud.Library
+namespace Opc.Ua.Cloud.Library.Models
 {
     public class CloudLibNodeSetModel : NodeSetModel
     {

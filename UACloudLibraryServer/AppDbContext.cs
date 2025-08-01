@@ -35,7 +35,6 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Opc.Ua.Cloud.Library.Models;
-using Opc.Ua.Cloud.Library.NodeSetIndex;
 
 namespace Opc.Ua.Cloud.Library
 {

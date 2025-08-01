@@ -36,6 +36,7 @@ using Microsoft.Extensions.Logging;
 using Opc.Ua.Cloud.Library.Interfaces;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Cloud.Library.NodeSetIndex;
+using Opc.Ua.Export;
 
 namespace Opc.Ua.Cloud.Library
 {
@@ -43,75 +44,35 @@ namespace Opc.Ua.Cloud.Library
     {
         private AppDbContext _dbContext;
         private readonly ILogger _logger;
-        private readonly DbFileStorage _storage;
 
-        public NodeSetModelIndexer(AppDbContext dbContext, ILoggerFactory logger, DbFileStorage storage)
+        public NodeSetModelIndexer(AppDbContext dbContext, ILoggerFactory logger)
         {
             _dbContext = dbContext;
             _logger = logger.CreateLogger("NodeSetModelIndexer");
-            _storage = storage;
         }
 
-        public async Task<(ValidationStatus Status, string Info)> IndexNodeSetModelAsync(string modelUri, string nodeSetXML, string identifier)
+        public async Task IndexNodeSetModelAsync(UANodeSet nodeset)
         {
-            try
+            var nodesetModel = await CloudLibNodeSetModel.FromModelAsync(nodeset.Models[0], _dbContext);
+
+            await NodeModelFactoryOpc.LoadNodeSetAsync(
+                new CloudLibDbOpcUaContext(_dbContext, _logger, null),
+                nodeset,
+                nodesetModel,
+                new Dictionary<string, string>(),
+                true
+            ).ConfigureAwait(false);
+
+            if (!_dbContext.Set<NodeSetModel>().Any(nsm => nsm.ModelUri == nodesetModel.ModelUri && nsm.PublicationDate == nodesetModel.PublicationDate))
             {
-                ValidationStatus validationStatus = ValidationStatus.Error;
-                string validationStatusInfo = "Internal error";
-
-                var sw = Stopwatch.StartNew();
-
-                var myNodeSetCache = new NodeSetImporter(_storage, _dbContext);
-                var opcContext = new CloudLibDbOpcUaContext(_dbContext, _logger, model => CloudLibNodeSetModel.FromModelAsync(model, _dbContext).Result);
-                var nodesetImporter = new NodeSetModelImporter((IOpcUaContext)opcContext, myNodeSetCache);
-
-                List<NodeSetModel> loadedNodesetModels = await nodesetImporter.ImportNodeSetModelAsync(nodeSetXML, identifier).ConfigureAwait(false);
-
-                foreach (NodeSetModel nodeSetModel in loadedNodesetModels)
-                {
-                    nodeSetModel.Identifier = identifier;
-                    var clNodeSet = nodeSetModel as CloudLibNodeSetModel;
-                    if (clNodeSet == null)
-                    {
-                        throw new ArgumentException($"Internal error: unexpected nodeset model type {nodeSetModel.GetType()}");
-                    }
-
-                    clNodeSet.ValidationStatus = validationStatus = ValidationStatus.Indexed;
-                    clNodeSet.ValidationStatusInfo = validationStatusInfo = null;
-
-                    if (!_dbContext.Set<NodeSetModel>().Any(nsm => nsm.ModelUri == clNodeSet.ModelUri && nsm.PublicationDate == clNodeSet.PublicationDate))
-                    {
-                        _dbContext.NodeSetsWithUnapproved.Add(clNodeSet);
-                    }
-                    else
-                    {
-                        _dbContext.NodeSetsWithUnapproved.Update(clNodeSet);
-                    }
-                }
-
-                long validatedTime = sw.ElapsedMilliseconds;
-                _logger.LogInformation($"Finished validating nodeset {modelUri} {identifier}: {validatedTime} ms.");
-
-                await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-                long savedTime = sw.ElapsedMilliseconds;
-                _logger.LogInformation($"Finished indexing nodeset {modelUri} {identifier}: {savedTime - validatedTime} ms. Total: {savedTime} ms.");
-#if DEBUG
-                NodeSetModel nodeSet = loadedNodesetModels.FirstOrDefault(nsm => nsm.ModelUri == modelUri);
-                if (nodeSet != null)
-                {
-                    var clNodeSet = nodeSet as CloudLibNodeSetModel;
-                    clNodeSet.ValidationElapsedTime = TimeSpan.FromMilliseconds(savedTime);
-                    clNodeSet.ValidationFinishedTime = DateTime.UtcNow;
-                    _dbContext.Update(clNodeSet);
-                    await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-                }
-#endif
-                return (validationStatus, validationStatusInfo);
+                _dbContext.NodeSetsWithUnapproved.Add(nodesetModel);
             }
-            catch (Exception ex)
+            else
             {
-                return (ValidationStatus.Error, ex.Message);
+                _dbContext.NodeSetsWithUnapproved.Update(nodesetModel);
             }
+
+            await _dbContext.SaveChangesAsync().ConfigureAwait(false);
         }
     }
 }
