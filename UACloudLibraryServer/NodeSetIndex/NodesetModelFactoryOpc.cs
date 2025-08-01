@@ -110,6 +110,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             return Task.FromResult(loadedModels);
         }
     }
+
     public class NodeModelFactoryOpc<TNodeModel> where TNodeModel : NodeModel, new()
     {
         protected TNodeModel Model { get; set; }
