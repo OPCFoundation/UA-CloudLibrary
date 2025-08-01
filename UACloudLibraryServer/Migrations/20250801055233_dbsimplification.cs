@@ -101,8 +101,7 @@ namespace Opc.Ua.Cloud.Library
                     IconUrl = table.Column<string>(type: "text", nullable: true),
                     Name = table.Column<string>(type: "text", nullable: true)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_Categories", x => x.Id);
                 });
 
