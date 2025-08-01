@@ -15,11 +15,6 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 {
     public static class NodeModelOpcExtensions
     {
-        public static string GetDisplayNamePath(this InstanceModelBase model)
-        {
-            return model.GetDisplayNamePath(new List<NodeModel>());
-        }
-
         public static DateTime GetNormalizedPublicationDate(this ModelTableEntry model)
         {
             return model.PublicationDateSpecified ? DateTime.SpecifyKind(model.PublicationDate, DateTimeKind.Utc) : default;
@@ -55,52 +50,6 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             }
 
             return browseName;
-        }
-
-        public enum JsonValueType
-        {
-#pragma warning disable CA1720 // Identifier contains type name
-            /// <summary>
-            /// JSON object
-            /// </summary>
-            Object,
-
-            /// <summary>
-            /// Scalar, to be quoted
-            /// </summary>
-            String,
-#pragma warning restore CA1720 // Identifier contains type name
-
-            /// <summary>
-            /// Scalar, not to be quoted
-            /// </summary>
-            Value
-        }
-
-
-        public static JsonValueType GetJsonValueType(this DataTypeModel dataType)
-        {
-            if (dataType.HasBaseType($"nsu={Namespaces.OpcUa};{DataTypeIds.String}")
-                || dataType.HasBaseType($"nsu={Namespaces.OpcUa};{DataTypeIds.Int64}") // numeric, but encoded as string
-                || dataType.HasBaseType($"nsu={Namespaces.OpcUa};{DataTypeIds.UInt64}") // numeric, but encoded as string
-                || dataType.HasBaseType($"nsu={Namespaces.OpcUa};{DataTypeIds.DateTime}")
-                || dataType.HasBaseType($"nsu={Namespaces.OpcUa};{DataTypeIds.ByteString}")
-                || dataType.HasBaseType($"nsu={Namespaces.OpcUa};{DataTypeIds.String}")
-                )
-            {
-                return JsonValueType.String;
-            }
-            if (dataType.HasBaseType($"nsu={Namespaces.OpcUa};{DataTypeIds.Boolean}")
-                || (dataType.HasBaseType($"nsu={Namespaces.OpcUa};{DataTypeIds.Number}")
-                    && !dataType.HasBaseType($"nsu={Namespaces.OpcUa};{DataTypeIds.Decimal}") // numeric, but encoded as Scale/Value object
-                    )
-                || dataType.HasBaseType($"nsu={Namespaces.OpcUa};{DataTypeIds.StatusCode}")
-                || dataType.HasBaseType($"nsu={Namespaces.OpcUa};{DataTypeIds.Enumeration}")
-                )
-            {
-                return JsonValueType.Value;
-            }
-            return JsonValueType.Object;
         }
 
         internal static void SetEngineeringUnits(this VariableModel model, EUInformation euInfo)
