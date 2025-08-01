@@ -53,7 +53,7 @@ namespace Opc.Ua.Cloud.Library
 
         public async Task IndexNodeSetModelAsync(UANodeSet nodeset)
         {
-            var nodesetModel = await CloudLibNodeSetModel.FromModelAsync(nodeset.Models[0], _dbContext);
+            var nodesetModel = await CloudLibNodeSetModel.FromModelAsync(nodeset.Models[0], _dbContext).ConfigureAwait(false);
 
             await NodeModelFactoryOpc.LoadNodeSetAsync(
                 new CloudLibDbOpcUaContext(_dbContext, _logger, null),
