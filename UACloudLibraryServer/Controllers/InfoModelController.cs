@@ -55,14 +55,12 @@ namespace Opc.Ua.Cloud.Library.Controllers
         private readonly DbFileStorage _storage;
         private readonly CloudLibDataProvider _database;
         private readonly ILogger _logger;
-        private readonly NodeSetModelIndexer _nodeSetIndexer;
 
-        public InfoModelController(DbFileStorage storage, CloudLibDataProvider database, ILoggerFactory logger, NodeSetModelIndexer nodeSetIndexer)
+        public InfoModelController(DbFileStorage storage, CloudLibDataProvider database, ILoggerFactory logger)
         {
             _storage = storage;
             _database = database;
             _logger = logger.CreateLogger("InfoModelController");
-            _nodeSetIndexer = nodeSetIndexer;
         }
 
         [HttpGet]
@@ -393,7 +391,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 }
             }
 
-            await _nodeSetIndexer.IndexNodeSetModelAsync(nodeSet).ConfigureAwait(false);
+            await _database.IndexNodeSetModelAsync(nodeSet).ConfigureAwait(false);
 
             return new ObjectResult(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)) { StatusCode = (int)HttpStatusCode.OK };
         }

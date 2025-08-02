@@ -201,6 +201,30 @@ namespace Opc.Ua.Cloud.Library
             return message;
         }
 
+        public async Task IndexNodeSetModelAsync(UANodeSet nodeset)
+        {
+            var nodesetModel = await CloudLibNodeSetModel.FromModelAsync(nodeset.Models[0], _dbContext).ConfigureAwait(false);
+
+            await NodeModelFactoryOpc.LoadNodeSetAsync(
+                new CloudLibDbOpcUaContext(_dbContext, _logger, null),
+                nodeset,
+                nodesetModel,
+                new Dictionary<string, string>(),
+                true
+            ).ConfigureAwait(false);
+
+            if (!_dbContext.Set<NodeSetModel>().Any(nsm => nsm.ModelUri == nodesetModel.ModelUri && nsm.PublicationDate == nodesetModel.PublicationDate))
+            {
+                _dbContext.NodeSetsWithUnapproved.Add(nodesetModel);
+            }
+            else
+            {
+                _dbContext.NodeSetsWithUnapproved.Update(nodesetModel);
+            }
+
+            await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+        }
+
         public async Task<uint> IncrementDownloadCountAsync(uint nodesetId)
         {
             NamespaceMetaDataModel namespaceMeta = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);

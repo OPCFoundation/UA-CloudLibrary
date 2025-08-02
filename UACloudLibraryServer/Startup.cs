@@ -257,8 +257,6 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Directory.GetCurrentDirectory()));
 
-            services.AddScoped<NodeSetModelIndexer>();
-
             services.Configure<IISServerOptions>(options => {
                 options.AllowSynchronousIO = true;
             });
