@@ -9,6 +9,7 @@ using System.Xml;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Opc.Ua.Export;
 
 namespace Opc.Ua.Cloud.Library.NodeSetIndex
 {
@@ -21,10 +22,6 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             return namespaceUri;
         }
 
-        /// <summary>
-        /// Reads a missing nodeset version from a NamespaceVersion object
-        /// </summary>
-        /// <param name="nodeSet"></param>
         public static void FixupNodesetVersionFromMetadata(Export.UANodeSet nodeSet, ILogger logger)
         {
             if (nodeSet?.Models == null)
@@ -87,48 +84,6 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             }
         }
 
-        public static int? CompareNodeSetVersion(string modelUri, DateTime? modelPublicationDate, string modelVersion, DateTime? publicationDateToMatch, string versionToMatch)
-        {
-            if (modelUri == "http://opcfoundation.org/UA/")
-            {
-                // Special versioning rules for core nodesets: only match publication date within version family (1.03, 1.04, 1.05).
-                if (string.IsNullOrEmpty(versionToMatch))
-                {
-                    // No version specified: it's a match
-                    return 1;
-                }
-                var prefixLength = "0.00".Length;
-                if (versionToMatch?.Length < prefixLength)
-                {
-                    // Invalid version '{versionToMatch}' for OPC UA Core nodeset
-                    return null;
-                }
-                if (modelVersion == null || modelVersion.Length < prefixLength)
-                {
-                    // Invalid version '{modelVersion}' in OPC UA Core nodeset
-                    return null;
-                }
-                var versionPrefixToMatch = versionToMatch.Substring(0, prefixLength);
-                var prefixComparison = string.CompareOrdinal(modelVersion.Substring(0, prefixLength), versionPrefixToMatch);
-                if (prefixComparison != 0)
-                {
-                    return prefixComparison;
-                }
-                // Version family matches: now just do regular publication date comparison
-            }
-            int comparison;
-            if (publicationDateToMatch == null || modelPublicationDate == null)
-            {
-                // If either date is not specified it matches any date
-                comparison = 0;
-            }
-            else
-            {
-                comparison = DateTime.Compare(modelPublicationDate.Value, publicationDateToMatch.Value);
-            }
-            return comparison;
-        }
-
         private static NodeSetModel GetMatchingOrHigherNodeSetByPublicationDate(IEnumerable<NodeSetModel> nodeSetsWithSameNamespaceUri, DateTime? publicationDate)
         {
             var orderedNodeSets = nodeSetsWithSameNamespaceUri.OrderBy(n => n.PublicationDate);
@@ -145,6 +100,65 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     .LastOrDefault();
                 return matchingNodeSet;
             }
+        }
+
+        public static DateTime GetNormalizedPublicationDate(this ModelTableEntry model)
+        {
+            return model.PublicationDateSpecified ? DateTime.SpecifyKind(model.PublicationDate, DateTimeKind.Utc) : default;
+        }
+
+        public static DateTime GetNormalizedPublicationDate(this DateTime? publicationDate)
+        {
+            return publicationDate != null ? DateTime.SpecifyKind(publicationDate.Value, DateTimeKind.Utc) : default;
+        }
+
+        public static string GetDisplayNamePath(this InstanceModelBase model, List<NodeModel> nodesVisited)
+        {
+            if (nodesVisited.Contains(model))
+            {
+                return "(cycle)";
+            }
+            nodesVisited.Add(model);
+            if (model.Parent is InstanceModelBase parent)
+            {
+                return $"{parent.GetDisplayNamePath(nodesVisited)}.{model.DisplayName.FirstOrDefault()?.Text}";
+            }
+            return model.DisplayName.FirstOrDefault()?.Text;
+        }
+
+        public static string GetUnqualifiedBrowseName(this NodeModel nodeModel)
+        {
+            var browseName = nodeModel.GetBrowseName();
+            var parts = browseName.Split([';'], 2);
+
+            if (parts.Length > 1)
+            {
+                return parts[1];
+            }
+
+            return browseName;
+        }
+
+        internal static void SetEngineeringUnits(this VariableModel model, EUInformation euInfo)
+        {
+            model.EngineeringUnit = new VariableModel.EngineeringUnitInfo {
+                DisplayName = euInfo.DisplayName?.ToModelSingle(),
+                Description = euInfo.Description?.ToModelSingle(),
+                NamespaceUri = euInfo.NamespaceUri,
+                UnitId = euInfo.UnitId,
+            };
+        }
+
+        internal static void SetRange(this VariableModel model, Opc.Ua.Range euRange)
+        {
+            model.MinValue = euRange.Low;
+            model.MaxValue = euRange.High;
+        }
+
+        internal static void SetInstrumentRange(this VariableModel model, Opc.Ua.Range range)
+        {
+            model.InstrumentMinValue = range.Low;
+            model.InstrumentMaxValue = range.High;
         }
     }
 }

@@ -11,7 +11,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 {
     public class NodeModelFactoryOpc : NodeModelFactoryOpc<NodeModel>
     {
-        public static Task<List<NodeSetModel>> LoadNodeSetAsync(IOpcUaContext opcContext, UANodeSet nodeSet, object customState, Dictionary<string, string> Aliases, bool doNotReimport = false, List<NodeState> importedNodes = null)
+        public static Task<List<NodeSetModel>> LoadNodeSetAsync(DbOpcUaContext opcContext, UANodeSet nodeSet, object customState, Dictionary<string, string> Aliases, bool doNotReimport = false, List<NodeState> importedNodes = null)
         {
             if (nodeSet.Models.Length == 0)
             {
@@ -116,7 +116,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
         private ILogger _logger;
 
-        protected virtual void Initialize(IOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
+        protected virtual void Initialize(DbOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
         {
             _logger.LogTrace($"Creating node model for {opcNode}");
             // TODO capture multiple locales from a nodeset: UA library seems to offer only one locale
@@ -171,7 +171,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             _logger.LogTrace($"Created node model {Model} for {opcNode}");
         }
 
-        private static void AddChildToNodeModel(Func<NodeModel> parentFactory, IOpcUaContext opcContext, ReferenceTypeState referenceType, List<BaseTypeState> referenceTypes, NodeState referencedNode, int recursionDepth)
+        private static void AddChildToNodeModel(Func<NodeModel> parentFactory, DbOpcUaContext opcContext, ReferenceTypeState referenceType, List<BaseTypeState> referenceTypes, NodeState referencedNode, int recursionDepth)
         {
             var organizesNodeId = opcContext.GetModelNodeId(ReferenceTypeIds.Organizes);
             if (referenceTypes.Any(n => n.NodeId == ReferenceTypeIds.HasComponent))
@@ -461,7 +461,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             }
         }
 
-        static bool ProcessEUInfoAndRangesWithoutParent(IOpcUaContext opcContext, NodeState potentialEUNode, object customState)
+        static bool ProcessEUInfoAndRangesWithoutParent(DbOpcUaContext opcContext, NodeState potentialEUNode, object customState)
         {
             if (potentialEUNode.BrowseName?.Name == BrowseNames.EngineeringUnits || (potentialEUNode as BaseVariableState)?.DataType == DataTypeIds.EUInformation
                 || potentialEUNode.BrowseName?.Name == BrowseNames.EURange || potentialEUNode.BrowseName?.Name == BrowseNames.InstrumentRange)
@@ -481,7 +481,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             return false;
         }
 
-        static bool ProcessEUInfoAndRanges(IOpcUaContext opcContext, NodeState referencedNode, Func<NodeModel> parentFactory)
+        static bool ProcessEUInfoAndRanges(DbOpcUaContext opcContext, NodeState referencedNode, Func<NodeModel> parentFactory)
         {
             if (referencedNode.BrowseName?.Name == BrowseNames.EngineeringUnits || (referencedNode as BaseVariableState).DataType == DataTypeIds.EUInformation)
             {
@@ -572,7 +572,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
         }
 
         static (Range range, string RangeNodeId, string ModellingRuleId, uint? rangeAccessLevel)
-            GetRangeInfo(NodeModel parentVariable, NodeState referencedNode, IOpcUaContext opcContext)
+            GetRangeInfo(NodeModel parentVariable, NodeState referencedNode, DbOpcUaContext opcContext)
         {
             string rangeNodeId = opcContext.GetModelNodeId(referencedNode.NodeId);
             string rangeModellingRule = null;
@@ -620,7 +620,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             return (range, rangeNodeId, rangeModellingRule, rangeAccessLevel);
         }
 
-        public static NodeModel Create(IOpcUaContext opcContext, NodeState node, object customState, out bool added, int recursionDepth = int.MaxValue)
+        public static NodeModel Create(DbOpcUaContext opcContext, NodeState node, object customState, out bool added, int recursionDepth = int.MaxValue)
         {
             NodeModel nodeModel;
             added = true;
@@ -680,7 +680,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
         }
 
-        public static List<BaseTypeState> GetBaseTypes(IOpcUaContext opcContext, BaseTypeState objectType)
+        public static List<BaseTypeState> GetBaseTypes(DbOpcUaContext opcContext, BaseTypeState objectType)
         {
             var baseTypes = new List<BaseTypeState>();
             if (objectType != null)
@@ -707,7 +707,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
         }
 
 
-        protected static TNodeModel2 Create<TNodeModelOpc, TNodeModel2>(IOpcUaContext opcContext, NodeState opcNode, object customState, int recursionDepth) where TNodeModelOpc : NodeModelFactoryOpc<TNodeModel2>, new() where TNodeModel2 : NodeModel, new()
+        protected static TNodeModel2 Create<TNodeModelOpc, TNodeModel2>(DbOpcUaContext opcContext, NodeState opcNode, object customState, int recursionDepth) where TNodeModelOpc : NodeModelFactoryOpc<TNodeModel2>, new() where TNodeModel2 : NodeModel, new()
         {
             var nodeId = opcContext.GetModelNodeId(opcNode.NodeId);
 
@@ -735,7 +735,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             return nodeModel;
         }
 
-        public static TNodeModel2 Create<TNodeModel2>(IOpcUaContext opcContext, string nodeId, ModelTableEntry opcModelInfo, object customState, out bool created) where TNodeModel2 : NodeModel, new()
+        public static TNodeModel2 Create<TNodeModel2>(DbOpcUaContext opcContext, string nodeId, ModelTableEntry opcModelInfo, object customState, out bool created) where TNodeModel2 : NodeModel, new()
         {
             created = false;
             opcContext.NamespaceUris.GetIndexOrAppend(opcModelInfo.ModelUri); // Ensure the namespace is in the namespace table
@@ -825,7 +825,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
         where TBaseTypeModel : NodeModel, new()
         where TBaseTypeModelFactoryOpc : NodeModelFactoryOpc<TBaseTypeModel>, new()
     {
-        protected override void Initialize(IOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
+        protected override void Initialize(DbOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
         {
             base.Initialize(opcContext, opcNode, recursionDepth);
             var uaInstance = opcNode as BaseInstanceState;
@@ -866,7 +866,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
     public class ObjectModelFactoryOpc : InstanceModelFactoryOpc<ObjectModel, ObjectTypeModel, ObjectTypeModelFactoryOpc>
     {
-        protected override void Initialize(IOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
+        protected override void Initialize(DbOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
         {
             base.Initialize(opcContext, opcNode, recursionDepth);
             if (opcNode is BaseObjectState objState)
@@ -878,7 +878,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
     public class BaseTypeModelFactoryOpc<TBaseTypeModel> : NodeModelFactoryOpc<TBaseTypeModel> where TBaseTypeModel : BaseTypeModel, new()
     {
-        protected override void Initialize(IOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
+        protected override void Initialize(DbOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
         {
             base.Initialize(opcContext, opcNode, recursionDepth);
             var uaType = opcNode as BaseTypeState;
@@ -938,7 +938,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
     public class VariableModelFactoryOpc<TVariableModel> : InstanceModelFactoryOpc<TVariableModel, VariableTypeModel, VariableTypeModelFactoryOpc>
         where TVariableModel : VariableModel, new()
     {
-        protected override void Initialize(IOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
+        protected override void Initialize(DbOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
         {
             base.Initialize(opcContext, opcNode, recursionDepth);
             var variableNode = opcNode as BaseVariableState;
@@ -1000,7 +1000,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             }
         }
 
-        internal static void InitializeDataTypeInfo(VariableModel _model, IOpcUaContext opcContext, BaseVariableState variableNode, int recursionDepth)
+        internal static void InitializeDataTypeInfo(VariableModel _model, DbOpcUaContext opcContext, BaseVariableState variableNode, int recursionDepth)
         {
             VariableTypeModelFactoryOpc.InitializeDataTypeInfo(_model, opcContext, $"{variableNode.GetType()} {variableNode}", variableNode.DataType, variableNode.ValueRank, variableNode.ArrayDimensions, variableNode.WrappedValue, recursionDepth);
         }
@@ -1016,7 +1016,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
     public class MethodModelFactoryOpc : InstanceModelFactoryOpc<MethodModel, MethodModel, MethodModelFactoryOpc> // TODO determine if intermediate base classes of MethodState are worth exposing in the model
     {
-        protected override void Initialize(IOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
+        protected override void Initialize(DbOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
         {
             base.Initialize(opcContext, opcNode, recursionDepth);
             if (opcNode is MethodState methodState)
@@ -1076,7 +1076,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             }
         }
 
-        private void ProcessMethodArguments(MethodModel methodModel, string browseName, VariableModel argumentVariable, List<VariableModel> modelArguments, IOpcUaContext opcContext, int recursionDepth)
+        private void ProcessMethodArguments(MethodModel methodModel, string browseName, VariableModel argumentVariable, List<VariableModel> modelArguments, DbOpcUaContext opcContext, int recursionDepth)
         {
             var arguments = opcContext.JsonDecodeVariant(argumentVariable.Value, argumentVariable.DataType); // TODO get from opcContext!
             if (arguments.Value != null)
@@ -1137,19 +1137,19 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
     public class VariableTypeModelFactoryOpc : BaseTypeModelFactoryOpc<VariableTypeModel>
     {
-        protected override void Initialize(IOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
+        protected override void Initialize(DbOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
         {
             base.Initialize(opcContext, opcNode, recursionDepth);
             var variableTypeState = opcNode as BaseVariableTypeState;
             InitializeDataTypeInfo(Model, opcContext, variableTypeState, recursionDepth);
         }
 
-        internal static void InitializeDataTypeInfo(VariableTypeModel model, IOpcUaContext opcContext, BaseVariableTypeState variableTypeNode, int recursionDepth)
+        internal static void InitializeDataTypeInfo(VariableTypeModel model, DbOpcUaContext opcContext, BaseVariableTypeState variableTypeNode, int recursionDepth)
         {
             InitializeDataTypeInfo(model, opcContext, $"{variableTypeNode.GetType()} {variableTypeNode}", variableTypeNode.DataType, variableTypeNode.ValueRank, variableTypeNode.ArrayDimensions, variableTypeNode.WrappedValue, recursionDepth);
         }
 
-        internal static void InitializeDataTypeInfo(IVariableDataTypeInfo model, IOpcUaContext opcContext, string variableNodeDiagInfo, NodeId dataTypeNodeId, int valueRank, ReadOnlyList<uint> arrayDimensions, Variant wrappedValue, int recursionDepth)
+        internal static void InitializeDataTypeInfo(IVariableDataTypeInfo model, DbOpcUaContext opcContext, string variableNodeDiagInfo, NodeId dataTypeNodeId, int valueRank, ReadOnlyList<uint> arrayDimensions, Variant wrappedValue, int recursionDepth)
         {
             var dataType = opcContext.GetNode(dataTypeNodeId);
 
@@ -1188,7 +1188,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
     public class DataTypeModelFactoryOpc : BaseTypeModelFactoryOpc<DataTypeModel>
     {
-        protected override void Initialize(IOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
+        protected override void Initialize(DbOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
         {
             base.Initialize(opcContext, opcNode, recursionDepth);
 
@@ -1297,7 +1297,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
     public class ReferenceTypeModelFactoryOpc : BaseTypeModelFactoryOpc<ReferenceTypeModel>
     {
-        protected override void Initialize(IOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
+        protected override void Initialize(DbOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
         {
             base.Initialize(opcContext, opcNode, recursionDepth);
             var referenceTypeState = opcNode as ReferenceTypeState;

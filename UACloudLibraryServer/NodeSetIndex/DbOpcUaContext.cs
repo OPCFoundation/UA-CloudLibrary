@@ -53,13 +53,6 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             _namespacesInDb = _dbContext.Set<NodeModel>().Select(nm => new { nm.NodeSet.ModelUri, nm.NodeSet.PublicationDate }).Distinct().AsEnumerable().Select(n => (n.ModelUri, n.PublicationDate)).ToList();
         }
 
-        public DbOpcUaContext(DbContext appDbContext, SystemContext systemContext, NodeStateCollection importedNodes, Dictionary<string, NodeSetModel> nodesetModels, ILogger logger, Func<ModelTableEntry, NodeSetModel> nodeSetFactory = null)
-            : base(systemContext, importedNodes, nodesetModels, logger)
-        {
-            _dbContext = appDbContext;
-            _nodeSetFactory = nodeSetFactory;
-        }
-
         public override TNodeModel GetModelForNode<TNodeModel>(string nodeId)
         {
             var model = base.GetModelForNode<TNodeModel>(nodeId);

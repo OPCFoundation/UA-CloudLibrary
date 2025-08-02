@@ -204,7 +204,7 @@ namespace Opc.Ua.Cloud.Library
             var nodesetModel = await CloudLibNodeSetModel.FromModelAsync(nodeset.Models[0], _dbContext).ConfigureAwait(false);
 
             await NodeModelFactoryOpc.LoadNodeSetAsync(
-                new CloudLibDbOpcUaContext(_dbContext, _logger, null),
+                new DbOpcUaContext(_dbContext, _logger, null),
                 nodeset,
                 nodesetModel,
                 new Dictionary<string, string>(),

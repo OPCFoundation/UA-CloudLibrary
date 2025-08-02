@@ -7,9 +7,9 @@ using Opc.Ua.Export;
 
 namespace Opc.Ua.Cloud.Library.NodeSetIndex
 {
-    public class DefaultOpcUaContext : IOpcUaContext
+    public class DefaultOpcUaContext
     {
-        private readonly ISystemContext _systemContext;
+        private readonly SystemContext _systemContext;
 
         private readonly NodeStateCollection _importedNodes;
 
@@ -31,23 +31,6 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             };
         }
 
-        public DefaultOpcUaContext(Dictionary<string, NodeSetModel> nodesetModels, ILogger logger) : this(logger)
-        {
-            NodeSetModelDictionary = nodesetModels;
-            _logger = logger ?? NullLogger.Instance;
-        }
-
-        public DefaultOpcUaContext(ISystemContext systemContext, NodeStateCollection importedNodes, Dictionary<string, NodeSetModel> nodesetModels, ILogger logger)
-            : this(nodesetModels, logger)
-        {
-            _systemContext = systemContext;
-            _importedNodes = importedNodes;
-        }
-
-        public bool ReencodeExtensionsAsJson { get; set; }
-
-        public bool EncodeJsonScalarsAsValue { get; set; }
-
         private Dictionary<NodeId, NodeState> _importedNodesByNodeId;
 
         private Dictionary<string, UANodeSet> _importedUANodeSetsByUri = new();
@@ -57,8 +40,6 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
         public ILogger Logger => _logger;
 
         public bool UseLocalNodeIds { get; set; }
-
-        public Dictionary<string, NodeSetModel> NodeSetModels => NodeSetModelDictionary;
 
         public virtual string GetModelNodeId(NodeId nodeId)
         {
@@ -215,22 +196,6 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             }
 
             return $"{NamespaceUris.GetString(browseName.NamespaceIndex)};{browseName.Name}";
-        }
-
-        public QualifiedName GetBrowseNameFromModel(string modelBrowseName)
-        {
-            if (UseLocalNodeIds)
-            {
-                return QualifiedName.Parse(modelBrowseName);
-            }
-
-            var parts = modelBrowseName.Split([';'], 2);
-            if (parts.Length == 1)
-            {
-                return new QualifiedName(parts[0]);
-            }
-
-            return new QualifiedName(parts[1], (ushort)NamespaceUris.GetIndex(parts[0]));
         }
     }
 }
