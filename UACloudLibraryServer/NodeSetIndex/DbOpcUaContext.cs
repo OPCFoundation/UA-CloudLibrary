@@ -163,7 +163,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
         {
             var matchingNodeSets = await dbContext.Set<NodeSetModel>()
                 .Where(nsm => nsm.ModelUri == modelUri).ToListAsync();
-            return NodeSetVersionUtils.GetMatchingOrHigherNodeSet(matchingNodeSets, publicationDate, version);
+            return NodeModelUtils.GetMatchingOrHigherNodeSet(matchingNodeSets, publicationDate, version);
         }
     }
 }
