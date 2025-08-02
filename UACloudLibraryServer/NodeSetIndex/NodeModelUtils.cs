@@ -76,6 +76,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                         .ThenByDescending(n => n.PublicationDate)
                         .FirstOrDefault();
                 }
+
                 return matchingNodeSet;
             }
             else
@@ -90,15 +91,11 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
             if (publicationDate != null && publicationDate.Value != default)
             {
-                var matchingNodeSet = orderedNodeSets
-                    .FirstOrDefault(nsm => nsm.PublicationDate >= publicationDate);
-                return matchingNodeSet;
+                return orderedNodeSets.FirstOrDefault(nsm => nsm.PublicationDate >= publicationDate);
             }
             else
             {
-                var matchingNodeSet = orderedNodeSets
-                    .LastOrDefault();
-                return matchingNodeSet;
+                return orderedNodeSets.LastOrDefault();
             }
         }
 

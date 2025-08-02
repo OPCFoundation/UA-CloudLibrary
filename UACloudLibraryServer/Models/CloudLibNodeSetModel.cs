@@ -62,12 +62,14 @@ namespace Opc.Ua.Cloud.Library.Models
                 foreach (ModelTableEntry requiredModel in model.RequiredModel)
                 {
                     NodeSetModel existingNodeSet = await DbOpcUaContext.GetMatchingOrHigherNodeSetAsync(dbContext, requiredModel.ModelUri, requiredModel.PublicationDateSpecified ? requiredModel.PublicationDate : null, requiredModel.Version).ConfigureAwait(false);
+
                     var requiredModelInfo = new RequiredModelInfoModel {
                         ModelUri = requiredModel.ModelUri,
                         PublicationDate = requiredModel.PublicationDateSpecified ? ((DateTime?)requiredModel.PublicationDate).GetNormalizedPublicationDate() : null,
                         Version = requiredModel.Version,
                         AvailableModel = existingNodeSet,
                     };
+
                     nodeSetModel.RequiredModels.Add(requiredModelInfo);
                 }
             }

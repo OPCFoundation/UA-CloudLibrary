@@ -15,22 +15,13 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
         {
             if (nodeSet.Models.Length == 0)
             {
-                var ex = new ArgumentException($"Invalid nodeset: no models specified");
-                opcContext.Logger.LogError(ex.Message);
-                throw ex;
-            }
-
-            // Find all models that are used by another nodeset
-            var requiredModels = nodeSet.Models.Where(m => m.RequiredModel != null).SelectMany(m => m.RequiredModel).Distinct().ToList();
-            var missingModels = requiredModels.Where(rm => opcContext.GetOrAddNodesetModel(rm) == null).ToList();
-            if (missingModels.Count > 0)
-            {
-                throw new ArgumentException($"Missing dependent node sets: {string.Join(", ", missingModels)}");
+                throw new ArgumentException($"Invalid nodeset: no models specified");
             }
 
             var loadedModels = new List<NodeSetModel>();
 
             NodeModelUtils.FixupNodesetVersionFromMetadata(nodeSet, opcContext.Logger);
+
             foreach (var model in nodeSet.Models)
             {
                 var nodesetModel = opcContext.GetOrAddNodesetModel(model);
@@ -38,7 +29,9 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 {
                     throw new ArgumentException($"Unable to create node set: {model.ModelUri}");
                 }
+
                 nodesetModel.CustomState = customState;
+
                 if (model.RequiredModel != null)
                 {
                     foreach (var requiredModel in model.RequiredModel)
@@ -58,6 +51,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                         }
                     }
                 }
+
                 if (nodeSet.Aliases?.Length > 0 && Aliases != null)
                 {
                     foreach (var alias in nodeSet.Aliases)
@@ -65,8 +59,10 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                         Aliases[alias.Value] = alias.Alias;
                     }
                 }
+
                 loadedModels.Add(nodesetModel);
             }
+
             if (nodeSet.Items == null)
             {
                 nodeSet.Items = [];
