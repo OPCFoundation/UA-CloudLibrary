@@ -1,14 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Reflection;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using Opc.Ua;
-using Opc.Ua.Cloud.Library;
-using Opc.Ua.Cloud.Library.Interfaces;
-using Opc.Ua.Cloud.Library.NodeSetIndex;
 using Opc.Ua.Export;
 
 namespace Opc.Ua.Cloud.Library.NodeSetIndex

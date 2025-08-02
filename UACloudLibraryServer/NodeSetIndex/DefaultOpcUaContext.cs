@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Opc.Ua.Cloud.Library.Interfaces;
 using Opc.Ua.Export;
 
 namespace Opc.Ua.Cloud.Library.NodeSetIndex

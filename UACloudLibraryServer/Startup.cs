@@ -54,7 +54,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Identity.Web;
 using Microsoft.OpenApi.Models;
 using Opc.Ua.Cloud.Library.Authentication;
-using Opc.Ua.Cloud.Library.Interfaces;
 
 [assembly: CLSCompliant(false)]
 namespace Opc.Ua.Cloud.Library
@@ -90,11 +89,11 @@ namespace Opc.Ua.Cloud.Library
                 .AddEntityFrameworkStores<AppDbContext>()
                 .AddTokenProvider<ApiKeyTokenProvider>(ApiKeyTokenProvider.ApiKeyProviderName);
 
-            services.AddScoped<IUserService, UserService>();
+            services.AddScoped<UserService>();
 
             services.AddTransient<CloudLibDataProvider>();
 
-            services.AddScoped<ICaptchaValidation, CaptchaValidation>();
+            services.AddScoped<CaptchaValidation>();
 
             services.AddTransient<IEmailSender, PostmarkEmailSender>();
 

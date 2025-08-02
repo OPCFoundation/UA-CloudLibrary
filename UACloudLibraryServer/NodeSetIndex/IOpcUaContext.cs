@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 using Opc.Ua.Export;
 
-namespace Opc.Ua.Cloud.Library.Interfaces
+namespace Opc.Ua.Cloud.Library.NodeSetIndex
 {
     public interface IOpcUaContext
     {

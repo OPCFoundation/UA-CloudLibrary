@@ -36,11 +36,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Opc.Ua.Cloud.Library.Authentication;
-using Opc.Ua.Cloud.Library.Interfaces;
 
 namespace Opc.Ua.Cloud.Library
 {
-    public class UserService : IUserService
+    public class UserService
     {
         private readonly UserManager<IdentityUser> _userManager;
         private readonly ILogger _logger;

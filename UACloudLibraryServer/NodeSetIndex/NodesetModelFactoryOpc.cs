@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Xml;
 using Microsoft.Extensions.Logging;
-using Opc.Ua.Cloud.Library.Interfaces;
 using Opc.Ua.Export;
 
 namespace Opc.Ua.Cloud.Library.NodeSetIndex
