@@ -40,7 +40,9 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
     public class DbOpcUaContext : DefaultOpcUaContext
     {
         private DbContext _dbContext;
+
         private Func<ModelTableEntry, NodeSetModel> _nodeSetFactory;
+
         private List<(string ModelUri, DateTime? PublicationDate)> _namespacesInDb;
 
         public DbOpcUaContext(DbContext appDbContext, ILogger logger, Func<ModelTableEntry, NodeSetModel> nodeSetFactory = null)
@@ -56,7 +58,10 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
         public override TNodeModel GetModelForNode<TNodeModel>(string nodeId)
         {
             var model = base.GetModelForNode<TNodeModel>(nodeId);
-            if (model != null) return model;
+            if (model != null)
+            {
+                return model;
+            }
 
             var uaNamespace = NodeModelUtils.GetNamespaceFromNodeId(nodeId);
             NodeModel nodeModelDb;
@@ -102,10 +107,12 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     nodeModelDb?.NodeSet.AllNodesByNodeId.Add(nodeModelDb.NodeId, nodeModelDb);
                 }
             }
+
             if (!(nodeModelDb is TNodeModel))
             {
                 Logger.LogWarning($"Nodemodel {nodeModelDb} is of type {nodeModelDb.GetType()} when type {typeof(TNodeModel)} was requested. Returning null.");
             }
+
             return nodeModelDb as TNodeModel;
         }
 
@@ -113,13 +120,14 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
         {
             if (!NodeSetModelDictionary.TryGetValue(model.ModelUri, out var nodesetModel))
             {
-                var existingNodeSet = GetMatchingOrHigherNodeSetAsync(model.ModelUri, model.GetNormalizedPublicationDate(), model.Version).Result;
+                var existingNodeSet = GetMatchingOrHigherNodeSetAsync(_dbContext, model.ModelUri, model.GetNormalizedPublicationDate(), model.Version).Result;
                 if (existingNodeSet != null)
                 {
                     NodeSetModelDictionary.Add(existingNodeSet.ModelUri, existingNodeSet);
                     nodesetModel = existingNodeSet;
                 }
             }
+
             if (nodesetModel == null && createNew)
             {
                 if (_nodeSetFactory == null)
@@ -144,18 +152,13 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     }
                 }
             }
-            return nodesetModel;
-        }
 
-        public Task<NodeSetModel> GetMatchingOrHigherNodeSetAsync(string modelUri, DateTime? publicationDate, string version)
-        {
-            return GetMatchingOrHigherNodeSetAsync(_dbContext, modelUri, publicationDate, version);
+            return nodesetModel;
         }
 
         public static async Task<NodeSetModel> GetMatchingOrHigherNodeSetAsync(DbContext dbContext, string modelUri, DateTime? publicationDate, string version)
         {
-            var matchingNodeSets = await dbContext.Set<NodeSetModel>()
-                .Where(nsm => nsm.ModelUri == modelUri).ToListAsync();
+            var matchingNodeSets = await dbContext.Set<NodeSetModel>().Where(nsm => nsm.ModelUri == modelUri).ToListAsync().ConfigureAwait(false);
 
             return NodeModelUtils.GetMatchingOrHigherNodeSet(matchingNodeSets, publicationDate, version);
         }

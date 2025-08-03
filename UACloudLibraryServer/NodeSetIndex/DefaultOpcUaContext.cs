@@ -17,6 +17,16 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
         private ILogger _logger;
 
+        private Dictionary<NodeId, NodeState> _importedNodesByNodeId;
+
+        private Dictionary<string, UANodeSet> _importedUANodeSetsByUri = new();
+
+        public NamespaceTable NamespaceUris { get => _systemContext.NamespaceUris; }
+
+        public ILogger Logger => _logger;
+
+        public bool UseLocalNodeIds { get; set; }
+
         public DefaultOpcUaContext(ILogger logger)
         {
             _importedNodes = new NodeStateCollection();
@@ -30,16 +40,6 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 TypeTable = typeTable
             };
         }
-
-        private Dictionary<NodeId, NodeState> _importedNodesByNodeId;
-
-        private Dictionary<string, UANodeSet> _importedUANodeSetsByUri = new();
-
-        public NamespaceTable NamespaceUris { get => _systemContext.NamespaceUris; }
-
-        public ILogger Logger => _logger;
-
-        public bool UseLocalNodeIds { get; set; }
 
         public virtual string GetModelNodeId(NodeId nodeId)
         {
