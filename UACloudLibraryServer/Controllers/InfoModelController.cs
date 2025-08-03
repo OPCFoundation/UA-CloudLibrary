@@ -246,7 +246,9 @@ namespace Opc.Ua.Cloud.Library.Controllers
             {
                 return new ObjectResult($"No nodeset XML was specified") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
+
             UANodeSet nodeSet = null;
+
             try
             {
                 nodeSet = ReadUANodeSet(uaNamespace.Nodeset.NodesetXml);
@@ -308,6 +310,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                         // TODO: check contributors match if nodeset already exists
                     }
                 }
+
                 uaNamespace.Nodeset.Identifier = nodesetHashCode;
             }
 
@@ -321,6 +324,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     // nodeset already exists
                     return new ObjectResult("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.") { StatusCode = (int)HttpStatusCode.Conflict };
                 }
+
                 // nodeset metadata not found: allow overwrite of orphaned blob
                 overwrite = true;
             }
@@ -334,16 +338,19 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 _logger.LogInformation("PublicationDate in metadata does not match nodeset XML. Ignoring.");
                 uaNamespace.Nodeset.PublicationDate = nodeSet.Models[0].PublicationDate;
             }
+
             if (uaNamespace.Nodeset.Version != nodeSet.Models[0].Version)
             {
                 _logger.LogInformation("Version in metadata does not match nodeset XML. Ignoring.");
                 uaNamespace.Nodeset.Version = nodeSet.Models[0].Version;
             }
+
             if (uaNamespace.Nodeset.NamespaceUri != null && uaNamespace.Nodeset.NamespaceUri.OriginalString != nodeSet.Models[0].ModelUri)
             {
                 _logger.LogInformation("NamespaceUri in metadata does not match nodeset XML. Ignoring.");
                 uaNamespace.Nodeset.NamespaceUri = new Uri(nodeSet.Models[0].ModelUri);
             }
+
             if (uaNamespace.Nodeset.LastModifiedDate != nodeSet.LastModified)
             {
                 _logger.LogInformation($"LastModifiedDate in metadata for nodeset {uaNamespace.Nodeset.Identifier} does not match nodeset XML. Ignoring.");

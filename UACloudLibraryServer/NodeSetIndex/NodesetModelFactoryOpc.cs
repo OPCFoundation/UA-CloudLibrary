@@ -5,80 +5,34 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Xml;
 using Microsoft.Extensions.Logging;
+using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Export;
 
 namespace Opc.Ua.Cloud.Library.NodeSetIndex
 {
     public class NodeModelFactoryOpc : NodeModelFactoryOpc<NodeModel>
     {
-        public static Task<List<NodeSetModel>> LoadNodeSetAsync(DbOpcUaContext opcContext, UANodeSet nodeSet, object customState, Dictionary<string, string> Aliases, bool doNotReimport = false, List<NodeState> importedNodes = null)
+        public static Task LoadNodeSetAsync(DbOpcUaContext opcContext, UANodeSet nodeSet, CloudLibNodeSetModel model)
         {
-            if (nodeSet.Models.Length == 0)
-            {
-                throw new ArgumentException($"Invalid nodeset: no models specified");
-            }
-
-            var loadedModels = new List<NodeSetModel>();
-
             NodeModelUtils.FixupNodesetVersionFromMetadata(nodeSet, opcContext.Logger);
-
-            foreach (var model in nodeSet.Models)
-            {
-                var nodesetModel = opcContext.GetOrAddNodesetModel(model);
-                if (nodesetModel == null)
-                {
-                    throw new ArgumentException($"Unable to create node set: {model.ModelUri}");
-                }
-
-                nodesetModel.CustomState = customState;
-
-                if (model.RequiredModel != null)
-                {
-                    foreach (var requiredModel in model.RequiredModel)
-                    {
-                        var requiredModelInfo = nodesetModel.RequiredModels.FirstOrDefault(rm => rm.ModelUri == requiredModel.ModelUri);
-                        if (requiredModelInfo == null)
-                        {
-                            throw new ArgumentException("Required model not found");
-                        }
-                        if (requiredModelInfo != null && requiredModelInfo.AvailableModel == null)
-                        {
-                            var availableModel = opcContext.GetOrAddNodesetModel(requiredModel);
-                            if (availableModel != null)
-                            {
-                                requiredModelInfo.AvailableModel = availableModel;
-                            }
-                        }
-                    }
-                }
-
-                if (nodeSet.Aliases?.Length > 0 && Aliases != null)
-                {
-                    foreach (var alias in nodeSet.Aliases)
-                    {
-                        Aliases[alias.Value] = alias.Alias;
-                    }
-                }
-
-                loadedModels.Add(nodesetModel);
-            }
-
+                 
             if (nodeSet.Items == null)
             {
                 nodeSet.Items = [];
             }
 
-            var newImportedNodes = opcContext.ImportUANodeSet(nodeSet);
+            NodeStateCollection importedNodes = new();
+            nodeSet.Import(new SystemContext(), importedNodes);
 
-            // TODO Read nodeset poperties like author etc. and expose them in Profile editor
-
-            foreach (var node in newImportedNodes)
+            foreach (var node in importedNodes)
             {
-                var nodeModel = Create(opcContext, node, customState, out var bAdded);
-                if (nodeModel != null && !bAdded)
-                {
-                    var nodesetModel = nodeModel.NodeSet;
+                var nodeModel = Create(opcContext, node, nodeSet, out bool bAdded);
 
+                // check if the node was added to the model
+                if ((nodeModel != null) && !bAdded)
+                {
+                    // not added, so add it to the Unknown Nodes collection
+                    NodeSetModel nodesetModel = nodeModel.NodeSet;
                     if (!nodesetModel.AllNodesByNodeId.ContainsKey(nodeModel.NodeId))
                     {
                         nodesetModel.UnknownNodes.Add(nodeModel);
@@ -98,11 +52,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             ReferenceTypeModelFactoryOpc.Create(opcContext, opcContext.GetNode(ReferenceTypes.GeneratesEvent), null, out _);
             ReferenceTypeModelFactoryOpc.Create(opcContext, opcContext.GetNode(ReferenceTypes.Organizes), null, out _);
 
-            if (importedNodes != null)
-            {
-                importedNodes.AddRange(newImportedNodes);
-            }
-            return Task.FromResult(loadedModels);
+            return Task.CompletedTask;
         }
     }
 
@@ -670,10 +620,11 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     // TODO support Views
                     nodeModel = null;
                 }
+
                 added = false;
             }
-            return nodeModel;
 
+            return nodeModel;
         }
 
         public static List<BaseTypeState> GetBaseTypes(DbOpcUaContext opcContext, BaseTypeState objectType)

@@ -136,29 +136,6 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             return nodesetModel;
         }
 
-        public virtual List<NodeState> ImportUANodeSet(UANodeSet nodeSet)
-        {
-            var previousNodes = _importedNodes.ToList();
-            if (nodeSet.Items?.Length > 0)
-            {
-                nodeSet.Import(_systemContext, _importedNodes);
-            }
-
-            var newlyImportedNodes = _importedNodes.Except(previousNodes).ToList();
-            if (newlyImportedNodes.Count > 0)
-            {
-                _importedNodesByNodeId = null;
-            }
-
-            var modelUri = nodeSet.Models?.FirstOrDefault()?.ModelUri;
-            if (modelUri != null)
-            {
-                _importedUANodeSetsByUri.Add(modelUri, nodeSet);
-            }
-
-            return newlyImportedNodes;
-        }
-
         public virtual UANodeSet GetUANodeSet(string modeluri)
         {
             if (_importedUANodeSetsByUri.TryGetValue(modeluri, out var nodeSet))

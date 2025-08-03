@@ -201,26 +201,32 @@ namespace Opc.Ua.Cloud.Library
 
         public async Task IndexNodeSetModelAsync(UANodeSet nodeset)
         {
-            var nodesetModel = await CloudLibNodeSetModel.FromModelAsync(nodeset.Models[0], _dbContext).ConfigureAwait(false);
-
-            await NodeModelFactoryOpc.LoadNodeSetAsync(
-                new DbOpcUaContext(_dbContext, _logger, null),
-                nodeset,
-                nodesetModel,
-                new Dictionary<string, string>(),
-                true
-            ).ConfigureAwait(false);
-
-            if (!_dbContext.Set<NodeSetModel>().Any(nsm => nsm.ModelUri == nodesetModel.ModelUri && nsm.PublicationDate == nodesetModel.PublicationDate))
+            if (nodeset.Models.Length == 0)
             {
-                _dbContext.NodeSetsWithUnapproved.Add(nodesetModel);
-            }
-            else
-            {
-                _dbContext.NodeSetsWithUnapproved.Update(nodesetModel);
+                throw new ArgumentException($"Invalid nodeset: no models specified");
             }
 
-            await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+            foreach (ModelTableEntry model in nodeset.Models)
+            {
+                CloudLibNodeSetModel nodesetModel = await CloudLibNodeSetModel.FromModelAsync(model, _dbContext).ConfigureAwait(false);
+
+                await NodeModelFactoryOpc.LoadNodeSetAsync(
+                    new DbOpcUaContext(_dbContext, _logger, null),
+                    nodeset,
+                    nodesetModel
+                ).ConfigureAwait(false);
+
+                if (!_dbContext.Set<NodeSetModel>().Any(nsm => nsm.ModelUri == nodesetModel.ModelUri && nsm.PublicationDate == nodesetModel.PublicationDate))
+                {
+                    _dbContext.NodeSetsWithUnapproved.Add(nodesetModel);
+                }
+                else
+                {
+                    _dbContext.NodeSetsWithUnapproved.Update(nodesetModel);
+                }
+
+                await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+            }
         }
 
         public async Task<uint> IncrementDownloadCountAsync(uint nodesetId)
