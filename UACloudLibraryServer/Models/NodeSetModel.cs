@@ -179,23 +179,7 @@ namespace Opc.Ua.Cloud.Library
 
         public object CustomState { get; set; }
 
-        public IEnumerable<NodeAndReference> AllReferencedNodes
-        {
-            get
-            {
-                var core = NodeSet.RequiredModels?.FirstOrDefault(n => n.ModelUri == "http://opcfoundation.org/UA/")?.AvailableModel;
-#pragma warning disable CS0618 // Type or member is obsolete - populating for backwards compat for now
-                return
-                    this.Properties.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("HasProperty", false, CultureInfo.InvariantCulture)), Node = p })
-                    .Concat(this.DataVariables.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("HasComponent", false, CultureInfo.InvariantCulture)), Node = p }))
-                    .Concat(this.Objects.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("HasComponent", false, CultureInfo.InvariantCulture)), Node = p }))
-                    .Concat(this.Methods.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("HasComponent", false, CultureInfo.InvariantCulture)), Node = p }))
-                    .Concat(this.Interfaces.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("HasInterface", false, CultureInfo.InvariantCulture)), Node = p }))
-                    .Concat(this.Events.Select(p => new NodeAndReference { ReferenceType = core?.ReferenceTypes.FirstOrDefault(r => r.BrowseName.EndsWith("GeneratesEvent", false, CultureInfo.InvariantCulture)), Node = p }))
-                    .Concat(this.OtherReferencedNodes);
-#pragma warning restore CS0618 // Type or member is obsolete
-            }
-        }
+        public IEnumerable<NodeAndReference> AllReferencedNodes { get; set; }
 
         public virtual NodeSetModel NodeSet { get; set; }
 
@@ -288,6 +272,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 return !(left == right);
             }
+
             public override string ToString()
             {
                 return $"{ReferenceType?.ToString()} {Node}";
@@ -303,73 +288,6 @@ namespace Opc.Ua.Cloud.Library
         /// </summary>
         public bool ReferencesNotResolved { get; set; }
 
-        internal virtual bool UpdateIndices(NodeSetModel model, HashSet<string> updatedNodes)
-        {
-            if (updatedNodes.Contains(this.NodeId))
-            {
-                // break some recursions
-                return false;
-            }
-
-            updatedNodes.Add(this.NodeId);
-            if (model.ModelUri == this.Namespace)
-            {
-                model.AllNodesByNodeId.TryAdd(this.NodeId, this);
-            }
-
-            foreach (var node in Objects)
-            {
-                if (model.ModelUri == node.Namespace && !model.Objects.Contains(node))
-                {
-                    model.Objects.Add(node);
-                }
-                node.UpdateIndices(model, updatedNodes);
-            }
-
-            foreach (var node in this.DataVariables)
-            {
-                if (model.ModelUri == node.Namespace && !model.DataVariables.Contains(node))
-                {
-                    model.DataVariables.Add(node);
-                }
-                node.UpdateIndices(model, updatedNodes);
-            }
-
-            foreach (var node in this.Interfaces)
-            {
-                if (model.ModelUri == node.Namespace && !model.Interfaces.Contains(node))
-                {
-                    model.Interfaces.Add(node);
-                }
-                node.UpdateIndices(model, updatedNodes);
-            }
-
-            foreach (var node in this.Methods)
-            {
-                if (model.ModelUri == node.Namespace && !model.Methods.Contains(node))
-                {
-                    model.Methods.Add(node);
-                }
-                node.UpdateIndices(model, updatedNodes);
-            }
-
-            foreach (var node in this.Properties)
-            {
-                if (model.ModelUri == node.Namespace && node is PropertyModel prop && !model.Properties.Contains(prop))
-                {
-                    model.Properties.Add(prop);
-                }
-                node.UpdateIndices(model, updatedNodes);
-            }
-
-            foreach (var node in this.Events)
-            {
-                node.UpdateIndices(model, updatedNodes);
-            }
-
-            return true;
-        }
-
         public override string ToString()
         {
             return $"{DisplayName?.FirstOrDefault()} ({Namespace}: {NodeId})";
@@ -382,6 +300,7 @@ namespace Opc.Ua.Cloud.Library
         /// Values: Optional, Mandatory, MandatoryPlaceholder, OptionalPlaceholder, ExposesItsArray
         /// </summary>
         public string ModellingRule { get; set; }
+
         public virtual NodeModel Parent
         {
             get => _parent;
@@ -398,12 +317,13 @@ namespace Opc.Ua.Cloud.Library
 
         private NodeModel _parent;
     }
-    public abstract class InstanceModel<TTypeDefinition> : InstanceModelBase where TTypeDefinition : NodeModel, new()
+
+    public abstract class InstanceModel : InstanceModelBase
     {
-        public virtual TTypeDefinition TypeDefinition { get; set; }
+        public string TypeDefinition { get; set; }
     }
 
-    public class ObjectModel : InstanceModel<ObjectTypeModel>
+    public class ObjectModel : InstanceModel
     {
         /// <summary>
         /// 0x0: The Object or View produces no event and has no event history.
@@ -423,66 +343,7 @@ namespace Opc.Ua.Cloud.Library
     {
         public bool IsAbstract { get; set; }
 
-        public virtual BaseTypeModel SuperType { get; set; }
-
-        [IgnoreDataMember] // This can contain cycle (and is easily recreated from the SubTypeId)
-        public virtual List<BaseTypeModel> SubTypes { get; set; } = new List<BaseTypeModel>();
-
-        public bool HasBaseType(string nodeId)
-        {
-            var baseType = this;
-            do
-            {
-                if (baseType?.NodeId == nodeId)
-                {
-                    return true;
-                }
-                baseType = baseType.SuperType;
-            }
-            while (baseType != null);
-            return false;
-        }
-
-        public void RemoveInheritedAttributes(BaseTypeModel superTypeModel)
-        {
-            while (superTypeModel != null)
-            {
-                RemoveByBrowseName(Properties, superTypeModel.Properties);
-                RemoveByBrowseName(DataVariables, superTypeModel.DataVariables);
-                RemoveByBrowseName(Objects, superTypeModel.Objects);
-                RemoveByBrowseName(Interfaces, superTypeModel.Interfaces);
-                foreach (var uaInterface in superTypeModel.Interfaces)
-                {
-                    RemoveInheritedAttributes(uaInterface);
-                }
-                RemoveByBrowseName(Methods, superTypeModel.Methods);
-                RemoveByBrowseName(Events, superTypeModel.Events);
-
-                superTypeModel = superTypeModel?.SuperType;
-            }
-        }
-
-        private void RemoveByBrowseName<T>(List<T> properties, List<T> propertiesToRemove) where T : NodeModel
-        {
-            foreach (var property in propertiesToRemove)
-            {
-                properties.RemoveAll(p =>
-                    p.GetBrowseName() == property.GetBrowseName()
-                    && p.NodeId == property.NodeId
-                    );
-            }
-        }
-
-        internal override bool UpdateIndices(NodeSetModel model, HashSet<string> updatedNodes)
-        {
-            var bUpdated = base.UpdateIndices(model, updatedNodes);
-            if (bUpdated && SuperType != null && !SuperType.SubTypes.Any(sub => sub.NodeId == this.NodeId))
-            {
-                SuperType.SubTypes.Add(this);
-            }
-            return bUpdated;
-        }
-
+        public virtual string SuperType { get; set; }
     }
 
     public class ObjectTypeModel : BaseTypeModel
@@ -499,9 +360,9 @@ namespace Opc.Ua.Cloud.Library
         public virtual List<NodeModel> NodesWithInterface { get; set; } = new List<NodeModel>();
     }
 
-    public class VariableModel : InstanceModel<VariableTypeModel>, IVariableDataTypeInfo
+    public class VariableModel : InstanceModel, IVariableDataTypeInfo
     {
-        public virtual DataTypeModel DataType { get; set; }
+        public virtual string DataType { get; set; }
         /// <summary>
         /// n > 1: the Value is an array with the specified number of dimensions.
         /// OneDimension(1) : The value is an array with one dimension.
@@ -599,7 +460,7 @@ namespace Opc.Ua.Cloud.Library
     {
     }
 
-    public class MethodModel : InstanceModel<MethodModel>
+    public class MethodModel : InstanceModel
     {
         /// <summary>
         /// InputArguments are a merged representation of the InputArguments property and any HasArgumentDescription references
@@ -631,7 +492,8 @@ namespace Opc.Ua.Cloud.Library
 
     public interface IVariableDataTypeInfo
     {
-        DataTypeModel DataType { get; set; }
+        string DataType { get; set; }
+
         /// <summary>
         /// n > 1: the Value is an array with the specified number of dimensions.
         /// OneDimension(1) : The value is an array with one dimension.
@@ -650,7 +512,7 @@ namespace Opc.Ua.Cloud.Library
 
     public class VariableTypeModel : BaseTypeModel, IVariableDataTypeInfo
     {
-        public virtual DataTypeModel DataType { get; set; }
+        public virtual string DataType { get; set; }
 
         /// <summary>
         /// n > 1: the Value is an array with the specified number of dimensions.
@@ -754,63 +616,6 @@ namespace Opc.Ua.Cloud.Library
             public long Value { get; set; }
 
             public override string ToString() => $"{Name} = {Value}";
-        }
-
-        internal override bool UpdateIndices(NodeSetModel model, HashSet<string> updatedNodes)
-        {
-            var bUpdated = base.UpdateIndices(model, updatedNodes);
-
-            if (bUpdated && StructureFields?.Count > 0)
-            {
-                foreach (var field in StructureFields)
-                {
-                    field.DataType?.UpdateIndices(model, updatedNodes);
-                }
-            }
-
-            return bUpdated;
-        }
-
-        public List<StructureFieldWithOwner> GetStructureFieldsInherited()
-        {
-            var structureFields = new List<StructureFieldWithOwner>();
-
-            List<DataTypeModel> baseTypesWithFields = new();
-            var currentType = this;
-            while (currentType != null)
-            {
-                if (currentType.StructureFields?.Count > 0)
-                {
-                    baseTypesWithFields.Add(currentType);
-                }
-                currentType = currentType.SuperType as DataTypeModel;
-            }
-
-            if (baseTypesWithFields.Count == 1)
-            {
-                structureFields = baseTypesWithFields[0].StructureFields.Select(sf => new StructureFieldWithOwner(sf, baseTypesWithFields[0])).ToList();
-            }
-            else
-            {
-                foreach (var baseType in baseTypesWithFields)
-                {
-                    foreach (var field in baseType.StructureFields)
-                    {
-                        var fieldWithOwner = new StructureFieldWithOwner(field, baseType);
-                        var existingFieldIndex = structureFields.FindIndex(f => f.Name == field.Name);
-                        if (existingFieldIndex >= 0)
-                        {
-                            structureFields[existingFieldIndex] = fieldWithOwner;
-                        }
-                        else
-                        {
-                            structureFields.Add(fieldWithOwner);
-                        }
-                    }
-                }
-            }
-
-            return structureFields;
         }
     }
 }

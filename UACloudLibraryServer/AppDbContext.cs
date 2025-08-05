@@ -204,11 +204,6 @@ namespace Opc.Ua.Cloud.Library
             var vtm = modelBuilder.Entity<VariableTypeModel>()
                 .ToTable("VariableTypes");
 
-            if (cascadeDelete)
-            {
-                vtm.HasOne(vt => vt.DataType).WithMany().OnDelete(DeleteBehavior.Cascade);
-            }
-
             var dvmParentFk = modelBuilder.Entity<DataVariableModel>()
                 .ToTable("DataVariables")
                 .HasOne(dv => dv.Parent).WithMany()
@@ -230,13 +225,7 @@ namespace Opc.Ua.Cloud.Library
             }
 
             var omTd = modelBuilder.Entity<ObjectModel>()
-                .ToTable("Objects")
-                .HasOne(o => o.TypeDefinition).WithMany();
-
-            if (cascadeDelete)
-            {
-                omTd.OnDelete(DeleteBehavior.Cascade);
-            }
+                .ToTable("Objects");
 
             var omParentFk = modelBuilder.Entity<ObjectModel>()
                 .HasOne(dv => dv.Parent).WithMany()
@@ -254,22 +243,8 @@ namespace Opc.Ua.Cloud.Library
                 .ToTable("Variables")
                 .OwnsOne(v => v.EngineeringUnit).Property(v => v.NamespaceUri).IsRequired();
 
-            if (cascadeDelete)
-            {
-                modelBuilder.Entity<VariableModel>()
-                    .HasOne(vm => vm.DataType).WithMany().OnDelete(DeleteBehavior.Cascade);
-                modelBuilder.Entity<VariableModel>()
-                    .HasOne(vm => vm.TypeDefinition).WithMany().OnDelete(DeleteBehavior.Cascade);
-            }
-
             var btmSt = modelBuilder.Entity<BaseTypeModel>()
-                .ToTable("BaseTypes")
-                .HasOne(bt => bt.SuperType).WithMany(bt => bt.SubTypes);
-
-            if (cascadeDelete)
-            {
-                btmSt.OnDelete(DeleteBehavior.Cascade);
-            }
+                .ToTable("BaseTypes");
 
             modelBuilder.Entity<DataTypeModel>()
                 .ToTable("DataTypes");
@@ -301,12 +276,6 @@ namespace Opc.Ua.Cloud.Library
             if (cascadeDelete)
             {
                 mmParentFk.OnDelete(DeleteBehavior.Cascade);
-            }
-
-            if (cascadeDelete)
-            {
-                modelBuilder.Entity<MethodModel>()
-                    .HasOne(mm => mm.TypeDefinition).WithMany().OnDelete(DeleteBehavior.Cascade);
             }
 
             modelBuilder.Entity<ReferenceTypeModel>()

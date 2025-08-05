@@ -4,1170 +4,446 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Xml;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Export;
+using static NpgsqlTypes.NpgsqlTsQuery;
+using static Opc.Ua.Cloud.Library.NodeModel;
 
 namespace Opc.Ua.Cloud.Library.NodeSetIndex
 {
-    public class NodeModelFactoryOpc : NodeModelFactoryOpc<NodeModel>
+    public class NodeModelFactoryOpc
     {
-        public static Task LoadNodeSetAsync(DbOpcUaContext opcContext, UANodeSet nodeSet, CloudLibNodeSetModel model)
+        private readonly CloudLibNodeSetModel _nodesetModel;
+
+        private readonly DefaultOpcUaContext _opcContext;
+
+        private readonly UANodeSet _nodeset;
+
+        private readonly ILogger _logger;
+
+        public NodeModelFactoryOpc(CloudLibNodeSetModel nodesetModel, UANodeSet nodeset, ILogger logger)
         {
-            NodeModelUtils.FixupNodesetVersionFromMetadata(nodeSet, opcContext.Logger);
-                 
-            if (nodeSet.Items == null)
+            if (nodesetModel == null)
             {
-                nodeSet.Items = [];
+                throw new ArgumentNullException(nameof(nodesetModel), "NodeSetModel cannot be null.");
             }
 
-            NodeStateCollection importedNodes = new();
-            nodeSet.Import(new SystemContext(), importedNodes);
-
-            foreach (var node in importedNodes)
+            if (nodeset == null)
             {
-                var nodeModel = Create(opcContext, node, nodeSet, out bool bAdded);
+                throw new ArgumentNullException(nameof(nodeset), "NodeSet cannot be null.");
+            }
+
+            _nodesetModel = nodesetModel;
+            _nodeset = nodeset;
+            _logger = logger;
+            _opcContext = new DefaultOpcUaContext(logger);
+        }
+
+        public void ImportNodeSet()
+        {
+            if (_nodeset == null)
+            {
+                throw new ArgumentNullException(nameof(_nodeset), "NodeSet cannot be null.");
+            }
+
+            NodeModelUtils.FixupNodesetVersionFromMetadata(_nodeset, _logger);
+
+            // Ensure the namespace is in the namespace table
+            _opcContext.NamespaceUris.GetIndexOrAppend(_nodesetModel.ModelUri);
+
+            if (_nodeset.Items == null)
+            {
+                _nodeset.Items = [];
+            }
+
+            NodeStateCollection importedNodes = [];
+            _nodeset.Import(_opcContext.GetSystemContext(), importedNodes);
+
+            foreach (NodeState node in importedNodes)
+            {
+                NodeModel nodeModel = CreateNodeModel(node, out bool added);
 
                 // check if the node was added to the model
-                if ((nodeModel != null) && !bAdded)
+                if ((nodeModel != null) && !added)
                 {
                     // not added, so add it to the Unknown Nodes collection
-                    NodeSetModel nodesetModel = nodeModel.NodeSet;
-                    if (!nodesetModel.AllNodesByNodeId.ContainsKey(nodeModel.NodeId))
+                    if (!_nodesetModel.AllNodesByNodeId.ContainsKey(nodeModel.NodeId))
                     {
-                        nodesetModel.UnknownNodes.Add(nodeModel);
+                        _nodesetModel.UnknownNodes.Add(nodeModel);
                     }
                 }
-            }
-
-            // Ensure references that are implicitly used by the importer get resolved into the OPC model
-            ReferenceTypeModelFactoryOpc.Create(opcContext, opcContext.GetNode(ReferenceTypes.HasSubtype), null, out _);
-            ReferenceTypeModelFactoryOpc.Create(opcContext, opcContext.GetNode(ReferenceTypes.HasModellingRule), null, out _);
-            ReferenceTypeModelFactoryOpc.Create(opcContext, opcContext.GetNode(Objects.ModellingRule_Mandatory), null, out _);
-            ReferenceTypeModelFactoryOpc.Create(opcContext, opcContext.GetNode(Objects.ModellingRule_Optional), null, out _);
-            ReferenceTypeModelFactoryOpc.Create(opcContext, opcContext.GetNode(Objects.ModellingRule_ExposesItsArray), null, out _);
-            ReferenceTypeModelFactoryOpc.Create(opcContext, opcContext.GetNode(Objects.ModellingRule_MandatoryPlaceholder), null, out _);
-            ReferenceTypeModelFactoryOpc.Create(opcContext, opcContext.GetNode(Objects.ModellingRule_OptionalPlaceholder), null, out _);
-            ReferenceTypeModelFactoryOpc.Create(opcContext, opcContext.GetNode(ReferenceTypes.HasTypeDefinition), null, out _);
-            ReferenceTypeModelFactoryOpc.Create(opcContext, opcContext.GetNode(ReferenceTypes.GeneratesEvent), null, out _);
-            ReferenceTypeModelFactoryOpc.Create(opcContext, opcContext.GetNode(ReferenceTypes.Organizes), null, out _);
-
-            return Task.CompletedTask;
-        }
-    }
-
-    public class NodeModelFactoryOpc<TNodeModel> where TNodeModel : NodeModel, new()
-    {
-        protected TNodeModel Model { get; set; }
-
-        private ILogger _logger;
-
-        protected virtual void Initialize(DbOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
-        {
-            _logger.LogTrace($"Creating node model for {opcNode}");
-            // TODO capture multiple locales from a nodeset: UA library seems to offer only one locale
-            Model.DisplayName = opcNode.DisplayName.ToModel();
-
-            var browseNameNamespace = opcContext.NamespaceUris.GetString(opcNode.BrowseName.NamespaceIndex);
-            Model.BrowseName = opcContext.GetModelBrowseName(opcNode.BrowseName);
-            Model.SymbolicName = opcNode.SymbolicName;
-            Model.Description = opcNode.Description.ToModel();
-            Model.Documentation = opcNode.NodeSetDocumentation;
-            Model.ReleaseStatus = opcNode.ReleaseStatus.ToString();
-
-            if (recursionDepth <= 0)
-            {
-                Model.ReferencesNotResolved = true;
-                return;
-            }
-
-            recursionDepth--;
-            Model.ReferencesNotResolved = false;
-
-            var references = opcContext.GetHierarchyReferences(opcNode);
-
-            foreach (var reference in references)
-            {
-                var referenceType = opcContext.GetNode(reference.ReferenceTypeId) as ReferenceTypeState;
-                if (referenceType == null)
-                {
-                    throw new ArgumentException($"Reference Type {reference.ReferenceTypeId} not found for reference from {opcNode} to {reference.TargetId} . Missing required model / node set?");
-                }
-                var referenceTypes = GetBaseTypes(opcContext, referenceType);
-
-                var referencedNode = opcContext.GetNode(reference.TargetId);
-                if (referencedNode == null)
-                {
-                    throw new ArgumentException($"Referenced node {reference.TargetId} not found for {opcNode}");
-                }
-
-                if (reference.IsInverse)
-                {
-                    // TODO UANodeSet.Import should already handle inverse references: investigate why these are not processed
-                    // Workaround for now:
-                    AddChildToNodeModel(
-                        () => Create(opcContext, referencedNode, Model.CustomState, out _, recursionDepth),
-                        opcContext, referenceType, referenceTypes, opcNode, recursionDepth);
-                }
-                else
-                {
-                    AddChildToNodeModel(() => Model, opcContext, referenceType, referenceTypes, referencedNode, recursionDepth);
-                }
-            }
-            _logger.LogTrace($"Created node model {Model} for {opcNode}");
-        }
-
-        private static void AddChildToNodeModel(Func<NodeModel> parentFactory, DbOpcUaContext opcContext, ReferenceTypeState referenceType, List<BaseTypeState> referenceTypes, NodeState referencedNode, int recursionDepth)
-        {
-            var organizesNodeId = opcContext.GetModelNodeId(ReferenceTypeIds.Organizes);
-            if (referenceTypes.Any(n => n.NodeId == ReferenceTypeIds.HasComponent))
-            {
-                if (referencedNode is BaseObjectState objectState)
-                {
-                    // NodeModel.Objects
-                    var parent = parentFactory();
-                    var uaChildObject = Create<ObjectModelFactoryOpc, ObjectModel>(opcContext, objectState, parent?.CustomState, recursionDepth);
-                    if (uaChildObject != null)
-                    {
-                        var referenceTypeModel = ReferenceTypeModelFactoryOpc.Create(opcContext, referenceType, null, out _, recursionDepth) as ReferenceTypeModel;
-                        if (parent?.Namespace != uaChildObject.Namespace)
-                        {
-                            // Add the reverse reference to the referencing node (parent)
-                            var referencingNodeAndReference = new NodeModel.NodeAndReference { Node = parent, ReferenceType = referenceTypeModel };
-                            AddChildIfNotExists(uaChildObject, uaChildObject.OtherReferencingNodes, referencingNodeAndReference, opcContext.Logger, organizesNodeId, false);
-                        }
-                        AddChildIfNotExists(parent, parent?.Objects, uaChildObject, opcContext.Logger, organizesNodeId);
-                        if (referenceTypes[0].NodeId != ReferenceTypeIds.HasComponent)
-                        {
-                            // Preserve the more specific reference type as well
-                            var nodeAndReference = new NodeModel.NodeAndReference { Node = uaChildObject, ReferenceType = referenceTypeModel };
-                            AddChildIfNotExists(parent, parent?.OtherReferencedNodes, nodeAndReference, opcContext.Logger, organizesNodeId, false);
-                        }
-                    }
-                }
-                else if (referencedNode is BaseObjectTypeState objectTypeState)
-                {
-                    opcContext.Logger.LogWarning($"Ignoring component {referencedNode} with unexpected node type {referencedNode.GetType()}");
-                }
-                else if (referencedNode is BaseDataVariableState variableState)
-                {
-                    // NodeModel.DataVariables
-                    if (ProcessEUInfoAndRanges(opcContext, referencedNode, parentFactory))
-                    {
-                        // EU Information was captured in the parent model
-                        return;
-                    }
-                    var parent = parentFactory();
-                    var variable = Create<DataVariableModelFactoryOpc, DataVariableModel>(opcContext, variableState, parent?.CustomState, recursionDepth);
-                    AddChildIfNotExists(parent, parent?.DataVariables, variable, opcContext.Logger, organizesNodeId);
-                    var referenceTypeModel = ReferenceTypeModelFactoryOpc.Create(opcContext, referenceType, null, out _, recursionDepth) as ReferenceTypeModel;
-                    if (referenceTypes[0].NodeId != ReferenceTypeIds.HasComponent)
-                    {
-                        // Preserve the more specific reference type as well
-                        var nodeAndReference = new NodeModel.NodeAndReference { Node = variable, ReferenceType = referenceTypeModel };
-                        AddChildIfNotExists(parent, parent?.OtherReferencedNodes, nodeAndReference, opcContext.Logger, organizesNodeId, false);
-                    }
-                }
-                else if (referencedNode is MethodState methodState)
-                {
-                    // NodeModel.Methods
-                    var parent = parentFactory();
-                    var method = Create<MethodModelFactoryOpc, MethodModel>(opcContext, methodState, parent?.CustomState, recursionDepth);
-                    AddChildIfNotExists(parent, parent?.Methods, method, opcContext.Logger, organizesNodeId);
-                }
-                else if (referencedNode is PropertyState propertyState)
-                {
-                    // Not allowed per spec, but tolerate (treat as Property)
-                    var parent = parentFactory();
-                    var property = Create<PropertyModelFactoryOpc, PropertyModel>(opcContext, propertyState, parent?.CustomState, recursionDepth);
-                    AddChildIfNotExists(parent, parent?.Properties, property, opcContext.Logger, organizesNodeId);
-                    var referenceTypeModel = ReferenceTypeModelFactoryOpc.Create(opcContext, referenceType, null, out _, recursionDepth) as ReferenceTypeModel;
-                    if (referenceTypes[0].NodeId != ReferenceTypeIds.HasComponent)
-                    {
-                        // Preserve the more specific reference type as well
-                        var nodeAndReference = new NodeModel.NodeAndReference { Node = property, ReferenceType = referenceTypeModel };
-                        AddChildIfNotExists(parent, parent?.OtherReferencedNodes, nodeAndReference, opcContext.Logger, organizesNodeId, false);
-                    }
-                }
-                else
-                {
-                    var parent = parentFactory();
-                    if (referencedNode != null)
-                    {
-                        throw new ArgumentException($"AASProperty {referencedNode} has unexpected type {referencedNode.GetType()} in {parent}");
-                    }
-
-                    throw new ArgumentException($"AASProperty {referencedNode} not found in {parent}");
-                }
-            }
-            else if (referenceTypes.Any(n => n.NodeId == ReferenceTypeIds.HasProperty))
-            {
-                // NodeModel.Properties
-                if (ProcessEUInfoAndRanges(opcContext, referencedNode, parentFactory))
-                {
-                    // EU Information was captured in the parent model
-                    return;
-                }
-
-                // OptionSetValues are not commonly used and if they are they don't differ from the enum definitiones except for reserved bits: just preserve as regular properties/values for now so we can round trip without designer support
-                //else if (referencedNode.BrowseName?.Name == BrowseNames.OptionSetValues)
-                //{
-                //    var parent = parentFactory();
-                //    if (parent is DataTypeModel dataType && dataType != null)
-                //    {
-                //        var optionSetValues = ((referencedNode as BaseVariableState)?.Value as LocalizedText[]);
-                //        if (optionSetValues != null)
-                //        {
-                //            dataType.SetOptionSetValues(optionSetValues.ToModel());
-                //            return;
-                //        }
-                //        else
-                //        {
-                //            opcContext.Logger.LogInformation($"No or invalid OptionSetValues in {parent} for {referencedNode}");
-                //        }
-                //    }
-                //    else
-                //    {
-                //        opcContext.Logger.LogInformation($"Unexpected parent {parent} of type {parent.GetType()} for OptionSetValues property {referencedNode}");
-                //    }
-                //}
-
-                if (referencedNode is PropertyState propertyState)
-                {
-                    var parent = parentFactory();
-                    var property = Create<PropertyModelFactoryOpc, PropertyModel>(opcContext, propertyState, parent?.CustomState, recursionDepth);
-                    AddChildIfNotExists(parent, parent?.Properties, property, opcContext.Logger, organizesNodeId);
-                    var referenceTypeModel = ReferenceTypeModelFactoryOpc.Create(opcContext, referenceType, null, out _, recursionDepth) as ReferenceTypeModel;
-                    if (referenceTypes[0].NodeId != ReferenceTypeIds.HasProperty)
-                    {
-                        // Preserve the more specific reference type as well
-                        var nodeAndReference = new NodeModel.NodeAndReference { Node = property, ReferenceType = referenceTypeModel };
-                        AddChildIfNotExists(parent, parent?.OtherReferencedNodes, nodeAndReference, opcContext.Logger, organizesNodeId, false);
-                    }
-                }
-                else if (referencedNode is BaseDataVariableState variableState)
-                {
-                    // Surprisingly, properties can also be of type DataVariable
-                    var parent = parentFactory();
-                    var variable = Create<DataVariableModelFactoryOpc, DataVariableModel>(opcContext, variableState, parent?.CustomState, recursionDepth);
-                    AddChildIfNotExists(parent, parent?.Properties, variable, opcContext.Logger, organizesNodeId);
-                    var referenceTypeModel = ReferenceTypeModelFactoryOpc.Create(opcContext, referenceType, null, out _, recursionDepth) as ReferenceTypeModel;
-                    if (referenceTypes[0].NodeId != ReferenceTypeIds.HasProperty)
-                    {
-                        // Preserve the more specific reference type as well
-                        var nodeAndReference = new NodeModel.NodeAndReference { Node = variable, ReferenceType = referenceTypeModel };
-                        AddChildIfNotExists(parent, parent?.OtherReferencedNodes, nodeAndReference, opcContext.Logger, organizesNodeId, false);
-                    }
-                }
-                else
-                {
-                    var parent = parentFactory();
-                    if (referencedNode != null)
-                    {
-                        throw new ArgumentException($"AASProperty {referencedNode} has unexpected type {referencedNode.GetType()} in {parent}");
-                    }
-
-                    throw new ArgumentException($"AASProperty {referencedNode} not found in {parent}");
-                }
-            }
-            else if (referenceTypes.Any(n => n.NodeId == ReferenceTypeIds.HasInterface))
-            {
-                // NodeModel.Interfaces
-                if (referencedNode is BaseObjectTypeState interfaceTypeState)
-                {
-                    var parent = parentFactory();
-                    var uaInterface = Create<InterfaceModelFactoryOpc, InterfaceModel>(opcContext, interfaceTypeState, parent?.CustomState, recursionDepth);
-                    if (uaInterface != null)
-                    {
-                        AddChildIfNotExists(parent, parent?.Interfaces, uaInterface, opcContext.Logger, organizesNodeId);
-                        var referenceTypeModel = ReferenceTypeModelFactoryOpc.Create(opcContext, referenceType, null, out _, recursionDepth) as ReferenceTypeModel;
-                        if (referenceTypes[0].NodeId != ReferenceTypeIds.HasInterface)
-                        {
-                            // Preserve the more specific reference type as well
-                            var nodeAndReference = new NodeModel.NodeAndReference { Node = uaInterface, ReferenceType = referenceTypeModel };
-                            AddChildIfNotExists(parent, parent?.OtherReferencedNodes, nodeAndReference, opcContext.Logger, organizesNodeId);
-                        }
-                    }
-                }
-                else
-                {
-                    var parent = parentFactory();
-                    if (referencedNode != null)
-                    {
-                        throw new ArgumentException($"Interface {referencedNode} has unexpected type {referencedNode.GetType()} in {parent}");
-                    }
-
-                    throw new ArgumentException($"Interface {referencedNode} not found in {parent}");
-                }
-            }
-            //else if (referenceTypes.Any(n => n.NodeId == ReferenceTypeIds.Organizes))
-            //{
-            //    if (referencedNode is BaseObjectState)
-            //    {
-            //        var parent = parentFactory();
-            //        var organizedNode = Create<ObjectModelFactoryOpc, ObjectModel>(opcContext, referencedNode, parent.CustomState);
-            //        AddChildIfNotExists(parent, parent?.Objects, organizedNode, opcContext.Logger);
-            //    }
-            //    else
-            //    {
-
-            //    }
-            //}
-            //else if (referenceTypes.Any(n => n.NodeId == ReferenceTypeIds.FromState))
-            //{ }
-            //else if (referenceTypes.Any(n => n.NodeId == ReferenceTypeIds.ToState))
-            //{ }
-            //else if (referenceTypes.Any(n => n.NodeId == ReferenceTypeIds.HasEffect))
-            //{ }
-            //else if (referenceTypes.Any(n => n.NodeId == ReferenceTypeIds.HasCause))
-            //{ }
-            else if (referenceTypes.Any(n => n.NodeId == ReferenceTypeIds.GeneratesEvent))
-            {
-                // NodeModel.Events
-                if (referencedNode is BaseObjectTypeState eventTypeState)
-                {
-                    var parent = parentFactory();
-                    var uaEvent = Create<ObjectTypeModelFactoryOpc, ObjectTypeModel>(opcContext, eventTypeState, parent?.CustomState, recursionDepth);
-                    if (uaEvent != null)
-                    {
-                        AddChildIfNotExists(parent, parent?.Events, uaEvent, opcContext.Logger, organizesNodeId);
-                        var referenceTypeModel = ReferenceTypeModelFactoryOpc.Create(opcContext, referenceType, null, out _, recursionDepth) as ReferenceTypeModel;
-                        if (referenceTypes[0].NodeId != ReferenceTypeIds.GeneratesEvent)
-                        {
-                            // Preserve the more specific reference type as well
-                            var nodeAndReference = new NodeModel.NodeAndReference { Node = uaEvent, ReferenceType = referenceTypeModel };
-                            AddChildIfNotExists(parent, parent?.OtherReferencedNodes, nodeAndReference, opcContext.Logger, organizesNodeId);
-                        }
-                    }
-                }
-                else
-                {
-                    var parent = parentFactory();
-                    throw new ArgumentException($"Unexpected event type {referencedNode} in {parent}");
-                }
-            }
-            else
-            {
-                // NodeModel.OtherReferencedNodes
-                var parent = parentFactory();
-                var referencedModel = Create(opcContext, referencedNode, parent?.CustomState, out _, recursionDepth);
-                if (referencedModel != null)
-                {
-                    var referenceTypeModel = ReferenceTypeModelFactoryOpc.Create(opcContext, referenceType, null, out _, recursionDepth) as ReferenceTypeModel;
-                    var nodeAndReference = new NodeModel.NodeAndReference {
-                        Node = referencedModel,
-                        ReferenceType = referenceTypeModel
-                    };
-
-                    AddChildIfNotExists(parent, parent?.OtherReferencedNodes, nodeAndReference, opcContext.Logger, organizesNodeId, true);
-
-                    // Add the reverse reference to the referencing node (parent)
-                    var referencingNodeAndReference = new NodeModel.NodeAndReference { Node = parent, ReferenceType = referenceTypeModel };
-                    AddChildIfNotExists(referencedModel, referencedModel.OtherReferencingNodes, referencingNodeAndReference, opcContext.Logger, organizesNodeId, false);
-                }
-                else
-                {
-                    throw new ArgumentException($"Failed to resolve reference {referenceTypes.FirstOrDefault()} from {parent} to {referencedNode}.");
-                }
-                // Potential candidates for first class representation in the model:
-                // {ns=1;i=6030} - ConnectsTo / Hierarchical
-                // {ns=2;i=18179} - Requires / Hierarchical
-                // {ns=2;i=18178} - Moves / Hierarchical
-                // {ns=2;i=18183} - HasSlave / Hierachical
-                // {ns=2;i=18180} - IsDrivenBy / Hierarchical
-                // {ns=2;i=18182} - HasSafetyStates - Hierarchical
-                // {ns=2;i=4002}  - Controls / Hierarchical
-            }
-
-        }
-        static void AddChildIfNotExists<TColl>(NodeModel parent, IList<TColl> collection, TColl uaChildObject, ILogger logger, string organizesNodeId, bool setParent = true)
-        {
-            if (uaChildObject == null)
-            {
-                return;
-            }
-
-            if (setParent
-                && (uaChildObject is InstanceModelBase uaInstance
-                    || uaChildObject is NodeModel.NodeAndReference nr
-                       && (nr.ReferenceType as ReferenceTypeModel)?.HasBaseType(organizesNodeId) == true
-                       && (uaInstance = nr.Node as InstanceModelBase) != null
-                       ))
-            {
-                uaInstance.Parent = parent;
-                if (uaInstance.Parent != parent)
-                {
-                    logger.LogInformation($"{uaInstance} has more than one parent. Ignored parent: {parent}, using {uaInstance.Parent}");
-                }
-            }
-
-            if (collection?.Contains(uaChildObject) == false)
-            {
-                collection.Add(uaChildObject);
             }
         }
 
-        static bool ProcessEUInfoAndRangesWithoutParent(DbOpcUaContext opcContext, NodeState potentialEUNode, object customState)
-        {
-            if (potentialEUNode.BrowseName?.Name == BrowseNames.EngineeringUnits || (potentialEUNode as BaseVariableState)?.DataType == DataTypeIds.EUInformation
-                || potentialEUNode.BrowseName?.Name == BrowseNames.EURange || potentialEUNode.BrowseName?.Name == BrowseNames.InstrumentRange)
-            {
-                foreach (var referenceToNode in opcContext.GetHierarchyReferences(potentialEUNode).Where(r => r.IsInverse))
-                {
-                    var referencingNodeState = opcContext.GetNode(referenceToNode.TargetId);
-                    var referencingNode = Create(opcContext, referencingNodeState, customState, out _);
-                    if (ProcessEUInfoAndRanges(opcContext, potentialEUNode, () => referencingNode))
-                    {
-                        // captured in the referencing node
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        static bool ProcessEUInfoAndRanges(DbOpcUaContext opcContext, NodeState referencedNode, Func<NodeModel> parentFactory)
-        {
-            if (referencedNode.BrowseName?.Name == BrowseNames.EngineeringUnits || (referencedNode as BaseVariableState).DataType == DataTypeIds.EUInformation)
-            {
-                var parent = parentFactory();
-                if (parent is VariableModel parentVariable && parentVariable != null)
-                {
-                    parentVariable.EngUnitNodeId = opcContext.GetModelNodeId(referencedNode.NodeId);
-
-                    var modellingRuleId = (referencedNode as BaseInstanceState)?.ModellingRuleId;
-                    if (modellingRuleId != null)
-                    {
-                        var modellingRule = opcContext.GetNode(modellingRuleId);
-                        if (modellingRule == null)
-                        {
-                            throw new ArgumentException($"Unable to resolve modelling rule {modellingRuleId}: dependency on UA nodeset not declared?");
-                        }
-                        parentVariable.EngUnitModellingRule = modellingRule.DisplayName.Text;
-                    }
-                    if (referencedNode is BaseVariableState euInfoVariable)
-                    {
-                        parentVariable.EngUnitAccessLevel = euInfoVariable.AccessLevelEx != 1 ? euInfoVariable.AccessLevelEx : null;
-                        // deprecated: parentVariable.EngUnitUserAccessLevel = euInfoVariable.UserAccessLevel != 1 ? euInfoVariable.UserAccessLevel : null;
-
-                        var euInfoExtension = euInfoVariable.Value as ExtensionObject;
-                        var euInfo = euInfoExtension?.Body as EUInformation;
-                        if (euInfo != null)
-                        {
-                            parentVariable.SetEngineeringUnits(euInfo);
-                        }
-                        else
-                        {
-                            if (euInfoVariable.Value != null)
-                            {
-                                if (euInfoExtension != null)
-                                {
-                                    if (euInfoExtension.TypeId != ObjectIds.EUInformation_Encoding_DefaultXml)
-                                    {
-                                        throw new ArgumentException($"Unable to parse Engineering units for {parentVariable}: Invalid encoding type id {euInfoExtension.TypeId}. Expected {ObjectIds.EUInformation_Encoding_DefaultXml}.");
-                                    }
-                                    if (euInfoExtension.Body is XmlElement xmlValue)
-                                    {
-                                        throw new ArgumentException($"Unable to parse Engineering units for {parentVariable}: TypeId: {euInfoExtension.TypeId}.XML: {xmlValue.OuterXml}.");
-                                    }
-                                    throw new ArgumentException($"Unable to parse Engineering units for {parentVariable}: TypeId: {euInfoExtension.TypeId}. Value: {(referencedNode as BaseVariableState).Value}");
-                                }
-                                throw new ArgumentException($"Unable to parse Engineering units for {parentVariable}: {(referencedNode as BaseVariableState).Value}");
-                            }
-                            // Nodesets commonly indicate that EUs are required on instances by specifying an empty EU in the class
-                        }
-                    }
-                    return true;
-                }
-            }
-            else if (referencedNode.BrowseName?.Name == BrowseNames.EURange)
-            {
-                var parent = parentFactory();
-                if (parent is VariableModel parentVariable && parentVariable != null)
-                {
-                    var info = GetRangeInfo(parentVariable, referencedNode, opcContext);
-                    parentVariable.EURangeNodeId = info.RangeNodeId;
-                    parentVariable.EURangeModellingRule = info.ModellingRuleId;
-                    parentVariable.EURangeAccessLevel = info.rangeAccessLevel;
-                    if (info.range != null)
-                    {
-                        parentVariable.SetRange(info.range);
-                    }
-                    return true;
-                }
-            }
-            else if (referencedNode.BrowseName?.Name == BrowseNames.InstrumentRange)
-            {
-                var parent = parentFactory();
-                if (parent is VariableModel parentVariable && parentVariable != null)
-                {
-                    var info = GetRangeInfo(parentVariable, referencedNode, opcContext);
-                    parentVariable.InstrumentRangeNodeId = info.RangeNodeId;
-                    parentVariable.InstrumentRangeModellingRule = info.ModellingRuleId;
-                    parentVariable.InstrumentRangeAccessLevel = info.rangeAccessLevel;
-                    if (info.range != null)
-                    {
-                        parentVariable.SetInstrumentRange(info.range);
-                    }
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        static (Range range, string RangeNodeId, string ModellingRuleId, uint? rangeAccessLevel)
-            GetRangeInfo(NodeModel parentVariable, NodeState referencedNode, DbOpcUaContext opcContext)
-        {
-            string rangeNodeId = opcContext.GetModelNodeId(referencedNode.NodeId);
-            string rangeModellingRule = null;
-            uint? rangeAccessLevel = null;
-            Range range = null;
-            var modellingRuleId = (referencedNode as BaseInstanceState)?.ModellingRuleId;
-            if (modellingRuleId != null)
-            {
-                var modellingRuleNode = opcContext.GetNode(modellingRuleId);
-                if (modellingRuleNode == null)
-                {
-                    throw new ArgumentException($"Unable to resolve modelling rule {modellingRuleId}: dependency on UA nodeset not declared?");
-                }
-                rangeModellingRule = modellingRuleNode.DisplayName.Text;
-            }
-            if (referencedNode is BaseVariableState euRangeVariable)
-            {
-                rangeAccessLevel = euRangeVariable.AccessLevelEx != 1 ? euRangeVariable.AccessLevelEx : null;
-                // deprecated: parentVariable.EURangeUserAccessLevel = euRangeVariable.UserAccessLevel != 1 ? euRangeVariable.UserAccessLevel : null;
-
-                var euRangeExtension = euRangeVariable.Value as ExtensionObject;
-                range = euRangeExtension?.Body as Range;
-                if (range == null)
-                {
-                    if (euRangeVariable.Value != null)
-                    {
-                        if (euRangeExtension != null)
-                        {
-                            if (euRangeExtension.TypeId != ObjectIds.Range_Encoding_DefaultXml)
-                            {
-                                throw new ArgumentException($"Unable to parse {referencedNode.BrowseName?.Name} for {parentVariable}: Invalid encoding type id {euRangeExtension.TypeId}. Expected {ObjectIds.Range_Encoding_DefaultXml}.");
-                            }
-                            if (euRangeExtension.Body is XmlElement xmlValue)
-                            {
-                                throw new ArgumentException($"Unable to parse {referencedNode.BrowseName?.Name} for {parentVariable}: TypeId: {euRangeExtension.TypeId}.XML: {xmlValue.OuterXml}.");
-                            }
-                            throw new ArgumentException($"Unable to parse {referencedNode.BrowseName?.Name} for {parentVariable}: TypeId: {euRangeExtension.TypeId}. Value: {(referencedNode as BaseVariableState).Value}");
-                        }
-                        throw new ArgumentException($"Unable to parse {referencedNode.BrowseName?.Name} for {parentVariable}: {(referencedNode as BaseVariableState).Value}");
-                    }
-                    // Nodesets commonly indicate that EURange are required on instances by specifying an enpty EURange in the class
-                }
-            }
-
-            return (range, rangeNodeId, rangeModellingRule, rangeAccessLevel);
-        }
-
-        public static NodeModel Create(DbOpcUaContext opcContext, NodeState node, object customState, out bool added, int recursionDepth = int.MaxValue)
+        private NodeModel CreateNodeModel(NodeState node, out bool added)
         {
             NodeModel nodeModel;
             added = true;
+
             if (node is DataTypeState dataType)
             {
-                nodeModel = Create<DataTypeModelFactoryOpc, DataTypeModel>(opcContext, dataType, customState, recursionDepth);
+                nodeModel = CreateDataTypeModel(dataType);
             }
             else if (node is BaseVariableTypeState variableType)
             {
-                nodeModel = Create<VariableTypeModelFactoryOpc, VariableTypeModel>(opcContext, variableType, customState, recursionDepth);
+                nodeModel = CreateVariableTypeModel(variableType);
             }
             else if (node is BaseObjectTypeState objectType)
             {
-                if (GetBaseTypes(opcContext, objectType).Any(n => n.NodeId == ObjectTypeIds.BaseInterfaceType))
-                {
-                    nodeModel = Create<InterfaceModelFactoryOpc, InterfaceModel>(opcContext, objectType, customState, recursionDepth);
-                }
-                else
-                {
-                    nodeModel = Create<ObjectTypeModelFactoryOpc, ObjectTypeModel>(opcContext, objectType, customState, recursionDepth);
-                }
+                nodeModel = CreateObjectTypeModel(objectType);
+            }
+            else if (node is BaseInterfaceState uaInterface)
+            {
+                nodeModel = CreateInterfaceModel(uaInterface);
             }
             else if (node is BaseObjectState uaObject)
             {
-                nodeModel = Create<ObjectModelFactoryOpc, ObjectModel>(opcContext, uaObject, customState, recursionDepth);
+                nodeModel = CreateObjectModel(uaObject);
             }
             else if (node is PropertyState property)
             {
-                nodeModel = Create<PropertyModelFactoryOpc, PropertyModel>(opcContext, property, customState, recursionDepth);
+                nodeModel = CreatePropertyModel(property);
             }
             else if (node is BaseDataVariableState dataVariable)
             {
-                nodeModel = Create<DataVariableModelFactoryOpc, DataVariableModel>(opcContext, dataVariable, customState, recursionDepth);
+                nodeModel = CreateVariableModel(dataVariable);
             }
             else if (node is MethodState methodState)
             {
-                nodeModel = Create<MethodModelFactoryOpc, MethodModel>(opcContext, methodState, customState, recursionDepth);
+                nodeModel = CreateMethodModel(methodState);
             }
             else if (node is ReferenceTypeState referenceState)
             {
-                nodeModel = Create<ReferenceTypeModelFactoryOpc, ReferenceTypeModel>(opcContext, referenceState, customState, recursionDepth);
+                nodeModel = CreateReferenceTypeModel(referenceState);
             }
             else
             {
                 if (!(node is ViewState))
                 {
-                    nodeModel = Create<NodeModelFactoryOpc<TNodeModel>, TNodeModel>(opcContext, node, customState, recursionDepth);
+                    nodeModel = InitializeNodeModel(new NodeModel(), node);
                 }
                 else
                 {
-                    // TODO support Views
+                    // TODO: Support Views
                     nodeModel = null;
+                    added = false;
+                    _logger.LogWarning($"Node {node} is a ViewState, which is not supported in the current implementation. Skipping this node.");
                 }
-
-                added = false;
             }
 
-            return nodeModel;
-        }
-
-        public static List<BaseTypeState> GetBaseTypes(DbOpcUaContext opcContext, BaseTypeState objectType)
-        {
-            var baseTypes = new List<BaseTypeState>();
-            if (objectType != null)
+            if (added)
             {
-                baseTypes.Add(objectType);
-            }
-
-            var currentObjectType = objectType;
-            while (currentObjectType?.SuperTypeId != null)
-            {
-                var objectSuperType = opcContext.GetNode(currentObjectType.SuperTypeId);
-                if (objectSuperType is BaseTypeState)
+                if (!_nodesetModel.AllNodesByNodeId.TryAdd(nodeModel.NodeId, nodeModel))
                 {
-                    baseTypes.Add(objectSuperType as BaseTypeState);
+                    // Node already processed
+                    _logger.LogWarning($"Node {nodeModel} was already in the nodeset dataTypeModel.");
                 }
                 else
                 {
-                    baseTypes.Add(new BaseObjectTypeState { NodeId = objectType.SuperTypeId, Description = "Unknown type: more base types may exist" });
-                }
-                currentObjectType = objectSuperType as BaseTypeState;
-            }
-
-            return baseTypes;
-        }
-
-
-        protected static TNodeModel2 Create<TNodeModelOpc, TNodeModel2>(DbOpcUaContext opcContext, NodeState opcNode, object customState, int recursionDepth) where TNodeModelOpc : NodeModelFactoryOpc<TNodeModel2>, new() where TNodeModel2 : NodeModel, new()
-        {
-            var nodeId = opcContext.GetModelNodeId(opcNode.NodeId);
-
-            // EngineeringUnits are captured in the datavariable to which they belong in order to simplify the model for consuming applications
-            // Need to make sure that the nodes with engineering units get properly captured even if they are processed before the containing node
-            if (ProcessEUInfoAndRangesWithoutParent(opcContext, opcNode, customState))
-            {
-                // Node was captured into a parent: don't create separate model for it
-                return null;
-            }
-
-            string namespaceUri = opcContext.NamespaceUris.GetString(opcNode.NodeId.NamespaceIndex);
-            var nodeModel = Create<TNodeModel2>(opcContext, nodeId, new ModelTableEntry { ModelUri = namespaceUri }, customState, out var created);
-            var nodeModelOpc = new TNodeModelOpc { Model = nodeModel, _logger = opcContext.Logger };
-
-            if (created || nodeModel.ReferencesNotResolved)
-            {
-                nodeModelOpc.Initialize(opcContext, opcNode, recursionDepth);
-            }
-            else
-            {
-                opcContext.Logger.LogTrace($"Using previously created node model {nodeModel} for {opcNode}");
-            }
-
-            return nodeModel;
-        }
-
-        public static TNodeModel2 Create<TNodeModel2>(DbOpcUaContext opcContext, string nodeId, ModelTableEntry opcModelInfo, object customState, out bool created) where TNodeModel2 : NodeModel, new()
-        {
-            created = false;
-            opcContext.NamespaceUris.GetIndexOrAppend(opcModelInfo.ModelUri); // Ensure the namespace is in the namespace table
-            var nodeModelBase = opcContext.GetModelForNode<TNodeModel2>(nodeId);
-            var nodeModel = nodeModelBase as TNodeModel2;
-            if (nodeModel == null)
-            {
-                if (nodeModelBase != null)
-                {
-                    throw new ArgumentException($"Internal error - Type mismatch for node {nodeId}: NodeModel of type {typeof(TNodeModel2)} was previously created with type {nodeModelBase.GetType()}.");
-                }
-
-                var nodesetModel = opcContext.GetOrAddNodesetModel(opcModelInfo);
-
-                nodeModel = new TNodeModel2();
-                nodeModel.NodeSet = nodesetModel;
-                if (nodesetModel.CustomState == null)
-                {
-                    nodesetModel.CustomState = customState;
-                }
-
-                nodeModel.NodeId = nodeId;
-                nodeModel.CustomState = customState;
-                created = true;
-
-                if (!nodesetModel.AllNodesByNodeId.ContainsKey(nodeModel.NodeId))
-                {
-                    nodesetModel.AllNodesByNodeId.Add(nodeModel.NodeId, nodeModel);
                     if (nodeModel is InterfaceModel uaInterface)
                     {
-                        nodesetModel.Interfaces.Add(uaInterface);
+                        _nodesetModel.Interfaces.Add(uaInterface);
                     }
                     else if (nodeModel is ObjectTypeModel objectType)
                     {
-                        nodesetModel.ObjectTypes.Add(objectType);
+                        _nodesetModel.ObjectTypes.Add(objectType);
                     }
-                    else if (nodeModel is DataTypeModel dataType)
+                    else if (nodeModel is DataTypeModel uaDataType)
                     {
-                        nodesetModel.DataTypes.Add(dataType);
+                        _nodesetModel.DataTypes.Add(uaDataType);
                     }
                     else if (nodeModel is DataVariableModel dataVariable)
                     {
-                        nodesetModel.DataVariables.Add(dataVariable);
+                        _nodesetModel.DataVariables.Add(dataVariable);
                     }
                     else if (nodeModel is VariableTypeModel variableType)
                     {
-                        nodesetModel.VariableTypes.Add(variableType);
+                        _nodesetModel.VariableTypes.Add(variableType);
                     }
                     else if (nodeModel is ObjectModel uaObject)
                     {
-                        nodesetModel.Objects.Add(uaObject);
+                        _nodesetModel.Objects.Add(uaObject);
                     }
                     else if (nodeModel is PropertyModel property)
                     {
-                        nodesetModel.Properties.Add(property);
+                        _nodesetModel.Properties.Add(property);
                     }
                     else if (nodeModel is MethodModel method)
                     {
-                        nodesetModel.Methods.Add(method);
+                        _nodesetModel.Methods.Add(method);
                     }
                     else if (nodeModel is ReferenceTypeModel referenceType)
                     {
-                        nodesetModel.ReferenceTypes.Add(referenceType);
+                        _nodesetModel.ReferenceTypes.Add(referenceType);
                     }
                     else
                     {
-                        throw new ArgumentException($"Unexpected node model type {nodeModel.GetType().FullName} for node {nodeModel}");
+                        throw new ArgumentException($"Unexpected node dataTypeModel type {nodeModel.GetType().FullName} for node {nodeModel}");
                     }
                 }
-                else
-                {
-                    // Node already processed
-                    opcContext.Logger.LogWarning($"Node {nodeModel} was already in the nodeset model.");
-                }
             }
-            if (customState != null && nodeModel != null && nodeModel.CustomState == null)
-            {
-                nodeModel.CustomState = customState;
-            }
+
             return nodeModel;
         }
 
-    }
-
-    public class InstanceModelFactoryOpc<TInstanceModel, TBaseTypeModel, TBaseTypeModelFactoryOpc> : NodeModelFactoryOpc<TInstanceModel>
-        where TInstanceModel : InstanceModel<TBaseTypeModel>, new()
-        where TBaseTypeModel : NodeModel, new()
-        where TBaseTypeModelFactoryOpc : NodeModelFactoryOpc<TBaseTypeModel>, new()
-    {
-        protected override void Initialize(DbOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
+        private NodeModel InitializeNodeModel(NodeModel nodeModel, NodeState opcNode)
         {
-            base.Initialize(opcContext, opcNode, recursionDepth);
-            var uaInstance = opcNode as BaseInstanceState;
-            var variableTypeDefinition = opcContext.GetNode(uaInstance.TypeDefinitionId);
-            if (variableTypeDefinition != null)
+            _logger.LogTrace($"Creating node variableModel for {opcNode}");
+
+            nodeModel.DisplayName = opcNode.DisplayName.ToModel();
+            nodeModel.BrowseName = _opcContext.GetModelBrowseName(opcNode.BrowseName);
+            nodeModel.SymbolicName = opcNode.SymbolicName;
+            nodeModel.Description = opcNode.Description.ToModel();
+            nodeModel.Documentation = opcNode.NodeSetDocumentation;
+            nodeModel.ReleaseStatus = opcNode.ReleaseStatus.ToString();
+            nodeModel.ReferencesNotResolved = false;
+            nodeModel.NodeSet = _nodesetModel;
+
+            foreach (NodeStateHierarchyReference reference in _opcContext.GetHierarchyReferences(opcNode))
             {
-                var typeDefModel = NodeModelFactoryOpc.Create(opcContext, variableTypeDefinition, Model.CustomState, out _, recursionDepth - 1); // Create<TBaseTypeModelFactoryOpc, TBaseTypeModel>(opcContext, variableTypeDefinition, null);
-                Model.TypeDefinition = typeDefModel as TBaseTypeModel;
-                if (Model.TypeDefinition == null)
-                {
-                    throw new ArgumentException($"Unexpected type definition {variableTypeDefinition} on {uaInstance}");
-                }
+                NodeModel referenceNodeModel = new() {
+                    SymbolicName = reference.ToString(),
+                    ReferencesNotResolved = true
+                };
+
+                NodeModel referenceTypeModel = new() {
+                    SymbolicName = reference.ReferenceTypeId.ToString(),
+                    ReferencesNotResolved = true
+                };
+
+                nodeModel.AllReferencedNodes = new List<NodeAndReference>() { new NodeAndReference() { Node = referenceNodeModel, ReferenceType = referenceTypeModel } };
             }
 
-            if (uaInstance.ModellingRuleId != null)
-            {
-                var modellingRuleId = uaInstance.ModellingRuleId;
-                var modellingRule = opcContext.GetNode(modellingRuleId);
-                if (modellingRule == null)
-                {
-                    throw new ArgumentException($"Unable to resolve modelling rule {modellingRuleId}: dependency on UA nodeset not declared?");
-                }
+            _logger.LogTrace($"Created node dataTypeModel {nodeModel} for {opcNode}");
 
-                Model.ModellingRule = modellingRule.DisplayName.Text;
-            }
-            if (uaInstance.Parent != null)
-            {
-                var instanceParent = NodeModelFactoryOpc.Create(opcContext, uaInstance.Parent, null, out _, recursionDepth - 1);
-                Model.Parent = instanceParent;
-                if (Model.Parent != instanceParent)
-                {
-                    opcContext.Logger.LogWarning($"{Model} has more than one parent. Ignored parent: {instanceParent}, using {Model.Parent}.");
-                }
-            }
+            return nodeModel;
         }
 
-    }
 
-    public class ObjectModelFactoryOpc : InstanceModelFactoryOpc<ObjectModel, ObjectTypeModel, ObjectTypeModelFactoryOpc>
-    {
-        protected override void Initialize(DbOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
+        private InterfaceModel CreateInterfaceModel(BaseInterfaceState baseInterface)
         {
-            base.Initialize(opcContext, opcNode, recursionDepth);
-            if (opcNode is BaseObjectState objState)
-            {
-                Model.EventNotifier = objState.EventNotifier;
-            }
-        }
-    }
+            InterfaceModel interfaceModel = InitializeNodeModel(new InterfaceModel(), baseInterface) as InterfaceModel;
 
-    public class BaseTypeModelFactoryOpc<TBaseTypeModel> : NodeModelFactoryOpc<TBaseTypeModel> where TBaseTypeModel : BaseTypeModel, new()
-    {
-        protected override void Initialize(DbOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
-        {
-            base.Initialize(opcContext, opcNode, recursionDepth);
-            var uaType = opcNode as BaseTypeState;
-
-            if (uaType.SuperTypeId != null)
-            {
-                var superTypeNodeId = opcContext.GetModelNodeId(uaType.SuperTypeId);
-                BaseTypeModel superTypeModel = opcContext.GetModelForNode<TBaseTypeModel>(superTypeNodeId);
-                if (superTypeModel == null)
-                {
-                    // Handle cases where the supertype is of a different model class, for example the InterfaceModel for BaseInterfaceType has a supertype ObjectTypeModel, while all other InterfaceModels have a supertype of Interfacemodel
-                    superTypeModel = opcContext.GetModelForNode<BaseTypeModel>(superTypeNodeId);
-                }
-
-                if (superTypeModel == null)
-                {
-                    var superTypeState = opcContext.GetNode(uaType.SuperTypeId) as BaseTypeState;
-                    if (superTypeState != null)
-                    {
-                        // Always resolve basetypes, regardless of recursionDepth
-                        superTypeModel = NodeModelFactoryOpc.Create(opcContext, superTypeState, Model.CustomState, out _, 2) as BaseTypeModel;
-                        if (superTypeModel == null)
-                        {
-                            throw new ArgumentException($"Invalid node {superTypeState} is not a Base Type");
-                        }
-                    }
-                }
-
-                Model.SuperType = superTypeModel;
-                Model.RemoveInheritedAttributes(Model.SuperType);
-                foreach (var uaInterface in Model.Interfaces)
-                {
-                    Model.RemoveInheritedAttributes(uaInterface);
-                }
-            }
-            else
-            {
-                Model.SuperType = null;
-            }
-            Model.IsAbstract = uaType.IsAbstract;
+            return interfaceModel;
         }
 
-    }
 
-    public class ObjectTypeModelFactoryOpc<TTypeModel> : BaseTypeModelFactoryOpc<TTypeModel> where TTypeModel : BaseTypeModel, new()
-    {
-    }
-
-    public class ObjectTypeModelFactoryOpc : ObjectTypeModelFactoryOpc<ObjectTypeModel>
-    {
-    }
-
-    public class InterfaceModelFactoryOpc : ObjectTypeModelFactoryOpc<InterfaceModel>
-    {
-    }
-
-    public class VariableModelFactoryOpc<TVariableModel> : InstanceModelFactoryOpc<TVariableModel, VariableTypeModel, VariableTypeModelFactoryOpc>
-        where TVariableModel : VariableModel, new()
-    {
-        protected override void Initialize(DbOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
+        private ObjectModel CreateObjectModel(BaseObjectState objState)
         {
-            base.Initialize(opcContext, opcNode, recursionDepth);
-            var variableNode = opcNode as BaseVariableState;
+            ObjectModel objectModel = InitializeNodeModel(new ObjectModel(), objState) as ObjectModel;
 
-            InitializeDataTypeInfo(Model, opcContext, variableNode, recursionDepth);
+            objectModel.EventNotifier = objState.EventNotifier;
 
-            if (variableNode.AccessLevelEx != 1)
+            return objectModel;
+        }
+
+        private ObjectTypeModel CreateObjectTypeModel(BaseObjectTypeState baseType)
+        {
+            ObjectTypeModel objectTypeModel = InitializeNodeModel(new ObjectTypeModel(), baseType) as ObjectTypeModel;
+
+            objectTypeModel.SuperType = baseType.SuperTypeId.ToString();
+            objectTypeModel.IsAbstract = baseType.IsAbstract;
+
+            return objectTypeModel;
+        }
+
+        private PropertyModel CreatePropertyModel(PropertyState property)
+        {
+            PropertyModel propertyModel = InitializeNodeModel(new PropertyModel(), property) as PropertyModel;
+
+            if (property.Value != null)
             {
-                Model.AccessLevel = variableNode.AccessLevelEx;
+                propertyModel.Value = property.Value.ToString();
             }
 
-            if (variableNode.AccessRestrictions != 0)
+            if (property.DataType != null)
             {
-                Model.AccessRestrictions = (ushort)(variableNode.AccessRestrictions == null ? 0 : variableNode.AccessRestrictions);
+                AddDataTypeInfo(propertyModel, property);
             }
 
-            if (variableNode.WriteMask != 0)
+            return propertyModel;
+        }
+
+        private VariableModel CreateVariableModel(BaseVariableState baseVariable)
+        {
+            VariableModel variableModel = InitializeNodeModel(new VariableModel(), baseVariable) as VariableModel;
+
+            if (baseVariable.Value != null)
             {
-                Model.WriteMask = (uint)variableNode.WriteMask;
+                variableModel.Value = baseVariable.Value.ToString();
             }
 
-            if (variableNode.UserWriteMask != 0)
+            if (baseVariable.DataType != null)
             {
-                Model.UserWriteMask = (uint)variableNode.UserWriteMask;
+                AddDataTypeInfo(variableModel, baseVariable);
             }
 
-            if (variableNode.MinimumSamplingInterval != 0)
+            if (baseVariable.AccessLevelEx != 1)
             {
-                Model.MinimumSamplingInterval = variableNode.MinimumSamplingInterval;
+                variableModel.AccessLevel = baseVariable.AccessLevelEx;
             }
 
-            var invalidBrowseNameOnTypeInformation = Model.Properties.Where(p =>
-                p.BrowseName.EndsWith(BrowseNames.EnumValues, false, CultureInfo.InvariantCulture) && p.BrowseName != opcContext.GetModelBrowseName(BrowseNames.EnumValues)
-                || p.BrowseName.EndsWith(BrowseNames.EnumStrings, false, CultureInfo.InvariantCulture) && p.BrowseName != opcContext.GetModelBrowseName(BrowseNames.EnumStrings)
-                || p.BrowseName.EndsWith(BrowseNames.OptionSetValues, false, CultureInfo.InvariantCulture) && p.BrowseName != opcContext.GetModelBrowseName(BrowseNames.OptionSetValues)
+            if (baseVariable.AccessRestrictions != 0)
+            {
+                variableModel.AccessRestrictions = (ushort)(baseVariable.AccessRestrictions == null ? 0 : baseVariable.AccessRestrictions);
+            }
+
+            if (baseVariable.WriteMask != 0)
+            {
+                variableModel.WriteMask = (uint)baseVariable.WriteMask;
+            }
+
+            if (baseVariable.UserWriteMask != 0)
+            {
+                variableModel.UserWriteMask = (uint)baseVariable.UserWriteMask;
+            }
+
+            if (baseVariable.MinimumSamplingInterval != 0)
+            {
+                variableModel.MinimumSamplingInterval = baseVariable.MinimumSamplingInterval;
+            }
+
+            var invalidBrowseNameOnTypeInformation = variableModel.Properties.Where(p =>
+                p.BrowseName.EndsWith(BrowseNames.EnumValues, false, CultureInfo.InvariantCulture) && p.BrowseName != _opcContext.GetModelBrowseName(BrowseNames.EnumValues)
+             || p.BrowseName.EndsWith(BrowseNames.EnumStrings, false, CultureInfo.InvariantCulture) && p.BrowseName != _opcContext.GetModelBrowseName(BrowseNames.EnumStrings)
+             || p.BrowseName.EndsWith(BrowseNames.OptionSetValues, false, CultureInfo.InvariantCulture) && p.BrowseName != _opcContext.GetModelBrowseName(BrowseNames.OptionSetValues)
             );
 
             if (invalidBrowseNameOnTypeInformation.Any())
             {
-                opcContext.Logger.LogWarning($"Found type definition node with browsename in non-default namespace: {string.Join("", invalidBrowseNameOnTypeInformation.Select(ti => ti.BrowseName))}");
+                _opcContext.Logger.LogWarning($"Found type definition node with browsename in non-default namespace: {string.Join("", invalidBrowseNameOnTypeInformation.Select(ti => ti.BrowseName))}");
             }
 
-            if (string.IsNullOrEmpty(Model.NodeSet.XmlSchemaUri) && variableNode.TypeDefinitionId == VariableTypeIds.DataTypeDictionaryType)
+            if (string.IsNullOrEmpty(variableModel.NodeSet.XmlSchemaUri) && baseVariable.TypeDefinitionId == VariableTypeIds.DataTypeDictionaryType)
             {
-                var namespaceUriModelBrowseName = opcContext.GetModelBrowseName(BrowseNames.NamespaceUri);
-                var xmlNamespaceVariable = Model.Properties.FirstOrDefault(dv => dv.BrowseName == namespaceUriModelBrowseName);
-                if (Model.Parent.NodeId == opcContext.GetModelNodeId(ObjectIds.XmlSchema_TypeSystem))
+                var namespaceUriModelBrowseName = _opcContext.GetModelBrowseName(BrowseNames.NamespaceUri);
+                var xmlNamespaceVariable = variableModel.Properties.FirstOrDefault(dv => dv.BrowseName == namespaceUriModelBrowseName);
+                if (variableModel.Parent?.NodeId == _opcContext.GetExpandedNodeId(ObjectIds.XmlSchema_TypeSystem))
                 {
                     if (xmlNamespaceVariable != null && !string.IsNullOrEmpty(xmlNamespaceVariable.Value))
                     {
-                        var variant = opcContext.JsonDecodeVariant(xmlNamespaceVariable.Value);
-                        var namespaceUri = variant.Value as string;
-                        if (!string.IsNullOrEmpty(namespaceUri))
-                        {
-                            Model.NodeSet.XmlSchemaUri = namespaceUri;
-                        }
+                        variableModel.NodeSet.XmlSchemaUri = xmlNamespaceVariable.Value;
                     }
                 }
             }
+
+            return variableModel;
         }
 
-        internal static void InitializeDataTypeInfo(VariableModel _model, DbOpcUaContext opcContext, BaseVariableState variableNode, int recursionDepth)
+        private MethodModel CreateMethodModel(MethodState method)
         {
-            VariableTypeModelFactoryOpc.InitializeDataTypeInfo(_model, opcContext, $"{variableNode.GetType()} {variableNode}", variableNode.DataType, variableNode.ValueRank, variableNode.ArrayDimensions, variableNode.WrappedValue, recursionDepth);
-        }
-    }
+            MethodModel methodModel = InitializeNodeModel(new MethodModel(), method) as MethodModel;
 
-    public class DataVariableModelFactoryOpc : VariableModelFactoryOpc<DataVariableModel>
-    {
-    }
-
-    public class PropertyModelFactoryOpc : VariableModelFactoryOpc<PropertyModel>
-    {
-    }
-
-    public class MethodModelFactoryOpc : InstanceModelFactoryOpc<MethodModel, MethodModel, MethodModelFactoryOpc> // TODO determine if intermediate base classes of MethodState are worth exposing in the model
-    {
-        protected override void Initialize(DbOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
-        {
-            base.Initialize(opcContext, opcNode, recursionDepth);
-            if (opcNode is MethodState methodState)
+            foreach (var reference in _opcContext.GetHierarchyReferences(method).Where(r => r.ReferenceTypeId == ReferenceTypeIds.HasProperty))
             {
-                var references = opcContext.GetHierarchyReferences(methodState);
-                foreach (var reference in references.Where(r => r.ReferenceTypeId == ReferenceTypeIds.HasProperty))
-                {
-                    var referencedNode = opcContext.GetNode(reference.TargetId);
-                    if (referencedNode?.BrowseName == "InputArguments" || referencedNode?.BrowseName == "OutputArguments")
-                    {
-                        if (referencedNode is PropertyState argumentProp && argumentProp.Value is ExtensionObject[] arguments)
-                        {
-                            var argumentInfo = new PropertyState<Argument[]>(methodState) {
-                                NodeId = argumentProp.NodeId,
-                                TypeDefinitionId = argumentProp.TypeDefinitionId,
-                                ModellingRuleId = argumentProp.ModellingRuleId,
-                                DataType = argumentProp.DataType,
-                            };
+                // TODO: Handle InputArguments and OutputArguments properties
+                //if (referencedNode?.BrowseName == "InputArguments" || referencedNode?.BrowseName == "OutputArguments")
+                //{
+                //    if (referencedNode is PropertyState argumentProp && argumentProp.Value is ExtensionObject[] arguments)
+                //    {
+                //        var argumentInfo = new PropertyState<Argument[]>(method) {
+                //            NodeId = argumentProp.NodeId,
+                //            TypeDefinitionId = argumentProp.TypeDefinitionId,
+                //            ModellingRuleId = argumentProp.ModellingRuleId,
+                //            DataType = argumentProp.DataType,
+                //        };
 
-                            argumentInfo.Value = new Argument[arguments.Length];
-                            for (int arg = 0; arg < arguments.Length; arg++)
-                            {
-                                argumentInfo.Value[arg] = arguments[arg].Body as Argument;
-                            }
+                //        argumentInfo.Value = new Argument[arguments.Length];
+                //        for (int arg = 0; arg < arguments.Length; arg++)
+                //        {
+                //            argumentInfo.Value[arg] = arguments[arg].Body as Argument;
+                //        }
 
-                            if (referencedNode?.BrowseName == "InputArguments")
-                            {
-                                methodState.InputArguments = argumentInfo;
-                            }
-                            else
-                            {
-                                methodState.OutputArguments = argumentInfo;
-                            }
-                        }
-                    }
-                }
-
-                //_model.MethodDeclarationId = opcContext.GetNodeIdWithUri(methodState.MethodDeclarationId, out var _);
-                var inputArgsModelBrowseName = opcContext.GetModelBrowseName(BrowseNames.InputArguments);
-                var inputArgs = Model.Properties.FirstOrDefault(p => p.BrowseName == inputArgsModelBrowseName);
-                if (inputArgs != null)
-                {
-                    Model.InputArguments = new List<VariableModel>();
-                    ProcessMethodArguments(Model, BrowseNames.InputArguments, inputArgs, Model.InputArguments, opcContext, recursionDepth);
-                }
-                var outputArgsModelBrowseName = opcContext.GetModelBrowseName(BrowseNames.OutputArguments);
-                var outputArgs = Model.Properties.FirstOrDefault(p => p.BrowseName == outputArgsModelBrowseName);
-                if (outputArgs != null)
-                {
-                    Model.OutputArguments = new List<VariableModel>();
-                    ProcessMethodArguments(Model, BrowseNames.OutputArguments, outputArgs, Model.OutputArguments, opcContext, recursionDepth);
-                }
+                //        if (referencedNode?.BrowseName == "InputArguments")
+                //        {
+                //            method.InputArguments = argumentInfo;
+                //        }
+                //        else
+                //        {
+                //            method.OutputArguments = argumentInfo;
+                //        }
+                //    }
+                //}
             }
-            else
-            {
-                throw new ArgumentException($"Unexpected node type for method {opcNode}");
-            }
+
+            return methodModel;
         }
 
-        private void ProcessMethodArguments(MethodModel methodModel, string browseName, VariableModel argumentVariable, List<VariableModel> modelArguments, DbOpcUaContext opcContext, int recursionDepth)
+        private void AddDataTypeInfo(VariableModel variableModel, BaseVariableState variableNode)
         {
-            var arguments = opcContext.JsonDecodeVariant(argumentVariable.Value, argumentVariable.DataType); // TODO get from opcContext!
-            if (arguments.Value != null)
-            {
-                foreach (var argObj in arguments.Value as Array)
-                {
-                    var arg = (argObj as ExtensionObject)?.Body as Argument;
-
-                    var dataTypeStateObj = opcContext.GetNode(arg.DataType);
-                    if (dataTypeStateObj is DataTypeState dataTypeState)
-                    {
-                        var dataType = Create<DataTypeModelFactoryOpc, DataTypeModel>(opcContext, dataTypeState, null, recursionDepth);
-
-                        var argumentDescription = Model.OtherReferencedNodes
-                            .FirstOrDefault(nr => nr.Node.GetUnqualifiedBrowseName() == arg.Name
-                             && ((nr.ReferenceType as ReferenceTypeModel).HasBaseType($"{Namespaces.OpcUa};{ReferenceTypeIds.HasArgumentDescription}")
-                             || (nr.ReferenceType as ReferenceTypeModel).HasBaseType($"{Namespaces.OpcUa};{ReferenceTypeIds.HasOptionalInputArgumentDescription}"))
-                            );
-
-                        var argumentModel = argumentDescription?.Node as VariableModel;
-                        if (argumentModel == null)
-                        {
-                            // No description: create an argument variable
-                            argumentModel = new VariableModel {
-                                DisplayName = new List<NodeModel.LocalizedText> { new NodeModel.LocalizedText { Text = arg.Name } },
-                                BrowseName = arg.Name,
-                                Description = arg.Description?.ToModel(),
-                                NodeSet = argumentVariable.NodeSet,
-                                NodeId = argumentVariable.NodeId,
-                                CustomState = argumentVariable.CustomState,
-                            };
-
-                            VariableTypeModelFactoryOpc.InitializeDataTypeInfo(argumentModel, opcContext, $"Method {Model} Argument {arg.Name}", arg.DataType, arg.ValueRank, new ReadOnlyList<uint>(arg.ArrayDimensions, false), new Variant(arg.Value), recursionDepth);
-                        }
-                        else
-                        {
-                            // TODO validate variable against argument property
-                            if ((argumentDescription.ReferenceType as ReferenceTypeModel).HasBaseType($"{Namespaces.OpcUa};{ReferenceTypeIds.HasOptionalInputArgumentDescription}"))
-                            {
-                                argumentModel.ModellingRule = "Optional";
-                            }
-                            else
-                            {
-                                argumentModel.ModellingRule = "Mandatory";
-                            }
-                        }
-
-                        modelArguments.Add(argumentModel);
-                    }
-                    else
-                    {
-                        throw new ArgumentException($"Invalid data type {arg.DataType} for argument {arg.Name} in method {Model.NodeId}.");
-                    }
-                }
-            }
-        }
-    }
-
-    public class VariableTypeModelFactoryOpc : BaseTypeModelFactoryOpc<VariableTypeModel>
-    {
-        protected override void Initialize(DbOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
-        {
-            base.Initialize(opcContext, opcNode, recursionDepth);
-            var variableTypeState = opcNode as BaseVariableTypeState;
-            InitializeDataTypeInfo(Model, opcContext, variableTypeState, recursionDepth);
+            AddDataTypeInfo(variableModel, $"{variableNode.GetType()} {variableNode}", variableNode.DataType, variableNode.ValueRank, variableNode.ArrayDimensions, variableNode.WrappedValue);
         }
 
-        internal static void InitializeDataTypeInfo(VariableTypeModel model, DbOpcUaContext opcContext, BaseVariableTypeState variableTypeNode, int recursionDepth)
+        private void AddDataTypeInfo(VariableModel variableModel, string variableNodeDiagInfo, NodeId dataTypeNodeId, int valueRank, ReadOnlyList<uint> arrayDimensions, Variant wrappedValue)
         {
-            InitializeDataTypeInfo(model, opcContext, $"{variableTypeNode.GetType()} {variableTypeNode}", variableTypeNode.DataType, variableTypeNode.ValueRank, variableTypeNode.ArrayDimensions, variableTypeNode.WrappedValue, recursionDepth);
-        }
-
-        internal static void InitializeDataTypeInfo(IVariableDataTypeInfo model, DbOpcUaContext opcContext, string variableNodeDiagInfo, NodeId dataTypeNodeId, int valueRank, ReadOnlyList<uint> arrayDimensions, Variant wrappedValue, int recursionDepth)
-        {
-            var dataType = opcContext.GetNode(dataTypeNodeId);
-
-            if (dataType is DataTypeState)
-            {
-                model.DataType = Create<DataTypeModelFactoryOpc, DataTypeModel>(opcContext, dataType as DataTypeState, null, recursionDepth);
-            }
-            else
-            {
-                if (dataType == null)
-                {
-                    throw new ArgumentException($"{variableNodeDiagInfo}: did not find data type {dataTypeNodeId} (Namespace {opcContext.NamespaceUris.GetString(dataTypeNodeId.NamespaceIndex)}).");
-                }
-                else
-                {
-                    throw new ArgumentException($"{variableNodeDiagInfo}: Unexpected node state {dataTypeNodeId}/{dataType?.GetType().FullName}.");
-                }
-            }
+            variableModel.DataType = dataTypeNodeId.ToString();
 
             if (valueRank != -1)
             {
-                model.ValueRank = valueRank;
+                variableModel.ValueRank = valueRank;
                 if ((arrayDimensions != null) && (arrayDimensions.Count > 0))
                 {
-                    model.ArrayDimensions = string.Join(",", arrayDimensions);
+                    variableModel.ArrayDimensions = string.Join(",", arrayDimensions);
+                }
+            }
+        }
+
+        private void AddDataTypeInfo(VariableTypeModel variableTypeModel, BaseVariableTypeState variableTypeNode)
+        {
+            variableTypeModel.DataType = variableTypeNode.DataType.ToString();
+
+            if (variableTypeNode.ValueRank != -1)
+            {
+                variableTypeModel.ValueRank = variableTypeNode.ValueRank;
+                if ((variableTypeNode.ArrayDimensions != null) && (variableTypeNode.ArrayDimensions.Count > 0))
+                {
+                    variableTypeModel.ArrayDimensions = string.Join(",", variableTypeNode.ArrayDimensions);
                 }
             }
 
-            if (wrappedValue.Value != null)
+            if (variableTypeNode.WrappedValue.Value != null)
             {
-                var encodedValue = opcContext.JsonEncodeVariant(wrappedValue, model.DataType);
-                model.Value = encodedValue.Json;
+                throw new NotImplementedException($"Wrapped value {variableTypeNode.WrappedValue.Value} for {variableTypeNode.GetType()} {variableTypeNode} is not supported. Please report this to the UA Cloud Library team.");
             }
         }
-    }
 
-    public class DataTypeModelFactoryOpc : BaseTypeModelFactoryOpc<DataTypeModel>
-    {
-        protected override void Initialize(DbOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
+        private VariableTypeModel CreateVariableTypeModel(BaseVariableTypeState variableType)
         {
-            base.Initialize(opcContext, opcNode, recursionDepth);
+            VariableTypeModel variableModel = InitializeNodeModel(new VariableTypeModel(), variableType) as VariableTypeModel;
 
-            var dataTypeState = opcNode as DataTypeState;
-            if (dataTypeState.DataTypeDefinition?.Body != null)
+            AddDataTypeInfo(variableModel, variableType);
+
+            return variableModel;
+        }
+
+        private DataTypeModel CreateDataTypeModel(DataTypeState dataType)
+        {
+            DataTypeModel dataTypeModel = InitializeNodeModel(new DataTypeModel(), dataType) as DataTypeModel;
+
+            // check for complex type (structure or enum)
+            if (dataType.DataTypeDefinition?.Body != null)
             {
-                var sd = dataTypeState.DataTypeDefinition.Body as StructureDefinition;
+                StructureDefinition sd = dataType.DataTypeDefinition.Body as StructureDefinition;
                 if (sd != null)
                 {
-                    Model.StructureFields = new List<DataTypeModel.StructureField>();
+                    dataTypeModel.StructureFields = new List<DataTypeModel.StructureField>();
                     int order = 0;
-                    // The OPC SDK does not put the SymbolicName into the node state: read from UANodeSet
-                    var uaNodeSet = opcContext.GetUANodeSet(Model.Namespace);
-                    UADataType uaStruct = null;
-                    if (uaNodeSet != null)
-                    {
-                        var opcNodeIdStr = opcNode.NodeId.ToString();
-                        uaStruct = uaNodeSet.Items.FirstOrDefault(n => n.NodeId == opcNodeIdStr) as UADataType;
-                    }
 
                     foreach (var field in sd.Fields)
                     {
-                        var dataType = opcContext.GetNode(field.DataType);
                         if (dataType is DataTypeState)
                         {
-                            var dataTypeModel = Create<DataTypeModelFactoryOpc, DataTypeModel>(opcContext, dataType as DataTypeState, null, recursionDepth);
-                            if (dataTypeModel == null)
+                            DataTypeModel fieldDataTypeModel = CreateDataTypeModel(dataType as DataTypeState);
+                            if (fieldDataTypeModel == null)
                             {
                                 throw new ArgumentException($"Unable to resolve data type {dataType.DisplayName}");
                             }
 
                             string symbolicName = null;
+                            UADataType uaStruct = _nodeset.Items.FirstOrDefault(n => n.NodeId == dataType.NodeId.ToString()) as UADataType;
                             if (uaStruct != null)
                             {
                                 symbolicName = uaStruct?.Definition?.Field?.FirstOrDefault(f => f.Name == field.Name)?.SymbolicName;
@@ -1176,7 +452,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                             var structureField = new DataTypeModel.StructureField {
                                 Name = field.Name,
                                 SymbolicName = symbolicName,
-                                DataType = dataTypeModel,
+                                DataType = fieldDataTypeModel,
                                 ValueRank = field.ValueRank != -1 ? field.ValueRank : null,
                                 ArrayDimensions = field.ArrayDimensions != null && field.ArrayDimensions.Any() ? string.Join(",", field.ArrayDimensions) : null,
                                 MaxStringLength = field.MaxStringLength != 0 ? field.MaxStringLength : null,
@@ -1186,34 +462,30 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                                 FieldOrder = order++,
                             };
 
-                            Model.StructureFields.Add(structureField);
+                            dataTypeModel.StructureFields.Add(structureField);
                         }
                         else
                         {
                             if (dataType == null)
                             {
-                                throw new ArgumentException($"Unable to find node state for data type {field.DataType} in {opcNode}");
+                                throw new ArgumentException($"Unable to find node state for data type {field.DataType} in {dataType}");
                             }
-
-                            throw new ArgumentException($"Unexpected node state {dataType?.GetType()?.FullName} for data type {field.DataType} in {opcNode}");
+                            else
+                            {
+                                throw new ArgumentException($"Unexpected node state {dataType?.GetType()?.FullName} for data type {field.DataType} in {dataType}");
+                            }
                         }
                     }
                 }
                 else
                 {
-                    var enumFields = dataTypeState.DataTypeDefinition.Body as EnumDefinition;
+                    var enumFields = dataType.DataTypeDefinition.Body as EnumDefinition;
                     if (enumFields != null)
                     {
-                        Model.IsOptionSet = enumFields.IsOptionSet || Model.HasBaseType(opcContext.GetModelNodeId(DataTypeIds.OptionSet));
-                        Model.EnumFields = new List<DataTypeModel.UaEnumField>();
+                        dataTypeModel.IsOptionSet = enumFields.IsOptionSet;
+                        dataTypeModel.EnumFields = new List<DataTypeModel.UaEnumField>();
 
-                        // The OPC SDK does not put the SymbolicName into the node state: read from UANodeSet
-                        var uaNodeSet = opcContext.GetUANodeSet(Model.Namespace);
-                        UADataType uaEnum = null;
-                        if (uaNodeSet != null)
-                        {
-                            uaEnum = uaNodeSet.Items.FirstOrDefault(n => n.NodeId == opcNode.NodeId) as UADataType;
-                        }
+                        UADataType uaEnum = _nodeset.Items.FirstOrDefault(n => n.NodeId == dataType.NodeId) as UADataType;
                         foreach (var field in enumFields.Fields)
                         {
                             string symbolicName = null;
@@ -1230,36 +502,27 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                                 SymbolicName = symbolicName,
                             };
 
-                            Model.EnumFields.Add(enumField);
+                            dataTypeModel.EnumFields.Add(enumField);
                         }
                     }
                     else
                     {
-                        throw new ArgumentException($"Unknown data type definition in {dataTypeState}");
+                        throw new ArgumentException($"Unknown data type definition in {dataType}");
                     }
                 }
             }
-        }
-    }
 
-    public class ReferenceTypeModelFactoryOpc : BaseTypeModelFactoryOpc<ReferenceTypeModel>
-    {
-        protected override void Initialize(DbOpcUaContext opcContext, NodeState opcNode, int recursionDepth)
+            return dataTypeModel;
+        }
+
+        private ReferenceTypeModel CreateReferenceTypeModel(ReferenceTypeState referenceType)
         {
-            base.Initialize(opcContext, opcNode, recursionDepth);
-            var referenceTypeState = opcNode as ReferenceTypeState;
+            ReferenceTypeModel referenceTypeModel = InitializeNodeModel(new ReferenceTypeModel(), referenceType) as ReferenceTypeModel;
 
-            Model.InverseName = referenceTypeState.InverseName?.ToModel();
-            Model.Symmetric = referenceTypeState.Symmetric;
+            referenceTypeModel.InverseName = referenceType.InverseName?.ToModel();
+            referenceTypeModel.Symmetric = referenceType.Symmetric;
+
+            return referenceTypeModel;
         }
-    }
-
-    public static class LocalizedTextExtension
-    {
-        public static NodeModel.LocalizedText ToModelSingle(this LocalizedText text) => text != null ? new NodeModel.LocalizedText { Text = text.Text, Locale = text.Locale } : null;
-
-        public static List<NodeModel.LocalizedText> ToModel(this LocalizedText text) => text != null ? new List<NodeModel.LocalizedText> { text.ToModelSingle() } : new List<NodeModel.LocalizedText>();
-
-        public static List<NodeModel.LocalizedText> ToModel(this IEnumerable<LocalizedText> texts) => texts?.Select(text => text.ToModelSingle()).Where(lt => lt != null).ToList();
     }
 }

@@ -28,7 +28,10 @@
  * ======================================================================*/
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Opc.Ua.Cloud.Library.NodeSetIndex;
 using Opc.Ua.Export;
 
@@ -61,7 +64,9 @@ namespace Opc.Ua.Cloud.Library.Models
             {
                 foreach (ModelTableEntry requiredModel in model.RequiredModel)
                 {
-                    NodeSetModel existingNodeSet = await DbOpcUaContext.GetMatchingOrHigherNodeSetAsync(dbContext, requiredModel.ModelUri, requiredModel.PublicationDateSpecified ? requiredModel.PublicationDate : null, requiredModel.Version).ConfigureAwait(false);
+                    DateTime? publicationDate = requiredModel.PublicationDateSpecified ? requiredModel.PublicationDate : null;
+                    List<NodeSetModel> matchingNodeSets = await dbContext.Set<NodeSetModel>().Where(nsm => nsm.ModelUri == requiredModel.ModelUri).ToListAsync().ConfigureAwait(false);
+                    NodeSetModel existingNodeSet = NodeModelUtils.GetMatchingOrHigherNodeSet(matchingNodeSets, publicationDate, requiredModel.Version);
 
                     var requiredModelInfo = new RequiredModelInfoModel {
                         ModelUri = requiredModel.ModelUri,
