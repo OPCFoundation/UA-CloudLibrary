@@ -291,7 +291,7 @@ namespace CloudLibClient.Tests
         {
             UACloudLibClient client = _factory.CreateCloudLibClient();
 
-            List<UANameSpace> result = await client.GetBasicNodesetInformationAsync(0, 100, keywords.ToList()).ConfigureAwait(true);
+            List<UANameSpace> result = await client.GetBasicNodesetInformationAsync(0, 100, keywords?.ToList()).ConfigureAwait(true);
             Assert.Equal(expectedCount, result.Count);
         }
 

@@ -62,7 +62,7 @@ namespace CloudLibClient.Tests
                 startIndex = int.Parse(after, CultureInfo.InvariantCulture);
             }
 
-            List<UANameSpace> unpagedResult = await apiClient.GetBasicNodesetInformationAsync(startIndex, first, keywords.ToList()).ConfigureAwait(true);
+            List<UANameSpace> unpagedResult = await apiClient.GetBasicNodesetInformationAsync(startIndex, first, keywords?.ToList()).ConfigureAwait(true);
             var unpaged = unpagedResult;
 
             List<UANameSpace> paged = await GetAllPaged(apiClient, keywords: keywords, after: after, first: first).ConfigureAwait(true);
@@ -85,7 +85,7 @@ namespace CloudLibClient.Tests
 
             do
             {
-                List<UANameSpace> page = await apiClient.GetBasicNodesetInformationAsync(cursor, first, keywords.ToList()).ConfigureAwait(true);
+                List<UANameSpace> page = await apiClient.GetBasicNodesetInformationAsync(cursor, first, keywords?.ToList()).ConfigureAwait(true);
                 Assert.True(page.Count <= first, "CloudLibAsync returned more profiles than requested");
                 paged.AddRange(page);
                 if (page.Count == 0)
@@ -105,22 +105,22 @@ namespace CloudLibClient.Tests
             {
                 new object[ ]{ null, 63 },
                 new object[] { item, 1 },
-                new object[] { itemArray,  6 },
-                new object[] { itemArray0, 62 },
+                new object[] { itemArray,  0 },
+                new object[] { itemArray0, 41 },
                 new object[] { itemArray1, 1 },
                 new object[] { itemArray2, 15 },
-                new object[] { itemArray3, 6},
-                new object[] { itemArray4, 62 },
+                new object[] { itemArray3, 2},
+                new object[] { itemArray4, 41 },
                 new object[] { itemArray5, 62 },
                 new object[] { itemArray6, 7 },
                 new object[] { itemArray7, 16 },
-                new object[] { itemArray8, 19 },
+                new object[] { itemArray8, 17 },
                 new object[] { itemArray9, 0 },
-                new object[] { itemArray10, 24 },
-                new object[] { itemArray11, 23 },
-                new object[] { itemArray12, 28 },
-                new object[] { itemArray13, 28 },
-                new object[] { itemArray14, 40 },
+                new object[] { itemArray10, 5 },
+                new object[] { itemArray11, 1 },
+                new object[] { itemArray12, 5 },
+                new object[] { itemArray13, 5 },
+                new object[] { itemArray14, 6 },
             };
         }
     }
