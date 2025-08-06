@@ -75,17 +75,14 @@ namespace CloudLibClient.Tests
 
         private static async Task<UANameSpace> GetBasicNodeSetInfoForNamespaceAsync(UACloudLibClient client, string namespaceUri)
         {
-            var restResult = await client.GetNamespaceIdsExAsync().ConfigureAwait(false);
-            Assert.NotNull(restResult);
-            Assert.True(restResult.Length > 0, "Failed to download namespace ids");
+            var restResults = await client.GetNamespaceIdsExAsync().ConfigureAwait(false);
+            Assert.NotNull(restResults);
+            Assert.True(restResults.Length > 0, "Failed to download namespace ids");
 
-            if (restResult.Length > 1)
-            {
-                // more then one nodeset with required namespace, pick the lastest one
-                restResult = restResult.OrderByDescending(n => n.PublicationDate).ToArray();
-            }
+            // select the first namespace that matches the given namespaceUri
+            var restResult = restResults.FirstOrDefault(r => r.NamespaceUri == namespaceUri);
 
-            UANameSpace nodeset = await client.DownloadNodesetAsync(restResult[0].Identifier, true).ConfigureAwait(true);
+            UANameSpace nodeset = await client.DownloadNodesetAsync(restResult.Identifier, false).ConfigureAwait(true);
             Assert.NotNull(nodeset);
 
             return nodeset;

@@ -14,6 +14,8 @@ namespace Opc.Ua.Cloud.Library
 
         public DateTime? PublicationDate { get; set; }
 
+        public DateTime? LastModifiedDate { get; set; }
+
         public string XmlSchemaUri { get; set; }
 
         // RequiredModels

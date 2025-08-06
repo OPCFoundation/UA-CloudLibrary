@@ -191,7 +191,7 @@ namespace Opc.Ua.Cloud.Library
             return message;
         }
 
-        public async Task IndexNodeSetModelAsync(UANodeSet nodeset, string identifier)
+        public async Task IndexNodeSetModelAsync(UANodeSet nodeset, UANameSpace uaNamespace)
         {
             if (nodeset.Models.Length == 0)
             {
@@ -199,7 +199,8 @@ namespace Opc.Ua.Cloud.Library
             }
 
             CloudLibNodeSetModel nodesetModel = await CloudLibNodeSetModel.FromModelAsync(nodeset.Models[0], _dbContext).ConfigureAwait(false);
-            nodesetModel.Identifier = identifier;
+            nodesetModel.Identifier = uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
+            nodesetModel.LastModifiedDate = uaNamespace.Nodeset.LastModifiedDate;
 
             // find our metadata model and link the two together
             NamespaceMetaDataModel metadataModel = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetModel.Identifier).ConfigureAwait(false);
@@ -465,6 +466,7 @@ namespace Opc.Ua.Cloud.Library
             nodeset.Identifier = uint.Parse(model.Identifier, CultureInfo.InvariantCulture);
             nodeset.NamespaceUri = model.ModelUri != null ? new Uri(model.ModelUri) : null;
             nodeset.PublicationDate = model.PublicationDate ?? default;
+            nodeset.LastModifiedDate = model.LastModifiedDate ?? default;
             nodeset.Version = model.Version;
             nodeset.ValidationStatus = (model as CloudLibNodeSetModel)?.Metadata.ValidationStatus.ToString();
             nodeset.NodesetXml = null;
