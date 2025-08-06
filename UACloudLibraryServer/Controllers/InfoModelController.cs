@@ -353,8 +353,10 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             if (uaNamespace.Nodeset.LastModifiedDate != nodeSet.LastModified)
             {
-                _logger.LogInformation($"LastModifiedDate in metadata for nodeset {uaNamespace.Nodeset.Identifier} does not match nodeset XML. Ignoring.");
-                uaNamespace.Nodeset.LastModifiedDate = nodeSet.LastModified;
+                if (nodeSet.LastModifiedSpecified && (nodeSet.LastModified != DateTime.MinValue))
+                {
+                    uaNamespace.Nodeset.LastModifiedDate = nodeSet.LastModified;
+                }
             }
 
             // Ignore RequiredModels if provided: cloud library will read from the nodeset
