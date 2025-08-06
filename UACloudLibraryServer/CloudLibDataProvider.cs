@@ -405,7 +405,7 @@ namespace Opc.Ua.Cloud.Library
             }
             else
             {
-                metadataModel.CreationTime = DateTime.Now;
+                metadataModel.CreationTime = DateTime.UtcNow;
             }
 
             metadataModel.Title = uaNamespace.Title;

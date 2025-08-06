@@ -159,7 +159,7 @@ namespace CloudLibClient.Tests
             Assert.Equal(uploadedNamespace.CopyrightText, downloadedNamespace.CopyrightText);
             Assert.Equal(uploadedNamespace.Description, downloadedNamespace.Description);
             Assert.Equal(uploadedNamespace.DocumentationUrl, downloadedNamespace.DocumentationUrl);
-            Assert.True(downloadedNamespace.CreationTime != null && DateTime.Now - downloadedNamespace.CreationTime < new TimeSpan(1, 0, 0));
+            Assert.True(downloadedNamespace.CreationTime != null && DateTime.UtcNow - downloadedNamespace.CreationTime < new TimeSpan(1, 0, 0));
             Assert.Equal(uploadedNamespace.IconUrl, downloadedNamespace.IconUrl);
             Assert.Equal(uploadedNamespace.PurchasingInformationUrl, downloadedNamespace.PurchasingInformationUrl);
             Assert.Equal(uploadedNamespace.ReleaseNotesUrl, downloadedNamespace.ReleaseNotesUrl);
