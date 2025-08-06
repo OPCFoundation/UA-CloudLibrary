@@ -107,77 +107,9 @@ namespace Opc.Ua.Cloud.Library
         [IgnoreDataMember]
         public string Namespace { get => NodeSet?.ModelUri; }
 
-        public string NodeId
-        {
-            get
-            {
-                if (_namespace != null)
-                {
-                    if (_namespace == "")
-                    {
-                        return $"nsu={Namespace};{NodeIdIdentifier}";
-                    }
-                    return $"nsu={_namespace};{NodeIdIdentifier}";
-                }
-
-                if (NodeSet.NamespaceIndex == 0)
-                {
-                    return NodeIdIdentifier;
-                }
-
-                return $"ns={NodeSet.NamespaceIndex};{NodeIdIdentifier}";
-            }
-            set
-            {
-                var nodeIdParts = value.Split([';'], 2);
-                if (nodeIdParts.Length > 1)
-                {
-                    if (nodeIdParts[0].StartsWith("nsu=", false, CultureInfo.InvariantCulture))
-                    {
-                        if (this.GetType().Name.EndsWith("ModelProxy", false, CultureInfo.InvariantCulture))
-                        {
-                            // For use with EF proxies, we avoid accessing the NodeModel.NodeSet property. Instead save the namespace in a private _namespace variable
-                            _namespace = nodeIdParts[0].Substring("nsu=".Length);
-                        }
-                        else
-                        {
-                            // Indicate that we want to use absolute nodeids
-                            _namespace = "";
-                        }
-                    }
-                    else if (nodeIdParts[0].StartsWith("ns=", false, CultureInfo.InvariantCulture))
-                    {
-                        if (NodeSet?.NamespaceIndex != null)
-                        {
-                            throw new ArgumentException($"Invalid NodeId: node ids must be absolute.");
-                        }
-
-                        if (nodeIdParts[0].Substring("ns=".Length) != NodeSet?.NamespaceIndex?.ToString(CultureInfo.InvariantCulture))
-                        {
-                            throw new ArgumentException($"Mismatching namespace index in {value}. Expected {NodeSet.NamespaceIndex}");
-                        }
-
-                        _namespace = null;
-                    }
-                    NodeIdIdentifier = nodeIdParts[1];
-                }
-                else
-                {
-                    NodeIdIdentifier = value;
-                }
-            }
-        }
-
-        /// <summary>
-        /// null: use local node ids
-        /// empty string: use NodeSet.Namespace and absolute nodeids
-        /// uri: return as absolute nodeid without accessing the NodeSet property
-        /// </summary>
-        private string _namespace;
+        public string NodeId { get; set; }
 
         public string NodeIdIdentifier { get; set; }
-
-        public object CustomState { get; set; }
 
         public IEnumerable<NodeAndReference> AllReferencedNodes { get; set; }
 
@@ -546,7 +478,7 @@ namespace Opc.Ua.Cloud.Library
 
             public string SymbolicName { get; set; }
 
-            public virtual BaseTypeModel DataType { get; set; }
+            public virtual string DataType { get; set; }
 
             /// <summary>
             /// n > 1: the Value is an array with the specified number of dimensions.

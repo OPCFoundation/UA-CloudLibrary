@@ -106,8 +106,6 @@ namespace SampleConsoleClient
             {
                 Console.WriteLine("Skipped download test because of failure in previous test.");
             }
-            Console.WriteLine();
-            Console.WriteLine("For sample code to test /infomodel/upload, see https://github.com/digitaltwinconsortium/UANodesetWebViewer/blob/main/Applications/Controllers/UACL.cs");
 
             webClient.Dispose();
         }

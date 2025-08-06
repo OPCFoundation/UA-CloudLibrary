@@ -161,11 +161,7 @@ namespace Opc.Ua.Cloud.Library
                         await DeleteAllRecordsForNodesetAsync(legacyNodesetHashCode).ConfigureAwait(false);
                     }
 
-                    CloudLibNodeSetModel nodeSetModel = await CloudLibNodeSetModel.FromModelAsync(nodeSet.Models[0], _dbContext).ConfigureAwait(false);
-                    nodeSetModel.Identifier = uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
-                    nodeSetModel.LastModifiedDate = nodeSet.LastModifiedSpecified ? ((DateTime?)nodeSet.LastModified).GetNormalizedPublicationDate() : null;
-
-                    CloudLibNodeSetModel existingModel = await _dbContext.NodeSetsWithUnapproved.FindAsync(nodeSetModel.ModelUri, nodeSetModel.PublicationDate).ConfigureAwait(false);
+                    CloudLibNodeSetModel existingModel = await _dbContext.NodeSetsWithUnapproved.FindAsync(nodeSet.Models[0].ModelUri, nodeSet.Models[0].GetNormalizedPublicationDate()).ConfigureAwait(false);
                     if (existingModel != null)
                     {
                         message = "Error: nodeset still exists after delete.";
@@ -173,21 +169,17 @@ namespace Opc.Ua.Cloud.Library
                     }
 
                     var nameSpaceModel = new NamespaceMetaDataModel();
-                    MapToEntity(ref nameSpaceModel, uaNamespace, nodeSetModel);
 
-                    nodeSetModel.ValidationStatus = ValidationStatus.Parsed;
-                    nodeSetModel.ValidationStatusInfo = null;
-
+                    MapToEntity(ref nameSpaceModel, uaNamespace);
                     nameSpaceModel.UserId = userId;
 
                     await _dbContext.AddAsync(nameSpaceModel).ConfigureAwait(false);
-                    await _dbContext.NodeSetsWithUnapproved.AddAsync(nodeSetModel).ConfigureAwait(false);
 
                     await _dbContext.SaveChangesAsync().ConfigureAwait(false);
                 },
                 // This will only run on failures during transaction commit, where the EF can not determine if the Tx was committed or not
-                () => _dbContext.NodeSetsWithUnapproved.AsNoTracking()
-                    .AnyAsync(n => n.ModelUri == nodeSet.Models[0].ModelUri && n.PublicationDate == (nodeSet.Models[0].PublicationDateSpecified ? nodeSet.Models[0].PublicationDate : default))
+                () => _dbContext.NodeSetsWithUnapproved.AnyAsync(
+                    n => n.ModelUri == nodeSet.Models[0].ModelUri && n.PublicationDate == (nodeSet.Models[0].PublicationDateSpecified ? nodeSet.Models[0].PublicationDate : default))
                 ).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -210,16 +202,15 @@ namespace Opc.Ua.Cloud.Library
             nodesetModel.Identifier = identifier;
             nodesetModel.LastModifiedDate = nodeset.LastModifiedSpecified ? ((DateTime?)nodeset.LastModified).GetNormalizedPublicationDate() : null;
 
-            new NodeModelFactoryOpc(nodesetModel, nodeset, _logger).ImportNodeSet();
+            // find our metadata model and link the two together
+            NamespaceMetaDataModel namespaceMeta = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetModel.Identifier).ConfigureAwait(false);
+            namespaceMeta.NodeSet = nodesetModel;
+            nodesetModel.Metadata = namespaceMeta;
 
-            if (!_dbContext.Set<NodeSetModel>().Any(nsm => nsm.ModelUri == nodesetModel.ModelUri && nsm.PublicationDate == nodesetModel.PublicationDate))
-            {
-                _dbContext.NodeSetsWithUnapproved.Add(nodesetModel);
-            }
-            else
-            {
-                _dbContext.NodeSetsWithUnapproved.Update(nodesetModel);
-            }
+            new NodeModelFactoryOpc(nodesetModel, nodeset, _logger).ImportNodeSet();
+            nodesetModel.ValidationStatus = ValidationStatus.Indexed;
+
+            await _dbContext.NodeSetsWithUnapproved.AddAsync(nodesetModel).ConfigureAwait(false);
 
             await _dbContext.SaveChangesAsync().ConfigureAwait(false);
         }
@@ -227,9 +218,12 @@ namespace Opc.Ua.Cloud.Library
         public async Task<uint> IncrementDownloadCountAsync(uint nodesetId)
         {
             NamespaceMetaDataModel namespaceMeta = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+
             namespaceMeta.NumberOfDownloads++;
             uint newCount = namespaceMeta.NumberOfDownloads;
+
             await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+
             return newCount;
         }
 
@@ -263,6 +257,7 @@ namespace Opc.Ua.Cloud.Library
         public async Task<UANameSpace> RetrieveAllMetadataAsync(uint nodesetId)
         {
             UANameSpace nameSpace = new();
+
             try
             {
 #pragma warning disable CA1305 // Specify IFormatProvider: runs in database with single culture, can not use culture invariant
@@ -271,10 +266,12 @@ namespace Opc.Ua.Cloud.Library
                     .Include(md => md.NodeSet)
                     .FirstOrDefaultAsync().ConfigureAwait(false);
 #pragma warning restore CA1305 // Specify IFormatProvider
+
                 if (namespaceModel == null)
                 {
                     return null;
                 }
+
                 MapToNamespace(nameSpace, namespaceModel);
             }
             catch (Exception ex)
@@ -282,6 +279,7 @@ namespace Opc.Ua.Cloud.Library
                 _logger.LogError(ex.Message);
                 throw;
             }
+
             return nameSpace;
         }
 
@@ -311,6 +309,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 matchingNodeSets = NodeSets.AsQueryable();
             }
+
             return matchingNodeSets;
         }
 
@@ -329,6 +328,7 @@ namespace Opc.Ua.Cloud.Library
 
                 return result;
             }).ToArray();
+
             return nodesetResults;
         }
 
@@ -391,12 +391,13 @@ namespace Opc.Ua.Cloud.Library
 
             await _dbContext.SaveChangesAsync().ConfigureAwait(false);
             NamespaceMetaDataModel nodeSetMetaSaved = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync().ConfigureAwait(false);
+
             return nodeSetMetaSaved;
         }
 
-        private void MapToEntity(ref NamespaceMetaDataModel entity, UANameSpace uaNamespace, CloudLibNodeSetModel nodeSetModel)
+        private void MapToEntity(ref NamespaceMetaDataModel entity, UANameSpace uaNamespace)
         {
-            string identifier = nodeSetModel != null ? nodeSetModel.Identifier : uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
+            string identifier = uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
             entity.NodesetId = identifier;
             if (uaNamespace.CreationTime != null)
             {
@@ -407,7 +408,6 @@ namespace Opc.Ua.Cloud.Library
                 entity.CreationTime = DateTime.Now;
             }
 
-            entity.NodeSet = nodeSetModel;
             entity.Title = uaNamespace.Title;
 
             string licenseExpression = uaNamespace.License switch {
@@ -443,6 +443,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 MapToNodeSet(uaNamespace.Nodeset, model.NodeSet);
             }
+
             uaNamespace.CreationTime = model.CreationTime;
             uaNamespace.Title = model.Title;
             uaNamespace.License = model.License;
@@ -573,7 +574,7 @@ namespace Opc.Ua.Cloud.Library
                 List<string> fields = new();
                 foreach (DataTypeModel.StructureField field in dataModel.StructureFields)
                 {
-                    fields.Add(field.DataType.NodeId + ":" + field.DataType.BrowseName + ":" + field.Name);
+                    fields.Add(field.DataType + ":" + field.Name);
                 }
 
                 string fieldsSerialized = JsonSerializer.Serialize(fields, options);

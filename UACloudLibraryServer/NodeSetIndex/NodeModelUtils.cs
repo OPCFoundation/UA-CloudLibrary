@@ -122,40 +122,5 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             }
             return model.DisplayName.FirstOrDefault()?.Text;
         }
-
-        public static string GetUnqualifiedBrowseName(this NodeModel nodeModel)
-        {
-            var browseName = nodeModel.GetBrowseName();
-            var parts = browseName.Split([';'], 2);
-
-            if (parts.Length > 1)
-            {
-                return parts[1];
-            }
-
-            return browseName;
-        }
-
-        internal static void SetEngineeringUnits(this VariableModel model, EUInformation euInfo)
-        {
-            model.EngineeringUnit = new VariableModel.EngineeringUnitInfo {
-                DisplayName = euInfo.DisplayName?.ToModelSingle(),
-                Description = euInfo.Description?.ToModelSingle(),
-                NamespaceUri = euInfo.NamespaceUri,
-                UnitId = euInfo.UnitId,
-            };
-        }
-
-        internal static void SetRange(this VariableModel model, Opc.Ua.Range euRange)
-        {
-            model.MinValue = euRange.Low;
-            model.MaxValue = euRange.High;
-        }
-
-        internal static void SetInstrumentRange(this VariableModel model, Opc.Ua.Range range)
-        {
-            model.InstrumentMinValue = range.Low;
-            model.InstrumentMaxValue = range.High;
-        }
     }
 }

@@ -2,14 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Threading.Tasks;
-using System.Xml;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Export;
-using static NpgsqlTypes.NpgsqlTsQuery;
 using static Opc.Ua.Cloud.Library.NodeModel;
 
 namespace Opc.Ua.Cloud.Library.NodeSetIndex
@@ -64,129 +59,52 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
             foreach (NodeState node in importedNodes)
             {
-                NodeModel nodeModel = CreateNodeModel(node, out bool added);
-
-                // check if the node was added to the model
-                if ((nodeModel != null) && !added)
-                {
-                    // not added, so add it to the Unknown Nodes collection
-                    if (!_nodesetModel.AllNodesByNodeId.ContainsKey(nodeModel.NodeId))
-                    {
-                        _nodesetModel.UnknownNodes.Add(nodeModel);
-                    }
-                }
+                CreateNodeModel(node);
             }
         }
 
-        private NodeModel CreateNodeModel(NodeState node, out bool added)
+        private void CreateNodeModel(NodeState node)
         {
-            NodeModel nodeModel;
-            added = true;
-
             if (node is DataTypeState dataType)
             {
-                nodeModel = CreateDataTypeModel(dataType);
+                _nodesetModel.DataTypes.Add(CreateDataTypeModel(dataType));
             }
             else if (node is BaseVariableTypeState variableType)
             {
-                nodeModel = CreateVariableTypeModel(variableType);
+                _nodesetModel.VariableTypes.Add(CreateVariableTypeModel(variableType));
             }
             else if (node is BaseObjectTypeState objectType)
             {
-                nodeModel = CreateObjectTypeModel(objectType);
+                _nodesetModel.ObjectTypes.Add(CreateObjectTypeModel(objectType));
             }
             else if (node is BaseInterfaceState uaInterface)
             {
-                nodeModel = CreateInterfaceModel(uaInterface);
+                _nodesetModel.Interfaces.Add(CreateInterfaceModel(uaInterface));
             }
             else if (node is BaseObjectState uaObject)
             {
-                nodeModel = CreateObjectModel(uaObject);
+                _nodesetModel.Objects.Add(CreateObjectModel(uaObject));
             }
             else if (node is PropertyState property)
             {
-                nodeModel = CreatePropertyModel(property);
+                _nodesetModel.Properties.Add(CreatePropertyModel(property));
             }
             else if (node is BaseDataVariableState dataVariable)
             {
-                nodeModel = CreateVariableModel(dataVariable);
+                _nodesetModel.DataVariables.Add(CreateVariableModel(dataVariable));
             }
             else if (node is MethodState methodState)
             {
-                nodeModel = CreateMethodModel(methodState);
+                _nodesetModel.Methods.Add(CreateMethodModel(methodState));
             }
             else if (node is ReferenceTypeState referenceState)
             {
-                nodeModel = CreateReferenceTypeModel(referenceState);
+                _nodesetModel.ReferenceTypes.Add(CreateReferenceTypeModel(referenceState));
             }
             else
             {
-                if (!(node is ViewState))
-                {
-                    nodeModel = InitializeNodeModel(new NodeModel(), node);
-                }
-                else
-                {
-                    // TODO: Support Views
-                    nodeModel = null;
-                    added = false;
-                    _logger.LogWarning($"Node {node} is a ViewState, which is not supported in the current implementation. Skipping this node.");
-                }
+                _nodesetModel.UnknownNodes.Add(InitializeNodeModel(new NodeModel(), node));
             }
-
-            if (added)
-            {
-                if (!_nodesetModel.AllNodesByNodeId.TryAdd(nodeModel.NodeId, nodeModel))
-                {
-                    // Node already processed
-                    _logger.LogWarning($"Node {nodeModel} was already in the nodeset dataTypeModel.");
-                }
-                else
-                {
-                    if (nodeModel is InterfaceModel uaInterface)
-                    {
-                        _nodesetModel.Interfaces.Add(uaInterface);
-                    }
-                    else if (nodeModel is ObjectTypeModel objectType)
-                    {
-                        _nodesetModel.ObjectTypes.Add(objectType);
-                    }
-                    else if (nodeModel is DataTypeModel uaDataType)
-                    {
-                        _nodesetModel.DataTypes.Add(uaDataType);
-                    }
-                    else if (nodeModel is DataVariableModel dataVariable)
-                    {
-                        _nodesetModel.DataVariables.Add(dataVariable);
-                    }
-                    else if (nodeModel is VariableTypeModel variableType)
-                    {
-                        _nodesetModel.VariableTypes.Add(variableType);
-                    }
-                    else if (nodeModel is ObjectModel uaObject)
-                    {
-                        _nodesetModel.Objects.Add(uaObject);
-                    }
-                    else if (nodeModel is PropertyModel property)
-                    {
-                        _nodesetModel.Properties.Add(property);
-                    }
-                    else if (nodeModel is MethodModel method)
-                    {
-                        _nodesetModel.Methods.Add(method);
-                    }
-                    else if (nodeModel is ReferenceTypeModel referenceType)
-                    {
-                        _nodesetModel.ReferenceTypes.Add(referenceType);
-                    }
-                    else
-                    {
-                        throw new ArgumentException($"Unexpected node dataTypeModel type {nodeModel.GetType().FullName} for node {nodeModel}");
-                    }
-                }
-            }
-
-            return nodeModel;
         }
 
         private NodeModel InitializeNodeModel(NodeModel nodeModel, NodeState opcNode)
@@ -201,27 +119,37 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             nodeModel.ReleaseStatus = opcNode.ReleaseStatus.ToString();
             nodeModel.ReferencesNotResolved = false;
             nodeModel.NodeSet = _nodesetModel;
+            nodeModel.NodeId = _opcContext.GetExpandedNodeId(opcNode.NodeId);
+            nodeModel.NodeIdIdentifier = opcNode.NodeId.Identifier.ToString();
 
             foreach (NodeStateHierarchyReference reference in _opcContext.GetHierarchyReferences(opcNode))
             {
                 NodeModel referenceNodeModel = new() {
-                    SymbolicName = reference.ToString(),
+                    DisplayName = new LocalizedText(_opcContext.GetExpandedNodeId(reference.ReferenceTypeId)).ToModel(),
+                    NodeId = _opcContext.GetExpandedNodeId(reference.ReferenceTypeId),
                     ReferencesNotResolved = true
                 };
 
                 NodeModel referenceTypeModel = new() {
-                    SymbolicName = reference.ReferenceTypeId.ToString(),
+                    DisplayName = new LocalizedText(_opcContext.GetExpandedNodeId(reference.ReferenceTypeId)).ToModel(),
+                    NodeId = _opcContext.GetExpandedNodeId(reference.ReferenceTypeId),
                     ReferencesNotResolved = true
                 };
 
                 nodeModel.AllReferencedNodes = new List<NodeAndReference>() { new NodeAndReference() { Node = referenceNodeModel, ReferenceType = referenceTypeModel } };
             }
 
-            _logger.LogTrace($"Created node dataTypeModel {nodeModel} for {opcNode}");
+            if (!_nodesetModel.AllNodesByNodeId.TryAdd(nodeModel.NodeId, nodeModel))
+            {
+                throw new ArgumentException($"Duplicate node {nodeModel} for {opcNode} in the nodeset.");
+            }
+            else
+            {
+                _logger.LogTrace($"Created node dataTypeModel {nodeModel} for {opcNode}");
+            }
 
             return nodeModel;
         }
-
 
         private InterfaceModel CreateInterfaceModel(BaseInterfaceState baseInterface)
         {
@@ -229,7 +157,6 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
             return interfaceModel;
         }
-
 
         private ObjectModel CreateObjectModel(BaseObjectState objState)
         {
@@ -244,7 +171,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
         {
             ObjectTypeModel objectTypeModel = InitializeNodeModel(new ObjectTypeModel(), baseType) as ObjectTypeModel;
 
-            objectTypeModel.SuperType = baseType.SuperTypeId.ToString();
+            objectTypeModel.SuperType = baseType.SuperTypeId?.ToString();
             objectTypeModel.IsAbstract = baseType.IsAbstract;
 
             return objectTypeModel;
@@ -267,9 +194,9 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             return propertyModel;
         }
 
-        private VariableModel CreateVariableModel(BaseVariableState baseVariable)
+        private DataVariableModel CreateVariableModel(BaseVariableState baseVariable)
         {
-            VariableModel variableModel = InitializeNodeModel(new VariableModel(), baseVariable) as VariableModel;
+            DataVariableModel variableModel = InitializeNodeModel(new DataVariableModel(), baseVariable) as DataVariableModel;
 
             if (baseVariable.Value != null)
             {
@@ -335,41 +262,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
         private MethodModel CreateMethodModel(MethodState method)
         {
-            MethodModel methodModel = InitializeNodeModel(new MethodModel(), method) as MethodModel;
-
-            foreach (var reference in _opcContext.GetHierarchyReferences(method).Where(r => r.ReferenceTypeId == ReferenceTypeIds.HasProperty))
-            {
-                // TODO: Handle InputArguments and OutputArguments properties
-                //if (referencedNode?.BrowseName == "InputArguments" || referencedNode?.BrowseName == "OutputArguments")
-                //{
-                //    if (referencedNode is PropertyState argumentProp && argumentProp.Value is ExtensionObject[] arguments)
-                //    {
-                //        var argumentInfo = new PropertyState<Argument[]>(method) {
-                //            NodeId = argumentProp.NodeId,
-                //            TypeDefinitionId = argumentProp.TypeDefinitionId,
-                //            ModellingRuleId = argumentProp.ModellingRuleId,
-                //            DataType = argumentProp.DataType,
-                //        };
-
-                //        argumentInfo.Value = new Argument[arguments.Length];
-                //        for (int arg = 0; arg < arguments.Length; arg++)
-                //        {
-                //            argumentInfo.Value[arg] = arguments[arg].Body as Argument;
-                //        }
-
-                //        if (referencedNode?.BrowseName == "InputArguments")
-                //        {
-                //            method.InputArguments = argumentInfo;
-                //        }
-                //        else
-                //        {
-                //            method.OutputArguments = argumentInfo;
-                //        }
-                //    }
-                //}
-            }
-
-            return methodModel;
+            return InitializeNodeModel(new MethodModel(), method) as MethodModel;
         }
 
         private void AddDataTypeInfo(VariableModel variableModel, BaseVariableState variableNode)
@@ -406,7 +299,14 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
             if (variableTypeNode.WrappedValue.Value != null)
             {
-                throw new NotImplementedException($"Wrapped value {variableTypeNode.WrappedValue.Value} for {variableTypeNode.GetType()} {variableTypeNode} is not supported. Please report this to the UA Cloud Library team.");
+                if (variableTypeNode.WrappedValue.Value is ExtensionObject extensionObject)
+                {
+                    variableTypeModel.Value = ((System.Xml.XmlNode)extensionObject.Body).OuterXml;
+                }
+                else
+                {
+                    variableTypeModel.Value = variableTypeNode.WrappedValue.Value.ToString();
+                }
             }
         }
 
@@ -432,49 +332,29 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                     dataTypeModel.StructureFields = new List<DataTypeModel.StructureField>();
                     int order = 0;
 
-                    foreach (var field in sd.Fields)
+                    foreach (StructureField field in sd.Fields)
                     {
-                        if (dataType is DataTypeState)
+                        string symbolicName = null;
+                        UADataType uaStruct = _nodeset.Items.FirstOrDefault(n => n.NodeId == dataType.NodeId.ToString()) as UADataType;
+                        if (uaStruct != null)
                         {
-                            DataTypeModel fieldDataTypeModel = CreateDataTypeModel(dataType as DataTypeState);
-                            if (fieldDataTypeModel == null)
-                            {
-                                throw new ArgumentException($"Unable to resolve data type {dataType.DisplayName}");
-                            }
-
-                            string symbolicName = null;
-                            UADataType uaStruct = _nodeset.Items.FirstOrDefault(n => n.NodeId == dataType.NodeId.ToString()) as UADataType;
-                            if (uaStruct != null)
-                            {
-                                symbolicName = uaStruct?.Definition?.Field?.FirstOrDefault(f => f.Name == field.Name)?.SymbolicName;
-                            }
-
-                            var structureField = new DataTypeModel.StructureField {
-                                Name = field.Name,
-                                SymbolicName = symbolicName,
-                                DataType = fieldDataTypeModel,
-                                ValueRank = field.ValueRank != -1 ? field.ValueRank : null,
-                                ArrayDimensions = field.ArrayDimensions != null && field.ArrayDimensions.Any() ? string.Join(",", field.ArrayDimensions) : null,
-                                MaxStringLength = field.MaxStringLength != 0 ? field.MaxStringLength : null,
-                                Description = field.Description.ToModel(),
-                                IsOptional = field.IsOptional && sd.StructureType == StructureType.StructureWithOptionalFields,
-                                AllowSubTypes = field.IsOptional && (sd.StructureType == StructureType.StructureWithSubtypedValues || sd.StructureType == StructureType.UnionWithSubtypedValues),
-                                FieldOrder = order++,
-                            };
-
-                            dataTypeModel.StructureFields.Add(structureField);
+                            symbolicName = uaStruct?.Definition?.Field?.FirstOrDefault(f => f.Name == field.Name)?.SymbolicName;
                         }
-                        else
-                        {
-                            if (dataType == null)
-                            {
-                                throw new ArgumentException($"Unable to find node state for data type {field.DataType} in {dataType}");
-                            }
-                            else
-                            {
-                                throw new ArgumentException($"Unexpected node state {dataType?.GetType()?.FullName} for data type {field.DataType} in {dataType}");
-                            }
-                        }
+
+                        var structureField = new DataTypeModel.StructureField {
+                            Name = field.Name,
+                            SymbolicName = symbolicName,
+                            DataType = field.DataType.ToString(),
+                            ValueRank = field.ValueRank != -1 ? field.ValueRank : null,
+                            ArrayDimensions = field.ArrayDimensions != null && field.ArrayDimensions.Any() ? string.Join(",", field.ArrayDimensions) : null,
+                            MaxStringLength = field.MaxStringLength != 0 ? field.MaxStringLength : null,
+                            Description = field.Description.ToModel(),
+                            IsOptional = field.IsOptional && sd.StructureType == StructureType.StructureWithOptionalFields,
+                            AllowSubTypes = field.IsOptional && (sd.StructureType == StructureType.StructureWithSubtypedValues || sd.StructureType == StructureType.UnionWithSubtypedValues),
+                            FieldOrder = order++,
+                        };
+
+                        dataTypeModel.StructureFields.Add(structureField);
                     }
                 }
                 else

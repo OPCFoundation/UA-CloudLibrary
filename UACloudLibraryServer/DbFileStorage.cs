@@ -97,9 +97,11 @@ namespace Opc.Ua.Cloud.Library
             try
             {
                 DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name).ConfigureAwait(false);
+
                 if (existingFile != null)
                 {
                     existingFile.Blob = content;
+
                     _dbContext.Update(existingFile);
                 }
                 else
@@ -108,9 +110,12 @@ namespace Opc.Ua.Cloud.Library
                         Name = name,
                         Blob = content,
                     };
+
                     _dbContext.Add(newFile);
                 }
+
                 await _dbContext.SaveChangesAsync(true, cancellationToken).ConfigureAwait(false);
+
                 return name;
             }
             catch (Exception ex)

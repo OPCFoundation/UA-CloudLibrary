@@ -177,7 +177,6 @@ namespace Opc.Ua.Cloud.Library
             }
 
             modelBuilder.Entity<NodeModel>()
-                .Ignore(nm => nm.CustomState)
                 .Ignore(nm => nm.ReferencesNotResolved)
                 .Ignore(nm => nm.NodeIdIdentifier)
                 .Property<DateTime?>("NodeSetPublicationDate"); // EF tooling does not properly infer the type of this auto-generated property when using it in a foreign key: workaround declare explicitly
@@ -194,12 +193,6 @@ namespace Opc.Ua.Cloud.Library
 
             var dtm = modelBuilder.Entity<DataTypeModel>()
                 .ToTable("DataTypes");
-
-            if (cascadeDelete)
-            {
-                dtm.OwnsMany(dt => dt.StructureFields)
-                    .HasOne(sf => sf.DataType).WithMany().OnDelete(DeleteBehavior.Cascade);
-            }
 
             var vtm = modelBuilder.Entity<VariableTypeModel>()
                 .ToTable("VariableTypes");
