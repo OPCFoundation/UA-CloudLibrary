@@ -104,9 +104,9 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             return model.PublicationDateSpecified ? DateTime.SpecifyKind(model.PublicationDate, DateTimeKind.Utc) : default;
         }
 
-        public static DateTime GetNormalizedPublicationDate(this DateTime? publicationDate)
+        public static DateTime GetNormalizedDate(this DateTime? date)
         {
-            return publicationDate != null ? DateTime.SpecifyKind(publicationDate.Value, DateTimeKind.Utc) : default;
+            return date != null ? DateTime.SpecifyKind(date.Value, DateTimeKind.Utc) : default;
         }
 
         public static string GetDisplayNamePath(this InstanceModelBase model, List<NodeModel> nodesVisited)

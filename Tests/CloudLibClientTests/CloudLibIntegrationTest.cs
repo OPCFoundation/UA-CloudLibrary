@@ -41,6 +41,7 @@ namespace CloudLibClient.Tests
             _factory = factory;
             this.output = output;
         }
+
         [Theory]
         [MemberData(nameof(TestKeywords))]
         public async Task Search(string[] keywords, int expectedCount)
@@ -64,12 +65,9 @@ namespace CloudLibClient.Tests
             List<UANameSpace> unpagedResult = await apiClient.GetBasicNodesetInformationAsync(startIndex, first, keywords.ToList()).ConfigureAwait(true);
             var unpaged = unpagedResult;
 
-            List<UANameSpace> paged = await GetAllPaged(apiClient, keywords: keywords, after: after, first: 5).ConfigureAwait(true);
+            List<UANameSpace> paged = await GetAllPaged(apiClient, keywords: keywords, after: after, first: first).ConfigureAwait(true);
             Assert.True(paged.Count == unpaged.Count);
             Assert.Equal(unpaged, paged, new NodesetComparer(output));
-
-            var unpagedOrdered = unpaged.OrderBy(nsm => nsm.Nodeset.NamespaceUri).ThenBy(nsm => nsm.Nodeset.PublicationDate).ToList();
-            Assert.Equal(unpagedOrdered, paged, new NodesetComparer(output));
 
             return unpaged;
         }

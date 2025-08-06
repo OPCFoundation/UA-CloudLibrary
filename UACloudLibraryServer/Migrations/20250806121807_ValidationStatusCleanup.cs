@@ -1,0 +1,79 @@
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace Opc.Ua.Cloud.Library
+{
+    /// <inheritdoc />
+    public partial class ValidationStatusCleanup : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropColumn(
+                name: "LastModifiedDate",
+                table: "NodeSets");
+
+            migrationBuilder.DropColumn(
+                name: "ValidationElapsedTime",
+                table: "NodeSets");
+
+            migrationBuilder.DropColumn(
+                name: "ValidationErrors",
+                table: "NodeSets");
+
+            migrationBuilder.DropColumn(
+                name: "ValidationFinishedTime",
+                table: "NodeSets");
+
+            migrationBuilder.DropColumn(
+                name: "ValidationStatus",
+                table: "NodeSets");
+
+            migrationBuilder.DropColumn(
+                name: "ValidationStatusInfo",
+                table: "NodeSets");
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.AddColumn<DateTime>(
+                name: "LastModifiedDate",
+                table: "NodeSets",
+                type: "timestamp with time zone",
+                nullable: true);
+
+            migrationBuilder.AddColumn<TimeSpan>(
+                name: "ValidationElapsedTime",
+                table: "NodeSets",
+                type: "interval",
+                nullable: true);
+
+            migrationBuilder.AddColumn<string[]>(
+                name: "ValidationErrors",
+                table: "NodeSets",
+                type: "text[]",
+                nullable: true);
+
+            migrationBuilder.AddColumn<DateTime>(
+                name: "ValidationFinishedTime",
+                table: "NodeSets",
+                type: "timestamp with time zone",
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "ValidationStatus",
+                table: "NodeSets",
+                type: "text",
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "ValidationStatusInfo",
+                table: "NodeSets",
+                type: "text",
+                nullable: true);
+        }
+    }
+}

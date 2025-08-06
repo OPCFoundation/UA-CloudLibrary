@@ -32,7 +32,6 @@ namespace Opc.Ua.Cloud.Library.Models
     public enum ValidationStatus
     {
         Parsed,
-        Indexed,
-        Error,
+        Indexed
     }
 }

@@ -109,10 +109,6 @@ namespace Opc.Ua.Cloud.Library
 
             CreateNodeModel(builder, true);
 
-            builder.Entity<CloudLibNodeSetModel>()
-                .Property(nsm => nsm.ValidationStatus)
-                .HasConversion<string>();
-
             builder.Entity<NodeSetModel>()
                 .Ignore(nsm => nsm.HeaderComments)
                 .HasAlternateKey(nm => nm.Identifier);
@@ -126,7 +122,6 @@ namespace Opc.Ua.Cloud.Library
                 .IsTsVectorExpressionIndex("english");
 
             builder.Entity<NamespaceMetaDataModel>()
-                .Ignore(md => md.ValidationStatus)
                 .HasKey(n => n.NodesetId);
 
             builder.Entity<NamespaceMetaDataModel>()

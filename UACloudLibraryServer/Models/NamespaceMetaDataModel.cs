@@ -77,7 +77,7 @@ namespace Opc.Ua.Cloud.Library.Models
 
         public uint NumberOfDownloads { get; set; }
 
-        public ValidationStatus ValidationStatus => NodeSet?.ValidationStatus ?? ValidationStatus.Parsed;
+        public ValidationStatus ValidationStatus { get; set; }
 
         public ApprovalStatus? ApprovalStatus { get; set; }
 

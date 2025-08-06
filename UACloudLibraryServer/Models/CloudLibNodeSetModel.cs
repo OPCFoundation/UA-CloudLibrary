@@ -41,18 +41,6 @@ namespace Opc.Ua.Cloud.Library.Models
     {
         public virtual NamespaceMetaDataModel Metadata { get; set; }
 
-        public ValidationStatus ValidationStatus { get; set; }
-
-        public string ValidationStatusInfo { get; set; }
-
-        public TimeSpan ValidationElapsedTime { get; set; }
-
-        public DateTime? ValidationFinishedTime { get; set; }
-
-        public string[] ValidationErrors { get; set; }
-
-        public DateTime? LastModifiedDate { get; set; }
-
         internal static async Task<CloudLibNodeSetModel> FromModelAsync(ModelTableEntry model, AppDbContext dbContext)
         {
             var nodeSetModel = new CloudLibNodeSetModel();
@@ -71,7 +59,7 @@ namespace Opc.Ua.Cloud.Library.Models
 
                     var requiredModelInfo = new RequiredModelInfoModel {
                         ModelUri = requiredModel.ModelUri,
-                        PublicationDate = requiredModel.PublicationDateSpecified ? ((DateTime?)requiredModel.PublicationDate).GetNormalizedPublicationDate() : null,
+                        PublicationDate = requiredModel.PublicationDateSpecified ? ((DateTime?)requiredModel.PublicationDate).GetNormalizedDate() : null,
                         Version = requiredModel.Version,
                         AvailableModel = existingNodeSet,
                     };

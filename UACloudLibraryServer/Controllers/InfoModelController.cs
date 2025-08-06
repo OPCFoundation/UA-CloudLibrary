@@ -362,8 +362,6 @@ namespace Opc.Ua.Cloud.Library.Controllers
             // Ignore RequiredModels if provided: cloud library will read from the nodeset
             uaNamespace.Nodeset.RequiredModels = null;
 
-            uaNamespace.Nodeset.ValidationStatus = "Parsed";
-
             // At this point all inputs are validated: ready to store
 
             // upload the new file to the storage service, and get the file handle that the storage service returned
