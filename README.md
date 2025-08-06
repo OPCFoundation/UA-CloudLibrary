@@ -5,11 +5,9 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
 ## Features
 
 * REST interface
-* GraphQL interface
 * Swagger UI
-* GraphQL UI
 * User management UI
-* Cross-platform: Runs on Microsoft Azure, Amazon Web Services and Google Cloud Platform
+* Cross-platform: Runs on any edge or cloud that can host a container and a PostgreSQL instance
 
 ## Getting Started (Client Access)
 
