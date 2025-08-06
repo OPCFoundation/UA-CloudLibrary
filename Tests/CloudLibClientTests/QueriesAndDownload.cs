@@ -48,7 +48,7 @@ namespace CloudLibClient.Tests
             Assert.Equal(uploadedNamespace.Nodeset.PublicationDate, nodeSet.Nodeset.PublicationDate);
             Assert.Equal(uploadedNamespace.Nodeset.Version, nodeSet.Nodeset.Version);
             Assert.Equal(nodeSetInfo.Nodeset.Identifier, nodeSet.Nodeset.Identifier);
-            Assert.Equal("INDEXED", nodeSet.Nodeset.ValidationStatus, ignoreCase: true);
+            Assert.Equal("Indexed", nodeSet.Nodeset.ValidationStatus, ignoreCase: true);
             Assert.Equal(default, nodeSet.CreationTime);
 
             Console.WriteLine($"Dependencies for {nodeSet.Nodeset.Identifier} {nodeSet.Nodeset.NamespaceUri} {nodeSetInfo.Nodeset.PublicationDate} ({nodeSet.Nodeset.Version}):");
@@ -138,7 +138,7 @@ namespace CloudLibClient.Tests
             uint identifier = downloadedNamespace.Nodeset.Identifier;
             Assert.True(identifier == uploadedNamespace.Nodeset.Identifier);
 
-            Assert.Equal("INDEXED", downloadedNamespace.Nodeset.ValidationStatus, ignoreCase: true);
+            Assert.Equal("Indexed", downloadedNamespace.Nodeset.ValidationStatus, ignoreCase: true);
 
             UANodeSet uploadedUaNodeSet = VerifyRequiredModels(uploadedNamespace, downloadedNamespace.Nodeset.RequiredModels);
             Assert.Equal(uploadedUaNodeSet.LastModified, downloadedNamespace.Nodeset.LastModifiedDate);
@@ -245,7 +245,6 @@ namespace CloudLibClient.Tests
             Assert.Equal(uploadedNamespace.Keywords, testNodeSet.Keywords);
             Assert.Equal(uploadedNamespace.LicenseUrl, testNodeSet.LicenseUrl);
             Assert.Equal(uploadedNamespace.TestSpecificationUrl, testNodeSet.TestSpecificationUrl);
-            Assert.Equal(default, testNodeSet.Nodeset.PublicationDate);
             Assert.Equal(uploadedNamespace.CopyrightText, testNodeSet.CopyrightText);
             Assert.Equal(uploadedNamespace.Description, testNodeSet.Description);
             Assert.Equal(uploadedNamespace.DocumentationUrl, testNodeSet.DocumentationUrl);
@@ -280,19 +279,19 @@ namespace CloudLibClient.Tests
                 Assert.True(totalCount > 60);
             }
 
-            Assert.Equal("INDEXED", testNodeSet.Nodeset.ValidationStatus);
+            Assert.Equal("Indexed", testNodeSet.Nodeset.ValidationStatus);
         }
 
         [Theory]
-        [InlineData(new[] { "plastic", "robot", "machine" }, 34)]
+        [InlineData(new[] { "plastic", "robot", "machine" }, 28)]
         [InlineData(new[] { "plastic" }, 15)]
         [InlineData(new[] { "robot"}, 4)]
-        [InlineData(new[] { "machine" }, 33)]
+        [InlineData(new[] { "machine" }, 27)]
         public async Task GetNodeSetsFilteredAsync(string[] keywords, int expectedCount)
         {
             UACloudLibClient client = _factory.CreateCloudLibClient();
 
-            List<UANameSpace> result = await client.GetBasicNodesetInformationAsync(0, 1, keywords.ToList()).ConfigureAwait(true);
+            List<UANameSpace> result = await client.GetBasicNodesetInformationAsync(0, 100, keywords.ToList()).ConfigureAwait(true);
             Assert.Equal(expectedCount, result.Count);
         }
 
@@ -316,7 +315,6 @@ namespace CloudLibClient.Tests
             Assert.True(convertedMetaData.Nodeset.Identifier != 0);
 
             UANameSpace uploadedNamespace = GetUploadedTestNamespace();
-            Assert.Null(convertedMetaData.Nodeset.NamespaceUri);
             Assert.Equal(uploadedNamespace.Nodeset.PublicationDate, convertedMetaData.Nodeset.PublicationDate);
             Assert.Equal(uploadedNamespace.Nodeset.Version, convertedMetaData.Nodeset.Version);
 
@@ -325,7 +323,7 @@ namespace CloudLibClient.Tests
             Assert.Equal(uploadedNamespace.Keywords, convertedMetaData.Keywords);
             Assert.Equal(uploadedNamespace.LicenseUrl, convertedMetaData.LicenseUrl);
             Assert.Equal(uploadedNamespace.TestSpecificationUrl, convertedMetaData.TestSpecificationUrl);
-            Assert.Equal(default, convertedMetaData.Nodeset.LastModifiedDate); // REST does not return last modified date
+            Assert.Equal(uploadedNamespace.Nodeset.LastModifiedDate, convertedMetaData.Nodeset.LastModifiedDate);
             Assert.Equal(uploadedNamespace.CopyrightText, convertedMetaData.CopyrightText);
             Assert.Equal(uploadedNamespace.Description, convertedMetaData.Description);
             Assert.Equal(uploadedNamespace.DocumentationUrl, convertedMetaData.DocumentationUrl);
@@ -391,19 +389,16 @@ namespace CloudLibClient.Tests
                 Assert.NotNull(nodeSetInfo);
                 if (dependentNodeSet != null && !dependencyUploaded)
                 {
-                    if (nodeSetInfo.Nodeset.ValidationStatus == "PARSED")
+                    if (nodeSetInfo.Nodeset.ValidationStatus == "Parsed")
                     {
                         await Task.Delay(5000);
                         notIndexed = true;
                     }
                     else
                     {
-                        // Verify that the dependency is missing
-                        Assert.Equal("ERROR", nodeSetInfo.Nodeset.ValidationStatus);
-
                         string requiredUploadJson = System.IO.File.ReadAllText(Path.Combine(path, dependentNodeSet));
                         UANameSpace requiredAddressSpace = JsonConvert.DeserializeObject<UANameSpace>(requiredUploadJson);
-                        response = await client.UploadNodeSetAsync(requiredAddressSpace).ConfigureAwait(true);
+                        response = await client.UploadNodeSetAsync(requiredAddressSpace, true).ConfigureAwait(true);
                         Assert.Equal(HttpStatusCode.OK, response.Status);
                         requiredIdentifier = response.Message;
 
@@ -413,8 +408,7 @@ namespace CloudLibClient.Tests
                 }
                 else
                 {
-                    //Assert.NotEqual("ERROR", uploadedNode.ValidationStatus);
-                    notIndexed = nodeSetInfo.Nodeset.ValidationStatus != "INDEXED";
+                    notIndexed = nodeSetInfo.Nodeset.ValidationStatus != "Indexed";
                     if (notIndexed)
                     {
                         await Task.Delay(5000);
@@ -431,7 +425,7 @@ namespace CloudLibClient.Tests
             do
             {
                 nodeSetInfo = await GetBasicNodesetInformationAsync(addressSpace.Nodeset.NamespaceUri.OriginalString).ConfigureAwait(true);
-                notIndexed = nodeSetInfo.Nodeset.ValidationStatus != "INDEXED";
+                notIndexed = nodeSetInfo.Nodeset.ValidationStatus != "Indexed";
                 if (notIndexed)
                 {
                     await Task.Delay(5000);

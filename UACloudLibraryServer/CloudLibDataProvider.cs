@@ -200,7 +200,7 @@ namespace Opc.Ua.Cloud.Library
 
             CloudLibNodeSetModel nodesetModel = await CloudLibNodeSetModel.FromModelAsync(nodeset.Models[0], _dbContext).ConfigureAwait(false);
             nodesetModel.Identifier = uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
-            nodesetModel.LastModifiedDate = uaNamespace.Nodeset.LastModifiedDate;
+            nodesetModel.LastModifiedDate = NodeModelUtils.GetNormalizedDate(uaNamespace.Nodeset.LastModifiedDate);
 
             // find our metadata model and link the two together
             NamespaceMetaDataModel metadataModel = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetModel.Identifier).ConfigureAwait(false);
