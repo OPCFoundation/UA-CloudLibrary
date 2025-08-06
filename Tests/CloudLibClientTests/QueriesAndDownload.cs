@@ -255,7 +255,7 @@ namespace CloudLibClient.Tests
             }
             else
             {
-                Assert.True(testNodeSet.CreationTime != null && DateTime.Now - testNodeSet.CreationTime < new TimeSpan(1, 0, 0));
+                Assert.True(testNodeSet.CreationTime != null && DateTime.UtcNow - testNodeSet.CreationTime < new TimeSpan(1, 0, 0));
             }
             Assert.Equal(uploadedNamespace.IconUrl, testNodeSet.IconUrl);
             Assert.Equal(uploadedNamespace.PurchasingInformationUrl, testNodeSet.PurchasingInformationUrl);
