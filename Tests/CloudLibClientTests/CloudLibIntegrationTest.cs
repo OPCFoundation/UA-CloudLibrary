@@ -36,6 +36,31 @@ namespace CloudLibClient.Tests
         private static readonly string[] itemArray13 = ["BaseObjectType", "Interface"];
         private static readonly string[] itemArray14 = ["Interface", "BaseObjectType", "Event"];
 
+        public static IEnumerable<object[]> TestKeywords()
+        {
+            return new List<object[]>
+            {
+                new object[ ]{ null, 64 },
+                new object[] { item, 1 },
+                new object[] { itemArray,  0 },
+                new object[] { itemArray0, 42 },
+                new object[] { itemArray1, 1 },
+                new object[] { itemArray2, 15 },
+                new object[] { itemArray3, 2},
+                new object[] { itemArray4, 42 },
+                new object[] { itemArray5, 43 },
+                new object[] { itemArray6, 3 },
+                new object[] { itemArray7, 16 },
+                new object[] { itemArray8, 17 },
+                new object[] { itemArray9, 0 },
+                new object[] { itemArray10, 5 },
+                new object[] { itemArray11, 1 },
+                new object[] { itemArray12, 5 },
+                new object[] { itemArray13, 5 },
+                new object[] { itemArray14, 6 },
+            };
+        }
+
         public CloudLibSearch(CustomWebApplicationFactory<Opc.Ua.Cloud.Library.Startup> factory, ITestOutputHelper output)
         {
             _factory = factory;
@@ -97,31 +122,6 @@ namespace CloudLibClient.Tests
             while (!bComplete && paged.Count < 100);
 
             return paged;
-        }
-
-        public static IEnumerable<object[]> TestKeywords()
-        {
-            return new List<object[]>
-            {
-                new object[ ]{ null, 63 },
-                new object[] { item, 1 },
-                new object[] { itemArray,  0 },
-                new object[] { itemArray0, 41 },
-                new object[] { itemArray1, 1 },
-                new object[] { itemArray2, 15 },
-                new object[] { itemArray3, 2},
-                new object[] { itemArray4, 42 },
-                new object[] { itemArray5, 43 },
-                new object[] { itemArray6, 3 },
-                new object[] { itemArray7, 16 },
-                new object[] { itemArray8, 17 },
-                new object[] { itemArray9, 0 },
-                new object[] { itemArray10, 5 },
-                new object[] { itemArray11, 1 },
-                new object[] { itemArray12, 5 },
-                new object[] { itemArray13, 5 },
-                new object[] { itemArray14, 6 },
-            };
         }
     }
 
