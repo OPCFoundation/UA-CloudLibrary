@@ -13,7 +13,7 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
 
 If you want to access the globally hosted instance from the OPC Foundation at https://uacloudlibrary.opcfoundation.org from our software, you can integrate the source code from the SampleConsoleClient found in this repo. It exercises the REST API.
 
-**Warning:** In the latest version of the REST API, the returned JSON format for /infomodel/find has changed from a UANodesetResult structure to [UANamespace](https://raw.githubusercontent.com/OPCFoundation/UA-CloudLibrary/refs/heads/main/Opc.Ua.CloudLib.Client/Models/UANameSpace.cs) structure, to align it with the rest of the REST API. The SampleConsoleClient is updated to work with the latest version of the REST API. Please update your client code accordingly if you were using an older version of the REST API! 
+**Warning:** In the latest version of the REST API, the returned JSON format for /infomodel/find has changed from a UANodesetResult structure to [UANameSpace](https://raw.githubusercontent.com/OPCFoundation/UA-CloudLibrary/refs/heads/main/Opc.Ua.CloudLib.Client/Models/UANameSpace.cs) structure, to align it with the rest of the REST API. The SampleConsoleClient is updated to work with the latest version of the REST API. Please update your client code accordingly if you were using an older version of the REST API! 
 
 ## Development Setup
 
