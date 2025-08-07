@@ -76,7 +76,7 @@ namespace AdminShell
         public virtual IActionResult GenerateSerializationByIds([FromQuery] List<string> aasIds, [FromQuery] List<string> submodelIds, [FromQuery] bool? includeConceptDescriptions)
         {
             IEnumerable<string> decodedAasIds = aasIds.Select(aasId => Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasId)))).ToList();
-            IEnumerable<string> decodedSubmodelIds = aasIds.Select(submodelIds => Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIds)))).ToList();
+            IEnumerable<string> decodedSubmodelIds = submodelIds.Select(submodelId => Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelId)))).ToList();
 
             dynamic outputEnv = new ExpandoObject();
             outputEnv.AssetAdministrationShells = new List<AssetAdministrationShell>();
