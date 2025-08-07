@@ -2,7 +2,8 @@ using System.Globalization;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using Opc.Ua.Cloud.Library.Client;
+using Opc.Ua.Cloud.Client;
+using Opc.Ua.Cloud.Client.Models;
 using Opc.Ua.Export;
 
 namespace Opc.Ua.CloudLib.Sync
@@ -34,17 +35,17 @@ namespace Opc.Ua.CloudLib.Sync
         {
             var sourceClient = new UACloudLibClient(sourceUrl, sourceUserName, sourcePassword);
 
-            GraphQlResult<Nodeset> nodeSetResult;
-            string? cursor = null;
+            List<UANameSpace> nodeSetResult;
+            int cursor = 0;
             do
             {
                 // Get all NodeSets
-                nodeSetResult = await sourceClient.GetNodeSetsAsync(after: cursor, first: 50).ConfigureAwait(false);
+                nodeSetResult = await sourceClient.GetBasicNodesetInformationAsync(cursor, 50).ConfigureAwait(false);
 
-                foreach (GraphQlNodeAndCursor<Nodeset>? nodeSetAndCursor in nodeSetResult.Edges)
+                foreach (UANameSpace nodeSetAndCursor in nodeSetResult)
                 {
                     // Download each NodeSet
-                    string identifier = nodeSetAndCursor.Node.Identifier.ToString(CultureInfo.InvariantCulture);
+                    string identifier = nodeSetAndCursor.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
                     UANameSpace uaNamespace = await sourceClient.DownloadNodesetAsync(identifier).ConfigureAwait(false);
 
                     if (uaNamespace?.Nodeset != null)
@@ -77,9 +78,9 @@ namespace Opc.Ua.CloudLib.Sync
                         }
                     }
                 }
-                cursor = nodeSetResult.PageInfo.EndCursor;
+                cursor = nodeSetResult.Count;
             }
-            while (nodeSetResult.PageInfo.HasNextPage);
+            while (nodeSetResult.Count > 0);
         }
 
         /// <summary>
@@ -100,43 +101,37 @@ namespace Opc.Ua.CloudLib.Sync
             bool bAdded;
             do
             {
-                List<Nodeset> targetNodesets = new();
-                GraphQlResult<Nodeset> targetNodeSetResult;
-                string? targetCursor = null;
+                List<UANameSpace> targetNodesets = new();
+                List<UANameSpace> targetNodeSetResult;
+                int targetCursor = 0;
                 do
                 {
-                    targetNodeSetResult = await targetClient.GetNodeSetsAsync(after: targetCursor, first: 50).ConfigureAwait(false);
-                    targetNodesets.AddRange(targetNodeSetResult.Edges.Select(e => e.Node));
-                    targetCursor = targetNodeSetResult.PageInfo.EndCursor;
-                } while (targetNodeSetResult.PageInfo.HasNextPage);
+                    targetNodeSetResult = await targetClient.GetBasicNodesetInformationAsync(targetCursor, 50).ConfigureAwait(false);
+                    targetNodesets.AddRange(targetNodeSetResult);
+                    targetCursor = targetNodeSetResult.Count;
+                }
+                while (targetNodeSetResult.Count > 0);
 
-                targetCursor = null;
-                do
-                {
-                    targetNodeSetResult = await targetClient.GetNodeSetsPendingApprovalAsync(after: targetCursor, first: 50).ConfigureAwait(false);
-                    targetNodesets.AddRange(targetNodeSetResult.Edges.Select(e => e.Node));
-                    targetCursor = targetNodeSetResult.PageInfo.EndCursor;
-                } while (targetNodeSetResult.PageInfo.HasNextPage);
                 bAdded = false;
 
-                GraphQlResult<Nodeset> sourceNodeSetResult;
-                string? sourceCursor = null;
+                List<UANameSpace> sourceNodeSetResult;
+                int sourceCursor = 0;
                 do
                 {
-                    sourceNodeSetResult = await sourceClient.GetNodeSetsAsync(after: sourceCursor, first: 50).ConfigureAwait(false);
+                    sourceNodeSetResult = await sourceClient.GetBasicNodesetInformationAsync(sourceCursor, 50).ConfigureAwait(false);
 
                     // Get the ones that are not already on the target
-                    var toSync = sourceNodeSetResult.Edges
-                        .Select(e => e.Node)
+                    var toSync = sourceNodeSetResult
                         .Where(source => !targetNodesets
                             .Any(target =>
-                                source.NamespaceUri?.OriginalString== target.NamespaceUri?.OriginalString
-                                && (source.PublicationDate == target.PublicationDate || (source.Identifier != 0 && source.Identifier == target.Identifier))
+                                source.Nodeset.NamespaceUri == target.Nodeset.NamespaceUri
+                                && (source.Nodeset.PublicationDate == target.Nodeset.PublicationDate || (source.Nodeset.Identifier != 0 && source.Nodeset.Identifier == target.Nodeset.Identifier))
                         )).ToList();
-                    foreach (Nodeset? nodeSet in toSync)
+
+                    foreach (UANameSpace? nodeSet in toSync)
                     {
                         // Download each NodeSet
-                        string identifier = nodeSet.Identifier.ToString(CultureInfo.InvariantCulture);
+                        string identifier = nodeSet.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
                         UANameSpace uaNamespace = await sourceClient.DownloadNodesetAsync(identifier).ConfigureAwait(false);
 
                         try
@@ -159,9 +154,11 @@ namespace Opc.Ua.CloudLib.Sync
                             _logger.LogError($"Error uploading {uaNamespace.Nodeset.NamespaceUri}, {identifier}: {ex.Message}");
                         }
                     }
-                    sourceCursor = sourceNodeSetResult.PageInfo.EndCursor;
-                } while (sourceNodeSetResult.PageInfo.HasNextPage);
-            } while (bAdded);
+                    sourceCursor = sourceNodeSetResult.Count;
+                }
+                while (sourceNodeSetResult.Count > 0);
+            }
+            while (bAdded);
         }
 
         /// <summary>
@@ -197,6 +194,7 @@ namespace Opc.Ua.CloudLib.Sync
                     _logger.LogInformation($"Error uploading {file}: failed to parse.");
                     continue;
                 }
+
                 if (addressSpace.Nodeset == null || string.IsNullOrEmpty(addressSpace.Nodeset.NodesetXml))
                 {
                     string xmlFile = Path.Combine(Path.GetDirectoryName(file)??file, Path.GetFileNameWithoutExtension(file) + ".xml");
@@ -206,35 +204,33 @@ namespace Opc.Ua.CloudLib.Sync
                         addressSpace.Nodeset = new Nodeset { NodesetXml = xml };
                     }
                 }
+
                 if (addressSpace.Nodeset == null || string.IsNullOrEmpty(addressSpace.Nodeset.NodesetXml))
                 {
                     _logger.LogInformation($"Error uploading {file}: no Nodeset found in file.");
                     continue;
                 }
+
                 if (addressSpace.Nodeset.RequiredModels != null)
                 {
                     addressSpace.Nodeset.RequiredModels = null;
                 }
+
                 if (string.IsNullOrEmpty(addressSpace.Title))
                 {
                     addressSpace.Title = file;
                 }
+
                 if (string.IsNullOrEmpty(addressSpace.Description))
                 {
                     addressSpace.Description = file;
                 }
+
                 if (string.IsNullOrEmpty(addressSpace.CopyrightText))
                 {
                     addressSpace.CopyrightText = file;
                 }
-                if (string.IsNullOrEmpty(addressSpace.Category?.Name))
-                {
-                    addressSpace.Category = new Category { Name = file };
-                }
-                if (string.IsNullOrEmpty(addressSpace.Contributor?.Name))
-                {
-                    addressSpace.Contributor = new Organisation { Name = file };
-                }
+
                 (System.Net.HttpStatusCode Status, string Message) response = await targetClient.UploadNodeSetAsync(addressSpace, overwrite).ConfigureAwait(false);
                 if (response.Status == System.Net.HttpStatusCode.OK)
                 {
@@ -269,18 +265,21 @@ namespace Opc.Ua.CloudLib.Sync
                             nodeset.PublicationDate = publicationDate.Value;
                             changed = true;
                         }
+
                         if (firstModel.Version != nodeset.Version)
                         {
                             _logger.LogWarning($"Version  {nodeset.Version} in meta data does not match nodeset {firstModel.Version}. Fixed up.");
                             nodeset.Version = firstModel.Version;
                             changed = true;
                         }
+
                         if (nodeSet.LastModifiedSpecified && nodeSet.LastModified != nodeset.LastModifiedDate)
                         {
                             _logger.LogWarning($"Last modified date {nodeset.LastModifiedDate} in meta data does not match nodeset {nodeSet.LastModified}. Fixed up.");
                             nodeset.LastModifiedDate = nodeSet.LastModified;
                             changed = true;
                         }
+
                         if (namespaceUri == null)
                         {
                             namespaceUri = nodeSet.Models?.FirstOrDefault()?.ModelUri;
@@ -289,33 +288,27 @@ namespace Opc.Ua.CloudLib.Sync
                     }
                 }
             }
+
             if (uaNamespace.Nodeset.RequiredModels != null)
             {
                 uaNamespace.Nodeset.RequiredModels = null;
             }
+
             if (string.IsNullOrEmpty(uaNamespace.Title))
             {
                 uaNamespace.Title = nodeset?.NamespaceUri.OriginalString ?? "none";
                 changed = true;
             }
+
             if (string.IsNullOrEmpty(uaNamespace.Description))
             {
                 uaNamespace.Description = uaNamespace.Title;
                 changed = true;
             }
+
             if (string.IsNullOrEmpty(uaNamespace.CopyrightText))
             {
                 uaNamespace.CopyrightText = uaNamespace.Title;
-                changed = true;
-            }
-            if (string.IsNullOrEmpty(uaNamespace.Category?.Name))
-            {
-                uaNamespace.Category = new Category { Name = uaNamespace.Title };
-                changed = true;
-            }
-            if (string.IsNullOrEmpty(uaNamespace.Contributor?.Name))
-            {
-                uaNamespace.Contributor = new Organisation { Name = uaNamespace.Title };
                 changed = true;
             }
 
@@ -354,6 +347,7 @@ namespace Opc.Ua.CloudLib.Sync
                 modelUri = model.Models?.FirstOrDefault()?.ModelUri;
                 publicationDate = model.Models?.FirstOrDefault()?.PublicationDate;
             }
+
             string tFile = GetFileNameForNamespaceUri(modelUri, publicationDate);
             string filePath = Path.Combine(directoryPath, tFile);
             if (!Directory.Exists(directoryPath))

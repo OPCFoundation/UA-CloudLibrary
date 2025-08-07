@@ -1,5 +1,35 @@
+/* ========================================================================
+ * Copyright (c) 2005-2025 The OPC Foundation, Inc. All rights reserved.
+ *
+ * OPC Foundation MIT License 1.00
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * The complete license agreement can be found here:
+ * http://opcfoundation.org/License/MIT/1.00/
+ * ======================================================================*/
+
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Opc.Ua;
 
@@ -37,12 +67,12 @@ namespace AdminShell
                                 {
                                     foreach (NodesetViewerNode s in assetsAndSubmodelRefs)
                                     {
-                                        if (s.Text.ToLower().Contains("https://admin-shell.io/idta/asset/"))
+                                        if (s.Text.ToLower(CultureInfo.InvariantCulture).Contains("https://admin-shell.io/idta/asset/", StringComparison.OrdinalIgnoreCase))
                                         {
                                             aas.AssetInformation = new AssetInformation() { AssetKind = AssetKind.Instance, SpecificAssetIds = new List<IdentifierKeyValuePair>() { new IdentifierKeyValuePair() { Key = s.Text } } };
                                         }
 
-                                        if (s.Text.ToLower().Contains("https://admin-shell.io/idta/submodel"))
+                                        if (s.Text.ToLower(CultureInfo.InvariantCulture).Contains("https://admin-shell.io/idta/submodel", StringComparison.OrdinalIgnoreCase))
                                         {
                                             aas.Submodels.Add(new ModelReference() { Keys = new List<Key>() { new Key() { Value = s.Text, Type = KeyElements.Submodel } } });
                                         }
@@ -56,15 +86,15 @@ namespace AdminShell
                 }
             }
 
-            if (output.Any())
+            if (output.Count > 0)
             {
                 // Filter AASs based on IdShort
                 if (!string.IsNullOrEmpty(idShort))
                 {
-                    output = output.Where(a => a.IdShort.Equals(idShort)).ToList();
+                    output = output.Where(a => a.IdShort.Equals(idShort, StringComparison.OrdinalIgnoreCase)).ToList();
                     if ((output == null) || output?.Count == 0)
                     {
-                        throw new Exception($"AssetAdministrationShells with IdShort {idShort} Not Found.");
+                        throw new ArgumentException($"AssetAdministrationShells with IdShort {idShort} Not Found.");
                     }
                 }
 
@@ -77,13 +107,13 @@ namespace AdminShell
                         filteredAASes.AddRange(output.Where(a => a.AssetInformation.SpecificAssetIds.Contains(new IdentifierKeyValuePair() { Key = assetId })).ToList());
                     }
 
-                    if (filteredAASes.Any())
+                    if (filteredAASes.Count > 0)
                     {
                         return filteredAASes;
                     }
                     else
                     {
-                        throw new Exception($"AssetAdministrationShells with requested SpecificAssetIds Not Found.");
+                        throw new ArgumentException($"AssetAdministrationShells with requested SpecificAssetIds Not Found.");
                     }
                 }
             }
@@ -129,12 +159,12 @@ namespace AdminShell
             }
 
             // Apply filters
-            if (output.Any())
+            if (output.Count > 0)
             {
                 // Filter based on idShort
                 if (!string.IsNullOrEmpty(idShort))
                 {
-                    var submodels = output.Where(s => s.IdShort.Equals(idShort)).ToList();
+                    var submodels = output.Where(s => s.IdShort.Equals(idShort, StringComparison.OrdinalIgnoreCase)).ToList();
                     if ((submodels == null) || (submodels?.Count == 0))
                     {
                         Console.WriteLine($"Submodels with IdShort {idShort} Not Found.");
@@ -146,7 +176,7 @@ namespace AdminShell
                 // Filter based on SemanticId
                 if ((reqSemanticId != null) && (reqSemanticId.Keys[0].Value != null))
                 {
-                    if (output.Any())
+                    if (output.Count > 0)
                     {
                         var submodels = output.Where(s => s.SemanticId.Matches(reqSemanticId)).ToList();
                         if ((submodels == null) || submodels?.Count == 0)
@@ -190,7 +220,7 @@ namespace AdminShell
                         }
                         else
                         {
-                            Property sme = new() {
+                            AASProperty sme = new() {
                                 ModelType = ModelTypes.Property,
                                 DisplayName = new List<LangString>() { new LangString() { Text = smeNode.Text } },
                                 IdShort = smeNode.Text,
@@ -204,7 +234,7 @@ namespace AdminShell
                     else
                     {
                         // add just one property to be spec conform
-                        Property sme = new() {
+                        AASProperty sme = new() {
                             ModelType = ModelTypes.Property,
                             DisplayName = new List<LangString>() { new LangString() { Text = smeNode.Text } },
                             IdShort = smeNode.Text,
@@ -250,15 +280,15 @@ namespace AdminShell
                 }
             }
 
-            if (output.Any())
+            if (output.Count > 0)
             {
                 // Filter AASs based on IdShort
                 if (!string.IsNullOrEmpty(idShort))
                 {
-                    output = output.Where(a => a.IdShort.Equals(idShort)).ToList();
+                    output = output.Where(a => a.IdShort.Equals(idShort, StringComparison.OrdinalIgnoreCase)).ToList();
                     if ((output == null) || output?.Count == 0)
                     {
-                        throw new Exception($"Concept Description with IdShort {idShort} Not Found.");
+                        throw new ArgumentException($"Concept Description with IdShort {idShort} Not Found.");
                     }
                 }
             }
@@ -280,7 +310,7 @@ namespace AdminShell
                         {
                             foreach (NodesetViewerNode a in aasList)
                             {
-                                if (a.Id.Equals(aasIdentifier))
+                                if (a.Id.Equals(aasIdentifier, StringComparison.OrdinalIgnoreCase))
                                 {
                                     AssetAdministrationShell aas = new() {
                                         ModelType = ModelTypes.AssetAdministrationShell,
@@ -295,12 +325,12 @@ namespace AdminShell
                                     {
                                         foreach (NodesetViewerNode s in assetsAndSubmodelRefs)
                                         {
-                                            if (s.Text.ToLower().Contains("https://admin-shell.io/idta/asset/"))
+                                            if (s.Text.ToLower(CultureInfo.InvariantCulture).Contains("https://admin-shell.io/idta/asset/", StringComparison.OrdinalIgnoreCase))
                                             {
                                                 aas.AssetInformation = new AssetInformation() { AssetKind = AssetKind.Instance, SpecificAssetIds = new List<IdentifierKeyValuePair>() { new IdentifierKeyValuePair() { Key = s.Text } } };
                                             }
 
-                                            if (s.Text.ToLower().Contains("https://admin-shell.io/idta/submodel"))
+                                            if (s.Text.ToLower(CultureInfo.InvariantCulture).Contains("https://admin-shell.io/idta/submodel", StringComparison.OrdinalIgnoreCase))
                                             {
                                                 aas.Submodels.Add(new ModelReference() { Keys = new List<Key>() { new Key() { Value = s.Text, Type = KeyElements.Submodel } } });
                                             }
@@ -332,7 +362,7 @@ namespace AdminShell
                         {
                             foreach (NodesetViewerNode subNode in submodelList)
                             {
-                                if (subNode.Id.Equals(submodelIdentifier))
+                                if (subNode.Id.Equals(submodelIdentifier, StringComparison.OrdinalIgnoreCase))
                                 {
                                     Submodel sub = new() {
                                         ModelType = ModelTypes.Submodel,
@@ -372,7 +402,7 @@ namespace AdminShell
                         {
                             foreach (NodesetViewerNode cdNode in conceptDescrNodes)
                             {
-                                if (cdNode.Id.Equals(cdIdentifier))
+                                if (cdNode.Id.Equals(cdIdentifier, StringComparison.OrdinalIgnoreCase))
                                 {
                                     ConceptDescription cd = new() {
                                         ModelType = ModelTypes.ConceptDescription,
@@ -422,7 +452,7 @@ namespace AdminShell
                 }
                 else
                 {
-                    throw new Exception($"Submodel element {sme.IdShort} is not of Type File.");
+                    throw new ArgumentException($"Submodel element {sme.IdShort} is not of Type File.");
                 }
             }
 

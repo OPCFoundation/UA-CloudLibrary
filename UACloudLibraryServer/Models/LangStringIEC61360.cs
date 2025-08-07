@@ -10,6 +10,6 @@ namespace AdminShell
     {
         [DataMember(Name = "langString")]
         [XmlArray(ElementName = "langString")]
-        public List<LangString> LangString = new List<LangString>();
+        public List<LangString> LangString { get; set; } = new List<LangString>();
     }
 }

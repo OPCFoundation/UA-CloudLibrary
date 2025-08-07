@@ -14,16 +14,16 @@ namespace AdminShell
     {
         [DataMember(Name = "value")]
         [XmlElement(ElementName = "value")]
-        public string Value = string.Empty;
+        public string Value { get; set; } = string.Empty;
 
         [DataMember(Name = "idType")]
         [XmlAttribute(AttributeName = "idType")]
-        public string IdType = string.Empty;
+        public string IdType { get; set; } = string.Empty;
 
         [DataMember(Name = "id")]
         [XmlElement(ElementName = "id")]
         [XmlText]
-        public string Id = string.Empty;
+        public string Id { get; set; } = string.Empty;
 
         public static implicit operator string(Identifier d)
         {

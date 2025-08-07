@@ -9,7 +9,7 @@ namespace AdminShell
     {
         [DataMember(Name = "grvalue")]
         [XmlElement(ElementName = "grvalue")]
-        public GlobalReference GRValue = new GlobalReference();
+        public GlobalReference GRValue { get; set; } = new GlobalReference();
 
         public GlobalReferenceElement() { }
 

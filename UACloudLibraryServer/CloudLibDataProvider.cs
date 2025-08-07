@@ -1,3 +1,32 @@
+/* ========================================================================
+ * Copyright (c) 2005-2025 The OPC Foundation, Inc. All rights reserved.
+ *
+ * OPC Foundation MIT License 1.00
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * The complete license agreement can be found here:
+ * http://opcfoundation.org/License/MIT/1.00/
+ * ======================================================================*/
+
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -9,51 +38,51 @@ using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using CESMII.OpcUa.NodeSetModel;
-using CESMII.OpcUa.NodeSetModel.Opc.Extensions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Opc.Ua.Cloud.Library.DbContextModels;
-using Opc.Ua.Cloud.Library.Interfaces;
 using Opc.Ua.Cloud.Library.Models;
+using Opc.Ua.Cloud.Library.NodeSetIndex;
 using Opc.Ua.Export;
 
 namespace Opc.Ua.Cloud.Library
 {
-    public partial class CloudLibDataProvider : IDatabase
+    public class CloudLibDataProvider
     {
         private readonly AppDbContext _dbContext = null;
-        private readonly IFileStorage _storage;
+        private readonly DbFileStorage _storage;
         private readonly ILogger _logger;
+        private readonly bool _approvalRequired;
 
-        public CloudLibDataProvider(AppDbContext context, ILoggerFactory logger, IFileStorage storage)
+        public CloudLibDataProvider(AppDbContext context, ILoggerFactory logger, DbFileStorage storage, IConfiguration configuration)
         {
             _dbContext = context;
             _storage = storage;
             _logger = logger.CreateLogger("CloudLibDataProvider");
-
+            _approvalRequired = configuration.GetSection("CloudLibrary")?.GetValue<bool>("ApprovalRequired") ?? false;
         }
 
-        public IQueryable<CloudLibNodeSetModel> GetNodeSets(
+        public IQueryable<NodeSetModel> GetNodeSets(
             string identifier = null,
             string modelUri = null,
             DateTime? publicationDate = null,
             string[] keywords = null)
         {
 
-            IQueryable<CloudLibNodeSetModel> nodeSets;
+            IQueryable<NodeSetModel> nodeSets;
             if (!string.IsNullOrEmpty(identifier))
             {
                 if (modelUri != null || publicationDate != null || keywords != null)
                 {
                     throw new ArgumentException($"Must not specify other parameters when providing identifier.");
                 }
+
                 // Return unapproved nodesets only if request by identifier, but not in queries
-                nodeSets = _dbContext.nodeSetsWithUnapproved.AsQueryable().Where(nsm => nsm.Identifier == identifier);
+                nodeSets = _dbContext.NodeSetsWithUnapproved.AsQueryable().Where(nsm => nsm.Identifier == identifier);
             }
             else
             {
-                IQueryable<CloudLibNodeSetModel> nodeSetQuery = SearchNodesets(keywords);
+                IQueryable<NodeSetModel> nodeSetQuery = SearchNodesets(keywords);
                 if (modelUri != null && publicationDate != null)
                 {
                     nodeSets = nodeSetQuery.Where(nsm => nsm.ModelUri == modelUri && nsm.PublicationDate == publicationDate);
@@ -67,6 +96,7 @@ namespace Opc.Ua.Cloud.Library
                     nodeSets = nodeSetQuery;
                 }
             }
+
             return nodeSets;
         }
 
@@ -85,69 +115,27 @@ namespace Opc.Ua.Cloud.Library
             return GetNodeModels<DataTypeModel>(nsm => nsm.DataTypes, modelUri, publicationDate, nodeId);
         }
 
-        public IQueryable<PropertyModel> GetProperties(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
-        {
-            return GetNodeModels<PropertyModel>(nsm => nsm.Properties, modelUri, publicationDate, nodeId);
-        }
-
-        public IQueryable<DataVariableModel> GetDataVariables(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
-        {
-            return GetNodeModels<DataVariableModel>(nsm => nsm.DataVariables, modelUri, publicationDate, nodeId);
-        }
-
         public IQueryable<ReferenceTypeModel> GetReferenceTypes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
         {
             return GetNodeModels<ReferenceTypeModel>(nsm => nsm.ReferenceTypes, modelUri, publicationDate, nodeId);
         }
 
-        public IQueryable<InterfaceModel> GetInterfaces(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<NamespaceMetaDataModel> NamespaceMetaData
         {
-            return GetNodeModels<InterfaceModel>(nsm => nsm.Interfaces, modelUri, publicationDate, nodeId);
+            get => _approvalRequired
+                ? _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.ApprovalStatus == ApprovalStatus.Approved)
+                : _dbContext.NamespaceMetaDataWithUnapproved;
         }
 
-        public IQueryable<ObjectModel> GetObjects(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<NodeSetModel> NodeSets
         {
-            return GetNodeModels<ObjectModel>(nsm => nsm.Objects, modelUri, publicationDate, nodeId);
+            get =>
+                _approvalRequired
+                ? _dbContext.NodeSetsWithUnapproved.Where(n => _dbContext.NamespaceMetaDataWithUnapproved.Any(nmd => nmd.NodesetId == n.Identifier && nmd.ApprovalStatus == ApprovalStatus.Approved))
+                : _dbContext.NodeSetsWithUnapproved;
         }
 
-        public IQueryable<MethodModel> GetMethods(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
-        {
-            return GetNodeModels<MethodModel>(nsm => nsm.Methods, modelUri, publicationDate, nodeId);
-        }
-
-        public IQueryable<NodeModel> GetAllNodes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
-        {
-            if (nodeId != null && modelUri == null)
-            {
-                var expandedNodeId = ExpandedNodeId.Parse(nodeId);
-                if (expandedNodeId?.NamespaceUri != null)
-                {
-                    modelUri = expandedNodeId.NamespaceUri;
-                }
-            }
-
-            IQueryable<NodeModel> nodeModels;
-            if (modelUri != null && publicationDate != null)
-            {
-                nodeModels = _dbContext.nodeModels.AsQueryable().Where(nm => nm.Namespace == modelUri && nm.NodeSet.PublicationDate == publicationDate);
-            }
-            else if (modelUri != null)
-            {
-                nodeModels = _dbContext.nodeModels.AsQueryable().Where(nm => nm.Namespace == modelUri);
-            }
-            else
-            {
-                nodeModels = _dbContext.nodeModels.AsQueryable();
-            }
-            if (!string.IsNullOrEmpty(nodeId))
-            {
-                nodeModels = nodeModels.Where(ot => ot.NodeId == nodeId);
-            }
-
-            return nodeModels;
-        }
-
-        private IQueryable<T> GetNodeModels<T>(Expression<Func<CloudLibNodeSetModel, IEnumerable<T>>> selector, string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
+        private IQueryable<T> GetNodeModels<T>(Expression<Func<NodeSetModel, IEnumerable<T>>> selector, string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
             where T : NodeModel
         {
             if (nodeId != null && modelUri == null)
@@ -159,18 +147,18 @@ namespace Opc.Ua.Cloud.Library
                 }
             }
 
-            IQueryable<CloudLibNodeSetModel> nodeSets;
+            IQueryable<NodeSetModel> nodeSets;
             if (modelUri != null && publicationDate != null)
             {
-                nodeSets = _dbContext.nodeSets.AsQueryable().Where(nsm => nsm.ModelUri == modelUri && nsm.PublicationDate == publicationDate);
+                nodeSets = NodeSets.AsQueryable().Where(nsm => nsm.ModelUri == modelUri && nsm.PublicationDate == publicationDate);
             }
             else if (modelUri != null)
             {
-                nodeSets = _dbContext.nodeSets.AsQueryable().Where(nsm => nsm.ModelUri == modelUri);
+                nodeSets = NodeSets.AsQueryable().Where(nsm => nsm.ModelUri == modelUri);
             }
             else
             {
-                nodeSets = _dbContext.nodeSets.AsQueryable();
+                nodeSets = NodeSets.AsQueryable();
             }
 
             IQueryable<T> nodeModels = nodeSets.SelectMany(selector);
@@ -188,59 +176,37 @@ namespace Opc.Ua.Cloud.Library
             try
             {
                 // NodeSetModel deletion relies on database cascading delete. The deletions need to be saved for this to happen before we can re-add the same nodeset
-                // To achieve consistency across delete and re-add, the operations need to run under a database trasaction
+                // To achieve consistency across delete and re-add, the operations need to run under a database transaction
 
                 await _dbContext.Database.CreateExecutionStrategy().ExecuteInTransactionAsync(async () => {
+
                     message = null;
 
-                    // delete any existing records for this nodeset in the database
-                    if (!await DeleteAllRecordsForNodesetAsync(uaNamespace.Nodeset.Identifier).ConfigureAwait(false))
-                    {
-                        message = "Error: Could not delete existing records for nodeset!";
-                        return;
-                    }
+                    await DeleteAllRecordsForNodesetAsync(uaNamespace.Nodeset.Identifier).ConfigureAwait(false);
 
                     // delete any matching legacy nodesets
-                    if (legacyNodesetHashCode != 0 && !await DeleteAllRecordsForNodesetAsync(legacyNodesetHashCode).ConfigureAwait(false))
+                    if (legacyNodesetHashCode != 0)
                     {
-                        message = "Error: Could not delete existing legacy records for nodeset!";
-                        return;
+                        await DeleteAllRecordsForNodesetAsync(legacyNodesetHashCode).ConfigureAwait(false);
                     }
 
-                    CloudLibNodeSetModel nodeSetModel = await NodeSetModelIndexer.CreateNodeSetModelFromNodeSetAsync(_dbContext, nodeSet, uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture), userId).ConfigureAwait(false);
-                    CloudLibNodeSetModel existingModel = await _dbContext.nodeSetsWithUnapproved.FindAsync(nodeSetModel.ModelUri, nodeSetModel.PublicationDate).ConfigureAwait(false);
+                    NodeSetModel existingModel = await _dbContext.NodeSetsWithUnapproved.FindAsync(nodeSet.Models[0].ModelUri, nodeSet.Models[0].GetNormalizedPublicationDate()).ConfigureAwait(false);
                     if (existingModel != null)
                     {
                         message = "Error: nodeset still exists after delete.";
                         return;
                     }
-                    else
-                    {
-                        await _dbContext.nodeSetsWithUnapproved.AddAsync(nodeSetModel).ConfigureAwait(false);
-                    }
 
-                    // TODO validate that user has permission for this organisation
-                    OrganisationModel contributor = uaNamespace.Contributor.Name != null ?
-                        await _dbContext.Organisations.FirstOrDefaultAsync(c => c.Name == uaNamespace.Contributor.Name).ConfigureAwait(false)
-                        : null;
-                    CategoryModel category = uaNamespace.Category.Name != null ?
-                        await _dbContext.Categories.FirstOrDefaultAsync(c => c.Name == uaNamespace.Category.Name).ConfigureAwait(false)
-                        : null;
+                    NamespaceMetaDataModel nameSpaceModel = MapRESTNamespaceToNamespaceMetaDataModel(uaNamespace, userId);
 
-                    var nameSpaceModel = new NamespaceMetaDataModel();
-                    MapToEntity(ref nameSpaceModel, uaNamespace, nodeSetModel, contributor, category);
-
-                    nodeSetModel.ValidationStatus = ValidationStatus.Parsed;
-                    nodeSetModel.ValidationStatusInfo = null;
-                    nameSpaceModel.UserId = userId;
 
                     await _dbContext.AddAsync(nameSpaceModel).ConfigureAwait(false);
 
                     await _dbContext.SaveChangesAsync().ConfigureAwait(false);
                 },
                 // This will only run on failures during transaction commit, where the EF can not determine if the Tx was committed or not
-                () => _dbContext.nodeSetsWithUnapproved.AsNoTracking()
-                    .AnyAsync(n => n.ModelUri == nodeSet.Models[0].ModelUri && n.PublicationDate == (nodeSet.Models[0].PublicationDateSpecified ? nodeSet.Models[0].PublicationDate : default))
+                () => _dbContext.NodeSetsWithUnapproved.AnyAsync(
+                    n => n.ModelUri == nodeSet.Models[0].ModelUri && n.PublicationDate == (nodeSet.Models[0].PublicationDateSpecified ? nodeSet.Models[0].PublicationDate : default))
                 ).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -252,22 +218,50 @@ namespace Opc.Ua.Cloud.Library
             return message;
         }
 
+        public async Task IndexNodeSetModelAsync(UANodeSet nodeset, UANameSpace uaNamespace)
+        {
+            if (nodeset.Models.Length == 0)
+            {
+                throw new ArgumentException($"Invalid nodeset: no models specified");
+            }
+
+            NodeSetModel nodesetModel = await MapRESTNodesetXmlToNodeSetModel(nodeset.Models[0], uaNamespace, _dbContext).ConfigureAwait(false);
+
+            // find our metadata model and link the two together
+            NamespaceMetaDataModel metadataModel = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetModel.Identifier).ConfigureAwait(false);
+            metadataModel.NodeSet = nodesetModel;
+            nodesetModel.Metadata = metadataModel;
+
+            new NodeModelFactoryOpc(nodesetModel, nodeset, _logger).ImportNodeSet();
+            metadataModel.ValidationStatus = ValidationStatus.Indexed;
+
+            await _dbContext.NodeSetsWithUnapproved.AddAsync(nodesetModel).ConfigureAwait(false);
+
+            await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+        }
+
         public async Task<uint> IncrementDownloadCountAsync(uint nodesetId)
         {
             NamespaceMetaDataModel namespaceMeta = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+
             namespaceMeta.NumberOfDownloads++;
             uint newCount = namespaceMeta.NumberOfDownloads;
+
             await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+
             return newCount;
         }
 
-        public async Task<bool> DeleteAllRecordsForNodesetAsync(uint nodesetId)
+        public async Task DeleteAllRecordsForNodesetAsync(uint nodesetId)
         {
             try
             {
                 string nodesetIdStr = nodesetId.ToString(CultureInfo.InvariantCulture);
-                List<CloudLibNodeSetModel> deletedNodeSets = new();
-                await DeleteNodeSetIndexForNodesetAsync(nodesetIdStr, deletedNodeSets).ConfigureAwait(false);
+                NodeSetModel nodeSetModel = await _dbContext.NodeSetsWithUnapproved.FirstOrDefaultAsync(n => n.Identifier == nodesetIdStr).ConfigureAwait(false);
+                if (nodeSetModel != null)
+                {
+                    _dbContext.NodeSetsWithUnapproved.Remove(nodeSetModel);
+                }
 
                 NamespaceMetaDataModel namespaceModel = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetIdStr).ConfigureAwait(false);
                 if (namespaceModel != null)
@@ -276,51 +270,17 @@ namespace Opc.Ua.Cloud.Library
                 }
 
                 await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-
-                // Re-add nodesets that were removed because they depend on the nodeset being deleted
-                // This will cause them to be reindexed later on
-                foreach (CloudLibNodeSetModel deletedNodeSet in deletedNodeSets)
-                {
-                    if (deletedNodeSet.Identifier != nodesetIdStr)
-                    {
-                        CloudLibNodeSetModel nodeSetModel = NodeSetModelIndexer.CreateNodeSetModelFromNodeSet(deletedNodeSet);
-                        await _dbContext.nodeSetsWithUnapproved.AddAsync(nodeSetModel).ConfigureAwait(false);
-                    }
-                }
-                await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-
-                return true;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error while deleting all records for {nodesetId}");
-                // rethrow so db execution policy can do retries if so configured
+
                 throw;
-            }
-        }
-        public async Task DeleteNodeSetIndexForNodesetAsync(string nodesetId, List<CloudLibNodeSetModel> deletedNodeSets)
-        {
-            CloudLibNodeSetModel nodeSetModel = await _dbContext.nodeSetsWithUnapproved.FirstOrDefaultAsync(n => n.Identifier == nodesetId).ConfigureAwait(false);
-            if (nodeSetModel != null)
-            {
-                foreach (CloudLibNodeSetModel dependentNodeset in _dbContext.nodeSetsWithUnapproved
-                    .Where(n => n.RequiredModels
-                        .Any(rm => rm.AvailableModel.ModelUri == nodeSetModel.ModelUri && rm.AvailableModel.PublicationDate == nodeSetModel.PublicationDate)))
-                {
-                    // Delete any dependent nodesets, so we can re-index them from scratch
-                    await DeleteNodeSetIndexForNodesetAsync(dependentNodeset.Identifier, deletedNodeSets).ConfigureAwait(false);
-                }
-                if (!deletedNodeSets.Contains(nodeSetModel))
-                {
-                    _dbContext.nodeSetsWithUnapproved.Remove(nodeSetModel);
-                    deletedNodeSets.Add(nodeSetModel);
-                }
             }
         }
 
         public async Task<UANameSpace> RetrieveAllMetadataAsync(uint nodesetId)
         {
-            UANameSpace nameSpace = new();
             try
             {
 #pragma warning disable CA1305 // Specify IFormatProvider: runs in database with single culture, can not use culture invariant
@@ -329,80 +289,68 @@ namespace Opc.Ua.Cloud.Library
                     .Include(md => md.NodeSet)
                     .FirstOrDefaultAsync().ConfigureAwait(false);
 #pragma warning restore CA1305 // Specify IFormatProvider
+
                 if (namespaceModel == null)
                 {
                     return null;
                 }
-                MapToNamespace(nameSpace, namespaceModel);
+
+                return MapNamespaceMetaDataModelToRESTNamespace(namespaceModel);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
                 throw;
             }
-            return nameSpace;
         }
 
-        internal IQueryable<CloudLibNodeSetModel> SearchNodesets(string[] keywords)
+        internal IQueryable<NodeSetModel> SearchNodesets(string[] keywords)
         {
-            IQueryable<CloudLibNodeSetModel> matchingNodeSets;
+            IQueryable<NodeSetModel> matchingNodeSets;
 
             if ((keywords != null) && (keywords.Length != 0) && (keywords[0] != "*"))
             {
                 string keywordRegex = $".*({string.Join('|', keywords)}).*";
 #pragma warning disable CA1305 // Specify IFormatProvider - ToString() runs in the database, cultureinfo not supported
                 matchingNodeSets =
-                    _dbContext.nodeSets
+                    NodeSets
                     .Where(nsm =>
-                        _dbContext.NamespaceMetaData.Any(md =>
+                        NamespaceMetaData.Any(md =>
                             md.NodesetId == nsm.Identifier
                             && (Regex.IsMatch(md.Title, keywordRegex, RegexOptions.IgnoreCase)
                             || Regex.IsMatch(md.Description, keywordRegex, RegexOptions.IgnoreCase)
                             || Regex.IsMatch(md.NodeSet.ModelUri, keywordRegex, RegexOptions.IgnoreCase)
                             || Regex.IsMatch(string.Join(",", md.Keywords), keywordRegex, RegexOptions.IgnoreCase)
-                            || Regex.IsMatch(md.Category.Name, keywordRegex, RegexOptions.IgnoreCase)
-                            || Regex.IsMatch(md.Contributor.Name, keywordRegex, RegexOptions.IgnoreCase))
-                            // Fulltext appears to be slower than regex: && EF.Functions.ToTsVector("english", md.Title + " || " + md.Description/* + " " + string.Join(' ', md.Keywords) + md.Category.Name + md.Contributor.Name*/).Matches(keywordTsQuery))
                             )
-
-                        || _dbContext.nodeModels.Any(nm => nm.NodeSet.Identifier == nsm.Identifier && Regex.IsMatch(nm.BrowseName, keywordRegex, RegexOptions.IgnoreCase))
-                        // Fulltext appears to be slower than regex: || _dbContext.nodeModels.Any(nm => nm.NodeSet.Identifier == nsm.Identifier && EF.Functions.ToTsVector("english", nm.BrowseName).Matches(keywordTsQuery))
-                        // Displayname is localized and this query is slower, even with an index. We could add a DefaultDisplayName to speed this up, if BrowseName ends up being incorrect
-                        //|| _dbContext.nodeModels.Any(nm => nm.NodeSet.Identifier == nsm.Identifier && Regex.IsMatch(nm.DisplayName.FirstOrDefault().Text, keywordRegex, RegexOptions.IgnoreCase))
-                        );
+                        )
+                    );
 #pragma warning restore CA1305 // Specify IFormatProvider
             }
             else
             {
-                matchingNodeSets = _dbContext.nodeSets.AsQueryable();
+                matchingNodeSets = NodeSets.AsQueryable();
             }
+
             return matchingNodeSets;
         }
 
-        public UANodesetResult[] FindNodesets(string[] keywords, int? offset, int? limit)
+        public UANameSpace[] FindNodesets(string[] keywords, int? offset, int? limit)
         {
             var uaNamespaceModel = SearchNodesets(keywords)
                 .OrderBy(n => n.ModelUri)
                 .Skip(offset ?? 0)
                 .Take(limit ?? 100)
-                .Select(n => _dbContext.NamespaceMetaData.Where(nmd => nmd.NodesetId == n.Identifier).Include(nmd => nmd.NodeSet).FirstOrDefault())
+                .Select(n => NamespaceMetaData.Where(nmd => nmd.NodesetId == n.Identifier).Include(nmd => nmd.NodeSet).FirstOrDefault())
                 .ToList();
 
-            UANodesetResult[] nodesetResults = uaNamespaceModel.Select(nameSpace => {
-                var result = new UANodesetResult();
-                MapToNamespace(result, nameSpace);
-
-                return result;
-            }).ToArray();
-            return nodesetResults;
+            return uaNamespaceModel.Select(MapNamespaceMetaDataModelToRESTNamespace).ToArray();
         }
-
 
         public Task<string[]> GetAllNamespacesAndNodesets()
         {
             try
             {
-                string[] namesAndIds = _dbContext.nodeSets.Select(nsm => new { nsm.ModelUri, nsm.Identifier, nsm.Version, nsm.PublicationDate }).Select(n => $"{n.ModelUri},{n.Identifier},{n.Version},{n.PublicationDate}").ToArray();
+                string[] namesAndIds = NodeSets.Select(nsm => new { nsm.ModelUri, nsm.Identifier, nsm.Version, nsm.PublicationDate }).Select(n => $"{n.ModelUri},{n.Identifier},{n.Version},{n.PublicationDate}").ToArray();
                 return Task.FromResult(namesAndIds);
             }
             catch (Exception ex)
@@ -413,27 +361,12 @@ namespace Opc.Ua.Cloud.Library
             return Task.FromResult(Array.Empty<string>());
         }
 
-        private CloudLibNodeSetModel GetNamespaceUriForNodeset(string nodesetId)
-        {
-            try
-            {
-                CloudLibNodeSetModel model = _dbContext.nodeSets.FirstOrDefault(nsm => nsm.Identifier == nodesetId);
-                return model;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex.Message);
-            }
-
-            return null;
-        }
-
         public Task<string[]> GetAllNamesAndNodesets()
         {
             try
             {
-                var categoryAndNodesetIds = _dbContext.NamespaceMetaData.Select(md => new { md.Category.Name, md.NodesetId }).ToList();
-                string[] namesAndNodesetsString = categoryAndNodesetIds.Select(cn => $"{cn.Name},{cn.NodesetId}").ToArray();
+                var categoryAndNodesetIds = NamespaceMetaData.Select(md => new { md.Title, md.NodesetId }).ToList();
+                string[] namesAndNodesetsString = categoryAndNodesetIds.Select(cn => $"{cn.Title},{cn.NodesetId}").ToArray();
                 return Task.FromResult(namesAndNodesetsString);
             }
             catch (Exception ex)
@@ -444,20 +377,7 @@ namespace Opc.Ua.Cloud.Library
             return Task.FromResult(Array.Empty<string>());
         }
 
-
-        public IQueryable<NamespaceMetaDataModel> GetNamespaces()
-        {
-            return _dbContext.NamespaceMetaData
-                .Include(md => md.Category)
-                .Include(md => md.Contributor)
-                .Include(md => md.NodeSet);
-        }
-        public int GetNamespaceTotalCount()
-        {
-            return _dbContext.NamespaceMetaData.Count();
-        }
-
-        public async Task<NamespaceMetaDataModel> ApproveNamespaceAsync(string identifier, ApprovalStatus status, string approvalInformation, List<UAProperty> additionalProperties)
+        public async Task<NamespaceMetaDataModel> ApproveNamespaceAsync(string identifier, ApprovalStatus status, string approvalInformation)
         {
             NamespaceMetaDataModel nodeSetMeta = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync().ConfigureAwait(false);
             if (nodeSetMeta == null) return null;
@@ -476,193 +396,137 @@ namespace Opc.Ua.Cloud.Library
                     _logger.LogWarning($"Failed to delete file on Approval cancelation for {nodeSetMeta.NodesetId}: {ex.Message}");
                 }
 
-                if (!await DeleteAllRecordsForNodesetAsync(uint.Parse(nodeSetMeta.NodesetId, CultureInfo.InvariantCulture)).ConfigureAwait(false))
-                {
-                    _logger.LogWarning($"Failed to delete records on Approval cancelation for {nodeSetMeta.NodesetId}");
-                    return null;
-                }
+                await DeleteAllRecordsForNodesetAsync(uint.Parse(nodeSetMeta.NodesetId, CultureInfo.InvariantCulture)).ConfigureAwait(false);
+
                 return nodeSetMeta;
             }
+
             _dbContext.Attach(nodeSetMeta);
-            if (additionalProperties != null)
-            {
-                foreach (UAProperty prop in additionalProperties)
-                {
-                    if (string.IsNullOrEmpty(prop.Value))
-                    {
-                        nodeSetMeta.AdditionalProperties.RemoveAll(p => p.Name == prop.Name);
-                    }
-                    else
-                    {
-                        AdditionalPropertyModel existingProp = nodeSetMeta.AdditionalProperties.FirstOrDefault(p => p.Name == prop.Name);
-                        if (existingProp != null)
-                        {
-                            existingProp.Value = prop.Value;
-                        }
-                        else
-                        {
-                            var newProp = new AdditionalPropertyModel {
-                                Name = prop.Name,
-                                Value = prop.Value,
-                            };
-                            nodeSetMeta.AdditionalProperties.Add(newProp);
-                        }
-                    }
-                }
-            }
+
             await _dbContext.SaveChangesAsync().ConfigureAwait(false);
             NamespaceMetaDataModel nodeSetMetaSaved = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync().ConfigureAwait(false);
+
             return nodeSetMetaSaved;
         }
 
-        public IQueryable<CloudLibNodeSetModel> GetNodeSetsPendingApproval()
+        private NamespaceMetaDataModel MapRESTNamespaceToNamespaceMetaDataModel(UANameSpace uaNamespace, string userId)
         {
-            return _dbContext.nodeSetsWithUnapproved.Where(n => _dbContext.NamespaceMetaDataWithUnapproved.Any(nmd => nmd.NodesetId == n.Identifier && nmd.ApprovalStatus != ApprovalStatus.Approved));
-        }
-
-        public IQueryable<CategoryModel> GetCategories()
-        {
-            return _dbContext.Categories;
-        }
-
-        public IQueryable<OrganisationModel> GetOrganisations()
-        {
-            return _dbContext.Organisations.AsQueryable();
-        }
-
-        private void MapToEntity(ref NamespaceMetaDataModel entity, UANameSpace uaNamespace, CloudLibNodeSetModel nodeSetModel, OrganisationModel contributor, CategoryModel category)
-        {
-            string identifier = nodeSetModel != null ? nodeSetModel.Identifier : uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
-            entity.NodesetId = identifier;
-            if (uaNamespace.CreationTime != null)
-            {
-                entity.CreationTime = uaNamespace.CreationTime.GetNormalizedPublicationDate();
-            }
-            else
-            {
-                entity.CreationTime = DateTime.Now;
-            }
-
-            entity.NodeSet = nodeSetModel;
-            entity.Title = uaNamespace.Title;
-            entity.ContributorId = contributor?.Id ?? 0;
-            entity.Contributor = contributor ?? new OrganisationModel {
-                Name = uaNamespace.Contributor.Name,
-                Description = uaNamespace.Contributor.Description,
-                ContactEmail = uaNamespace.Contributor.ContactEmail,
-                LogoUrl = uaNamespace.Contributor.LogoUrl?.ToString(),
-                Website = uaNamespace.Contributor.Website?.ToString(),
-            };
+            // fix up license expression
             string licenseExpression = uaNamespace.License switch {
                 "0" => "MIT",
                 "1" or "ApacheLicense20" => "Apache-2.0",
                 "2" => "Custom",
-                _ => uaNamespace.License,
+                _ => uaNamespace.License
             };
-            // TODO Validate license Expression
-            entity.License = licenseExpression;
-            entity.CopyrightText = uaNamespace.CopyrightText;
-            entity.Description = uaNamespace.Description;
-            entity.CategoryId = category?.Id ?? 0;
-            entity.Category = category ?? new CategoryModel {
-                Name = uaNamespace.Category.Name,
-                Description = uaNamespace.Category.Description,
-                IconUrl = uaNamespace.Category.IconUrl?.ToString(),
+
+            NamespaceMetaDataModel metadataModel = new() {
+                NodesetId = uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture),
+                Title = uaNamespace.Title,
+                License = licenseExpression,
+                CopyrightText = uaNamespace.CopyrightText,
+                Description = uaNamespace.Description,
+                DocumentationUrl = uaNamespace.DocumentationUrl?.ToString(),
+                IconUrl = uaNamespace.IconUrl?.ToString(),
+                LicenseUrl = uaNamespace.LicenseUrl?.ToString(),
+                Keywords = uaNamespace.Keywords,
+                PurchasingInformationUrl = uaNamespace.PurchasingInformationUrl?.ToString(),
+                ReleaseNotesUrl = uaNamespace.ReleaseNotesUrl?.ToString(),
+                TestSpecificationUrl = uaNamespace.TestSpecificationUrl?.ToString(),
+                SupportedLocales = uaNamespace.SupportedLocales,
+                NumberOfDownloads = uaNamespace.NumberOfDownloads,
+                ApprovalStatus = ApprovalStatus.Pending,
+                ValidationStatus = ValidationStatus.Parsed,
+                CreationTime = uaNamespace.CreationTime != null ? uaNamespace.CreationTime.GetNormalizedDate() : DateTime.UtcNow,
+                UserId = userId
             };
-            entity.DocumentationUrl = uaNamespace.DocumentationUrl?.ToString();
-            entity.IconUrl = uaNamespace.IconUrl?.ToString();
-            entity.LicenseUrl = uaNamespace.LicenseUrl?.ToString();
-            entity.Keywords = uaNamespace.Keywords;
-            entity.PurchasingInformationUrl = uaNamespace.PurchasingInformationUrl?.ToString();
-            entity.ReleaseNotesUrl = uaNamespace.ReleaseNotesUrl?.ToString();
-            entity.TestSpecificationUrl = uaNamespace.TestSpecificationUrl?.ToString();
-            entity.SupportedLocales = uaNamespace.SupportedLocales;
-            entity.NumberOfDownloads = uaNamespace.NumberOfDownloads;
-            entity.AdditionalProperties = uaNamespace.AdditionalProperties?.Select(p => new AdditionalPropertyModel { NodeSetId = identifier, Name = p.Name, Value = p.Value })?.ToList();
-            entity.ApprovalStatus = ApprovalStatus.Pending;
+
+            return metadataModel;
         }
 
-        private void MapToNamespace(UANameSpace uaNamespace, NamespaceMetaDataModel model)
+        private async Task<NodeSetModel> MapRESTNodesetXmlToNodeSetModel(ModelTableEntry nodesetTableEntry, UANameSpace uaNamespace, AppDbContext dbContext)
         {
-            if (model.NodeSet == null)
-            {
-                uaNamespace.Nodeset = null;
-            }
-            else
-            {
-                MapToNodeSet(uaNamespace.Nodeset, model.NodeSet);
-            }
-            uaNamespace.CreationTime = model.CreationTime;
-            uaNamespace.Title = model.Title;
-            if (model.Contributor == null)
-            {
-                uaNamespace.Contributor = null;
-            }
-            else
-            {
-                MapToOrganisation(uaNamespace.Contributor, model.Contributor);
-            }
-            uaNamespace.License = model.License;
-            uaNamespace.CopyrightText = model.CopyrightText;
-            uaNamespace.Description = model.Description;
-            if (model.Category == null)
-            {
-                uaNamespace.Category = null;
-            }
-            else
-            {
-                MapToCategory(uaNamespace.Category, model.Category);
-            }
-            uaNamespace.DocumentationUrl = model.DocumentationUrl != null ? new Uri(model.DocumentationUrl) : null;
-            uaNamespace.IconUrl = model.IconUrl != null ? new Uri(model.IconUrl) : null;
-            uaNamespace.LicenseUrl = model.LicenseUrl != null ? new Uri(model.LicenseUrl) : null;
-            uaNamespace.Keywords = model.Keywords;
-            uaNamespace.PurchasingInformationUrl = model.PurchasingInformationUrl != null ? new Uri(model.PurchasingInformationUrl) : null;
-            uaNamespace.ReleaseNotesUrl = model.ReleaseNotesUrl != null ? new Uri(model.ReleaseNotesUrl) : null;
-            uaNamespace.TestSpecificationUrl = model.TestSpecificationUrl != null ? new Uri(model.TestSpecificationUrl) : null;
-            uaNamespace.SupportedLocales = model.SupportedLocales;
-            uaNamespace.NumberOfDownloads = model.NumberOfDownloads;
-            uaNamespace.AdditionalProperties = model.AdditionalProperties?.Select(p => new UAProperty { Name = p.Name, Value = p.Value })?.ToArray();
-        }
+            NodeSetModel nodesetModel = new() {
+                ModelUri = nodesetTableEntry.ModelUri,
+                Version = nodesetTableEntry.Version,
+                PublicationDate = nodesetTableEntry.GetNormalizedPublicationDate(),
+                Identifier = uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture),
+                LastModifiedDate = NodeModelUtils.GetNormalizedDate(uaNamespace.Nodeset.LastModifiedDate)
+            };
 
-        private void MapToCategory(Category category, CategoryModel model)
-        {
-            category.Name = model.Name;
-            category.Description = model.Description;
-            category.IconUrl = model.IconUrl != null ? new Uri(model.IconUrl) : null;
-        }
-
-        private void MapToNodeSet(Nodeset nodeset, NodeSetModel model)
-        {
-            nodeset.Identifier = uint.Parse(model.Identifier, CultureInfo.InvariantCulture);
-            nodeset.NamespaceUri = model.ModelUri != null ? new Uri(model.ModelUri) : null;
-            nodeset.PublicationDate = model.PublicationDate ?? default;
-            nodeset.Version = model.Version;
-            nodeset.ValidationStatus = (model as CloudLibNodeSetModel)?.ValidationStatus.ToString();
-            nodeset.LastModifiedDate = (model as CloudLibNodeSetModel)?.LastModifiedDate ?? default;
-            nodeset.NodesetXml = null;
-            nodeset.RequiredModels = model.RequiredModels.Select(rm => {
-                Nodeset availableNodeSet = null;
-                if (rm.AvailableModel != null)
+            if (nodesetTableEntry.RequiredModel != null)
+            {
+                foreach (ModelTableEntry requiredModel in nodesetTableEntry.RequiredModel)
                 {
-                    availableNodeSet = new();
-                    MapToNodeSet(availableNodeSet, rm.AvailableModel);
+                    DateTime? publicationDate = requiredModel.PublicationDateSpecified ? requiredModel.PublicationDate : null;
+                    List<NodeSetModel> matchingNodeSets = await dbContext.Set<NodeSetModel>().Where(nsm => nsm.ModelUri == requiredModel.ModelUri).ToListAsync().ConfigureAwait(false);
+
+                    NodeSetModel existingNodeSet = NodeModelUtils.GetMatchingOrHigherNodeSet(matchingNodeSets, publicationDate, requiredModel.Version);
+
+                    var requiredModelInfo = new RequiredModelInfoModel {
+                        ModelUri = requiredModel.ModelUri,
+                        PublicationDate = requiredModel.PublicationDateSpecified ? ((DateTime?)requiredModel.PublicationDate).GetNormalizedDate() : null,
+                        Version = requiredModel.Version,
+                        AvailableModel = existingNodeSet,
+                    };
+
+                    nodesetModel.RequiredModels.Add(requiredModelInfo);
                 }
-                return new CloudLibRequiredModelInfo { NamespaceUri = rm.ModelUri, PublicationDate = rm.PublicationDate, Version = rm.Version, AvailableModel = availableNodeSet };
-            }).ToList();
+            }
+
+            return nodesetModel;
         }
-        private void MapToOrganisation(Organisation org, OrganisationModel model)
+
+        private UANameSpace MapNamespaceMetaDataModelToRESTNamespace(NamespaceMetaDataModel metadataModel)
         {
-            org.Name = model.Name;
-            org.Description = model.Description;
-            org.ContactEmail = model.ContactEmail;
-            org.Website = model.Website != null ? new Uri(model.Website) : null;
-            org.LogoUrl = model.LogoUrl != null ? new Uri(model.LogoUrl) : null;
+            return new UANameSpace {
+                CreationTime = metadataModel.CreationTime,
+                Title = metadataModel.Title,
+                License = metadataModel.License,
+                CopyrightText = metadataModel.CopyrightText,
+                Description = metadataModel.Description,
+                DocumentationUrl = metadataModel.DocumentationUrl != null ? new Uri(metadataModel.DocumentationUrl) : null,
+                IconUrl = metadataModel.IconUrl != null ? new Uri(metadataModel.IconUrl) : null,
+                LicenseUrl = metadataModel.LicenseUrl != null ? new Uri(metadataModel.LicenseUrl) : null,
+                Keywords = metadataModel.Keywords,
+                PurchasingInformationUrl = metadataModel.PurchasingInformationUrl != null ? new Uri(metadataModel.PurchasingInformationUrl) : null,
+                ReleaseNotesUrl = metadataModel.ReleaseNotesUrl != null ? new Uri(metadataModel.ReleaseNotesUrl) : null,
+                TestSpecificationUrl = metadataModel.TestSpecificationUrl != null ? new Uri(metadataModel.TestSpecificationUrl) : null,
+                SupportedLocales = metadataModel.SupportedLocales,
+                NumberOfDownloads = metadataModel.NumberOfDownloads,
+                Nodeset = metadataModel.NodeSet == null ? null : MapNodeSetModelToRESTNodeSet(metadataModel.NodeSet)
+            };
+        }
+
+        private Nodeset MapNodeSetModelToRESTNodeSet(NodeSetModel model)
+        {
+            return new Nodeset {
+                Identifier = uint.Parse(model.Identifier, CultureInfo.InvariantCulture),
+                NamespaceUri = model.ModelUri != null ? new Uri(model.ModelUri) : null,
+                PublicationDate = model.PublicationDate ?? default,
+                LastModifiedDate = model.LastModifiedDate ?? default,
+                Version = model.Version,
+                ValidationStatus = model.Metadata.ValidationStatus.ToString(),
+                NodesetXml = null,
+                RequiredModels = model.RequiredModels.Select(rm => {
+                    Nodeset availableNodeSet = null;
+                    if (rm.AvailableModel != null)
+                    {
+                        availableNodeSet = MapNodeSetModelToRESTNodeSet(rm.AvailableModel);
+                    }
+
+                    return new RequiredModelInfo {
+                        NamespaceUri = rm.ModelUri,
+                        PublicationDate = rm.PublicationDate,
+                        Version = rm.Version,
+                        AvailableModel = availableNodeSet
+                    };
+                }).ToList()
+            };
         }
 
         public async Task<string[]> GetAllTypes(string nodeSetID)
         {
-            CloudLibNodeSetModel nodeSetMeta = await GetNodeSets(nodeSetID).FirstOrDefaultAsync().ConfigureAwait(false);
+            NodeSetModel nodeSetMeta = await GetNodeSets(nodeSetID).FirstOrDefaultAsync().ConfigureAwait(false);
             if (nodeSetMeta != null)
             {
                 List<NodeModel> types = new();
@@ -753,7 +617,7 @@ namespace Opc.Ua.Cloud.Library
                 List<string> fields = new();
                 foreach (DataTypeModel.StructureField field in dataModel.StructureFields)
                 {
-                    fields.Add(field.DataType.NodeId + ":" + field.DataType.BrowseName + ":" + field.Name);
+                    fields.Add(field.DataType + ":" + field.Name);
                 }
 
                 string fieldsSerialized = JsonSerializer.Serialize(fields, options);
@@ -779,74 +643,5 @@ namespace Opc.Ua.Cloud.Library
 
             return Task.FromResult("{}");
         }
-
-#if !NOLEGACY
-        #region legacy
-
-        public IQueryable<MetadataModel> GetMetadataModel()
-        {
-            // TODO retrieve well-known properties from NamespaceMetaDataModel
-            return _dbContext.Metadata.AsQueryable();
-        }
-
-
-        public IQueryable<QueryModel.NodeSetGraphQLLegacy> GetNodeSet()
-        {
-            return _dbContext.nodeSets.AsQueryable().Select(nsm => new QueryModel.NodeSetGraphQLLegacy {
-                Identifier = uint.Parse(nsm.Identifier, CultureInfo.InvariantCulture),
-                NamespaceUri = nsm.ModelUri,
-                Version = nsm.Version,
-                PublicationDate = nsm.PublicationDate ?? default,
-                LastModifiedDate = nsm.LastModifiedDate ?? default,
-            });
-        }
-
-        public IQueryable<ObjecttypeModel> GetObjectType()
-        {
-            var objectTypes = GetNodeModels<ObjectTypeModel>(nsm => nsm.ObjectTypes).Select(ot => new ObjecttypeModel {
-                BrowseName = ot.BrowseName,
-                NameSpace = ot.Namespace,
-                NodesetId = long.Parse(ot.NodeSet.Identifier, CultureInfo.InvariantCulture),
-                Id = ot.NodeId.GetDeterministicHashCode(),
-                Value = ot.DisplayName.FirstOrDefault().Text,
-            });
-            return objectTypes;
-        }
-
-        public IQueryable<DatatypeModel> GetDataType()
-        {
-            var dataTypes = GetNodeModels<DataTypeModel>(nsm => nsm.DataTypes).Select(dt => new DatatypeModel {
-                BrowseName = dt.BrowseName,
-                NameSpace = dt.Namespace,
-                NodesetId = long.Parse(dt.NodeSet.Identifier, CultureInfo.InvariantCulture),
-                Id = dt.NodeId.GetDeterministicHashCode(),
-                Value = dt.DisplayName.FirstOrDefault().Text,
-            });
-            return dataTypes;
-        }
-        public IQueryable<ReferencetypeModel> GetReferenceType()
-        {
-            var referenceTypes = GetNodeModels<ReferenceTypeModel>(nsm => nsm.ReferenceTypes).Select(rt => new ReferencetypeModel {
-                BrowseName = rt.BrowseName,
-                NameSpace = rt.Namespace,
-                NodesetId = long.Parse(rt.NodeSet.Identifier, CultureInfo.InvariantCulture),
-                Id = rt.NodeId.GetDeterministicHashCode(),
-                Value = rt.DisplayName.FirstOrDefault().Text,
-            });
-            return referenceTypes;
-        }
-        public IQueryable<VariabletypeModel> GetVariableType()
-        {
-            var referenceTypes = GetNodeModels<VariableTypeModel>(nsm => nsm.VariableTypes).Select(vt => new VariabletypeModel {
-                BrowseName = vt.BrowseName,
-                NameSpace = vt.Namespace,
-                NodesetId = long.Parse(vt.NodeSet.Identifier, CultureInfo.InvariantCulture),
-                Id = vt.NodeId.GetDeterministicHashCode(),
-                Value = vt.DisplayName.FirstOrDefault().Text,
-            });
-            return referenceTypes;
-        }
-        #endregion
-#endif // legacy
     }
 }

@@ -1,0 +1,2 @@
+CREATE ROLE testuser WITH LOGIN SUPERUSER PASSWORD 'password';
+CREATE DATABASE cloudlib_test OWNER testuser;

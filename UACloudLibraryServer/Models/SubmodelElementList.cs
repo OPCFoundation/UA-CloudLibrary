@@ -10,7 +10,7 @@ namespace AdminShell
     {
         [DataMember(Name = "value")]
         [XmlArray(ElementName = "value")]
-        [XmlArrayItem(ElementName = "property", Type = typeof(Property))]
+        [XmlArrayItem(ElementName = "property", Type = typeof(AASProperty))]
         [XmlArrayItem(ElementName = "multiLanguageProperty", Type = typeof(MultiLanguageProperty))]
         [XmlArrayItem(ElementName = "range", Type = typeof(Range))]
         [XmlArrayItem(ElementName = "file", Type = typeof(File))]
@@ -43,7 +43,7 @@ namespace AdminShell
 
         [DataMember(Name = "orderRelevant")]
         [XmlElement(ElementName = "orderRelevant")]
-        public bool OrderRelevant = false;
+        public bool OrderRelevant { get; set; } = false;
 
         [DataMember(Name = "semanticIdListElement")]
         [XmlElement(ElementName = "semanticIdListElement")]

@@ -11,13 +11,13 @@ namespace AdminShell
         [Required]
         [DataMember(Name = "key")]
         [XmlElement(ElementName = "key")]
-        [MetaModelName("IdentifierKeyValuePair.Key")]
+        [MetaModelNameAttribute("IdentifierKeyValuePair.Key")]
         public string Key { get; set; }
 
         [Required]
         [DataMember(Name = "value")]
         [XmlElement(ElementName = "value")]
-        [MetaModelName("IdentifierKeyValuePair.Value")]
+        [MetaModelNameAttribute("IdentifierKeyValuePair.Value")]
         public string Value { get; set; }
 
         [Required]

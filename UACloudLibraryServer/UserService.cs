@@ -1,5 +1,5 @@
 /* ========================================================================
- * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
+ * Copyright (c) 2005-2025 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
  *
@@ -36,30 +36,15 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Opc.Ua.Cloud.Library.Authentication;
-using Opc.Ua.Cloud.Library.Interfaces;
 
 namespace Opc.Ua.Cloud.Library
 {
-    public class UserService : IUserService
+    public class UserService
     {
         private readonly UserManager<IdentityUser> _userManager;
         private readonly ILogger _logger;
         private readonly IConfiguration _config;
         private readonly ApiKeyTokenProvider _apiKeyTokenProvider;
-
-        // This string is used in controller attributes: keep it in a central place
-#if APIKEY_AUTH
-#if AZURE_AD
-        // APIKEY and AZURE_AD
-        public const string APIAuthorizationSchemes = "BasicAuthentication,SignedInUserAuthentication,ApiKeyAuthentication,Bearer";
-#else
-        // APIKEY_AUTH
-        public const string APIAuthorizationSchemes = "BasicAuthentication,SignedInUserAuthentication,ApiKeyAuthentication";
-#endif
-#else
-        // Basic only
-        public const string APIAuthorizationSchemes = "BasicAuthentication,SignedInUserAuthentication";
-#endif
 
         public UserService(UserManager<IdentityUser> userManager, ILoggerFactory logger, IConfiguration config, ApiKeyTokenProvider apiKeyTokenProvider)
         {

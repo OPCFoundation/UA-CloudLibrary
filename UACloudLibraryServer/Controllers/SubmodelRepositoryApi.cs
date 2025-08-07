@@ -1,21 +1,50 @@
+/* ========================================================================
+ * Copyright (c) 2005-2025 The OPC Foundation, Inc. All rights reserved.
+ *
+ * OPC Foundation MIT License 1.00
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * The complete license agreement can be found here:
+ * http://opcfoundation.org/License/MIT/1.00/
+ * ======================================================================*/
 
 using System;
+using System.Buffers.Text;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Net.Mime;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using Opc.Ua.Cloud.Library;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace AdminShell
 {
-    [Authorize(AuthenticationSchemes = UserService.APIAuthorizationSchemes)]
+    [Authorize(Policy = "ApiPolicy")]
     [ApiController]
     public class SubmodelRepositoryApiController : ControllerBase
     {
@@ -56,12 +85,12 @@ namespace AdminShell
             string decodedSubmodelIdentifier = null;
             if (submodelIdentifier != null)
             {
-                decodedSubmodelIdentifier = Base64UrlEncoder.Decode(submodelIdentifier);
+                decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
             }
 
             List<SubmodelElement> submodelElements = _aasEnvService.GetAllSubmodelElementsFromSubmodel(decodedSubmodelIdentifier);
 
-            PagedResult<SubmodelElement> output = PagedResult<SubmodelElement>.ToPagedList(submodelElements, new PaginationParameters(cursor, limit));
+            PagedResult<SubmodelElement> output = PagedResult.ToPagedList<SubmodelElement>(submodelElements, new PaginationParameters(cursor, limit));
 
             return new ObjectResult(output);
         }
@@ -95,14 +124,14 @@ namespace AdminShell
             string reqSemanticId = null;
             if (semanticId != null)
             {
-                reqSemanticId = Base64UrlEncoder.Decode(semanticId);
+                reqSemanticId = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(semanticId)));
             }
 
             Reference reference = new Reference { Keys = new List<Key> { new Key("Submodel", reqSemanticId) } };
 
             List<Submodel> submodelList = _aasEnvService.GetAllSubmodels(reference, idShort);
 
-            PagedResult<Submodel> output = PagedResult<Submodel>.ToPagedList(submodelList, new PaginationParameters(cursor, limit));
+            PagedResult<Submodel> output = PagedResult.ToPagedList<Submodel>(submodelList, new PaginationParameters(cursor, limit));
 
             return new ObjectResult(output);
         }
@@ -132,7 +161,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public virtual IActionResult GetSubmodelById([FromRoute][Required] string submodelIdentifier, [FromQuery] string level, [FromQuery] string extent)
         {
-            string decodedSubmodelIdentifier = Base64UrlEncoder.Decode(submodelIdentifier);
+            string decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
 
             Submodel output = _aasEnvService.GetSubmodelById(decodedSubmodelIdentifier);
 
@@ -165,7 +194,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public virtual async Task<IActionResult> GetFileByPath([FromRoute][Required] string submodelIdentifier, [FromRoute][Required] string idShortPath)
         {
-            string decodedSubmodelIdentifier = Base64UrlEncoder.Decode(submodelIdentifier);
+            string decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
 
             if (decodedSubmodelIdentifier == null)
             {
@@ -227,7 +256,7 @@ namespace AdminShell
             string decodedSubmodelIdentifier = null;
             if (submodelIdentifier != null)
             {
-                decodedSubmodelIdentifier = Base64UrlEncoder.Decode(submodelIdentifier);
+                decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
             }
 
             SubmodelElement output = _aasEnvService.GetSubmodelElementByPath(decodedSubmodelIdentifier, idShortPath);

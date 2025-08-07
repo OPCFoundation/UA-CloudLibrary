@@ -31,36 +31,37 @@ using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
-namespace Opc.Ua.Cloud.Library.Client
+namespace Opc.Ua.Cloud.Client.Models
 {
-    /// <summary>License Enumeration</summary>
-    /// <summary>Contains the metadata of the nodeset and the nodeset itself</summary>
-    public class UANameSpace
+    /// <summary>
+    /// Lic info
+    /// </summary>
+    public enum License
     {
-        /// <summary>Create a new NameSpace metadata</summary>
-        public UANameSpace()
-        {
-            Title = string.Empty;
-            License = string.Empty;
-            CopyrightText = string.Empty;
-            Contributor = new Organisation();
-            Description = string.Empty;
-            Category = new Category();
-            Nodeset = new Nodeset();
-            DocumentationUrl = null;
-            IconUrl = null;
-            LicenseUrl = null;
-            Keywords = Array.Empty<string>();
-            PurchasingInformationUrl = null;
-            ReleaseNotesUrl = null;
-            TestSpecificationUrl = null;
-            SupportedLocales = Array.Empty<string>();
-            NumberOfDownloads = 0;
-            AdditionalProperties = null;
-        }
+        /// <summary>
+        /// MIT License
+        /// </summary>
+        MIT,
 
+        /// <summary>
+        /// Apache License 2.0
+        /// </summary>
+        ApacheLicense20,
+
+        /// <summary>
+        /// Custom License
+        /// </summary>
+        Custom
+    }
+
+    /// <summary>
+    /// Namespace metadata for a UA Information Model
+    /// </summary>
+    public class UANameSpaceMetadata
+    {
         /// <summary>Gets or sets the title.</summary>
         /// <value>The title.</value>
+        [JsonRequired]
         [JsonProperty("title")]
         public string Title { get; set; }
 
@@ -71,28 +72,15 @@ namespace Opc.Ua.Cloud.Library.Client
 
         /// <summary>Gets or sets the copyright text.</summary>
         /// <value>The copyright text.</value>
+		[JsonRequired]
         [JsonProperty("copyrightText")]
         public string CopyrightText { get; set; }
 
-        /// <summary>Gets or sets the contributor.</summary>
-        /// <value>The contributor.</value>
-        [JsonProperty("contributor")]
-        public Organisation Contributor { get; set; }
-
         /// <summary>Gets or sets the description.</summary>
         /// <value>The description.</value>
+		[JsonRequired]
         [JsonProperty("description")]
         public string Description { get; set; }
-
-        /// <summary>Gets or sets the category.</summary>
-        /// <value>The category.</value>
-        [JsonProperty("category")]
-        public Category Category { get; set; }
-
-        /// <summary>Gets or sets the nodeset.</summary>
-        /// <value>The nodeset.</value>
-        [JsonProperty("nodeset")]
-        public Nodeset Nodeset { get; set; }
 
         /// <summary>
         /// Link to additional documentation, specifications, GitHub, etc.
@@ -137,10 +125,46 @@ namespace Opc.Ua.Cloud.Library.Client
         [JsonProperty("supportedLocales")]
         public string[] SupportedLocales { get; set; }
 
-        /// <summary>Gets or sets the number of downloads.</summary>
-        /// <value>The number of downloads.</value>
-        [JsonProperty("numberOfDownloads")]
-        public uint NumberOfDownloads { get; set; }
+        /// <summary>
+        /// Default constructor
+        /// </summary>
+        public UANameSpaceMetadata()
+        {
+            Title = string.Empty;
+            License = null;
+            CopyrightText = string.Empty;
+            Description = string.Empty;
+            DocumentationUrl = null;
+            IconUrl = null;
+            LicenseUrl = null;
+            Keywords = Array.Empty<string>();
+            PurchasingInformationUrl = null;
+            ReleaseNotesUrl = null;
+            TestSpecificationUrl = null;
+            SupportedLocales = Array.Empty<string>();
+        }
+    }
+
+    /// <summary>
+    /// The full namespace
+    /// </summary>
+    public class UANameSpace : UANameSpaceMetadata
+    {
+        /// <summary>
+        /// Default constructor
+        /// </summary>
+        public UANameSpace()
+        {
+            CreationTime = null;
+            NumberOfDownloads = 0;
+            Nodeset = new Nodeset();
+        }
+
+        /// <summary>
+        /// The nodeset for this namespace
+        /// </summary>
+        [JsonRequired]
+        public Nodeset Nodeset { get; set; }
 
         /// <summary>
         /// The time the nodeset was uploaded to the cloud library
@@ -148,117 +172,10 @@ namespace Opc.Ua.Cloud.Library.Client
         [JsonProperty("creationTime")]
         public DateTime? CreationTime { get; set; }
 
-
-        /// <summary>Gets or sets the validation status.</summary>
-        /// <value>Status: Parsed, Validaded, Error + message</value>
-        [JsonProperty("validationStatus")]
-        public string ValidationStatus { get; set; }
-
         /// <summary>
-        /// Status
+        /// Number of downloads of the nodeset
         /// </summary>
-        [JsonProperty("approvalStatus")]
-        public string ApprovalStatus { get; set; }
-        /// <summary>
-        /// Additional information about the status
-        /// </summary>
-        [JsonProperty("approvalInformation")]
-        public string ApprovalInformation { get; set; }
-
-        /// <summary>Gets or sets the additional properties.</summary>
-        /// <value>The additional properties.</value>
-        [JsonProperty("additionalProperties")]
-        public UAProperty[] AdditionalProperties { get; set; }
-
-        /// <summary>
-        /// String representation for logging and debugging
-        /// </summary>
-        /// <returns></returns>
-        public override string ToString()
-        {
-            return $"{Title} {Nodeset} {ValidationStatus}";
-        }
-    }
-
-    /// <summary>Property Class</summary>
-    public class UAProperty
-    {
-        /// <summary>Gets or sets the name.</summary>
-        /// <value>The name.</value>
-        [JsonProperty("name")]
-        public string Name { get; set; }
-
-        /// <summary>Gets or sets the value.</summary>
-        /// <value>The value.</value>
-        [JsonProperty("value")]
-        public string Value { get; set; }
-    }
-    /// <summary>
-    /// Contains the metadata for the contributor/organisation
-    /// </summary>
-    public class Organisation
-    {
-        /// <summary>Initializes a new instance of the <see cref="Organisation" /> class.</summary>
-        public Organisation()
-        {
-            Name = string.Empty;
-            Description = null;
-            LogoUrl = null;
-            ContactEmail = null;
-            Website = null;
-        }
-
-        /// <summary>Gets or sets the name.</summary>
-        /// <value>The name.</value>
-        [JsonProperty("name")]
-        public string Name { get; set; }
-
-        /// <summary>Gets or sets the description.</summary>
-        /// <value>The description.</value>
-        [JsonProperty("description")]
-        public string Description { get; set; }
-
-        /// <summary>Gets or sets the logo URL.</summary>
-        /// <value>The logo URL.</value>
-        [JsonProperty("logoUrl")]
-        public Uri LogoUrl { get; set; }
-
-        /// <summary>Gets or sets the contact email.</summary>
-        /// <value>The contact email.</value>
-        [JsonProperty("contactEmail")]
-        public string ContactEmail { get; set; }
-
-        /// <summary>Gets or sets the website.</summary>
-        /// <value>The website.</value>
-        [JsonProperty("website")]
-        public Uri Website { get; set; }
-    }
-
-    /// <summary>Category Class</summary>
-    public class Category
-    {
-        /// <summary>Initializes a new instance of the <see cref="Category" /> class.</summary>
-        public Category()
-        {
-            Name = string.Empty;
-            Description = null;
-            IconUrl = null;
-        }
-
-        /// <summary>Gets or sets the name.</summary>
-        /// <value>The name.</value>
-        [JsonProperty("name")]
-        public string Name { get; set; }
-
-        /// <summary>Gets or sets the description.</summary>
-        /// <value>The description.</value>
-        [JsonProperty("description")]
-        public string Description { get; set; }
-
-        /// <summary>Gets or sets the icon URL.</summary>
-        /// <value>The icon URL.</value>
-        [JsonProperty("iconUrl")]
-        public Uri IconUrl { get; set; }
+        public uint NumberOfDownloads { get; set; }
     }
 
     /// <summary>Nodeset Class</summary>
@@ -273,6 +190,8 @@ namespace Opc.Ua.Cloud.Library.Client
             Version = string.Empty;
             PublicationDate = DateTime.MinValue;
             LastModifiedDate = DateTime.MinValue;
+            ValidationStatus = null;
+            RequiredModels = new List<RequiredModelInfo>();
         }
 
         /// <summary>Gets or sets the nodeset XML.</summary>
@@ -295,11 +214,6 @@ namespace Opc.Ua.Cloud.Library.Client
         [JsonProperty("version")]
         public string Version { get; set; }
 
-        /// <summary>Gets or sets the validation status.</summary>
-        /// <value>The validation status.</value>
-        [JsonProperty("validationStatus")]
-        public string ValidationStatus { get; set; }
-
         /// <summary>Gets or sets the publication date.</summary>
         /// <value>The publication date.</value>
         [JsonProperty("publicationDate")]
@@ -309,30 +223,21 @@ namespace Opc.Ua.Cloud.Library.Client
         /// <value>The last modified date.</value>
         [JsonProperty("lastModifiedDate")]
         public DateTime LastModifiedDate { get; set; }
+
+        /// <summary>Gets or sets the validation status.</summary>
+        /// <value>The validation status.</value>
+        [JsonProperty("validationStatus")]
+        public string ValidationStatus { get; set; }
+
         /// <summary>
         /// Nodesets that this nodeset depends on
         /// </summary>
         [JsonProperty("requiredModels")]
         public List<RequiredModelInfo> RequiredModels { get; set; }
-
-        /// <summary>
-        /// Meta data about the node set that are not captured in the nodeset itself
-        /// </summary>
-        [JsonProperty("metadata")]
-        public UANameSpace Metadata { get; set; }
-
-        /// <summary>
-        /// String representation for logging and debugging
-        /// </summary>
-        /// <returns></returns>
-        public override string ToString()
-        {
-            return $"{NamespaceUri?.OriginalString} {PublicationDate} {Version} {Identifier} {ValidationStatus}";
-        }
     }
 
     /// <summary>
-    /// Information about dependencies of a nodeset
+    /// Contains information about dependencies of a nodeset
     /// </summary>
     public class RequiredModelInfo
     {
@@ -340,18 +245,20 @@ namespace Opc.Ua.Cloud.Library.Client
         /// The namespace URI of the dependency
         /// </summary>
         public string NamespaceUri { get; set; }
+
         /// <summary>
         /// The minimum required publication date of the dependency
         /// </summary>
         public DateTime? PublicationDate { get; set; }
+
         /// <summary>
         /// The informational version of the dependency
         /// </summary>
         public string Version { get; set; }
+
         /// <summary>
         /// The best match currently available in the cloud library. null if no match (no nodeset for this namespace uri or only node sets with older publication dates).
         /// </summary>
         public Nodeset AvailableModel { get; set; }
     }
-
 }

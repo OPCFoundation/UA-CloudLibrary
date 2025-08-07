@@ -10,11 +10,13 @@ namespace AdminShell
     /// In V3.0, this is deprecated. Use SubmodelElementList, SubmodelElementStruct instead.
     /// </summary>
     [DataContract]
+#pragma warning disable CA1711 // Identifiers should not have incorrect suffix
     public class SubmodelElementCollection : SubmodelElement
+#pragma warning restore CA1711 // Identifiers should not have incorrect suffix
     {
         [DataMember(Name = "value")]
         [XmlArray(ElementName = "value")]
-        [XmlArrayItem(ElementName = "property", Type = typeof(Property))]
+        [XmlArrayItem(ElementName = "property", Type = typeof(AASProperty))]
         [XmlArrayItem(ElementName = "multiLanguageProperty", Type = typeof(MultiLanguageProperty))]
         [XmlArrayItem(ElementName = "range", Type = typeof(Range))]
         [XmlArrayItem(ElementName = "file", Type = typeof(File))]
@@ -34,10 +36,10 @@ namespace AdminShell
         public List<SubmodelElement> Value { get; set; } = new();
 
         [XmlIgnore]
-        public bool Ordered = false;
+        public bool Ordered { get; set; } = false;
 
         [XmlIgnore]
-        public bool AllowDuplicates = false;
+        public bool AllowDuplicates { get; set; } = false;
 
         public SubmodelElementCollection()
         {
