@@ -3,11 +3,14 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.Serialization;
+using Opc.Ua.Cloud.Library.Models;
 
 namespace Opc.Ua.Cloud.Library
 {
     public class NodeSetModel
     {
+        public virtual NamespaceMetaDataModel Metadata { get; set; }
+
         public string ModelUri { get; set; }
 
         public string Version { get; set; }

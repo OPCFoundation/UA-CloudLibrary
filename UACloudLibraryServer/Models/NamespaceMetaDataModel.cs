@@ -42,7 +42,7 @@ namespace Opc.Ua.Cloud.Library.Models
 
         public DateTime CreationTime { get; set; }
 
-        public virtual CloudLibNodeSetModel NodeSet { get; set; }
+        public virtual NodeSetModel NodeSet { get; set; }
 
         public string Title { get; set; }
 

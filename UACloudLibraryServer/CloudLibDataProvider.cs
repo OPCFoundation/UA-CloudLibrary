@@ -33,14 +33,14 @@ namespace Opc.Ua.Cloud.Library
             _approvalRequired = configuration.GetSection("CloudLibrary")?.GetValue<bool>("ApprovalRequired") ?? false;
         }
 
-        public IQueryable<CloudLibNodeSetModel> GetNodeSets(
+        public IQueryable<NodeSetModel> GetNodeSets(
             string identifier = null,
             string modelUri = null,
             DateTime? publicationDate = null,
             string[] keywords = null)
         {
 
-            IQueryable<CloudLibNodeSetModel> nodeSets;
+            IQueryable<NodeSetModel> nodeSets;
             if (!string.IsNullOrEmpty(identifier))
             {
                 if (modelUri != null || publicationDate != null || keywords != null)
@@ -53,7 +53,7 @@ namespace Opc.Ua.Cloud.Library
             }
             else
             {
-                IQueryable<CloudLibNodeSetModel> nodeSetQuery = SearchNodesets(keywords);
+                IQueryable<NodeSetModel> nodeSetQuery = SearchNodesets(keywords);
                 if (modelUri != null && publicationDate != null)
                 {
                     nodeSets = nodeSetQuery.Where(nsm => nsm.ModelUri == modelUri && nsm.PublicationDate == publicationDate);
@@ -98,7 +98,7 @@ namespace Opc.Ua.Cloud.Library
                 : _dbContext.NamespaceMetaDataWithUnapproved;
         }
 
-        public IQueryable<CloudLibNodeSetModel> NodeSets
+        public IQueryable<NodeSetModel> NodeSets
         {
             get =>
                 _approvalRequired
@@ -106,7 +106,7 @@ namespace Opc.Ua.Cloud.Library
                 : _dbContext.NodeSetsWithUnapproved;
         }
 
-        private IQueryable<T> GetNodeModels<T>(Expression<Func<CloudLibNodeSetModel, IEnumerable<T>>> selector, string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
+        private IQueryable<T> GetNodeModels<T>(Expression<Func<NodeSetModel, IEnumerable<T>>> selector, string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
             where T : NodeModel
         {
             if (nodeId != null && modelUri == null)
@@ -118,7 +118,7 @@ namespace Opc.Ua.Cloud.Library
                 }
             }
 
-            IQueryable<CloudLibNodeSetModel> nodeSets;
+            IQueryable<NodeSetModel> nodeSets;
             if (modelUri != null && publicationDate != null)
             {
                 nodeSets = NodeSets.AsQueryable().Where(nsm => nsm.ModelUri == modelUri && nsm.PublicationDate == publicationDate);
@@ -161,17 +161,15 @@ namespace Opc.Ua.Cloud.Library
                         await DeleteAllRecordsForNodesetAsync(legacyNodesetHashCode).ConfigureAwait(false);
                     }
 
-                    CloudLibNodeSetModel existingModel = await _dbContext.NodeSetsWithUnapproved.FindAsync(nodeSet.Models[0].ModelUri, nodeSet.Models[0].GetNormalizedPublicationDate()).ConfigureAwait(false);
+                    NodeSetModel existingModel = await _dbContext.NodeSetsWithUnapproved.FindAsync(nodeSet.Models[0].ModelUri, nodeSet.Models[0].GetNormalizedPublicationDate()).ConfigureAwait(false);
                     if (existingModel != null)
                     {
                         message = "Error: nodeset still exists after delete.";
                         return;
                     }
 
-                    var nameSpaceModel = new NamespaceMetaDataModel();
+                    NamespaceMetaDataModel nameSpaceModel = MapRESTNamespaceToNamespaceMetaDataModel(uaNamespace, userId);
 
-                    MapRESTNamespaceToNamespaceMetaDataModel(ref nameSpaceModel, uaNamespace);
-                    nameSpaceModel.UserId = userId;
 
                     await _dbContext.AddAsync(nameSpaceModel).ConfigureAwait(false);
 
@@ -198,9 +196,7 @@ namespace Opc.Ua.Cloud.Library
                 throw new ArgumentException($"Invalid nodeset: no models specified");
             }
 
-            CloudLibNodeSetModel nodesetModel = await CloudLibNodeSetModel.FromModelAsync(nodeset.Models[0], _dbContext).ConfigureAwait(false);
-            nodesetModel.Identifier = uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
-            nodesetModel.LastModifiedDate = NodeModelUtils.GetNormalizedDate(uaNamespace.Nodeset.LastModifiedDate);
+            NodeSetModel nodesetModel = await MapRESTNodesetXmlToNodeSetModel(nodeset.Models[0], uaNamespace, _dbContext).ConfigureAwait(false);
 
             // find our metadata model and link the two together
             NamespaceMetaDataModel metadataModel = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetModel.Identifier).ConfigureAwait(false);
@@ -232,7 +228,7 @@ namespace Opc.Ua.Cloud.Library
             try
             {
                 string nodesetIdStr = nodesetId.ToString(CultureInfo.InvariantCulture);
-                CloudLibNodeSetModel nodeSetModel = await _dbContext.NodeSetsWithUnapproved.FirstOrDefaultAsync(n => n.Identifier == nodesetIdStr).ConfigureAwait(false);
+                NodeSetModel nodeSetModel = await _dbContext.NodeSetsWithUnapproved.FirstOrDefaultAsync(n => n.Identifier == nodesetIdStr).ConfigureAwait(false);
                 if (nodeSetModel != null)
                 {
                     _dbContext.NodeSetsWithUnapproved.Remove(nodeSetModel);
@@ -256,8 +252,6 @@ namespace Opc.Ua.Cloud.Library
 
         public async Task<UANameSpace> RetrieveAllMetadataAsync(uint nodesetId)
         {
-            UANameSpace nameSpace = new();
-
             try
             {
 #pragma warning disable CA1305 // Specify IFormatProvider: runs in database with single culture, can not use culture invariant
@@ -272,20 +266,18 @@ namespace Opc.Ua.Cloud.Library
                     return null;
                 }
 
-                MapNamespaceMetaDataModelToRESTNamespace(nameSpace, namespaceModel);
+                return MapNamespaceMetaDataModelToRESTNamespace(namespaceModel);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
                 throw;
             }
-
-            return nameSpace;
         }
 
-        internal IQueryable<CloudLibNodeSetModel> SearchNodesets(string[] keywords)
+        internal IQueryable<NodeSetModel> SearchNodesets(string[] keywords)
         {
-            IQueryable<CloudLibNodeSetModel> matchingNodeSets;
+            IQueryable<NodeSetModel> matchingNodeSets;
 
             if ((keywords != null) && (keywords.Length != 0) && (keywords[0] != "*"))
             {
@@ -322,14 +314,7 @@ namespace Opc.Ua.Cloud.Library
                 .Select(n => NamespaceMetaData.Where(nmd => nmd.NodesetId == n.Identifier).Include(nmd => nmd.NodeSet).FirstOrDefault())
                 .ToList();
 
-            UANameSpace[] nodesetResults = uaNamespaceModel.Select(nameSpace => {
-                var result = new UANameSpace();
-                MapNamespaceMetaDataModelToRESTNamespace(result, nameSpace);
-
-                return result;
-            }).ToArray();
-
-            return nodesetResults;
+            return uaNamespaceModel.Select(MapNamespaceMetaDataModelToRESTNamespace).ToArray();
         }
 
         public Task<string[]> GetAllNamespacesAndNodesets()
@@ -395,96 +380,124 @@ namespace Opc.Ua.Cloud.Library
             return nodeSetMetaSaved;
         }
 
-        private void MapRESTNamespaceToNamespaceMetaDataModel(ref NamespaceMetaDataModel metadataModel, UANameSpace uaNamespace)
+        private NamespaceMetaDataModel MapRESTNamespaceToNamespaceMetaDataModel(UANameSpace uaNamespace, string userId)
         {
-            string identifier = uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
-            metadataModel.NodesetId = identifier;
-            if (uaNamespace.CreationTime != null)
-            {
-                metadataModel.CreationTime = uaNamespace.CreationTime.GetNormalizedDate();
-            }
-            else
-            {
-                metadataModel.CreationTime = DateTime.UtcNow;
-            }
-
-            metadataModel.Title = uaNamespace.Title;
-
+            // fix up license expression
             string licenseExpression = uaNamespace.License switch {
                 "0" => "MIT",
                 "1" or "ApacheLicense20" => "Apache-2.0",
                 "2" => "Custom",
-                _ => uaNamespace.License,
+                _ => uaNamespace.License
             };
 
-            // TODO Validate license Expression
-            metadataModel.License = licenseExpression;
-            metadataModel.CopyrightText = uaNamespace.CopyrightText;
-            metadataModel.Description = uaNamespace.Description;
-            metadataModel.DocumentationUrl = uaNamespace.DocumentationUrl?.ToString();
-            metadataModel.IconUrl = uaNamespace.IconUrl?.ToString();
-            metadataModel.LicenseUrl = uaNamespace.LicenseUrl?.ToString();
-            metadataModel.Keywords = uaNamespace.Keywords;
-            metadataModel.PurchasingInformationUrl = uaNamespace.PurchasingInformationUrl?.ToString();
-            metadataModel.ReleaseNotesUrl = uaNamespace.ReleaseNotesUrl?.ToString();
-            metadataModel.TestSpecificationUrl = uaNamespace.TestSpecificationUrl?.ToString();
-            metadataModel.SupportedLocales = uaNamespace.SupportedLocales;
-            metadataModel.NumberOfDownloads = uaNamespace.NumberOfDownloads;
-            metadataModel.ApprovalStatus = ApprovalStatus.Pending;
-            metadataModel.ValidationStatus = ValidationStatus.Parsed;
+            NamespaceMetaDataModel metadataModel = new() {
+                NodesetId = uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture),
+                Title = uaNamespace.Title,
+                License = licenseExpression,
+                CopyrightText = uaNamespace.CopyrightText,
+                Description = uaNamespace.Description,
+                DocumentationUrl = uaNamespace.DocumentationUrl?.ToString(),
+                IconUrl = uaNamespace.IconUrl?.ToString(),
+                LicenseUrl = uaNamespace.LicenseUrl?.ToString(),
+                Keywords = uaNamespace.Keywords,
+                PurchasingInformationUrl = uaNamespace.PurchasingInformationUrl?.ToString(),
+                ReleaseNotesUrl = uaNamespace.ReleaseNotesUrl?.ToString(),
+                TestSpecificationUrl = uaNamespace.TestSpecificationUrl?.ToString(),
+                SupportedLocales = uaNamespace.SupportedLocales,
+                NumberOfDownloads = uaNamespace.NumberOfDownloads,
+                ApprovalStatus = ApprovalStatus.Pending,
+                ValidationStatus = ValidationStatus.Parsed,
+                CreationTime = uaNamespace.CreationTime != null ? uaNamespace.CreationTime.GetNormalizedDate() : DateTime.UtcNow,
+                UserId = userId
+            };
+
+            return metadataModel;
         }
 
-        private void MapNamespaceMetaDataModelToRESTNamespace(UANameSpace uaNamespace, NamespaceMetaDataModel metadataModel)
+        private async Task<NodeSetModel> MapRESTNodesetXmlToNodeSetModel(ModelTableEntry nodesetTableEntry, UANameSpace uaNamespace, AppDbContext dbContext)
         {
-            if (metadataModel.NodeSet == null)
-            {
-                uaNamespace.Nodeset = null;
-            }
-            else
-            {
-                MapNodeSetModelToRESTNodeSet(uaNamespace.Nodeset, metadataModel.NodeSet);
-            }
+            NodeSetModel nodesetModel = new() {
+                ModelUri = nodesetTableEntry.ModelUri,
+                Version = nodesetTableEntry.Version,
+                PublicationDate = nodesetTableEntry.GetNormalizedPublicationDate(),
+                Identifier = uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture),
+                LastModifiedDate = NodeModelUtils.GetNormalizedDate(uaNamespace.Nodeset.LastModifiedDate)
+            };
 
-            uaNamespace.CreationTime = metadataModel.CreationTime;
-            uaNamespace.Title = metadataModel.Title;
-            uaNamespace.License = metadataModel.License;
-            uaNamespace.CopyrightText = metadataModel.CopyrightText;
-            uaNamespace.Description = metadataModel.Description;
-            uaNamespace.DocumentationUrl = metadataModel.DocumentationUrl != null ? new Uri(metadataModel.DocumentationUrl) : null;
-            uaNamespace.IconUrl = metadataModel.IconUrl != null ? new Uri(metadataModel.IconUrl) : null;
-            uaNamespace.LicenseUrl = metadataModel.LicenseUrl != null ? new Uri(metadataModel.LicenseUrl) : null;
-            uaNamespace.Keywords = metadataModel.Keywords;
-            uaNamespace.PurchasingInformationUrl = metadataModel.PurchasingInformationUrl != null ? new Uri(metadataModel.PurchasingInformationUrl) : null;
-            uaNamespace.ReleaseNotesUrl = metadataModel.ReleaseNotesUrl != null ? new Uri(metadataModel.ReleaseNotesUrl) : null;
-            uaNamespace.TestSpecificationUrl = metadataModel.TestSpecificationUrl != null ? new Uri(metadataModel.TestSpecificationUrl) : null;
-            uaNamespace.SupportedLocales = metadataModel.SupportedLocales;
-            uaNamespace.NumberOfDownloads = metadataModel.NumberOfDownloads;
-        }
-
-        private void MapNodeSetModelToRESTNodeSet(Nodeset nodeset, NodeSetModel model)
-        {
-            nodeset.Identifier = uint.Parse(model.Identifier, CultureInfo.InvariantCulture);
-            nodeset.NamespaceUri = model.ModelUri != null ? new Uri(model.ModelUri) : null;
-            nodeset.PublicationDate = model.PublicationDate ?? default;
-            nodeset.LastModifiedDate = model.LastModifiedDate ?? default;
-            nodeset.Version = model.Version;
-            nodeset.ValidationStatus = (model as CloudLibNodeSetModel)?.Metadata.ValidationStatus.ToString();
-            nodeset.NodesetXml = null;
-            nodeset.RequiredModels = model.RequiredModels.Select(rm => {
-                Nodeset availableNodeSet = null;
-                if (rm.AvailableModel != null)
+            if (nodesetTableEntry.RequiredModel != null)
+            {
+                foreach (ModelTableEntry requiredModel in nodesetTableEntry.RequiredModel)
                 {
-                    availableNodeSet = new();
-                    MapNodeSetModelToRESTNodeSet(availableNodeSet, rm.AvailableModel);
-                }
+                    DateTime? publicationDate = requiredModel.PublicationDateSpecified ? requiredModel.PublicationDate : null;
+                    List<NodeSetModel> matchingNodeSets = await dbContext.Set<NodeSetModel>().Where(nsm => nsm.ModelUri == requiredModel.ModelUri).ToListAsync().ConfigureAwait(false);
 
-                return new RequiredModelInfo { NamespaceUri = rm.ModelUri, PublicationDate = rm.PublicationDate, Version = rm.Version, AvailableModel = availableNodeSet };
-            }).ToList();
+                    NodeSetModel existingNodeSet = NodeModelUtils.GetMatchingOrHigherNodeSet(matchingNodeSets, publicationDate, requiredModel.Version);
+
+                    var requiredModelInfo = new RequiredModelInfoModel {
+                        ModelUri = requiredModel.ModelUri,
+                        PublicationDate = requiredModel.PublicationDateSpecified ? ((DateTime?)requiredModel.PublicationDate).GetNormalizedDate() : null,
+                        Version = requiredModel.Version,
+                        AvailableModel = existingNodeSet,
+                    };
+
+                    nodesetModel.RequiredModels.Add(requiredModelInfo);
+                }
+            }
+
+            return nodesetModel;
+        }
+
+        private UANameSpace MapNamespaceMetaDataModelToRESTNamespace(NamespaceMetaDataModel metadataModel)
+        {
+            return new UANameSpace {
+                CreationTime = metadataModel.CreationTime,
+                Title = metadataModel.Title,
+                License = metadataModel.License,
+                CopyrightText = metadataModel.CopyrightText,
+                Description = metadataModel.Description,
+                DocumentationUrl = metadataModel.DocumentationUrl != null ? new Uri(metadataModel.DocumentationUrl) : null,
+                IconUrl = metadataModel.IconUrl != null ? new Uri(metadataModel.IconUrl) : null,
+                LicenseUrl = metadataModel.LicenseUrl != null ? new Uri(metadataModel.LicenseUrl) : null,
+                Keywords = metadataModel.Keywords,
+                PurchasingInformationUrl = metadataModel.PurchasingInformationUrl != null ? new Uri(metadataModel.PurchasingInformationUrl) : null,
+                ReleaseNotesUrl = metadataModel.ReleaseNotesUrl != null ? new Uri(metadataModel.ReleaseNotesUrl) : null,
+                TestSpecificationUrl = metadataModel.TestSpecificationUrl != null ? new Uri(metadataModel.TestSpecificationUrl) : null,
+                SupportedLocales = metadataModel.SupportedLocales,
+                NumberOfDownloads = metadataModel.NumberOfDownloads,
+                Nodeset = metadataModel.NodeSet == null ? null : MapNodeSetModelToRESTNodeSet(metadataModel.NodeSet)
+            };
+        }
+
+        private Nodeset MapNodeSetModelToRESTNodeSet(NodeSetModel model)
+        {
+            return new Nodeset {
+                Identifier = uint.Parse(model.Identifier, CultureInfo.InvariantCulture),
+                NamespaceUri = model.ModelUri != null ? new Uri(model.ModelUri) : null,
+                PublicationDate = model.PublicationDate ?? default,
+                LastModifiedDate = model.LastModifiedDate ?? default,
+                Version = model.Version,
+                ValidationStatus = model.Metadata.ValidationStatus.ToString(),
+                NodesetXml = null,
+                RequiredModels = model.RequiredModels.Select(rm => {
+                    Nodeset availableNodeSet = null;
+                    if (rm.AvailableModel != null)
+                    {
+                        availableNodeSet = MapNodeSetModelToRESTNodeSet(rm.AvailableModel);
+                    }
+
+                    return new RequiredModelInfo {
+                        NamespaceUri = rm.ModelUri,
+                        PublicationDate = rm.PublicationDate,
+                        Version = rm.Version,
+                        AvailableModel = availableNodeSet
+                    };
+                }).ToList()
+            };
         }
 
         public async Task<string[]> GetAllTypes(string nodeSetID)
         {
-            CloudLibNodeSetModel nodeSetMeta = await GetNodeSets(nodeSetID).FirstOrDefaultAsync().ConfigureAwait(false);
+            NodeSetModel nodeSetMeta = await GetNodeSets(nodeSetID).FirstOrDefaultAsync().ConfigureAwait(false);
             if (nodeSetMeta != null)
             {
                 List<NodeModel> types = new();

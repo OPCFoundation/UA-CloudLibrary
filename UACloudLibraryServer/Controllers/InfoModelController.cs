@@ -208,10 +208,10 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
             }
 
-            CloudLibNodeSetModel nodeSetMeta = await (_database.GetNodeSets(identifier).FirstOrDefaultAsync());
+            NodeSetModel nodeSetMeta = await _database.GetNodeSets(identifier).FirstOrDefaultAsync();
             if (nodeSetMeta != null)
             {
-                List<CloudLibNodeSetModel> dependentNodeSets = await _database.GetNodeSets().Where(n => n.RequiredModels.Any(rm => rm.AvailableModel == nodeSetMeta)).ToListAsync();
+                List<NodeSetModel> dependentNodeSets = await _database.GetNodeSets().Where(n => n.RequiredModels.Any(rm => rm.AvailableModel == nodeSetMeta)).ToListAsync();
                 if (dependentNodeSets.Count != 0)
                 {
                     string message = $"NodeSet {nodeSetMeta} is used by the following nodesets: {string.Join(",", dependentNodeSets.Select(n => n.ToString()))}";
@@ -335,19 +335,22 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             if (uaNamespace.Nodeset.PublicationDate != nodeSet.Models[0].PublicationDate)
             {
-                _logger.LogInformation("PublicationDate in metadata does not match nodeset XML. Ignoring.");
-                uaNamespace.Nodeset.PublicationDate = nodeSet.Models[0].PublicationDate;
+                if (nodeSet.Models[0].PublicationDate != DateTime.MinValue)
+                {
+                    _logger.LogInformation("PublicationDate in metadata does not match nodeset XML. Taking nodeset XML publication date.");
+                    uaNamespace.Nodeset.PublicationDate = nodeSet.Models[0].PublicationDate;
+                }
             }
 
             if (uaNamespace.Nodeset.Version != nodeSet.Models[0].Version)
             {
-                _logger.LogInformation("Version in metadata does not match nodeset XML. Ignoring.");
+                _logger.LogInformation("Version in metadata does not match nodeset XML. Taking nodeset XML version.");
                 uaNamespace.Nodeset.Version = nodeSet.Models[0].Version;
             }
 
             if (uaNamespace.Nodeset.NamespaceUri != null && uaNamespace.Nodeset.NamespaceUri.OriginalString != nodeSet.Models[0].ModelUri)
             {
-                _logger.LogInformation("NamespaceUri in metadata does not match nodeset XML. Ignoring.");
+                _logger.LogInformation("NamespaceUri in metadata does not match nodeset XML. Taking nodeset XML namespaceUri.");
                 uaNamespace.Nodeset.NamespaceUri = new Uri(nodeSet.Models[0].ModelUri);
             }
 
@@ -355,6 +358,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             {
                 if (nodeSet.LastModifiedSpecified && (nodeSet.LastModified != DateTime.MinValue))
                 {
+                    _logger.LogInformation("Version in metadata does not match nodeset XML. Taking nodeset XML last modified date.");
                     uaNamespace.Nodeset.LastModifiedDate = nodeSet.LastModified;
                 }
             }

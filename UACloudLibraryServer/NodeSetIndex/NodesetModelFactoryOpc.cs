@@ -11,7 +11,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 {
     public class NodeModelFactoryOpc
     {
-        private readonly CloudLibNodeSetModel _nodesetModel;
+        private readonly NodeSetModel _nodesetModel;
 
         private readonly DefaultOpcUaContext _opcContext;
 
@@ -19,7 +19,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
         private readonly ILogger _logger;
 
-        public NodeModelFactoryOpc(CloudLibNodeSetModel nodesetModel, UANodeSet nodeset, ILogger logger)
+        public NodeModelFactoryOpc(NodeSetModel nodesetModel, UANodeSet nodeset, ILogger logger)
         {
             if (nodesetModel == null)
             {

@@ -101,7 +101,7 @@ namespace Opc.Ua.Cloud.Library
 
         public DbSet<NamespaceMetaDataModel> NamespaceMetaDataWithUnapproved { get; set; }
 
-        public DbSet<CloudLibNodeSetModel> NodeSetsWithUnapproved { get; set; }
+        public DbSet<NodeSetModel> NodeSetsWithUnapproved { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -131,7 +131,7 @@ namespace Opc.Ua.Cloud.Library
             builder.Entity<NamespaceMetaDataModel>()
                 .HasOne(md => md.NodeSet)
                 .WithOne(nm => nm.Metadata)
-                .HasForeignKey<CloudLibNodeSetModel>(nm => nm.Identifier)
+                .HasForeignKey<NodeSetModel>(nm => nm.Identifier)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.NoAction);
 
