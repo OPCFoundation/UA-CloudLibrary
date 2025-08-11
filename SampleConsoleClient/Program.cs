@@ -69,7 +69,7 @@ namespace SampleConsoleClient
                 BaseAddress = new Uri(args[0])
             };
 
-            webClient.DefaultRequestHeaders.Add("Authorization", "basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(args[1] + ":" + args[2])));
+            webClient.DefaultRequestHeaders.Add("Authorization", "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(args[1] + ":" + args[2])));
 
             Console.WriteLine();
             Console.WriteLine("Testing /infomodel/find?keywords");

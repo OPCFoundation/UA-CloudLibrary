@@ -70,7 +70,7 @@ namespace CloudLibClient.Tests
             HttpClient httpClient = CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { });
 
             string temp = Convert.ToBase64String(Encoding.UTF8.GetBytes("admin" + ":" + "testpw"));
-            httpClient.DefaultRequestHeaders.Add("Authorization", "basic " + temp);
+            httpClient.DefaultRequestHeaders.Add("Authorization", "Basic " + temp);
 
             return httpClient;
         }

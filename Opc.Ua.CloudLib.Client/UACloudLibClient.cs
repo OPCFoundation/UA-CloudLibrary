@@ -95,7 +95,7 @@ namespace Opc.Ua.Cloud.Client
             BaseEndpoint = new Uri(strEndpoint);
 
             string temp = Convert.ToBase64String(Encoding.UTF8.GetBytes(strUsername + ":" + strPassword));
-            _restClient = new RestClient(strEndpoint, new AuthenticationHeaderValue("basic " + temp));
+            _restClient = new RestClient(strEndpoint, new AuthenticationHeaderValue("Basic", temp));
         }
 
         /// <summary>
