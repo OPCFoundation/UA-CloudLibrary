@@ -36,6 +36,7 @@ using System.Net.Sockets;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.Tasks;
+using AdminShell;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.Builder;
@@ -92,6 +93,8 @@ namespace Opc.Ua.Cloud.Library
             services.AddScoped<UserService>();
 
             services.AddTransient<CloudLibDataProvider>();
+
+            services.AddScoped<AssetAdministrationShellEnvironmentService>();
 
             services.AddScoped<CaptchaValidation>();
 
