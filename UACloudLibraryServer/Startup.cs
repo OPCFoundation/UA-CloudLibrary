@@ -95,7 +95,14 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddScoped<CaptchaValidation>();
 
-            services.AddTransient<IEmailSender, PostmarkEmailSender>();
+            if (!string.IsNullOrEmpty(Configuration["UseSendGridEmailSender"]))
+            {
+                services.AddTransient<IEmailSender, SendGridEmailSender>();
+            }
+            else
+            {
+                services.AddTransient<IEmailSender, PostmarkEmailSender>();
+            }
 
             services.AddLogging(builder => builder.AddConsole());
 
