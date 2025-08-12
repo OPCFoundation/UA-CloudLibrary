@@ -39,7 +39,7 @@
 		<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1" />
 		<PackageReference Include="Npgsql" Version="9.0.3" />
 		<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
-		<PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Core" Version="1.5.376.244" />
+		<PackageReference Include="OPCFoundation.NetStandard.Opc.Ua" Version="1.5.376.244" />
 		<PackageReference Include="Postmark" Version="5.2.0" />
 		<PackageReference Include="SendGrid" Version="9.29.3" />
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.3" />

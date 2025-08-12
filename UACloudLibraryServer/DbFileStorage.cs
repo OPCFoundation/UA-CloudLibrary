@@ -72,7 +72,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name).ConfigureAwait(false);
+                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name, cancellationToken).ConfigureAwait(false);
                 if (existingFile != null)
                 {
                     return name;
@@ -96,7 +96,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name).ConfigureAwait(false);
+                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name, cancellationToken).ConfigureAwait(false);
 
                 if (existingFile != null)
                 {
@@ -132,7 +132,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name).ConfigureAwait(false);
+                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name, cancellationToken).ConfigureAwait(false);
                 return existingFile?.Blob;
             }
             catch (Exception ex)
@@ -145,7 +145,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name).ConfigureAwait(false);
+                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name, cancellationToken).ConfigureAwait(false);
                 if (existingFile != null)
                 {
                     _dbContext.Remove(existingFile);

@@ -37,6 +37,13 @@ namespace AdminShell
 {
     public class AssetAdministrationShellEnvironmentService
     {
+        private readonly UAClient _client;
+
+        public AssetAdministrationShellEnvironmentService(UAClient client)
+        {
+            _client = client;
+        }
+
         public List<AssetAdministrationShell> GetAllAssetAdministrationShells(List<string> assetIds = null, string idShort = null)
         {
             List<AssetAdministrationShell> output = new();
@@ -145,11 +152,11 @@ namespace AdminShell
                                     IdShort = subNode.Id + ";" + subNode.Text,
                                     SemanticId = new Reference() { Type = KeyElements.ExternalReference, Keys = new List<Key>() { new Key() { Value = subNode.Text, Type = KeyElements.GlobalReference } } },
                                     DisplayName = new List<LangString>() { new LangString() { Text = subNode.Text } },
-                                    Description = new List<LangString>() { new LangString() { Text = "" /*TODO*/ } }
+                                    Description = new List<LangString>() { new LangString() { Text = string.Empty /* TODO */ } }
                                 };
 
-                                // get all submodel elements
-                                sub.SubmodelElements.AddRange(ReadSubmodelElementNodes(subNode, false));
+                                // get all submodel elements (TODO: figure out how to retrieve submodel identifer)
+                                sub.SubmodelElements.AddRange(ReadSubmodelElementNodes(string.Empty, subNode, false));
 
                                 output.Add(sub);
                             }
@@ -192,11 +199,11 @@ namespace AdminShell
             return output;
         }
 
-        private List<SubmodelElement> ReadSubmodelElementNodes(NodesetViewerNode subNode, bool browseDeep)
+        private List<SubmodelElement> ReadSubmodelElementNodes(string submodelIdentifier, NodesetViewerNode subNode, bool browseDeep)
         {
             List<SubmodelElement> output = new();
 
-            List<NodesetViewerNode> submodelElementNodes = new(); // TODO
+            List<NodesetViewerNode> submodelElementNodes = _client.GetChildren(submodelIdentifier, subNode.Id).GetAwaiter().GetResult();
             if (submodelElementNodes != null)
             {
                 foreach (NodesetViewerNode smeNode in submodelElementNodes)
@@ -204,7 +211,7 @@ namespace AdminShell
                     if (browseDeep)
                     {
                         // check for children - if there are, create a smel instead of an sme
-                        List<SubmodelElement> children = ReadSubmodelElementNodes(smeNode, browseDeep);
+                        List<SubmodelElement> children = ReadSubmodelElementNodes(submodelIdentifier, smeNode, browseDeep);
                         if (children.Count > 0)
                         {
                             SubmodelElementList smel = new() {
@@ -225,7 +232,7 @@ namespace AdminShell
                                 DisplayName = new List<LangString>() { new LangString() { Text = smeNode.Text } },
                                 IdShort = smeNode.Text,
                                 SemanticId = new SemanticId() { Type = KeyElements.ExternalReference, Keys = new List<Key>() { new Key() { Value = smeNode.Text, Type = KeyElements.GlobalReference } } },
-                                Value = "0" // TODO: Read the actual value from the node
+                                Value = _client.VariableRead(submodelIdentifier, smeNode.Id).GetAwaiter().GetResult()
                             };
 
                             output.Add(sme);
@@ -298,14 +305,14 @@ namespace AdminShell
 
         public AssetAdministrationShell GetAssetAdministrationShellById(string aasIdentifier)
         {
-            List<NodesetViewerNode> nodeList = new(); // TODO
+            List<NodesetViewerNode> nodeList = _client.GetChildren(aasIdentifier, ObjectIds.ObjectsFolder.ToString()).GetAwaiter().GetResult();
             if (nodeList != null)
             {
                 foreach (NodesetViewerNode node in nodeList)
                 {
                     if (node.Text == "Asset Admin Shells")
                     {
-                        List<NodesetViewerNode> aasList = new(); // TODO
+                        List<NodesetViewerNode> aasList = _client.GetChildren(aasIdentifier, node.Id).GetAwaiter().GetResult();
                         if (aasList != null)
                         {
                             foreach (NodesetViewerNode a in aasList)
@@ -320,7 +327,7 @@ namespace AdminShell
                                     };
 
                                     // get all asset and submodel refs
-                                    List<NodesetViewerNode> assetsAndSubmodelRefs = new(); // TODO
+                                    List<NodesetViewerNode> assetsAndSubmodelRefs = _client.GetChildren(aasIdentifier, a.Id).GetAwaiter().GetResult();
                                     if (assetsAndSubmodelRefs != null)
                                     {
                                         foreach (NodesetViewerNode s in assetsAndSubmodelRefs)
@@ -350,14 +357,14 @@ namespace AdminShell
 
         public Submodel GetSubmodelById(string submodelIdentifier)
         {
-            List<NodesetViewerNode> nodeList = new(); // TODO
+            List<NodesetViewerNode> nodeList = _client.GetChildren(submodelIdentifier, ObjectIds.ObjectsFolder.ToString()).GetAwaiter().GetResult();
             if (nodeList != null)
             {
                 foreach (NodesetViewerNode node in nodeList)
                 {
                     if (node.Text == "Submodels")
                     {
-                        List<NodesetViewerNode> submodelList = new(); // TODO
+                        List<NodesetViewerNode> submodelList = _client.GetChildren(submodelIdentifier, node.Id).GetAwaiter().GetResult();
                         if (submodelList != null)
                         {
                             foreach (NodesetViewerNode subNode in submodelList)
@@ -371,11 +378,11 @@ namespace AdminShell
                                         IdShort = subNode.Id + ";" + subNode.Text,
                                         SemanticId = new Reference() { Type = KeyElements.ExternalReference, Keys = new List<Key>() { new Key() { Value = subNode.Text, Type = KeyElements.GlobalReference } } },
                                         DisplayName = new List<LangString>() { new LangString() { Text = subNode.Text } },
-                                        Description = new List<LangString>() { new LangString() { Text = "" /* TODO */ } }
+                                        Description = new List<LangString>() { new LangString() { Text = _client.VariableRead(submodelIdentifier, subNode.Id).GetAwaiter().GetResult() } }
                                     };
 
                                     // get all submodel elements
-                                    sub.SubmodelElements.AddRange(ReadSubmodelElementNodes(subNode, true));
+                                    sub.SubmodelElements.AddRange(ReadSubmodelElementNodes(submodelIdentifier, subNode, true));
 
                                     return sub;
                                 }
@@ -390,14 +397,14 @@ namespace AdminShell
 
         public ConceptDescription GetConceptDescriptionById(string cdIdentifier)
         {
-            List<NodesetViewerNode> nodeList = new(); // TODO
+            List<NodesetViewerNode> nodeList = _client.GetChildren(cdIdentifier, ObjectIds.ObjectsFolder.ToString()).GetAwaiter().GetResult();
             if (nodeList != null)
             {
                 foreach (NodesetViewerNode node in nodeList)
                 {
                     if (node.Text == "Concept Descriptions")
                     {
-                        List<NodesetViewerNode> conceptDescrNodes = new(); // TODO
+                        List<NodesetViewerNode> conceptDescrNodes = _client.GetChildren(cdIdentifier, node.Id).GetAwaiter().GetResult();
                         if (conceptDescrNodes != null)
                         {
                             foreach (NodesetViewerNode cdNode in conceptDescrNodes)

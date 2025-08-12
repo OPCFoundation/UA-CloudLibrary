@@ -32,9 +32,9 @@
 @using System.Net.Http.Headers
 @using System.Net.Http.Json
 @using System.Text.Json
+@using System.Web
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Web;
-@using System.Web
 @using Microsoft.AspNetCore.Http
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.JSInterop
@@ -54,7 +54,6 @@
                 }
                 else
                 {
-
                     <div class="input-group mb-3">
                         <div class="input-group-prepend">
                             <span class="input-group-text" id="inputGroup-sizing-default">Search</span>
@@ -102,6 +101,7 @@
                                             <div class="card-footer text-right">
                                                 <button type="button" class="btn btn-primary" style="float: right" @onclick="() => Open(item)">More...</button>
                                                 <button type="button" class="btn btn-primary" style="float: right; margin-right: 1rem;" @onclick="() => DownloadFileFromURL(item)">Download</button>
+                                                <button type="button" class="btn btn-primary" style="float: right; margin-right: 1rem;" @onclick="() => ViewFileFromURL(item)">View</button>
                                             </div>
                                         </div>
                                     }
@@ -182,9 +182,6 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">@ModalTitle</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
             </div>
             <div class="modal-body">
                 <p>@ModalDescription</p>
@@ -208,6 +205,8 @@
 
 @inject IJSRuntime JS
 @inject CloudLibDataProvider dp
+@inject NavigationManager NavigationManager
+
 @code
 {
     private void OnSearchTextChanged(Microsoft.AspNetCore.Components.ChangeEventArgs patharg)
@@ -259,7 +258,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await fetchData();
+        await fetchData().ConfigureAwait(false);
     }
 
     private async Task DownloadFileFromURL(NamespaceMetaDataModel item)
@@ -267,6 +266,11 @@
         var fileName = $"{item.Title}.NodeSet2.xml";
         var fileURL = $@"/infomodel/download/{item.NodeSet.Identifier}?nodesetXMLOnly=true";
         await JS.InvokeVoidAsync("triggerFileDownload", fileName, fileURL).ConfigureAwait(false);
+    }
+
+    private void ViewFileFromURL(NamespaceMetaDataModel item)
+    {
+        NavigationManager.NavigateTo($"/browser?nodesetIdentifier={item.NodeSet.Identifier}", true);
     }
 
     private void Open(NamespaceMetaDataModel item)

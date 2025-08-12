@@ -1,0 +1,94 @@
+﻿
+@using System.Net
+@using System.Net.Http
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using System.Text.Json
+@using System.Web
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web;
+@using Microsoft.AspNetCore.Http
+@using AdminShell
+@using Opc.Ua
+
+@inject UAClient _client
+
+<div class="col-12 row">
+    <div class="col-8">
+        <Tree Nodes="TreeNodes" TNode="NodesetViewerNode" ChildSelector="node => node.Children" SelectedNodeChanged="SelectedNodeChanged" OnNodeExpand="OnNodeExpand" HasChildNodes="HasChildNodes">
+            <TitleTemplate>
+                @{
+                    if (context.Id.StartsWith("nsu="))
+                    {
+                        <span>@context.Text (@context.Id)</span>
+                    }
+                    else
+                    {
+                        <span>@context.Text</span>
+                    }
+                 }
+            </TitleTemplate>
+        </Tree>
+    </div>
+    <div class="col-4">
+        Node Value: @NodeValue
+    </div>
+</div>
+
+@code {
+
+    private List<NodesetViewerNode> TreeNodes = new();
+
+    private string NodeValue { get; set; } = string.Empty;
+
+    [Parameter] public string NodesetIdentifier { get;set; }
+
+    protected override void OnInitialized()
+    {
+        TreeNodes.Clear();
+
+        NodesetViewerNode root = new NodesetViewerNode()
+        {
+            Id = ObjectIds.RootFolder.ToString(),
+            Text = "Root",
+            Children = new List<NodesetViewerNode>()
+        };
+
+        TreeNodes.Add(root);
+    }
+
+    private Task OnNodeExpand(NodesetViewerNode node)
+    {
+        if (node.Children.Count == 0)
+        {
+            node.Children = _client.GetChildren(NodesetIdentifier, node.Id).GetAwaiter().GetResult();
+
+            if (node.Children != null)
+            {
+                node.Children.Sort();
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void SelectedNodeChanged(NodesetViewerNode node)
+    {
+        NodeValue = _client.VariableRead(NodesetIdentifier, node.Id).GetAwaiter().GetResult();
+    }
+
+    private bool HasChildNodes(NodesetViewerNode node)
+    {
+        return (node.Children != null);
+    }
+
+    private string ViewNodeType(NodesetViewerNode item)
+    {
+        return (item == null)? string.Empty : item.Id;
+    }
+
+    private string ViewNodeInfo(NodesetViewerNode item)
+    {
+        return (item == null)? string.Empty : item.Text;
+    }
+}

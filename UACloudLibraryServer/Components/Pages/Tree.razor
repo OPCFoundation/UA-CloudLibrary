@@ -1,0 +1,137 @@
+﻿
+@using System.Net
+@using System.Net.Http
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using System.Text.Json
+@using System.Web
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web;
+@using Microsoft.AspNetCore.Http
+@using MW.Blazor
+
+@typeparam TNode
+
+<div class="uic-tree @(Visible ? "" : "uic-tree--hidden")">
+
+    @foreach (var node in Nodes ?? Enumerable.Empty<TNode>())
+    {
+        var nodeExpanded = ExpandedNodes.Contains(node);
+        var nodeSelected = node.Equals(SelectedNode);
+        var nodeDisabled = NodeDisabled(node);
+        var nodeLoading = loadingNodes.Contains(node);
+        var hasChildren = HasChildNodes(node);
+
+        <div>
+
+            @if (hasChildren)
+            {
+                <span class="uic-tree__icon" @onclick="() => OnToggleNode(node, !nodeExpanded)">
+                    <i class="@(nodeLoading ? Style.NodeLoadingClass : nodeExpanded ? Style.CollapseNodeIconClass : Style.ExpandNodeIconClass)"></i>
+                </span>
+            }
+
+            <div class="uic-tree__title">
+                <span class="@Style.NodeTitleClass @(nodeSelected ? Style.NodeTitleSelectedClass : nodeDisabled ? Style.NodeTitleDisabledClass : Style.NodeTitleSelectableClass)" @onclick="() => OnSelectNode(node)">
+                    @TitleTemplate(node)
+                </span>
+            </div>
+
+            @if (hasChildren && nodeExpanded)
+            {
+                <Tree @key="node"
+                    Nodes="ChildSelector(node)"
+                    TitleTemplate="TitleTemplate"
+                    ChildSelector="ChildSelector"
+                    ExpandedNodes="ExpandedNodes"
+                    ExpandedNodesChanged="ExpandedNodesChanged"
+                    SelectedNode="SelectedNode"
+                    SelectedNodeChanged="SelectedNodeChanged"
+                    Visible="nodeExpanded"
+                    HasChildNodes="HasChildNodes"
+                    Style="Style"
+                    NodeDisabled="NodeDisabled"
+                    OnNodeExpand="OnNodeExpand" />
+            }
+
+        </div>
+    }
+
+</div>
+
+@code {
+
+    [Parameter] public IEnumerable<TNode> Nodes { get; set; }
+
+    [Parameter] public RenderFragment<TNode> TitleTemplate { get; set; }
+
+    [Parameter] public TNode SelectedNode { get; set; }
+
+    [Parameter] public EventCallback<TNode> SelectedNodeChanged { get; set; }
+
+    [Parameter] public Func<TNode, IEnumerable<TNode>> ChildSelector { get; set; } = node => null;
+
+    [Parameter] public IList<TNode> ExpandedNodes { get; set; } = new List<TNode>();
+
+    [Parameter] public EventCallback<IList<TNode>> ExpandedNodesChanged { get; set; }
+
+    [Parameter] public TreeStyle Style { get; set; } = TreeStyle.Bootstrap;
+
+    [Parameter] public bool Visible { get; set; } = true;
+
+    [Parameter] public Func<TNode, bool> HasChildNodes { get; set; } = node => true;
+
+    [Parameter] public Func<TNode, bool> NodeDisabled { get; set; } = node => false;
+
+    [Parameter] public Func<TNode, Task> OnNodeExpand { get; set; }
+
+    List<TNode> loadingNodes = new List<TNode>();
+
+    private async Task OnToggleNode(TNode node, bool expand)
+    {
+        var expanded = ExpandedNodes.Contains(node);
+
+        // colapse
+        if (expanded && !expand)
+        {
+            // remove from expanded list
+            ExpandedNodes.Remove(node);
+
+            // trigger 'ExpandedNodesChanged'
+            await ExpandedNodesChanged.InvokeAsync(ExpandedNodes);
+        }
+
+        // expand
+        else if (!expanded && expand)
+        {
+            // trigger 'OnNodeExpand'
+            if (OnNodeExpand != null)
+            {
+                loadingNodes.Add(node);
+
+                await OnNodeExpand.Invoke(node);
+
+                loadingNodes.Remove(node);
+            }
+
+            // add to expanded list
+            ExpandedNodes.Add(node);
+
+            // trigger 'ExpandedNodesChanged'
+            await ExpandedNodesChanged.InvokeAsync(ExpandedNodes);
+        }
+
+        StateHasChanged();
+    }
+
+    private void OnSelectNode(TNode node)
+    {
+        if (NodeDisabled(node))
+        {
+            return;
+        }
+
+        SelectedNode = node;
+        SelectedNodeChanged.InvokeAsync(node);
+    }
+}
