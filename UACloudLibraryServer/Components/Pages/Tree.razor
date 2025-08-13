@@ -1,5 +1,4 @@
-﻿
-@using System.Net
+﻿@using System.Net
 @using System.Net.Http
 @using System.Net.Http.Headers
 @using System.Net.Http.Json
@@ -109,7 +108,7 @@
             {
                 loadingNodes.Add(node);
 
-                await OnNodeExpand.Invoke(node);
+                await OnNodeExpand.Invoke(node).ConfigureAwait(false);
 
                 loadingNodes.Remove(node);
             }
@@ -121,7 +120,8 @@
             await ExpandedNodesChanged.InvokeAsync(ExpandedNodes);
         }
 
-        StateHasChanged();
+        // Switch to UI thread for StateHasChanged
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
     }
 
     private void OnSelectNode(TNode node)

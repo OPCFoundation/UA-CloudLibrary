@@ -78,18 +78,18 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [HttpGet]
         [Route("/infomodel/namespaces")]
         [SwaggerResponse(statusCode: 200, type: typeof(string[]), description: "All OPC UA Information Model namespace URIs and associated identifiers of the models found in the UA Cloud Library.")]
-        public IActionResult GetAllNamespacesandIdentifiersAsync()
+        public async Task<IActionResult> GetAllNamespacesandIdentifiersAsync()
         {
-            string[] results = _database.GetAllNamespacesAndNodesets().GetAwaiter().GetResult();
+            string[] results = await _database.GetAllNamespacesAndNodesets().ConfigureAwait(false);
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
         [HttpGet]
         [Route("/infomodel/names")]
         [SwaggerResponse(statusCode: 200, type: typeof(string[]), description: "All OPC UA Information Model names and associated identifiers of the models found in the UA Cloud Library.")]
-        public IActionResult GetAllNamesandIdentifiersAsync()
+        public async Task<IActionResult> GetAllNamesandIdentifiersAsync()
         {
-            string[] results = _database.GetAllNamesAndNodesets().GetAwaiter().GetResult();
+            string[] results = await _database.GetAllNamesAndNodesets().ConfigureAwait(false);
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 

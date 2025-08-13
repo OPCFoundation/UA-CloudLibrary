@@ -44,7 +44,7 @@ namespace AdminShell
 
         public int CompareTo(NodesetViewerNode other)
         {
-            return string.Compare(Text, other.Text, StringComparison.Ordinal);
+            return string.Compare(Id, other.Id, StringComparison.Ordinal);
         }
 
         public override bool Equals(object obj)
@@ -59,12 +59,12 @@ namespace AdminShell
                 return false;
             }
 
-            throw new NotImplementedException();
+            return !(obj is NodesetViewerNode other) || string.Equals(Id, other.Id, StringComparison.Ordinal);
         }
 
         public override int GetHashCode()
         {
-            throw new NotImplementedException();
+            return Id.GetHashCode(StringComparison.Ordinal);
         }
 
         public static bool operator ==(NodesetViewerNode left, NodesetViewerNode right)

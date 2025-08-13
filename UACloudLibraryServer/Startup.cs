@@ -83,9 +83,7 @@ namespace Opc.Ua.Cloud.Library
             services.AddServerSideBlazor();
 
             // Setup database context for ASP.NetCore Identity Scaffolding
-            services.AddDbContext<AppDbContext>(
-                options => options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)),
-                ServiceLifetime.Transient);
+            services.AddDbContext<AppDbContext>(ServiceLifetime.Transient);
 
             services.AddDefaultIdentity<IdentityUser>(options =>
                 options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["EmailSenderAPIKey"])
@@ -283,33 +281,13 @@ namespace Opc.Ua.Cloud.Library
             });
 
             services.AddServerSideBlazor();
+
+            services.AddHostedService<CloudLibStartupTask>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, AppDbContext appDbContext, ApplicationInstance uaApp)
         {
-            uint retryCount = 0;
-            while (retryCount < 12)
-            {
-                try
-                {
-                    appDbContext.Database.Migrate();
-                    break;
-                }
-                catch (SocketException)
-                {
-                    Console.WriteLine("Database not yet available or unknown, retrying...");
-                    Task.Delay(5000).GetAwaiter().GetResult();
-                    retryCount++;
-                }
-            }
-
-            if (retryCount == 12)
-            {
-                // database permanently unavailable
-                throw new InvalidOperationException("Database not available, exiting!");
-            }
-
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
@@ -340,75 +318,122 @@ namespace Opc.Ua.Cloud.Library
 
                 endpoints.MapRazorPages();
             });
-
-            InitOPCUAClientServerAsync(uaApp).GetAwaiter().GetResult();
         }
 
-        private async Task InitOPCUAClientServerAsync(ApplicationInstance uaApp)
-        {
-            try
-            {
-                // wait 5 seconds for the HTTP server to complete starting up
-                // for Azure Container Apps, the HTTP server must be started before the OPC UA server
-                Thread.Sleep(5000);
 
-                // remove any existing certificate store
-                if (Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), "pki")))
+        public class CloudLibStartupTask : IHostedService
+        {
+            private readonly IServiceProvider _serviceProvider;
+
+            public CloudLibStartupTask(IServiceProvider serviceProvider)
+            {
+                _serviceProvider = serviceProvider;
+            }
+
+            public async Task StartAsync(CancellationToken cancellationToken)
+            {
+                using var scope = _serviceProvider.CreateScope();
+
+                var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var uaApp = scope.ServiceProvider.GetRequiredService<ApplicationInstance>();
+
+                uint retryCount = 0;
+                while (retryCount < 12)
                 {
-                    Directory.Delete(Path.Combine(Directory.GetCurrentDirectory(), "pki"), true);
+                    try
+                    {
+                        await dbContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+                        break;
+                    }
+                    catch (SocketException)
+                    {
+                        Console.WriteLine("Database not yet available or unknown, retrying...");
+                        await Task.Delay(5000, cancellationToken).ConfigureAwait(false);
+                        retryCount++;
+                    }
                 }
 
-                // load the application configuration
-                ApplicationConfiguration config = await uaApp.LoadApplicationConfiguration(Path.Combine(Directory.GetCurrentDirectory(), "Application.Config.xml"), false).ConfigureAwait(false);
-
-                // check the application certificate
-                await uaApp.CheckApplicationInstanceCertificates(false, 0).ConfigureAwait(false);
-
-                // create cert validator
-                config.CertificateValidator = new CertificateValidator();
-                config.CertificateValidator.CertificateValidation += new CertificateValidationEventHandler(CertificateValidator_CertificateValidation);
-                config.CertificateValidator.Update(config).GetAwaiter().GetResult();
-
-                Utils.Tracing.TraceEventHandler += new EventHandler<TraceEventArgs>(OpcStackLoggingHandler);
-
-                Console.WriteLine("OPC UA client/server started.");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("InitOPCUAClientServerAsync: " + ex.Message);
-                return;
-            }
-        }
-
-        private static void CertificateValidator_CertificateValidation(CertificateValidator validator, CertificateValidationEventArgs e)
-        {
-            if (e.Error.StatusCode == StatusCodes.BadCertificateUntrusted)
-            {
-                // accept all OPC UA client certificates
-                e.Accept = true;
-            }
-        }
-
-        private void OpcStackLoggingHandler(object sender, TraceEventArgs e)
-        {
-            ApplicationInstance app = sender as ApplicationInstance;
-            if ((e.TraceMask & (Utils.TraceMasks.Error | Utils.TraceMasks.StackTrace | Utils.TraceMasks.Service | Utils.TraceMasks.StartStop | Utils.TraceMasks.ExternalSystem | Utils.TraceMasks.Security)) != 0)
-            {
-                if (e.Exception != null)
+                if (retryCount == 12)
                 {
-                    Console.WriteLine("OPCUA: " + e.Exception.Message);
+                    // database permanently unavailable
+                    throw new InvalidOperationException("Database not available, exiting!");
+                }
+
+                await InitOPCUAClientServerAsync(uaApp).ConfigureAwait(false);
+            }
+
+            private async Task InitOPCUAClientServerAsync(ApplicationInstance uaApp)
+            {
+                try
+                {
+                    // wait 5 seconds for the HTTP server to complete starting up
+                    // for Azure Container Apps, the HTTP server must be started before the OPC UA server
+                    await Task.Delay(5000).ConfigureAwait(false);
+
+                    // remove any existing certificate store
+                    if (Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), "pki")))
+                    {
+                        Directory.Delete(Path.Combine(Directory.GetCurrentDirectory(), "pki"), true);
+                    }
+
+                    // load the application configuration
+                    ApplicationConfiguration config = await uaApp.LoadApplicationConfiguration(Path.Combine(Directory.GetCurrentDirectory(), "Application.Config.xml"), false).ConfigureAwait(false);
+
+                    // check the application certificate
+                    await uaApp.CheckApplicationInstanceCertificates(false, 0).ConfigureAwait(false);
+
+                    // create cert validator
+                    config.CertificateValidator = new CertificateValidator();
+                    config.CertificateValidator.CertificateValidation += new CertificateValidationEventHandler(CertificateValidator_CertificateValidation);
+                    await config.CertificateValidator.Update(config).ConfigureAwait(false);
+
+                    Utils.Tracing.TraceEventHandler += new EventHandler<TraceEventArgs>(OpcStackLoggingHandler);
+
+                    Console.WriteLine("OPC UA client/server started.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("InitOPCUAClientServerAsync: " + ex.Message);
                     return;
                 }
+            }
 
-                if (!string.IsNullOrEmpty(e.Format))
+            private static void CertificateValidator_CertificateValidation(CertificateValidator validator, CertificateValidationEventArgs e)
+            {
+                if (e.Error.StatusCode == StatusCodes.BadCertificateUntrusted)
                 {
-                    Console.WriteLine("OPCUA: " + e.Format);
+                    // accept all OPC UA client certificates
+                    e.Accept = true;
                 }
+            }
 
-                if (!string.IsNullOrEmpty(e.Message))
+            private void OpcStackLoggingHandler(object sender, TraceEventArgs e)
+            {
+                ApplicationInstance app = sender as ApplicationInstance;
+                if ((e.TraceMask & (Utils.TraceMasks.Error | Utils.TraceMasks.StackTrace | Utils.TraceMasks.Service | Utils.TraceMasks.StartStop | Utils.TraceMasks.ExternalSystem | Utils.TraceMasks.Security)) != 0)
                 {
-                    Console.WriteLine("OPCUA: " + e.Message);
+                    if (e.Exception != null)
+                    {
+                        Console.WriteLine("OPCUA: " + e.Exception.Message);
+                        return;
+                    }
+
+                    if (!string.IsNullOrEmpty(e.Format))
+                    {
+                        Console.WriteLine("OPCUA: " + e.Format);
+                    }
+
+                    if (!string.IsNullOrEmpty(e.Message))
+                    {
+                        Console.WriteLine("OPCUA: " + e.Message);
+                    }
                 }
+            }
+
+            public Task StopAsync(CancellationToken cancellationToken)
+            {
+                // nothing to do
+                return Task.CompletedTask;
             }
         }
     }

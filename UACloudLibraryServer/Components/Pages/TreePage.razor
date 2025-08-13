@@ -57,24 +57,22 @@
         TreeNodes.Add(root);
     }
 
-    private Task OnNodeExpand(NodesetViewerNode node)
+    private async Task OnNodeExpand(NodesetViewerNode node)
     {
         if (node.Children.Count == 0)
         {
-            node.Children = _client.GetChildren(NodesetIdentifier, node.Id).GetAwaiter().GetResult();
+            node.Children = await _client.GetChildren(NodesetIdentifier, node.Id).ConfigureAwait(false);
 
             if (node.Children != null)
             {
                 node.Children.Sort();
             }
         }
-
-        return Task.CompletedTask;
     }
 
-    private void SelectedNodeChanged(NodesetViewerNode node)
+    private async Task SelectedNodeChanged(NodesetViewerNode node)
     {
-        NodeValue = _client.VariableRead(NodesetIdentifier, node.Id).GetAwaiter().GetResult();
+        NodeValue = await _client.VariableRead(NodesetIdentifier, node.Id).ConfigureAwait(false);
     }
 
     private bool HasChildNodes(NodesetViewerNode node)

@@ -16,8 +16,6 @@ namespace AdminShell
 {
     public class NodesetFileNodeManager : CustomNodeManager2
     {
-        private string _nodesetXml = string.Empty;
-
         public NodesetFileNodeManager(IServerInternal server, ApplicationConfiguration configuration)
         : base(server, configuration)
         {
@@ -35,12 +33,11 @@ namespace AdminShell
             }
         }
 
-        public async Task AddNamespace(DbFileStorage storage, string nodesetIdentifier)
+        public void AddNamespace(string nodesetXml)
         {
-            _nodesetXml = await storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
-            if (!string.IsNullOrEmpty(_nodesetXml))
+            if (!string.IsNullOrEmpty(nodesetXml))
             {
-                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(_nodesetXml)))
+                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(nodesetXml)))
                 {
                     UANodeSet nodeSet = UANodeSet.Read(stream);
 
@@ -70,11 +67,11 @@ namespace AdminShell
             }
         }
 
-        public void AddNodesAndValues()
+        public void AddNodesAndValues(string nodesetXml)
         {
-            if (!string.IsNullOrEmpty(_nodesetXml))
+            if (!string.IsNullOrEmpty(nodesetXml))
             {
-                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(_nodesetXml)))
+                using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(nodesetXml)))
                 {
                     // import nodes
                     UANodeSet nodeSet = UANodeSet.Read(stream);

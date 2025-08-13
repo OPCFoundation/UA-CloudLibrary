@@ -30,8 +30,11 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -55,6 +58,7 @@ namespace Opc.Ua.Cloud.Library
     {
         private readonly ILogger _logger;
         private readonly AppDbContext _dbContext;
+        private readonly IConfiguration _configuration;
 
         /// <summary>
         /// Default constructor
@@ -63,6 +67,7 @@ namespace Opc.Ua.Cloud.Library
         {
             _logger = logger.CreateLogger("LocalFileStorage");
             _dbContext = dbContext;
+            _configuration = configuration;
         }
 
         /// <summary>
@@ -72,7 +77,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name, cancellationToken).ConfigureAwait(false);
+                DbFiles existingFile = await _dbContext.DBFiles.FindAsync([name], cancellationToken).ConfigureAwait(false);
                 if (existingFile != null)
                 {
                     return name;
@@ -96,7 +101,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name, cancellationToken).ConfigureAwait(false);
+                DbFiles existingFile = await _dbContext.DBFiles.Where(n => n.Name == name).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 
                 if (existingFile != null)
                 {
@@ -132,7 +137,8 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name, cancellationToken).ConfigureAwait(false);
+                DbFiles existingFile = await _dbContext.DBFiles.AsNoTracking().Where(n => n.Name == name).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+
                 return existingFile?.Blob;
             }
             catch (Exception ex)
@@ -145,10 +151,12 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name, cancellationToken).ConfigureAwait(false);
+                DbFiles existingFile = await _dbContext.DBFiles.Where(n => n.Name == name).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+
                 if (existingFile != null)
                 {
                     _dbContext.Remove(existingFile);
+
                     await _dbContext.SaveChangesAsync(true, cancellationToken).ConfigureAwait(false);
                 }
             }

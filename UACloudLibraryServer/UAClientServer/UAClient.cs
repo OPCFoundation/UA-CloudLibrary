@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
 using Opc.Ua;
 using Opc.Ua.Client;
@@ -20,6 +20,7 @@ namespace AdminShell
         private SimpleServer _server;
         private Session _session;
         private SessionReconnectHandler _reconnectHandler;
+
 
         private static uint _port = 5000;
 
@@ -97,10 +98,6 @@ namespace AdminShell
 
             await _server.StartServerAsync().ConfigureAwait(false);
 
-            NodesetFileNodeManager nodeManager = (NodesetFileNodeManager)_server.CurrentInstance.NodeManager.NodeManagers[2];
-            await nodeManager.AddNamespace(_storage, nodesetIdentifier).ConfigureAwait(false);
-            nodeManager.AddNodesAndValues();
-
             EndpointDescription selectedEndpoint = CoreClientUtils.SelectEndpoint(_app.ApplicationConfiguration, "opc.tcp://localhost:" + _port, true);
 
             lock (_app)
@@ -112,6 +109,12 @@ namespace AdminShell
                     _port = 5000;
                 }
             }
+
+            string nodesetXml = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
+
+            NodesetFileNodeManager nodeManager = (NodesetFileNodeManager)_server.CurrentInstance.NodeManager.NodeManagers[2];
+            nodeManager.AddNamespace(nodesetXml);
+            nodeManager.AddNodesAndValues(nodesetXml);
 
             ConfiguredEndpoint configuredEndpoint = new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(_app.ApplicationConfiguration));
             return await Session.Create(

@@ -106,6 +106,8 @@ namespace Opc.Ua.Cloud.Library
 
         public DbSet<NodeSetModel> NodeSetsWithUnapproved { get; set; }
 
+        public DbSet<DbFiles> DBFiles { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);

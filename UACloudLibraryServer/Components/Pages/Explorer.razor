@@ -88,10 +88,10 @@
                                                         License: @item.License
                                                     </div>
                                                     <div>
-                                                        Version: @item.NodeSet.Version
+                                                        Version: @item.NodeSet?.Version
                                                     </div>
                                                     <div>
-                                                        Published: @item.NodeSet.PublicationDate
+                                                        Published: @item.NodeSet?.PublicationDate
                                                     </div>
                                                     <div>
                                                         Downloads: @item.NumberOfDownloads
@@ -204,7 +204,7 @@
 
 
 @inject IJSRuntime JS
-@inject CloudLibDataProvider dp
+@inject CloudLibDataProvider DataProvider
 @inject NavigationManager NavigationManager
 
 @code
@@ -249,7 +249,6 @@
     private int CurrentPage = 1;
     private int FirstItemOnPage = 0;
     private int LastItemOnPage = 0;
-    private string FilterString = "";
     private int TotalCount = 0;
     private int AllPages = 0;
 
@@ -282,6 +281,7 @@
         ModalDescription = item.Description;
         ModalDocumentationUrl = item.DocumentationUrl;
         CurrentItem = item;
+
         StateHasChanged();
     }
 
@@ -290,6 +290,7 @@
         ModalDisplay = "none";
         ModalClass = "";
         ShowBackDrop = false;
+
         StateHasChanged();
     }
 
@@ -311,17 +312,17 @@
     private async Task fetchData()
     {
         Loading = true;
-        var query = HttpUtility.ParseQueryString(string.Empty);
-        query["page"] = this.CurrentPage.ToString();
-        query["filterString"] = this.FilterString;
-        var dbQuery = dp.GetNodeSets(keywords: SearchKeywords)
+
+        Result = await DataProvider.GetNodeSets(keywords: SearchKeywords)
             .Select(n => n.Metadata)
-            .OrderBy(md => md.Title);
-        TotalCount = dbQuery.Count();
+            .OrderBy(md => md.Title)
+            .Skip((CurrentPage - 1) * PAGE_SIZE)
+            .Take(PAGE_SIZE)
+            .ToListAsync()
+            .ConfigureAwait(true);
+
+        TotalCount = Result.Count();
         int skip = (CurrentPage - 1) * PAGE_SIZE;
-        Result = await dbQuery
-            .Skip((CurrentPage - 1) * PAGE_SIZE).Take(PAGE_SIZE)
-            .ToListAsync().ConfigureAwait(true);
         AllPages = (int)Math.Ceiling((decimal)this.TotalCount / PAGE_SIZE);
         if (Result.Count > 0)
         {
@@ -333,6 +334,7 @@
             FirstItemOnPage = 0;
             LastItemOnPage = 0;
         }
+
         Loading = false;
 
         StateHasChanged();
