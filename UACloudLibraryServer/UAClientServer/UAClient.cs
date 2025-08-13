@@ -145,16 +145,9 @@ namespace AdminShell
             {
                 foreach (RequiredModelInfoModel requiredModel in nodeSetMeta.RequiredModels)
                 {
-                    // check if is the default model or if we have loaded it already
-                    if (requiredModel.ModelUri == "http://opcfoundation.org/UA/")
-                    {
-                        // skip the default model
-                        continue;
-                    }
-
                     if (nodeManager.NamespaceUris.Contains(requiredModel.ModelUri))
                     {
-                        // already loaded
+                        // the dependent model is already loaded
                         continue;
                     }
 
