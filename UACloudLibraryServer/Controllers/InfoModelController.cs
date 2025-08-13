@@ -211,7 +211,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             NodeSetModel nodeSetMeta = await _database.GetNodeSets(identifier).FirstOrDefaultAsync();
             if (nodeSetMeta != null)
             {
-                List<NodeSetModel> dependentNodeSets = await _database.GetNodeSets().Where(n => n.RequiredModels.Any(rm => rm.AvailableModel == nodeSetMeta)).ToListAsync();
+                List<NodeSetModel> dependentNodeSets = await _database.GetNodeSets().Where(n => n.RequiredModels.Any(rm => rm.AvailableModel == nodeSetMeta)).ToListAsync().ConfigureAwait(false);
                 if (dependentNodeSets.Count != 0)
                 {
                     string message = $"NodeSet {nodeSetMeta} is used by the following nodesets: {string.Join(",", dependentNodeSets.Select(n => n.ToString()))}";

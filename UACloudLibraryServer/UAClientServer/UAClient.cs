@@ -2,12 +2,16 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading.Tasks;
+using AspNetCoreGeneratedDocument;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
 using Opc.Ua;
 using Opc.Ua.Client;
 using Opc.Ua.Cloud.Library;
+using Opc.Ua.Cloud.Library.NodeSetIndex;
 using Opc.Ua.Configuration;
 
 namespace AdminShell
@@ -16,6 +20,7 @@ namespace AdminShell
     {
         private readonly ApplicationInstance _app;
         private readonly DbFileStorage _storage;
+        private readonly CloudLibDataProvider _database;
 
         private SimpleServer _server;
         private Session _session;
@@ -24,12 +29,13 @@ namespace AdminShell
 
         private static uint _port = 5000;
 
-        public UAClient(ApplicationInstance app, DbFileStorage storage)
+        public UAClient(ApplicationInstance app, DbFileStorage storage, CloudLibDataProvider database)
         {
             _app = app;
             _storage = storage;
             _session = null;
             _reconnectHandler = null;
+            _database = database;
         }
 
         public async Task<List<NodesetViewerNode>> GetChildren(string nodesetIdentifier, string nodeId)
@@ -110,9 +116,13 @@ namespace AdminShell
                 }
             }
 
-            string nodesetXml = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
-
             NodesetFileNodeManager nodeManager = (NodesetFileNodeManager)_server.CurrentInstance.NodeManager.NodeManagers[2];
+
+            // first load dependencies
+            await LoadDependentNodesetsRecursiveAsync(nodesetIdentifier, nodeManager).ConfigureAwait(false);
+
+            // now load the nodeset itself
+            string nodesetXml = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
             nodeManager.AddNamespace(nodesetXml);
             nodeManager.AddNodesAndValues(nodesetXml);
 
@@ -126,6 +136,45 @@ namespace AdminShell
                     30000,
                     new UserIdentity(new AnonymousIdentityToken()),
                     null).ConfigureAwait(false);
+        }
+
+        private async Task LoadDependentNodesetsRecursiveAsync(string nodesetIdentifier, NodesetFileNodeManager nodeManager)
+        {
+            NodeSetModel nodeSetMeta = await _database.GetNodeSets(nodesetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false);
+            if ((nodeSetMeta != null) && (nodeSetMeta.RequiredModels != null) && (nodeSetMeta.RequiredModels.Count > 0))
+            {
+                foreach (RequiredModelInfoModel requiredModel in nodeSetMeta.RequiredModels)
+                {
+                    // check if is the default model or if we have loaded it already
+                    if (requiredModel.ModelUri == "http://opcfoundation.org/UA/")
+                    {
+                        // skip the default model
+                        continue;
+                    }
+
+                    if (nodeManager.NamespaceUris.Contains(requiredModel.ModelUri))
+                    {
+                        // already loaded
+                        continue;
+                    }
+
+                    // check if we have the required model in the database
+                    List<NodeSetModel> matchingNodeSets = await _database.NodeSets.Where(nsm => nsm.ModelUri == requiredModel.ModelUri).ToListAsync().ConfigureAwait(false);
+                    if (matchingNodeSets == null || matchingNodeSets.Count == 0)
+                    {
+                        Console.WriteLine($"Required model {requiredModel.ModelUri} for {nodesetIdentifier} not found in database.");
+                        continue;
+                    }
+
+                    NodeSetModel dependentNodeset = NodeModelUtils.GetMatchingOrHigherNodeSet(matchingNodeSets, requiredModel.PublicationDate, requiredModel.Version);
+
+                    await LoadDependentNodesetsRecursiveAsync(dependentNodeset.Identifier, nodeManager).ConfigureAwait(false);
+
+                    string nodesetXml = await _storage.DownloadFileAsync(dependentNodeset.Identifier).ConfigureAwait(false);
+                    nodeManager.AddNamespace(nodesetXml);
+                    nodeManager.AddNodesAndValues(nodesetXml);
+                }
+            }
         }
 
         private void Client_ReconnectComplete(object sender, EventArgs e)

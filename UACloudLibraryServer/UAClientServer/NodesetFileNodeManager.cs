@@ -77,9 +77,7 @@ namespace AdminShell
                     UANodeSet nodeSet = UANodeSet.Read(stream);
                     NodeStateCollection predefinedNodes = new NodeStateCollection();
                     nodeSet.Import(SystemContext, predefinedNodes);
-                    Server.NodeManager.GetManagerHandle(ObjectIds.ObjectsFolder, out INodeManager objectsFolderNodeManager);
-                    string namespaceUri = nodeSet.NamespaceUris[0];
-
+                                        
                     // add nodes
                     for (int i = 0; i < predefinedNodes.Count; i++)
                     {
@@ -94,6 +92,9 @@ namespace AdminShell
                     }
 
                     // add references for our top-level nodes to the objects folder
+                    Server.NodeManager.GetManagerHandle(ObjectIds.ObjectsFolder, out INodeManager objectsFolderNodeManager);
+                    string namespaceUri = nodeSet.NamespaceUris[0];
+
                     foreach (UANode node in nodeSet.Items)
                     {
                         if (node is UAObject uAObject)
@@ -104,15 +105,18 @@ namespace AdminShell
                                 if (((node.DisplayName != null) && (node.DisplayName.Length > 0) && (node.DisplayName[0].Value == "Submodels"))
                                  || (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("GENERATE_FULL_AAS"))))
                                 {
-                                    List<IReference> references = new()
-                                    {
-                                    new NodeStateReference(ReferenceTypeIds.Organizes, false, new NodeId(NodeId.Parse(uAObject.NodeId).Identifier, (ushort)Server.NamespaceUris.GetIndex(namespaceUri)))
-                                };
+                                    List<IReference> references = new() {
+                                        new NodeStateReference(
+                                            ReferenceTypeIds.Organizes,
+                                            false,
+                                            new NodeId(NodeId.Parse(uAObject.NodeId).Identifier,
+                                            (ushort)Server.NamespaceUris.GetIndex(namespaceUri))
+                                        )
+                                    };
 
-                                    Dictionary<NodeId, IList<IReference>> dictionary = new()
-                                    {
-                                    { ObjectIds.ObjectsFolder, references }
-                                };
+                                    Dictionary<NodeId, IList<IReference>> dictionary = new() {
+                                        { ObjectIds.ObjectsFolder, references }
+                                    };
 
                                     objectsFolderNodeManager.AddReferences(dictionary);
                                 }

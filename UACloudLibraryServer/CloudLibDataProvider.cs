@@ -510,6 +510,7 @@ namespace Opc.Ua.Cloud.Library
                     Nodeset availableNodeSet = null;
                     if (rm.AvailableModel != null)
                     {
+                        // TODO: This is broken as new nodeset could have been uploaded since this nodeset was uploaded!
                         availableNodeSet = MapNodeSetModelToRESTNodeSet(rm.AvailableModel);
                     }
 
