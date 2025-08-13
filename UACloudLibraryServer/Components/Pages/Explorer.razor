@@ -313,17 +313,16 @@
     {
         Loading = true;
 
-        Result = await DataProvider.GetNodeSets(keywords: SearchKeywords)
-            .Select(n => n.Metadata)
-            .OrderBy(md => md.Title)
-            .Skip((CurrentPage - 1) * PAGE_SIZE)
-            .Take(PAGE_SIZE)
-            .ToListAsync()
-            .ConfigureAwait(true);
+        IOrderedQueryable<NamespaceMetaDataModel> allOrderedNodesets = DataProvider.GetNodeSets(keywords: SearchKeywords).Select(n => n.Metadata).OrderBy(md => md.Title);
 
-        TotalCount = Result.Count();
+        TotalCount = allOrderedNodesets.Count();
+
         int skip = (CurrentPage - 1) * PAGE_SIZE;
+
+        Result = await allOrderedNodesets.Skip((CurrentPage - 1) * PAGE_SIZE).Take(PAGE_SIZE).ToListAsync().ConfigureAwait(false);
+
         AllPages = (int)Math.Ceiling((decimal)this.TotalCount / PAGE_SIZE);
+
         if (Result.Count > 0)
         {
             FirstItemOnPage = skip + 1;
@@ -337,7 +336,8 @@
 
         Loading = false;
 
-        StateHasChanged();
+        // Switch to UI thread for StateHasChanged
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
     }
 }
 

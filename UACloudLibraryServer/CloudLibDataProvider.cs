@@ -68,7 +68,6 @@ namespace Opc.Ua.Cloud.Library
             DateTime? publicationDate = null,
             string[] keywords = null)
         {
-
             IQueryable<NodeSetModel> nodeSets;
             if (!string.IsNullOrEmpty(identifier))
             {
