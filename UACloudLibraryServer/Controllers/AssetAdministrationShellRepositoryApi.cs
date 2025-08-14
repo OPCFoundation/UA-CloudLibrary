@@ -46,7 +46,7 @@ namespace AdminShell
 {
     [Authorize(Policy = "ApiPolicy")]
     [ApiController]
-    public class AssetAdministrationShellRepositoryApiController : ControllerBase
+    public class AssetAdministrationShellRepositoryApiController : Controller
     {
         private readonly AssetAdministrationShellEnvironmentService _aasEnvService;
 

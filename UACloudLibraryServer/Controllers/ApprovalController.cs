@@ -40,7 +40,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
 {
     [Authorize(Policy = "ApiPolicy")]
     [ApiController]
-    public class ApprovalController : ControllerBase
+    public class ApprovalController : Controller
     {
         private readonly CloudLibDataProvider _database;
         private readonly ILogger _logger;

@@ -444,8 +444,7 @@ namespace AdminShell
                     }
                 }
 
-                ReadResponse response = new()
-                {
+                ReadResponse response = new() {
                     ResponseHeader = responseHeader,
                     Results = results,
                     DiagnosticInfos = diagnosticInfos
@@ -491,8 +490,7 @@ namespace AdminShell
             {
                 foreach (var reference in node.References)
                 {
-                    nodesToRead.Add(new ReadValueId()
-                    {
+                    nodesToRead.Add(new ReadValueId() {
                         NodeId = (NodeId)reference.NodeId,
                         AttributeId = Attributes.Value,
                         Handle = reference
@@ -517,8 +515,7 @@ namespace AdminShell
                     ReferenceDescription reference = nodesToRead[ii].Handle as ReferenceDescription;
 
                    encoder.WriteRawValue(
-                       new FieldMetaData()
-                       {
+                       new FieldMetaData() {
                            Name = reference.BrowseName.Name,
                            BuiltInType = (byte)results[ii].WrappedValue.TypeInfo.BuiltInType,
                            ValueRank = results[ii].WrappedValue.TypeInfo.ValueRank,
@@ -531,8 +528,7 @@ namespace AdminShell
                 string json = encoder.CloseAndReturnText();
                 JObject jobject = JObject.Parse(json);
 
-                return new DataValue()
-                {
+                return new DataValue() {
                     WrappedValue = new ExtensionObject(nodeToRead.NodeId, jobject),
                     StatusCode = Opc.Ua.StatusCodes.Good,
                     ServerTimestamp = DateTime.UtcNow

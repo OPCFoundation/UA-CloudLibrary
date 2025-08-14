@@ -44,7 +44,7 @@ namespace AdminShell
 {
     [Authorize(Policy = "ApiPolicy")]
     [ApiController]
-    public class SerializationApiController : ControllerBase
+    public class SerializationApiController : Controller
     {
         private readonly AssetAdministrationShellEnvironmentService _aasEnvService;
 

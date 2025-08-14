@@ -41,6 +41,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Export;
 using Swashbuckle.AspNetCore.Annotations;
@@ -49,7 +50,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
 {
     [Authorize(Policy = "ApiPolicy")]
     [ApiController]
-    public class InfoModelController : ControllerBase
+    public class InfoModelController : Controller
     {
         private readonly DbFileStorage _storage;
         private readonly CloudLibDataProvider _database;

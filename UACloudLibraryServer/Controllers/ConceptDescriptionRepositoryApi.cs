@@ -42,7 +42,7 @@ namespace IO.Swagger.Controllers
 {
     [Authorize(Policy = "ApiPolicy")]
     [ApiController]
-    public class ConceptDescriptionRepositoryApiController : ControllerBase
+    public class ConceptDescriptionRepositoryApiController : Controller
     {
 
         private readonly AssetAdministrationShellEnvironmentService _aasEnvService;
