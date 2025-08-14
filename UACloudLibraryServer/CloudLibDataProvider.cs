@@ -224,7 +224,7 @@ namespace Opc.Ua.Cloud.Library
                 throw new ArgumentException($"Invalid nodeset: no models specified");
             }
 
-            NodeSetModel nodesetModel = await MapRESTNodesetXmlToNodeSetModel(nodeset.Models[0], uaNamespace, _dbContext).ConfigureAwait(false);
+            NodeSetModel nodesetModel = MapRESTNodesetXmlToNodeSetModel(nodeset.Models[0], uaNamespace);
 
             // find our metadata model and link the two together
             NamespaceMetaDataModel metadataModel = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetModel.Identifier).ConfigureAwait(false);
@@ -282,19 +282,17 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-#pragma warning disable CA1305 // Specify IFormatProvider: runs in database with single culture, can not use culture invariant
                 NamespaceMetaDataModel namespaceModel = await _dbContext.NamespaceMetaDataWithUnapproved
-                    .Where(md => md.NodesetId == nodesetId.ToString())
+                    .Where(md => md.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture))
                     .Include(md => md.NodeSet)
                     .FirstOrDefaultAsync().ConfigureAwait(false);
-#pragma warning restore CA1305 // Specify IFormatProvider
 
                 if (namespaceModel == null)
                 {
                     return null;
                 }
 
-                return MapNamespaceMetaDataModelToRESTNamespace(namespaceModel);
+                return MapNamespaceMetaDataModelToRESTNamespace(namespaceModel, _dbContext);
             }
             catch (Exception ex)
             {
@@ -342,7 +340,7 @@ namespace Opc.Ua.Cloud.Library
                 .Select(n => NamespaceMetaData.Where(nmd => nmd.NodesetId == n.Identifier).Include(nmd => nmd.NodeSet).FirstOrDefault())
                 .ToList();
 
-            return uaNamespaceModel.Select(MapNamespaceMetaDataModelToRESTNamespace).ToArray();
+            return uaNamespaceModel.Select(n => MapNamespaceMetaDataModelToRESTNamespace(n, _dbContext)).ToArray();
         }
 
         public Task<string[]> GetAllNamespacesAndNodesets()
@@ -442,7 +440,7 @@ namespace Opc.Ua.Cloud.Library
             return metadataModel;
         }
 
-        private async Task<NodeSetModel> MapRESTNodesetXmlToNodeSetModel(ModelTableEntry nodesetTableEntry, UANameSpace uaNamespace, AppDbContext dbContext)
+        private NodeSetModel MapRESTNodesetXmlToNodeSetModel(ModelTableEntry nodesetTableEntry, UANameSpace uaNamespace)
         {
             NodeSetModel nodesetModel = new() {
                 ModelUri = nodesetTableEntry.ModelUri,
@@ -456,16 +454,11 @@ namespace Opc.Ua.Cloud.Library
             {
                 foreach (ModelTableEntry requiredModel in nodesetTableEntry.RequiredModel)
                 {
-                    DateTime? publicationDate = requiredModel.PublicationDateSpecified ? requiredModel.PublicationDate : null;
-                    List<NodeSetModel> matchingNodeSets = await dbContext.Set<NodeSetModel>().Where(nsm => nsm.ModelUri == requiredModel.ModelUri).ToListAsync().ConfigureAwait(false);
-
-                    NodeSetModel existingNodeSet = NodeModelUtils.GetMatchingOrHigherNodeSet(matchingNodeSets, publicationDate, requiredModel.Version);
-
                     var requiredModelInfo = new RequiredModelInfoModel {
                         ModelUri = requiredModel.ModelUri,
                         PublicationDate = requiredModel.PublicationDateSpecified ? ((DateTime?)requiredModel.PublicationDate).GetNormalizedDate() : null,
                         Version = requiredModel.Version,
-                        AvailableModel = existingNodeSet,
+                        AvailableModel = null // will be filled in when the nodeset is queried via REST API
                     };
 
                     nodesetModel.RequiredModels.Add(requiredModelInfo);
@@ -475,7 +468,7 @@ namespace Opc.Ua.Cloud.Library
             return nodesetModel;
         }
 
-        private UANameSpace MapNamespaceMetaDataModelToRESTNamespace(NamespaceMetaDataModel metadataModel)
+        private UANameSpace MapNamespaceMetaDataModelToRESTNamespace(NamespaceMetaDataModel metadataModel, AppDbContext dbContext)
         {
             return new UANameSpace {
                 CreationTime = metadataModel.CreationTime,
@@ -492,11 +485,11 @@ namespace Opc.Ua.Cloud.Library
                 TestSpecificationUrl = metadataModel.TestSpecificationUrl != null ? new Uri(metadataModel.TestSpecificationUrl) : null,
                 SupportedLocales = metadataModel.SupportedLocales,
                 NumberOfDownloads = metadataModel.NumberOfDownloads,
-                Nodeset = metadataModel.NodeSet == null ? null : MapNodeSetModelToRESTNodeSet(metadataModel.NodeSet)
+                Nodeset = metadataModel.NodeSet == null ? null : MapNodeSetModelToRESTNodeSet(metadataModel.NodeSet, dbContext)
             };
         }
 
-        private Nodeset MapNodeSetModelToRESTNodeSet(NodeSetModel model)
+        private Nodeset MapNodeSetModelToRESTNodeSet(NodeSetModel model, AppDbContext dbContext)
         {
             return new Nodeset {
                 Identifier = uint.Parse(model.Identifier, CultureInfo.InvariantCulture),
@@ -507,18 +500,16 @@ namespace Opc.Ua.Cloud.Library
                 ValidationStatus = model.Metadata.ValidationStatus.ToString(),
                 NodesetXml = null,
                 RequiredModels = model.RequiredModels.Select(rm => {
-                    Nodeset availableNodeSet = null;
-                    if (rm.AvailableModel != null)
-                    {
-                        // TODO: This is broken as new nodeset could have been uploaded since this nodeset was uploaded!
-                        availableNodeSet = MapNodeSetModelToRESTNodeSet(rm.AvailableModel);
-                    }
+
+                    List<NodeSetModel> matchingNodesets = dbContext.Set<NodeSetModel>().Where(nsm => nsm.ModelUri == rm.ModelUri).ToList();
+
+                    NodeSetModel availableNodeset = NodeModelUtils.GetMatchingOrHigherNodeSet(matchingNodesets, rm.PublicationDate, rm.Version);
 
                     return new RequiredModelInfo {
                         NamespaceUri = rm.ModelUri,
                         PublicationDate = rm.PublicationDate,
                         Version = rm.Version,
-                        AvailableModel = availableNodeSet
+                        AvailableModel = (availableNodeset != null) ? MapNodeSetModelToRESTNodeSet(availableNodeset, dbContext) : null
                     };
                 }).ToList()
             };

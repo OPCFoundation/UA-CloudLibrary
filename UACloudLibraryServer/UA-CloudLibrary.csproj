@@ -9,6 +9,16 @@
 		<DockerComposeProjectPath>..\docker-compose.dcproj</DockerComposeProjectPath>
 		<DefineConstants>$(DEFINECONSTANTS)</DefineConstants>
 	</PropertyGroup>
+
+	<ItemGroup>
+	  <None Remove="Application.Config.xml" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Content Include="Application.Config.xml">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	</ItemGroup>
     <ItemGroup>
         <InternalsVisibleTo Include="CloudLibClient.Tests" />
     </ItemGroup>
