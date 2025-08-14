@@ -40,6 +40,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Newtonsoft.Json;
+using Opc.Ua.Cloud.Library;
 using Opc.Ua.Cloud.Library.Controllers;
 using Opc.Ua.Cloud.Library.Models;
 
@@ -48,6 +49,13 @@ namespace UANodesetWebViewer.Controllers
     [Authorize(Policy = "ApiPolicy")]
     public class UploadController : Controller
     {
+        private readonly CloudLibDataProvider _database;
+
+        public UploadController(CloudLibDataProvider database)
+        {
+            _database = database;
+        }
+
         public ActionResult Index()
         {
             return View("Index");
@@ -164,7 +172,11 @@ namespace UANodesetWebViewer.Controllers
                     nameSpace.SupportedLocales = locales.Split(',');
                 }
 
-                // TODO: Call the cloud lib data provider to upload the nodeset
+                string result = await _database.UploadNamespaceAndNodesetAsync(nameSpace, overwrite, User.Identity.Name).ConfigureAwait(false);
+                if (result != "success")
+                {
+                    return View("Error", result);
+                }
 
                 return View("Index");
             }

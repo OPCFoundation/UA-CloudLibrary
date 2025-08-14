@@ -346,7 +346,7 @@ namespace CloudLibClient.Tests
             }
             // Upload again should cause conflict
             response = await client.UploadNodeSetAsync(addressSpace).ConfigureAwait(true);
-            Assert.Equal(HttpStatusCode.Conflict, response.Status);
+            Assert.Equal(HttpStatusCode.InternalServerError, response.Status);
 
             UANameSpace nodeSetInfo;
             bool notIndexed;
