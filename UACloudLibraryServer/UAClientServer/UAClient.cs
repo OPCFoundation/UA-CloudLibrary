@@ -1,12 +1,38 @@
+/* ========================================================================
+ * Copyright (c) 2005-2025 The OPC Foundation, Inc. All rights reserved.
+ *
+ * OPC Foundation MIT License 1.00
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * The complete license agreement can be found here:
+ * http://opcfoundation.org/License/MIT/1.00/
+ * ======================================================================*/
 
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using AspNetCoreGeneratedDocument;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
 using Opc.Ua;
 using Opc.Ua.Client;
@@ -18,6 +44,10 @@ namespace AdminShell
 {
     public class UAClient : IDisposable
     {
+        public List<string> LoadedNamespaces => ((NodesetFileNodeManager)_server?.CurrentInstance.NodeManager.NodeManagers[2])?.NamespaceUris.ToList() ?? new List<string>();
+
+        public List<string> MissingNamespaces { get; private set; } = new List<string>();
+
         private readonly ApplicationInstance _app;
         private readonly DbFileStorage _storage;
         private readonly CloudLibDataProvider _database;
@@ -25,7 +55,6 @@ namespace AdminShell
         private SimpleServer _server;
         private Session _session;
         private SessionReconnectHandler _reconnectHandler;
-
 
         private static uint _port = 5000;
 
@@ -145,6 +174,12 @@ namespace AdminShell
             {
                 foreach (RequiredModelInfoModel requiredModel in nodeSetMeta.RequiredModels)
                 {
+                    if (requiredModel.ModelUri == "http://opcfoundation.org/UA/")
+                    {
+                        // skip the base UA nodeset as it is always loaded
+                        continue;
+                    }
+
                     if (nodeManager.NamespaceUris.Contains(requiredModel.ModelUri))
                     {
                         // the dependent model is already loaded
@@ -156,6 +191,7 @@ namespace AdminShell
                     if (matchingNodeSets == null || matchingNodeSets.Count == 0)
                     {
                         Console.WriteLine($"Required model {requiredModel.ModelUri} for {nodesetIdentifier} not found in database.");
+                        MissingNamespaces.Add(requiredModel.ModelUri);
                         continue;
                     }
 

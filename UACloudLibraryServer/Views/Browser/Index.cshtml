@@ -8,4 +8,7 @@
 
 @model BrowserModel
 
-@(await Html.RenderComponentAsync<TreePage>(RenderMode.ServerPrerendered, new { NodesetIdentifier = Model.nodesetIdentifier }).ConfigureAwait(false))
+@(await Html.RenderComponentAsync<TreePage>(RenderMode.ServerPrerendered, new {
+    NodesetIdentifier = Model.NodesetIdentifier,
+    NodesetName = Model.NodesetName
+}).ConfigureAwait(false))

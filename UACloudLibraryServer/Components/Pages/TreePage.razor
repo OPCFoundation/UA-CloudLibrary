@@ -13,25 +13,86 @@
 
 @inject UAClient _client
 
-<div class="col-12 row">
-    <div class="col-8">
-        <Tree Nodes="TreeNodes" TNode="NodesetViewerNode" ChildSelector="node => node.Children" SelectedNodeChanged="SelectedNodeChanged" OnNodeExpand="OnNodeExpand" HasChildNodes="HasChildNodes">
-            <TitleTemplate>
-                @{
-                    if (context.Id.StartsWith("nsu="))
-                    {
-                        <span>@context.Text (@context.Id)</span>
-                    }
-                    else
-                    {
-                        <span>@context.Text</span>
-                    }
-                 }
-            </TitleTemplate>
-        </Tree>
-    </div>
-    <div class="col-4">
-        Node Value: @NodeValue
+<h1>@NodesetName</h1>
+<div style="height:100%">
+    <div class="uacl-container">
+        <div class="uacl-content">
+            <div class="container">
+                <p>
+                    <div class="col-12 row">
+                        <div class="col-8">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <b>Loaded Namespaces</b><br/>
+                                </div>
+                                <div class="card-body">
+                                    <span>http://opcfoundation.org/UA/</span><br/>
+                                    @foreach (var ns in _client.LoadedNamespaces)
+                                    {
+                                        <span>@ns</span><br/>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <b>Missing Namespaces</b><br/>
+                                </div>
+                                <div class="card-body">
+                                    @if (_client.MissingNamespaces.Count == 0)
+                                    {
+                                        <span>(none)</span><br/>
+                                    }
+                                    else
+                                    {
+                                        foreach (var ns in _client.MissingNamespaces)
+                                        {
+                                            <span>@ns</span><br/>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </p>
+                <p>
+                    <div class="col-12 row">
+                        <div class="col-8">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <b>Node Browser</b>
+                                </div>
+                                <div class="card-body">
+                                    <Tree Nodes="TreeNodes" TNode="NodesetViewerNode" ChildSelector="node => node.Children" SelectedNodeChanged="SelectedNodeChanged" OnNodeExpand="OnNodeExpand" HasChildNodes="HasChildNodes">
+                                        <TitleTemplate>
+                                            @if (context.Id.StartsWith("nsu="))
+                                            {
+                                                <span><b>@context.Text</b></span>
+                                            }
+                                            else
+                                            {
+                                                <span>@context.Text</span>
+                                            }
+                                        </TitleTemplate>
+                                    </Tree>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <b>Node Value</b>
+                                </div>
+                                <div class="card-body">
+                                    @NodeValue
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </p>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -43,7 +104,9 @@
 
     [Parameter] public string NodesetIdentifier { get;set; }
 
-    protected override void OnInitialized()
+    [Parameter] public string NodesetName { get; set; }
+
+    protected override async Task OnInitializedAsync()
     {
         TreeNodes.Clear();
 
@@ -55,6 +118,8 @@
         };
 
         TreeNodes.Add(root);
+
+        await OnNodeExpand(root).ConfigureAwait(false);
     }
 
     private async Task OnNodeExpand(NodesetViewerNode node)
@@ -90,3 +155,16 @@
         return (item == null)? string.Empty : item.Text;
     }
 }
+
+<style>
+    .uacl-content .card .card-text {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .page-item {
+        cursor: pointer;
+    }
+</style>

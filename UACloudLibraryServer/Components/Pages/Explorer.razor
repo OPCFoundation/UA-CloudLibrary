@@ -79,7 +79,6 @@
                                                 <h6 class="card-subtitle mb-2 text-muted">by @item.Title</h6>
                                             </div>
                                             <div class="card-body">
-
                                                 <p class="card-text">
                                                     @item.Description
                                                 </p>
@@ -269,7 +268,7 @@
 
     private void ViewFileFromURL(NamespaceMetaDataModel item)
     {
-        NavigationManager.NavigateTo($"/browser?nodesetIdentifier={item.NodeSet.Identifier}", true);
+        NavigationManager.NavigateTo($"/browser?NodesetIdentifier={item.NodeSet.Identifier}&NodesetName={item.Title}", true);
     }
 
     private void Open(NamespaceMetaDataModel item)
@@ -340,7 +339,6 @@
         await InvokeAsync(StateHasChanged).ConfigureAwait(false);
     }
 }
-
 
 <style>
     .uacl-content .card .card-text {

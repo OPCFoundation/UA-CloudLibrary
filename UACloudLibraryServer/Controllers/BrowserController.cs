@@ -4,10 +4,11 @@ namespace AdminShell
 {
     public class BrowserController : Controller
     {
-        public ActionResult Index(string nodesetIdentifier)
+        public ActionResult Index(string nodesetIdentifier, string nodesetName)
         {
             return View("Index", new BrowserModel() {
-                nodesetIdentifier = nodesetIdentifier
+                NodesetIdentifier = nodesetIdentifier,
+                NodesetName = nodesetName
             });
         }
     }
