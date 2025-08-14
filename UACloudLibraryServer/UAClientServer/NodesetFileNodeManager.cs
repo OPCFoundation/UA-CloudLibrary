@@ -32,6 +32,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Newtonsoft.Json;
 using Opc.Ua;
 using Opc.Ua.Export;
 using Opc.Ua.Server;
@@ -91,7 +92,7 @@ namespace AdminShell
             }
         }
 
-        public void AddNodesAndValues(string nodesetXml)
+        public void AddNodesAndValues(string nodesetXml, string values)
         {
             if (!string.IsNullOrEmpty(nodesetXml))
             {
@@ -101,7 +102,7 @@ namespace AdminShell
                     UANodeSet nodeSet = UANodeSet.Read(stream);
                     NodeStateCollection predefinedNodes = new NodeStateCollection();
                     nodeSet.Import(SystemContext, predefinedNodes);
-                                        
+
                     // add nodes
                     for (int i = 0; i < predefinedNodes.Count; i++)
                     {
@@ -151,24 +152,22 @@ namespace AdminShell
                     // patch the values from our values file
                     try
                     {
-                        //TODO: Implement a way to load values from the database
-                        //string valuesFile = Path.Combine(nodesetFile.Replace(".NodeSet2.xml", "_Values.json"));
-                        //if (System.IO.File.Exists(valuesFile))
-                        //{
-                        //    Dictionary<string, string> values = JsonConvert.DeserializeObject<Dictionary<string, string>>(System.IO.File.ReadAllText(valuesFile));
-                        //    foreach (KeyValuePair<string, string> value in values)
-                        //    {
-                        //        NodeId nodeId = new NodeId(NodeId.Parse(value.Key).Identifier, (ushort)Server.NamespaceUris.GetIndex(namespaceUri));
-                        //        if (Find(nodeId) is BaseVariableState variable)
-                        //        {
-                        //            variable.Value = new Variant(value.Value);
-                        //        }
-                        //    }
-                        //}
+                        if (!string.IsNullOrEmpty(values))
+                        {
+                            Dictionary<string, string> keyvalues = JsonConvert.DeserializeObject<Dictionary<string, string>>(values);
+                            foreach (KeyValuePair<string, string> value in keyvalues)
+                            {
+                                NodeId nodeId = new NodeId(NodeId.Parse(value.Key).Identifier, (ushort)Server.NamespaceUris.GetIndex(namespaceUri));
+                                if (Find(nodeId) is BaseVariableState variable)
+                                {
+                                    variable.Value = new Variant(value.Value);
+                                }
+                            }
+                        }
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
-                        // skip loading values
+                        Console.WriteLine("Error parsing values JSON. Skipping values patching:" + ex.Message);
                     }
                 }
             }

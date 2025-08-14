@@ -151,9 +151,9 @@ namespace AdminShell
             await LoadDependentNodesetsRecursiveAsync(nodesetIdentifier, nodeManager).ConfigureAwait(false);
 
             // now load the nodeset itself
-            string nodesetXml = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
-            nodeManager.AddNamespace(nodesetXml);
-            nodeManager.AddNodesAndValues(nodesetXml);
+            DbFiles nodesetXml = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
+            nodeManager.AddNamespace(nodesetXml.Blob);
+            nodeManager.AddNodesAndValues(nodesetXml.Blob, nodesetXml.Values);
 
             ConfiguredEndpoint configuredEndpoint = new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(_app.ApplicationConfiguration));
             return await Session.Create(
@@ -199,9 +199,9 @@ namespace AdminShell
 
                     await LoadDependentNodesetsRecursiveAsync(dependentNodeset.Identifier, nodeManager).ConfigureAwait(false);
 
-                    string nodesetXml = await _storage.DownloadFileAsync(dependentNodeset.Identifier).ConfigureAwait(false);
-                    nodeManager.AddNamespace(nodesetXml);
-                    nodeManager.AddNodesAndValues(nodesetXml);
+                    DbFiles nodesetXml = await _storage.DownloadFileAsync(dependentNodeset.Identifier).ConfigureAwait(false);
+                    nodeManager.AddNamespace(nodesetXml.Blob);
+                    nodeManager.AddNodesAndValues(nodesetXml.Blob, nodesetXml.Values);
                 }
             }
         }

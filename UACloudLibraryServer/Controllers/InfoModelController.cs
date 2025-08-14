@@ -150,11 +150,11 @@ namespace Opc.Ua.Cloud.Library.Controllers
             [FromQuery][SwaggerParameter("Download metadata only, omitting NodeSet XML")] bool metadataOnly = false
             )
         {
-            string nodesetXml = null;
+            DbFiles nodesetXml = null;
             if (!metadataOnly)
             {
                 nodesetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
-                if (string.IsNullOrEmpty(nodesetXml))
+                if (nodesetXml == null)
                 {
                     return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
                 }
@@ -176,7 +176,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             {
                 return new ObjectResult("Failed to find nodeset metadata") { StatusCode = (int)HttpStatusCode.NotFound };
             }
-            uaNamespace.Nodeset.NodesetXml = nodesetXml;
+            uaNamespace.Nodeset.NodesetXml = nodesetXml.Blob;
 
             if (!metadataOnly)
             {
@@ -202,8 +202,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            string nodesetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
-            if (string.IsNullOrEmpty(nodesetXml))
+            DbFiles nodesetXml = await _storage.DownloadFileAsync(identifier).ConfigureAwait(false);
+            if (nodesetXml == null)
             {
                 return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
             }
@@ -223,7 +223,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 }
             }
             UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID).ConfigureAwait(false);
-            uaNamespace.Nodeset.NodesetXml = nodesetXml;
+            uaNamespace.Nodeset.NodesetXml = nodesetXml.Blob;
 
             await _database.DeleteAllRecordsForNodesetAsync(nodeSetID).ConfigureAwait(false);
 
@@ -276,13 +276,12 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 legacyNodesetHashCode = GenerateHashCodeLegacy(nodeSet);
                 if (legacyNodesetHashCode != 0)
                 {
-                    string legacyNodeSetXml = await _storage.DownloadFileAsync(legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
-
-                    if (!string.IsNullOrEmpty(legacyNodeSetXml))
+                    DbFiles legacyNodeSetXml = await _storage.DownloadFileAsync(legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                    if (legacyNodeSetXml != null)
                     {
                         try
                         {
-                            UANodeSet legacyNodeSet = ReadUANodeSet(legacyNodeSetXml);
+                            UANodeSet legacyNodeSet = ReadUANodeSet(legacyNodeSetXml.Blob);
                             ModelTableEntry firstModel = legacyNodeSet.Models.Length > 0 ? legacyNodeSet.Models[0] : null;
                             if (firstModel == null)
                             {
@@ -369,7 +368,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             // At this point all inputs are validated: ready to store
 
             // upload the new file to the storage service, and get the file handle that the storage service returned
-            string storedFilename = await _storage.UploadFileAsync(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture), uaNamespace.Nodeset.NodesetXml).ConfigureAwait(false);
+            string storedFilename = await _storage.UploadFileAsync(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture), uaNamespace.Nodeset.NodesetXml, string.Empty).ConfigureAwait(false);
             if (string.IsNullOrEmpty(storedFilename) || (storedFilename != uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)))
             {
                 string message = "Error: NodeSet file could not be stored.";
