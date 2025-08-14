@@ -20,10 +20,10 @@
             <div class="container">
                 <p>
                     <div class="col-12 row">
-                        <div class="col-8">
+                        <div class="col-6">
                             <div class="card h-100">
                                 <div class="card-header">
-                                    <b>Loaded Namespaces</b><br/>
+                                    <b>Loaded Nodesets</b><br/>
                                 </div>
                                 <div class="card-body">
                                     <span>http://opcfoundation.org/UA/</span><br/>
@@ -34,10 +34,10 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-4">
+                        <div class="col-6">
                             <div class="card h-100">
                                 <div class="card-header">
-                                    <b>Missing Namespaces</b><br/>
+                                    <b>Required Nodesets Missing from UA Cloud Library</b><br/>
                                 </div>
                                 <div class="card-body">
                                     @if (_client.MissingNamespaces.Count == 0)
@@ -58,7 +58,7 @@
                 </p>
                 <p>
                     <div class="col-12 row">
-                        <div class="col-8">
+                        <div class="col-6">
                             <div class="card h-100">
                                 <div class="card-header">
                                     <b>Node Browser</b>
@@ -79,13 +79,20 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-4">
+                        <div class="col-6">
                             <div class="card h-100">
                                 <div class="card-header">
-                                    <b>Node Value</b>
+                                    <b>Selected Node Value</b>
                                 </div>
                                 <div class="card-body">
-                                    @NodeValue
+                                    @if (!string.IsNullOrEmpty(NodeValue))
+                                    {
+                                        <span>@NodeValue</span>
+                                    }
+                                    else
+                                    {
+                                        <span>(none)</span>
+                                    }
                                 </div>
                             </div>
                         </div>
