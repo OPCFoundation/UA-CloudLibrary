@@ -1,5 +1,5 @@
 /* ========================================================================
- * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
+ * Copyright (c) 2005-2025 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
  *
@@ -60,7 +60,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
                 {
                     return Task.FromResult(AuthenticateResult.NoResult());
                 }
-                // Allow a previously authenticated, signed in user (for example via ASP.Net cookies from the graphiql browser)
+                // Allow a previously authenticated, signed in user (for example via ASP.Net cookies)
                 var principal2 = new ClaimsPrincipal(Request.HttpContext.User.Identity);
                 var ticket2 = new AuthenticationTicket(principal2, Scheme.Name);
 

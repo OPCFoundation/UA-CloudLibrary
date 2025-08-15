@@ -1,5 +1,5 @@
 /* ========================================================================
- * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
+ * Copyright (c) 2005-2025 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
  *
@@ -32,11 +32,11 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Security.Claims;
 using System.Text.Json;
-using Amazon.S3;
-using HotChocolate.AspNetCore;
-using HotChocolate.Data;
+using System.Threading.Tasks;
+using AdminShell;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.Builder;
@@ -47,22 +47,14 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-#if AZURE_AD
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-using Microsoft.IdentityModel.Logging;
 using Microsoft.Identity.Web;
-#endif
 using Microsoft.OpenApi.Models;
-using Opc.Ua.Cloud.Library.Interfaces;
-using Microsoft.AspNetCore.Authorization;
 using Opc.Ua.Cloud.Library.Authentication;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using System.Net.Sockets;
-using System.Threading.Tasks;
 
 [assembly: CLSCompliant(false)]
 namespace Opc.Ua.Cloud.Library
@@ -92,20 +84,19 @@ namespace Opc.Ua.Cloud.Library
                 ServiceLifetime.Transient);
 
             services.AddDefaultIdentity<IdentityUser>(options =>
-                      //require confirmation mail if email sender API Key is set
-                      options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["EmailSenderAPIKey"])
-                    )
+                options.SignIn.RequireConfirmedAccount = !string.IsNullOrEmpty(Configuration["EmailSenderAPIKey"])
+            )
                 .AddRoles<IdentityRole>()
-#if APIKEY_AUTH
-                .AddTokenProvider<ApiKeyTokenProvider>(ApiKeyTokenProvider.ApiKeyProviderName)
-#endif
-                .AddEntityFrameworkStores<AppDbContext>();
+                .AddEntityFrameworkStores<AppDbContext>()
+                .AddTokenProvider<ApiKeyTokenProvider>(ApiKeyTokenProvider.ApiKeyProviderName);
 
-            services.AddScoped<IUserService, UserService>();
+            services.AddScoped<UserService>();
 
-            services.AddTransient<IDatabase, CloudLibDataProvider>();
+            services.AddTransient<CloudLibDataProvider>();
 
-            services.AddScoped<ICaptchaValidation, CaptchaValidation>();
+            services.AddScoped<AssetAdministrationShellEnvironmentService>();
+
+            services.AddScoped<CaptchaValidation>();
 
             if (!string.IsNullOrEmpty(Configuration["UseSendGridEmailSender"]))
             {
@@ -118,18 +109,26 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddLogging(builder => builder.AddConsole());
 
-            services.AddAuthentication()
-                .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null)
-                .AddScheme<AuthenticationSchemeOptions, SignedInUserAuthenticationHandler>("SignedInUserAuthentication", null)
-#if APIKEY_AUTH
-                .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKeyAuthentication", null);
-#endif
-            ;
-
             //for captcha validation call
             //add httpclient service for dependency injection
             //https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-6.0
             services.AddHttpClient();
+
+            services.AddAuthentication()
+                .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null)
+                .AddScheme<AuthenticationSchemeOptions, SignedInUserAuthenticationHandler>("SignedInUserAuthentication", null)
+                .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKeyAuthentication", null);
+
+            if (Configuration["Authentication:Microsoft:ClientId"] != null)
+            {
+                services.AddAuthentication()
+                    .AddCookie()
+                    .AddMicrosoftAccount(options => {
+                        options.ClientId = Configuration["Authentication:Microsoft:ClientId"];
+                        options.ClientSecret = Configuration["Authentication:Microsoft:ClientSecret"];
+                    })
+                    .AddMicrosoftIdentityWebApi(Configuration.GetSection("AzureAd"));
+            }
 
             if (Configuration["OAuth2ClientId"] != null)
             {
@@ -177,44 +176,31 @@ namespace Opc.Ua.Cloud.Library
                     });
             }
 
-#if AZURE_AD
-            if (Configuration.GetSection("AzureAd")?["ClientId"] != null)
-            {
-                // Web UI access
-                services.AddAuthentication()
-                    .AddMicrosoftIdentityWebApp(Configuration,
-                        configSectionName: "AzureAd",
-                        openIdConnectScheme: "AzureAd",
-                        displayName: Configuration["AADDisplayName"] ?? "Microsoft Account")
-                    ;
-                // Allow access to API via Bearer tokens (for service identities etc.)
-                services.AddAuthentication()
-                    .AddMicrosoftIdentityWebApi(
-                        Configuration,
-                        configSectionName: "AzureAd",
-                        jwtBearerScheme: "Bearer",
-                        subscribeToJwtBearerMiddlewareDiagnosticsEvents: true
-                        )
-                    ;
-            }
-            else
-            {
-                // Need to register a Bearer scheme or the authorization attributes cause errors
-                services.AddAuthentication()
-                    .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("Bearer", null);
-
-            }
-#if DEBUG
-            IdentityModelEventSource.ShowPII = true;
-#endif
-
-#endif
-
             services.AddAuthorization(options => {
                 options.AddPolicy("ApprovalPolicy", policy => policy.RequireRole("Administrator"));
                 options.AddPolicy("UserAdministrationPolicy", policy => policy.RequireRole("Administrator"));
                 options.AddPolicy("DeletePolicy", policy => policy.RequireRole("Administrator"));
             });
+
+            if (Configuration["APIKeyAuth"] != null)
+            {
+                services.AddAuthorization(options => {
+                    options.AddPolicy("ApiPolicy", policy => {
+                        policy.AddAuthenticationSchemes("BasicAuthentication").RequireAuthenticatedUser();
+                        policy.AddAuthenticationSchemes("SignedInUserAuthentication").RequireAuthenticatedUser();
+                        policy.AddAuthenticationSchemes("ApiKeyAuthentication").RequireAuthenticatedUser();
+                    });
+                });
+            }
+            else
+            {
+                services.AddAuthorization(options => {
+                    options.AddPolicy("ApiPolicy", policy => {
+                        policy.AddAuthenticationSchemes("BasicAuthentication", "SignedInUserAuthentication");
+                        policy.AddAuthenticationSchemes("SignedInUserAuthentication").RequireAuthenticatedUser();
+                    });
+                });
+            }
 
             services.AddSwaggerGen(options => {
                 options.SwaggerDoc("v1", new OpenApiInfo {
@@ -233,44 +219,39 @@ namespace Opc.Ua.Cloud.Library
                     Scheme = "basic"
                 });
 
-                options.AddSecurityRequirement(new OpenApiSecurityRequirement
+                options.AddSecurityRequirement(new OpenApiSecurityRequirement {
                 {
-                    {
-                          new OpenApiSecurityScheme
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
                             {
-                                Reference = new OpenApiReference
-                                {
-                                    Type = ReferenceType.SecurityScheme,
-                                    Id = "basicAuth"
-                                }
-                            },
-                            Array.Empty<string>()
-                    }
-                });
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "basicAuth"
+                            }
+                        },
+                        Array.Empty<string>()
+                }});
 
-#if APIKEY_AUTH
-                options.AddSecurityDefinition("ApiKeyAuth", new OpenApiSecurityScheme {
-                    Type = SecuritySchemeType.ApiKey,
-                    In = ParameterLocation.Header,
-                    Name = "X-API-Key",
-                    //Scheme = "basic"
-                });
+                if (Configuration["APIKeyAuth"] != null)
+                {
+                    options.AddSecurityDefinition("ApiKeyAuth", new OpenApiSecurityScheme {
+                        Type = SecuritySchemeType.ApiKey,
+                        In = ParameterLocation.Header,
+                        Name = "X-API-Key",
+                        //Scheme = "basic"
+                    });
 
-                options.AddSecurityRequirement(new OpenApiSecurityRequirement
-            {
+                    options.AddSecurityRequirement(new OpenApiSecurityRequirement {
                     {
-                          new OpenApiSecurityScheme
-                            {
-                                Reference = new OpenApiReference
-                                {
-                                    Type = ReferenceType.SecurityScheme,
-                                    Id = "ApiKeyAuth"
-                                }
-                            },
-                            Array.Empty<string>()
-                    }
-                });
-#endif
+                        new OpenApiSecurityScheme {
+                            Reference = new OpenApiReference {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "ApiKeyAuth"
+                            }
+                        },
+                        Array.Empty<string>()
+                    }});
+                }
 
                 options.CustomSchemaIds(type => type.ToString());
 
@@ -279,83 +260,11 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddSwaggerGenNewtonsoftSupport();
 
-            // Setup file storage
-            switch (Configuration["HostingPlatform"])
-            {
-                case "Azure": services.AddSingleton<IFileStorage, AzureFileStorage>(); break;
-                case "AWS":
-                    Amazon.Extensions.NETCore.Setup.AWSOptions awsOptions = Configuration.GetAWSOptions();
-                    services.AddDefaultAWSOptions(awsOptions);
-                    services.AddAWSService<IAmazonS3>();
-                    services.AddSingleton<IFileStorage, AWSFileStorage>();
-                    break;
-                case "GCP": services.AddSingleton<IFileStorage, GCPFileStorage>(); break;
-                case "DevDB": services.AddScoped<IFileStorage, DevDbFileStorage>(); break;
-                default:
-                {
-                    services.AddSingleton<IFileStorage, LocalFileStorage>();
-                    Console.WriteLine("WARNING: Using local filesystem for storage as HostingPlatform environment variable not specified or invalid!");
-                    break;
-                }
-            }
+            services.AddScoped<DbFileStorage>();
 
             string serviceName = Configuration["Application"] ?? "UACloudLibrary";
 
-            // setup data protection
-            switch (Configuration["HostingPlatform"])
-            {
-                case "Azure": services.AddDataProtection().PersistKeysToAzureBlobStorage(Configuration["BlobStorageConnectionString"], "keys", Configuration["DataProtectionBlobName"]); break;
-                case "AWS": services.AddDataProtection().PersistKeysToAWSSystemsManager($"/{serviceName}/DataProtection"); break;
-                case "GCP": services.AddDataProtection().PersistKeysToGoogleCloudStorage(Configuration["BlobStorageConnectionString"], "DataProtectionProviderKeys.xml"); break;
-                default: services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Directory.GetCurrentDirectory())); break;
-            }
-
-            services.AddHttpContextAccessor();
-
-
-            HotChocolate.Types.Pagination.PagingOptions paginationConfig;
-            IConfigurationSection section = Configuration.GetSection("GraphQLPagination");
-            if (section.Exists())
-            {
-                paginationConfig = section.Get<HotChocolate.Types.Pagination.PagingOptions>();
-            }
-            else
-            {
-                paginationConfig = new HotChocolate.Types.Pagination.PagingOptions {
-                    IncludeTotalCount = true,
-                    DefaultPageSize = 100,
-                    MaxPageSize = 100,
-                };
-            }
-
-            services.AddGraphQLServer()
-                .AddAuthorization()
-                .ModifyPagingOptions(o => {
-                    o.IncludeTotalCount = paginationConfig.IncludeTotalCount;
-                    o.DefaultPageSize = paginationConfig.DefaultPageSize;
-                    o.MaxPageSize = paginationConfig.MaxPageSize;
-                })
-                .AddFiltering(fd => {
-                    fd.AddDefaults().BindRuntimeType<UInt32, UnsignedIntOperationFilterInputType>();
-                    fd.AddDefaults().BindRuntimeType<UInt32?, UnsignedIntOperationFilterInputType>();
-                    fd.AddDefaults().BindRuntimeType<UInt16?, UnsignedShortOperationFilterInputType>();
-                })
-                .AddSorting()
-                .AddQueryType<QueryModel>()
-                .AddMutationType<MutationModel>()
-                .AddType<CloudLibNodeSetModelType>()
-                .BindRuntimeType<UInt32, HotChocolate.Types.UnsignedIntType>()
-                .BindRuntimeType<UInt16, HotChocolate.Types.UnsignedShortType>()
-                .ModifyCostOptions(options => {
-                    options.MaxFieldCost = 1_000;
-                    options.MaxTypeCost = 1_000;
-                    options.EnforceCostLimits = false;
-                    options.ApplyCostDefaults = false;
-                    options.DefaultResolverCost = 10.0;
-                });
-
-            services.AddScoped<NodeSetModelIndexer>();
-            services.AddScoped<NodeSetModelIndexerFactory>();
+            services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Directory.GetCurrentDirectory()));
 
             services.Configure<IISServerOptions>(options => {
                 options.AllowSynchronousIO = true;
@@ -366,16 +275,7 @@ namespace Opc.Ua.Cloud.Library
             });
 
             services.AddServerSideBlazor();
-#if AZURE_AD
-            // Required to make Azure AD login work as ASP.Net External Identity: Change the SignInScheme to External after ALL other configuration have run.
-            services
-              .AddOptions()
-              .PostConfigureAll<OpenIdConnectOptions>(o => {
-                  o.SignInScheme = IdentityConstants.ExternalScheme;
-              });
-#endif
         }
-
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, AppDbContext appDbContext)
@@ -423,10 +323,6 @@ namespace Opc.Ua.Cloud.Library
 
             app.UseAuthorization();
 
-            app.UseGraphQLGraphiQL("/graphiql", new GraphQL.Server.Ui.GraphiQL.GraphiQLOptions {
-                RequestCredentials = GraphQL.Server.Ui.GraphiQL.RequestCredentials.Include,
-            });
-
             app.UseEndpoints(endpoints => {
                 endpoints.MapControllerRoute(
                     name: "default",
@@ -434,12 +330,6 @@ namespace Opc.Ua.Cloud.Library
 
                 endpoints.MapRazorPages();
                 endpoints.MapBlazorHub();
-                endpoints.MapGraphQL()
-                    .RequireAuthorization(new AuthorizeAttribute() { AuthenticationSchemes = UserService.APIAuthorizationSchemes })
-                    .WithOptions(new GraphQLServerOptions {
-                        EnableGetRequests = true,
-                        Tool = { Enable = false },
-                    });
             });
         }
     }

@@ -12,9 +12,9 @@ namespace AdminShell
     [JsonConverter(typeof(JsonSubtypes), "ModelType")]
     public class SubmodelElement : Referable
     {
-        public static Type[] PROP_MLP = new Type[]
+        public static Type[] PROPMLP { get; set; } = new Type[]
         {
-            typeof(MultiLanguageProperty), typeof(Property)
+            typeof(MultiLanguageProperty), typeof(AASProperty)
         };
 
         [DataMember(Name = "semanticId")]

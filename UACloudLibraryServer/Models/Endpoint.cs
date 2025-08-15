@@ -14,7 +14,7 @@ namespace AdminShell
         [Required]
         [MaxLength(128)]
         [DataMember(Name = "interface")]
-        public string _Interface { get; set; }
+        public string Interface { get; set; }
 
         /// <summary>
         /// Gets or Sets ProtocolInformation

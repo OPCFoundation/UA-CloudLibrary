@@ -1,5 +1,5 @@
 /* ========================================================================
- * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
+ * Copyright (c) 2005-2025 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
  *
@@ -37,7 +37,7 @@ using Swashbuckle.AspNetCore.Annotations;
 
 namespace Opc.Ua.Cloud.Library.Controllers
 {
-    [Authorize(AuthenticationSchemes = UserService.APIAuthorizationSchemes)]
+    [Authorize(Policy = "ApiPolicy")]
     [ApiController]
     public class AccessController : ControllerBase
     {

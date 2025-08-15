@@ -13,7 +13,7 @@ namespace AdminShell
 
         [DataMember(Name = "messageType")]
         [XmlElement(ElementName = "messageType")]
-        public MessageTypeEnum? MessageType { get; set; }
+        public MessageType? MessageType { get; set; }
 
         [DataMember(Name = "text")]
         [XmlElement(ElementName = "text")]

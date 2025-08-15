@@ -50,7 +50,7 @@ namespace SampleConsoleClient
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            request.Headers.Add("Authorization", "basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(_username + ":" + _password)));
+            request.Headers.Add("Authorization", "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(_username + ":" + _password)));
 
             return base.SendAsync(request, cancellationToken);
         }

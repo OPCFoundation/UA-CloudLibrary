@@ -12,12 +12,12 @@ namespace AdminShell
         [Required]
         [DataMember(Name = "contentType")]
         [XmlElement(ElementName = "mimeType")]
-        [MetaModelName("Blob.MimeType")]
+        [MetaModelNameAttribute("Blob.MimeType")]
         public string MimeType { get; set; } = string.Empty;
 
         [DataMember(Name = "value")]
         [XmlElement(ElementName = "value")]
-        [MetaModelName("Blob.Value")]
+        [MetaModelNameAttribute("Blob.Value")]
         public string Value { get; set; } = string.Empty;
 
         public Blob()

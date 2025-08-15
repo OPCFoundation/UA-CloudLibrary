@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Opc.Ua.Cloud.Library.Client;
+using Opc.Ua.Cloud.Client;
 
 namespace CloudLibClient.Tests
 {
@@ -16,12 +16,13 @@ namespace CloudLibClient.Tests
     {
         public class IntegrationTestConfig
         {
-            public bool IgnoreUploadConflict { get; set; }
+            public bool IgnoreUploadConflict { get; set; } = true;
+
             public bool DeleteCloudLibDBAndStore { get; set; }
         }
 
-
         private IntegrationTestConfig _testConfig;
+
         public IntegrationTestConfig TestConfig
         {
             get
@@ -49,8 +50,8 @@ namespace CloudLibClient.Tests
                             { "OAuth2ClientId", "Test" },
                             { "OAuth2ClientSecret", "TestSecret" }
 
-                        }))
-                        ;
+                        })
+                );
         }
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -62,8 +63,6 @@ namespace CloudLibClient.Tests
         {
             HttpClient httpClient = CreateAuthorizedClient();
             var client = new UACloudLibClient(httpClient);
-            // Ensure all test cases hit GraphQL. Set to true in the test case if explicitly testing fallbacks
-            client._allowRestFallback = false;
             return client;
         }
         internal HttpClient CreateAuthorizedClient()
@@ -71,7 +70,7 @@ namespace CloudLibClient.Tests
             HttpClient httpClient = CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { });
 
             string temp = Convert.ToBase64String(Encoding.UTF8.GetBytes("admin" + ":" + "testpw"));
-            httpClient.DefaultRequestHeaders.Add("Authorization", "basic " + temp);
+            httpClient.DefaultRequestHeaders.Add("Authorization", "Basic " + temp);
 
             return httpClient;
         }

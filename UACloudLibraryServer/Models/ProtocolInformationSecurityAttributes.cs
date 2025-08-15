@@ -12,7 +12,7 @@ namespace AdminShell
         /// Gets or Sets Type
         /// </summary>
         [JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
-        public enum TypeEnum
+        public enum ProtocolInformationSecurityAttributesType
         {
             /// <summary>
             /// Enum NONEEnum for NONE
@@ -36,7 +36,7 @@ namespace AdminShell
         /// </summary>
         [Required]
         [DataMember(Name = "type")]
-        public TypeEnum? Type { get; set; }
+        public ProtocolInformationSecurityAttributesType? Type { get; set; }
 
         /// <summary>
         /// Gets or Sets Key

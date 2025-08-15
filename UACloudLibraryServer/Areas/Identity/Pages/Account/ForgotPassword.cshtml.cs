@@ -4,7 +4,6 @@
 
 using System.ComponentModel.DataAnnotations;
 using System.Text;
-using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
@@ -12,8 +11,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
-using Opc.Ua.Cloud.Library.Authentication;
-using Opc.Ua.Cloud.Library.Interfaces;
 
 namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
 {
@@ -21,14 +18,14 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
     {
         private readonly UserManager<IdentityUser> _userManager;
         private readonly IEmailSender _emailSender;
-        private readonly Interfaces.ICaptchaValidation _captchaValidation;
+        private readonly CaptchaValidation _captchaValidation;
         private readonly CaptchaSettings _captchaSettings;
 
         public ForgotPasswordModel(
             UserManager<IdentityUser> userManager,
             IEmailSender emailSender,
             IConfiguration configuration,
-            Interfaces.ICaptchaValidation captchaValidation)
+            CaptchaValidation captchaValidation)
         {
             _userManager = userManager;
             _emailSender = emailSender;

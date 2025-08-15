@@ -1,5 +1,5 @@
 /* ========================================================================
- * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
+ * Copyright (c) 2005-2025 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
  *
@@ -35,16 +35,15 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Opc.Ua.Cloud.Library.Interfaces;
 
 namespace Opc.Ua.Cloud.Library.Authentication
 {
     public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
     {
-        private readonly IUserService _userService;
+        private readonly UserService _userService;
 
         public ApiKeyAuthenticationHandler(
-            IUserService userService,
+            UserService userService,
             IOptionsMonitor<AuthenticationSchemeOptions> options,
             ILoggerFactory logger,
             UrlEncoder encoder)
@@ -67,6 +66,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
                 {
                     return AuthenticateResult.Fail("Invalid x-api-key header");
                 }
+
                 System.Collections.Generic.IEnumerable<Claim> claims = await _userService.ValidateApiKeyAsync(apiKeyHeader[0]).ConfigureAwait(false);
                 if (claims?.Any() != true)
                 {

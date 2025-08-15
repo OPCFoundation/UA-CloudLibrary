@@ -1,16 +1,47 @@
 
+/* ========================================================================
+ * Copyright (c) 2005-2025 The OPC Foundation, Inc. All rights reserved.
+ *
+ * OPC Foundation MIT License 1.00
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * The complete license agreement can be found here:
+ * http://opcfoundation.org/License/MIT/1.00/
+ * ======================================================================*/
+
+using System;
+using System.Buffers.Text;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Linq;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
 using Opc.Ua.Cloud.Library;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace AdminShell
 {
-    [Authorize(AuthenticationSchemes = UserService.APIAuthorizationSchemes)]
+    [Authorize(Policy = "ApiPolicy")]
     [ApiController]
     public class SerializationApiController : ControllerBase
     {
@@ -44,8 +75,8 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public virtual IActionResult GenerateSerializationByIds([FromQuery] List<string> aasIds, [FromQuery] List<string> submodelIds, [FromQuery] bool? includeConceptDescriptions)
         {
-            IEnumerable<string> decodedAasIds = aasIds.Select(aasId => Base64UrlEncoder.Decode(aasId)).ToList();
-            IEnumerable<string> decodedSubmodelIds = aasIds.Select(submodelIds => Base64UrlEncoder.Decode(submodelIds)).ToList();
+            IEnumerable<string> decodedAasIds = aasIds.Select(aasId => Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasId)))).ToList();
+            IEnumerable<string> decodedSubmodelIds = submodelIds.Select(submodelId => Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelId)))).ToList();
 
             dynamic outputEnv = new ExpandoObject();
             outputEnv.AssetAdministrationShells = new List<AssetAdministrationShell>();
@@ -54,7 +85,7 @@ namespace AdminShell
             var aasList = _aasEnvService.GetAllAssetAdministrationShells();
             foreach (var aasId in decodedAasIds)
             {
-                var foundAas = aasList.Where(a => a.Identification.Id.Equals(aasId));
+                var foundAas = aasList.Where(a => a.Identification.Id.Equals(aasId, StringComparison.OrdinalIgnoreCase));
                 if (foundAas.Any())
                 {
                     outputEnv.AssetAdministrationShells.Add(foundAas.First());
@@ -64,7 +95,7 @@ namespace AdminShell
             var submodelList = _aasEnvService.GetAllSubmodels();
             foreach (var submodelId in decodedSubmodelIds)
             {
-                var foundSubmodel = submodelList.Where(s => s.Identification.Id.Equals(submodelId));
+                var foundSubmodel = submodelList.Where(s => s.Identification.Id.Equals(submodelId, StringComparison.OrdinalIgnoreCase));
                 if (foundSubmodel.Any())
                 {
                     outputEnv.Submodels.Add(foundSubmodel.First());

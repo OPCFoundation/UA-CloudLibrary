@@ -27,7 +27,7 @@ namespace AdminShell
 
         [DataMember(Name = "submodelElements")]
         [XmlArray(ElementName = "submodelElements")]
-        [XmlArrayItem(ElementName = "property", Type = typeof(Property))]
+        [XmlArrayItem(ElementName = "property", Type = typeof(AASProperty))]
         [XmlArrayItem(ElementName = "multiLanguageProperty", Type = typeof(MultiLanguageProperty))]
         [XmlArrayItem(ElementName = "range", Type = typeof(Range))]
         [XmlArrayItem(ElementName = "file", Type = typeof(File))]

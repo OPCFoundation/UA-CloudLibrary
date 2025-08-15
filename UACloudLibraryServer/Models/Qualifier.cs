@@ -11,7 +11,7 @@ namespace AdminShell
     {
         [DataMember(Name = "value")]
         [XmlElement(ElementName = "value")]
-        [MetaModelName("Qualifier.Value")]
+        [MetaModelNameAttribute("Qualifier.Value")]
         public string Value { get; set; }
 
         [DataMember(Name = "valueId")]
@@ -20,18 +20,18 @@ namespace AdminShell
 
         [DataMember(Name = "valueType")]
         [XmlElement(ElementName = "valueType")]
-        [MetaModelName("Qualifier.ValueType")]
+        [MetaModelNameAttribute("Qualifier.ValueType")]
         public string ValueType { get; set; }
 
         [Required]
         [DataMember(Name = "type")]
         [XmlElement(ElementName = "type")]
-        [MetaModelName("Qualifier.Type")]
+        [MetaModelNameAttribute("Qualifier.Type")]
         public string Type { get; set; }
 
         [DataMember(Name = "semanticId")]
         [XmlElement(ElementName = "semanticId")]
-        public SemanticId SemanticId = null;
+        public SemanticId SemanticId { get; set; } = null;
 
         public Qualifier() { }
 

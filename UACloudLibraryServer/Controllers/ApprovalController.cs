@@ -1,5 +1,5 @@
 /* ========================================================================
- * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
+ * Copyright (c) 2005-2025 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
  *
@@ -33,18 +33,19 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Opc.Ua.Cloud.Library.Models;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace Opc.Ua.Cloud.Library.Controllers
 {
-    [Authorize(AuthenticationSchemes = UserService.APIAuthorizationSchemes)]
+    [Authorize(Policy = "ApiPolicy")]
     [ApiController]
     public class ApprovalController : ControllerBase
     {
-        private readonly IDatabase _database;
+        private readonly CloudLibDataProvider _database;
         private readonly ILogger _logger;
 
-        public ApprovalController(IDatabase database, ILoggerFactory logger)
+        public ApprovalController(CloudLibDataProvider database, ILoggerFactory logger)
         {
             _database = database;
             _logger = logger.CreateLogger("ApprovalController");
@@ -62,7 +63,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             [FromQuery][SwaggerParameter("Status of the approval")] ApprovalStatus status,
             [FromQuery][SwaggerParameter("Information about the approval")] string approvalInformation)
         {
-            if (await _database.ApproveNamespaceAsync(identifier, status, approvalInformation, null).ConfigureAwait(false) != null)
+            if (await _database.ApproveNamespaceAsync(identifier, status, approvalInformation).ConfigureAwait(false) != null)
             {
                 return new ObjectResult("Approval status updated successfully") { StatusCode = (int)HttpStatusCode.OK };
             }

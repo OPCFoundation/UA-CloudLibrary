@@ -5,8 +5,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Opc.Ua.Cloud.Library;
-using Opc.Ua.Cloud.Library.Interfaces;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -27,7 +25,8 @@ namespace CloudLibClient.Tests
     public class TestSetup : IClassFixture<CustomWebApplicationFactory<Opc.Ua.Cloud.Library.Startup>>
     {
         private static int InstantiationCount;
-        private readonly CustomWebApplicationFactory<Startup> _factory;
+
+        private readonly CustomWebApplicationFactory<Opc.Ua.Cloud.Library.Startup> _factory;
 
         public TestSetup(CustomWebApplicationFactory<Opc.Ua.Cloud.Library.Startup> factory)
         {
@@ -36,7 +35,7 @@ namespace CloudLibClient.Tests
         }
 
         [Fact]
-        public async Task Setup()
+        public Task Setup()
         {
             if (_factory.TestConfig.DeleteCloudLibDBAndStore && InstantiationCount == 1)
             {
@@ -46,21 +45,18 @@ namespace CloudLibClient.Tests
 
                 using (IServiceScope scope = _factory.Server.Services.CreateScope())
                 {
-                    AppDbContext dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                    if (dbContext.nodeSets.Any())
+                    Opc.Ua.Cloud.Library.AppDbContext dbContext = scope.ServiceProvider.GetRequiredService<Opc.Ua.Cloud.Library.AppDbContext>();
+                    if (dbContext.NodeSetsWithUnapproved.Any())
                     {
                         dbContext.Database.EnsureDeleted();
+
                         // Create tables etc., so migration does not get attributed to the first actual test
                         dbContext.Database.Migrate();
                     }
-
-                    IFileStorage storage = scope.ServiceProvider.GetRequiredService<IFileStorage>();
-                    if (storage is LocalFileStorage localStorage)
-                    {
-                        _ = await localStorage.DeleteAllFilesAsync().ConfigureAwait(true);
-                    }
                 }
             }
+
+            return Task.CompletedTask;
         }
     }
 

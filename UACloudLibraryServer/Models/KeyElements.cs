@@ -69,8 +69,8 @@ namespace AdminShell
         [XmlEnum(Name = "Operation")]
         Operation = 14,
 
-        [EnumMember(Value = "Property")]
-        [XmlEnum(Name = "Property")]
+        [EnumMember(Value = "AASProperty")]
+        [XmlEnum(Name = "AASProperty")]
         Property = 15,
 
         [EnumMember(Value = "Range")]

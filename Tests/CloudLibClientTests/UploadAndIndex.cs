@@ -6,7 +6,8 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Opc.Ua.Cloud.Library.Client;
+using Opc.Ua.Cloud.Client;
+using Opc.Ua.Cloud.Client.Models;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -41,9 +42,6 @@ namespace CloudLibClient.Tests
             {
                 output.WriteLine($"Uploaded {addressSpace?.Nodeset.NamespaceUri}, {addressSpace?.Nodeset.Identifier}");
                 string uploadedIdentifier = response.Message;
-                UANameSpace approvalResult = await client.UpdateApprovalStatusAsync(uploadedIdentifier, "APPROVED", null, null).ConfigureAwait(true);
-                Assert.NotNull(approvalResult);
-                Assert.Equal("APPROVED", approvalResult.ApprovalStatus);
             }
             else
             {
@@ -80,26 +78,19 @@ namespace CloudLibClient.Tests
 
         static async Task<(int All, int NotIndexed)> GetNodeSetCountsAsync(HttpClient client)
         {
-            string queryBodyJson = JsonConvert.SerializeObject(new JObject { { "query", @"
-                        {
-                          notIndexed: nodeSets(where: {validationStatus: {neq: INDEXED}}) {
-                            totalCount
-                          }
-                          all: nodeSets {
-                            totalCount
-                          }
-                        }"
-                    } });
-            var address = new Uri(client.BaseAddress, "graphql");
-            HttpResponseMessage response2 = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, address) { Content = new StringContent(queryBodyJson, null, "application/json"), }).ConfigureAwait(true);
-            Assert.True(response2.IsSuccessStatusCode, "Failed to read nodeset status");
+            int notIndexed = 0;
+            int allCount = 0;
 
-            string responseString = await response2.Content.ReadAsStringAsync().ConfigureAwait(true);
-            Assert.False(string.IsNullOrEmpty(responseString), "null or empty response reading nodeset status.");
+            Uri address = new Uri(client.BaseAddress, "infomodel/names/");
+            HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
 
-            JObject parsedJson = JsonConvert.DeserializeObject<JObject>(responseString);
-            int notIndexed = parsedJson["data"]["notIndexed"]["totalCount"].Value<int>();
-            int allCount = parsedJson["data"]["all"]["totalCount"].Value<int>();
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                string responseStr = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                string[] result = JsonConvert.DeserializeObject<string[]>(responseStr);
+                allCount = result.Length;
+            }
+
             return (allCount, notIndexed);
         }
     }

@@ -30,18 +30,12 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-using GraphQL;
-using GraphQL.Client.Http;
-using GraphQL.Client.Serializer.Newtonsoft;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using Opc.Ua.Cloud.Library.Client;
-using Opc.Ua.Cloud.Library.Client.Models;
-using static Microsoft.Extensions.Logging.EventSource.LoggingEventSource;
+using Opc.Ua.Cloud.Client;
+using Opc.Ua.Cloud.Client.Models;
 
 [assembly: CLSCompliant(false)]
 namespace SampleConsoleClient
@@ -75,7 +69,7 @@ namespace SampleConsoleClient
                 BaseAddress = new Uri(args[0])
             };
 
-            webClient.DefaultRequestHeaders.Add("Authorization", "basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(args[1] + ":" + args[2])));
+            webClient.DefaultRequestHeaders.Add("Authorization", "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(args[1] + ":" + args[2])));
 
             Console.WriteLine();
             Console.WriteLine("Testing /infomodel/find?keywords");
@@ -85,22 +79,22 @@ namespace SampleConsoleClient
             HttpResponseMessage response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
             Console.WriteLine("Response: " + response.StatusCode.ToString());
             string responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            UANodesetResult[] identifiers = null;
+            UANameSpace[] nodesets = null;
             if (!string.IsNullOrEmpty(responseString))
             {
-                identifiers = JsonConvert.DeserializeObject<UANodesetResult[]>(responseString);
-                for (int i = 0; i < identifiers.Length; i++)
+                nodesets = JsonConvert.DeserializeObject<UANameSpace[]>(responseString);
+                for (int i = 0; i < nodesets.Length; i++)
                 {
-                    Console.WriteLine(JsonConvert.SerializeObject(identifiers[i], Formatting.Indented));
+                    Console.WriteLine(JsonConvert.SerializeObject(nodesets[i], Formatting.Indented));
                 }
             }
             Console.WriteLine();
             Console.WriteLine("Testing /infomodel/download/{identifier}");
 
-            if (identifiers != null)
+            if (nodesets != null)
             {
                 // pick the first identifier returned previously
-                string identifier = identifiers[0].Id.ToString(CultureInfo.InvariantCulture);
+                string identifier = nodesets[0].Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
                 address = new Uri(webClient.BaseAddress, "infomodel/download/" + Uri.EscapeDataString(identifier));
                 response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
 
@@ -112,8 +106,6 @@ namespace SampleConsoleClient
             {
                 Console.WriteLine("Skipped download test because of failure in previous test.");
             }
-            Console.WriteLine();
-            Console.WriteLine("For sample code to test /infomodel/upload, see https://github.com/digitaltwinconsortium/UANodesetWebViewer/blob/main/Applications/Controllers/UACL.cs");
 
             webClient.Dispose();
         }
@@ -124,74 +116,14 @@ namespace SampleConsoleClient
 
             UACloudLibClient client = new UACloudLibClient(args[0], args[1], args[2]);
 
-            Console.WriteLine("\nTesting the GraphQL API");
-            GraphQlResult<Nodeset> finalResult2 = await client.GetNodeSetsAsync(modelUri: "http://opcfoundation.org/UA/ADI/").ConfigureAwait(true);
-            Console.WriteLine($"{finalResult2.Edges[0].Node.ToString()}");
-
-            Console.WriteLine("\nTesting query and convertion of metadata");
-            List<UANameSpace> finalResult = await client.GetConvertedMetadataAsync(0, 100).ConfigureAwait(false);
-            foreach (UANameSpace result in finalResult)
-            {
-                Console.WriteLine($"{result.Title} by {result.Contributor.Name}");
-            }
-
-            List<UANodesetResult> restResult = await client.GetBasicNodesetInformationAsync(0, 100).ConfigureAwait(false);
+            List<UANameSpace> restResult = await client.GetBasicNodesetInformationAsync(0, 10).ConfigureAwait(false);
             if (restResult?.Count > 0)
             {
-
-                Console.WriteLine();
-                Console.WriteLine("Testing nodeset dependency query");
-                string identifier = restResult[0].Id.ToString(CultureInfo.InvariantCulture);
-                List<Nodeset> nodeSets = await client.GetNodeSetDependencies(identifier: identifier).ConfigureAwait(false);
-                if (nodeSets?.Count > 0)
-                {
-                    foreach (Nodeset nodeSet in nodeSets)
-                    {
-                        Console.WriteLine($"Dependencies for {nodeSet.Identifier} {nodeSet.NamespaceUri} {nodeSet.PublicationDate} ({nodeSet.Version}):");
-                        foreach (RequiredModelInfo requiredNodeSet in nodeSet.RequiredModels)
-                        {
-                            Console.WriteLine($"Required: {requiredNodeSet.NamespaceUri} {requiredNodeSet.PublicationDate} ({requiredNodeSet.Version}). Available in Cloud Library: {requiredNodeSet.AvailableModel?.Identifier} {requiredNodeSet.AvailableModel?.PublicationDate} ({requiredNodeSet.AvailableModel?.Version})");
-                        }
-                    }
-                }
-
-                Console.WriteLine();
-                Console.WriteLine("Testing nodeset dependency query by namespace and publication date");
-                string namespaceUri = restResult[0].NameSpaceUri;
-
-                DateTime? publicationDate = restResult[0].PublicationDate.HasValue && restResult[0].PublicationDate.Value.Kind == DateTimeKind.Unspecified ?
-                    DateTime.SpecifyKind(restResult[0].PublicationDate.Value, DateTimeKind.Utc)
-                    : restResult[0].PublicationDate;
-
-                List<Nodeset> nodeSetsByNamespace = await client.GetNodeSetDependencies(modelUri: namespaceUri, publicationDate: publicationDate).ConfigureAwait(false);
-
-                var dependenciesByNamespace = nodeSetsByNamespace
-                    .SelectMany(n => n.RequiredModels).Where(r => r != null)
-                    .Select(r => (r.AvailableModel?.Identifier, r.NamespaceUri, r.PublicationDate))
-                    .OrderBy(m => m.Identifier).ThenBy(m => m.NamespaceUri).Distinct()
-                    .ToList();
-
-                var dependenciesByIdentifier = nodeSets
-                    .SelectMany(n => n.RequiredModels).Where(r => r != null)
-                    .Select(r => (r.AvailableModel?.Identifier, r.NamespaceUri, r.PublicationDate))
-                    .OrderBy(m => m.Identifier).ThenBy(m => m.NamespaceUri).Distinct()
-                    .ToList();
-
-                if (!dependenciesByIdentifier.SequenceEqual(dependenciesByNamespace))
-                {
-                    Console.WriteLine($"FAIL: returned dependencies are different.");
-                    Console.WriteLine($"For identifier {identifier}: {string.Join(" ", dependenciesByIdentifier)}.");
-                    Console.WriteLine($"For namespace {namespaceUri} / {publicationDate}: {string.Join(" ", dependenciesByNamespace)}");
-                }
-                else
-                {
-                    Console.WriteLine("Passed.");
-                }
-
+                Console.WriteLine("Passed.");
                 Console.WriteLine("\nUsing the rest API");
                 Console.WriteLine("Testing download of nodeset");
 
-                UANameSpace result = await client.DownloadNodesetAsync(restResult[0].Id.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                UANameSpace result = await client.DownloadNodesetAsync(restResult[0].Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
 
                 if (!string.IsNullOrEmpty(result.Nodeset.NodesetXml))
                 {

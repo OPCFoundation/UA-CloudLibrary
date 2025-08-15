@@ -5,10 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Globalization;
 using System.Linq;
 using System.Text;
-using System.Text.Encodings.Web;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
@@ -19,7 +17,6 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Opc.Ua.Cloud.Library.Authentication;
 
 namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
 {
@@ -32,7 +29,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
         private readonly ILogger<RegisterModel> _logger;
         private readonly IEmailSender _emailSender;
         private readonly IConfiguration _configuration;
-        private readonly Interfaces.ICaptchaValidation _captchaValidation;
+        private readonly CaptchaValidation _captchaValidation;
         private readonly CaptchaSettings _captchaSettings;
 
         public bool AllowSelfRegistration { get; set; } = true;
@@ -44,7 +41,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
             ILogger<RegisterModel> logger,
             IEmailSender emailSender,
             IConfiguration configuration,
-            Interfaces.ICaptchaValidation captchaValidation)
+            CaptchaValidation captchaValidation)
         {
             _userManager = userManager;
             _userStore = userStore;

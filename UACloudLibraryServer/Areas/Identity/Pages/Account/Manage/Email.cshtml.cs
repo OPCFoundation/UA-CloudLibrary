@@ -4,7 +4,6 @@
 
 using System.ComponentModel.DataAnnotations;
 using System.Text;
-using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
@@ -12,7 +11,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
-using Opc.Ua.Cloud.Library.Authentication;
 
 namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 {
@@ -21,7 +19,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
         private readonly UserManager<IdentityUser> _userManager;
         private readonly SignInManager<IdentityUser> _signInManager;
         private readonly IEmailSender _emailSender;
-        private readonly Interfaces.ICaptchaValidation _captchaValidation;
+        private readonly CaptchaValidation _captchaValidation;
         private readonly CaptchaSettings _captchaSettings;
 
         public EmailModel(
@@ -29,7 +27,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
             SignInManager<IdentityUser> signInManager,
             IEmailSender emailSender,
             IConfiguration configuration,
-            Interfaces.ICaptchaValidation captchaValidation)
+            CaptchaValidation captchaValidation)
         {
             _userManager = userManager;
             _signInManager = signInManager;

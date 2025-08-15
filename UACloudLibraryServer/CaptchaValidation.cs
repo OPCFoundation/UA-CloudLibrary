@@ -1,5 +1,5 @@
 /* ========================================================================
- * Copyright (c) 2005-2021 The OPC Foundation, Inc. All rights reserved.
+ * Copyright (c) 2005-2025 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
  *
@@ -34,17 +34,21 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using Opc.Ua.Cloud.Library.Interfaces;
 
 namespace Opc.Ua.Cloud.Library
 {
     public class CaptchaSettings
     {
         public string SiteVerifyUrl { get; set; }
+
         public string ClientApiUrl { get; set; }
+
         public string SecretKey { get; set; }
+
         public string SiteKey { get; set; }
+
         public float BotThreshold { get; set; }
+
         public bool Enabled { get; set; } = false;
     }
 
@@ -54,15 +58,20 @@ namespace Opc.Ua.Cloud.Library
     public class ReCaptchaResponse
     {
         public bool success { get; set; }
+
         public double score { get; set; }
+
         public string action { get; set; }
+
         public DateTime challengeTs { get; set; }
+
         public string hostname { get; set; }
         [JsonProperty("error-codes")]
+
         public List<string> errorCodes { get; set; }
     }
 
-    public class CaptchaValidation : Interfaces.ICaptchaValidation
+    public class CaptchaValidation
     {
         private readonly ILogger<CaptchaValidation> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
