@@ -312,7 +312,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 if (nodeSet.LastModifiedSpecified && (nodeSet.LastModified != DateTime.MinValue))
                 {
-                    _logger.LogInformation("Version in metadata does not match nodeset XML. Taking nodeset XML last modified date.");
+                    _logger.LogInformation("LastModifiedDate in metadata does not match nodeset XML. Taking nodeset XML last modified date.");
                     uaNamespace.Nodeset.LastModifiedDate = nodeSet.LastModified;
                 }
             }
@@ -356,7 +356,7 @@ namespace Opc.Ua.Cloud.Library
 
             await IndexNodeSetModelAsync(nodeSet, uaNamespace).ConfigureAwait(false);
 
-            return "success";
+            return "Success";
         }
 
         public static UANodeSet ReadUANodeSet(string nodeSetXml)
