@@ -34,16 +34,13 @@ using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Schema;
-using System.Text.Json.Serialization;
-using System.Text.Json.Serialization.Metadata;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Cloud.Library.NodeSetIndex;
 using Opc.Ua.Export;
@@ -120,6 +117,21 @@ namespace Opc.Ua.Cloud.Library
         public IQueryable<ReferenceTypeModel> GetReferenceTypes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
         {
             return GetNodeModels<ReferenceTypeModel>(nsm => nsm.ReferenceTypes, modelUri, publicationDate, nodeId);
+        }
+
+        public IQueryable<ObjectModel> GetObjects(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
+        {
+            return GetNodeModels<ObjectModel>(nsm => nsm.Objects, modelUri, publicationDate, nodeId);
+        }
+
+        public IQueryable<PropertyModel> GetProperties(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
+        {
+            return GetNodeModels<PropertyModel>(nsm => nsm.Properties, modelUri, publicationDate, nodeId);
+        }
+
+        public IQueryable<VariableModel> GetVariables(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
+        {
+            return GetNodeModels<VariableModel>(nsm => nsm.DataVariables, modelUri, publicationDate, nodeId);
         }
 
         public IQueryable<NamespaceMetaDataModel> NamespaceMetaData
@@ -802,91 +814,86 @@ namespace Opc.Ua.Cloud.Library
             return Array.Empty<string>();
         }
 
-        public Task<string> GetUAType(string expandedNodeId)
+        public async Task<string[]> GetAllInstances(string nodeSetID)
+        {
+            NodeSetModel nodeSetMeta = await GetNodeSets(nodeSetID).FirstOrDefaultAsync().ConfigureAwait(false);
+            if (nodeSetMeta != null)
+            {
+                List<NodeModel> instances = new();
+                instances.AddRange(GetObjects(nodeSetMeta.ModelUri));
+                instances.AddRange(GetProperties(nodeSetMeta.ModelUri));
+                instances.AddRange(GetVariables(nodeSetMeta.ModelUri));
+
+                List<string> instanceList = new();
+                foreach (NodeModel model in instances)
+                {
+                    string expandedNodeIdWithBrowseName = "nsu=" + model.BrowseName + ";" + model.NodeIdIdentifier;
+                    string[] tokens = expandedNodeIdWithBrowseName.Split(';');
+                    if (tokens.Length >= 3)
+                    {
+                        string temp = tokens[1];
+                        tokens[1] = tokens[2];
+                        tokens[2] = temp;
+                    }
+                    expandedNodeIdWithBrowseName = string.Join(";", tokens);
+
+                    instanceList.Add(expandedNodeIdWithBrowseName);
+                }
+
+                return instanceList.ToArray();
+            }
+
+            return Array.Empty<string>();
+        }
+
+        public string GetNode(string expandedNodeId, DateTime publicationDate)
         {
             // create a substring from expandedNodeId by removing "nsu=" from the start and parsing until the first ";"
             string modelUri = expandedNodeId.Substring(4, expandedNodeId.IndexOf(';', StringComparison.OrdinalIgnoreCase) - 4);
 
-            JsonSerializerOptions options = new JsonSerializerOptions(JsonSerializerDefaults.Web) {
-                MaxDepth = 100,
-                WriteIndented = true,
-                TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
-                ReferenceHandler = ReferenceHandler.IgnoreCycles
-            };
+            ObjectTypeModel objectTypeModel = GetNodeModels<ObjectTypeModel>(nsm => nsm.ObjectTypes, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
+            if (objectTypeModel != null)
+            {
+                return JsonConvert.SerializeObject(objectTypeModel);
+            }
 
-            ObjectTypeModel objectModel = GetNodeModels<ObjectTypeModel>(nsm => nsm.ObjectTypes, modelUri, null, expandedNodeId).FirstOrDefault();
+            VariableTypeModel variableTypeModel = GetNodeModels<VariableTypeModel>(nsm => nsm.VariableTypes, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
+            if (variableTypeModel != null)
+            {
+                return JsonConvert.SerializeObject(variableTypeModel);
+            }
+
+            DataTypeModel dataTypeModel = GetNodeModels<DataTypeModel>(nsm => nsm.DataTypes, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
+            if (dataTypeModel != null)
+            {
+                return JsonConvert.SerializeObject(dataTypeModel);
+            }
+
+            ReferenceTypeModel referenceTypeModel = GetNodeModels<ReferenceTypeModel>(nsm => nsm.ReferenceTypes, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
+            if (referenceTypeModel != null)
+            {
+                return JsonConvert.SerializeObject(referenceTypeModel);
+            }
+
+            ObjectModel objectModel = GetNodeModels<ObjectModel>(nsm => nsm.Objects, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
             if (objectModel != null)
             {
-                string expandedNodeIdWithBrowseName = "nsu=" + objectModel.BrowseName + ";" + objectModel.NodeIdIdentifier;
-                string[] tokens = expandedNodeIdWithBrowseName.Split(';');
-                if (tokens.Length >= 3)
-                {
-                    string temp = tokens[1];
-                    tokens[1] = tokens[2];
-                    tokens[2] = temp;
-                }
-                expandedNodeIdWithBrowseName = string.Join(";", tokens);
-
-                return Task.FromResult("{\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAObjectType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\"}");
+                return JsonConvert.SerializeObject(objectModel);
             }
 
-            VariableTypeModel variableModel = GetNodeModels<VariableTypeModel>(nsm => nsm.VariableTypes, modelUri, null, expandedNodeId).FirstOrDefault();
+            PropertyModel propertyModel = GetNodeModels<PropertyModel>(nsm => nsm.Properties, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
+            if (propertyModel != null)
+            {
+                return JsonConvert.SerializeObject(propertyModel);
+            }
+
+            VariableModel variableModel = GetNodeModels<VariableModel>(nsm => nsm.DataVariables, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
             if (variableModel != null)
             {
-                string expandedNodeIdWithBrowseName = "nsu=" + variableModel.BrowseName + ";" + variableModel.NodeIdIdentifier;
-                string[] tokens = expandedNodeIdWithBrowseName.Split(';');
-                if (tokens.Length >= 3)
-                {
-                    string temp = tokens[1];
-                    tokens[1] = tokens[2];
-                    tokens[2] = temp;
-                }
-                expandedNodeIdWithBrowseName = string.Join(";", tokens);
-
-                return Task.FromResult("{\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAVariableType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\"}");
+                return JsonConvert.SerializeObject(variableModel);
             }
 
-            DataTypeModel dataModel = GetNodeModels<DataTypeModel>(nsm => nsm.DataTypes, modelUri, null, expandedNodeId).FirstOrDefault();
-            if (dataModel != null)
-            {
-                string expandedNodeIdWithBrowseName = "nsu=" + dataModel.BrowseName + ";" + dataModel.NodeIdIdentifier;
-                string[] tokens = expandedNodeIdWithBrowseName.Split(';');
-                if (tokens.Length >= 3)
-                {
-                    string temp = tokens[1];
-                    tokens[1] = tokens[2];
-                    tokens[2] = temp;
-                }
-                expandedNodeIdWithBrowseName = string.Join(";", tokens);
-
-                List<string> fields = new();
-                foreach (DataTypeModel.StructureField field in dataModel.StructureFields)
-                {
-                    fields.Add(field.DataType + ":" + field.Name);
-                }
-
-                string fieldsSerialized = JsonSerializer.Serialize(fields, options);
-
-                return Task.FromResult("{\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UADataType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\",\r\n\"Structure Fields\": " + fieldsSerialized + "}");
-            }
-
-            ReferenceTypeModel referenceModel = GetNodeModels<ReferenceTypeModel>(nsm => nsm.ReferenceTypes, modelUri, null, expandedNodeId).FirstOrDefault();
-            if (referenceModel != null)
-            {
-                string expandedNodeIdWithBrowseName = "nsu=" + referenceModel.BrowseName + ";" + referenceModel.NodeIdIdentifier;
-                string[] tokens = expandedNodeIdWithBrowseName.Split(';');
-                if (tokens.Length >= 3)
-                {
-                    string temp = tokens[1];
-                    tokens[1] = tokens[2];
-                    tokens[2] = temp;
-                }
-                expandedNodeIdWithBrowseName = string.Join(";", tokens);
-
-                return Task.FromResult("{\"JsonSchema\": " + options.GetJsonSchemaAsNode(typeof(UAReferenceType)).ToString() + ",\r\n\"Value\": \"" + expandedNodeIdWithBrowseName + "\"}");
-            }
-
-            return Task.FromResult("{}");
+            return string.Empty;
         }
     }
 }

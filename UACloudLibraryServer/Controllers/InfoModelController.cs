@@ -30,20 +30,15 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Net;
-using System.Text;
 using System.Threading.Tasks;
-using Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Opc.Ua.Cloud.Library.Models;
-using Opc.Ua.Export;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace Opc.Ua.Cloud.Library.Controllers
@@ -111,19 +106,43 @@ namespace Opc.Ua.Cloud.Library.Controllers
             string[] types = await _database.GetAllTypes(identifier).ConfigureAwait(false);
             if ((types == null) || (types.Length == 0))
             {
-                return new ObjectResult("Failed to find nodeset metadata") { StatusCode = (int)HttpStatusCode.NotFound };
+                return new ObjectResult("Failed to find nodeset types") { StatusCode = (int)HttpStatusCode.NotFound };
             }
 
             return new ObjectResult(types) { StatusCode = (int)HttpStatusCode.OK };
         }
 
         [HttpGet]
-        [Route("/infomodel/type")]
-        [SwaggerResponse(statusCode: 200, type: typeof(string), description: "The OPC UA type and its metadata.")]
+        [Route("/infomodel/instances/{identifier}")]
+        [SwaggerResponse(statusCode: 200, type: typeof(string[]), description: "The OPC UA Information model instances.")]
+        [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The identifier provided could not be parsed.")]
+        [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The identifier provided could not be found.")]
+        public async Task<IActionResult> GetAllInstancesAsync(
+           [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier
+           )
+        {
+            if (!uint.TryParse(identifier, out uint nodeSetID))
+            {
+                return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
+            }
+
+            string[] instances = await _database.GetAllInstances(identifier).ConfigureAwait(false);
+            if ((instances == null) || (instances.Length == 0))
+            {
+                return new ObjectResult("Failed to find nodeset instances") { StatusCode = (int)HttpStatusCode.NotFound };
+            }
+
+            return new ObjectResult(instances) { StatusCode = (int)HttpStatusCode.OK };
+        }
+
+        [HttpGet]
+        [Route("/infomodel/node")]
+        [SwaggerResponse(statusCode: 200, type: typeof(string), description: "The OPC UA node and its metadata.")]
         [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The expended node ID provided could not be parsed.")]
         [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The expended node ID provided could not be found.")]
-        public async Task<IActionResult> GetTypeAsync(
-            [FromQuery][SwaggerParameter("The expanded node ID of the type requested, starting with nsu=.")] string expandedNodeId
+        public IActionResult GetNodeAsync(
+            [FromQuery][SwaggerParameter("The expanded node ID of the OPC UA node requested, starting with nsu=.")] string expandedNodeId,
+            [FromQuery][SwaggerParameter("The publication date of the OPC UA Information Model containing the node")] DateTime publicationDate
             )
         {
             if (string.IsNullOrEmpty(expandedNodeId) || !expandedNodeId.StartsWith("nsu=", StringComparison.InvariantCulture))
@@ -131,13 +150,13 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("Could not parse expanded node ID") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            string typeInfo = await _database.GetUAType(expandedNodeId).ConfigureAwait(false);
-            if (string.IsNullOrEmpty(typeInfo))
+            string nodeInfo = _database.GetNode(expandedNodeId, publicationDate);
+            if (string.IsNullOrEmpty(nodeInfo))
             {
-                return new ObjectResult("Failed to find type information") { StatusCode = (int)HttpStatusCode.NotFound };
+                return new ObjectResult("Failed to find node information") { StatusCode = (int)HttpStatusCode.NotFound };
             }
 
-            return new ObjectResult(typeInfo) { StatusCode = (int)HttpStatusCode.OK };
+            return new ObjectResult(nodeInfo) { StatusCode = (int)HttpStatusCode.OK };
         }
 
         [HttpGet]
