@@ -82,7 +82,7 @@ namespace UANodesetWebViewer.Controllers
             {
                 UANameSpace nameSpace = new UANameSpace();
 
-                if ((file.Length == 0) || (file.ContentType != "text/xml"))
+                if ((file == null) || (file.Length == 0) || (file.ContentType != "text/xml"))
                 {
                     throw new ArgumentException("Invalid file specified!");
                 }

@@ -30,12 +30,10 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Opc.Ua.Cloud.Library
@@ -103,9 +101,10 @@ namespace Opc.Ua.Cloud.Library
             {
                 DbFiles existingFile = await _dbContext.DBFiles.Where(n => n.Name == name).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 
+                string cleanXml = new string(nodesetXml.Where(c => c != '\0').ToArray());
                 if (existingFile != null)
                 {
-                    existingFile.Blob = nodesetXml;
+                    existingFile.Blob = cleanXml;
                     existingFile.Values = values;
 
                     _dbContext.Update(existingFile);
@@ -114,7 +113,7 @@ namespace Opc.Ua.Cloud.Library
                 {
                     DbFiles newFile = new DbFiles {
                         Name = name,
-                        Blob = nodesetXml,
+                        Blob = cleanXml,
                         Values = values
                     };
 

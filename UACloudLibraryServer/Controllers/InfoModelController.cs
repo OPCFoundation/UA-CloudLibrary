@@ -217,8 +217,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The identifier provided could not be parsed.")]
         [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The identifier provided could not be found.")]
         public async Task<IActionResult> DeleteNamespaceAsync(
-            [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier,
-            [FromQuery][SwaggerParameter("Delete even if other nodesets depend on this nodeset.")] bool forceDelete = false)
+            [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier
+            )
         {
             uint nodeSetID = 0;
             if (!uint.TryParse(identifier, out nodeSetID))
@@ -232,20 +232,6 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
             }
 
-            NodeSetModel nodeSetMeta = await _database.GetNodeSets(identifier).FirstOrDefaultAsync();
-            if (nodeSetMeta != null)
-            {
-                List<NodeSetModel> dependentNodeSets = await _database.GetNodeSets().Where(n => n.RequiredModels.Any(rm => rm.AvailableModel == nodeSetMeta)).ToListAsync().ConfigureAwait(false);
-                if (dependentNodeSets.Count != 0)
-                {
-                    string message = $"NodeSet {nodeSetMeta} is used by the following nodesets: {string.Join(",", dependentNodeSets.Select(n => n.ToString()))}";
-                    if (!forceDelete)
-                    {
-                        return new ObjectResult(message) { StatusCode = (int)HttpStatusCode.Conflict };
-                    }
-                    _logger.LogWarning($"{message}. Deleting anyway because forceDelete was specified. Nodeset Index may be incomplete.");
-                }
-            }
             UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID).ConfigureAwait(false);
             uaNamespace.Nodeset.NodesetXml = nodesetXml.Blob;
 

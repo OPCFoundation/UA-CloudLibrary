@@ -40,7 +40,6 @@ using Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Cloud.Library.NodeSetIndex;
 using Opc.Ua.Export;
@@ -356,14 +355,14 @@ namespace Opc.Ua.Cloud.Library
 
             await IndexNodeSetModelAsync(nodeSet, uaNamespace).ConfigureAwait(false);
 
-            return "Success";
+            return "success";
         }
 
         public static UANodeSet ReadUANodeSet(string nodeSetXml)
         {
             UANodeSet nodeSet;
             // workaround for bug https://github.com/dotnet/runtime/issues/67622
-            nodeSetXml = nodeSetXml.Replace("<Value/>", "<Value xsi:nil='true' />", StringComparison.Ordinal);
+            nodeSetXml = new string(nodeSetXml.Replace("<Value/>", "<Value xsi:nil='true' />", StringComparison.Ordinal).Where(c => c != '\0').ToArray());
 
             using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(nodeSetXml)))
             {
@@ -795,16 +794,7 @@ namespace Opc.Ua.Cloud.Library
                 List<string> typeList = new();
                 foreach (NodeModel model in types)
                 {
-                    string expandedNodeIdWithBrowseName = "nsu=" + model.BrowseName + ";" + model.NodeIdIdentifier;
-                    string[] tokens = expandedNodeIdWithBrowseName.Split(';');
-                    if (tokens.Length >= 3)
-                    {
-                        string temp = tokens[1];
-                        tokens[1] = tokens[2];
-                        tokens[2] = temp;
-                    }
-                    expandedNodeIdWithBrowseName = string.Join(";", tokens);
-
+                    string expandedNodeIdWithBrowseName = model.NodeId + ";" + model.BrowseName;
                     typeList.Add(expandedNodeIdWithBrowseName);
                 }
 
@@ -827,16 +817,7 @@ namespace Opc.Ua.Cloud.Library
                 List<string> instanceList = new();
                 foreach (NodeModel model in instances)
                 {
-                    string expandedNodeIdWithBrowseName = "nsu=" + model.BrowseName + ";" + model.NodeIdIdentifier;
-                    string[] tokens = expandedNodeIdWithBrowseName.Split(';');
-                    if (tokens.Length >= 3)
-                    {
-                        string temp = tokens[1];
-                        tokens[1] = tokens[2];
-                        tokens[2] = temp;
-                    }
-                    expandedNodeIdWithBrowseName = string.Join(";", tokens);
-
+                    string expandedNodeIdWithBrowseName = model.NodeId + ";" + model.BrowseName;
                     instanceList.Add(expandedNodeIdWithBrowseName);
                 }
 
@@ -854,43 +835,43 @@ namespace Opc.Ua.Cloud.Library
             ObjectTypeModel objectTypeModel = GetNodeModels<ObjectTypeModel>(nsm => nsm.ObjectTypes, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
             if (objectTypeModel != null)
             {
-                return JsonConvert.SerializeObject(objectTypeModel);
+                return "Object Type;" + objectTypeModel.ToString();
             }
 
             VariableTypeModel variableTypeModel = GetNodeModels<VariableTypeModel>(nsm => nsm.VariableTypes, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
             if (variableTypeModel != null)
             {
-                return JsonConvert.SerializeObject(variableTypeModel);
+                return "Variable Type;" + variableTypeModel.ToString();
             }
 
             DataTypeModel dataTypeModel = GetNodeModels<DataTypeModel>(nsm => nsm.DataTypes, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
             if (dataTypeModel != null)
             {
-                return JsonConvert.SerializeObject(dataTypeModel);
+                return "Data Type;" + dataTypeModel.ToString();
             }
 
             ReferenceTypeModel referenceTypeModel = GetNodeModels<ReferenceTypeModel>(nsm => nsm.ReferenceTypes, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
             if (referenceTypeModel != null)
             {
-                return JsonConvert.SerializeObject(referenceTypeModel);
+                return "Reference Type;" + referenceTypeModel.ToString();
             }
 
             ObjectModel objectModel = GetNodeModels<ObjectModel>(nsm => nsm.Objects, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
             if (objectModel != null)
             {
-                return JsonConvert.SerializeObject(objectModel);
+                return "Object;" + objectModel.ToString();
             }
 
             PropertyModel propertyModel = GetNodeModels<PropertyModel>(nsm => nsm.Properties, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
             if (propertyModel != null)
             {
-                return JsonConvert.SerializeObject(propertyModel);
+                return "Property;" + propertyModel.ToString();
             }
 
             VariableModel variableModel = GetNodeModels<VariableModel>(nsm => nsm.DataVariables, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
             if (variableModel != null)
             {
-                return JsonConvert.SerializeObject(variableModel);
+                return "Variable;" + variableModel.ToString();
             }
 
             return string.Empty;

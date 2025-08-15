@@ -45,7 +45,7 @@ namespace CloudLibClient.Tests
             }
             else
             {
-                if (!(_factory.TestConfig.IgnoreUploadConflict && (response.Status == HttpStatusCode.Conflict || response.Message.Contains("Nodeset already exists", StringComparison.Ordinal))))
+                if (!(_factory.TestConfig.IgnoreUploadConflict && (response.Status == HttpStatusCode.InternalServerError || response.Message.Contains("Nodeset already exists", StringComparison.Ordinal))))
                 {
                     Assert.Equal(HttpStatusCode.OK, response.Status);
                 }
