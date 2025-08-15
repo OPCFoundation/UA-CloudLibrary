@@ -146,23 +146,19 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             nodeModel.Description = opcNode.Description.ToModel();
             nodeModel.Documentation = opcNode.NodeSetDocumentation;
             nodeModel.ReleaseStatus = opcNode.ReleaseStatus.ToString();
-            nodeModel.ReferencesNotResolved = false;
             nodeModel.NodeSet = _nodesetModel;
             nodeModel.NodeId = _opcContext.GetExpandedNodeId(opcNode.NodeId);
-            nodeModel.NodeIdIdentifier = opcNode.NodeId.Identifier.ToString();
 
             foreach (NodeStateHierarchyReference reference in _opcContext.GetHierarchyReferences(opcNode))
             {
                 NodeModel referenceNodeModel = new() {
-                    DisplayName = new LocalizedText(_opcContext.GetExpandedNodeId(reference.ReferenceTypeId)).ToModel(),
-                    NodeId = _opcContext.GetExpandedNodeId(reference.ReferenceTypeId),
-                    ReferencesNotResolved = true
+                    DisplayName = new LocalizedText(reference.TargetId.ToString()).ToModel(),
+                    NodeId = reference.TargetId.ToString()
                 };
 
                 NodeModel referenceTypeModel = new() {
                     DisplayName = new LocalizedText(_opcContext.GetExpandedNodeId(reference.ReferenceTypeId)).ToModel(),
-                    NodeId = _opcContext.GetExpandedNodeId(reference.ReferenceTypeId),
-                    ReferencesNotResolved = true
+                    NodeId = _opcContext.GetExpandedNodeId(reference.ReferenceTypeId)
                 };
 
                 nodeModel.AllReferencedNodes = new List<NodeAndReference>() { new NodeAndReference() { Node = referenceNodeModel, ReferenceType = referenceTypeModel } };

@@ -3,6 +3,8 @@ namespace AdminShell
 {
     public class BrowserModel
     {
-        public string StatusMessage { get; set; }
+        public string NodesetIdentifier { get; set; }
+
+        public string NodesetName { get; set; }
     }
 }

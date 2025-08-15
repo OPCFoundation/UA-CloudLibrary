@@ -155,7 +155,7 @@ namespace Opc.Ua.Cloud.Library
                     }
 
                     //check the reCaptcha response
-                    string data = response.Content.ReadAsStringAsync().Result;  //Make sure to add a reference to System.Net.Http.Formatting.dll
+                    string data = await response.Content.ReadAsStringAsync().ConfigureAwait(false);  //Make sure to add a reference to System.Net.Http.Formatting.dll
                     ReCaptchaResponse recaptchaResponse = Newtonsoft.Json.JsonConvert.DeserializeObject<ReCaptchaResponse>(data);
                     if (recaptchaResponse == null)
                     {

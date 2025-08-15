@@ -1,0 +1,14 @@
+﻿@using AdminShell
+@using Opc.Ua.Cloud.Library.Components.Pages
+@using Microsoft.AspNetCore.Http
+
+@{
+    ViewData["Title"] = "Browser";
+}
+
+@model BrowserModel
+
+@(await Html.RenderComponentAsync<TreePage>(RenderMode.ServerPrerendered, new {
+    NodesetIdentifier = Model.NodesetIdentifier,
+    NodesetName = Model.NodesetName
+}).ConfigureAwait(false))

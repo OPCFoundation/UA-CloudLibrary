@@ -1,11 +1,18 @@
+
+@namespace AdminShell
+
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - UA Cloud Library</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/bootstrap/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="stylesheet" href="~/css/all.css" />
+    <link rel="stylesheet" href="~/css/treeStyles.css" />
 </head>
 <body>
     <header class="bg-transparent">
@@ -39,9 +46,8 @@
             &copy; 2022 - 2025 OPC Foundation - <a href="https://github.com/OPCFoundation/UA-CloudLibrary/tree/@ThisAssembly.GitCommitId" target="_blank">@ThisAssembly.AssemblyInformationalVersion</a> - <a href="https://opcfoundation.org/privacy-policy" target="_blank">Privacy</a>
         </div>
     </footer>
+    <script src="_framework/blazor.server.js"></script>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
     @RenderSection("Scripts", required: false)
 </body>
 </html>

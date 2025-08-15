@@ -1,13 +1,13 @@
 ﻿@using Opc.Ua.Cloud.Library.Components.Pages
 @using Microsoft.AspNetCore.Http
+
 @{
     ViewData["Title"] = "Explorer";
 }
 
 @(await Html.RenderComponentAsync<Explorer>(RenderMode.ServerPrerendered).ConfigureAwait(false))
-    
+
 @section Scripts{
-    <script src="_framework/blazor.server.js"></script>
     <script>
         window.triggerFileDownload = (fileName, url) => {
             let anchorElement = document.createElement('a');

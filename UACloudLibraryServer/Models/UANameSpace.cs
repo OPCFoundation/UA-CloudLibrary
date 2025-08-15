@@ -190,7 +190,6 @@ namespace Opc.Ua.Cloud.Library.Models
             Version = string.Empty;
             PublicationDate = DateTime.MinValue;
             LastModifiedDate = DateTime.MinValue;
-            ValidationStatus = null;
             RequiredModels = new List<RequiredModelInfo>();
         }
 
@@ -223,11 +222,6 @@ namespace Opc.Ua.Cloud.Library.Models
         /// <value>The last modified date.</value>
         [JsonProperty("lastModifiedDate")]
         public DateTime LastModifiedDate { get; set; }
-
-        /// <summary>Gets or sets the validation status.</summary>
-        /// <value>The validation status.</value>
-        [JsonProperty("validationStatus")]
-        public string ValidationStatus { get; set; }
 
         /// <summary>
         /// Nodesets that this nodeset depends on
