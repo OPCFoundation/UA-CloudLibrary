@@ -33,7 +33,7 @@
         "PostgreSQLEndpoint": "uacloudlib-staging.postgres.database.azure.com",
         "ASPNETCORE_ENVIRONMENT": "Development",
         "PostgreSQLUsername": "opcua",
-        "PostgreSQLPassword": "foundationisgreat1!",
+        "PostgreSQLPassword": "!",
         "EmailSenderAPIKey": "",
         "ServicePassword": "testpw",
         "GENERATE_FULL_AAS": "1"
