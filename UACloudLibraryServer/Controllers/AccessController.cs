@@ -39,7 +39,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
 {
     [Authorize(Policy = "ApiPolicy")]
     [ApiController]
-    public class AccessController : ControllerBase
+    public class AccessController : Controller
     {
 
         public AccessController()

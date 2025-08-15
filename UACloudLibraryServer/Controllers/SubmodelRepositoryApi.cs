@@ -46,7 +46,7 @@ namespace AdminShell
 {
     [Authorize(Policy = "ApiPolicy")]
     [ApiController]
-    public class SubmodelRepositoryApiController : ControllerBase
+    public class SubmodelRepositoryApiController : Controller
     {
         private readonly AssetAdministrationShellEnvironmentService _aasEnvService;
 
@@ -80,7 +80,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual IActionResult GetAllSubmodelElements([FromRoute][Required] string submodelIdentifier, [FromQuery] int limit, [FromQuery] string cursor, [FromQuery] string level, [FromQuery] string extent, [FromQuery] string diff)
+        public async Task<IActionResult> GetAllSubmodelElements([FromRoute][Required] string submodelIdentifier, [FromQuery] int limit, [FromQuery] string cursor, [FromQuery] string level, [FromQuery] string extent, [FromQuery] string diff)
         {
             string decodedSubmodelIdentifier = null;
             if (submodelIdentifier != null)
@@ -88,7 +88,7 @@ namespace AdminShell
                 decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
             }
 
-            List<SubmodelElement> submodelElements = _aasEnvService.GetAllSubmodelElementsFromSubmodel(decodedSubmodelIdentifier);
+            List<SubmodelElement> submodelElements = await _aasEnvService.GetAllSubmodelElementsFromSubmodel(decodedSubmodelIdentifier).ConfigureAwait(false);
 
             PagedResult<SubmodelElement> output = PagedResult.ToPagedList<SubmodelElement>(submodelElements, new PaginationParameters(cursor, limit));
 
@@ -119,7 +119,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual IActionResult GetAllSubmodels([FromQuery][StringLength(3072, MinimumLength = 1)] string semanticId, [FromQuery] string idShort, [FromQuery] int limit, [FromQuery] string cursor, [FromQuery] string level, [FromQuery] string extent)
+        public async Task<IActionResult> GetAllSubmodels([FromQuery][StringLength(3072, MinimumLength = 1)] string semanticId, [FromQuery] string idShort, [FromQuery] int limit, [FromQuery] string cursor, [FromQuery] string level, [FromQuery] string extent)
         {
             string reqSemanticId = null;
             if (semanticId != null)
@@ -129,7 +129,7 @@ namespace AdminShell
 
             Reference reference = new Reference { Keys = new List<Key> { new Key("Submodel", reqSemanticId) } };
 
-            List<Submodel> submodelList = _aasEnvService.GetAllSubmodels(reference, idShort);
+            List<Submodel> submodelList = await _aasEnvService.GetAllSubmodels(reference, idShort).ConfigureAwait(false);
 
             PagedResult<Submodel> output = PagedResult.ToPagedList<Submodel>(submodelList, new PaginationParameters(cursor, limit));
 
@@ -159,11 +159,11 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual IActionResult GetSubmodelById([FromRoute][Required] string submodelIdentifier, [FromQuery] string level, [FromQuery] string extent)
+        public async Task<IActionResult> GetSubmodelById([FromRoute][Required] string submodelIdentifier, [FromQuery] string level, [FromQuery] string extent)
         {
             string decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
 
-            Submodel output = _aasEnvService.GetSubmodelById(decodedSubmodelIdentifier);
+            Submodel output = await _aasEnvService.GetSubmodelById(decodedSubmodelIdentifier).ConfigureAwait(false);
 
             return new ObjectResult(output);
         }
@@ -192,7 +192,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 405, type: typeof(Result), description: "Method not allowed - Download only valid for File submodel element")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual async Task<IActionResult> GetFileByPath([FromRoute][Required] string submodelIdentifier, [FromRoute][Required] string idShortPath)
+        public async Task<IActionResult> GetFileByPath([FromRoute][Required] string submodelIdentifier, [FromRoute][Required] string idShortPath)
         {
             string decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
 
@@ -201,25 +201,17 @@ namespace AdminShell
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedSubmodelIdentifier)} is null");
             }
 
-            string fileName = _aasEnvService.GetFileByPath(decodedSubmodelIdentifier, idShortPath, out byte[] content, out long fileSize);
+            byte[] content = await _aasEnvService.GetFileByPath(decodedSubmodelIdentifier, idShortPath).ConfigureAwait(false);
 
             // content-disposition so that the aasx file can be downloaded from the web browser.
             ContentDisposition contentDisposition = new() {
-                FileName = fileName ?? throw new ArgumentException(nameof(fileName)),
-                Inline = fileName.EndsWith(".pdf", StringComparison.InvariantCulture)
+                FileName = "thumbnail",
+                Inline = false
             };
 
             HttpContext.Response.Headers.Append("Content-Disposition", contentDisposition.ToString());
-            HttpContext.Response.ContentLength = fileSize;
-            if (fileName.EndsWith(".svg", StringComparison.InvariantCulture))
-            {
-                HttpContext.Response.ContentType = "image/svg+xml";
-            }
-
-            if (fileName.EndsWith(".pdf", StringComparison.InvariantCulture))
-            {
-                HttpContext.Response.ContentType = "application/pdf";
-            }
+            HttpContext.Response.ContentLength = content.Length;
+            HttpContext.Response.ContentType = "application/octet-stream";
 
             await HttpContext.Response.Body.WriteAsync(content);
 
@@ -251,7 +243,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual IActionResult GetSubmodelElementByPath([FromRoute][Required] string submodelIdentifier, [FromRoute][Required] string idShortPath, [FromQuery] string level, [FromQuery] string extent)
+        public async Task<IActionResult> GetSubmodelElementByPath([FromRoute][Required] string submodelIdentifier, [FromRoute][Required] string idShortPath, [FromQuery] string level, [FromQuery] string extent)
         {
             string decodedSubmodelIdentifier = null;
             if (submodelIdentifier != null)
@@ -259,7 +251,7 @@ namespace AdminShell
                 decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
             }
 
-            SubmodelElement output = _aasEnvService.GetSubmodelElementByPath(decodedSubmodelIdentifier, idShortPath);
+            SubmodelElement output = await _aasEnvService.GetSubmodelElementByPath(decodedSubmodelIdentifier, idShortPath).ConfigureAwait(false);
 
             return new ObjectResult(output);
         }

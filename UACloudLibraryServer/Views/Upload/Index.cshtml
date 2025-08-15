@@ -1,0 +1,70 @@
+﻿
+@using Opc.Ua.Cloud.Library.Models
+
+<div class="row browser_top_container">
+    <form method="post" enctype="multipart/form-data" asp-controller="Upload" asp-action="UploadNodeset">
+        <p>
+            <b>Upload a nodeset file to the UA Cloud Library</b><br />
+        </p>
+        <p>
+            <input class="btn btn-primary" type="file" name="file">
+        </p>
+        <p>
+            Overwrite any existing nodeset file?<br />
+            @Html.CheckBox("overwrite", false)<br />
+        <p>
+        <p>
+            Title (<b>required</b>)<br />
+            @Html.TextBox("nodesettitle", null, new { style = "width:100%;" })<br />
+        </p>
+        <p>
+            License (<b>required</b>)<br />
+            @Html.DropDownList("license", new SelectList(Enum.GetValues(typeof(License))), null, new { @class = "form-control" })
+        </p>
+        <p>
+            Copyright Text (<b>required</b>)<br />
+            @Html.TextBox("copyright", null, new { style = "width:100%;" })<br />
+        </p>
+        <p>
+            Description (<b>required</b>)<br />
+            @Html.TextBox("description", null, new { style = "width:100%;" })<br />
+        </p>
+        <p>
+            Documentation Url<br />
+            @Html.TextBox("documentationurl", null, new { style = "width:100%;" })<br />
+        </p>
+        <p>
+            Icon Url<br />
+            @Html.TextBox("iconurl", null, new { style = "width:100%;" })<br />
+        </p>
+        <p>
+            License Url<br />
+            @Html.TextBox("licenseurl", null, new { style = "width:100%;" })<br />
+        </p>
+        <p>
+            Keywords (comma delimited, i.e. keyword1,keyword2,keyword3 etc.)<br />
+            @Html.TextBox("keywords", null, new { style = "width:100%;" })<br />
+        </p>
+        <p>
+            Purchasing Information Url<br />
+            @Html.TextBox("purchasinginfo", null, new { style = "width:100%;" })<br />
+        </p>
+        <p>
+            Release Notes Url<br />
+            @Html.TextBox("releasenotes", null, new { style = "width:100%;" })<br />
+        </p>
+        <p>
+            Test Specification Url<br />
+            @Html.TextBox("testspecification", null, new { style = "width:100%;" })<br />
+        </p>
+        <p>
+            Supported Locales (ISO notation, comma delimited, e.g. en-us,de-de)<br />
+            @Html.TextBox("locales", null, new { style = "width:100%;" })<br />
+        </p>
+            Upload the loaded nodeset file to the OPC UA Cloud Library (please note: only the loaded nodeset file is uploaded, not its dependent nodesets!)<br />
+        </p>
+        <p>
+            <input id="uploadButton" class="btn btn-primary btn_browser" type="submit" value="Upload">
+        </p>
+    </form>
+ </div>

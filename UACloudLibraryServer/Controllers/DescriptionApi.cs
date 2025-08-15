@@ -37,7 +37,7 @@ namespace AdminShell
 {
     [Authorize(Policy = "ApiPolicy")]
     [ApiController]
-    public class DescriptionApiController : ControllerBase
+    public class DescriptionApiController : Controller
     {
         /// <summary>
         /// Returns the self-describing information of a network resource (ServiceDescription)

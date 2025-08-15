@@ -32,7 +32,7 @@ using System.Collections.Generic;
 
 namespace AdminShell
 {
-    public class NodesetViewerNode
+    public class NodesetViewerNode : IComparable<NodesetViewerNode>
     {
         public string Id { get; set; } = string.Empty;
 
@@ -41,5 +41,65 @@ namespace AdminShell
         public List<NodesetViewerNode> Children { get; set; }
 
         public string Value { get; set; } = string.Empty;
+
+        public int CompareTo(NodesetViewerNode other)
+        {
+            return string.Compare(Id, other.Id, StringComparison.Ordinal);
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(this, obj))
+            {
+                return true;
+            }
+
+            if (ReferenceEquals(obj, null))
+            {
+                return false;
+            }
+
+            return !(obj is NodesetViewerNode other) || string.Equals(Id, other.Id, StringComparison.Ordinal);
+        }
+
+        public override int GetHashCode()
+        {
+            return Id.GetHashCode(StringComparison.Ordinal);
+        }
+
+        public static bool operator ==(NodesetViewerNode left, NodesetViewerNode right)
+        {
+            if (ReferenceEquals(left, null))
+            {
+                return ReferenceEquals(right, null);
+            }
+
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(NodesetViewerNode left, NodesetViewerNode right)
+        {
+            return !(left == right);
+        }
+
+        public static bool operator <(NodesetViewerNode left, NodesetViewerNode right)
+        {
+            return ReferenceEquals(left, null) ? !ReferenceEquals(right, null) : left.CompareTo(right) < 0;
+        }
+
+        public static bool operator <=(NodesetViewerNode left, NodesetViewerNode right)
+        {
+            return ReferenceEquals(left, null) || left.CompareTo(right) <= 0;
+        }
+
+        public static bool operator >(NodesetViewerNode left, NodesetViewerNode right)
+        {
+            return !ReferenceEquals(left, null) && left.CompareTo(right) > 0;
+        }
+
+        public static bool operator >=(NodesetViewerNode left, NodesetViewerNode right)
+        {
+            return ReferenceEquals(left, null) ? ReferenceEquals(right, null) : left.CompareTo(right) >= 0;
+        }
     }
 }

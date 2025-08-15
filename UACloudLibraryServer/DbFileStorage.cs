@@ -30,8 +30,11 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -44,6 +47,8 @@ namespace Opc.Ua.Cloud.Library
         public string Name { get; set; }
 
         public string Blob { get; set; }
+
+        public string Values { get; set; }
     }
 
     /// <summary>
@@ -59,7 +64,7 @@ namespace Opc.Ua.Cloud.Library
         /// <summary>
         /// Default constructor
         /// </summary>
-        public DbFileStorage(ILoggerFactory logger, AppDbContext dbContext, IConfiguration configuration)
+        public DbFileStorage(ILoggerFactory logger, AppDbContext dbContext)
         {
             _logger = logger.CreateLogger("LocalFileStorage");
             _dbContext = dbContext;
@@ -72,7 +77,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name).ConfigureAwait(false);
+                DbFiles existingFile = await _dbContext.DBFiles.FindAsync([name], cancellationToken).ConfigureAwait(false);
                 if (existingFile != null)
                 {
                     return name;
@@ -92,15 +97,16 @@ namespace Opc.Ua.Cloud.Library
         /// <summary>
         /// Upload a file to a blob and return the filename for storage in the index db
         /// </summary>
-        public async Task<string> UploadFileAsync(string name, string content, CancellationToken cancellationToken = default)
+        public async Task<string> UploadFileAsync(string name, string nodesetXml, string values, CancellationToken cancellationToken = default)
         {
             try
             {
-                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name).ConfigureAwait(false);
+                DbFiles existingFile = await _dbContext.DBFiles.Where(n => n.Name == name).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 
                 if (existingFile != null)
                 {
-                    existingFile.Blob = content;
+                    existingFile.Blob = nodesetXml;
+                    existingFile.Values = values;
 
                     _dbContext.Update(existingFile);
                 }
@@ -108,7 +114,8 @@ namespace Opc.Ua.Cloud.Library
                 {
                     DbFiles newFile = new DbFiles {
                         Name = name,
-                        Blob = content,
+                        Blob = nodesetXml,
+                        Values = values
                     };
 
                     _dbContext.Add(newFile);
@@ -128,12 +135,11 @@ namespace Opc.Ua.Cloud.Library
         /// <summary>
         /// Download a blob to a file.
         /// </summary>
-        public async Task<string> DownloadFileAsync(string name, CancellationToken cancellationToken = default)
+        public async Task<DbFiles> DownloadFileAsync(string name, CancellationToken cancellationToken = default)
         {
             try
             {
-                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name).ConfigureAwait(false);
-                return existingFile?.Blob;
+                return await _dbContext.DBFiles.AsNoTracking().Where(n => n.Name == name).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -145,10 +151,12 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                DbFiles existingFile = await _dbContext.FindAsync<DbFiles>(name).ConfigureAwait(false);
+                DbFiles existingFile = await _dbContext.DBFiles.Where(n => n.Name == name).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+
                 if (existingFile != null)
                 {
                     _dbContext.Remove(existingFile);
+
                     await _dbContext.SaveChangesAsync(true, cancellationToken).ConfigureAwait(false);
                 }
             }

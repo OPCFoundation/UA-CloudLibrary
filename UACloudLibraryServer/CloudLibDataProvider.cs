@@ -30,14 +30,17 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Schema;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -68,7 +71,6 @@ namespace Opc.Ua.Cloud.Library
             DateTime? publicationDate = null,
             string[] keywords = null)
         {
-
             IQueryable<NodeSetModel> nodeSets;
             if (!string.IsNullOrEmpty(identifier))
             {
@@ -170,6 +172,260 @@ namespace Opc.Ua.Cloud.Library
             return nodeModels;
         }
 
+        public string GetIdentifier(UANameSpace uaNamespace)
+        {
+            UANodeSet nodeSet = null;
+
+            try
+            {
+                nodeSet = ReadUANodeSet(uaNamespace.Nodeset.NodesetXml);
+            }
+            catch (Exception ex)
+            {
+                return $"Could not parse nodeset XML file: {ex.Message}";
+            }
+
+            return GenerateHashCode(nodeSet).ToString(CultureInfo.InvariantCulture);
+        }
+
+        public async Task<string> UploadNamespaceAndNodesetAsync(UANameSpace uaNamespace, bool overwrite, string userId)
+        {
+            UANodeSet nodeSet = null;
+
+            try
+            {
+                nodeSet = ReadUANodeSet(uaNamespace.Nodeset.NodesetXml);
+            }
+            catch (Exception ex)
+            {
+                return $"Could not parse nodeset XML file: {ex.Message}";
+            }
+
+            // generate a unique hash code
+            uint legacyNodesetHashCode;
+            uint nodesetHashCode = GenerateHashCode(nodeSet);
+            {
+                if (nodesetHashCode == 0)
+                {
+                    return "Nodeset invalid. Please make sure it includes a valid Model URI and publication date!";
+                }
+
+                if (nodeSet.Models.Length != 1)
+                {
+                    return "Nodeset not supported. Please make sure it includes exactly one Model!";
+                }
+
+                // check if the nodeset already exists in the database for the legacy hashcode algorithm
+                legacyNodesetHashCode = GenerateHashCodeLegacy(nodeSet);
+                if (legacyNodesetHashCode != 0)
+                {
+                    DbFiles legacyNodeSetXml = await _storage.DownloadFileAsync(legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                    if (legacyNodeSetXml != null)
+                    {
+                        try
+                        {
+                            UANodeSet legacyNodeSet = ReadUANodeSet(legacyNodeSetXml.Blob);
+                            ModelTableEntry firstModel = legacyNodeSet.Models.Length > 0 ? legacyNodeSet.Models[0] : null;
+                            if (firstModel == null)
+                            {
+                                return $"Nodeset exists but existing nodeset had no model entry.";
+                            }
+                            if ((!firstModel.PublicationDateSpecified && !nodeSet.Models[0].PublicationDateSpecified) || firstModel.PublicationDate == nodeSet.Models[0].PublicationDate)
+                            {
+                                if (!overwrite)
+                                {
+                                    // nodeset already exists
+                                    return "Nodeset already exists. Use overwrite flag to overwrite this existing legacy entry in the Library.";
+                                }
+                            }
+                            else
+                            {
+                                // New nodeset is a different version from the legacy nodeset: don't touch the legacy nodeset
+                                legacyNodesetHashCode = 0;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            return $"Nodeset exists but existing nodeset could not be validated: {ex.Message}.";
+                        }
+
+                        // TODO: check contributors match if nodeset already exists
+                    }
+                }
+
+                uaNamespace.Nodeset.Identifier = nodesetHashCode;
+            }
+
+            // check if the nodeset already exists in the database for the new hashcode algorithm
+            string result = await _storage.FindFileAsync(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(result) && !overwrite)
+            {
+                UANameSpace existingNamespace = await RetrieveAllMetadataAsync(uaNamespace.Nodeset.Identifier).ConfigureAwait(false);
+                if (existingNamespace != null)
+                {
+                    // nodeset already exists
+                    return "Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.";
+                }
+
+                // nodeset metadata not found: allow overwrite of orphaned blob
+                overwrite = true;
+            }
+
+            // TODO: check contributors match if nodeset already exists
+
+            uaNamespace.CreationTime = DateTime.UtcNow;
+
+            if (uaNamespace.Nodeset.PublicationDate != nodeSet.Models[0].PublicationDate)
+            {
+                if (nodeSet.Models[0].PublicationDate != DateTime.MinValue)
+                {
+                    _logger.LogInformation("PublicationDate in metadata does not match nodeset XML. Taking nodeset XML publication date.");
+                    uaNamespace.Nodeset.PublicationDate = nodeSet.Models[0].PublicationDate;
+                }
+            }
+
+            if (uaNamespace.Nodeset.Version != nodeSet.Models[0].Version)
+            {
+                _logger.LogInformation("Version in metadata does not match nodeset XML. Taking nodeset XML version.");
+                uaNamespace.Nodeset.Version = nodeSet.Models[0].Version;
+            }
+
+            if (uaNamespace.Nodeset.NamespaceUri != null && uaNamespace.Nodeset.NamespaceUri.OriginalString != nodeSet.Models[0].ModelUri)
+            {
+                _logger.LogInformation("NamespaceUri in metadata does not match nodeset XML. Taking nodeset XML namespaceUri.");
+                uaNamespace.Nodeset.NamespaceUri = new Uri(nodeSet.Models[0].ModelUri);
+            }
+
+            if (uaNamespace.Nodeset.LastModifiedDate != nodeSet.LastModified)
+            {
+                if (nodeSet.LastModifiedSpecified && (nodeSet.LastModified != DateTime.MinValue))
+                {
+                    _logger.LogInformation("Version in metadata does not match nodeset XML. Taking nodeset XML last modified date.");
+                    uaNamespace.Nodeset.LastModifiedDate = nodeSet.LastModified;
+                }
+            }
+
+            // Ignore RequiredModels if provided: cloud library will read from the nodeset
+            uaNamespace.Nodeset.RequiredModels = null;
+
+            // At this point all inputs are validated: ready to store
+
+            // upload the new file to the storage service, and get the file handle that the storage service returned
+            string storedFilename = await _storage.UploadFileAsync(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture), uaNamespace.Nodeset.NodesetXml, string.Empty).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(storedFilename) || (storedFilename != uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)))
+            {
+                string message = "Error: NodeSet file could not be stored.";
+                _logger.LogError(message);
+                return message;
+            }
+
+            string dbMessage = await AddMetaDataAsync(uaNamespace, nodeSet, legacyNodesetHashCode, userId).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(dbMessage))
+            {
+                _logger.LogError(dbMessage);
+                return dbMessage;
+            }
+
+            if (legacyNodesetHashCode != 0)
+            {
+                try
+                {
+                    string legacyHashCodeStr = legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture);
+                    if (!string.IsNullOrEmpty(await _storage.FindFileAsync(legacyHashCodeStr).ConfigureAwait(false)))
+                    {
+                        await _storage.DeleteFileAsync(legacyHashCodeStr).ConfigureAwait(false);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Failed to delete legacy nodeset {legacyNodesetHashCode} for {uaNamespace?.Nodeset?.NamespaceUri} {uaNamespace?.Nodeset?.PublicationDate} {uaNamespace?.Nodeset?.Identifier}");
+                }
+            }
+
+            await IndexNodeSetModelAsync(nodeSet, uaNamespace).ConfigureAwait(false);
+
+            return "success";
+        }
+
+        public static UANodeSet ReadUANodeSet(string nodeSetXml)
+        {
+            UANodeSet nodeSet;
+            // workaround for bug https://github.com/dotnet/runtime/issues/67622
+            nodeSetXml = nodeSetXml.Replace("<Value/>", "<Value xsi:nil='true' />", StringComparison.Ordinal);
+
+            using (Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(nodeSetXml)))
+            {
+                nodeSet = UANodeSet.Read(stream);
+            }
+
+            return nodeSet;
+        }
+
+        private uint GenerateHashCode(UANodeSet nodeSet)
+        {
+            // generate a hash from the Model URIs and their version info in the nodeset
+            int hashCode = 0;
+            try
+            {
+                if ((nodeSet.Models != null) && (nodeSet.Models.Length > 0))
+                {
+                    foreach (ModelTableEntry model in nodeSet.Models)
+                    {
+                        if (model != null)
+                        {
+                            if (Uri.IsWellFormedUriString(model.ModelUri, UriKind.Absolute) && model.PublicationDateSpecified)
+                            {
+                                hashCode ^= model.ModelUri.GetDeterministicHashCode();
+                                hashCode ^= model.PublicationDate.ToString(CultureInfo.InvariantCulture).GetDeterministicHashCode();
+                            }
+                            else
+                            {
+                                return 0;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+            catch (Exception)
+            {
+                return 0;
+            }
+
+            return (uint)hashCode;
+        }
+
+        private uint GenerateHashCodeLegacy(UANodeSet nodeSet)
+        {
+            // generate a hash from the NamespaceURIs in the nodeset
+            if (nodeSet?.NamespaceUris == null)
+            {
+                return 0;
+            }
+            int hashCode = 0;
+            try
+            {
+                List<string> namespaces = new List<string>();
+                foreach (string namespaceUri in nodeSet.NamespaceUris)
+                {
+                    if (!namespaces.Contains(namespaceUri))
+                    {
+                        namespaces.Add(namespaceUri);
+                        hashCode ^= namespaceUri.GetDeterministicHashCode();
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                return 0;
+            }
+
+            return (uint)hashCode;
+        }
+
         public async Task<string> AddMetaDataAsync(UANameSpace uaNamespace, UANodeSet nodeSet, uint legacyNodesetHashCode, string userId)
         {
             string message = "Internal error: transaction not executed";
@@ -225,7 +481,7 @@ namespace Opc.Ua.Cloud.Library
                 throw new ArgumentException($"Invalid nodeset: no models specified");
             }
 
-            NodeSetModel nodesetModel = await MapRESTNodesetXmlToNodeSetModel(nodeset.Models[0], uaNamespace, _dbContext).ConfigureAwait(false);
+            NodeSetModel nodesetModel = MapRESTNodesetXmlToNodeSetModel(nodeset.Models[0], uaNamespace);
 
             // find our metadata model and link the two together
             NamespaceMetaDataModel metadataModel = await _dbContext.NamespaceMetaDataWithUnapproved.FirstOrDefaultAsync(n => n.NodesetId == nodesetModel.Identifier).ConfigureAwait(false);
@@ -283,19 +539,17 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-#pragma warning disable CA1305 // Specify IFormatProvider: runs in database with single culture, can not use culture invariant
                 NamespaceMetaDataModel namespaceModel = await _dbContext.NamespaceMetaDataWithUnapproved
-                    .Where(md => md.NodesetId == nodesetId.ToString())
+                    .Where(md => md.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture))
                     .Include(md => md.NodeSet)
                     .FirstOrDefaultAsync().ConfigureAwait(false);
-#pragma warning restore CA1305 // Specify IFormatProvider
 
                 if (namespaceModel == null)
                 {
                     return null;
                 }
 
-                return MapNamespaceMetaDataModelToRESTNamespace(namespaceModel);
+                return MapNamespaceMetaDataModelToRESTNamespace(namespaceModel, _dbContext);
             }
             catch (Exception ex)
             {
@@ -343,7 +597,7 @@ namespace Opc.Ua.Cloud.Library
                 .Select(n => NamespaceMetaData.Where(nmd => nmd.NodesetId == n.Identifier).Include(nmd => nmd.NodeSet).FirstOrDefault())
                 .ToList();
 
-            return uaNamespaceModel.Select(MapNamespaceMetaDataModelToRESTNamespace).ToArray();
+            return uaNamespaceModel.Select(n => MapNamespaceMetaDataModelToRESTNamespace(n, _dbContext)).ToArray();
         }
 
         public Task<string[]> GetAllNamespacesAndNodesets()
@@ -443,7 +697,7 @@ namespace Opc.Ua.Cloud.Library
             return metadataModel;
         }
 
-        private async Task<NodeSetModel> MapRESTNodesetXmlToNodeSetModel(ModelTableEntry nodesetTableEntry, UANameSpace uaNamespace, AppDbContext dbContext)
+        private NodeSetModel MapRESTNodesetXmlToNodeSetModel(ModelTableEntry nodesetTableEntry, UANameSpace uaNamespace)
         {
             NodeSetModel nodesetModel = new() {
                 ModelUri = nodesetTableEntry.ModelUri,
@@ -457,16 +711,11 @@ namespace Opc.Ua.Cloud.Library
             {
                 foreach (ModelTableEntry requiredModel in nodesetTableEntry.RequiredModel)
                 {
-                    DateTime? publicationDate = requiredModel.PublicationDateSpecified ? requiredModel.PublicationDate : null;
-                    List<NodeSetModel> matchingNodeSets = await dbContext.Set<NodeSetModel>().Where(nsm => nsm.ModelUri == requiredModel.ModelUri).ToListAsync().ConfigureAwait(false);
-
-                    NodeSetModel existingNodeSet = NodeModelUtils.GetMatchingOrHigherNodeSet(matchingNodeSets, publicationDate, requiredModel.Version);
-
                     var requiredModelInfo = new RequiredModelInfoModel {
                         ModelUri = requiredModel.ModelUri,
                         PublicationDate = requiredModel.PublicationDateSpecified ? ((DateTime?)requiredModel.PublicationDate).GetNormalizedDate() : null,
                         Version = requiredModel.Version,
-                        AvailableModel = existingNodeSet,
+                        AvailableModel = null // will be filled in when the nodeset is queried via REST API
                     };
 
                     nodesetModel.RequiredModels.Add(requiredModelInfo);
@@ -476,7 +725,7 @@ namespace Opc.Ua.Cloud.Library
             return nodesetModel;
         }
 
-        private UANameSpace MapNamespaceMetaDataModelToRESTNamespace(NamespaceMetaDataModel metadataModel)
+        private UANameSpace MapNamespaceMetaDataModelToRESTNamespace(NamespaceMetaDataModel metadataModel, AppDbContext dbContext)
         {
             return new UANameSpace {
                 CreationTime = metadataModel.CreationTime,
@@ -493,11 +742,11 @@ namespace Opc.Ua.Cloud.Library
                 TestSpecificationUrl = metadataModel.TestSpecificationUrl != null ? new Uri(metadataModel.TestSpecificationUrl) : null,
                 SupportedLocales = metadataModel.SupportedLocales,
                 NumberOfDownloads = metadataModel.NumberOfDownloads,
-                Nodeset = metadataModel.NodeSet == null ? null : MapNodeSetModelToRESTNodeSet(metadataModel.NodeSet)
+                Nodeset = metadataModel.NodeSet == null ? null : MapNodeSetModelToRESTNodeSet(metadataModel.NodeSet, dbContext)
             };
         }
 
-        private Nodeset MapNodeSetModelToRESTNodeSet(NodeSetModel model)
+        private Nodeset MapNodeSetModelToRESTNodeSet(NodeSetModel model, AppDbContext dbContext)
         {
             return new Nodeset {
                 Identifier = uint.Parse(model.Identifier, CultureInfo.InvariantCulture),
@@ -508,17 +757,16 @@ namespace Opc.Ua.Cloud.Library
                 ValidationStatus = model.Metadata.ValidationStatus.ToString(),
                 NodesetXml = null,
                 RequiredModels = model.RequiredModels.Select(rm => {
-                    Nodeset availableNodeSet = null;
-                    if (rm.AvailableModel != null)
-                    {
-                        availableNodeSet = MapNodeSetModelToRESTNodeSet(rm.AvailableModel);
-                    }
+
+                    List<NodeSetModel> matchingNodesets = dbContext.Set<NodeSetModel>().Where(nsm => nsm.ModelUri == rm.ModelUri).ToList();
+
+                    NodeSetModel availableNodeset = NodeModelUtils.GetMatchingOrHigherNodeSet(matchingNodesets, rm.PublicationDate, rm.Version);
 
                     return new RequiredModelInfo {
                         NamespaceUri = rm.ModelUri,
                         PublicationDate = rm.PublicationDate,
                         Version = rm.Version,
-                        AvailableModel = availableNodeSet
+                        AvailableModel = (availableNodeset != null) ? MapNodeSetModelToRESTNodeSet(availableNodeset, dbContext) : null
                     };
                 }).ToList()
             };
