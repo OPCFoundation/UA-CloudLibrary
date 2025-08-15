@@ -1,10 +1,15 @@
 ﻿
 @using Opc.Ua.Cloud.Library.Models
 
+@model string
+
 <div class="row browser_top_container">
     <form method="post" enctype="multipart/form-data" asp-controller="Upload" asp-action="UploadNodeset">
         <p>
             <b>Upload a nodeset file to the UA Cloud Library</b><br />
+        </p>
+        <p>
+            Upload status: @Model<br />
         </p>
         <p>
             <input class="btn btn-primary" type="file" name="file">

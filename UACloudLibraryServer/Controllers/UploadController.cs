@@ -58,7 +58,7 @@ namespace UANodesetWebViewer.Controllers
 
         public ActionResult Index()
         {
-            return View("Index");
+            return View("Index", string.Empty);
         }
 
         [HttpPost]
@@ -173,17 +173,13 @@ namespace UANodesetWebViewer.Controllers
                 }
 
                 string result = await _database.UploadNamespaceAndNodesetAsync(nameSpace, overwrite, User.Identity.Name).ConfigureAwait(false);
-                if (result != "success")
-                {
-                    return View("Error", result);
-                }
 
-                return View("Index");
+                return View("Index", result);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error uploading nodeset: {ex.Message}");
-                return View("Index");
+                return View("Index", ex.Message);
             }
         }
     }
