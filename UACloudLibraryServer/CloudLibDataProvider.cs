@@ -489,7 +489,6 @@ namespace Opc.Ua.Cloud.Library
             nodesetModel.Metadata = metadataModel;
 
             new NodeModelFactoryOpc(nodesetModel, nodeset, _logger).ImportNodeSet();
-            metadataModel.ValidationStatus = ValidationStatus.Indexed;
 
             await _dbContext.NodeSetsWithUnapproved.AddAsync(nodesetModel).ConfigureAwait(false);
 
@@ -689,7 +688,6 @@ namespace Opc.Ua.Cloud.Library
                 SupportedLocales = uaNamespace.SupportedLocales,
                 NumberOfDownloads = uaNamespace.NumberOfDownloads,
                 ApprovalStatus = ApprovalStatus.Pending,
-                ValidationStatus = ValidationStatus.Parsed,
                 CreationTime = uaNamespace.CreationTime != null ? uaNamespace.CreationTime.GetNormalizedDate() : DateTime.UtcNow,
                 UserId = userId
             };
@@ -754,7 +752,6 @@ namespace Opc.Ua.Cloud.Library
                 PublicationDate = model.PublicationDate ?? default,
                 LastModifiedDate = model.LastModifiedDate ?? default,
                 Version = model.Version,
-                ValidationStatus = model.Metadata.ValidationStatus.ToString(),
                 NodesetXml = null,
                 RequiredModels = model.RequiredModels.Select(rm => {
 
