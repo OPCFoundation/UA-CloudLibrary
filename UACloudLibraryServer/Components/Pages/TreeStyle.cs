@@ -1,10 +1,9 @@
-﻿
+
 namespace MW.Blazor
 {
     public class TreeStyle
     {
-        public static readonly TreeStyle Bootstrap = new()
-        {
+        public static readonly TreeStyle Bootstrap = new() {
             ExpandNodeIconClass = "far fa-plus-square uic-tree--cursor-pointer",
             CollapseNodeIconClass = "far fa-minus-square uic-tree--cursor-pointer",
             NodeTitleClass = "p-1",

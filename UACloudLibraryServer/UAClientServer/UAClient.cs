@@ -90,8 +90,7 @@ namespace AdminShell
 
                 _session.FetchNamespaceTables();
 
-                BrowseDescription nodeToBrowse = new()
-                {
+                BrowseDescription nodeToBrowse = new() {
                     NodeId = ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris),
                     BrowseDirection = BrowseDirection.Forward,
                     ReferenceTypeId = ReferenceTypeIds.HierarchicalReferences,
@@ -115,8 +114,7 @@ namespace AdminShell
                 foreach (ReferenceDescription description in references)
                 {
                     NodeId id = ExpandedNodeId.ToNodeId(description.NodeId, _session.NamespaceUris);
-                    nodes.Add(new NodesetViewerNode()
-                    {
+                    nodes.Add(new NodesetViewerNode() {
                         Id = NodeId.ToExpandedNodeId(id, _session.NamespaceUris).ToString(),
                         Text = description.DisplayName.ToString(),
                         Children = new List<NodesetViewerNode>()
@@ -343,8 +341,7 @@ namespace AdminShell
                     out BrowseResultCollection results,
                     out DiagnosticInfoCollection diagnosticInfos);
 
-                BrowseResponse response = new()
-                {
+                BrowseResponse response = new() {
                     ResponseHeader = responseHeader,
                     Results = results,
                     DiagnosticInfos = diagnosticInfos
@@ -514,15 +511,15 @@ namespace AdminShell
                 {
                     ReferenceDescription reference = nodesToRead[ii].Handle as ReferenceDescription;
 
-                   encoder.WriteRawValue(
-                       new FieldMetaData() {
-                           Name = reference.BrowseName.Name,
-                           BuiltInType = (byte)results[ii].WrappedValue.TypeInfo.BuiltInType,
-                           ValueRank = results[ii].WrappedValue.TypeInfo.ValueRank,
-                           DataType = DataTypeIds.BaseDataType
-                       },
-                       results[ii],
-                       DataSetFieldContentMask.RawData);
+                    encoder.WriteRawValue(
+                        new FieldMetaData() {
+                            Name = reference.BrowseName.Name,
+                            BuiltInType = (byte)results[ii].WrappedValue.TypeInfo.BuiltInType,
+                            ValueRank = results[ii].WrappedValue.TypeInfo.ValueRank,
+                            DataType = DataTypeIds.BaseDataType
+                        },
+                        results[ii],
+                        DataSetFieldContentMask.RawData);
                 }
 
                 string json = encoder.CloseAndReturnText();
