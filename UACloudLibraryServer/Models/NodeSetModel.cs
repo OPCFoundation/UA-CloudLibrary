@@ -143,8 +143,6 @@ namespace Opc.Ua.Cloud.Library
 
         public string NodeId { get; set; }
 
-        public string NodeIdIdentifier { get; set; }
-
         public IEnumerable<NodeAndReference> AllReferencedNodes { get; set; }
 
         public virtual NodeSetModel NodeSet { get; set; }
@@ -249,14 +247,9 @@ namespace Opc.Ua.Cloud.Library
 
         public virtual List<NodeAndReference> OtherReferencingNodes { get; set; } = new List<NodeAndReference>();
 
-        /// <summary>
-        /// Indicates that Properties, DataVariables, OtherReferencedNodes etc. have not been populated. Use to support incremental rendering of the node model graph.
-        /// </summary>
-        public bool ReferencesNotResolved { get; set; }
-
         public override string ToString()
         {
-            return $"{DisplayName?.FirstOrDefault()} ({Namespace}: {NodeId})";
+            return $"{DisplayName?.FirstOrDefault()};{Namespace};{NodeId}";
         }
     }
 

@@ -36,6 +36,7 @@ using System.Reflection.Emit;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Opc.Ua.Cloud.Library.Models;
 
 namespace Opc.Ua.Cloud.Library
@@ -53,9 +54,11 @@ namespace Opc.Ua.Cloud.Library
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder.UseLazyLoadingProxies();
+
             if (!optionsBuilder.IsConfigured)
             {
                 IConfiguration configuration = _configuration;
+
                 if (configuration == null)
                 {
                     configuration = new ConfigurationBuilder()
@@ -63,13 +66,13 @@ namespace Opc.Ua.Cloud.Library
                        .AddJsonFile("appsettings.json")
                        .Build();
                 }
+
                 string connectionString = CreateConnectionString(configuration);
-                optionsBuilder
-                    .UseNpgsql(connectionString, o => o
-                        .UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery)
-                        .EnableRetryOnFailure()
-                        )
-                    ;
+
+                optionsBuilder.UseNpgsql(connectionString, o => o
+                    .UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery)
+                    .EnableRetryOnFailure()
+                ).LogTo(Console.WriteLine, LogLevel.Warning);
             }
         }
 
@@ -102,6 +105,8 @@ namespace Opc.Ua.Cloud.Library
         public DbSet<NamespaceMetaDataModel> NamespaceMetaDataWithUnapproved { get; set; }
 
         public DbSet<NodeSetModel> NodeSetsWithUnapproved { get; set; }
+
+        public DbSet<DbFiles> DBFiles { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -172,8 +177,6 @@ namespace Opc.Ua.Cloud.Library
             }
 
             modelBuilder.Entity<NodeModel>()
-                .Ignore(nm => nm.ReferencesNotResolved)
-                .Ignore(nm => nm.NodeIdIdentifier)
                 .Property<DateTime?>("NodeSetPublicationDate"); // EF tooling does not properly infer the type of this auto-generated property when using it in a foreign key: workaround declare explicitly
 
             modelBuilder.Entity<NodeModel>()

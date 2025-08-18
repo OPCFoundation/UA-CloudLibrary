@@ -2,13 +2,13 @@
 for details on configuring this project to bundle and minify static web assets. */
 
 /*-------------------------------------------*/
-/*NEW - Import same font as Profile Designer       */
+/*Import same font as Profile Designer       */
 /*-------------------------------------------*/
 @import url(https://fonts.googleapis.com/css2?family=Bitter:wght@300;400;600;700&display=swap);
 @import url(https://fonts.googleapis.com/css2?family=Open%20Sans:wght@300;400;600;700&display=swap);
 
 /*-------------------------------------------*/
-/*NEW - Bootstrap overrides                        */
+/*Bootstrap overrides                        */
 /*-------------------------------------------*/
 .bg-primary {
     background-color:#4084ef !important;

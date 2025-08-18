@@ -1,0 +1,28 @@
+﻿@using AdminShell
+@using Opc.Ua.Cloud.Library.Components.Pages
+@using Microsoft.AspNetCore.Http
+
+@{
+    ViewData["Title"] = "Browser";
+}
+
+@model BrowserModel
+
+@(await Html.RenderComponentAsync<TreePage>(RenderMode.ServerPrerendered, new {
+    NodesetIdentifier = Model.NodesetIdentifier,
+    NodesetName = Model.NodesetName
+}).ConfigureAwait(false))
+
+<div class="row browser_browse_download_button">
+    <p>
+        <b>Download node values file</b><br />
+    </p>
+</div>
+<div class="row browser_browse_download_button">
+    <p>
+        @using (Html.BeginForm("Download", "Browser", Model))
+        {
+            <input id="downloadButton" class="btn btn-primary btn_browser" type="submit" value="Download" />
+        }
+    </p>
+</div>

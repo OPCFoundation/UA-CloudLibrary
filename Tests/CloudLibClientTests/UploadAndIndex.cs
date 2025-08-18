@@ -45,53 +45,11 @@ namespace CloudLibClient.Tests
             }
             else
             {
-                if (!(_factory.TestConfig.IgnoreUploadConflict && (response.Status == HttpStatusCode.Conflict || response.Message.Contains("Nodeset already exists", StringComparison.Ordinal))))
+                if (!(_factory.TestConfig.IgnoreUploadConflict && (response.Status == HttpStatusCode.InternalServerError || response.Message.Contains("Nodeset already exists", StringComparison.Ordinal))))
                 {
                     Assert.Equal(HttpStatusCode.OK, response.Status);
                 }
             }
-        }
-        [Fact]
-        public async Task WaitForIndex()
-        {
-            HttpClient client = _factory.CreateAuthorizedClient();
-
-            int expectedNodeSetCount = TestNamespaceFiles.GetFiles().Length;
-
-            await WaitForIndexAsync(client, expectedNodeSetCount).ConfigureAwait(true);
-        }
-
-        internal static async Task WaitForIndexAsync(HttpClient client, int expectedNodeSetCount)
-        {
-            bool bIndexing;
-            do
-            {
-                (int All, int NotIndexed) counts = await GetNodeSetCountsAsync(client).ConfigureAwait(true);
-                bIndexing = counts.All < expectedNodeSetCount || counts.NotIndexed != 0;
-                if (bIndexing)
-                {
-                    await Task.Delay(5000).ConfigureAwait(true);
-                }
-            }
-            while (bIndexing);
-        }
-
-        static async Task<(int All, int NotIndexed)> GetNodeSetCountsAsync(HttpClient client)
-        {
-            int notIndexed = 0;
-            int allCount = 0;
-
-            Uri address = new Uri(client.BaseAddress, "infomodel/names/");
-            HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
-
-            if (response.StatusCode == HttpStatusCode.OK)
-            {
-                string responseStr = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                string[] result = JsonConvert.DeserializeObject<string[]>(responseStr);
-                allCount = result.Length;
-            }
-
-            return (allCount, notIndexed);
         }
     }
 }

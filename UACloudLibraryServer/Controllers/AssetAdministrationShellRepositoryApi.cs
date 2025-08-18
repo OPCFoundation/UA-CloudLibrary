@@ -46,7 +46,7 @@ namespace AdminShell
 {
     [Authorize(Policy = "ApiPolicy")]
     [ApiController]
-    public class AssetAdministrationShellRepositoryApiController : ControllerBase
+    public class AssetAdministrationShellRepositoryApiController : Controller
     {
         private readonly AssetAdministrationShellEnvironmentService _aasEnvService;
 
@@ -77,7 +77,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual IActionResult GetAllAssetAdministrationShells([FromQuery] List<string> assetIds, [FromQuery] string idShort, [FromQuery] int limit, [FromQuery] string cursor)
+        public IActionResult GetAllAssetAdministrationShells([FromQuery] List<string> assetIds, [FromQuery] string idShort, [FromQuery] int limit, [FromQuery] string cursor)
         {
             List<string> reqAssetIds = new();
             foreach (string assetId in assetIds)
@@ -119,11 +119,11 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual IActionResult GetAssetAdministrationShellById([FromRoute][Required] string aasIdentifier)
+        public async Task<IActionResult> GetAssetAdministrationShellById([FromRoute][Required] string aasIdentifier)
         {
             string decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
 
-            AssetAdministrationShell aas = _aasEnvService.GetAssetAdministrationShellById(decodedAasIdentifier);
+            AssetAdministrationShell aas = await _aasEnvService.GetAssetAdministrationShellById(decodedAasIdentifier).ConfigureAwait(false);
 
             return new ObjectResult(aas);
         }
@@ -151,7 +151,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual IActionResult GetAllSubmodelReferences([FromRoute][Required] string aasIdentifier, [FromQuery] int limit, [FromQuery] string cursor)
+        public async Task<IActionResult> GetAllSubmodelReferences([FromRoute][Required] string aasIdentifier, [FromQuery] int limit, [FromQuery] string cursor)
         {
             string decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
             if (decodedAasIdentifier == null)
@@ -159,7 +159,7 @@ namespace AdminShell
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedAasIdentifier)} is null");
             }
 
-            List<Reference> submodels = _aasEnvService.GetAllSubmodelReferences(decodedAasIdentifier);
+            List<Reference> submodels = await _aasEnvService.GetAllSubmodelReferences(decodedAasIdentifier).ConfigureAwait(false);
 
             PagedResult<Reference> output = PagedResult.ToPagedList<Reference>(submodels, new PaginationParameters(cursor, limit));
 
@@ -187,7 +187,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual async Task<IActionResult> GetThumbnail([FromRoute][Required] string aasIdentifier)
+        public async Task<IActionResult> GetThumbnail([FromRoute][Required] string aasIdentifier)
         {
             string decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
 
@@ -196,13 +196,13 @@ namespace AdminShell
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedAasIdentifier)} is null");
             }
 
-            string fileName = _aasEnvService.GetFileByPath(decodedAasIdentifier, "https://admin-shell.io/idta/asset/thumbnail", out byte[] content, out long fileSize);
+            byte[] content = await _aasEnvService.GetFileByPath(decodedAasIdentifier, "https://admin-shell.io/idta/asset/thumbnail").ConfigureAwait(false);
 
             // content-disposition so that the file can be downloaded from the web browser
-            ContentDisposition contentDisposition = new() { FileName = fileName };
+            ContentDisposition contentDisposition = new() { FileName = "thumbnail" };
 
             HttpContext.Response.Headers.Append("Content-Disposition", contentDisposition.ToString());
-            HttpContext.Response.ContentLength = fileSize;
+            HttpContext.Response.ContentLength = content.Length;
 
             await HttpContext.Response.Body.WriteAsync(content).ConfigureAwait(false);
 
@@ -230,7 +230,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual IActionResult GetAssetInformation([FromRoute][Required] string aasIdentifier)
+        public async Task<IActionResult> GetAssetInformation([FromRoute][Required] string aasIdentifier)
         {
             string decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
 
@@ -239,7 +239,7 @@ namespace AdminShell
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedAasIdentifier)} is null");
             }
 
-            AssetInformation output = _aasEnvService.GetAssetInformationFromAas(decodedAasIdentifier);
+            AssetInformation output = await _aasEnvService.GetAssetInformationFromAas(decodedAasIdentifier).ConfigureAwait(false);
 
             return new ObjectResult(output);
         }

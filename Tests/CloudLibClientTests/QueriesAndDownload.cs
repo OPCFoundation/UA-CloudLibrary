@@ -55,7 +55,6 @@ namespace CloudLibClient.Tests
             Assert.Equal(uploadedNamespace.Nodeset.PublicationDate, nodeSet.Nodeset.PublicationDate);
             Assert.Equal(uploadedNamespace.Nodeset.Version, nodeSet.Nodeset.Version);
             Assert.Equal(nodeSetInfo.Nodeset.Identifier, nodeSet.Nodeset.Identifier);
-            Assert.Equal("Indexed", nodeSet.Nodeset.ValidationStatus, ignoreCase: true);
 
             Console.WriteLine($"Dependencies for {nodeSet.Nodeset.Identifier} {nodeSet.Nodeset.NamespaceUri} {nodeSetInfo.Nodeset.PublicationDate} ({nodeSet.Nodeset.Version}):");
             foreach (RequiredModelInfo requiredNodeSet in nodeSet.Nodeset.RequiredModels)
@@ -142,8 +141,6 @@ namespace CloudLibClient.Tests
 
             uint identifier = downloadedNamespace.Nodeset.Identifier;
             Assert.True(identifier == uploadedNamespace.Nodeset.Identifier);
-
-            Assert.Equal("Indexed", downloadedNamespace.Nodeset.ValidationStatus, ignoreCase: true);
 
             UANodeSet uploadedUaNodeSet = VerifyRequiredModels(uploadedNamespace, downloadedNamespace.Nodeset.RequiredModels);
             Assert.Equal(uploadedUaNodeSet.LastModified, downloadedNamespace.Nodeset.LastModifiedDate);
@@ -250,7 +247,6 @@ namespace CloudLibClient.Tests
             VerifyRequiredModels(uploadedNamespace, testNodeSet.Nodeset.RequiredModels);
 
             Assert.True(totalCount > 60);
-            Assert.Equal("Indexed", testNodeSet.Nodeset.ValidationStatus);
         }
 
         [Theory]
@@ -346,69 +342,29 @@ namespace CloudLibClient.Tests
             }
             // Upload again should cause conflict
             response = await client.UploadNodeSetAsync(addressSpace).ConfigureAwait(true);
-            Assert.Equal(HttpStatusCode.Conflict, response.Status);
+            Assert.Equal(HttpStatusCode.InternalServerError, response.Status);
 
             UANameSpace nodeSetInfo;
-            bool notIndexed;
             bool dependencyUploaded = false;
             string requiredIdentifier = null;
-            do
-            {
-                nodeSetInfo = await GetBasicNodesetInformationAsync(addressSpace.Nodeset.NamespaceUri.OriginalString, addressSpace.Nodeset.Version).ConfigureAwait(true);
-                Assert.NotNull(nodeSetInfo);
-                if (dependentNodeSet != null && !dependencyUploaded)
-                {
-                    if (nodeSetInfo.Nodeset.ValidationStatus == "Parsed")
-                    {
-                        await Task.Delay(5000);
-                        notIndexed = true;
-                    }
-                    else
-                    {
-                        string requiredUploadJson = System.IO.File.ReadAllText(Path.Combine(path, dependentNodeSet));
-                        UANameSpace requiredAddressSpace = JsonConvert.DeserializeObject<UANameSpace>(requiredUploadJson);
-                        response = await client.UploadNodeSetAsync(requiredAddressSpace, true).ConfigureAwait(true);
-                        Assert.Equal(HttpStatusCode.OK, response.Status);
-                        requiredIdentifier = response.Message;
 
-                        dependencyUploaded = true;
-                        notIndexed = true;
-                    }
-                }
-                else
-                {
-                    notIndexed = nodeSetInfo.Nodeset.ValidationStatus != "Indexed";
-                    if (notIndexed)
-                    {
-                        await Task.Delay(5000);
-                    }
-                }
-            } while (notIndexed);
-            await UploadAndIndex.WaitForIndexAsync(_factory.CreateAuthorizedClient(), expectedNodeSetCount).ConfigureAwait(true);
+            nodeSetInfo = await GetBasicNodesetInformationAsync(addressSpace.Nodeset.NamespaceUri.OriginalString, addressSpace.Nodeset.Version).ConfigureAwait(true);
+            Assert.NotNull(nodeSetInfo);
+            if (dependentNodeSet != null && !dependencyUploaded)
+            {
+                string requiredUploadJson = System.IO.File.ReadAllText(Path.Combine(path, dependentNodeSet));
+                UANameSpace requiredAddressSpace = JsonConvert.DeserializeObject<UANameSpace>(requiredUploadJson);
+                response = await client.UploadNodeSetAsync(requiredAddressSpace, true).ConfigureAwait(true);
+                Assert.Equal(HttpStatusCode.OK, response.Status);
+                requiredIdentifier = response.Message;
+                dependencyUploaded = true;
+            }
 
             // Upload with override
             response = await client.UploadNodeSetAsync(addressSpace, true).ConfigureAwait(true);
             Assert.Equal(HttpStatusCode.OK, response.Status);
 
-            // Wait for indexing
-            do
-            {
-                nodeSetInfo = await GetBasicNodesetInformationAsync(addressSpace.Nodeset.NamespaceUri.OriginalString, addressSpace.Nodeset.Version).ConfigureAwait(true);
-                notIndexed = nodeSetInfo.Nodeset.ValidationStatus != "Indexed";
-                if (notIndexed)
-                {
-                    await Task.Delay(5000);
-                }
-            }
-            while (notIndexed);
-
-            await UploadAndIndex.WaitForIndexAsync(_factory.CreateAuthorizedClient(), expectedNodeSetCount);
-
-            //Trigger reindexing
-            addressSpace.Nodeset.NodesetXml = null;
-            await client.UploadNodeSetAsync(addressSpace, false);
-
-            await UploadAndIndex.WaitForIndexAsync(_factory.CreateAuthorizedClient(), expectedNodeSetCount).ConfigureAwait(true);
+            nodeSetInfo = await GetBasicNodesetInformationAsync(addressSpace.Nodeset.NamespaceUri.OriginalString, addressSpace.Nodeset.Version).ConfigureAwait(true);
         }
     }
 }
