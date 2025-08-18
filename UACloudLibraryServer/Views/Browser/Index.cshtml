@@ -13,16 +13,41 @@
     NodesetName = Model.NodesetName
 }).ConfigureAwait(false))
 
-<div class="row browser_browse_download_button">
-    <p>
-        <b>Download node values file</b><br />
-    </p>
+<div style="height:100%">
+    <div class="uacl-container">
+        <div class="uacl-content">
+            <div class="container">
+                <p>
+                    <div class="col-12 row">
+                        <div class="col-6">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <b>Download node values file</b><br/>
+                                </div>
+                                <div class="card-body">
+                                    @using (Html.BeginForm("Download", "Browser", Model))
+                                    {
+                                        <input id="downloadButton" class="btn btn-primary btn_browser" type="submit" value="Download" />
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </p>
+            </div>
+        </div>
+    </div>
 </div>
-<div class="row browser_browse_download_button">
-    <p>
-        @using (Html.BeginForm("Download", "Browser", Model))
-        {
-            <input id="downloadButton" class="btn btn-primary btn_browser" type="submit" value="Download" />
-        }
-    </p>
-</div>
+
+<style>
+    .uacl-content .card .card-text {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .page-item {
+        cursor: pointer;
+    }
+</style>
