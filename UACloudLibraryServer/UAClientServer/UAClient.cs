@@ -77,18 +77,14 @@ namespace AdminShell
                 if (_session == null || !_session.Connected)
                 {
                     _session = await CreateSessionAsync(nodesetIdentifier).ConfigureAwait(false);
-                }
+                    if (_session == null || !_session.Connected)
+                    {
+                        return null;
+                    }
 
-                if (_session == null || !_session.Connected)
-                {
-                    return null;
-                }
-                else
-                {
                     _session.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
+                    _session.FetchNamespaceTables();
                 }
-
-                _session.FetchNamespaceTables();
 
                 BrowseDescription nodeToBrowse = new() {
                     NodeId = ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris),
@@ -114,6 +110,7 @@ namespace AdminShell
                 foreach (ReferenceDescription description in references)
                 {
                     NodeId id = ExpandedNodeId.ToNodeId(description.NodeId, _session.NamespaceUris);
+
                     nodes.Add(new NodesetViewerNode() {
                         Id = NodeId.ToExpandedNodeId(id, _session.NamespaceUris).ToString(),
                         Text = description.DisplayName.ToString(),
@@ -123,6 +120,94 @@ namespace AdminShell
             }
 
             return nodes;
+        }
+
+        public async Task<Dictionary<string, string>> BrowseVariableNodesResursivelyAsync(string nodesetIdentifier, string nodeId)
+        {
+            Dictionary<string, string> results = new();
+
+            if (nodeId == null)
+            {
+                nodeId = ObjectIds.ObjectsFolder.ToString();
+            }
+
+            ReferenceDescriptionCollection references = null;
+
+            try
+            {
+                if (_session == null || !_session.Connected)
+                {
+                    _session = await CreateSessionAsync(nodesetIdentifier).ConfigureAwait(false);
+                    if (_session == null || !_session.Connected)
+                    {
+                        return null;
+                    }
+
+                    _session.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
+                    _session.FetchNamespaceTables();
+                }
+
+                BrowseDescription nodeToBrowse = new BrowseDescription {
+                    NodeId = nodeId,
+                    BrowseDirection = BrowseDirection.Forward,
+                    ReferenceTypeId = ReferenceTypeIds.HierarchicalReferences,
+                    IncludeSubtypes = true,
+                    NodeClassMask = (uint)(NodeClass.Object | NodeClass.Variable),
+                    ResultMask = (uint)BrowseResultMask.All
+                };
+
+                references = Browse(_session, nodeToBrowse);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("BrowseVariableNodesResursivelyAsync: " + ex.Message);
+                _session = null;
+            }
+
+            if ((references != null) && (references.Count > 0))
+            {
+                foreach (ReferenceDescription description in references)
+                {
+                    NodeId id = ExpandedNodeId.ToNodeId(description.NodeId, _session.NamespaceUris);
+
+                    // skip nodes from default namespace
+                    if (id.NamespaceIndex == 0)
+                    {
+                        continue; // skip default namespace
+                    }
+
+                    if (description.NodeClass == NodeClass.Variable)
+                    {
+                        try
+                        {
+                            DataValue value = _session.ReadValue(ExpandedNodeId.ToNodeId(description.NodeId, _session.NamespaceUris));
+                            if ((value != null) && (value.WrappedValue != Variant.Null))
+                            {
+                                results.Add(NodeId.ToExpandedNodeId(id, _session.NamespaceUris).ToString(), value.ToString());
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            // skip this node
+                        }
+                    }
+
+                    // recursively browse child variable nodes
+                    Dictionary<string, string> childResults = await BrowseVariableNodesResursivelyAsync(nodesetIdentifier, id.ToString()).ConfigureAwait(false);
+                    if (childResults != null)
+                    {
+                        foreach (KeyValuePair<string, string> kvp in childResults)
+                        {
+                            if (!results.ContainsKey(kvp.Key))
+                            {
+                                results.Add(kvp.Key, kvp.Value);
+                            }
+                        }
+                    }
+                }
+            }
+
+            return results;
         }
 
         private async Task<Session> CreateSessionAsync(string nodesetIdentifier)
@@ -287,10 +372,9 @@ namespace AdminShell
                         break;
                     }
 
-                    ByteStringCollection continuationPoints = new ByteStringCollection
-                {
-                    results[0].ContinuationPoint
-                };
+                    ByteStringCollection continuationPoints = new ByteStringCollection {
+                        results[0].ContinuationPoint
+                    };
 
                     session.BrowseNext(
                         null,
@@ -313,50 +397,6 @@ namespace AdminShell
             return references;
         }
 
-        public async Task<IServiceResponse> Browse(string nodesetIdentifier, BrowseRequest request)
-        {
-            try
-            {
-                if (_session == null || !_session.Connected)
-                {
-                    _session = await CreateSessionAsync(nodesetIdentifier).ConfigureAwait(false);
-                }
-
-                if (_session == null || !_session.Connected)
-                {
-                    return null;
-                }
-                else
-                {
-                    _session.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
-                }
-
-                _session.FetchNamespaceTables();
-
-                ResponseHeader responseHeader = _session.Browse(
-                    request.RequestHeader,
-                    request.View,
-                    request.RequestedMaxReferencesPerNode,
-                    request.NodesToBrowse,
-                    out BrowseResultCollection results,
-                    out DiagnosticInfoCollection diagnosticInfos);
-
-                BrowseResponse response = new() {
-                    ResponseHeader = responseHeader,
-                    Results = results,
-                    DiagnosticInfos = diagnosticInfos
-                };
-
-                return response;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Browse: " + ex.Message);
-                _session = null;
-                return null;
-            }
-        }
-
         public async Task<string> VariableRead(string nodesetIdentifier, string nodeId)
         {
             string value = string.Empty;
@@ -370,14 +410,14 @@ namespace AdminShell
                 if (_session == null || !_session.Connected)
                 {
                     _session = await CreateSessionAsync(nodesetIdentifier).ConfigureAwait(false);
-                }
+                    if (_session == null || !_session.Connected)
+                    {
+                        return string.Empty;
+                    }
 
-                if (_session == null || !_session.Connected)
-                {
-                    return string.Empty;
+                    _session.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
+                    _session.FetchNamespaceTables();
                 }
-
-                _session.FetchNamespaceTables();
 
                 ReadValueId valueId = new();
                 valueId.NodeId = ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris);
@@ -412,18 +452,14 @@ namespace AdminShell
                 if (_session == null || !_session.Connected)
                 {
                     _session = await CreateSessionAsync(nodesetIdentifier).ConfigureAwait(false);
-                }
+                    if (_session == null || !_session.Connected)
+                    {
+                        return null;
+                    }
 
-                if (_session == null || !_session.Connected)
-                {
-                    return null;
-                }
-                else
-                {
                     _session.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
+                    _session.FetchNamespaceTables();
                 }
-
-                _session.FetchNamespaceTables();
 
                 ResponseHeader responseHeader = _session.Read(
                     request.RequestHeader,

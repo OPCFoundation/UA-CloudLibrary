@@ -35,7 +35,6 @@ namespace Opc.Ua.Cloud.Library.Controllers
     [Authorize(AuthenticationSchemes = "SignedInUserAuthentication")]
     public class ExplorerController : Controller
     {
-        // GET
         public IActionResult Index()
         {
             return View();

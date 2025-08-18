@@ -40,6 +40,10 @@
 @using Microsoft.JSInterop
 @using Opc.Ua.Cloud.Library.Models
 
+@inject IJSRuntime JS
+@inject CloudLibDataProvider DataProvider
+@inject NavigationManager NavigationManager
+
 <div style="height:100%">
     <div class="uacl-container">
         <div class="uacl-content">
@@ -200,11 +204,6 @@
 {
     <div class="modal-backdrop fade show"></div>
 }
-
-
-@inject IJSRuntime JS
-@inject CloudLibDataProvider DataProvider
-@inject NavigationManager NavigationManager
 
 @code
 {

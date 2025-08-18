@@ -117,9 +117,7 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddLogging(builder => builder.AddConsole());
 
-            //for captcha validation call
-            //add httpclient service for dependency injection
-            //https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-6.0
+            // for captcha validation call
             services.AddHttpClient();
 
             services.AddAuthentication()
