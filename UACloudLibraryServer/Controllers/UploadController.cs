@@ -63,7 +63,8 @@ namespace UANodesetWebViewer.Controllers
 
         [HttpPost]
         public async Task<IActionResult> UploadNodeset(
-            IFormFile file,
+            IFormFile nodesetFile,
+            IFormFile values,
             bool overwrite,
             string nodesettitle,
             string license,
@@ -82,18 +83,31 @@ namespace UANodesetWebViewer.Controllers
             {
                 UANameSpace nameSpace = new UANameSpace();
 
-                if ((file == null) || (file.Length == 0) || (file.ContentType != "text/xml"))
+                if ((nodesetFile == null) || (nodesetFile.Length == 0) || (nodesetFile.ContentType != "text/xml"))
                 {
                     throw new ArgumentException("Invalid file specified!");
                 }
 
                 // file name validation
-                FileInfo fileInfo = new(file.FileName);
+                FileInfo fileInfoNodeset = new(nodesetFile.FileName);
 
                 using (MemoryStream stream = new())
                 {
-                    await file.CopyToAsync(stream).ConfigureAwait(false);
+                    await nodesetFile.CopyToAsync(stream).ConfigureAwait(false);
                     nameSpace.Nodeset.NodesetXml = Encoding.UTF8.GetString(stream.GetBuffer());
+                }
+
+                string valuesContent = string.Empty;
+                if ((values == null) || (values.Length == 0) || (values.ContentType != "text/json"))
+                {
+                    // file name validation
+                    FileInfo fileInfoValues = new(values.FileName);
+
+                    using (MemoryStream stream = new())
+                    {
+                        await values.CopyToAsync(stream).ConfigureAwait(false);
+                        valuesContent = Encoding.UTF8.GetString(stream.GetBuffer());
+                    }
                 }
 
                 if (!string.IsNullOrWhiteSpace(nodesettitle))
@@ -172,7 +186,7 @@ namespace UANodesetWebViewer.Controllers
                     nameSpace.SupportedLocales = locales.Split(',');
                 }
 
-                string result = await _database.UploadNamespaceAndNodesetAsync(nameSpace, overwrite, User.Identity.Name).ConfigureAwait(false);
+                string result = await _database.UploadNamespaceAndNodesetAsync(nameSpace, valuesContent, overwrite, User.Identity.Name).ConfigureAwait(false);
 
                 return View("Index", result);
             }

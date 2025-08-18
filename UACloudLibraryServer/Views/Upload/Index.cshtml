@@ -6,13 +6,18 @@
 <div class="row browser_top_container">
     <form method="post" enctype="multipart/form-data" asp-controller="Upload" asp-action="UploadNodeset">
         <p>
-            <b>Upload a nodeset file to the UA Cloud Library</b><br />
+            <b>Upload an OPC UA nodeset file, an accompanying node values file and additional metadata to the UA Cloud Library</b><br />
         </p>
         <p>
             <b>Upload status: @Model</b><br />
         </p>
         <p>
-            <input class="btn btn-primary" type="file" name="file">
+            OPC UA Nodeset file (<b>required</b>)<br />
+            <input class="btn btn-primary" type="file" name="nodesetFile">
+        </p>
+        <p>
+            Node values file<br />
+            <input class="btn btn-primary" type="file" name="values">
         </p>
         <p>
             Overwrite any existing nodeset file?<br />

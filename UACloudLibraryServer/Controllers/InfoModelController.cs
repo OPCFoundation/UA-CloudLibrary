@@ -257,7 +257,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult($"No nodeset XML was specified") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            string result = await _database.UploadNamespaceAndNodesetAsync(uaNamespace, overwrite, User.Identity.Name).ConfigureAwait(false);
+            string result = await _database.UploadNamespaceAndNodesetAsync(uaNamespace, string.Empty, overwrite, User.Identity.Name).ConfigureAwait(false);
             if (result != "success")
             {
                 return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.InternalServerError };

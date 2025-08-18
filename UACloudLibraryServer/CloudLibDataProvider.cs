@@ -165,7 +165,7 @@ namespace Opc.Ua.Cloud.Library
             return GenerateHashCode(nodeSet).ToString(CultureInfo.InvariantCulture);
         }
 
-        public async Task<string> UploadNamespaceAndNodesetAsync(UANameSpace uaNamespace, bool overwrite, string userId)
+        public async Task<string> UploadNamespaceAndNodesetAsync(UANameSpace uaNamespace, string values, bool overwrite, string userId)
         {
             UANodeSet nodeSet = null;
 
@@ -288,7 +288,7 @@ namespace Opc.Ua.Cloud.Library
             // At this point all inputs are validated: ready to store
 
             // upload the new file to the storage service, and get the file handle that the storage service returned
-            string storedFilename = await _storage.UploadFileAsync(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture), uaNamespace.Nodeset.NodesetXml, string.Empty).ConfigureAwait(false);
+            string storedFilename = await _storage.UploadFileAsync(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture), uaNamespace.Nodeset.NodesetXml, values).ConfigureAwait(false);
             if (string.IsNullOrEmpty(storedFilename) || (storedFilename != uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)))
             {
                 string message = "Error: NodeSet file could not be stored.";
