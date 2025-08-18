@@ -33,12 +33,13 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json.Linq;
 using Opc.Ua;
 using Opc.Ua.Client;
+using Opc.Ua.Client.ComplexTypes;
 using Opc.Ua.Cloud.Library;
 using Opc.Ua.Cloud.Library.NodeSetIndex;
 using Opc.Ua.Configuration;
+using Opc.Ua.Server;
 
 namespace AdminShell
 {
@@ -53,7 +54,7 @@ namespace AdminShell
         private readonly CloudLibDataProvider _database;
 
         private SimpleServer _server;
-        private Session _session;
+        private Opc.Ua.Client.Session _session;
         private SessionReconnectHandler _reconnectHandler;
 
         private static uint _port = 5000;
@@ -210,7 +211,7 @@ namespace AdminShell
             return results;
         }
 
-        private async Task<Session> CreateSessionAsync(string nodesetIdentifier)
+        private async Task<Opc.Ua.Client.Session> CreateSessionAsync(string nodesetIdentifier)
         {
             _server = new SimpleServer(_app, _port);
 
@@ -239,7 +240,7 @@ namespace AdminShell
             nodeManager.AddNodesAndValues(nodesetXml.Blob, nodesetXml.Values);
 
             ConfiguredEndpoint configuredEndpoint = new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(_app.ApplicationConfiguration));
-            return await Session.Create(
+            return await Opc.Ua.Client.Session.Create(
                     _app.ApplicationConfiguration,
                     configuredEndpoint,
                     true,
@@ -297,7 +298,7 @@ namespace AdminShell
                 return;
             }
 
-            _session = (Session)_reconnectHandler.Session;
+            _session = (Opc.Ua.Client.Session)_reconnectHandler.Session;
             _reconnectHandler.Dispose();
             _reconnectHandler = null;
 
@@ -333,7 +334,7 @@ namespace AdminShell
             }
         }
 
-        private ReferenceDescriptionCollection Browse(Session session, BrowseDescription nodeToBrowse)
+        private ReferenceDescriptionCollection Browse(Opc.Ua.Client.Session session, BrowseDescription nodeToBrowse)
         {
             ReferenceDescriptionCollection references = new ReferenceDescriptionCollection();
 
@@ -419,12 +420,20 @@ namespace AdminShell
                     _session.FetchNamespaceTables();
                 }
 
+                // read the variable node from the OPC UA server
+                VariableNode node = (VariableNode)_session.ReadNode(ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris));
+
                 ReadValueId valueId = new();
                 valueId.NodeId = ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris);
                 valueId.AttributeId = Attributes.Value;
                 valueId.IndexRange = null;
                 valueId.DataEncoding = null;
                 nodesToRead.Add(valueId);
+
+                // load complex type system
+                ComplexTypeSystem complexTypeSystem = new(_session);
+                ExpandedNodeId nodeTypeId = node.DataType;
+                await complexTypeSystem.LoadType(nodeTypeId).ConfigureAwait(false);
 
                 ResponseHeader responseHeader = _session.Read(null, 0, TimestampsToReturn.Both, nodesToRead, out values, out diagnosticInfos);
 
@@ -445,7 +454,7 @@ namespace AdminShell
             return value;
         }
 
-        public async Task<IServiceResponse> Read(string nodesetIdentifier, ReadRequest request)
+        public async Task VariableWrite(string nodesetIdentifier, string nodeId, string payload)
         {
             try
             {
@@ -454,120 +463,50 @@ namespace AdminShell
                     _session = await CreateSessionAsync(nodesetIdentifier).ConfigureAwait(false);
                     if (_session == null || !_session.Connected)
                     {
-                        return null;
+                        return;
                     }
 
                     _session.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
                     _session.FetchNamespaceTables();
                 }
 
-                ResponseHeader responseHeader = _session.Read(
-                    request.RequestHeader,
-                    request.MaxAge,
-                    request.TimestampsToReturn,
-                    request.NodesToRead,
-                    out DataValueCollection results,
-                    out DiagnosticInfoCollection diagnosticInfos);
+                NodeId nodeID = ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris);
 
-                for (int ii = 0; ii < request.NodesToRead.Count; ii++)
-                {
-                    if (request.NodesToRead[ii].AttributeId == 60)
-                    {
-                        results[ii] = ReadProperties(request, request.NodesToRead[ii]);
-                    }
-                }
-
-                ReadResponse response = new() {
-                    ResponseHeader = responseHeader,
-                    Results = results,
-                    DiagnosticInfos = diagnosticInfos
+                WriteValue nodeToWrite = new() {
+                    NodeId = nodeID,
+                    AttributeId = Attributes.Value,
+                    Value = new DataValue(payload)
                 };
 
-                return response;
+                WriteValueCollection nodesToWrite = new() {
+                    nodeToWrite
+                };
+
+                StatusCodeCollection results = null;
+                DiagnosticInfoCollection diagnosticInfos = null;
+
+                ResponseHeader responseHeader = _session.Write(
+                    null,
+                    nodesToWrite,
+                    out results,
+                    out diagnosticInfos);
+
+                ClientBase.ValidateResponse(results, nodesToWrite);
+                ClientBase.ValidateDiagnosticInfos(diagnosticInfos, nodesToWrite);
+
+                if (StatusCode.IsBad(results[0]))
+                {
+                    throw ServiceResultException.Create(results[0], 0, diagnosticInfos, responseHeader.StringTable);
+                }
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Read: " + ex.Message);
+                Console.WriteLine("Writing OPC UA node failed: " + ex.Message);
                 _session = null;
-                return null;
             }
         }
 
-        private DataValue ReadProperties(ReadRequest request, ReadValueId nodeToRead)
-        {
-            _session.Browse(
-                request.RequestHeader,
-                null,
-                0,
-                new BrowseDescriptionCollection([
-                    new BrowseDescription() {
-                        NodeId = nodeToRead.NodeId,
-                        ReferenceTypeId = ReferenceTypeIds.HasProperty,
-                        BrowseDirection = BrowseDirection.Forward,
-                        IncludeSubtypes = true,
-                        NodeClassMask = (uint)NodeClass.Variable,
-                        ResultMask = (uint)BrowseResultMask.BrowseName
-                    }
-                ]),
-                out BrowseResultCollection results1,
-                out DiagnosticInfoCollection diagnosticInfos1);
 
-            if (results1.Count == 0)
-            {
-                return new DataValue() { StatusCode = StatusCodes.BadNotFound, ServerTimestamp = DateTime.UtcNow };
-            }
-
-            ReadValueIdCollection nodesToRead = new();
-
-            foreach (var node in results1)
-            {
-                foreach (var reference in node.References)
-                {
-                    nodesToRead.Add(new ReadValueId() {
-                        NodeId = (NodeId)reference.NodeId,
-                        AttributeId = Attributes.Value,
-                        Handle = reference
-                    });
-                }
-            }
-
-            var responseHeader = _session.Read(
-                request.RequestHeader,
-                request.MaxAge,
-                TimestampsToReturn.Neither,
-                nodesToRead,
-                out DataValueCollection results,
-                out DiagnosticInfoCollection diagnosticInfos);
-
-            using (JsonEncoder encoder = new(ServiceMessageContext.GlobalContext, JsonEncodingType.Compact))
-            {
-                encoder.SuppressArtifacts = true;
-
-                for (int ii = 0; ii < nodesToRead.Count; ii++)
-                {
-                    ReferenceDescription reference = nodesToRead[ii].Handle as ReferenceDescription;
-
-                    encoder.WriteRawValue(
-                        new FieldMetaData() {
-                            Name = reference.BrowseName.Name,
-                            BuiltInType = (byte)results[ii].WrappedValue.TypeInfo.BuiltInType,
-                            ValueRank = results[ii].WrappedValue.TypeInfo.ValueRank,
-                            DataType = DataTypeIds.BaseDataType
-                        },
-                        results[ii],
-                        DataSetFieldContentMask.RawData);
-                }
-
-                string json = encoder.CloseAndReturnText();
-                JObject jobject = JObject.Parse(json);
-
-                return new DataValue() {
-                    WrappedValue = new ExtensionObject(nodeToRead.NodeId, jobject),
-                    StatusCode = Opc.Ua.StatusCodes.Good,
-                    ServerTimestamp = DateTime.UtcNow
-                };
-            }
-        }
 
         public void Dispose()
         {
