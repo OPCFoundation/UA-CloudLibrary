@@ -142,7 +142,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The expended node ID provided could not be found.")]
         public IActionResult GetNodeAsync(
             [FromQuery][SwaggerParameter("The expanded node ID of the OPC UA node requested, starting with nsu=.")] string expandedNodeId,
-            [FromQuery][SwaggerParameter("The publication date of the OPC UA Information Model containing the node")] DateTime publicationDate
+            [FromQuery][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier
             )
         {
             if (string.IsNullOrEmpty(expandedNodeId) || !expandedNodeId.StartsWith("nsu=", StringComparison.InvariantCulture))
@@ -150,7 +150,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("Could not parse expanded node ID") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            string nodeInfo = _database.GetNode(expandedNodeId, publicationDate);
+            string nodeInfo = _database.GetNode(expandedNodeId, identifier);
             if (string.IsNullOrEmpty(nodeInfo))
             {
                 return new ObjectResult("Failed to find node information") { StatusCode = (int)HttpStatusCode.NotFound };

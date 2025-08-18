@@ -43,6 +43,7 @@ using Microsoft.Extensions.Logging;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Cloud.Library.NodeSetIndex;
 using Opc.Ua.Export;
+using static NpgsqlTypes.NpgsqlTsQuery;
 
 namespace Opc.Ua.Cloud.Library
 {
@@ -96,41 +97,6 @@ namespace Opc.Ua.Cloud.Library
             }
 
             return nodeSets;
-        }
-
-        public IQueryable<ObjectTypeModel> GetObjectTypes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
-        {
-            return GetNodeModels<ObjectTypeModel>(nsm => nsm.ObjectTypes, modelUri, publicationDate, nodeId);
-        }
-
-        public IQueryable<VariableTypeModel> GetVariableTypes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
-        {
-            return GetNodeModels<VariableTypeModel>(nsm => nsm.VariableTypes, modelUri, publicationDate, nodeId);
-        }
-
-        public IQueryable<DataTypeModel> GetDataTypes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
-        {
-            return GetNodeModels<DataTypeModel>(nsm => nsm.DataTypes, modelUri, publicationDate, nodeId);
-        }
-
-        public IQueryable<ReferenceTypeModel> GetReferenceTypes(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
-        {
-            return GetNodeModels<ReferenceTypeModel>(nsm => nsm.ReferenceTypes, modelUri, publicationDate, nodeId);
-        }
-
-        public IQueryable<ObjectModel> GetObjects(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
-        {
-            return GetNodeModels<ObjectModel>(nsm => nsm.Objects, modelUri, publicationDate, nodeId);
-        }
-
-        public IQueryable<PropertyModel> GetProperties(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
-        {
-            return GetNodeModels<PropertyModel>(nsm => nsm.Properties, modelUri, publicationDate, nodeId);
-        }
-
-        public IQueryable<VariableModel> GetVariables(string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
-        {
-            return GetNodeModels<VariableModel>(nsm => nsm.DataVariables, modelUri, publicationDate, nodeId);
         }
 
         public IQueryable<NamespaceMetaDataModel> NamespaceMetaData
@@ -559,7 +525,7 @@ namespace Opc.Ua.Cloud.Library
                     return null;
                 }
 
-                return MapNamespaceMetaDataModelToRESTNamespace(namespaceModel, _dbContext);
+                return MapNamespaceMetaDataModelToRESTNamespace(namespaceModel);
             }
             catch (Exception ex)
             {
@@ -607,7 +573,7 @@ namespace Opc.Ua.Cloud.Library
                 .Select(n => NamespaceMetaData.Where(nmd => nmd.NodesetId == n.Identifier).Include(nmd => nmd.NodeSet).FirstOrDefault())
                 .ToList();
 
-            return uaNamespaceModel.Select(n => MapNamespaceMetaDataModelToRESTNamespace(n, _dbContext)).ToArray();
+            return uaNamespaceModel.Select(MapNamespaceMetaDataModelToRESTNamespace).ToArray();
         }
 
         public Task<string[]> GetAllNamespacesAndNodesets()
@@ -734,7 +700,7 @@ namespace Opc.Ua.Cloud.Library
             return nodesetModel;
         }
 
-        private UANameSpace MapNamespaceMetaDataModelToRESTNamespace(NamespaceMetaDataModel metadataModel, AppDbContext dbContext)
+        private UANameSpace MapNamespaceMetaDataModelToRESTNamespace(NamespaceMetaDataModel metadataModel)
         {
             return new UANameSpace {
                 CreationTime = metadataModel.CreationTime,
@@ -751,11 +717,11 @@ namespace Opc.Ua.Cloud.Library
                 TestSpecificationUrl = metadataModel.TestSpecificationUrl != null ? new Uri(metadataModel.TestSpecificationUrl) : null,
                 SupportedLocales = metadataModel.SupportedLocales,
                 NumberOfDownloads = metadataModel.NumberOfDownloads,
-                Nodeset = metadataModel.NodeSet == null ? null : MapNodeSetModelToRESTNodeSet(metadataModel.NodeSet, dbContext)
+                Nodeset = metadataModel.NodeSet == null ? null : MapNodeSetModelToRESTNodeSet(metadataModel.NodeSet)
             };
         }
 
-        private Nodeset MapNodeSetModelToRESTNodeSet(NodeSetModel model, AppDbContext dbContext)
+        private Nodeset MapNodeSetModelToRESTNodeSet(NodeSetModel model)
         {
             return new Nodeset {
                 Identifier = uint.Parse(model.Identifier, CultureInfo.InvariantCulture),
@@ -766,15 +732,14 @@ namespace Opc.Ua.Cloud.Library
                 NodesetXml = null,
                 RequiredModels = model.RequiredModels.Select(rm => {
 
-                    List<NodeSetModel> matchingNodesets = dbContext.Set<NodeSetModel>().Where(nsm => nsm.ModelUri == rm.ModelUri).ToList();
-
+                    List<NodeSetModel> matchingNodesets = _dbContext.Set<NodeSetModel>().Where(nsm => nsm.ModelUri == rm.ModelUri).ToList();
                     NodeSetModel availableNodeset = NodeModelUtils.GetMatchingOrHigherNodeSet(matchingNodesets, rm.PublicationDate, rm.Version);
 
                     return new RequiredModelInfo {
                         NamespaceUri = rm.ModelUri,
                         PublicationDate = rm.PublicationDate,
                         Version = rm.Version,
-                        AvailableModel = (availableNodeset != null) ? MapNodeSetModelToRESTNodeSet(availableNodeset, dbContext) : null
+                        AvailableModel = (availableNodeset != null) ? MapNodeSetModelToRESTNodeSet(availableNodeset) : null
                     };
                 }).ToList()
             };
@@ -785,11 +750,13 @@ namespace Opc.Ua.Cloud.Library
             NodeSetModel nodeSetMeta = await GetNodeSets(nodeSetID).FirstOrDefaultAsync().ConfigureAwait(false);
             if (nodeSetMeta != null)
             {
-                List<NodeModel> types = new();
-                types.AddRange(GetObjectTypes(nodeSetMeta.ModelUri));
-                types.AddRange(GetVariableTypes(nodeSetMeta.ModelUri));
-                types.AddRange(GetDataTypes(nodeSetMeta.ModelUri));
-                types.AddRange(GetReferenceTypes(nodeSetMeta.ModelUri));
+                List<NodeModel> types =
+                [
+                    .. GetNodeModels(nsm => nsm.ObjectTypes, nodeSetMeta.ModelUri),
+                    .. GetNodeModels(nsm => nsm.VariableTypes, nodeSetMeta.ModelUri),
+                    .. GetNodeModels(nsm => nsm.DataTypes, nodeSetMeta.ModelUri),
+                    .. GetNodeModels(nsm => nsm.ReferenceTypes, nodeSetMeta.ModelUri),
+                ];
 
                 List<string> typeList = new();
                 foreach (NodeModel model in types)
@@ -809,10 +776,12 @@ namespace Opc.Ua.Cloud.Library
             NodeSetModel nodeSetMeta = await GetNodeSets(nodeSetID).FirstOrDefaultAsync().ConfigureAwait(false);
             if (nodeSetMeta != null)
             {
-                List<NodeModel> instances = new();
-                instances.AddRange(GetObjects(nodeSetMeta.ModelUri));
-                instances.AddRange(GetProperties(nodeSetMeta.ModelUri));
-                instances.AddRange(GetVariables(nodeSetMeta.ModelUri));
+                List<NodeModel> instances =
+                [
+                    .. GetNodeModels(nsm => nsm.Objects, nodeSetMeta.ModelUri),
+                    .. GetNodeModels(nsm => nsm.Properties, nodeSetMeta.ModelUri),
+                    .. GetNodeModels(nsm => nsm.DataVariables, nodeSetMeta.ModelUri),
+                ];
 
                 List<string> instanceList = new();
                 foreach (NodeModel model in instances)
@@ -827,48 +796,50 @@ namespace Opc.Ua.Cloud.Library
             return Array.Empty<string>();
         }
 
-        public string GetNode(string expandedNodeId, DateTime publicationDate)
+        public string GetNode(string expandedNodeId, string identifier)
         {
             // create a substring from expandedNodeId by removing "nsu=" from the start and parsing until the first ";"
             string modelUri = expandedNodeId.Substring(4, expandedNodeId.IndexOf(';', StringComparison.OrdinalIgnoreCase) - 4);
 
-            ObjectTypeModel objectTypeModel = GetNodeModels<ObjectTypeModel>(nsm => nsm.ObjectTypes, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
+            NodeSetModel matchingNodeset = _dbContext.Set<NodeSetModel>().Where(nsm => nsm.Identifier == identifier).FirstOrDefault();
+
+            ObjectTypeModel objectTypeModel = GetNodeModels(nsm => nsm.ObjectTypes, modelUri, matchingNodeset.PublicationDate, expandedNodeId).FirstOrDefault();
             if (objectTypeModel != null)
             {
                 return "Object Type;" + objectTypeModel.ToString();
             }
 
-            VariableTypeModel variableTypeModel = GetNodeModels<VariableTypeModel>(nsm => nsm.VariableTypes, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
+            VariableTypeModel variableTypeModel = GetNodeModels(nsm => nsm.VariableTypes, modelUri, matchingNodeset.PublicationDate, expandedNodeId).FirstOrDefault();
             if (variableTypeModel != null)
             {
                 return "Variable Type;" + variableTypeModel.ToString();
             }
 
-            DataTypeModel dataTypeModel = GetNodeModels<DataTypeModel>(nsm => nsm.DataTypes, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
+            DataTypeModel dataTypeModel = GetNodeModels(nsm => nsm.DataTypes, modelUri, matchingNodeset.PublicationDate, expandedNodeId).FirstOrDefault();
             if (dataTypeModel != null)
             {
                 return "Data Type;" + dataTypeModel.ToString();
             }
 
-            ReferenceTypeModel referenceTypeModel = GetNodeModels<ReferenceTypeModel>(nsm => nsm.ReferenceTypes, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
+            ReferenceTypeModel referenceTypeModel = GetNodeModels(nsm => nsm.ReferenceTypes, modelUri, matchingNodeset.PublicationDate, expandedNodeId).FirstOrDefault();
             if (referenceTypeModel != null)
             {
                 return "Reference Type;" + referenceTypeModel.ToString();
             }
 
-            ObjectModel objectModel = GetNodeModels<ObjectModel>(nsm => nsm.Objects, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
+            ObjectModel objectModel = GetNodeModels(nsm => nsm.Objects, modelUri, matchingNodeset.PublicationDate, expandedNodeId).FirstOrDefault();
             if (objectModel != null)
             {
                 return "Object;" + objectModel.ToString();
             }
 
-            PropertyModel propertyModel = GetNodeModels<PropertyModel>(nsm => nsm.Properties, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
+            PropertyModel propertyModel = GetNodeModels(nsm => nsm.Properties, modelUri, matchingNodeset.PublicationDate, expandedNodeId).FirstOrDefault();
             if (propertyModel != null)
             {
                 return "Property;" + propertyModel.ToString();
             }
 
-            VariableModel variableModel = GetNodeModels<VariableModel>(nsm => nsm.DataVariables, modelUri, NodeModelUtils.GetNormalizedDate(publicationDate), expandedNodeId).FirstOrDefault();
+            DataVariableModel variableModel = GetNodeModels(nsm => nsm.DataVariables, modelUri, matchingNodeset.PublicationDate, expandedNodeId).FirstOrDefault();
             if (variableModel != null)
             {
                 return "Variable;" + variableModel.ToString();
