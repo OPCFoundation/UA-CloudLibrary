@@ -67,7 +67,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             [FromQuery][SwaggerParameter("Pagination limit")] int? limit
             )
         {
-            UANameSpace[] results = _database.FindNodesets(keywords, offset, limit);
+            UANameSpace[] results = _database.FindNodesets(keywords, User.Identity.Name, offset, limit);
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -76,7 +76,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 200, type: typeof(string[]), description: "All OPC UA Information Model namespace URIs and associated identifiers of the models found in the UA Cloud Library.")]
         public async Task<IActionResult> GetAllNamespacesandIdentifiersAsync()
         {
-            string[] results = await _database.GetAllNamespacesAndNodesets().ConfigureAwait(false);
+            string[] results = await _database.GetAllNamespacesAndNodesets(User.Identity.Name).ConfigureAwait(false);
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -85,7 +85,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 200, type: typeof(string[]), description: "All OPC UA Information Model names and associated identifiers of the models found in the UA Cloud Library.")]
         public async Task<IActionResult> GetAllNamesandIdentifiersAsync()
         {
-            string[] results = await _database.GetAllNamesAndNodesets().ConfigureAwait(false);
+            string[] results = await _database.GetAllNamesAndNodesets(User.Identity.Name).ConfigureAwait(false);
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -150,7 +150,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("Could not parse expanded node ID") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            string nodeInfo = _database.GetNode(expandedNodeId, identifier);
+            string nodeInfo = _database.GetNode(expandedNodeId, identifier, User.Identity.Name);
             if (string.IsNullOrEmpty(nodeInfo))
             {
                 return new ObjectResult("Failed to find node information") { StatusCode = (int)HttpStatusCode.NotFound };
@@ -193,7 +193,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult(nodesetXml) { StatusCode = (int)HttpStatusCode.OK };
             }
 
-            UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID).ConfigureAwait(false);
+            UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID, User.Identity.Name).ConfigureAwait(false);
             if (uaNamespace == null)
             {
                 return new ObjectResult("Failed to find nodeset metadata") { StatusCode = (int)HttpStatusCode.NotFound };
@@ -232,7 +232,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
             }
 
-            UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID).ConfigureAwait(false);
+            UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID, User.Identity.Name).ConfigureAwait(false);
             uaNamespace.Nodeset.NodesetXml = nodesetXml.Blob;
 
             await _database.DeleteAllRecordsForNodesetAsync(nodeSetID).ConfigureAwait(false);

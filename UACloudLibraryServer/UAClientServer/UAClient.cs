@@ -68,14 +68,14 @@ namespace AdminShell
             _database = database;
         }
 
-        public async Task<List<NodesetViewerNode>> GetChildren(string nodesetIdentifier, string nodeId)
+        public async Task<List<NodesetViewerNode>> GetChildren(string nodesetIdentifier, string nodeId, string userId)
         {
             List<NodesetViewerNode> nodes = null;
             ReferenceDescriptionCollection references = null;
 
             try
             {
-                if (!await ValidateSession(nodesetIdentifier).ConfigureAwait(false))
+                if (!await ValidateSession(nodesetIdentifier, userId).ConfigureAwait(false))
                 {
                     return null;
                 }
@@ -116,7 +116,7 @@ namespace AdminShell
             return nodes;
         }
 
-        public async Task<Dictionary<string, string>> BrowseVariableNodesResursivelyAsync(string nodesetIdentifier, string nodeId)
+        public async Task<Dictionary<string, string>> BrowseVariableNodesResursivelyAsync(string nodesetIdentifier, string nodeId, string userId)
         {
             Dictionary<string, string> results = new();
 
@@ -129,7 +129,7 @@ namespace AdminShell
 
             try
             {
-                if (!await ValidateSession(nodesetIdentifier).ConfigureAwait(false))
+                if (!await ValidateSession(nodesetIdentifier, userId).ConfigureAwait(false))
                 {
                     return null;
                 }
@@ -165,7 +165,7 @@ namespace AdminShell
                     {
                         try
                         {
-                            string value = await VariableRead(nodesetIdentifier, description.NodeId.ToString()).ConfigureAwait(false);
+                            string value = await VariableRead(nodesetIdentifier, description.NodeId.ToString(), userId).ConfigureAwait(false);
                             if (!string.IsNullOrEmpty(value))
                             {
                                 results.Add(description.NodeId.ToString(), value);
@@ -178,7 +178,7 @@ namespace AdminShell
                     }
 
                     // recursively browse child variable nodes
-                    Dictionary<string, string> childResults = await BrowseVariableNodesResursivelyAsync(nodesetIdentifier, description.NodeId.ToString()).ConfigureAwait(false);
+                    Dictionary<string, string> childResults = await BrowseVariableNodesResursivelyAsync(nodesetIdentifier, description.NodeId.ToString(), userId).ConfigureAwait(false);
                     if (childResults != null)
                     {
                         foreach (KeyValuePair<string, string> kvp in childResults)
@@ -195,7 +195,7 @@ namespace AdminShell
             return results;
         }
 
-        private async Task<Opc.Ua.Client.Session> CreateSessionAsync(string nodesetIdentifier)
+        private async Task<Opc.Ua.Client.Session> CreateSessionAsync(string nodesetIdentifier, string userId)
         {
             if (_sessions.TryGetValue(nodesetIdentifier, out Opc.Ua.Client.Session value) && (value != null) && value.Connected)
             {
@@ -221,7 +221,7 @@ namespace AdminShell
             NodesetFileNodeManager nodeManager = (NodesetFileNodeManager)_server.CurrentInstance.NodeManager.NodeManagers[2];
 
             // first load dependencies
-            await LoadDependentNodesetsRecursiveAsync(nodesetIdentifier, nodeManager).ConfigureAwait(false);
+            await LoadDependentNodesetsRecursiveAsync(nodesetIdentifier, nodeManager, userId).ConfigureAwait(false);
 
             // now load the nodeset itself
             DbFiles nodesetXml = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
@@ -248,7 +248,7 @@ namespace AdminShell
             return newSession;
         }
 
-        private async Task LoadDependentNodesetsRecursiveAsync(string nodesetIdentifier, NodesetFileNodeManager nodeManager)
+        private async Task LoadDependentNodesetsRecursiveAsync(string nodesetIdentifier, NodesetFileNodeManager nodeManager, string userId)
         {
             NodeSetModel nodeSetMeta = await _database.GetNodeSets(nodesetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false);
             if ((nodeSetMeta != null) && (nodeSetMeta.RequiredModels != null) && (nodeSetMeta.RequiredModels.Count > 0))
@@ -268,7 +268,7 @@ namespace AdminShell
                     }
 
                     // check if we have the required model in the database
-                    List<NodeSetModel> matchingNodeSets = await _database.NodeSets.Where(nsm => nsm.ModelUri == requiredModel.ModelUri).ToListAsync().ConfigureAwait(false);
+                    List<NodeSetModel> matchingNodeSets = await _database.NodeSets.Where(nsm => nsm.ModelUri == requiredModel.ModelUri && ((userId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId))).ToListAsync().ConfigureAwait(false);
                     if (matchingNodeSets == null || matchingNodeSets.Count == 0)
                     {
                         Console.WriteLine($"Required model {requiredModel.ModelUri} for {nodesetIdentifier} not found in database.");
@@ -278,7 +278,7 @@ namespace AdminShell
 
                     NodeSetModel dependentNodeset = NodeModelUtils.GetMatchingOrHigherNodeSet(matchingNodeSets, requiredModel.PublicationDate, requiredModel.Version);
 
-                    await LoadDependentNodesetsRecursiveAsync(dependentNodeset.Identifier, nodeManager).ConfigureAwait(false);
+                    await LoadDependentNodesetsRecursiveAsync(dependentNodeset.Identifier, nodeManager, userId).ConfigureAwait(false);
 
                     DbFiles nodesetXml = await _storage.DownloadFileAsync(dependentNodeset.Identifier).ConfigureAwait(false);
                     nodeManager.AddNamespace(nodesetXml.Blob);
@@ -387,7 +387,7 @@ namespace AdminShell
             return references;
         }
 
-        public async Task<string> VariableRead(string nodesetIdentifier, string nodeId)
+        public async Task<string> VariableRead(string nodesetIdentifier, string nodeId, string userId)
         {
             string value = string.Empty;
 
@@ -397,7 +397,7 @@ namespace AdminShell
                 DiagnosticInfoCollection diagnosticInfos = null;
                 ReadValueIdCollection nodesToRead = new();
 
-                if (!await ValidateSession(nodesetIdentifier).ConfigureAwait(false))
+                if (!await ValidateSession(nodesetIdentifier, userId).ConfigureAwait(false))
                 {
                     return string.Empty;
                 }
@@ -435,11 +435,11 @@ namespace AdminShell
             return value;
         }
 
-        public async Task VariableWrite(string nodesetIdentifier, string nodeId, string payload)
+        public async Task VariableWrite(string nodesetIdentifier, string nodeId, string payload, string userId)
         {
             try
             {
-                if (!await ValidateSession(nodesetIdentifier).ConfigureAwait(false))
+                if (!await ValidateSession(nodesetIdentifier, userId).ConfigureAwait(false))
                 {
                     return;
                 }
@@ -479,11 +479,11 @@ namespace AdminShell
             }
         }
 
-        private async Task<bool> ValidateSession(string nodesetIdentifier)
+        private async Task<bool> ValidateSession(string nodesetIdentifier, string userId)
         {
             if (_session == null || !_session.Connected)
             {
-                _session = await CreateSessionAsync(nodesetIdentifier).ConfigureAwait(false);
+                _session = await CreateSessionAsync(nodesetIdentifier, userId).ConfigureAwait(false);
                 if (_session == null || !_session.Connected)
                 {
                     Console.WriteLine("Failed to create OPC UA session.");

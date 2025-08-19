@@ -34,15 +34,19 @@
 @using System.Text.Json
 @using System.Web
 @using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Web;
 @using Microsoft.AspNetCore.Http
+@using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.JSInterop
 @using Opc.Ua.Cloud.Library.Models
+@using System.Security.Claims
 
 @inject IJSRuntime JS
 @inject CloudLibDataProvider DataProvider
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
 
 <div style="height:100%">
     <div class="uacl-container">
@@ -123,23 +127,23 @@
                 <ul class="pagination justify-content-center">
                     @if (FirstItemOnPage > 0)
                     {
-                        <li class="page-item"><a class="page-link" @onclick="() => changePage(-1)">Previous</a></li>
+                        <li class="page-item"><a class="page-link" @onclick="() => ChangePage(-1)">Previous</a></li>
                         @if (CurrentPage != 1)
                         {
-                            <li class="page-item"><a class="page-link" @onclick="() => changePageAbsolute(1)">1</a></li>
+                            <li class="page-item"><a class="page-link" @onclick="() => ChangePageAbsolute(1)">1</a></li>
                         }
                         @if (CurrentPage - 4 == 3)
                         {
-                            <li class="page-item"><a class="page-link" @onclick="() => changePageAbsolute(CurrentPage - 4)">2</a></li>
+                            <li class="page-item"><a class="page-link" @onclick="() => ChangePageAbsolute(CurrentPage - 4)">2</a></li>
                         }
                         @if (CurrentPage - 4 > 3)
                         {
-                            <li class="page-item"><a class="page-link" @onclick="() => changePageAbsolute(CurrentPage - 4)">...</a></li>
+                            <li class="page-item"><a class="page-link" @onclick="() => ChangePageAbsolute(CurrentPage - 4)">...</a></li>
                         }
                         @for (int i = Math.Max(2, CurrentPage - 4); i < CurrentPage; i++)
                         {
                             int j = i;
-                            <li class="page-item"><a class="page-link" @onclick="() => changePageAbsolute(j)">@i</a></li>
+                            <li class="page-item"><a class="page-link" @onclick="() => ChangePageAbsolute(j)">@i</a></li>
                         }
 
                         <li class="page-item active"><a class="page-link">@CurrentPage of @AllPages</a></li>
@@ -147,22 +151,22 @@
                         @for (int i = CurrentPage + 1; i <= Math.Min(AllPages - 1, CurrentPage + 4); i++)
                         {
                             int j = i;
-                            <li class="page-item"><a class="page-link" @onclick="() => changePageAbsolute(j)">@i</a></li>
+                            <li class="page-item"><a class="page-link" @onclick="() => ChangePageAbsolute(j)">@i</a></li>
                         }
                         @if (CurrentPage + 4 == AllPages - 2)
                         {
-                            <li class="page-item"><a class="page-link" @onclick="() => changePageAbsolute(CurrentPage + 4)">@(CurrentPage + 5)</a></li>
+                            <li class="page-item"><a class="page-link" @onclick="() => ChangePageAbsolute(CurrentPage + 4)">@(CurrentPage + 5)</a></li>
                         }
                         @if (CurrentPage + 4 < AllPages - 2)
                         {
-                            <li class="page-item"><a class="page-link" @onclick="() => changePageAbsolute(CurrentPage + 4)">...</a></li>
+                            <li class="page-item"><a class="page-link" @onclick="() => ChangePageAbsolute(CurrentPage + 4)">...</a></li>
                         }
 
                         @if (CurrentPage != AllPages)
                         {
-                            <li class="page-item"><a class="page-link" @onclick="() => changePageAbsolute(AllPages)">@AllPages</a></li>
+                            <li class="page-item"><a class="page-link" @onclick="() => ChangePageAbsolute(AllPages)">@AllPages</a></li>
                         }
-                        <li class="page-item"><a class="page-link" @onclick="() => changePage(+1)">Next</a></li>
+                        <li class="page-item"><a class="page-link" @onclick="() => ChangePage(+1)">Next</a></li>
                     }
                     else
                     {
@@ -183,7 +187,7 @@
     </div>
 </div>
 
-<div class="modal @ModalClass" tabindex="-1" role="dialog" style="display:@ModalDisplay;">
+<div class="modal @ModalClass" tabindex="-1" role="dialog" style="@ModalDisplay">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
@@ -220,7 +224,8 @@
         {
             SearchKeywords = keywords;
             CurrentPage = 1;
-            _ = fetchData();
+
+            _ = FetchData();
         }
     }
     private void OnPageSizeChanged(Microsoft.AspNetCore.Components.ChangeEventArgs patharg)
@@ -229,12 +234,13 @@
         {
             PAGE_SIZE = pageSize;
             CurrentPage = 1;
-            _ = fetchData();
+
+            _ = FetchData();
         }
     }
 
     private string ModalClass = "";
-    private string ModalDisplay = "none";
+    private string ModalDisplay = "display:none";
     private bool ShowBackDrop = false;
 
     private NamespaceMetaDataModel CurrentItem;
@@ -256,10 +262,15 @@
 
     private string[] SearchKeywords { get; set; } = new[] { "" };
 
+    private ClaimsPrincipal UserId;
 
     protected override async Task OnInitializedAsync()
     {
-        await fetchData().ConfigureAwait(false);
+        var state = await AuthStateProvider.GetAuthenticationStateAsync().ConfigureAwait(false);
+
+        UserId = state.User;
+
+        await FetchData().ConfigureAwait(false);
     }
 
     private async Task DownloadFileFromURL(NamespaceMetaDataModel item)
@@ -276,7 +287,7 @@
 
     private void Open(NamespaceMetaDataModel item)
     {
-        ModalDisplay = "block;";
+        ModalDisplay = "display:block;";
         ModalClass = "Show";
         ShowBackDrop = true;
         ModalTitle = item.Title;
@@ -289,33 +300,35 @@
 
     private void Close()
     {
-        ModalDisplay = "none";
+        ModalDisplay = "display:none";
         ModalClass = "";
         ShowBackDrop = false;
 
         StateHasChanged();
     }
 
-    private void changePageAbsolute(int requestedPage)
+    private void ChangePageAbsolute(int requestedPage)
     {
         var newPage = (this.TotalCount > 0) ? Math.Clamp(requestedPage, 1, (int)Math.Ceiling((decimal)this.TotalCount / PAGE_SIZE)) : 0;
         if (!CurrentPage.Equals(newPage))
         {
             CurrentPage = newPage;
-            _ = fetchData();
+
+            _ = FetchData();
         }
 
     }
-    private void changePage(int increment)
+
+    private void ChangePage(int increment)
     {
-        changePageAbsolute(this.CurrentPage + increment);
+        ChangePageAbsolute(this.CurrentPage + increment);
     }
 
-    private async Task fetchData()
+    private async Task FetchData()
     {
         Loading = true;
 
-        IOrderedQueryable<NamespaceMetaDataModel> allOrderedNodesets = DataProvider.GetNodeSets(keywords: SearchKeywords).Select(n => n.Metadata).OrderBy(md => md.Title);
+        IOrderedQueryable<NamespaceMetaDataModel> allOrderedNodesets = DataProvider.GetNodeSets(UserId.Identity.Name, keywords:SearchKeywords).Select(n => n.Metadata).OrderBy(md => md.Title);
 
         TotalCount = allOrderedNodesets.Count();
 

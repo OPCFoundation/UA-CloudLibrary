@@ -6,6 +6,7 @@
 @using System.Text.Json
 @using System.Web
 @using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Web;
 @using Microsoft.AspNetCore.Http
 @using AdminShell
@@ -104,8 +105,7 @@
     </div>
 </div>
 
-
-<div class="modal @ModalClass" tabindex="-1" role="dialog" style="display:@ModalDisplay;">
+<div class="modal @ModalClass" tabindex="-1" role="dialog" style="@ModalDisplay">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
@@ -134,7 +134,7 @@
 @code {
 
     private string ModalClass = "";
-    private string ModalDisplay = "none";
+    private string ModalDisplay = "display:none";
     private bool ShowBackDrop = false;
 
     private string ModalTitle = "Edit";
@@ -143,7 +143,7 @@
 
     private void OpenDialog(string value)
     {
-        ModalDisplay = "block;";
+        ModalDisplay = "display:block;";
         ModalClass = "Show";
         ShowBackDrop = true;
         ModalValue = value;
@@ -153,14 +153,14 @@
 
     private async Task Close(bool save)
     {
-        ModalDisplay = "none";
+        ModalDisplay = "display:none";
         ModalClass = "";
         ShowBackDrop = false;
 
         if (save)
         {
-            await _client.VariableWrite(NodesetIdentifier, SelectedNode.Id, ModalValue).ConfigureAwait(false);
-            NodeValue = await _client.VariableRead(NodesetIdentifier, SelectedNode.Id).ConfigureAwait(false);
+            await _client.VariableWrite(NodesetIdentifier, SelectedNode.Id, ModalValue, UserName).ConfigureAwait(false);
+            NodeValue = await _client.VariableRead(NodesetIdentifier, SelectedNode.Id, UserName).ConfigureAwait(false);
         }
 
         await InvokeAsync(StateHasChanged).ConfigureAwait(false);
@@ -199,7 +199,7 @@
     {
         if (node.Children.Count == 0)
         {
-            node.Children = await _client.GetChildren(NodesetIdentifier, node.Id).ConfigureAwait(false);
+            node.Children = await _client.GetChildren(NodesetIdentifier, node.Id, UserName).ConfigureAwait(false);
 
             if (node.Children != null)
             {
@@ -212,7 +212,7 @@
     {
         SelectedNode = node;
 
-        NodeValue = await _client.VariableRead(NodesetIdentifier, node.Id).ConfigureAwait(false);
+        NodeValue = await _client.VariableRead(NodesetIdentifier, node.Id, UserName).ConfigureAwait(false);
     }
 
     private bool HasChildNodes(NodesetViewerNode node)
