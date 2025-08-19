@@ -186,7 +186,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             {
                 return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
-            
+
             UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID, User.Identity.Name).ConfigureAwait(false);
             if (uaNamespace == null)
             {
