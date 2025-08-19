@@ -24,13 +24,13 @@ namespace AdminShell
             _database = database;
         }
 
-        public ActionResult Index(string nodesetIdentifier, string nodesetName, string userName)
+        public ActionResult Index(string nodesetIdentifier, string nodesetName, string userName, string statusMessage)
         {
             return View("Index", new BrowserModel() {
                 NodesetIdentifier = nodesetIdentifier,
                 NodesetName = nodesetName,
                 UserName = userName,
-                StatusMessage = string.Empty
+                StatusMessage = statusMessage
             });
         }
 
@@ -58,19 +58,18 @@ namespace AdminShell
                 if (name == null)
                 {
                     model.StatusMessage = "Failed to save changes to this nodeset.";
-                    return View("Index", model);
                 }
                 else
                 {
                     model.StatusMessage = "Save operation successful";
-                    return View("Index", model);
                 }
             }
             else
             {
                 model.StatusMessage = "You are not authorized to save changes to this nodeset.";
-                return View("Index", model);
             }
+
+            return LocalRedirect($"/browser?NodesetIdentifier={model.NodesetIdentifier}&NodesetName={model.NodesetName}&UserName={model.UserName}&StatusMessage={model.StatusMessage}");
         }
     }
 }
