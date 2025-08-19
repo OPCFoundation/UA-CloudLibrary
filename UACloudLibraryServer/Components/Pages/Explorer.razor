@@ -282,7 +282,7 @@
 
     private void ViewFileFromURL(NamespaceMetaDataModel item)
     {
-        NavigationManager.NavigateTo($"/browser?NodesetIdentifier={item.NodeSet.Identifier}&NodesetName={item.Title}&UserName={item.UserId}", true);
+        NavigationManager.NavigateTo($"/browser?NodesetIdentifier={item.NodeSet.Identifier}&NodesetName={item.Title}&UserName={UserId.Identity.Name}", true);
     }
 
     private void Open(NamespaceMetaDataModel item)

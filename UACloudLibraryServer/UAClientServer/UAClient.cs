@@ -32,15 +32,16 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Opc.Ua;
 using Opc.Ua.Client;
 using Opc.Ua.Client.ComplexTypes;
 using Opc.Ua.Cloud.Library;
+using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Cloud.Library.NodeSetIndex;
 using Opc.Ua.Configuration;
-using Opc.Ua.Server;
 
 namespace AdminShell
 {
@@ -250,7 +251,7 @@ namespace AdminShell
 
         private async Task LoadDependentNodesetsRecursiveAsync(string nodesetIdentifier, NodesetFileNodeManager nodeManager, string userId)
         {
-            NodeSetModel nodeSetMeta = await _database.GetNodeSets(nodesetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false);
+            NodeSetModel nodeSetMeta = await _database.GetNodeSets(userId, nodesetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false);
             if ((nodeSetMeta != null) && (nodeSetMeta.RequiredModels != null) && (nodeSetMeta.RequiredModels.Count > 0))
             {
                 foreach (RequiredModelInfoModel requiredModel in nodeSetMeta.RequiredModels)
@@ -492,6 +493,37 @@ namespace AdminShell
             }
 
             return true;
+        }
+
+        public async Task<string> CopyNodeset(string nodesetIdentifier, string name, string userId)
+        {
+            try
+            {
+                DbFiles file = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
+
+                UANameSpace metadata = await _database.RetrieveAllMetadataAsync(uint.Parse(nodesetIdentifier, CultureInfo.InvariantCulture), userId).ConfigureAwait(false);
+
+                metadata.Title = name;
+                metadata.Nodeset.NodesetXml = file.Blob;
+
+                // update publication date in nodeset XML with current date in UTC format
+                const string key = "PublicationDate=\"";
+                int keyIndex = metadata.Nodeset.NodesetXml.IndexOf(key, StringComparison.Ordinal);
+                int start = keyIndex + key.Length;
+                string now = DateTime.UtcNow.Date.ToString("yyyy-MM-ddTHH:mm:ss'Z'", CultureInfo.InvariantCulture);
+
+                var sb = new StringBuilder(metadata.Nodeset.NodesetXml);
+                sb.Remove(start, 20);
+                sb.Insert(start, now);
+                metadata.Nodeset.NodesetXml = sb.ToString();
+
+                return await _database.UploadNamespaceAndNodesetAsync(metadata, file.Values, false, userId).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("CopyNodeset: " + ex.Message);
+                return ex.Message;
+            }
         }
 
         public void Dispose()

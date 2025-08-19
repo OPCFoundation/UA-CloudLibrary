@@ -62,19 +62,34 @@
                         <div class="col-6">
                             <div class="card h-100">
                                 <div class="card-header">
-                                    <b>Node Browser</b>
+                                    <b>Nodeset Browser</b>
                                 </div>
                                 <div class="card-body">
                                     <Tree Nodes="TreeNodes" TNode="NodesetViewerNode" ChildSelector="node => node.Children" SelectedNodeChanged="SelectedNodeChanged" OnNodeExpand="OnNodeExpand" HasChildNodes="HasChildNodes">
                                         <TitleTemplate>
-                                            @if (context.Id.StartsWith("nsu="))
+                                            @if (context.Id == SelectedNode.Id)
                                             {
-                                                <span><b>@context.Text</b></span>
+                                                if (context.Id.StartsWith("nsu="))
+                                                {
+                                                    <span style="color: red;"><b>@context.Text</b></span>
+                                                }
+                                                else
+                                                {
+                                                    <span style="color: red;">@context.Text</span>
+                                                }
                                             }
                                             else
                                             {
-                                                <span>@context.Text</span>
+                                                if (context.Id.StartsWith("nsu="))
+                                                {
+                                                    <span><b>@context.Text</b></span>
+                                                }
+                                                else
+                                                {
+                                                    <span>@context.Text</span>
+                                                }
                                             }
+
                                         </TitleTemplate>
                                     </Tree>
                                 </div>
@@ -83,8 +98,8 @@
                         <div class="col-6">
                             <div class="card h-100">
                                 <div class="card-header">
-                                    <b>Selected Node Value</b>
-                                    <button type="button" class="btn btn-primary" style="float: right" @onclick="() => OpenDialog(NodeValue)">Edit</button>
+                                    <b><span style="color: red;">Selected Node</span> Value</b>
+                                    <button type="button" class="btn btn-primary" style="float: right" @onclick="() => OpenEditDialog(NodeValue)">Edit</button>
                                 </div>
                                 <div class="card-body">
                                     @if (!string.IsNullOrEmpty(NodeValue))
@@ -95,6 +110,19 @@
                                     {
                                         <span>(none)</span>
                                     }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </p>
+                <p>
+                    <div class="col-12 row">
+                        <div class="col-6">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <b>Nodeset File</b>
+                                    <button type="button" class="btn btn-primary" style="float: right" @onclick="() => OpenCopyDialog()">Copy</button><br/>
+                                    @CopyStatus
                                 </div>
                             </div>
                         </div>
@@ -133,20 +161,38 @@
 
 @code {
 
-    private string ModalClass = "";
+    private string ModalClass = string.Empty;
     private string ModalDisplay = "display:none";
     private bool ShowBackDrop = false;
 
-    private string ModalTitle = "Edit";
-    private string ModalDescription = "Edit node value";
-    private string ModalValue = "";
+    private string ModalTitle = string.Empty;
+    private string ModalDescription = string.Empty;
+    private string ModalValue = string.Empty;
 
-    private void OpenDialog(string value)
+    private string CopyStatus = string.Empty;
+
+    private void OpenEditDialog(string value)
     {
         ModalDisplay = "display:block;";
         ModalClass = "Show";
         ShowBackDrop = true;
+
+        ModalTitle = "Edit";
+        ModalDescription = "Edit node value";
         ModalValue = value;
+
+        StateHasChanged();
+    }
+
+    private void OpenCopyDialog()
+    {
+        ModalDisplay = "display:block;";
+        ModalClass = "Show";
+        ShowBackDrop = true;
+
+        ModalTitle = "Copy";
+        ModalDescription = "New nodeset name";
+        ModalValue = NodesetName;
 
         StateHasChanged();
     }
@@ -157,10 +203,15 @@
         ModalClass = "";
         ShowBackDrop = false;
 
-        if (save)
+        if ((ModalTitle == "Edit") && save)
         {
             await _client.VariableWrite(NodesetIdentifier, SelectedNode.Id, ModalValue, UserName).ConfigureAwait(false);
             NodeValue = await _client.VariableRead(NodesetIdentifier, SelectedNode.Id, UserName).ConfigureAwait(false);
+        }
+
+        if ((ModalTitle == "Copy") && save)
+        {
+            CopyStatus = await _client.CopyNodeset(NodesetIdentifier, ModalValue, UserName).ConfigureAwait(false);
         }
 
         await InvokeAsync(StateHasChanged).ConfigureAwait(false);

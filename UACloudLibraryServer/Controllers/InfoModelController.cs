@@ -103,7 +103,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            string[] types = await _database.GetAllTypes(identifier).ConfigureAwait(false);
+            string[] types = await _database.GetAllTypes(User.Identity.Name, identifier).ConfigureAwait(false);
             if ((types == null) || (types.Length == 0))
             {
                 return new ObjectResult("Failed to find nodeset types") { StatusCode = (int)HttpStatusCode.NotFound };
@@ -126,7 +126,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            string[] instances = await _database.GetAllInstances(identifier).ConfigureAwait(false);
+            string[] instances = await _database.GetAllInstances(User.Identity.Name, identifier).ConfigureAwait(false);
             if ((instances == null) || (instances.Length == 0))
             {
                 return new ObjectResult("Failed to find nodeset instances") { StatusCode = (int)HttpStatusCode.NotFound };

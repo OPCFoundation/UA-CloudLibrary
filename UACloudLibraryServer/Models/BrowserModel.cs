@@ -8,5 +8,7 @@ namespace AdminShell
         public string NodesetName { get; set; }
 
         public string UserName { get; set; }
+
+        public string StatusMessage { get; set; }
     }
 }

@@ -780,17 +780,17 @@ namespace Opc.Ua.Cloud.Library
             };
         }
 
-        public async Task<string[]> GetAllTypes(string nodeSetID)
+        public async Task<string[]> GetAllTypes(string userId, string nodeSetID)
         {
-            NodeSetModel nodeSetMeta = await GetNodeSets(nodeSetID).FirstOrDefaultAsync().ConfigureAwait(false);
+            NodeSetModel nodeSetMeta = await GetNodeSets(userId, nodeSetID).FirstOrDefaultAsync().ConfigureAwait(false);
             if (nodeSetMeta != null)
             {
                 List<NodeModel> types =
                 [
-                    .. GetNodeModels(nsm => nsm.ObjectTypes, nodeSetMeta.ModelUri),
-                    .. GetNodeModels(nsm => nsm.VariableTypes, nodeSetMeta.ModelUri),
-                    .. GetNodeModels(nsm => nsm.DataTypes, nodeSetMeta.ModelUri),
-                    .. GetNodeModels(nsm => nsm.ReferenceTypes, nodeSetMeta.ModelUri),
+                    .. GetNodeModels(nsm => nsm.ObjectTypes, userId, nodeSetMeta.ModelUri),
+                    .. GetNodeModels(nsm => nsm.VariableTypes, userId, nodeSetMeta.ModelUri),
+                    .. GetNodeModels(nsm => nsm.DataTypes, userId, nodeSetMeta.ModelUri),
+                    .. GetNodeModels(nsm => nsm.ReferenceTypes, userId, nodeSetMeta.ModelUri),
                 ];
 
                 List<string> typeList = new();
@@ -806,16 +806,16 @@ namespace Opc.Ua.Cloud.Library
             return Array.Empty<string>();
         }
 
-        public async Task<string[]> GetAllInstances(string nodeSetID)
+        public async Task<string[]> GetAllInstances(string userId, string nodeSetID)
         {
-            NodeSetModel nodeSetMeta = await GetNodeSets(nodeSetID).FirstOrDefaultAsync().ConfigureAwait(false);
+            NodeSetModel nodeSetMeta = await GetNodeSets(userId, nodeSetID).FirstOrDefaultAsync().ConfigureAwait(false);
             if (nodeSetMeta != null)
             {
                 List<NodeModel> instances =
                 [
-                    .. GetNodeModels(nsm => nsm.Objects, nodeSetMeta.ModelUri),
-                    .. GetNodeModels(nsm => nsm.Properties, nodeSetMeta.ModelUri),
-                    .. GetNodeModels(nsm => nsm.DataVariables, nodeSetMeta.ModelUri),
+                    .. GetNodeModels(nsm => nsm.Objects, userId, nodeSetMeta.ModelUri),
+                    .. GetNodeModels(nsm => nsm.Properties, userId, nodeSetMeta.ModelUri),
+                    .. GetNodeModels(nsm => nsm.DataVariables, userId, nodeSetMeta.ModelUri),
                 ];
 
                 List<string> instanceList = new();

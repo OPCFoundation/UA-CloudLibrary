@@ -25,7 +25,7 @@
                                 <div class="card-header">
                                     @using (Html.BeginForm("Download", "Browser", Model))
                                     {
-                                        <b>Download node values file</b>
+                                        <b>Download node values</b>
                                         <input id="downloadButton" class="btn btn-primary btn_browser" style="float: right" type="submit" value="Download" />
                                     }
                                 </div>
@@ -39,6 +39,7 @@
                                         <b>Save node values</b>
                                         <input id="saveButton" class="btn btn-primary btn_browser" style="float: right" type="submit" value="Save" />
                                     }
+                                    @Model.StatusMessage
                                 </div>
                             </div>
                         </div>

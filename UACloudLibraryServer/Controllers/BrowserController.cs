@@ -1,10 +1,12 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using Opc.Ua.Cloud.Library;
+using Opc.Ua.Cloud.Library.Models;
 
 namespace AdminShell
 {
@@ -13,11 +15,13 @@ namespace AdminShell
     {
         private readonly UAClient _client;
         private readonly DbFileStorage _storage;
+        private readonly CloudLibDataProvider _database;
 
-        public BrowserController(UAClient client, DbFileStorage storage)
+        public BrowserController(UAClient client, DbFileStorage storage, CloudLibDataProvider database)
         {
             _client = client;
             _storage = storage;
+            _database = database;
         }
 
         public ActionResult Index(string nodesetIdentifier, string nodesetName, string userName)
@@ -25,7 +29,8 @@ namespace AdminShell
             return View("Index", new BrowserModel() {
                 NodesetIdentifier = nodesetIdentifier,
                 NodesetName = nodesetName,
-                UserName = userName
+                UserName = userName,
+                StatusMessage = string.Empty
             });
         }
 
@@ -40,7 +45,9 @@ namespace AdminShell
         [HttpPost]
         public async Task<ActionResult> Save(BrowserModel model)
         {
-            if (User.Identity.Name == model.UserName)
+            NamespaceMetaDataModel nodeSet = _database.NamespaceMetaData.Where(n => n.NodesetId == model.NodesetIdentifier).FirstOrDefault();
+
+            if ((nodeSet != null) && (User.Identity.Name == nodeSet.UserId))
             {
                 DbFiles nodesetXml = await _storage.DownloadFileAsync(model.NodesetIdentifier).ConfigureAwait(false);
 
@@ -50,25 +57,19 @@ namespace AdminShell
                 string name = await _storage.UploadFileAsync(model.NodesetIdentifier, nodesetXml.Blob, nodesetXml.Values).ConfigureAwait(false);
                 if (name == null)
                 {
-                    return Json(new {
-                        success = false,
-                        message = "Failed to save changes to the nodeset."
-                    });
+                    model.StatusMessage = "Failed to save changes to this nodeset.";
+                    return View("Index", model);
                 }
                 else
                 {
-                    return Json(new {
-                        success = true,
-                        message = "Save operation successful"
-                    });
+                    model.StatusMessage = "Save operation successful";
+                    return View("Index", model);
                 }
             }
             else
             {
-                return Json(new {
-                    success = false,
-                    message = "You are not authorized to save changes for this nodeset."
-                });
+                model.StatusMessage = "You are not authorized to save changes to this nodeset.";
+                return View("Index", model);
             }
         }
     }
