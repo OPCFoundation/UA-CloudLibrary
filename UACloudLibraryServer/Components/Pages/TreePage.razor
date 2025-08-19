@@ -13,7 +13,7 @@
 
 @inject UAClient _client
 
-<h1>@NodesetName</h1>
+<h1>@NodesetName (@UserName)</h1>
 <div style="height:100%">
     <div class="uacl-container">
         <div class="uacl-content">
@@ -175,6 +175,8 @@
     [Parameter] public string NodesetIdentifier { get;set; }
 
     [Parameter] public string NodesetName { get; set; }
+
+    [Parameter] public string UserName { get; set; }
 
     protected override async Task OnInitializedAsync()
     {

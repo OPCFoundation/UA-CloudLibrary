@@ -153,10 +153,8 @@ namespace AdminShell
             {
                 foreach (ReferenceDescription description in references)
                 {
-                    NodeId id = ExpandedNodeId.ToNodeId(description.NodeId, _session.NamespaceUris);
-
                     // skip nodes from default namespace
-                    if (id.NamespaceIndex == 0)
+                    if (description.NodeId.NamespaceIndex == 0)
                     {
                         continue; // skip default namespace
                     }
@@ -165,10 +163,10 @@ namespace AdminShell
                     {
                         try
                         {
-                            DataValue value = _session.ReadValue(ExpandedNodeId.ToNodeId(description.NodeId, _session.NamespaceUris));
-                            if ((value != null) && (value.WrappedValue != Variant.Null))
+                            string value = await VariableRead(nodesetIdentifier, description.NodeId.ToString()).ConfigureAwait(false);
+                            if (!string.IsNullOrEmpty(value))
                             {
-                                results.Add(NodeId.ToExpandedNodeId(id, _session.NamespaceUris).ToString(), value.ToString());
+                                results.Add(description.NodeId.ToString(), value);
                             }
                         }
                         catch (Exception)
@@ -178,7 +176,7 @@ namespace AdminShell
                     }
 
                     // recursively browse child variable nodes
-                    Dictionary<string, string> childResults = await BrowseVariableNodesResursivelyAsync(nodesetIdentifier, id.ToString()).ConfigureAwait(false);
+                    Dictionary<string, string> childResults = await BrowseVariableNodesResursivelyAsync(nodesetIdentifier, description.NodeId.ToString()).ConfigureAwait(false);
                     if (childResults != null)
                     {
                         foreach (KeyValuePair<string, string> kvp in childResults)

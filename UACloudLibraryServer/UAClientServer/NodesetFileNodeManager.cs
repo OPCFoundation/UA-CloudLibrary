@@ -155,12 +155,21 @@ namespace AdminShell
                         if (!string.IsNullOrEmpty(values))
                         {
                             Dictionary<string, string> keyvalues = JsonConvert.DeserializeObject<Dictionary<string, string>>(values);
-                            foreach (KeyValuePair<string, string> value in keyvalues)
+                            foreach (KeyValuePair<string, string> pair in keyvalues)
                             {
-                                NodeId nodeId = new NodeId(NodeId.Parse(value.Key).Identifier, (ushort)Server.NamespaceUris.GetIndex(namespaceUri));
+                                NodeId nodeId;
+                                if (pair.Key.StartsWith("nsu=", StringComparison.Ordinal))
+                                {
+                                    nodeId = ExpandedNodeId.ToNodeId(new ExpandedNodeId(pair.Key), Server.NamespaceUris);
+                                }
+                                else
+                                {
+                                    nodeId = new NodeId(NodeId.Parse(pair.Key).Identifier, (ushort)Server.NamespaceUris.GetIndex(namespaceUri));
+                                }
+
                                 if (Find(nodeId) is BaseVariableState variable)
                                 {
-                                    variable.Value = new Variant(value.Value);
+                                    variable.Value = new Variant(pair.Value);
                                 }
                             }
                         }

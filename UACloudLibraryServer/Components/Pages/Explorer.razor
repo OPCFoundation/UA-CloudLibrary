@@ -88,6 +88,9 @@
                                                 </p>
                                                 <div class="card-text-footer">
                                                     <div>
+                                                        Owner: @item.UserId
+                                                    </div>
+                                                    <div>
                                                         License: @item.License
                                                     </div>
                                                     <div>
@@ -268,7 +271,7 @@
 
     private void ViewFileFromURL(NamespaceMetaDataModel item)
     {
-        NavigationManager.NavigateTo($"/browser?NodesetIdentifier={item.NodeSet.Identifier}&NodesetName={item.Title}", true);
+        NavigationManager.NavigateTo($"/browser?NodesetIdentifier={item.NodeSet.Identifier}&NodesetName={item.Title}&UserName={item.UserId}", true);
     }
 
     private void Open(NamespaceMetaDataModel item)
