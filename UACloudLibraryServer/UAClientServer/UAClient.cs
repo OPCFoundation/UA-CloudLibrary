@@ -28,6 +28,7 @@
  * ======================================================================*/
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -58,6 +59,7 @@ namespace AdminShell
         private SessionReconnectHandler _reconnectHandler;
 
         private static uint _port = 5000;
+        private static ConcurrentDictionary<string, Opc.Ua.Client.Session> _sessions = new();
 
         public UAClient(ApplicationInstance app, DbFileStorage storage, CloudLibDataProvider database)
         {
@@ -195,6 +197,11 @@ namespace AdminShell
 
         private async Task<Opc.Ua.Client.Session> CreateSessionAsync(string nodesetIdentifier)
         {
+            if (_sessions.TryGetValue(nodesetIdentifier, out Opc.Ua.Client.Session value) && (value != null) && value.Connected)
+            {
+                return value;
+            }
+
             _server = new SimpleServer(_app, _port);
 
             await _server.StartServerAsync().ConfigureAwait(false);
@@ -222,7 +229,7 @@ namespace AdminShell
             nodeManager.AddNodesAndValues(nodesetXml.Blob, nodesetXml.Values);
 
             ConfiguredEndpoint configuredEndpoint = new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(_app.ApplicationConfiguration));
-            return await Opc.Ua.Client.Session.Create(
+            Opc.Ua.Client.Session newSession = await Opc.Ua.Client.Session.Create(
                     _app.ApplicationConfiguration,
                     configuredEndpoint,
                     true,
@@ -231,6 +238,14 @@ namespace AdminShell
                     30000,
                     new UserIdentity(new AnonymousIdentityToken()),
                     null).ConfigureAwait(false);
+
+            newSession.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
+
+            newSession.FetchNamespaceTables();
+
+            _sessions[nodesetIdentifier] = newSession;
+
+            return newSession;
         }
 
         private async Task LoadDependentNodesetsRecursiveAsync(string nodesetIdentifier, NodesetFileNodeManager nodeManager)
@@ -474,9 +489,6 @@ namespace AdminShell
                     Console.WriteLine("Failed to create OPC UA session.");
                     return false;
                 }
-
-                _session.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
-                _session.FetchNamespaceTables();
             }
 
             return true;
