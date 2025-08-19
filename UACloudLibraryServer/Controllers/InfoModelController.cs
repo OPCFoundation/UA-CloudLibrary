@@ -186,17 +186,19 @@ namespace Opc.Ua.Cloud.Library.Controllers
             {
                 return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
+            
+            UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID, User.Identity.Name).ConfigureAwait(false);
+            if (uaNamespace == null)
+            {
+                return new ObjectResult("Failed to find nodeset metadata") { StatusCode = (int)HttpStatusCode.NotFound };
+            }
+
+            // if we got here, the user is allowed to download the nodeset
 
             if (nodesetXMLOnly)
             {
                 await _database.IncrementDownloadCountAsync(nodeSetID).ConfigureAwait(false);
                 return new ObjectResult(nodesetXml) { StatusCode = (int)HttpStatusCode.OK };
-            }
-
-            UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID, User.Identity.Name).ConfigureAwait(false);
-            if (uaNamespace == null)
-            {
-                return new ObjectResult("Failed to find nodeset metadata") { StatusCode = (int)HttpStatusCode.NotFound };
             }
 
             uaNamespace.Nodeset.NodesetXml = nodesetXml.Blob;
@@ -233,6 +235,11 @@ namespace Opc.Ua.Cloud.Library.Controllers
             }
 
             UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID, User.Identity.Name).ConfigureAwait(false);
+            if (uaNamespace == null)
+            {
+                return new ObjectResult("Failed to find nodeset metadata") { StatusCode = (int)HttpStatusCode.NotFound };
+            }
+
             uaNamespace.Nodeset.NodesetXml = nodesetXml.Blob;
 
             await _database.DeleteAllRecordsForNodesetAsync(nodeSetID).ConfigureAwait(false);
