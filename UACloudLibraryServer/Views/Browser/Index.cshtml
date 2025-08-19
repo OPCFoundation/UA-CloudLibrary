@@ -10,7 +10,8 @@
 
 @(await Html.RenderComponentAsync<TreePage>(RenderMode.ServerPrerendered, new {
     NodesetIdentifier = Model.NodesetIdentifier,
-    NodesetName = Model.NodesetName
+    NodesetName = Model.NodesetName,
+    UserName = Model.UserName
 }).ConfigureAwait(false))
 
 <div style="height:100%">
@@ -26,6 +27,17 @@
                                     {
                                         <b>Download node values file</b>
                                         <input id="downloadButton" class="btn btn-primary btn_browser" style="float: right" type="submit" value="Download" />
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    @using (Html.BeginForm("Save", "Browser", Model))
+                                    {
+                                        <b>Save node values file</b>
+                                        <input id="saveButton" class="btn btn-primary btn_browser" style="float: right" type="submit" value="Save" />
                                     }
                                 </div>
                             </div>
