@@ -63,8 +63,6 @@ namespace AdminShell
         {
             _app = app;
             _storage = storage;
-            _session = null;
-            _reconnectHandler = null;
             _database = database;
         }
 
@@ -75,16 +73,9 @@ namespace AdminShell
 
             try
             {
-                if (_session == null || !_session.Connected)
+                if (!await ValidateSession(nodesetIdentifier).ConfigureAwait(false))
                 {
-                    _session = await CreateSessionAsync(nodesetIdentifier).ConfigureAwait(false);
-                    if (_session == null || !_session.Connected)
-                    {
-                        return null;
-                    }
-
-                    _session.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
-                    _session.FetchNamespaceTables();
+                    return null;
                 }
 
                 BrowseDescription nodeToBrowse = new() {
@@ -136,16 +127,9 @@ namespace AdminShell
 
             try
             {
-                if (_session == null || !_session.Connected)
+                if (!await ValidateSession(nodesetIdentifier).ConfigureAwait(false))
                 {
-                    _session = await CreateSessionAsync(nodesetIdentifier).ConfigureAwait(false);
-                    if (_session == null || !_session.Connected)
-                    {
-                        return null;
-                    }
-
-                    _session.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
-                    _session.FetchNamespaceTables();
+                    return null;
                 }
 
                 BrowseDescription nodeToBrowse = new BrowseDescription {
@@ -343,57 +327,49 @@ namespace AdminShell
                 nodeToBrowse
             };
 
-            try
+            session.Browse(
+            null,
+            null,
+            0,
+            nodesToBrowse,
+            out BrowseResultCollection results,
+            out DiagnosticInfoCollection diagnosticInfos);
+
+            ClientBase.ValidateResponse(results, nodesToBrowse);
+            ClientBase.ValidateDiagnosticInfos(diagnosticInfos, nodesToBrowse);
+
+            do
             {
-                session.Browse(
-                null,
-                null,
-                0,
-                nodesToBrowse,
-                out BrowseResultCollection results,
-                out DiagnosticInfoCollection diagnosticInfos);
-
-                ClientBase.ValidateResponse(results, nodesToBrowse);
-                ClientBase.ValidateDiagnosticInfos(diagnosticInfos, nodesToBrowse);
-
-                do
+                if (StatusCode.IsBad(results[0].StatusCode))
                 {
-                    if (StatusCode.IsBad(results[0].StatusCode))
-                    {
-                        break;
-                    }
-
-                    for (int i = 0; i < results[0].References.Count; i++)
-                    {
-                        references.Add(results[0].References[i]);
-                    }
-
-                    if (results[0].References.Count == 0 || results[0].ContinuationPoint == null)
-                    {
-                        break;
-                    }
-
-                    ByteStringCollection continuationPoints = new ByteStringCollection {
-                        results[0].ContinuationPoint
-                    };
-
-                    session.BrowseNext(
-                        null,
-                        false,
-                        continuationPoints,
-                        out results,
-                        out diagnosticInfos);
-
-                    ClientBase.ValidateResponse(results, continuationPoints);
-                    ClientBase.ValidateDiagnosticInfos(diagnosticInfos, continuationPoints);
+                    break;
                 }
-                while (true);
+
+                for (int i = 0; i < results[0].References.Count; i++)
+                {
+                    references.Add(results[0].References[i]);
+                }
+
+                if (results[0].References.Count == 0 || results[0].ContinuationPoint == null)
+                {
+                    break;
+                }
+
+                ByteStringCollection continuationPoints = new ByteStringCollection {
+                    results[0].ContinuationPoint
+                };
+
+                session.BrowseNext(
+                    null,
+                    false,
+                    continuationPoints,
+                    out results,
+                    out diagnosticInfos);
+
+                ClientBase.ValidateResponse(results, continuationPoints);
+                ClientBase.ValidateDiagnosticInfos(diagnosticInfos, continuationPoints);
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Browse: " + ex.Message);
-                _session = null;
-            }
+            while (true);
 
             return references;
         }
@@ -408,16 +384,9 @@ namespace AdminShell
                 DiagnosticInfoCollection diagnosticInfos = null;
                 ReadValueIdCollection nodesToRead = new();
 
-                if (_session == null || !_session.Connected)
+                if (!await ValidateSession(nodesetIdentifier).ConfigureAwait(false))
                 {
-                    _session = await CreateSessionAsync(nodesetIdentifier).ConfigureAwait(false);
-                    if (_session == null || !_session.Connected)
-                    {
-                        return string.Empty;
-                    }
-
-                    _session.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
-                    _session.FetchNamespaceTables();
+                    return string.Empty;
                 }
 
                 // read the variable node from the OPC UA server
@@ -448,7 +417,6 @@ namespace AdminShell
             catch (Exception ex)
             {
                 Console.WriteLine("VariableRead: " + ex.Message);
-                _session = null;
             }
 
             return value;
@@ -458,16 +426,9 @@ namespace AdminShell
         {
             try
             {
-                if (_session == null || !_session.Connected)
+                if (!await ValidateSession(nodesetIdentifier).ConfigureAwait(false))
                 {
-                    _session = await CreateSessionAsync(nodesetIdentifier).ConfigureAwait(false);
-                    if (_session == null || !_session.Connected)
-                    {
-                        return;
-                    }
-
-                    _session.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
-                    _session.FetchNamespaceTables();
+                    return;
                 }
 
                 NodeId nodeID = ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris);
@@ -502,11 +463,26 @@ namespace AdminShell
             catch (Exception ex)
             {
                 Console.WriteLine("Writing OPC UA node failed: " + ex.Message);
-                _session = null;
             }
         }
 
+        private async Task<bool> ValidateSession(string nodesetIdentifier)
+        {
+            if (_session == null || !_session.Connected)
+            {
+                _session = await CreateSessionAsync(nodesetIdentifier).ConfigureAwait(false);
+                if (_session == null || !_session.Connected)
+                {
+                    Console.WriteLine("Failed to create OPC UA session.");
+                    return false;
+                }
 
+                _session.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
+                _session.FetchNamespaceTables();
+            }
+
+            return true;
+        }
 
         public void Dispose()
         {

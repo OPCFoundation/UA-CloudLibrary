@@ -83,6 +83,7 @@
                             <div class="card h-100">
                                 <div class="card-header">
                                     <b>Selected Node Value</b>
+                                    <button type="button" class="btn btn-primary" style="float: right" @onclick="() => OpenDialog(NodeValue)">Edit</button>
                                 </div>
                                 <div class="card-body">
                                     @if (!string.IsNullOrEmpty(NodeValue))
@@ -103,11 +104,73 @@
     </div>
 </div>
 
+
+<div class="modal @ModalClass" tabindex="-1" role="dialog" style="display:@ModalDisplay;">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@ModalTitle</h5>
+            </div>
+            <div class="modal-body">
+                @ModalDescription
+            </div>
+            <div class="modal-body">
+                <input class="modal-input" @bind=@ModalValue />
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => Close(true)">Save</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => Close(false)">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (ShowBackDrop)
+{
+    <div class="modal-backdrop fade show"></div>
+}
+
+
 @code {
+
+    private string ModalClass = "";
+    private string ModalDisplay = "none";
+    private bool ShowBackDrop = false;
+
+    private string ModalTitle = "Edit";
+    private string ModalDescription = "Edit node value";
+    private string ModalValue = "";
+
+    private void OpenDialog(string value)
+    {
+        ModalDisplay = "block;";
+        ModalClass = "Show";
+        ShowBackDrop = true;
+        ModalValue = value;
+
+        StateHasChanged();
+    }
+
+    private async Task Close(bool save)
+    {
+        ModalDisplay = "none";
+        ModalClass = "";
+        ShowBackDrop = false;
+
+        if (save)
+        {
+            await _client.VariableWrite(NodesetIdentifier, SelectedNode.Id, ModalValue).ConfigureAwait(false);
+            NodeValue = await _client.VariableRead(NodesetIdentifier, SelectedNode.Id).ConfigureAwait(false);
+        }
+
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+    }
 
     private List<NodesetViewerNode> TreeNodes = new();
 
     private string NodeValue { get; set; } = string.Empty;
+
+    private NodesetViewerNode SelectedNode { get; set; } = null;
 
     [Parameter] public string NodesetIdentifier { get;set; }
 
@@ -125,6 +188,7 @@
         };
 
         TreeNodes.Add(root);
+        SelectedNode = root;
 
         await OnNodeExpand(root).ConfigureAwait(false);
     }
@@ -144,6 +208,8 @@
 
     private async Task SelectedNodeChanged(NodesetViewerNode node)
     {
+        SelectedNode = node;
+
         NodeValue = await _client.VariableRead(NodesetIdentifier, node.Id).ConfigureAwait(false);
     }
 

@@ -22,12 +22,10 @@
                         <div class="col-6">
                             <div class="card h-100">
                                 <div class="card-header">
-                                    <b>Download node values file</b><br/>
-                                </div>
-                                <div class="card-body">
                                     @using (Html.BeginForm("Download", "Browser", Model))
                                     {
-                                        <input id="downloadButton" class="btn btn-primary btn_browser" type="submit" value="Download" />
+                                        <b>Download node values file</b>
+                                        <input id="downloadButton" class="btn btn-primary btn_browser" style="float: right" type="submit" value="Download" />
                                     }
                                 </div>
                             </div>
