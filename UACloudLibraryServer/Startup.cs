@@ -408,7 +408,7 @@ namespace Opc.Ua.Cloud.Library
             private void OpcStackLoggingHandler(object sender, TraceEventArgs e)
             {
                 ApplicationInstance app = sender as ApplicationInstance;
-                if ((e.TraceMask & (Utils.TraceMasks.Error | Utils.TraceMasks.StackTrace | Utils.TraceMasks.Service | Utils.TraceMasks.StartStop | Utils.TraceMasks.ExternalSystem | Utils.TraceMasks.Security)) != 0)
+                if ((e.TraceMask & (Utils.TraceMasks.Error | Utils.TraceMasks.StackTrace | Utils.TraceMasks.StartStop | Utils.TraceMasks.ExternalSystem | Utils.TraceMasks.Security)) != 0)
                 {
                     if (e.Exception != null)
                     {
