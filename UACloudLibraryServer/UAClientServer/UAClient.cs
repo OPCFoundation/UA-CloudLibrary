@@ -269,7 +269,9 @@ namespace AdminShell
                     }
 
                     // check if we have the required model in the database
-                    List<NodeSetModel> matchingNodeSets = await _database.NodeSets.Where(nsm => nsm.ModelUri == requiredModel.ModelUri && ((userId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId))).ToListAsync().ConfigureAwait(false);
+                    List<NodeSetModel> matchingNodeSets = await _database.NodeSets
+                        .Where(nsm => nsm.ModelUri == requiredModel.ModelUri && IsUserAuthorizedForNodeSet(userId, nsm))
+                        .ToListAsync().ConfigureAwait(false);
                     if (matchingNodeSets == null || matchingNodeSets.Count == 0)
                     {
                         Console.WriteLine($"Required model {requiredModel.ModelUri} for {nodesetIdentifier} not found in database.");
