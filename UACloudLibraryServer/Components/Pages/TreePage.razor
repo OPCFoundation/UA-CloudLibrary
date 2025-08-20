@@ -14,7 +14,7 @@
 
 @inject UAClient _client
 
-<h1>@NodesetName (@UserName)</h1>
+<h1>@NodesetName</h1>
 <div style="height:100%">
     <div class="uacl-container">
         <div class="uacl-content">
@@ -158,8 +158,13 @@
     <div class="modal-backdrop fade show"></div>
 }
 
-
 @code {
+
+    [Parameter] public string NodesetIdentifier { get;set; }
+
+    [Parameter] public string NodesetName { get; set; }
+
+    [Parameter] public string UserName { get; set; }
 
     private string ModalClass = string.Empty;
     private string ModalDisplay = "display:none";
@@ -170,6 +175,12 @@
     private string ModalValue = string.Empty;
 
     private string CopyStatus = string.Empty;
+
+    private List<NodesetViewerNode> TreeNodes = new();
+
+    private string NodeValue { get; set; } = string.Empty;
+
+    private NodesetViewerNode SelectedNode { get; set; } = null;
 
     private void OpenEditDialog(string value)
     {
@@ -216,18 +227,6 @@
 
         await InvokeAsync(StateHasChanged).ConfigureAwait(false);
     }
-
-    private List<NodesetViewerNode> TreeNodes = new();
-
-    private string NodeValue { get; set; } = string.Empty;
-
-    private NodesetViewerNode SelectedNode { get; set; } = null;
-
-    [Parameter] public string NodesetIdentifier { get;set; }
-
-    [Parameter] public string NodesetName { get; set; }
-
-    [Parameter] public string UserName { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
