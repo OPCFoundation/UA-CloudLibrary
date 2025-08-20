@@ -230,11 +230,13 @@ namespace Opc.Ua.Cloud.Library
                         // check userId matches if nodeset already exists
                         NamespaceMetaDataModel existingLegacyNamespaces = _dbContext.NamespaceMetaDataWithUnapproved
                             .Where(n => (n.NodesetId == legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)) && ((userId == "admin") || (n.UserId == userId) || string.IsNullOrEmpty(n.UserId)))
-                            .Include(n => n.NodeSet).FirstOrDefault();
+                            .Include(n => n.NodeSet)
+                            .FirstOrDefault();
+
                         if (existingLegacyNamespaces != null)
                         {
                             // we treat no user in the database like an admin user
-                            if (string.IsNullOrEmpty(existingLegacyNamespaces.UserId) || (userId != "admin"))
+                            if (string.IsNullOrEmpty(existingLegacyNamespaces.UserId) && (userId != "admin"))
                             {
                                 return $"Nodeset already exists for admin user. Cannot overwrite with user {userId}";
                             }
@@ -263,11 +265,13 @@ namespace Opc.Ua.Cloud.Library
             // check userId matches if nodeset already exists
             NamespaceMetaDataModel existingNamespaces = _dbContext.NamespaceMetaDataWithUnapproved
                 .Where(n => (n.NodesetId == uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)) && ((userId == "admin") || (n.UserId == userId) || string.IsNullOrEmpty(n.UserId)))
-                .Include(n => n.NodeSet).FirstOrDefault();
+                .Include(n => n.NodeSet)
+                .FirstOrDefault();
+
             if (existingNamespaces != null)
             {
                 // we treat no user in the database like an admin user
-                if (string.IsNullOrEmpty(existingNamespaces.UserId) || (userId != "admin"))
+                if (string.IsNullOrEmpty(existingNamespaces.UserId) && (userId != "admin"))
                 {
                     return $"Nodeset already exists for admin user. Cannot overwrite with user {userId}";
                 }
