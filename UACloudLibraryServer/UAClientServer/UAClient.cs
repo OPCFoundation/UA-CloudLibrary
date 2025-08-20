@@ -270,8 +270,10 @@ namespace AdminShell
 
                     // check if we have the required model in the database
                     List<NodeSetModel> matchingNodeSets = await _database.NodeSets
-                        .Where(nsm => nsm.ModelUri == requiredModel.ModelUri && IsUserAuthorizedForNodeSet(userId, nsm))
-                        .ToListAsync().ConfigureAwait(false);
+                        .Where(nsm => nsm.ModelUri == requiredModel.ModelUri && ((userId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId)))
+                        .ToListAsync()
+                        .ConfigureAwait(false);
+
                     if (matchingNodeSets == null || matchingNodeSets.Count == 0)
                     {
                         Console.WriteLine($"Required model {requiredModel.ModelUri} for {nodesetIdentifier} not found in database.");
@@ -515,7 +517,7 @@ namespace AdminShell
                 string now = DateTime.UtcNow.Date.ToString("yyyy-MM-ddTHH:mm:ss'Z'", CultureInfo.InvariantCulture);
 
                 var sb = new StringBuilder(metadata.Nodeset.NodesetXml);
-                sb.Remove(start, 20);
+                sb.Remove(start, now.Length);
                 sb.Insert(start, now);
                 metadata.Nodeset.NodesetXml = sb.ToString();
 
