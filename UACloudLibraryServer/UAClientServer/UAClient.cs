@@ -528,6 +528,15 @@ namespace AdminShell
 
         public void Dispose()
         {
+            // remove session from our concurrent dictionary
+            foreach (var key in _sessions.Keys.ToList())
+            {
+                if (_sessions[key] == _session)
+                {
+                    _sessions.TryRemove(key, out _);
+                }
+            }
+
             if (_session != null)
             {
                 if (_session.Connected)
