@@ -201,10 +201,10 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult(nodesetXml) { StatusCode = (int)HttpStatusCode.OK };
             }
 
-            uaNamespace.Nodeset.NodesetXml = nodesetXml.Blob;
-
             if (!metadataOnly)
             {
+                uaNamespace.Nodeset.NodesetXml = nodesetXml.Blob;
+
                 // Only count downloads with XML payload
                 await _database.IncrementDownloadCountAsync(nodeSetID).ConfigureAwait(false);
             }
