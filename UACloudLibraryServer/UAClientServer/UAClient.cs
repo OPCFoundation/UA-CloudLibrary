@@ -203,19 +203,30 @@ namespace AdminShell
                 return value;
             }
 
-            _server = new SimpleServer(_app, _port);
-
-            await _server.StartServerAsync().ConfigureAwait(false);
-
-            EndpointDescription selectedEndpoint = CoreClientUtils.SelectEndpoint(_app.ApplicationConfiguration, "opc.tcp://localhost:" + _port, true);
-
-            lock (_app)
+            EndpointDescription selectedEndpoint = null;
+            while (selectedEndpoint == null)
             {
-                _port++;
-
-                if (_port > 10000)
+                try
                 {
-                    _port = 5000;
+                    _server = new SimpleServer(_app, _port);
+
+                    await _server.StartServerAsync().ConfigureAwait(false);
+
+                    selectedEndpoint = CoreClientUtils.SelectEndpoint(_app.ApplicationConfiguration, "opc.tcp://localhost:" + _port, true);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Failed to establish an OPC UA server connection on port " + _port + ": " + ex.Message);
+                }
+
+                lock (_app)
+                {
+                    _port++;
+
+                    if (_port > 10000)
+                    {
+                        _port = 5000;
+                    }
                 }
             }
 
