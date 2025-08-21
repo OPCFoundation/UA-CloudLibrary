@@ -12,7 +12,7 @@ namespace BlobToPGTable
     using Azure.Storage.Blobs.Models;
     using Google.Cloud.Storage.V1;
     using Npgsql;
-      
+
     internal sealed class Program
     {
         static async Task Main(string[] args)
