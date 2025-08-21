@@ -83,7 +83,7 @@ namespace AdminShell
             outputEnv.AssetAdministrationShells = new List<AssetAdministrationShell>();
             outputEnv.Submodels = new List<Submodel>();
 
-            var aasList = _aasEnvService.GetAllAssetAdministrationShells();
+            var aasList = _aasEnvService.GetAllAssetAdministrationShells(User.Identity.Name);
             foreach (var aasId in decodedAasIds)
             {
                 var foundAas = aasList.Where(a => a.Identification.Id.Equals(aasId, StringComparison.OrdinalIgnoreCase));

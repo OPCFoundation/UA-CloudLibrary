@@ -295,6 +295,13 @@ namespace Opc.Ua.Cloud.Library
 
             app.UseSwaggerUI(c => {
                 c.SwaggerEndpoint("/swagger/v1/swagger.json", "UA Cloud Library REST Service");
+                // Persist the entered Authorization headers between page reloads
+
+                // TODO -- Just for dev-time. Remove before shipping.
+                // c.ConfigObject.AdditionalItems["persistAuthorization"] = true;
+
+                // TODO -- Just for dev-time. Remove before shipping.
+                c.EnablePersistAuthorization();
             });
 
             app.UseHttpsRedirection();

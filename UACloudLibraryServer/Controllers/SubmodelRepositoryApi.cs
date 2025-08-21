@@ -88,7 +88,7 @@ namespace AdminShell
                 decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
             }
 
-            List<SubmodelElement> submodelElements = await _aasEnvService.GetAllSubmodelElementsFromSubmodel(decodedSubmodelIdentifier).ConfigureAwait(false);
+            List<SubmodelElement> submodelElements = await _aasEnvService.GetAllSubmodelElementsFromSubmodel(decodedSubmodelIdentifier, User.Identity.Name).ConfigureAwait(false);
 
             PagedResult<SubmodelElement> output = PagedResult.ToPagedList<SubmodelElement>(submodelElements, new PaginationParameters(cursor, limit));
 
@@ -163,7 +163,7 @@ namespace AdminShell
         {
             string decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
 
-            Submodel output = await _aasEnvService.GetSubmodelById(decodedSubmodelIdentifier).ConfigureAwait(false);
+            Submodel output = await _aasEnvService.GetSubmodelById(decodedSubmodelIdentifier, User.Identity.Name).ConfigureAwait(false);
 
             return new ObjectResult(output);
         }
@@ -201,7 +201,7 @@ namespace AdminShell
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedSubmodelIdentifier)} is null");
             }
 
-            byte[] content = await _aasEnvService.GetFileByPath(decodedSubmodelIdentifier, idShortPath).ConfigureAwait(false);
+            byte[] content = await _aasEnvService.GetFileByPath(decodedSubmodelIdentifier, idShortPath, User.Identity.Name).ConfigureAwait(false);
 
             // content-disposition so that the aasx file can be downloaded from the web browser.
             ContentDisposition contentDisposition = new() {
@@ -251,7 +251,7 @@ namespace AdminShell
                 decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
             }
 
-            SubmodelElement output = await _aasEnvService.GetSubmodelElementByPath(decodedSubmodelIdentifier, idShortPath).ConfigureAwait(false);
+            SubmodelElement output = await _aasEnvService.GetSubmodelElementByPath(decodedSubmodelIdentifier, idShortPath, User.Identity.Name).ConfigureAwait(false);
 
             return new ObjectResult(output);
         }
