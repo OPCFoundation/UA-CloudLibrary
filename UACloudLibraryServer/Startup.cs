@@ -132,6 +132,14 @@ namespace Opc.Ua.Cloud.Library
                     })
                     .AddMicrosoftIdentityWebApi(Configuration.GetSection("AzureAd"));
             }
+            if (Configuration["google_client_id"] != null)
+            {
+                services.AddAuthentication().AddGoogle(googleOptions =>
+                {
+                    googleOptions.ClientId = Configuration["google_client_id"];
+                    googleOptions.ClientSecret = Configuration["google_client_secret"];
+                });
+            }
 
             if (Configuration["OAuth2ClientId"] != null)
             {
