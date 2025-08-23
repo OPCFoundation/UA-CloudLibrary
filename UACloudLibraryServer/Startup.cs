@@ -34,12 +34,21 @@ using System.IO;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using AdminShell;
+using Castle.Core.Configuration;
+using DataPlane.Sdk.Api.Authorization.DataFlows;
+using DataPlane.Sdk.Core;
+using DataPlane.Sdk.Core.Data;
+using DataPlane.Sdk.Core.Domain.Messages;
+using DataPlane.Sdk.Core.Domain.Model;
+using DataPlane.Sdk.Core.Infrastructure;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OAuth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
@@ -53,9 +62,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Identity.Web;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Opc.Ua.Cloud.Library.Authentication;
 using Opc.Ua.Configuration;
+using IConfiguration = Microsoft.Extensions.Configuration.IConfiguration;
+using Void = DataPlane.Sdk.Core.Domain.Void;
 
 [assembly: CLSCompliant(false)]
 namespace Opc.Ua.Cloud.Library
@@ -102,6 +114,31 @@ namespace Opc.Ua.Cloud.Library
             services.AddScoped<AssetAdministrationShellEnvironmentService>();
 
             services.AddScoped<CaptchaValidation>();
+
+            services.AddSingleton<IAuthorizationHandler, DataFlowAuthorizationHandler>();
+
+            var config = Configuration.GetSection("DataPlaneSdk").Get<DataPlaneSdkOptions>() ?? throw new ArgumentException("Configuration invalid!");
+            var sdk = new DataPlaneSdk {
+                DataFlowStore = DataFlowContextFactory.CreatePostgres(Configuration, config.RuntimeId),
+                RuntimeId = config.RuntimeId,
+                OnStart = f => StatusResult<DataFlowResponseMessage>.Success(new DataFlowResponseMessage { DataAddress = f.Destination }),
+                OnRecover = _ => StatusResult<Void>.Success(default),
+                OnTerminate = _ => StatusResult<Void>.Success(default),
+                OnSuspend = _ => StatusResult<Void>.Success(default),
+                OnProvision = f => StatusResult<IList<ProvisionResource>>.Success([])
+            };
+
+            services.Configure<ControlApiOptions>(Configuration.GetSection("DataPlaneSdk:ControlApi"));
+
+            // add SDK core services
+            services.AddSdkServices(sdk);
+
+            // Use JWT Bearer authentication for the SDK API calls.
+            // TODO: Fix this: ConfigureExampleJwtAuthentication(services, Configuration);
+
+            services.AddAuthorizationBuilder()
+                .AddPolicy("DataFlowAccess", policy =>
+                    policy.Requirements.Add(new DataFlowRequirement()));
 
             if (!string.IsNullOrEmpty(Configuration["UseSendGridEmailSender"]))
             {
@@ -313,6 +350,38 @@ namespace Opc.Ua.Cloud.Library
 
                 endpoints.MapRazorPages();
             });
+        }
+
+        /// <summary>
+        ///     Configures JWT Bearer authentication for the SDK API calls. This uses a symmetric key for signing, which is
+        ///     configured in appsettings.*.json.
+        ///     Please note that this is only for testing and demo purposes, in real-life scenarios a proper identity provider such
+        ///     as Keycloak should be used.
+        ///     DO NOT DO THIS IN PRODUCTION!
+        /// </summary>
+        /// <param name="services"></param>
+        /// <param name="configuration"></param>
+        /// <exception cref="InvalidOperationException">thrown if appsettings does not contain a Token:SecretKey entry</exception>
+        private static void ConfigureExampleJwtAuthentication(IServiceCollection services, IConfiguration configuration)
+        {
+            var jwtSettings = configuration.GetSection("JwtSettings");
+            // add authentication handler
+            services.AddAuthentication("DataPlaneSdkJWT_example")
+                .AddJwtBearer("DataPlaneSdkJWT_example", options => {
+                    options.TokenValidationParameters = new TokenValidationParameters {
+                        ValidateIssuer = true,
+                        ValidIssuer = jwtSettings["Issuer"],
+                        ValidateAudience = true,
+                        ValidAudience = jwtSettings["Audience"],
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey =
+                            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["SecretKey"] ??
+                                                                            throw new InvalidOperationException("JwtSettings:SecretKey must not be empty"))),
+                        ValidateLifetime = true,
+                        ValidateActor = false,
+                        ValidateTokenReplay = true
+                    };
+                });
         }
 
 
