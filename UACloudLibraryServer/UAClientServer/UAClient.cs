@@ -28,15 +28,18 @@
  * ======================================================================*/
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json.Linq;
 using Opc.Ua;
 using Opc.Ua.Client;
+using Opc.Ua.Client.ComplexTypes;
 using Opc.Ua.Cloud.Library;
+using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Cloud.Library.NodeSetIndex;
 using Opc.Ua.Configuration;
 
@@ -53,37 +56,29 @@ namespace AdminShell
         private readonly CloudLibDataProvider _database;
 
         private SimpleServer _server;
-        private Session _session;
+        private Opc.Ua.Client.Session _session;
         private SessionReconnectHandler _reconnectHandler;
 
         private static uint _port = 5000;
+        private static ConcurrentDictionary<string, Opc.Ua.Client.Session> _sessions = new();
 
         public UAClient(ApplicationInstance app, DbFileStorage storage, CloudLibDataProvider database)
         {
             _app = app;
             _storage = storage;
-            _session = null;
-            _reconnectHandler = null;
             _database = database;
         }
 
-        public async Task<List<NodesetViewerNode>> GetChildren(string nodesetIdentifier, string nodeId)
+        public async Task<List<NodesetViewerNode>> GetChildren(string nodesetIdentifier, string nodeId, string userId)
         {
             List<NodesetViewerNode> nodes = null;
             ReferenceDescriptionCollection references = null;
 
             try
             {
-                if (_session == null || !_session.Connected)
+                if (!await ValidateSession(nodesetIdentifier, userId).ConfigureAwait(false))
                 {
-                    _session = await CreateSessionAsync(nodesetIdentifier).ConfigureAwait(false);
-                    if (_session == null || !_session.Connected)
-                    {
-                        return null;
-                    }
-
-                    _session.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
-                    _session.FetchNamespaceTables();
+                    return null;
                 }
 
                 BrowseDescription nodeToBrowse = new() {
@@ -122,7 +117,7 @@ namespace AdminShell
             return nodes;
         }
 
-        public async Task<Dictionary<string, string>> BrowseVariableNodesResursivelyAsync(string nodesetIdentifier, string nodeId)
+        public async Task<Dictionary<string, string>> BrowseVariableNodesResursivelyAsync(string nodesetIdentifier, string nodeId, string userId)
         {
             Dictionary<string, string> results = new();
 
@@ -135,16 +130,9 @@ namespace AdminShell
 
             try
             {
-                if (_session == null || !_session.Connected)
+                if (!await ValidateSession(nodesetIdentifier, userId).ConfigureAwait(false))
                 {
-                    _session = await CreateSessionAsync(nodesetIdentifier).ConfigureAwait(false);
-                    if (_session == null || !_session.Connected)
-                    {
-                        return null;
-                    }
-
-                    _session.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
-                    _session.FetchNamespaceTables();
+                    return null;
                 }
 
                 BrowseDescription nodeToBrowse = new BrowseDescription {
@@ -168,10 +156,8 @@ namespace AdminShell
             {
                 foreach (ReferenceDescription description in references)
                 {
-                    NodeId id = ExpandedNodeId.ToNodeId(description.NodeId, _session.NamespaceUris);
-
                     // skip nodes from default namespace
-                    if (id.NamespaceIndex == 0)
+                    if (description.NodeId.NamespaceIndex == 0)
                     {
                         continue; // skip default namespace
                     }
@@ -180,10 +166,10 @@ namespace AdminShell
                     {
                         try
                         {
-                            DataValue value = _session.ReadValue(ExpandedNodeId.ToNodeId(description.NodeId, _session.NamespaceUris));
-                            if ((value != null) && (value.WrappedValue != Variant.Null))
+                            string value = await VariableRead(nodesetIdentifier, description.NodeId.ToString(), userId).ConfigureAwait(false);
+                            if (!string.IsNullOrEmpty(value))
                             {
-                                results.Add(NodeId.ToExpandedNodeId(id, _session.NamespaceUris).ToString(), value.ToString());
+                                results.Add(description.NodeId.ToString(), value);
                             }
                         }
                         catch (Exception)
@@ -193,7 +179,7 @@ namespace AdminShell
                     }
 
                     // recursively browse child variable nodes
-                    Dictionary<string, string> childResults = await BrowseVariableNodesResursivelyAsync(nodesetIdentifier, id.ToString()).ConfigureAwait(false);
+                    Dictionary<string, string> childResults = await BrowseVariableNodesResursivelyAsync(nodesetIdentifier, description.NodeId.ToString(), userId).ConfigureAwait(false);
                     if (childResults != null)
                     {
                         foreach (KeyValuePair<string, string> kvp in childResults)
@@ -210,28 +196,44 @@ namespace AdminShell
             return results;
         }
 
-        private async Task<Session> CreateSessionAsync(string nodesetIdentifier)
+        private async Task<Opc.Ua.Client.Session> CreateSessionAsync(string nodesetIdentifier, string userId)
         {
-            _server = new SimpleServer(_app, _port);
-
-            await _server.StartServerAsync().ConfigureAwait(false);
-
-            EndpointDescription selectedEndpoint = CoreClientUtils.SelectEndpoint(_app.ApplicationConfiguration, "opc.tcp://localhost:" + _port, true);
-
-            lock (_app)
+            if (_sessions.TryGetValue(nodesetIdentifier, out Opc.Ua.Client.Session value) && (value != null) && value.Connected)
             {
-                _port++;
+                return value;
+            }
 
-                if (_port > 10000)
+            EndpointDescription selectedEndpoint = null;
+            while (selectedEndpoint == null)
+            {
+                try
                 {
-                    _port = 5000;
+                    _server = new SimpleServer(_app, _port);
+
+                    await _server.StartServerAsync().ConfigureAwait(false);
+
+                    selectedEndpoint = CoreClientUtils.SelectEndpoint(_app.ApplicationConfiguration, "opc.tcp://localhost:" + _port, true);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Failed to establish an OPC UA server connection on port " + _port + ": " + ex.Message);
+                }
+
+                lock (_app)
+                {
+                    _port++;
+
+                    if (_port > 10000)
+                    {
+                        _port = 5000;
+                    }
                 }
             }
 
             NodesetFileNodeManager nodeManager = (NodesetFileNodeManager)_server.CurrentInstance.NodeManager.NodeManagers[2];
 
             // first load dependencies
-            await LoadDependentNodesetsRecursiveAsync(nodesetIdentifier, nodeManager).ConfigureAwait(false);
+            await LoadDependentNodesetsRecursiveAsync(nodesetIdentifier, nodeManager, userId).ConfigureAwait(false);
 
             // now load the nodeset itself
             DbFiles nodesetXml = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
@@ -239,7 +241,7 @@ namespace AdminShell
             nodeManager.AddNodesAndValues(nodesetXml.Blob, nodesetXml.Values);
 
             ConfiguredEndpoint configuredEndpoint = new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(_app.ApplicationConfiguration));
-            return await Session.Create(
+            Opc.Ua.Client.Session newSession = await Opc.Ua.Client.Session.Create(
                     _app.ApplicationConfiguration,
                     configuredEndpoint,
                     true,
@@ -248,11 +250,19 @@ namespace AdminShell
                     30000,
                     new UserIdentity(new AnonymousIdentityToken()),
                     null).ConfigureAwait(false);
+
+            newSession.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
+
+            newSession.FetchNamespaceTables();
+
+            _sessions[nodesetIdentifier] = newSession;
+
+            return newSession;
         }
 
-        private async Task LoadDependentNodesetsRecursiveAsync(string nodesetIdentifier, NodesetFileNodeManager nodeManager)
+        private async Task LoadDependentNodesetsRecursiveAsync(string nodesetIdentifier, NodesetFileNodeManager nodeManager, string userId)
         {
-            NodeSetModel nodeSetMeta = await _database.GetNodeSets(nodesetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false);
+            NodeSetModel nodeSetMeta = await _database.GetNodeSets(userId, nodesetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false);
             if ((nodeSetMeta != null) && (nodeSetMeta.RequiredModels != null) && (nodeSetMeta.RequiredModels.Count > 0))
             {
                 foreach (RequiredModelInfoModel requiredModel in nodeSetMeta.RequiredModels)
@@ -270,7 +280,11 @@ namespace AdminShell
                     }
 
                     // check if we have the required model in the database
-                    List<NodeSetModel> matchingNodeSets = await _database.NodeSets.Where(nsm => nsm.ModelUri == requiredModel.ModelUri).ToListAsync().ConfigureAwait(false);
+                    List<NodeSetModel> matchingNodeSets = await _database.NodeSets
+                        .Where(nsm => nsm.ModelUri == requiredModel.ModelUri && ((userId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId)))
+                        .ToListAsync()
+                        .ConfigureAwait(false);
+
                     if (matchingNodeSets == null || matchingNodeSets.Count == 0)
                     {
                         Console.WriteLine($"Required model {requiredModel.ModelUri} for {nodesetIdentifier} not found in database.");
@@ -280,7 +294,7 @@ namespace AdminShell
 
                     NodeSetModel dependentNodeset = NodeModelUtils.GetMatchingOrHigherNodeSet(matchingNodeSets, requiredModel.PublicationDate, requiredModel.Version);
 
-                    await LoadDependentNodesetsRecursiveAsync(dependentNodeset.Identifier, nodeManager).ConfigureAwait(false);
+                    await LoadDependentNodesetsRecursiveAsync(dependentNodeset.Identifier, nodeManager, userId).ConfigureAwait(false);
 
                     DbFiles nodesetXml = await _storage.DownloadFileAsync(dependentNodeset.Identifier).ConfigureAwait(false);
                     nodeManager.AddNamespace(nodesetXml.Blob);
@@ -297,7 +311,7 @@ namespace AdminShell
                 return;
             }
 
-            _session = (Session)_reconnectHandler.Session;
+            _session = (Opc.Ua.Client.Session)_reconnectHandler.Session;
             _reconnectHandler.Dispose();
             _reconnectHandler = null;
 
@@ -333,7 +347,7 @@ namespace AdminShell
             }
         }
 
-        private ReferenceDescriptionCollection Browse(Session session, BrowseDescription nodeToBrowse)
+        private ReferenceDescriptionCollection Browse(Opc.Ua.Client.Session session, BrowseDescription nodeToBrowse)
         {
             ReferenceDescriptionCollection references = new ReferenceDescriptionCollection();
 
@@ -342,62 +356,54 @@ namespace AdminShell
                 nodeToBrowse
             };
 
-            try
+            session.Browse(
+            null,
+            null,
+            0,
+            nodesToBrowse,
+            out BrowseResultCollection results,
+            out DiagnosticInfoCollection diagnosticInfos);
+
+            ClientBase.ValidateResponse(results, nodesToBrowse);
+            ClientBase.ValidateDiagnosticInfos(diagnosticInfos, nodesToBrowse);
+
+            do
             {
-                session.Browse(
-                null,
-                null,
-                0,
-                nodesToBrowse,
-                out BrowseResultCollection results,
-                out DiagnosticInfoCollection diagnosticInfos);
-
-                ClientBase.ValidateResponse(results, nodesToBrowse);
-                ClientBase.ValidateDiagnosticInfos(diagnosticInfos, nodesToBrowse);
-
-                do
+                if (StatusCode.IsBad(results[0].StatusCode))
                 {
-                    if (StatusCode.IsBad(results[0].StatusCode))
-                    {
-                        break;
-                    }
-
-                    for (int i = 0; i < results[0].References.Count; i++)
-                    {
-                        references.Add(results[0].References[i]);
-                    }
-
-                    if (results[0].References.Count == 0 || results[0].ContinuationPoint == null)
-                    {
-                        break;
-                    }
-
-                    ByteStringCollection continuationPoints = new ByteStringCollection {
-                        results[0].ContinuationPoint
-                    };
-
-                    session.BrowseNext(
-                        null,
-                        false,
-                        continuationPoints,
-                        out results,
-                        out diagnosticInfos);
-
-                    ClientBase.ValidateResponse(results, continuationPoints);
-                    ClientBase.ValidateDiagnosticInfos(diagnosticInfos, continuationPoints);
+                    break;
                 }
-                while (true);
+
+                for (int i = 0; i < results[0].References.Count; i++)
+                {
+                    references.Add(results[0].References[i]);
+                }
+
+                if (results[0].References.Count == 0 || results[0].ContinuationPoint == null)
+                {
+                    break;
+                }
+
+                ByteStringCollection continuationPoints = new ByteStringCollection {
+                    results[0].ContinuationPoint
+                };
+
+                session.BrowseNext(
+                    null,
+                    false,
+                    continuationPoints,
+                    out results,
+                    out diagnosticInfos);
+
+                ClientBase.ValidateResponse(results, continuationPoints);
+                ClientBase.ValidateDiagnosticInfos(diagnosticInfos, continuationPoints);
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Browse: " + ex.Message);
-                _session = null;
-            }
+            while (true);
 
             return references;
         }
 
-        public async Task<string> VariableRead(string nodesetIdentifier, string nodeId)
+        public async Task<string> VariableRead(string nodesetIdentifier, string nodeId, string userId)
         {
             string value = string.Empty;
 
@@ -407,17 +413,13 @@ namespace AdminShell
                 DiagnosticInfoCollection diagnosticInfos = null;
                 ReadValueIdCollection nodesToRead = new();
 
-                if (_session == null || !_session.Connected)
+                if (!await ValidateSession(nodesetIdentifier, userId).ConfigureAwait(false))
                 {
-                    _session = await CreateSessionAsync(nodesetIdentifier).ConfigureAwait(false);
-                    if (_session == null || !_session.Connected)
-                    {
-                        return string.Empty;
-                    }
-
-                    _session.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
-                    _session.FetchNamespaceTables();
+                    return string.Empty;
                 }
+
+                // read the variable node from the OPC UA server
+                VariableNode node = (VariableNode)_session.ReadNode(ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris));
 
                 ReadValueId valueId = new();
                 valueId.NodeId = ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris);
@@ -425,6 +427,11 @@ namespace AdminShell
                 valueId.IndexRange = null;
                 valueId.DataEncoding = null;
                 nodesToRead.Add(valueId);
+
+                // load complex type system
+                ComplexTypeSystem complexTypeSystem = new(_session);
+                ExpandedNodeId nodeTypeId = node.DataType;
+                await complexTypeSystem.LoadType(nodeTypeId).ConfigureAwait(false);
 
                 ResponseHeader responseHeader = _session.Read(null, 0, TimestampsToReturn.Both, nodesToRead, out values, out diagnosticInfos);
 
@@ -439,138 +446,112 @@ namespace AdminShell
             catch (Exception ex)
             {
                 Console.WriteLine("VariableRead: " + ex.Message);
-                _session = null;
             }
 
             return value;
         }
 
-        public async Task<IServiceResponse> Read(string nodesetIdentifier, ReadRequest request)
+        public async Task VariableWrite(string nodesetIdentifier, string nodeId, string payload, string userId)
         {
             try
             {
-                if (_session == null || !_session.Connected)
+                if (!await ValidateSession(nodesetIdentifier, userId).ConfigureAwait(false))
                 {
-                    _session = await CreateSessionAsync(nodesetIdentifier).ConfigureAwait(false);
-                    if (_session == null || !_session.Connected)
-                    {
-                        return null;
-                    }
-
-                    _session.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
-                    _session.FetchNamespaceTables();
+                    return;
                 }
 
-                ResponseHeader responseHeader = _session.Read(
-                    request.RequestHeader,
-                    request.MaxAge,
-                    request.TimestampsToReturn,
-                    request.NodesToRead,
-                    out DataValueCollection results,
-                    out DiagnosticInfoCollection diagnosticInfos);
+                NodeId nodeID = ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris);
 
-                for (int ii = 0; ii < request.NodesToRead.Count; ii++)
-                {
-                    if (request.NodesToRead[ii].AttributeId == 60)
-                    {
-                        results[ii] = ReadProperties(request, request.NodesToRead[ii]);
-                    }
-                }
-
-                ReadResponse response = new() {
-                    ResponseHeader = responseHeader,
-                    Results = results,
-                    DiagnosticInfos = diagnosticInfos
+                WriteValue nodeToWrite = new() {
+                    NodeId = nodeID,
+                    AttributeId = Attributes.Value,
+                    Value = new DataValue(payload)
                 };
 
-                return response;
+                WriteValueCollection nodesToWrite = new() {
+                    nodeToWrite
+                };
+
+                StatusCodeCollection results = null;
+                DiagnosticInfoCollection diagnosticInfos = null;
+
+                ResponseHeader responseHeader = _session.Write(
+                    null,
+                    nodesToWrite,
+                    out results,
+                    out diagnosticInfos);
+
+                ClientBase.ValidateResponse(results, nodesToWrite);
+                ClientBase.ValidateDiagnosticInfos(diagnosticInfos, nodesToWrite);
+
+                if (StatusCode.IsBad(results[0]))
+                {
+                    throw ServiceResultException.Create(results[0], 0, diagnosticInfos, responseHeader.StringTable);
+                }
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Read: " + ex.Message);
-                _session = null;
-                return null;
+                Console.WriteLine("Writing OPC UA node failed: " + ex.Message);
             }
         }
 
-        private DataValue ReadProperties(ReadRequest request, ReadValueId nodeToRead)
+        private async Task<bool> ValidateSession(string nodesetIdentifier, string userId)
         {
-            _session.Browse(
-                request.RequestHeader,
-                null,
-                0,
-                new BrowseDescriptionCollection([
-                    new BrowseDescription() {
-                        NodeId = nodeToRead.NodeId,
-                        ReferenceTypeId = ReferenceTypeIds.HasProperty,
-                        BrowseDirection = BrowseDirection.Forward,
-                        IncludeSubtypes = true,
-                        NodeClassMask = (uint)NodeClass.Variable,
-                        ResultMask = (uint)BrowseResultMask.BrowseName
-                    }
-                ]),
-                out BrowseResultCollection results1,
-                out DiagnosticInfoCollection diagnosticInfos1);
-
-            if (results1.Count == 0)
+            if (_session == null || !_session.Connected)
             {
-                return new DataValue() { StatusCode = StatusCodes.BadNotFound, ServerTimestamp = DateTime.UtcNow };
-            }
-
-            ReadValueIdCollection nodesToRead = new();
-
-            foreach (var node in results1)
-            {
-                foreach (var reference in node.References)
+                _session = await CreateSessionAsync(nodesetIdentifier, userId).ConfigureAwait(false);
+                if (_session == null || !_session.Connected)
                 {
-                    nodesToRead.Add(new ReadValueId() {
-                        NodeId = (NodeId)reference.NodeId,
-                        AttributeId = Attributes.Value,
-                        Handle = reference
-                    });
+                    Console.WriteLine("Failed to create OPC UA session.");
+                    return false;
                 }
             }
 
-            var responseHeader = _session.Read(
-                request.RequestHeader,
-                request.MaxAge,
-                TimestampsToReturn.Neither,
-                nodesToRead,
-                out DataValueCollection results,
-                out DiagnosticInfoCollection diagnosticInfos);
+            return true;
+        }
 
-            using (JsonEncoder encoder = new(ServiceMessageContext.GlobalContext, JsonEncodingType.Compact))
+        public async Task<string> CopyNodeset(string nodesetIdentifier, string name, string userId)
+        {
+            try
             {
-                encoder.SuppressArtifacts = true;
+                DbFiles file = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
 
-                for (int ii = 0; ii < nodesToRead.Count; ii++)
-                {
-                    ReferenceDescription reference = nodesToRead[ii].Handle as ReferenceDescription;
+                UANameSpace metadata = await _database.RetrieveAllMetadataAsync(uint.Parse(nodesetIdentifier, CultureInfo.InvariantCulture), userId).ConfigureAwait(false);
 
-                    encoder.WriteRawValue(
-                        new FieldMetaData() {
-                            Name = reference.BrowseName.Name,
-                            BuiltInType = (byte)results[ii].WrappedValue.TypeInfo.BuiltInType,
-                            ValueRank = results[ii].WrappedValue.TypeInfo.ValueRank,
-                            DataType = DataTypeIds.BaseDataType
-                        },
-                        results[ii],
-                        DataSetFieldContentMask.RawData);
-                }
+                metadata.Title = name;
+                metadata.Nodeset.NodesetXml = file.Blob;
 
-                string json = encoder.CloseAndReturnText();
-                JObject jobject = JObject.Parse(json);
+                // update publication date in nodeset XML with current date in UTC format
+                const string key = "PublicationDate=\"";
+                int keyIndex = metadata.Nodeset.NodesetXml.IndexOf(key, StringComparison.Ordinal);
+                int start = keyIndex + key.Length;
+                string now = DateTime.UtcNow.Date.ToString("yyyy-MM-ddTHH:mm:ss'Z'", CultureInfo.InvariantCulture);
 
-                return new DataValue() {
-                    WrappedValue = new ExtensionObject(nodeToRead.NodeId, jobject),
-                    StatusCode = Opc.Ua.StatusCodes.Good,
-                    ServerTimestamp = DateTime.UtcNow
-                };
+                var sb = new StringBuilder(metadata.Nodeset.NodesetXml);
+                sb.Remove(start, now.Length);
+                sb.Insert(start, now);
+                metadata.Nodeset.NodesetXml = sb.ToString();
+
+                return await _database.UploadNamespaceAndNodesetAsync(metadata, file.Values, false, userId).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("CopyNodeset: " + ex.Message);
+                return ex.Message;
             }
         }
 
         public void Dispose()
         {
+            // remove session from our concurrent dictionary
+            foreach (var key in _sessions.Keys.ToList())
+            {
+                if (_sessions[key] == _session)
+                {
+                    _sessions.TryRemove(key, out _);
+                }
+            }
+
             if (_session != null)
             {
                 if (_session.Connected)

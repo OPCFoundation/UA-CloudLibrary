@@ -203,23 +203,24 @@ namespace CloudLibClient.Tests
         {
             UACloudLibClient client = _factory.CreateCloudLibClient();
             int cursor = 0;
-            int limit = 100;
-            UANameSpace testNodeSet;
-            int? totalCount = null;
+            UANameSpace testNodeSet = null;
+            int totalCount = 0;
             List<UANameSpace> result = new();
             do
             {
-                result = await client.GetBasicNodesetInformationAsync(cursor, limit).ConfigureAwait(true);
-                Assert.True(cursor == 0 || result.Count > 0, "Failed to get node set information.");
+                result = await client.GetBasicNodesetInformationAsync(cursor, 10).ConfigureAwait(true);
 
-                testNodeSet = result.FirstOrDefault(n => n.Nodeset.NamespaceUri.OriginalString == _strTestNamespaceUri);
-                if (testNodeSet != null && result.Count > 0)
+                UANameSpace resultNodeSet = result.FirstOrDefault(n => n.Nodeset.NamespaceUri.OriginalString == _strTestNamespaceUri);
+                if (resultNodeSet != null && result.Count > 0)
                 {
-                    totalCount = result.Count;
+                    testNodeSet = resultNodeSet;
                 }
-                cursor = result.Count;
+
+                totalCount += result.Count;
+                cursor += result.Count;
             }
-            while (testNodeSet == null && result.Count > 0);
+            while (result.Count > 0);
+
             Assert.True(testNodeSet != null, "Nodeset not found");
 
             Assert.True(testNodeSet.Nodeset.Identifier != 0);

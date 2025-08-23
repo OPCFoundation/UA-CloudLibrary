@@ -118,7 +118,7 @@ namespace IO.Swagger.Controllers
         {
             string decodedCdIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(cdIdentifier)));
 
-            ConceptDescription output = await _aasEnvService.GetConceptDescriptionById(decodedCdIdentifier).ConfigureAwait(false);
+            ConceptDescription output = await _aasEnvService.GetConceptDescriptionById(decodedCdIdentifier, User.Identity.Name).ConfigureAwait(false);
 
             return new ObjectResult(output);
         }
