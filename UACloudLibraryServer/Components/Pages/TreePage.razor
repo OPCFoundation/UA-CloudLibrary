@@ -6,6 +6,7 @@
 @using System.Text.Json
 @using System.Web
 @using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Web;
 @using Microsoft.AspNetCore.Http
 @using AdminShell
@@ -61,19 +62,34 @@
                         <div class="col-6">
                             <div class="card h-100">
                                 <div class="card-header">
-                                    <b>Node Browser</b>
+                                    <b>Nodeset Browser</b>
                                 </div>
                                 <div class="card-body">
                                     <Tree Nodes="TreeNodes" TNode="NodesetViewerNode" ChildSelector="node => node.Children" SelectedNodeChanged="SelectedNodeChanged" OnNodeExpand="OnNodeExpand" HasChildNodes="HasChildNodes">
                                         <TitleTemplate>
-                                            @if (context.Id.StartsWith("nsu="))
+                                            @if (context.Id == SelectedNode.Id)
                                             {
-                                                <span><b>@context.Text</b></span>
+                                                if (context.Id.StartsWith("nsu="))
+                                                {
+                                                    <span style="color: red;"><b>@context.Text</b></span>
+                                                }
+                                                else
+                                                {
+                                                    <span style="color: red;">@context.Text</span>
+                                                }
                                             }
                                             else
                                             {
-                                                <span>@context.Text</span>
+                                                if (context.Id.StartsWith("nsu="))
+                                                {
+                                                    <span><b>@context.Text</b></span>
+                                                }
+                                                else
+                                                {
+                                                    <span>@context.Text</span>
+                                                }
                                             }
+
                                         </TitleTemplate>
                                     </Tree>
                                 </div>
@@ -82,7 +98,8 @@
                         <div class="col-6">
                             <div class="card h-100">
                                 <div class="card-header">
-                                    <b>Selected Node Value</b>
+                                    <b><span style="color: red;">Selected Node</span> Value</b>
+                                    <button type="button" class="btn btn-primary" style="float: right" @onclick="() => OpenEditDialog(NodeValue)">Edit</button>
                                 </div>
                                 <div class="card-body">
                                     @if (!string.IsNullOrEmpty(NodeValue))
@@ -98,20 +115,118 @@
                         </div>
                     </div>
                 </p>
+                <p>
+                    <div class="col-12 row">
+                        <div class="col-6">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <b>Nodeset File</b>
+                                    <button type="button" class="btn btn-primary" style="float: right" @onclick="() => OpenCopyDialog()">Copy</button><br/>
+                                    @CopyStatus
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </p>
             </div>
         </div>
     </div>
 </div>
 
+<div class="modal @ModalClass" tabindex="-1" role="dialog" style="@ModalDisplay">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@ModalTitle</h5>
+            </div>
+            <div class="modal-body">
+                @ModalDescription
+            </div>
+            <div class="modal-body">
+                <input class="modal-input" @bind=@ModalValue />
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => Close(true)">Save</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => Close(false)">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (ShowBackDrop)
+{
+    <div class="modal-backdrop fade show"></div>
+}
+
 @code {
+
+    [Parameter] public string NodesetIdentifier { get;set; }
+
+    [Parameter] public string NodesetName { get; set; }
+
+    [Parameter] public string UserName { get; set; }
+
+    private string ModalClass = string.Empty;
+    private string ModalDisplay = "display:none";
+    private bool ShowBackDrop = false;
+
+    private string ModalTitle = string.Empty;
+    private string ModalDescription = string.Empty;
+    private string ModalValue = string.Empty;
+
+    private string CopyStatus = string.Empty;
 
     private List<NodesetViewerNode> TreeNodes = new();
 
     private string NodeValue { get; set; } = string.Empty;
 
-    [Parameter] public string NodesetIdentifier { get;set; }
+    private NodesetViewerNode SelectedNode { get; set; } = null;
 
-    [Parameter] public string NodesetName { get; set; }
+    private void OpenEditDialog(string value)
+    {
+        ModalDisplay = "display:block;";
+        ModalClass = "Show";
+        ShowBackDrop = true;
+
+        ModalTitle = "Edit";
+        ModalDescription = "Edit node value";
+        ModalValue = value;
+
+        StateHasChanged();
+    }
+
+    private void OpenCopyDialog()
+    {
+        ModalDisplay = "display:block;";
+        ModalClass = "Show";
+        ShowBackDrop = true;
+
+        ModalTitle = "Copy";
+        ModalDescription = "New nodeset name";
+        ModalValue = NodesetName;
+
+        StateHasChanged();
+    }
+
+    private async Task Close(bool save)
+    {
+        ModalDisplay = "display:none";
+        ModalClass = "";
+        ShowBackDrop = false;
+
+        if ((ModalTitle == "Edit") && save)
+        {
+            await _client.VariableWrite(NodesetIdentifier, SelectedNode.Id, ModalValue, UserName).ConfigureAwait(false);
+            NodeValue = await _client.VariableRead(NodesetIdentifier, SelectedNode.Id, UserName).ConfigureAwait(false);
+        }
+
+        if ((ModalTitle == "Copy") && save)
+        {
+            CopyStatus = await _client.CopyNodeset(NodesetIdentifier, ModalValue, UserName).ConfigureAwait(false);
+        }
+
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -125,6 +240,7 @@
         };
 
         TreeNodes.Add(root);
+        SelectedNode = root;
 
         await OnNodeExpand(root).ConfigureAwait(false);
     }
@@ -133,7 +249,7 @@
     {
         if (node.Children.Count == 0)
         {
-            node.Children = await _client.GetChildren(NodesetIdentifier, node.Id).ConfigureAwait(false);
+            node.Children = await _client.GetChildren(NodesetIdentifier, node.Id, UserName).ConfigureAwait(false);
 
             if (node.Children != null)
             {
@@ -144,7 +260,9 @@
 
     private async Task SelectedNodeChanged(NodesetViewerNode node)
     {
-        NodeValue = await _client.VariableRead(NodesetIdentifier, node.Id).ConfigureAwait(false);
+        SelectedNode = node;
+
+        NodeValue = await _client.VariableRead(NodesetIdentifier, node.Id, UserName).ConfigureAwait(false);
     }
 
     private bool HasChildNodes(NodesetViewerNode node)

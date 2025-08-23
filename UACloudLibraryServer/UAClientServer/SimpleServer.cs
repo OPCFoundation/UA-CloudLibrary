@@ -59,7 +59,7 @@ namespace AdminShell
 
         public async Task StartServerAsync()
         {
-            Console.WriteLine("Starting OPC UA server...");
+            Console.WriteLine("Starting OPC UA server on endpoint " + _app.ApplicationConfiguration.ServerConfiguration.BaseAddresses[0]);
 
             try
             {

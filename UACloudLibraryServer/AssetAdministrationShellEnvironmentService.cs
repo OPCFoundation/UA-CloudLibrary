@@ -197,11 +197,11 @@ namespace AdminShell
             return output;
         }
 
-        private async Task<List<SubmodelElement>> ReadSubmodelElementNodes(string nodesetIdentifier, NodesetViewerNode subNode, bool browseDeep)
+        private async Task<List<SubmodelElement>> ReadSubmodelElementNodes(string nodesetIdentifier, NodesetViewerNode subNode, bool browseDeep, string userId)
         {
             List<SubmodelElement> output = new();
 
-            List<NodesetViewerNode> submodelElementNodes = await _client.GetChildren(nodesetIdentifier, subNode.Id).ConfigureAwait(false);
+            List<NodesetViewerNode> submodelElementNodes = await _client.GetChildren(nodesetIdentifier, subNode.Id, userId).ConfigureAwait(false);
             if (submodelElementNodes != null)
             {
                 foreach (NodesetViewerNode smeNode in submodelElementNodes)
@@ -209,7 +209,7 @@ namespace AdminShell
                     if (browseDeep)
                     {
                         // check for children - if there are, create a smel instead of an sme
-                        List<SubmodelElement> children = await ReadSubmodelElementNodes(nodesetIdentifier, smeNode, browseDeep).ConfigureAwait(false);
+                        List<SubmodelElement> children = await ReadSubmodelElementNodes(nodesetIdentifier, smeNode, browseDeep, userId).ConfigureAwait(false);
                         if (children.Count > 0)
                         {
                             SubmodelElementList smel = new() {
@@ -230,7 +230,7 @@ namespace AdminShell
                                 DisplayName = new List<LangString>() { new LangString() { Text = smeNode.Text } },
                                 IdShort = smeNode.Text,
                                 SemanticId = new SemanticId() { Type = KeyElements.ExternalReference, Keys = new List<Key>() { new Key() { Value = smeNode.Text, Type = KeyElements.GlobalReference } } },
-                                Value = await _client.VariableRead(nodesetIdentifier, smeNode.Id).ConfigureAwait(false)
+                                Value = await _client.VariableRead(nodesetIdentifier, smeNode.Id, userId).ConfigureAwait(false)
                             };
 
                             output.Add(sme);
@@ -301,16 +301,16 @@ namespace AdminShell
             return output;
         }
 
-        public async Task<AssetAdministrationShell> GetAssetAdministrationShellById(string nodesetIdentifier)
+        public async Task<AssetAdministrationShell> GetAssetAdministrationShellById(string nodesetIdentifier, string userId)
         {
-            List<NodesetViewerNode> nodeList = await _client.GetChildren(nodesetIdentifier, ObjectIds.ObjectsFolder.ToString()).ConfigureAwait(false);
+            List<NodesetViewerNode> nodeList = await _client.GetChildren(nodesetIdentifier, ObjectIds.ObjectsFolder.ToString(), userId).ConfigureAwait(false);
             if (nodeList != null)
             {
                 foreach (NodesetViewerNode node in nodeList)
                 {
                     if (node.Text == "Asset Admin Shells")
                     {
-                        List<NodesetViewerNode> aasList = await _client.GetChildren(nodesetIdentifier, node.Id).ConfigureAwait(false);
+                        List<NodesetViewerNode> aasList = await _client.GetChildren(nodesetIdentifier, node.Id, userId).ConfigureAwait(false);
                         if (aasList != null)
                         {
                             if (aasList.Count > 1)
@@ -328,7 +328,7 @@ namespace AdminShell
                                 };
 
                                 // get all asset and submodel refs
-                                List<NodesetViewerNode> assetsAndSubmodelRefs = await _client.GetChildren(nodesetIdentifier, a.Id).ConfigureAwait(false);
+                                List<NodesetViewerNode> assetsAndSubmodelRefs = await _client.GetChildren(nodesetIdentifier, a.Id, userId).ConfigureAwait(false);
                                 if (assetsAndSubmodelRefs != null)
                                 {
                                     foreach (NodesetViewerNode s in assetsAndSubmodelRefs)
@@ -355,16 +355,16 @@ namespace AdminShell
             return null;
         }
 
-        public async Task<Submodel> GetSubmodelById(string nodesetIdentifier)
+        public async Task<Submodel> GetSubmodelById(string nodesetIdentifier, string userId)
         {
-            List<NodesetViewerNode> nodeList = await _client.GetChildren(nodesetIdentifier, ObjectIds.ObjectsFolder.ToString()).ConfigureAwait(false);
+            List<NodesetViewerNode> nodeList = await _client.GetChildren(nodesetIdentifier, ObjectIds.ObjectsFolder.ToString(), userId).ConfigureAwait(false);
             if (nodeList != null)
             {
                 foreach (NodesetViewerNode node in nodeList)
                 {
                     if (node.Text == "Submodels")
                     {
-                        List<NodesetViewerNode> submodelList = await _client.GetChildren(nodesetIdentifier, node.Id).ConfigureAwait(false);
+                        List<NodesetViewerNode> submodelList = await _client.GetChildren(nodesetIdentifier, node.Id, userId).ConfigureAwait(false);
                         if (submodelList != null)
                         {
                             if (submodelList.Count > 1)
@@ -381,11 +381,11 @@ namespace AdminShell
                                     IdShort = subNode.Id + ";" + subNode.Text,
                                     SemanticId = new Reference() { Type = KeyElements.ExternalReference, Keys = new List<Key>() { new Key() { Value = subNode.Text, Type = KeyElements.GlobalReference } } },
                                     DisplayName = new List<LangString>() { new LangString() { Text = subNode.Text } },
-                                    Description = new List<LangString>() { new LangString() { Text = await _client.VariableRead(nodesetIdentifier, subNode.Id).ConfigureAwait(false) } }
+                                    Description = new List<LangString>() { new LangString() { Text = await _client.VariableRead(nodesetIdentifier, subNode.Id, userId).ConfigureAwait(false) } }
                                 };
 
                                 // get all submodel elements
-                                sub.SubmodelElements.AddRange(await ReadSubmodelElementNodes(nodesetIdentifier, subNode, true).ConfigureAwait(false));
+                                sub.SubmodelElements.AddRange(await ReadSubmodelElementNodes(nodesetIdentifier, subNode, true, userId).ConfigureAwait(false));
 
                                 return sub;
                             }
@@ -397,16 +397,16 @@ namespace AdminShell
             return null;
         }
 
-        public async Task<ConceptDescription> GetConceptDescriptionById(string nodesetIdentifier)
+        public async Task<ConceptDescription> GetConceptDescriptionById(string nodesetIdentifier, string userId)
         {
-            List<NodesetViewerNode> nodeList = await _client.GetChildren(nodesetIdentifier, ObjectIds.ObjectsFolder.ToString()).ConfigureAwait(false);
+            List<NodesetViewerNode> nodeList = await _client.GetChildren(nodesetIdentifier, ObjectIds.ObjectsFolder.ToString(), userId).ConfigureAwait(false);
             if (nodeList != null)
             {
                 foreach (NodesetViewerNode node in nodeList)
                 {
                     if (node.Text == "Concept Descriptions")
                     {
-                        List<NodesetViewerNode> conceptDescrNodes = await _client.GetChildren(nodesetIdentifier, node.Id).ConfigureAwait(false);
+                        List<NodesetViewerNode> conceptDescrNodes = await _client.GetChildren(nodesetIdentifier, node.Id, userId).ConfigureAwait(false);
                         if (conceptDescrNodes != null)
                         {
                             if (conceptDescrNodes.Count > 1)
@@ -436,9 +436,9 @@ namespace AdminShell
             return null;
         }
 
-        public async Task<AssetInformation> GetAssetInformationFromAas(string nodesetIdentifier)
+        public async Task<AssetInformation> GetAssetInformationFromAas(string nodesetIdentifier, string userId)
         {
-            var aas = await GetAssetAdministrationShellById(nodesetIdentifier).ConfigureAwait(false);
+            var aas = await GetAssetAdministrationShellById(nodesetIdentifier, userId).ConfigureAwait(false);
             if (aas != null)
             {
                 return aas.AssetInformation;
@@ -449,12 +449,12 @@ namespace AdminShell
             }
         }
 
-        public async Task<byte[]> GetFileByPath(string nodesetIdentifier, string idShortPath)
+        public async Task<byte[]> GetFileByPath(string nodesetIdentifier, string idShortPath, string userId)
         {
             byte[] byteArray = null;
             string fileName = null;
 
-            SubmodelElement sme = await GetSubmodelElementByPath(nodesetIdentifier, idShortPath).ConfigureAwait(false);
+            SubmodelElement sme = await GetSubmodelElementByPath(nodesetIdentifier, idShortPath, userId).ConfigureAwait(false);
             if (sme != null)
             {
                 if (sme is File file)
@@ -471,9 +471,9 @@ namespace AdminShell
             return byteArray;
         }
 
-        public async Task<List<Reference>> GetAllSubmodelReferences(string nodesetIdentifier)
+        public async Task<List<Reference>> GetAllSubmodelReferences(string nodesetIdentifier, string userId)
         {
-            var aas = await GetAssetAdministrationShellById(nodesetIdentifier).ConfigureAwait(false);
+            var aas = await GetAssetAdministrationShellById(nodesetIdentifier, userId).ConfigureAwait(false);
 
             if (aas != null)
             {
@@ -487,9 +487,9 @@ namespace AdminShell
             }
         }
 
-        public async Task<List<SubmodelElement>> GetAllSubmodelElementsFromSubmodel(string nodesetIdentifier)
+        public async Task<List<SubmodelElement>> GetAllSubmodelElementsFromSubmodel(string nodesetIdentifier, string userId)
         {
-            var submodel = await GetSubmodelById(nodesetIdentifier).ConfigureAwait(false);
+            var submodel = await GetSubmodelById(nodesetIdentifier, userId).ConfigureAwait(false);
             if (submodel == null)
             {
                 return null;
@@ -500,9 +500,9 @@ namespace AdminShell
             }
         }
 
-        public async Task<SubmodelElement> GetSubmodelElementByPath(string nodesetIdentifier, string idShortPath)
+        public async Task<SubmodelElement> GetSubmodelElementByPath(string nodesetIdentifier, string idShortPath, string userId)
         {
-            Submodel submodel = await GetSubmodelById(nodesetIdentifier).ConfigureAwait(false);
+            Submodel submodel = await GetSubmodelById(nodesetIdentifier, userId).ConfigureAwait(false);
             if (submodel != null)
             {
                 return FindSubmodelElementByIdShortPath(submodel, idShortPath);

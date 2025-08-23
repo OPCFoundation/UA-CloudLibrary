@@ -48,7 +48,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -78,9 +77,7 @@ namespace Opc.Ua.Cloud.Library
         {
             services.AddControllersWithViews().AddNewtonsoftJson();
 
-            services.AddRazorPages();
-
-            services.AddServerSideBlazor();
+            services.AddRazorComponents().AddInteractiveServerComponents();
 
             // Setup database context for ASP.NetCore Identity Scaffolding
             services.AddDbContext<AppDbContext>(ServiceLifetime.Transient);
@@ -408,7 +405,7 @@ namespace Opc.Ua.Cloud.Library
             private void OpcStackLoggingHandler(object sender, TraceEventArgs e)
             {
                 ApplicationInstance app = sender as ApplicationInstance;
-                if ((e.TraceMask & (Utils.TraceMasks.Error | Utils.TraceMasks.StackTrace | Utils.TraceMasks.Service | Utils.TraceMasks.StartStop | Utils.TraceMasks.ExternalSystem | Utils.TraceMasks.Security)) != 0)
+                if ((e.TraceMask & (Utils.TraceMasks.Error | Utils.TraceMasks.StackTrace | Utils.TraceMasks.StartStop | Utils.TraceMasks.ExternalSystem | Utils.TraceMasks.Security)) != 0)
                 {
                     if (e.Exception != null)
                     {

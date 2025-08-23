@@ -98,7 +98,7 @@ namespace UANodesetWebViewer.Controllers
                 }
 
                 string valuesContent = string.Empty;
-                if ((values == null) || (values.Length == 0) || (values.ContentType != "text/json"))
+                if ((values != null) && (values.Length > 0) && (values.ContentType == "text/json"))
                 {
                     // file name validation
                     FileInfo fileInfoValues = new(values.FileName);

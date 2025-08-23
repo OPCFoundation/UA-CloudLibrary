@@ -117,7 +117,8 @@ namespace CloudLibClient.Tests
                 {
                     bComplete = true;
                 }
-                cursor = page.Count;
+
+                cursor += page.Count;
             }
             while (!bComplete && paged.Count < 100);
 
