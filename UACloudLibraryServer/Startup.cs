@@ -134,8 +134,7 @@ namespace Opc.Ua.Cloud.Library
             }
             if (Configuration["google_client_id"] != null)
             {
-                services.AddAuthentication().AddGoogle(googleOptions =>
-                {
+                services.AddAuthentication().AddGoogle(googleOptions => {
                     googleOptions.ClientId = Configuration["google_client_id"];
                     googleOptions.ClientSecret = Configuration["google_client_secret"];
                 });
