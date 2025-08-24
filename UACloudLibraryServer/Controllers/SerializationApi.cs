@@ -93,7 +93,7 @@ namespace AdminShell
                 }
             }
 
-            var submodelList = _aasEnvService.GetAllSubmodels();
+            var submodelList = _aasEnvService.GetAllSubmodels(User.Identity.Name);
             foreach (var submodelId in decodedSubmodelIds)
             {
                 var foundSubmodel = submodelList.Where(s => s.Identification.Id.Equals(submodelId, StringComparison.OrdinalIgnoreCase));

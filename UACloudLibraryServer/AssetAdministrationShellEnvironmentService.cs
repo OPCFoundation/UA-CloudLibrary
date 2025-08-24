@@ -52,30 +52,41 @@ namespace AdminShell
         {
             List<AssetAdministrationShell> output = new();
 
-            // get all AASes
-            List<NodesetViewerNode> aasList = _cldata.GetNodeListOfType(userId, "Asset Admin Shells", "Template");
+            // Query database for all Asset Administration Shells
+            List<NodesetViewerNode> aasList = _cldata.GetAllAssetAdminNodes(userId, "Asset Admin Shells", "Template");
 
             if (aasList != null)
             {
                 if (aasList != null)
                 {
+                    // Loop through all the Asset Administration Shells we found above.
                     foreach (NodesetViewerNode a in aasList)
                     {
-                        string strUri = GetBaseUri(a.Id);
+                        string strUri = a.Id;
                         AssetAdministrationShell aas = new() {
                             ModelType = ModelTypes.AssetAdministrationShell,
-                            Identification = new Identifier() { Id = a.Id, Value = a.Text },
-                            IdShort = a.Id + ";" + a.Text,
+                            Identification = new Identifier() { Id = a.Id, Value = a.Value },
+                            IdShort = a.Id + ";" + a.Value,
                             Id = a.Id
                         };
 
-                        // get all asset and submodel refs
-                        List<NodesetViewerNode> submodels =_cldata.GetNodeListOfType(userId, "Submodels", "Data", strUri);
+                        // Find the Submodels for the current Asset Administration Shell
+                        List<NodesetViewerNode> submodels = _cldata.GetAllSubModelNodesForAssetAdminShell(userId, "Submodels", "Data", strUri);
                         if (submodels != null)
                         {
                             foreach (NodesetViewerNode s in submodels)
                             {
-                                aas.Submodels.Add(new ModelReference() { Keys = new List<Key>() { new Key() { Value = s.Id, Type = KeyElements.Submodel } } });
+                                ModelReference mr = new ModelReference() {
+                                    Keys = new List<Key>()
+                                    {
+                                        new Key()
+                                        {
+                                            Value = s.Id,
+                                            Type = KeyElements.Submodel
+                                        }
+                                    }
+                                };
+                                aas.Submodels.Add(mr);
                             }
                         }
                         output.Add(aas);
@@ -115,59 +126,30 @@ namespace AdminShell
                 }
             }
 
-            return output;
+            return ReplaceWithFriendlyNames(output);
         }
 
-        /// <summary>
-        /// GetBaseUri - remove all non-essential elements to give us a Uri.
-        /// Sample Input: "nsu=http://catena-x.org/UA/urn_samm_io_catenax_generic_digital_product_passport_5_0_0_DigitalProductPassport/;i=1"
-        /// Expected Output: http://catena-x.org/UA/urn_samm_io_catenax_generic_digital_product_passport_5_0_0_DigitalProductPassport/
-        /// </summary>
-        private static char[] achSemicolonEqual = new char[] {';', '='};
-        private string GetBaseUri(string strInput)
-        {
-            string strOutput = strInput;
-            string [] astr = strInput.Split(achSemicolonEqual, StringSplitOptions.RemoveEmptyEntries);
-            if (astr.Length > 3)
-            {
-                if (astr[0].Contains("http", StringComparison.CurrentCulture))
-                    strOutput = astr[0];
-                else if (astr[1].Contains("http", StringComparison.CurrentCulture))
-                    strOutput = astr[1];
-            }
-            return strOutput;
-        }
-        public List<Submodel> GetAllSubmodels(Reference reqSemanticId = null, string idShort = null)
+        public List<Submodel> GetAllSubmodels(string userId, Reference reqSemanticId = null, string idShort = null)
         {
             List<Submodel> output = new();
 
             // Get All Submodels
-            List<NodesetViewerNode> nodeList = new(); // TODO
-            if (nodeList != null)
+            List<NodesetViewerNode> submodelList = _cldata.GetAllSubModelNodesForAssetAdminShell(userId, "Submodels", "Data");
+            if (submodelList != null)
             {
-                foreach (NodesetViewerNode node in nodeList)
+                foreach (NodesetViewerNode subNode in submodelList)
                 {
-                    if (node.Text == "Submodels")
-                    {
-                        List<NodesetViewerNode> submodelList = new(); // TODO
-                        if (submodelList != null)
-                        {
-                            foreach (NodesetViewerNode subNode in submodelList)
-                            {
-                                Submodel sub = new() {
-                                    ModelType = ModelTypes.Submodel,
-                                    Id = subNode.Id,
-                                    Identification = new Identifier() { Id = subNode.Id, Value = subNode.Text },
-                                    IdShort = subNode.Id + ";" + subNode.Text,
-                                    SemanticId = new Reference() { Type = KeyElements.ExternalReference, Keys = new List<Key>() { new Key() { Value = subNode.Text, Type = KeyElements.GlobalReference } } },
-                                    DisplayName = new List<LangString>() { new LangString() { Text = subNode.Text } },
-                                    Description = new List<LangString>() { new LangString() { Text = string.Empty /* TODO */ } }
-                                };
+                    Submodel sub = new() {
+                        ModelType = ModelTypes.Submodel,
+                        Id = subNode.Id,
+                        Identification = new Identifier() { Id = subNode.Id, Value = subNode.Text },
+                        IdShort = subNode.Id + ";" + subNode.Text,
+                        SemanticId = new Reference() { Type = KeyElements.ExternalReference, Keys = new List<Key>() { new Key() { Value = subNode.Text, Type = KeyElements.GlobalReference } } },
+                        DisplayName = new List<LangString>() { new LangString() { Text = subNode.Text } },
+                        Description = new List<LangString>() { new LangString() { Text = string.Empty /* TODO */ } }
+                    };
 
-                                output.Add(sub);
-                            }
-                        }
-                    }
+                    output.Add(sub);
                 }
             }
 
@@ -479,7 +461,7 @@ namespace AdminShell
             return byteArray;
         }
 
-        public async Task<List<Reference>> GetAllSubmodelReferences(string nodesetIdentifier, string userId)
+        public async Task<List<Reference>> GetAllSubmodelReferences(string userId, string nodesetIdentifier)
         {
             var aas = await GetAssetAdministrationShellById(nodesetIdentifier, userId).ConfigureAwait(false);
 
@@ -624,5 +606,70 @@ namespace AdminShell
                 }
             }
         }
-    }
-}
+
+        // Helpers to make for more readable paths, etc.
+        private static readonly Dictionary<string, string> TypeToPath = new Dictionary<string, string>
+        {
+            {"Asset Admin Shells","idta/asset" },
+            {"Submodels","idta/submodels" },
+            {"Another","Thing" },
+        };
+
+
+        private static readonly Dictionary<string, string> ShortNames = new Dictionary<string, string>
+        {
+            {"urn_samm_io_catenax_battery_battery_pass_6_0_0_BatteryPass/","BatteryPassport" },
+            {"http://catena-x.org/UA/urn_samm_io_catenax_battery_battery_pass_6_0_0_BatteryPass/","BatteryPassport" },
+            {"urn_samm_io_catenax_generic_digital_product_passport_5_0_0_DigitalProductPassport","DigitalProductPassport" },
+            {"http://catena-x.org/UA/urn_samm_io_catenax_generic_digital_product_passport_5_0_0_DigitalProductPassport/","DigitalProductPassport" },
+            {"urn_samm_io_catenax_pcf_7_0_0_Pcf/","ProductCarbonFootprint" },
+            {"http://catena-x.org/UA/urn_samm_io_catenax_pcf_7_0_0_Pcf/","ProductCarbonFootprint" },
+            {"urn_samm_io_catenax_single_level_bom_as_built_3_0_0_SingleLevelBomAsBuilt/","SingleLevelBomAsBuilt" },
+            {"http://catena-x.org/UA/urn_samm_io_catenax_single_level_bom_as_built_3_0_0_SingleLevelBomAsBuilt/","SingleLevelBomAsBuilt" },
+        };
+
+        public static string GetFriendlyName(string strName, Dictionary<string, string> d)
+        {
+            if (d.TryGetValue(strName, out string strShortName))
+            {
+                strName = strName.Replace(strName, strShortName, StringComparison.CurrentCulture);
+            }
+            return strName;
+        }
+
+        private static List<AssetAdministrationShell> ReplaceWithFriendlyNames(List<AssetAdministrationShell> input)
+        {
+            foreach (AssetAdministrationShell aashell in input)
+            {
+                string strAAPathPart = GetFriendlyName("Asset Admin Shells", TypeToPath);
+                string strNodeName = GetFriendlyName(aashell.Id, ShortNames);
+                aashell.Id = $"http://example.com/{strAAPathPart}/{strNodeName}/";
+                string strValue = GetValueFromId(aashell.IdShort);
+                aashell.IdShort = $"{aashell.Id};{strValue}";
+
+
+                foreach (ModelReference mref in aashell.Submodels)
+                {
+                    string strModelPathPart = GetFriendlyName("Submodels", TypeToPath);
+                    foreach (Key k in mref.Keys)
+                    {
+                        string strModelNode = GetFriendlyName(k.Value, ShortNames);
+                        k.Value = $"http://example.com/{strModelPathPart}/{strModelNode}/";
+                    }
+                }
+            }
+
+            return input;
+        }
+
+        private static string GetValueFromId(string strInput)
+        {
+            int iSemicolon = strInput.IndexOf(';', StringComparison.CurrentCulture);
+            if (iSemicolon > 0)
+                strInput = strInput.Substring(iSemicolon + 1);
+
+            return strInput;
+        }
+
+    } // class
+} // namespace

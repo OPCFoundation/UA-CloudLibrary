@@ -91,7 +91,7 @@ namespace AdminShell
                 }
             }
 
-            List<AssetAdministrationShell> aasList = _aasEnvService.GetAllAssetAdministrationShells(User.Identity.Name,reqAssetIds, idShort);
+            List<AssetAdministrationShell> aasList = _aasEnvService.GetAllAssetAdministrationShells(User.Identity.Name, reqAssetIds, idShort);
 
             PagedResult<AssetAdministrationShell> output = PagedResult.ToPagedList<AssetAdministrationShell>(aasList, new PaginationParameters(cursor, limit));
 
@@ -123,7 +123,6 @@ namespace AdminShell
         {
             string decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
 
-            // AssetAdministrationShell aas = await _aasEnvService.GetAssetAdministrationShellById(decodedAasIdentifier).ConfigureAwait(false);
             AssetAdministrationShell aas = await _aasEnvService.GetAssetAdministrationShellById(decodedAasIdentifier, User.Identity.Name).ConfigureAwait(false);
 
 
@@ -161,8 +160,7 @@ namespace AdminShell
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedAasIdentifier)} is null");
             }
 
-            // List<Reference> submodels = await _aasEnvService.GetAllSubmodelReferences(decodedAasIdentifier).ConfigureAwait(false);
-            List<Reference> submodels = await _aasEnvService.GetAllSubmodelReferences(decodedAasIdentifier, User.Identity.Name).ConfigureAwait(false);
+            List<Reference> submodels = await _aasEnvService.GetAllSubmodelReferences(User.Identity.Name, decodedAasIdentifier).ConfigureAwait(false);
 
 
             PagedResult<Reference> output = PagedResult.ToPagedList<Reference>(submodels, new PaginationParameters(cursor, limit));
@@ -200,7 +198,6 @@ namespace AdminShell
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedAasIdentifier)} is null");
             }
 
-            // byte[] content = await _aasEnvService.GetFileByPath(decodedAasIdentifier, "https://admin-shell.io/idta/asset/thumbnail").ConfigureAwait(false);
             byte[] content = await _aasEnvService.GetFileByPath(decodedAasIdentifier, "https://admin-shell.io/idta/asset/thumbnail", User.Identity.Name).ConfigureAwait(false);
 
             // content-disposition so that the file can be downloaded from the web browser
@@ -244,9 +241,7 @@ namespace AdminShell
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedAasIdentifier)} is null");
             }
 
-            //AssetInformation output = await _aasEnvService.GetAssetInformationFromAas(decodedAasIdentifier).ConfigureAwait(false);
             AssetInformation output = await _aasEnvService.GetAssetInformationFromAas(decodedAasIdentifier, User.Identity.Name).ConfigureAwait(false);
-
 
             return new ObjectResult(output);
         }
