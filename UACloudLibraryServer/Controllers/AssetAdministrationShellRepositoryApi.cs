@@ -121,7 +121,15 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public async Task<IActionResult> GetAssetAdministrationShellById([FromRoute][Required] string aasIdentifier)
         {
-            string decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            string decodedAasIdentifier = "";
+            try
+            {
+                decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            }
+            catch (Exception)
+            {
+                decodedAasIdentifier = Uri.UnescapeDataString(aasIdentifier);
+            }
 
             AssetAdministrationShell aas = await _aasEnvService.GetAssetAdministrationShellById(decodedAasIdentifier, User.Identity.Name).ConfigureAwait(false);
 
@@ -153,7 +161,16 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public async Task<IActionResult> GetAllSubmodelReferences([FromRoute][Required] string aasIdentifier, [FromQuery] int limit, [FromQuery] string cursor)
         {
-            string decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            string decodedAasIdentifier = "";
+            try
+            {
+                decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            }
+            catch (Exception)
+            {
+                decodedAasIdentifier = Uri.UnescapeDataString(aasIdentifier);
+            }
+
             if (decodedAasIdentifier == null)
             {
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedAasIdentifier)} is null");
@@ -189,7 +206,16 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public async Task<IActionResult> GetThumbnail([FromRoute][Required] string aasIdentifier)
         {
-            string decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            string decodedAasIdentifier = "";
+            try
+            {
+                decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            }
+            catch (Exception)
+            {
+                decodedAasIdentifier = Uri.UnescapeDataString(aasIdentifier);
+            }
+
 
             if (decodedAasIdentifier == null)
             {
@@ -232,7 +258,16 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public async Task<IActionResult> GetAssetInformation([FromRoute][Required] string aasIdentifier)
         {
-            string decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            string decodedAasIdentifier = "";
+            try
+            {
+                decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            }
+            catch (Exception)
+            {
+                decodedAasIdentifier = Uri.UnescapeDataString(aasIdentifier);
+            }
+
 
             if (decodedAasIdentifier == null)
             {
