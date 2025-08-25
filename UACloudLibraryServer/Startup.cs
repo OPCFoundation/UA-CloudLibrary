@@ -329,6 +329,7 @@ namespace Opc.Ua.Cloud.Library
 
             app.UseSwaggerUI(c => {
                 c.SwaggerEndpoint("/swagger/v1/swagger.json", "UA Cloud Library REST Service");
+                c.EnablePersistAuthorization();
             });
 
             app.UseHttpsRedirection();
