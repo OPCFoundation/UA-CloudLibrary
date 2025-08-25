@@ -1,11 +1,15 @@
 services:
   ua-cloudlibrary:
     image: ${DOCKER_REGISTRY-}uacloudlibrary
+    container_name: ua-cloudlibrary
     ports:
       - 8443:443
     build:
       context: .
       dockerfile: UACloudLibraryServer/Dockerfile
+    networks:
+      uanet:
+        ipv4_address: 10.5.0.20
     environment:
         PostgreSQLUsername: uacloudlib
         PostgreSQLPassword: uacloudlib
@@ -14,14 +18,24 @@ services:
   db:
     image: postgres
     restart: always
+    container_name: db
+    ports:
+      - 5433:5432
+    networks:
+      uanet:
+        ipv4_address: 10.5.0.21
     environment:
       POSTGRES_PASSWORD: uacloudlib
       POSTGRES_USER: uacloudlib
       POSTGRES_DB: uacloudlib
   pgadmin:
     image: "dpage/pgadmin4"
+    container_name: pgadmin
     ports:
-      - 80:8080
+      - 8088:80
+    networks:
+      uanet:
+        ipv4_address: 10.5.0.22
     environment:
       PGADMIN_DEFAULT_EMAIL: no-reply@opcfoundation.org
       PGADMIN_DEFAULT_PASSWORD: uacloudlib
@@ -34,3 +48,11 @@ services:
       - "-c"
       - "/bin/echo 'db:5432:*:uacloudlib:uacloudlib' > /tmp/pgpassfile && chmod 600 /tmp/pgpassfile && /entrypoint.sh"
     restart: unless-stopped
+
+networks:
+  uanet:
+    driver: bridge
+    ipam:
+     config:
+       - subnet: 10.5.0.0/16
+         gateway: 10.5.0.1

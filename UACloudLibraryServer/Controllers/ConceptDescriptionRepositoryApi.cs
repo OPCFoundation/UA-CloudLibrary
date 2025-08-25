@@ -27,6 +27,7 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
 using System.Buffers.Text;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -78,13 +79,27 @@ namespace IO.Swagger.Controllers
             string reqIsCaseOf = null;
             if (!string.IsNullOrEmpty(isCaseOf))
             {
-                reqIsCaseOf = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(isCaseOf)));
+                try
+                {
+                    reqIsCaseOf = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(isCaseOf)));
+                }
+                catch (Exception)
+                {
+                    reqIsCaseOf = Uri.UnescapeDataString(isCaseOf);
+                }
             }
 
             string reqDataSpecificationRef = null;
             if (!string.IsNullOrEmpty(dataSpecificationRef))
             {
-                reqDataSpecificationRef = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(dataSpecificationRef)));
+                try
+                {
+                    reqDataSpecificationRef = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(dataSpecificationRef)));
+                }
+                catch (Exception)
+                {
+                    reqDataSpecificationRef = Uri.UnescapeDataString(dataSpecificationRef);
+                }
             }
 
             List<ConceptDescription> cdList = new();
@@ -116,7 +131,15 @@ namespace IO.Swagger.Controllers
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public async Task<IActionResult> GetConceptDescriptionById([FromRoute][Required] string cdIdentifier)
         {
-            string decodedCdIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(cdIdentifier)));
+            string decodedCdIdentifier = "";
+            try
+            {
+                decodedCdIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(cdIdentifier)));
+            }
+            catch (Exception)
+            {
+                decodedCdIdentifier = Uri.UnescapeDataString(cdIdentifier);
+            }
 
             ConceptDescription output = await _aasEnvService.GetConceptDescriptionById(User.Identity.Name, decodedCdIdentifier).ConfigureAwait(false);
 

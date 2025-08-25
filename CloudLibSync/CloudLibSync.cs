@@ -78,7 +78,8 @@ namespace Opc.Ua.CloudLib.Sync
                         }
                     }
                 }
-                cursor = nodeSetResult.Count;
+
+                cursor += nodeSetResult.Count;
             }
             while (nodeSetResult.Count > 0);
         }
@@ -106,9 +107,9 @@ namespace Opc.Ua.CloudLib.Sync
                 int targetCursor = 0;
                 do
                 {
-                    targetNodeSetResult = await targetClient.GetBasicNodesetInformationAsync(targetCursor, 50).ConfigureAwait(false);
+                    targetNodeSetResult = await targetClient.GetBasicNodesetInformationAsync(targetCursor, 10).ConfigureAwait(false);
                     targetNodesets.AddRange(targetNodeSetResult);
-                    targetCursor = targetNodeSetResult.Count;
+                    targetCursor += targetNodeSetResult.Count;
                 }
                 while (targetNodeSetResult.Count > 0);
 
@@ -118,7 +119,7 @@ namespace Opc.Ua.CloudLib.Sync
                 int sourceCursor = 0;
                 do
                 {
-                    sourceNodeSetResult = await sourceClient.GetBasicNodesetInformationAsync(sourceCursor, 50).ConfigureAwait(false);
+                    sourceNodeSetResult = await sourceClient.GetBasicNodesetInformationAsync(sourceCursor, 10).ConfigureAwait(false);
 
                     // Get the ones that are not already on the target
                     var toSync = sourceNodeSetResult
@@ -154,7 +155,8 @@ namespace Opc.Ua.CloudLib.Sync
                             _logger.LogError($"Error uploading {uaNamespace.Nodeset.NamespaceUri}, {identifier}: {ex.Message}");
                         }
                     }
-                    sourceCursor = sourceNodeSetResult.Count;
+
+                    sourceCursor += sourceNodeSetResult.Count;
                 }
                 while (sourceNodeSetResult.Count > 0);
             }
