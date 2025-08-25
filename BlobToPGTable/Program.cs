@@ -107,6 +107,11 @@ namespace BlobToPGTable
 
         static async Task UpdateDatabase(NpgsqlConnection conn, string name, string nodesetXml)
         {
+            using (var cmd = new NpgsqlCommand("CREATE TABLE IF NOT EXISTS public.\"DbFiles\" (\"Name\" TEXT PRIMARY KEY, \"Blob\" TEXT)", conn))
+            {
+                await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
+
             using (var cmd = new NpgsqlCommand("INSERT INTO \"public\".\"DbFiles\" (\"Name\", \"Blob\") VALUES (@blobName, @nodesetXml)", conn))
             {
                 cmd.Parameters.AddWithValue("blobName", name);
@@ -114,7 +119,7 @@ namespace BlobToPGTable
 
                 await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
             }
-
+            
             // verify successful insertion by reading back the data
             using (var verifyCmd = new NpgsqlCommand("SELECT * FROM \"public\".\"DbFiles\" WHERE \"Name\" = @blobName", conn))
             {
