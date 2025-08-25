@@ -127,12 +127,7 @@ namespace AdminShell
                             if ((uAObject.ParentNodeId == ObjectIds.ObjectsFolder)
                              || (uAObject.References.Where(r => (r.ReferenceType == "Organizes") && (r.Value == ObjectIds.ObjectsFolder)).ToList().Count > 0))
                             {
-                                //CM: We cannot limit this here to just submodels as this would prevent the AAS APIs to find a "Asset Admin Shell" or the "Concept descriptions"
-                                //    If this needs to be limited to just AAS UAObject trees, than we need to parse this for "Asset Admin Shell" first and then decide to show all UAObject
-                                //    Some standard NodeSets (i.e. CNC) have UAObjects as well - maybe it would be helpful to show all here anyway.
-                                //    Recommended Change: Remove the Limitation and always show the full tree
-                                if (((node.DisplayName != null) && (node.DisplayName.Length > 0) && (node.DisplayName[0].Value == "Submodels" || true))
-                                 || (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("GENERATE_FULL_AAS"))))
+                                if ((node.DisplayName != null) && (node.DisplayName.Length > 0))
                                 {
                                     List<IReference> references = new() {
                                         new NodeStateReference(

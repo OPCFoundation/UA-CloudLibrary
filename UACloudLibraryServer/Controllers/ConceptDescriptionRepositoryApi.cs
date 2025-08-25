@@ -131,7 +131,7 @@ namespace IO.Swagger.Controllers
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public async Task<IActionResult> GetConceptDescriptionById([FromRoute][Required] string cdIdentifier)
         {
-            string decodedCdIdentifier = "";
+            string decodedCdIdentifier = string.Empty;
             try
             {
                 decodedCdIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(cdIdentifier)));

@@ -82,14 +82,17 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public async Task<IActionResult> GetAllSubmodelElements([FromRoute][Required] string submodelIdentifier, [FromQuery] int limit, [FromQuery] string cursor, [FromQuery] string level, [FromQuery] string extent, [FromQuery] string diff)
         {
-            string decodedSubmodelIdentifier = "";
-            try
+            string decodedSubmodelIdentifier = null;
+            if (submodelIdentifier != null)
             {
-                decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
-            }
-            catch (Exception)
-            {
-                decodedSubmodelIdentifier = Uri.UnescapeDataString(submodelIdentifier);
+                try
+                {
+                    decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
+                }
+                catch (Exception)
+                {
+                    decodedSubmodelIdentifier = Uri.UnescapeDataString(submodelIdentifier);
+                }
             }
 
             List<SubmodelElement> submodelElements = await _aasEnvService.GetAllSubmodelElementsFromSubmodel(decodedSubmodelIdentifier, User.Identity.Name).ConfigureAwait(false);
@@ -125,7 +128,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public IActionResult GetAllSubmodels([FromQuery][StringLength(3072, MinimumLength = 1)] string semanticId, [FromQuery] string idShort, [FromQuery] int limit, [FromQuery] string cursor, [FromQuery] string level, [FromQuery] string extent)
         {
-            string reqSemanticId = "";
+            string reqSemanticId = string.Empty;
             try
             {
                 reqSemanticId = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(semanticId)));
@@ -169,7 +172,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public async Task<IActionResult> GetSubmodelById([FromRoute][Required] string submodelIdentifier, [FromQuery] string level, [FromQuery] string extent)
         {
-            string decodedSubmodelIdentifier = "";
+            string decodedSubmodelIdentifier = string.Empty;
             try
             {
                 decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
@@ -209,7 +212,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public async Task<IActionResult> GetFileByPath([FromRoute][Required] string submodelIdentifier, [FromRoute][Required] string idShortPath)
         {
-            string decodedSubmodelIdentifier = "";
+            string decodedSubmodelIdentifier = string.Empty;
             try
             {
                 decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
@@ -268,7 +271,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public async Task<IActionResult> GetSubmodelElementByPath([FromRoute][Required] string submodelIdentifier, [FromRoute][Required] string idShortPath, [FromQuery] string level, [FromQuery] string extent)
         {
-            string decodedSubmodelIdentifier = "";
+            string decodedSubmodelIdentifier = string.Empty;
             try
             {
                 decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
