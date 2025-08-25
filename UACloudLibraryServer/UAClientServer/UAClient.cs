@@ -264,8 +264,8 @@ namespace AdminShell
             else
             {
                 Console.WriteLine($"Required model for {nodesetIdentifier} not found in database.");
+                return null;
             }
-            return null;
         }
 
         private async Task LoadDependentNodesetsRecursiveAsync(string nodesetIdentifier, NodesetFileNodeManager nodeManager, string userId)
