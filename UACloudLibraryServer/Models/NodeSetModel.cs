@@ -151,7 +151,7 @@ namespace Opc.Ua.Cloud.Library
         {
             public LocalizedText()
             {
-                Text = "";
+                Text = string.Empty;
             }
 
 #nullable enable

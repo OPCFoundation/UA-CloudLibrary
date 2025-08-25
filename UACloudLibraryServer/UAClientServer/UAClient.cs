@@ -95,7 +95,7 @@ namespace AdminShell
             catch (Exception ex)
             {
                 Console.WriteLine("GetChildren: " + ex.Message);
-                _session = null;
+                DisposeSession(); //CM: Must go through dispose to remove session from _session table.
             }
 
             if ((references != null) && (references.Count > 0))
@@ -149,7 +149,7 @@ namespace AdminShell
             catch (Exception ex)
             {
                 Console.WriteLine("BrowseVariableNodesResursivelyAsync: " + ex.Message);
-                _session = null;
+                DisposeSession();
             }
 
             if ((references != null) && (references.Count > 0))
@@ -237,27 +237,35 @@ namespace AdminShell
 
             // now load the nodeset itself
             DbFiles nodesetXml = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
-            nodeManager.AddNamespace(nodesetXml.Blob);
-            nodeManager.AddNodesAndValues(nodesetXml.Blob, nodesetXml.Values);
+            if (nodesetXml != null)
+            {
 
-            ConfiguredEndpoint configuredEndpoint = new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(_app.ApplicationConfiguration));
-            Opc.Ua.Client.Session newSession = await Opc.Ua.Client.Session.Create(
-                    _app.ApplicationConfiguration,
-                    configuredEndpoint,
-                    true,
-                    false,
-                    string.Empty,
-                    30000,
-                    new UserIdentity(new AnonymousIdentityToken()),
-                    null).ConfigureAwait(false);
+                nodeManager.AddNamespace(nodesetXml.Blob);
+                nodeManager.AddNodesAndValues(nodesetXml.Blob, nodesetXml.Values);
 
-            newSession.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
+                ConfiguredEndpoint configuredEndpoint = new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(_app.ApplicationConfiguration));
+                Opc.Ua.Client.Session newSession = await Opc.Ua.Client.Session.Create(
+                        _app.ApplicationConfiguration,
+                        configuredEndpoint,
+                        true,
+                        false,
+                        string.Empty,
+                        30000,
+                        new UserIdentity(new AnonymousIdentityToken()),
+                        null).ConfigureAwait(false);
 
-            newSession.FetchNamespaceTables();
+                newSession.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
 
-            _sessions[nodesetIdentifier] = newSession;
+                newSession.FetchNamespaceTables();
 
-            return newSession;
+                _sessions[nodesetIdentifier] = newSession;
+                return newSession;
+            }
+            else
+            {
+                Console.WriteLine($"Required model for {nodesetIdentifier} not found in database.");
+            }
+            return null;
         }
 
         private async Task LoadDependentNodesetsRecursiveAsync(string nodesetIdentifier, NodesetFileNodeManager nodeManager, string userId)
@@ -541,7 +549,7 @@ namespace AdminShell
             }
         }
 
-        public void Dispose()
+        public void DisposeSession()
         {
             // remove session from our concurrent dictionary
             foreach (var key in _sessions.Keys.ToList())
@@ -551,17 +559,21 @@ namespace AdminShell
                     _sessions.TryRemove(key, out _);
                 }
             }
-
             if (_session != null)
             {
                 if (_session.Connected)
                 {
                     _session.Close();
                 }
-
                 _session.Dispose();
                 _session = null;
             }
+        }
+
+        public void Dispose()
+        {
+            // remove session from our concurrent dictionary
+            DisposeSession();
 
             if (_reconnectHandler != null)
             {
