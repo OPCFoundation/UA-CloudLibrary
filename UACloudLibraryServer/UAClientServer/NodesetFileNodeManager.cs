@@ -127,8 +127,7 @@ namespace AdminShell
                             if ((uAObject.ParentNodeId == ObjectIds.ObjectsFolder)
                              || (uAObject.References.Where(r => (r.ReferenceType == "Organizes") && (r.Value == ObjectIds.ObjectsFolder)).ToList().Count > 0))
                             {
-                                if (((node.DisplayName != null) && (node.DisplayName.Length > 0) && (node.DisplayName[0].Value == "Submodels"))
-                                 || (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("GENERATE_FULL_AAS"))))
+                                if ((node.DisplayName != null) && (node.DisplayName.Length > 0))
                                 {
                                     List<IReference> references = new() {
                                         new NodeStateReference(
