@@ -88,7 +88,7 @@ namespace IO.Swagger.Controllers
             }
 
             List<ConceptDescription> cdList = new();
-            cdList = _aasEnvService.GetAllConceptDescriptions(idShort, reqIsCaseOf, reqDataSpecificationRef);
+            cdList = _aasEnvService.GetAllConceptDescriptions(User.Identity.Name, idShort, reqIsCaseOf, reqDataSpecificationRef);
 
             PagedResult<ConceptDescription> output = PagedResult.ToPagedList<ConceptDescription>(cdList, new PaginationParameters(cursor, limit));
 
@@ -118,7 +118,7 @@ namespace IO.Swagger.Controllers
         {
             string decodedCdIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(cdIdentifier)));
 
-            ConceptDescription output = await _aasEnvService.GetConceptDescriptionById(decodedCdIdentifier, User.Identity.Name).ConfigureAwait(false);
+            ConceptDescription output = await _aasEnvService.GetConceptDescriptionById(User.Identity.Name, decodedCdIdentifier).ConfigureAwait(false);
 
             return new ObjectResult(output);
         }

@@ -126,7 +126,7 @@ namespace AdminShell
                 }
             }
 
-            return ReplaceWithFriendlyNames(output);
+            return AssetAdministrationShellFriendlyNames(output);
         }
 
         public List<Submodel> GetAllSubmodels(string userId, Reference reqSemanticId = null, string idShort = null)
@@ -184,14 +184,31 @@ namespace AdminShell
                 }
             }
 
+            SubmodelFriendlyNames(output);
             return output;
         }
 
-        private async Task<List<SubmodelElement>> ReadSubmodelElementNodes(string nodesetIdentifier, NodesetViewerNode subNode, bool browseDeep, string userId)
+        private static void SubmodelFriendlyNames(List<Submodel> submodelList)
+        {
+            string strModelPathPart = GetFriendlyName("Submodels", TypeToPath);
+
+            foreach (Submodel subNode in submodelList)
+            {
+                string strModelNode = GetFriendlyName(subNode.Id, ShortNames);
+                subNode.Id = $"http://example.com/{strModelPathPart}/{strModelNode}/";
+                subNode.Identification.Id = subNode.Id;
+                //subNode.Identification.Value =
+                string strIdValue = GetValueFromId(subNode.Identification.Id);
+                subNode.IdShort = subNode.Identification.Id + ";" + strIdValue;
+            }
+        }
+
+
+        private async Task<List<SubmodelElement>> ReadSubmodelElementNodes(string userId, string nodesetIdentifier, NodesetViewerNode subNode, bool browseDeep)
         {
             List<SubmodelElement> output = new();
 
-            List<NodesetViewerNode> submodelElementNodes = await _client.GetChildren(nodesetIdentifier, subNode.Id, userId).ConfigureAwait(false);
+            List<NodesetViewerNode> submodelElementNodes = await _client.GetChildren(userId, nodesetIdentifier, subNode.Id).ConfigureAwait(false);
             if (submodelElementNodes != null)
             {
                 foreach (NodesetViewerNode smeNode in submodelElementNodes)
@@ -199,7 +216,7 @@ namespace AdminShell
                     if (browseDeep)
                     {
                         // check for children - if there are, create a smel instead of an sme
-                        List<SubmodelElement> children = await ReadSubmodelElementNodes(nodesetIdentifier, smeNode, browseDeep, userId).ConfigureAwait(false);
+                        List<SubmodelElement> children = await ReadSubmodelElementNodes(userId, nodesetIdentifier, smeNode, browseDeep).ConfigureAwait(false);
                         if (children.Count > 0)
                         {
                             SubmodelElementList smel = new() {
@@ -220,7 +237,7 @@ namespace AdminShell
                                 DisplayName = new List<LangString>() { new LangString() { Text = smeNode.Text } },
                                 IdShort = smeNode.Text,
                                 SemanticId = new SemanticId() { Type = KeyElements.ExternalReference, Keys = new List<Key>() { new Key() { Value = smeNode.Text, Type = KeyElements.GlobalReference } } },
-                                Value = await _client.VariableRead(nodesetIdentifier, smeNode.Id, userId).ConfigureAwait(false)
+                                Value = await _client.VariableRead( userId, nodesetIdentifier, smeNode.Id).ConfigureAwait(false)
                             };
 
                             output.Add(sme);
@@ -244,34 +261,28 @@ namespace AdminShell
             return output;
         }
 
-        public List<ConceptDescription> GetAllConceptDescriptions(string idShort = null, string reqIsCaseOf = null, string reqDataSpecificationRef = null)
+        public List<ConceptDescription> GetAllConceptDescriptions(string userId, string idShort = null, string reqIsCaseOf = null, string reqDataSpecificationRef = null)
         {
             List<ConceptDescription> output = new();
 
-            // get all concept descriptions
-            List<NodesetViewerNode> nodeList = new(); // TODO
-            if (nodeList != null)
-            {
-                foreach (NodesetViewerNode node in nodeList)
-                {
-                    if (node.Text == "Concept Descriptions")
-                    {
-                        List<NodesetViewerNode> conceptDescrNodes = new(); // TODO
-                        if (conceptDescrNodes != null)
-                        {
-                            foreach (NodesetViewerNode cdNode in conceptDescrNodes)
-                            {
-                                ConceptDescription cd = new() {
-                                    ModelType = ModelTypes.ConceptDescription,
-                                    Identification = new Identifier() { Id = cdNode.Id, Value = cdNode.Text },
-                                    IdShort = cdNode.Id + ";" + cdNode.Text,
-                                    Id = cdNode.Id
-                                };
+            // Query database for all Concept Descriptions
+            List<NodesetViewerNode> conceptDescrNodes = _cldata.GetAllAssetAdminNodes(userId, "Concept Descriptions", "Template");
+            string strPathPart = GetFriendlyName("Concept Descriptions", TypeToPath);
 
-                                output.Add(cd);
-                            }
-                        }
-                    }
+            if (conceptDescrNodes != null)
+            {
+                foreach (NodesetViewerNode cdNode in conceptDescrNodes)
+                {
+                    string strNodeName = GetFriendlyName(aashell.Id, ShortNames);
+                    string strPath = $"http://example.com/{strPathPart}/{strNodeName}/";
+                    ConceptDescription cd = new() {
+                        ModelType = ModelTypes.ConceptDescription,
+                        Identification = new Identifier() { Id = cdNode.Id, Value = cdNode.Text },
+                        IdShort = cdNode.Id + ";" + cdNode.Text,
+                        Id = cdNode.Id
+                    };
+
+                    output.Add(cd);
                 }
             }
 
@@ -371,11 +382,11 @@ namespace AdminShell
                                     IdShort = subNode.Id + ";" + subNode.Text,
                                     SemanticId = new Reference() { Type = KeyElements.ExternalReference, Keys = new List<Key>() { new Key() { Value = subNode.Text, Type = KeyElements.GlobalReference } } },
                                     DisplayName = new List<LangString>() { new LangString() { Text = subNode.Text } },
-                                    Description = new List<LangString>() { new LangString() { Text = await _client.VariableRead(nodesetIdentifier, subNode.Id, userId).ConfigureAwait(false) } }
+                                    Description = new List<LangString>() { new LangString() { Text = await _client.VariableRead(userId, nodesetIdentifier, subNode.Id).ConfigureAwait(false) } }
                                 };
 
                                 // get all submodel elements
-                                sub.SubmodelElements.AddRange(await ReadSubmodelElementNodes(nodesetIdentifier, subNode, true, userId).ConfigureAwait(false));
+                                sub.SubmodelElements.AddRange(await ReadSubmodelElementNodes(userId, nodesetIdentifier, subNode, true).ConfigureAwait(false));
 
                                 return sub;
                             }
@@ -387,7 +398,7 @@ namespace AdminShell
             return null;
         }
 
-        public async Task<ConceptDescription> GetConceptDescriptionById(string nodesetIdentifier, string userId)
+        public async Task<ConceptDescription> GetConceptDescriptionById(string userId, string nodesetIdentifier)
         {
             List<NodesetViewerNode> nodeList = await _client.GetChildren(nodesetIdentifier, ObjectIds.ObjectsFolder.ToString(), userId).ConfigureAwait(false);
             if (nodeList != null)
@@ -637,7 +648,7 @@ namespace AdminShell
             return strName;
         }
 
-        private static List<AssetAdministrationShell> ReplaceWithFriendlyNames(List<AssetAdministrationShell> input)
+        private static List<AssetAdministrationShell> AssetAdministrationShellFriendlyNames(List<AssetAdministrationShell> input)
         {
             foreach (AssetAdministrationShell aashell in input)
             {
@@ -647,19 +658,24 @@ namespace AdminShell
                 string strValue = GetValueFromId(aashell.IdShort);
                 aashell.IdShort = $"{aashell.Id};{strValue}";
 
-
-                foreach (ModelReference mref in aashell.Submodels)
-                {
-                    string strModelPathPart = GetFriendlyName("Submodels", TypeToPath);
-                    foreach (Key k in mref.Keys)
-                    {
-                        string strModelNode = GetFriendlyName(k.Value, ShortNames);
-                        k.Value = $"http://example.com/{strModelPathPart}/{strModelNode}/";
-                    }
-                }
+                ModelFriendlyNames(aashell.Submodels);
             }
 
             return input;
+        }
+
+        private static void ModelFriendlyNames(List<ModelReference> listModels)
+        {
+            string strModelPathPart = GetFriendlyName("Submodels", TypeToPath);
+
+            foreach (ModelReference mref in listModels)
+            {
+                foreach (Key k in mref.Keys)
+                {
+                    string strModelNode = GetFriendlyName(k.Value, ShortNames);
+                    k.Value = $"http://example.com/{strModelPathPart}/{strModelNode}/";
+                }
+            }
         }
 
         private static string GetValueFromId(string strInput)
