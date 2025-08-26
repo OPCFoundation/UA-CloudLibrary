@@ -36,6 +36,7 @@ using System.Linq.Expressions;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using AdminShell;
 using Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -62,6 +63,58 @@ namespace Opc.Ua.Cloud.Library
             _approvalRequired = configuration.GetSection("CloudLibrary")?.GetValue<bool>("ApprovalRequired") ?? false;
         }
 
+        public List<NodesetViewerNode> GetAllAssetAdminNodes(string strUserId, string strType, string strDefault)
+        {
+            List<NodesetViewerNode> result = new();
+
+            var allNodes = GetNodeSets(strUserId);
+            foreach (var nodeset in allNodes)
+            {
+                NodesetViewerNode nswn = new();
+                foreach (var xx in nodeset.Objects)
+                {
+                    if (xx.DisplayName[0].Text == strType)
+                    {
+                        nswn.Id = nodeset.ModelUri;
+                        nswn.Value = nodeset.Identifier;
+                        nswn.Text = nodeset.ModelUri;
+                        result.Add(nswn);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        public List<NodesetViewerNode> GetAllSubModelNodesForAssetAdminShell(string strUserId, string strType, string strDefault, string strUri = null)
+        {
+            List<NodesetViewerNode> result = new();
+
+            bool bIgnoreUri = string.IsNullOrEmpty(strUri);
+
+            var allNodes = GetNodeSets(strUserId);
+            foreach (var nodeset in allNodes)
+            {
+                NodesetViewerNode nswn = new();
+                foreach (var xx in nodeset.Objects)
+                {
+                    if (xx.DisplayName[0].Text == strType)
+                    {
+                        if (bIgnoreUri || xx.NodeId.Contains(strUri, StringComparison.CurrentCulture))
+                        {
+                            nswn.Id = nodeset.ModelUri;
+                            nswn.Value = nodeset.Identifier;
+                            nswn.Text = nodeset.ModelUri;
+                            result.Add(nswn);
+                        }
+                    }
+                }
+            }
+
+            return result;
+        }
+
+
         public IQueryable<NodeSetModel> GetNodeSets(
             string userId,
             string identifier = null,
@@ -77,7 +130,6 @@ namespace Opc.Ua.Cloud.Library
                     throw new ArgumentException($"Must not specify other parameters when providing identifier.");
                 }
 
-                // Return unapproved nodesets only if request by identifier, but not in queries
                 nodeSets = _dbContext.NodeSetsWithUnapproved.AsQueryable().Where(nsm => nsm.Identifier == identifier);
             }
             else

@@ -91,7 +91,7 @@ namespace AdminShell
                 }
             }
 
-            List<AssetAdministrationShell> aasList = _aasEnvService.GetAllAssetAdministrationShells(reqAssetIds, idShort);
+            List<AssetAdministrationShell> aasList = _aasEnvService.GetAllAssetAdministrationShells(User.Identity.Name, reqAssetIds, idShort);
 
             PagedResult<AssetAdministrationShell> output = PagedResult.ToPagedList<AssetAdministrationShell>(aasList, new PaginationParameters(cursor, limit));
 

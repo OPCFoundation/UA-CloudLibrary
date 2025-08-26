@@ -140,7 +140,7 @@ namespace AdminShell
 
             Reference reference = new Reference { Keys = new List<Key> { new Key("Submodel", reqSemanticId) } };
 
-            List<Submodel> submodelList = _aasEnvService.GetAllSubmodels(reference, idShort);
+            List<Submodel> submodelList = _aasEnvService.GetAllSubmodels(User.Identity.Name, reference, idShort);
 
             PagedResult<Submodel> output = PagedResult.ToPagedList<Submodel>(submodelList, new PaginationParameters(cursor, limit));
 
