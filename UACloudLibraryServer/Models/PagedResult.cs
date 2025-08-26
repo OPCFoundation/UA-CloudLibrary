@@ -21,7 +21,7 @@ namespace AdminShell
         {
             List<T> outputList = new();
 
-            if (sourceList.Count > 0)
+            if (sourceList?.Count > 0)
             {
                 int startIndex = paginationParameters.Cursor;
                 int endIndex = Math.Min(sourceList.Count - 1, paginationParameters.Limit - 1);

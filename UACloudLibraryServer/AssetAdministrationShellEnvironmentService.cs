@@ -327,8 +327,7 @@ namespace AdminShell
                                         {
                                             aas.AssetInformation = new AssetInformation() { AssetKind = AssetKind.Instance, SpecificAssetIds = new List<IdentifierKeyValuePair>() { new IdentifierKeyValuePair() { Key = s.Text } } };
                                         }
-
-                                        if (s.Text.ToLower(CultureInfo.InvariantCulture).Contains("https://admin-shell.io/idta/submodel", StringComparison.OrdinalIgnoreCase))
+                                        else if (s.Text.ToLower(CultureInfo.InvariantCulture).Contains("https://admin-shell.io/idta/submodel", StringComparison.OrdinalIgnoreCase))
                                         {
                                             aas.Submodels.Add(new ModelReference() { Keys = new List<Key>() { new Key() { Value = s.Text, Type = KeyElements.Submodel } } });
                                         }
@@ -456,6 +455,10 @@ namespace AdminShell
                 {
                     throw new ArgumentException($"Submodel element {sme.IdShort} is not of Type File.");
                 }
+            }
+            else
+            {
+                throw new ArgumentException($"Submodel element {idShortPath} not found.");
             }
 
             return byteArray;

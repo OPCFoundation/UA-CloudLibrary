@@ -229,17 +229,23 @@ namespace AdminShell
 
             byte[] content = await _aasEnvService.GetFileByPath(decodedSubmodelIdentifier, idShortPath, User.Identity.Name).ConfigureAwait(false);
 
-            // content-disposition so that the aasx file can be downloaded from the web browser.
-            ContentDisposition contentDisposition = new() {
-                FileName = "thumbnail",
-                Inline = false
-            };
+            if (content?.Length > 0)
+            {
+                // content-disposition so that the aasx file can be downloaded from the web browser.
+                ContentDisposition contentDisposition = new() {
+                    FileName = "thumbnail",
+                    Inline = false
+                };
 
-            HttpContext.Response.Headers.Append("Content-Disposition", contentDisposition.ToString());
-            HttpContext.Response.ContentLength = content.Length;
-            HttpContext.Response.ContentType = "application/octet-stream";
-
-            await HttpContext.Response.Body.WriteAsync(content);
+                HttpContext.Response.Headers.Append("Content-Disposition", contentDisposition.ToString());
+                HttpContext.Response.ContentLength = content.Length;
+                HttpContext.Response.ContentType = "application/octet-stream";
+                await HttpContext.Response.Body.WriteAsync(content);
+            }
+            else
+            {
+                //CM-Q: Shall we return an empty file or a 404?
+            }
 
             return new EmptyResult();
         }
