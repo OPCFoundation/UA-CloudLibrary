@@ -99,6 +99,11 @@ namespace AdminShell
             return new ObjectResult(output);
         }
 
+        // Plan (pseudocode):
+        // - Update GetAllSubmodels action to be asynchronous (Task<IActionResult>).
+        // - Await the asynchronous _aasEnvService.GetAllSubmodels(...) call.
+        // - Keep existing pagination and return ObjectResult.
+
         /// <summary>
         /// Returns all Submodels
         /// </summary>
@@ -123,21 +128,21 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public IActionResult GetAllSubmodels([FromQuery][StringLength(3072, MinimumLength = 1)] string semanticId, [FromQuery] string idShort, [FromQuery] int limit, [FromQuery] string cursor, [FromQuery] string level, [FromQuery] string extent)
+        public async Task<IActionResult> GetAllSubmodels([FromQuery][StringLength(3072, MinimumLength = 1)] string semanticId, [FromQuery] string idShort, [FromQuery] int limit, [FromQuery] string cursor, [FromQuery] string level, [FromQuery] string extent)
         {
-            string reqSemanticId = "";
-            try
-            {
-                reqSemanticId = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(semanticId)));
-            }
-            catch (Exception)
-            {
-                reqSemanticId = Uri.UnescapeDataString(semanticId);
-            }
+            //string reqSemanticId = "";
+            //try
+            //{
+            //    reqSemanticId = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(semanticId)));
+            //}
+            //catch (Exception)
+            //{
+            //    reqSemanticId = Uri.UnescapeDataString(semanticId);
+            //}
 
-            Reference reference = new Reference { Keys = new List<Key> { new Key("Submodel", reqSemanticId) } };
+            //Reference reference = new Reference { Keys = new List<Key> { new Key("Submodel", reqSemanticId) } };
 
-            List<Submodel> submodelList = _aasEnvService.GetAllSubmodels(User.Identity.Name, reference, idShort);
+            List<Submodel> submodelList = await _aasEnvService.GetAllSubmodels(User.Identity.Name).ConfigureAwait(false);
 
             PagedResult<Submodel> output = PagedResult.ToPagedList<Submodel>(submodelList, new PaginationParameters(cursor, limit));
 

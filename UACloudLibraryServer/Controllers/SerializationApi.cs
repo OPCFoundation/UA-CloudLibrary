@@ -84,24 +84,24 @@ namespace AdminShell
             outputEnv.Submodels = new List<Submodel>();
 
             var aasList = _aasEnvService.GetAllAssetAdministrationShells(User.Identity.Name);
-            foreach (var aasId in decodedAasIds)
-            {
-                var foundAas = aasList.Where(a => a.Identification.Id.Equals(aasId, StringComparison.OrdinalIgnoreCase));
-                if (foundAas.Any())
-                {
-                    outputEnv.AssetAdministrationShells.Add(foundAas.First());
-                }
-            }
+            //foreach (var aasId in decodedAasIds)
+            //{
+            //    var foundAas = aasList.Where(a => a.Id.Equals(aasId, StringComparison.OrdinalIgnoreCase));
+            //    if (foundAas.Any())
+            //    {
+            //        outputEnv.AssetAdministrationShells.Add(foundAas.First());
+            //    }
+            //}
 
-            var submodelList = _aasEnvService.GetAllSubmodels(User.Identity.Name);
-            foreach (var submodelId in decodedSubmodelIds)
-            {
-                var foundSubmodel = submodelList.Where(s => s.Identification.Id.Equals(submodelId, StringComparison.OrdinalIgnoreCase));
-                if (foundSubmodel.Any())
-                {
-                    outputEnv.Submodels.Add(foundSubmodel.First());
-                }
-            }
+            //var submodelList = _aasEnvService.GetAllSubmodels(User.Identity.Name);
+            //foreach (var submodelId in decodedSubmodelIds)
+            //{
+            //    var foundSubmodel = submodelList.Where(s => s.Id.Equals(submodelId, StringComparison.OrdinalIgnoreCase));
+            //    if (foundSubmodel.Any())
+            //    {
+            //        outputEnv.Submodels.Add(foundSubmodel.First());
+            //    }
+            //}
 
             return new ObjectResult(outputEnv);
         }

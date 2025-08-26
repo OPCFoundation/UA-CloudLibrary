@@ -63,7 +63,7 @@ namespace Opc.Ua.Cloud.Library
             _approvalRequired = configuration.GetSection("CloudLibrary")?.GetValue<bool>("ApprovalRequired") ?? false;
         }
 
-        public List<NodesetViewerNode> GetAllAssetAdminNodes(string strUserId, string strType, string strDefault)
+        public List<NodesetViewerNode> GetAllNodesOfType(string strUserId, string strType, bool bReturnUris = false)
         {
             List<NodesetViewerNode> result = new();
 
@@ -75,9 +75,12 @@ namespace Opc.Ua.Cloud.Library
                 {
                     if (xx.DisplayName[0].Text == strType)
                     {
-                        nswn.Id = nodeset.ModelUri;
-                        nswn.Value = nodeset.Identifier;
-                        nswn.Text = nodeset.ModelUri;
+                        nswn.Id = nodeset.Identifier;  // The CloudLib ID
+                        if (bReturnUris)
+                        {
+                            nswn.Value = nodeset.ModelUri; // Original Uri
+                            nswn.Text = NameMgr.MakeNiceUrl(strType, nswn);
+                        }
                         result.Add(nswn);
                     }
                 }
@@ -86,29 +89,21 @@ namespace Opc.Ua.Cloud.Library
             return result;
         }
 
-        public List<NodesetViewerNode> GetAllSubModelNodesForAssetAdminShell(string strUserId, string strType, string strDefault, string strUri = null)
+        public List<NodesetViewerNode> GetAllSubModelNodesForAssetAdminShell(string strUserId, AssetAdministrationShell aas)
         {
-            List<NodesetViewerNode> result = new();
+            List<NodesetViewerNode> result = GetAllNodesOfType(strUserId, "Submodels");
 
-            bool bIgnoreUri = string.IsNullOrEmpty(strUri);
-
-            var allNodes = GetNodeSets(strUserId);
-            foreach (var nodeset in allNodes)
+            // Walk through adding submodel names
+            foreach (NodesetViewerNode subNode in result)
             {
-                NodesetViewerNode nswn = new();
-                foreach (var xx in nodeset.Objects)
-                {
-                    if (xx.DisplayName[0].Text == strType)
-                    {
-                        if (bIgnoreUri || xx.NodeId.Contains(strUri, StringComparison.CurrentCulture))
-                        {
-                            nswn.Id = nodeset.ModelUri;
-                            nswn.Value = nodeset.Identifier;
-                            nswn.Text = nodeset.ModelUri;
-                            result.Add(nswn);
-                        }
-                    }
-                }
+                Submodel sub = new() {
+                    ModelType = ModelTypes.Submodel,
+                    Id = subNode.Id,
+                    IdShort = subNode.Id + ";" + subNode.Text,
+                    SemanticId = new AdminShell.Reference() { Type = KeyElements.ExternalReference, Keys = new List<Key>() { new Key() { Value = subNode.Text, Type = KeyElements.GlobalReference } } },
+                    DisplayName = new List<LangString>() { new LangString() { Text = subNode.Text } },
+                    Description = new List<LangString>() { new LangString() { Text = string.Empty /* TODO */ } }
+                };
             }
 
             return result;
@@ -887,7 +882,7 @@ namespace Opc.Ua.Cloud.Library
             return Array.Empty<string>();
         }
 
-        public string GetNode(string expandedNodeId, string identifier, string userId)
+        public string GetNode(string userId, string expandedNodeId, string identifier)
         {
             // create a substring from expandedNodeId by removing "nsu=" from the start and parsing until the first ";"
             string modelUri = expandedNodeId.Substring(4, expandedNodeId.IndexOf(';', StringComparison.OrdinalIgnoreCase) - 4);

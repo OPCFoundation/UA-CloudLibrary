@@ -150,7 +150,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("Could not parse expanded node ID") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            string nodeInfo = _database.GetNode(expandedNodeId, identifier, User.Identity.Name);
+            string nodeInfo = _database.GetNode(User.Identity.Name, expandedNodeId, identifier);
             if (string.IsNullOrEmpty(nodeInfo))
             {
                 return new ObjectResult("Failed to find node information") { StatusCode = (int)HttpStatusCode.NotFound };

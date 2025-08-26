@@ -11,10 +11,10 @@ namespace AdminShell
     [DataContract]
     public class Referable
     {
-        [DataMember(Name = "category")]
-        [XmlElement(ElementName = "category")]
-        [MetaModelNameAttribute("Referable.Category")]
-        public string Category { get; set; }
+        //[DataMember(Name = "category")]
+        //[XmlElement(ElementName = "category")]
+        //[MetaModelNameAttribute("Referable.Category")]
+        //public string Category { get; set; }
 
         [DataMember(Name = "description")]
         [XmlArray(ElementName = "description")]
@@ -35,10 +35,10 @@ namespace AdminShell
         [XmlElement(ElementName = "modelType")]
         public ModelTypes ModelType { get; set; } = new();
 
-        [DataMember(Name = "checksum")]
-        [XmlElement(ElementName = "checksum")]
-        [MetaModelNameAttribute("Referable.Checksum")]
-        public string Checksum { get; set; } = string.Empty;
+        //[DataMember(Name = "checksum")]
+        //[XmlElement(ElementName = "checksum")]
+        //[MetaModelNameAttribute("Referable.Checksum")]
+        //public string Checksum { get; set; } = string.Empty;
 
         [XmlIgnore]
         public Referable Parent { get; set; }
@@ -78,7 +78,7 @@ namespace AdminShell
 
             IdShort = src.IdShort;
 
-            Category = src.Category;
+            //Category = src.Category;
 
             if (src.Description != null)
                 Description = src.Description;

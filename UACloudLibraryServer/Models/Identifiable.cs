@@ -7,13 +7,13 @@ namespace AdminShell
     [DataContract]
     public class Identifiable : Referable
     {
-        [DataMember(Name = "administration")]
-        [XmlElement(ElementName = "administration")]
-        public AdministrativeInformation Administration { get; set; }
+        //[DataMember(Name = "administration")]
+        //[XmlElement(ElementName = "administration")]
+        //public AdministrativeInformation Administration { get; set; }
 
-        [DataMember(Name = "identification")]
-        [XmlElement(ElementName = "identification")]
-        public Identifier Identification { get; set; } = new Identifier();
+        //[DataMember(Name = "identification")]
+        //[XmlElement(ElementName = "identification")]
+        //public Identifier Identification { get; set; } = new Identifier();
 
         [DataMember(Name = "id")]
         [XmlElement(ElementName = "id")]

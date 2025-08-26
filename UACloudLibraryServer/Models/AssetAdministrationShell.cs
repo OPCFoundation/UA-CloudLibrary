@@ -11,10 +11,10 @@ namespace AdminShell
     [JsonConverter(typeof(JsonSubtypes), "modelType.name")]
     public class AssetAdministrationShell : Identifiable
     {
-        [DataMember(Name = "embeddedDataSpecifications")]
-        [XmlArray(ElementName = "embeddedDataSpecifications")]
-        [XmlArrayItem(ElementName = "embeddedDataSpecification")]
-        public List<EmbeddedDataSpecification> EmbeddedDataSpecifications { get; set; } = new();
+        //[DataMember(Name = "embeddedDataSpecifications")]
+        //[XmlArray(ElementName = "embeddedDataSpecifications")]
+        //[XmlArrayItem(ElementName = "embeddedDataSpecification")]
+        //public List<EmbeddedDataSpecification> EmbeddedDataSpecifications { get; set; } = new();
 
         [DataMember(Name = "assetInformation")]
         [XmlElement(ElementName = "assetInformation")]
