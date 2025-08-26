@@ -53,7 +53,7 @@ namespace AdminShell
             List<AssetAdministrationShell> output = new();
 
             // Query database for all Asset Administration Shells
-            List<NodesetViewerNode> aasList = _cldata.GetAllAssetAdminNodes(userId, "Asset Admin Shells", "Template");
+            List<NodesetViewerNode> aasList = _cldata.GetAllNodesOfType(userId, "Asset Admin Shells");
 
             if (aasList != null)
             {
@@ -244,34 +244,24 @@ namespace AdminShell
             return output;
         }
 
-        public List<ConceptDescription> GetAllConceptDescriptions(string idShort = null, string reqIsCaseOf = null, string reqDataSpecificationRef = null)
+        public List<ConceptDescription> GetAllConceptDescriptions(string userId, string idShort = null, string reqIsCaseOf = null, string reqDataSpecificationRef = null)
         {
             List<ConceptDescription> output = new();
 
-            // get all concept descriptions
-            List<NodesetViewerNode> nodeList = new(); // TODO
-            if (nodeList != null)
-            {
-                foreach (NodesetViewerNode node in nodeList)
-                {
-                    if (node.Text == "Concept Descriptions")
-                    {
-                        List<NodesetViewerNode> conceptDescrNodes = new(); // TODO
-                        if (conceptDescrNodes != null)
-                        {
-                            foreach (NodesetViewerNode cdNode in conceptDescrNodes)
-                            {
-                                ConceptDescription cd = new() {
-                                    ModelType = ModelTypes.ConceptDescription,
-                                    Identification = new Identifier() { Id = cdNode.Id, Value = cdNode.Text },
-                                    IdShort = cdNode.Id + ";" + cdNode.Text,
-                                    Id = cdNode.Id
-                                };
+            // Query database for all Concept Descriptions
+            List<NodesetViewerNode> conceptDescrNodes = _cldata.GetAllNodesOfType(userId, "Concept Descriptions");
 
-                                output.Add(cd);
-                            }
-                        }
-                    }
+            if (conceptDescrNodes != null)
+            {
+                foreach (NodesetViewerNode cdNode in conceptDescrNodes)
+                {
+                    ConceptDescription cd = new() {
+                        ModelType = ModelTypes.ConceptDescription,
+                        IdShort = cdNode.Id,
+                        Id = cdNode.Id
+                    };
+
+                    output.Add(cd);
                 }
             }
 
@@ -289,6 +279,44 @@ namespace AdminShell
             }
 
             return output;
+        }
+        public async Task<ConceptDescription> GetConceptDescriptionById(string nodesetIdentifier, string userId)
+        {
+            List<NodesetViewerNode> nodeList = await _client.GetChildren(nodesetIdentifier, ObjectIds.ObjectsFolder.ToString(), userId).ConfigureAwait(false);
+            if (nodeList != null)
+            {
+                foreach (NodesetViewerNode node in nodeList)
+                {
+                    if (node.Text == "Concept Descriptions")
+                    {
+                        List<NodesetViewerNode> conceptDescrNodes = await _client.GetChildren(nodesetIdentifier, node.Id, userId).ConfigureAwait(false);
+                        if (conceptDescrNodes != null)
+                        {
+                            //if (conceptDescrNodes.Count > 1)
+                            //{
+                            //    throw new NotImplementedException($"Currently only a single Concept Description per OPC UA nodeset file is supported.");
+                            //}
+
+                            foreach (NodesetViewerNode cdNode in conceptDescrNodes)
+                            {
+                                if (cdNode.Id.Equals(nodesetIdentifier, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    ConceptDescription cd = new() {
+                                        ModelType = ModelTypes.ConceptDescription,
+                                        Identification = new Identifier() { Id = cdNode.Id, Value = cdNode.Text },
+                                        IdShort = cdNode.Id + ";" + cdNode.Text,
+                                        Id = cdNode.Id
+                                    };
+
+                                    return cd;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return null;
         }
 
         public async Task<AssetAdministrationShell> GetAssetAdministrationShellById(string nodesetIdentifier, string userId)
@@ -377,45 +405,6 @@ namespace AdminShell
                                 sub.SubmodelElements.AddRange(await ReadSubmodelElementNodes(nodesetIdentifier, subNode, true, userId).ConfigureAwait(false));
 
                                 return sub;
-                            }
-                        }
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        public async Task<ConceptDescription> GetConceptDescriptionById(string nodesetIdentifier, string userId)
-        {
-            List<NodesetViewerNode> nodeList = await _client.GetChildren(nodesetIdentifier, ObjectIds.ObjectsFolder.ToString(), userId).ConfigureAwait(false);
-            if (nodeList != null)
-            {
-                foreach (NodesetViewerNode node in nodeList)
-                {
-                    if (node.Text == "Concept Descriptions")
-                    {
-                        List<NodesetViewerNode> conceptDescrNodes = await _client.GetChildren(nodesetIdentifier, node.Id, userId).ConfigureAwait(false);
-                        if (conceptDescrNodes != null)
-                        {
-                            if (conceptDescrNodes.Count > 1)
-                            {
-                                throw new NotImplementedException($"Currently only a single Concept Description per OPC UA nodeset file is supported.");
-                            }
-
-                            foreach (NodesetViewerNode cdNode in conceptDescrNodes)
-                            {
-                                if (cdNode.Id.Equals(nodesetIdentifier, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    ConceptDescription cd = new() {
-                                        ModelType = ModelTypes.ConceptDescription,
-                                        Identification = new Identifier() { Id = cdNode.Id, Value = cdNode.Text },
-                                        IdShort = cdNode.Id + ";" + cdNode.Text,
-                                        Id = cdNode.Id
-                                    };
-
-                                    return cd;
-                                }
                             }
                         }
                     }

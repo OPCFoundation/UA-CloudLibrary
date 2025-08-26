@@ -63,7 +63,7 @@ namespace Opc.Ua.Cloud.Library
             _approvalRequired = configuration.GetSection("CloudLibrary")?.GetValue<bool>("ApprovalRequired") ?? false;
         }
 
-        public List<NodesetViewerNode> GetAllAssetAdminNodes(string strUserId, string strType, string strDefault)
+        public List<NodesetViewerNode> GetAllNodesOfType(string strUserId, string strType, bool bReturnUris = false)
         {
             List<NodesetViewerNode> result = new();
 
@@ -75,9 +75,12 @@ namespace Opc.Ua.Cloud.Library
                 {
                     if (xx.DisplayName[0].Text == strType)
                     {
-                        nswn.Id = nodeset.ModelUri;
-                        nswn.Value = nodeset.Identifier;
-                        nswn.Text = nodeset.ModelUri;
+                        nswn.Id = nodeset.Identifier;  // The CloudLib ID
+                        if (bReturnUris)
+                        {
+                            nswn.Value = nodeset.ModelUri; // Original Uri
+                            nswn.Text = NameMgr.MakeNiceUrl(strType, nswn);
+                        }
                         result.Add(nswn);
                     }
                 }
