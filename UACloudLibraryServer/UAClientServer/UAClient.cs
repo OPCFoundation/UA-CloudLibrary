@@ -78,11 +78,10 @@ namespace AdminShell
                 return allNodesOfType;
             }
 
-            List <NodesetViewerNode> listNodesWithChildren = new ();
+            List<NodesetViewerNode> listNodesWithChildren = new();
             foreach (NodesetViewerNode a in allNodesOfType)
             {
-                NodesetViewerNode newnode = new()
-                {
+                NodesetViewerNode newnode = new() {
                     Id = a.Id,
                     Text = a.Text,
                     Value = a.Value,

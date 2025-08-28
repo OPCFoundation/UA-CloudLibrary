@@ -236,8 +236,8 @@ namespace AdminShell
             {
                 // content-disposition so that the aasx file can be downloaded from the web browser.
                 ContentDisposition contentDisposition = new() {
-                FileName = "thumbnail",
-                Inline = false
+                    FileName = "thumbnail",
+                    Inline = false
                 };
 
                 HttpContext.Response.Headers.Append("Content-Disposition", contentDisposition.ToString());

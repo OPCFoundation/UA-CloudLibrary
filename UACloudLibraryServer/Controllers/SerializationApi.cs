@@ -109,7 +109,7 @@ namespace AdminShell
                 if (includeConceptDescriptions == true)
                 {
                     var cdrList = await _aasEnvService.GetConceptDescriptionById(User.Identity.Name, aasId);
-                    if (cdrList.Count>0)
+                    if (cdrList.Count > 0)
                     {
                         outputEnv.ConceptDescriptions.AddRange(cdrList);
                     }

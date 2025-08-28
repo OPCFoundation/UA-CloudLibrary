@@ -65,27 +65,25 @@ namespace AdminShell
                     string strUri = a.Id;
 
                     List<Endpoint> listEPs = new();
-                    Endpoint ep = new Endpoint()
-                    {
-                        Interface="AAS-1.0",
-                        ProtocolInformation= new ProtocolInformation() { Href= $"https://v3.2.example.com/shells/{strUri}" },
+                    Endpoint ep = new Endpoint() {
+                        Interface = "AAS-1.0",
+                        ProtocolInformation = new ProtocolInformation() { Href = $"https://v3.2.example.com/shells/{strUri}" },
 
                     };
                     listEPs.Add(ep);
 
                     List<SpecificAssetId> listSai = new();
-                    SpecificAssetId sai = new SpecificAssetId()
-                    {
+                    SpecificAssetId sai = new SpecificAssetId() {
                         Name = "assetKind",
                         Value = "Instance",
-                        ExternalSubjectId = new Reference(){ Type = KeyElements.GlobalReference},
+                        ExternalSubjectId = new Reference() { Type = KeyElements.GlobalReference },
                     };
 
                     AssetAdministrationShellDescriptor aasd = new() {
                         AssetKind = AssetKind.Instance,
                         AssetType = "Not Applicable",
                         Endpoints = listEPs,
-                        GlobalAssetId=$"https://example.com/ids/{strUri}",
+                        GlobalAssetId = $"https://example.com/ids/{strUri}",
                         IdShort = a.Id,
                         Id = a.Text + ";" + a.Value
                     };
@@ -97,10 +95,9 @@ namespace AdminShell
                         foreach (NodesetViewerNode s in submodels)
                         {
                             List<Endpoint> listSmdep = new();
-                            Endpoint smdep = new Endpoint()
-                            {
-                                Interface="SUBMODEL-1.0",
-                                ProtocolInformation= new ProtocolInformation() { Href= $"https://v3.2.example.com/shells/{strUri}" },
+                            Endpoint smdep = new Endpoint() {
+                                Interface = "SUBMODEL-1.0",
+                                ProtocolInformation = new ProtocolInformation() { Href = $"https://v3.2.example.com/shells/{strUri}" },
 
                             };
                             listSmdep.Add(smdep);
@@ -108,7 +105,7 @@ namespace AdminShell
 
                             SubmodelDescriptor smd = new() {
                                 Endpoints = listSmdep,
-                                IdShort= s.Id,
+                                IdShort = s.Id,
                                 Id = $"https://example.com/ids/sm/{strUri}",
                                 SemanticId = reference
                             };
@@ -139,20 +136,18 @@ namespace AdminShell
                     string strUri = a.Id;
 
                     List<Endpoint> listEPs = new();
-                    Endpoint ep = new Endpoint()
-                    {
-                        Interface="AAS-1.0",
-                        ProtocolInformation= new ProtocolInformation() { Href= $"https://v3.2.example.com/shells/{strUri}" },
+                    Endpoint ep = new Endpoint() {
+                        Interface = "AAS-1.0",
+                        ProtocolInformation = new ProtocolInformation() { Href = $"https://v3.2.example.com/shells/{strUri}" },
 
                     };
                     listEPs.Add(ep);
 
                     List<SpecificAssetId> listSai = new();
-                    SpecificAssetId sai = new SpecificAssetId()
-                    {
+                    SpecificAssetId sai = new SpecificAssetId() {
                         Name = "assetKind",
                         Value = "Instance",
-                        ExternalSubjectId = new Reference(){ Type = KeyElements.GlobalReference},
+                        ExternalSubjectId = new Reference() { Type = KeyElements.GlobalReference },
                     };
 
                     aasd.AssetKind = AssetKind.Instance;
@@ -169,10 +164,9 @@ namespace AdminShell
                         foreach (NodesetViewerNode s in submodels)
                         {
                             List<Endpoint> listSmdep = new();
-                            Endpoint smdep = new Endpoint()
-                            {
-                                Interface="SUBMODEL-1.0",
-                                ProtocolInformation= new ProtocolInformation() { Href= $"https://v3.2.example.com/shells/{strUri}" },
+                            Endpoint smdep = new Endpoint() {
+                                Interface = "SUBMODEL-1.0",
+                                ProtocolInformation = new ProtocolInformation() { Href = $"https://v3.2.example.com/shells/{strUri}" },
 
                             };
                             listSmdep.Add(smdep);
@@ -180,7 +174,7 @@ namespace AdminShell
 
                             SubmodelDescriptor smd = new() {
                                 Endpoints = listSmdep,
-                                IdShort= s.Id,
+                                IdShort = s.Id,
                                 Id = $"https://example.com/ids/sm/{strUri}",
                                 SemanticId = reference
                             };
@@ -278,7 +272,7 @@ namespace AdminShell
             List<Submodel> output = new();
 
             // Get All Submodels
-            List<NodesetViewerNode> submodelList = await _client.GetAllNodesOfTypeAsync(userId, "Submodels", bChildren:false).ConfigureAwait(false);
+            List<NodesetViewerNode> submodelList = await _client.GetAllNodesOfTypeAsync(userId, "Submodels", bChildren: false).ConfigureAwait(false);
             if (submodelList != null)
             {
                 foreach (NodesetViewerNode subNode in submodelList)
@@ -393,7 +387,7 @@ namespace AdminShell
             List<ConceptDescription> output = new();
 
             // Query database for all Concept Descriptions
-            List<NodesetViewerNode> conceptDescrNodes = await _client.GetAllNodesOfTypeAsync(userId, "Concept Descriptions", bChildren:true, strCloudLibId: idShort).ConfigureAwait(false);
+            List<NodesetViewerNode> conceptDescrNodes = await _client.GetAllNodesOfTypeAsync(userId, "Concept Descriptions", bChildren: true, strCloudLibId: idShort).ConfigureAwait(false);
 
             if (conceptDescrNodes != null)
             {
@@ -446,7 +440,7 @@ namespace AdminShell
             List<ConceptDescription> output = new();
 
             // Query database for all Concept Descriptions
-            List<NodesetViewerNode> conceptDescrNodes = await _client.GetAllNodesOfTypeAsync(userId, "Concept Descriptions", bChildren:true, strCloudLibId: nodesetIdentifier).ConfigureAwait(false);
+            List<NodesetViewerNode> conceptDescrNodes = await _client.GetAllNodesOfTypeAsync(userId, "Concept Descriptions", bChildren: true, strCloudLibId: nodesetIdentifier).ConfigureAwait(false);
 
             if (conceptDescrNodes != null)
             {
@@ -525,7 +519,7 @@ namespace AdminShell
 
         public async Task<AssetInformation> GetAssetInformationFromAas(string userId, string nodesetIdentifier)
         {
-            List<AssetAdministrationShell> aasList =  await GetAllAssetAdministrationShells(userId, null, nodesetIdentifier).ConfigureAwait(false);
+            List<AssetAdministrationShell> aasList = await GetAllAssetAdministrationShells(userId, null, nodesetIdentifier).ConfigureAwait(false);
             if (aasList != null && aasList.Count > 0)
             {
                 return aasList.FirstOrDefault().AssetInformation;
@@ -777,5 +771,5 @@ namespace AdminShell
             return strInput;
         }
 
-    } // class
-} // namespace
+    }
+}
