@@ -74,16 +74,21 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public IActionResult GenerateSerializationByIds([FromQuery] List<string> aasIds, [FromQuery] List<string> submodelIds, [FromQuery] bool? includeConceptDescriptions)
+        public async Task<IActionResult> GenerateSerializationByIds([FromQuery] List<string> aasIds, [FromQuery] List<string> submodelIds, [FromQuery] bool? includeConceptDescriptions)
         {
+            ///
+            /// PY-Q: The spec says that multiple formats (Json, xml, etc) are supported. There is no paramter on tihs function.
+            /// Currently is returning JSON.
+
             IEnumerable<string> decodedAasIds = aasIds.Select(aasId => Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasId)))).ToList();
             IEnumerable<string> decodedSubmodelIds = submodelIds.Select(submodelId => Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelId)))).ToList();
 
             dynamic outputEnv = new ExpandoObject();
             outputEnv.AssetAdministrationShells = new List<AssetAdministrationShell>();
             outputEnv.Submodels = new List<Submodel>();
+            outputEnv.ConceptDescriptions = new List<ConceptDescription>();
 
-            var aasList = _aasEnvService.GetAllAssetAdministrationShells(User.Identity.Name);
+            var aasList = await _aasEnvService.GetAllAssetAdministrationShells(User.Identity.Name).ConfigureAwait(false);
             foreach (var aasId in decodedAasIds)
             {
                 var foundAas = aasList.Where(a => a.Identification.Id.Equals(aasId, StringComparison.OrdinalIgnoreCase));
@@ -91,15 +96,24 @@ namespace AdminShell
                 {
                     outputEnv.AssetAdministrationShells.Add(foundAas.First());
                 }
-            }
 
-            var submodelList = _aasEnvService.GetAllSubmodels(User.Identity.Name);
-            foreach (var submodelId in decodedSubmodelIds)
-            {
-                var foundSubmodel = submodelList.Where(s => s.Identification.Id.Equals(submodelId, StringComparison.OrdinalIgnoreCase));
-                if (foundSubmodel.Any())
+                var submodelList = await _aasEnvService.GetAllSubmodels(User.Identity.Name, aasId).ConfigureAwait(false);
+                foreach (var submodelId in decodedSubmodelIds)
                 {
-                    outputEnv.Submodels.Add(foundSubmodel.First());
+                    var foundSubmodel = submodelList.Where(s => s.Identification.Id.Equals(submodelId, StringComparison.OrdinalIgnoreCase));
+                    if (foundSubmodel.Any())
+                    {
+                        outputEnv.Submodels.Add(foundSubmodel.First());
+                    }
+                }
+                if (includeConceptDescriptions == true)
+                {
+                    var cdrList = await _aasEnvService.GetConceptDescriptionById(User.Identity.Name, aasId);
+                    if (cdrList.Count>0)
+                    {
+                        outputEnv.ConceptDescriptions.AddRange(cdrList);
+                    }
+
                 }
             }
 
