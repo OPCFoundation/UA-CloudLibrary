@@ -74,8 +74,19 @@ namespace IO.Swagger.Controllers
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public IActionResult GetAllConceptDescriptions([FromQuery] string idShort, [FromQuery] string isCaseOf, [FromQuery] string dataSpecificationRef, [FromQuery] int limit, [FromQuery] string cursor)
+        public async Task<IActionResult> GetAllConceptDescriptions([FromQuery] string idShort, [FromQuery] string isCaseOf, [FromQuery] string dataSpecificationRef, [FromQuery] int limit, [FromQuery] string cursor)
         {
+            string strDecodedIdShort = null;
+            try
+            {
+                strDecodedIdShort = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(idShort)));
+            }
+            catch (Exception)
+            {
+                strDecodedIdShort = idShort;
+            }
+
+
             string reqIsCaseOf = null;
             if (!string.IsNullOrEmpty(isCaseOf))
             {
@@ -103,7 +114,7 @@ namespace IO.Swagger.Controllers
             }
 
             List<ConceptDescription> cdList = new();
-            cdList = _aasEnvService.GetAllConceptDescriptions(User.Identity.Name, idShort, reqIsCaseOf, reqDataSpecificationRef);
+            cdList = await _aasEnvService.GetAllConceptDescriptions(User.Identity.Name, strDecodedIdShort, reqIsCaseOf, reqDataSpecificationRef).ConfigureAwait(false);
 
             PagedResult<ConceptDescription> output = PagedResult.ToPagedList<ConceptDescription>(cdList, new PaginationParameters(cursor, limit));
 
@@ -131,14 +142,7 @@ namespace IO.Swagger.Controllers
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public async Task<IActionResult> GetConceptDescriptionById([FromRoute][Required] string cdIdentifier)
         {
-            //CM:   All AAS files (including Catena-x) have multiple ConceptDescription
-            //      As it is right now, there are three interpretations possible:
-            //      1) Asset Shell Identfier is missing and once added, the cdIdentifier filters the exact requested ConceptDescription (most likely scenario)
-            //      2) The cdIdentifier is unique and ALL nodes in the CloudLib have to be parsed to find the cdIdentifier matching the given cdI <- VERY expensive call because all Nodesets have to be instantiated in the UAServer to find the CDs
-            //      3) The API should be called "GetConceptDescriptionsById" (with a "s") and return a list of all ConceptDescriptions of a AAS (second likely)
-            //CM-Q: Which of the 3 is the truth?
-
-            string decodedCdIdentifier = string.Empty;
+            string decodedCdIdentifier = null;
             try
             {
                 decodedCdIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(cdIdentifier)));
@@ -148,9 +152,11 @@ namespace IO.Swagger.Controllers
                 decodedCdIdentifier = Uri.UnescapeDataString(cdIdentifier);
             }
 
-            ConceptDescription output = await _aasEnvService.GetConceptDescriptionById(decodedCdIdentifier, User.Identity.Name).ConfigureAwait(false);
+            List<ConceptDescription> cdList = new();
+            cdList = await _aasEnvService.GetConceptDescriptionById(User.Identity.Name, decodedCdIdentifier).ConfigureAwait(false);
 
-            return new ObjectResult(output);
+
+            return new ObjectResult(cdList);
         }
     }
 }

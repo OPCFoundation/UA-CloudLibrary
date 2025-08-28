@@ -126,21 +126,24 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public IActionResult GetAllSubmodels([FromQuery][StringLength(3072, MinimumLength = 1)] string semanticId, [FromQuery] string idShort, [FromQuery] int limit, [FromQuery] string cursor, [FromQuery] string level, [FromQuery] string extent)
+        public async Task<IActionResult> GetAllSubmodels([FromQuery][StringLength(3072, MinimumLength = 1)] string semanticId, [FromQuery] string idShort, [FromQuery] int limit, [FromQuery] string cursor, [FromQuery] string level, [FromQuery] string extent)
         {
-            string reqSemanticId = string.Empty;
-            try
+            string reqSemanticId = null; ;
+            if (!string.IsNullOrEmpty(semanticId))
             {
-                reqSemanticId = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(semanticId)));
-            }
-            catch (Exception)
-            {
-                reqSemanticId = Uri.UnescapeDataString(semanticId);
+                try
+                {
+                    reqSemanticId = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(semanticId)));
+                }
+                catch (Exception)
+                {
+                    reqSemanticId = Uri.UnescapeDataString(semanticId);
+                }
             }
 
             Reference reference = new Reference { Keys = new List<Key> { new Key("Submodel", reqSemanticId) } };
 
-            List<Submodel> submodelList = _aasEnvService.GetAllSubmodels(User.Identity.Name, reference, idShort);
+            List<Submodel> submodelList = await _aasEnvService.GetAllSubmodels(User.Identity.Name, idShort, reference).ConfigureAwait(false);
 
             PagedResult<Submodel> output = PagedResult.ToPagedList<Submodel>(submodelList, new PaginationParameters(cursor, limit));
 
@@ -181,7 +184,7 @@ namespace AdminShell
             {
                 decodedSubmodelIdentifier = Uri.UnescapeDataString(submodelIdentifier);
             }
-            Submodel output = await _aasEnvService.GetSubmodelById(decodedSubmodelIdentifier, User.Identity.Name).ConfigureAwait(false);
+            Submodel output = await _aasEnvService.GetSubmodelById(User.Identity.Name, decodedSubmodelIdentifier).ConfigureAwait(false);
 
             return new ObjectResult(output);
         }
@@ -229,23 +232,17 @@ namespace AdminShell
 
             byte[] content = await _aasEnvService.GetFileByPath(decodedSubmodelIdentifier, idShortPath, User.Identity.Name).ConfigureAwait(false);
 
-            if (content?.Length > 0)
-            {
-                // content-disposition so that the aasx file can be downloaded from the web browser.
-                ContentDisposition contentDisposition = new() {
-                    FileName = "thumbnail",
-                    Inline = false
-                };
+            // content-disposition so that the aasx file can be downloaded from the web browser.
+            ContentDisposition contentDisposition = new() {
+                FileName = "thumbnail",
+                Inline = false
+            };
 
-                HttpContext.Response.Headers.Append("Content-Disposition", contentDisposition.ToString());
-                HttpContext.Response.ContentLength = content.Length;
-                HttpContext.Response.ContentType = "application/octet-stream";
-                await HttpContext.Response.Body.WriteAsync(content);
-            }
-            else
-            {
-                //CM-Q: Shall we return an empty file or a 404?
-            }
+            HttpContext.Response.Headers.Append("Content-Disposition", contentDisposition.ToString());
+            HttpContext.Response.ContentLength = content.Length;
+            HttpContext.Response.ContentType = "application/octet-stream";
+
+            await HttpContext.Response.Body.WriteAsync(content);
 
             return new EmptyResult();
         }

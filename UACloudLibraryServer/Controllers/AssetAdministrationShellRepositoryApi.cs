@@ -31,6 +31,7 @@ using System;
 using System.Buffers.Text;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Net.Mime;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -77,7 +78,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public IActionResult GetAllAssetAdministrationShells([FromQuery] List<string> assetIds, [FromQuery] string idShort, [FromQuery] int limit, [FromQuery] string cursor)
+        public async Task<IActionResult> GetAllAssetAdministrationShells([FromQuery] List<string> assetIds, [FromQuery] string idShort, [FromQuery] int limit, [FromQuery] string cursor)
         {
             List<string> reqAssetIds = new();
             foreach (string assetId in assetIds)
@@ -91,7 +92,7 @@ namespace AdminShell
                 }
             }
 
-            List<AssetAdministrationShell> aasList = _aasEnvService.GetAllAssetAdministrationShells(User.Identity.Name, reqAssetIds, idShort);
+            List<AssetAdministrationShell> aasList = await _aasEnvService.GetAllAssetAdministrationShells(User.Identity.Name, reqAssetIds, idShort).ConfigureAwait(false);
 
             PagedResult<AssetAdministrationShell> output = PagedResult.ToPagedList<AssetAdministrationShell>(aasList, new PaginationParameters(cursor, limit));
 
@@ -131,7 +132,8 @@ namespace AdminShell
                 decodedAasIdentifier = Uri.UnescapeDataString(aasIdentifier);
             }
 
-            AssetAdministrationShell aas = await _aasEnvService.GetAssetAdministrationShellById(decodedAasIdentifier, User.Identity.Name).ConfigureAwait(false);
+            List<AssetAdministrationShell> aasList = await _aasEnvService.GetAllAssetAdministrationShells(User.Identity.Name, null, decodedAasIdentifier).ConfigureAwait(false);
+            AssetAdministrationShell aas = aasList.FirstOrDefault();
 
             return new ObjectResult(aas);
         }
@@ -176,7 +178,7 @@ namespace AdminShell
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedAasIdentifier)} is null");
             }
 
-            List<Reference> submodels = await _aasEnvService.GetAllSubmodelReferences(decodedAasIdentifier, User.Identity.Name).ConfigureAwait(false);
+            List<Reference> submodels = await _aasEnvService.GetAllSubmodelReferences(User.Identity.Name, decodedAasIdentifier).ConfigureAwait(false);
 
             PagedResult<Reference> output = PagedResult.ToPagedList<Reference>(submodels, new PaginationParameters(cursor, limit));
 
@@ -274,7 +276,7 @@ namespace AdminShell
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedAasIdentifier)} is null");
             }
 
-            AssetInformation output = await _aasEnvService.GetAssetInformationFromAas(decodedAasIdentifier, User.Identity.Name).ConfigureAwait(false);
+            AssetInformation output = await _aasEnvService.GetAssetInformationFromAas(User.Identity.Name, decodedAasIdentifier).ConfigureAwait(false);
 
             return new ObjectResult(output);
         }
