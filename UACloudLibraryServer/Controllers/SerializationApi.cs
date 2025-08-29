@@ -88,7 +88,7 @@ namespace AdminShell
             outputEnv.Submodels = new List<Submodel>();
             outputEnv.ConceptDescriptions = new List<ConceptDescription>();
 
-            var aasList = await _aasEnvService.GetAllAssetAdministrationShells(User.Identity.Name).ConfigureAwait(false);
+            var aasList = _aasEnvService.GetAllAssetAdministrationShells(User.Identity.Name);
             foreach (var aasId in decodedAasIds)
             {
                 var foundAas = aasList.Where(a => a.Identification.Id.Equals(aasId, StringComparison.OrdinalIgnoreCase));
@@ -97,23 +97,18 @@ namespace AdminShell
                     outputEnv.AssetAdministrationShells.Add(foundAas.First());
                 }
 
-                var submodelList = await _aasEnvService.GetAllSubmodels(User.Identity.Name, aasId).ConfigureAwait(false);
-                foreach (var submodelId in decodedSubmodelIds)
+                Submodel submodel = await _aasEnvService.GetSubmodelById(User.Identity.Name, aasId).ConfigureAwait(false);
+                if (submodel != null)
                 {
-                    var foundSubmodel = submodelList.Where(s => s.Identification.Id.Equals(submodelId, StringComparison.OrdinalIgnoreCase));
-                    if (foundSubmodel.Any())
-                    {
-                        outputEnv.Submodels.Add(foundSubmodel.First());
-                    }
+                    outputEnv.Submodels.Add(submodel);
                 }
                 if (includeConceptDescriptions == true)
                 {
-                    var cdrList = await _aasEnvService.GetConceptDescriptionById(User.Identity.Name, aasId);
+                    var cdrList = await _aasEnvService.GetConceptDescriptionById(User.Identity.Name, aasId).ConfigureAwait(false);
                     if (cdrList.Count > 0)
                     {
                         outputEnv.ConceptDescriptions.AddRange(cdrList);
                     }
-
                 }
             }
 

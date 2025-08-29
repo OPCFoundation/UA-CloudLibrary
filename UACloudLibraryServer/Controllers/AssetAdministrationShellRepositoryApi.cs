@@ -78,7 +78,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public async Task<IActionResult> GetAllAssetAdministrationShells([FromQuery] List<string> assetIds, [FromQuery] string idShort, [FromQuery] int limit, [FromQuery] string cursor)
+        public IActionResult GetAllAssetAdministrationShells([FromQuery] List<string> assetIds, [FromQuery] string idShort, [FromQuery] int limit, [FromQuery] string cursor)
         {
             List<string> reqAssetIds = new();
             foreach (string assetId in assetIds)
@@ -92,7 +92,7 @@ namespace AdminShell
                 }
             }
 
-            List<AssetAdministrationShell> aasList = await _aasEnvService.GetAllAssetAdministrationShells(User.Identity.Name, reqAssetIds, idShort).ConfigureAwait(false);
+            List<AssetAdministrationShell> aasList = _aasEnvService.GetAllAssetAdministrationShells(User.Identity.Name, reqAssetIds, idShort);
 
             PagedResult<AssetAdministrationShell> output = PagedResult.ToPagedList<AssetAdministrationShell>(aasList, new PaginationParameters(cursor, limit));
 
@@ -120,20 +120,19 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public async Task<IActionResult> GetAssetAdministrationShellById([FromRoute][Required] string aasIdentifier)
+        public IActionResult GetAssetAdministrationShellById([FromRoute][Required] string aasIdentifier)
         {
-            string decodedAasIdentifier = string.Empty;
+            string strCloudLib = string.Empty;
             try
             {
-                decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+                strCloudLib = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
             }
             catch (Exception)
             {
-                decodedAasIdentifier = Uri.UnescapeDataString(aasIdentifier);
+                strCloudLib = Uri.UnescapeDataString(aasIdentifier);
             }
 
-            List<AssetAdministrationShell> aasList = await _aasEnvService.GetAllAssetAdministrationShells(User.Identity.Name, null, decodedAasIdentifier).ConfigureAwait(false);
-            AssetAdministrationShell aas = aasList.FirstOrDefault();
+            AssetAdministrationShell aas = _aasEnvService.GetAssetAdministrationShellById(User.Identity.Name, strCloudLib);
 
             return new ObjectResult(aas);
         }
@@ -161,7 +160,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public async Task<IActionResult> GetAllSubmodelReferences([FromRoute][Required] string aasIdentifier, [FromQuery] int limit, [FromQuery] string cursor)
+        public IActionResult GetAllSubmodelReferences([FromRoute][Required] string aasIdentifier, [FromQuery] int limit, [FromQuery] string cursor)
         {
             string decodedAasIdentifier = string.Empty;
             try
@@ -178,7 +177,7 @@ namespace AdminShell
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedAasIdentifier)} is null");
             }
 
-            List<Reference> submodels = await _aasEnvService.GetAllSubmodelReferences(User.Identity.Name, decodedAasIdentifier).ConfigureAwait(false);
+            List<Reference> submodels = _aasEnvService.GetAllSubmodelReferences(User.Identity.Name, decodedAasIdentifier);
 
             PagedResult<Reference> output = PagedResult.ToPagedList<Reference>(submodels, new PaginationParameters(cursor, limit));
 
@@ -258,7 +257,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public async Task<IActionResult> GetAssetInformation([FromRoute][Required] string aasIdentifier)
+        public IActionResult GetAssetInformation([FromRoute][Required] string aasIdentifier)
         {
             string decodedAasIdentifier = string.Empty;
             try
@@ -276,7 +275,7 @@ namespace AdminShell
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedAasIdentifier)} is null");
             }
 
-            AssetInformation output = await _aasEnvService.GetAssetInformationFromAas(User.Identity.Name, decodedAasIdentifier).ConfigureAwait(false);
+            AssetInformation output =  _aasEnvService.GetAssetInformationFromAas(User.Identity.Name, decodedAasIdentifier);
 
             return new ObjectResult(output);
         }

@@ -74,10 +74,15 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public async virtual Task<IActionResult> GetAllAssetAdministrationShellDescriptors([FromQuery] int? limit, [FromQuery] string cursor, [FromQuery] AssetKind assetKind, [FromQuery][RegularExpression("/^([\\\\x09\\\\x0a\\\\x0d\\\\x20-\\\\ud7ff\\\\ue000-\\\\ufffd]|\\\\ud800[\\\\udc00-\\\\udfff]|[\\\\ud801-\\\\udbfe][\\\\udc00-\\\\udfff]|\\\\udbff[\\\\udc00-\\\\udfff])*$/")][StringLength(2048, MinimumLength = 1)] string assetType)
+        public virtual IActionResult GetAllAssetAdministrationShellDescriptors([FromQuery] int? limit, [FromQuery] string cursor, [FromQuery] AssetKind assetKind, [FromQuery][RegularExpression("/^([\\\\x09\\\\x0a\\\\x0d\\\\x20-\\\\ud7ff\\\\ue000-\\\\ufffd]|\\\\ud800[\\\\udc00-\\\\udfff]|[\\\\ud801-\\\\udbfe][\\\\udc00-\\\\udfff]|\\\\udbff[\\\\udc00-\\\\udfff])*$/")][StringLength(2048, MinimumLength = 1)] string assetType)
         {
-            List<AssetAdministrationShellDescriptor> aasList = await _aasEnvService.GetAllAssetAdministrationShellDescriptors(User.Identity.Name).ConfigureAwait(false);
-
+            //CM-Q: assetKind and assetType used for filtering or as a "include in Return" flag?
+            List<AssetAdministrationShellDescriptor> aasList = _aasEnvService.GetAllAssetAdministrationShellDescriptors(User.Identity.Name);
+            if (limit != null)
+            {
+                PagedResult<AssetAdministrationShellDescriptor> output = PagedResult.ToPagedList<AssetAdministrationShellDescriptor>(aasList, new PaginationParameters(cursor, limit.Value));
+                return new ObjectResult(output);
+            }
             return new ObjectResult(aasList);
         }
 
@@ -100,7 +105,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public async virtual Task<IActionResult> GetAssetAdministrationShellDescriptorById([FromRoute][Required] string aasIdentifier)
+        public virtual IActionResult GetAssetAdministrationShellDescriptorById([FromRoute][Required] string aasIdentifier)
         {
             string decodedAasIdentifier = null;
             try
@@ -112,7 +117,7 @@ namespace AdminShell
                 decodedAasIdentifier = Uri.UnescapeDataString(aasIdentifier);
             }
 
-            AssetAdministrationShellDescriptor aasdesc = await _aasEnvService.GetAssetAdministrationShellDescriptorById(User.Identity.Name, decodedAasIdentifier).ConfigureAwait(false);
+            AssetAdministrationShellDescriptor aasdesc = _aasEnvService.GetAssetAdministrationShellDescriptorById(User.Identity.Name, decodedAasIdentifier);
 
             return new ObjectResult(aasdesc);
         }
