@@ -36,6 +36,7 @@ using System.Linq.Expressions;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using AdminShell;
 using Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -77,7 +78,6 @@ namespace Opc.Ua.Cloud.Library
                     throw new ArgumentException($"Must not specify other parameters when providing identifier.");
                 }
 
-                // Return unapproved nodesets only if request by identifier, but not in queries
                 nodeSets = _dbContext.NodeSetsWithUnapproved.AsQueryable().Where(nsm => nsm.Identifier == identifier);
             }
             else
@@ -166,7 +166,7 @@ namespace Opc.Ua.Cloud.Library
             return GenerateHashCode(nodeSet).ToString(CultureInfo.InvariantCulture);
         }
 
-        public async Task<string> UploadNamespaceAndNodesetAsync(UANameSpace uaNamespace, string values, bool overwrite, string userId)
+        public async Task<string> UploadNamespaceAndNodesetAsync(string userId, UANameSpace uaNamespace, string values, bool overwrite)
         {
             UANodeSet nodeSet = null;
 
@@ -251,7 +251,7 @@ namespace Opc.Ua.Cloud.Library
             string result = await _storage.FindFileAsync(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(result) && !overwrite)
             {
-                UANameSpace existingNamespace = await RetrieveAllMetadataAsync(uaNamespace.Nodeset.Identifier, userId).ConfigureAwait(false);
+                UANameSpace existingNamespace = await RetrieveAllMetadataAsync(userId, uaNamespace.Nodeset.Identifier).ConfigureAwait(false);
                 if (existingNamespace != null)
                 {
                     // nodeset already exists
@@ -323,7 +323,7 @@ namespace Opc.Ua.Cloud.Library
                 return message;
             }
 
-            string dbMessage = await AddMetaDataAsync(uaNamespace, nodeSet, legacyNodesetHashCode, userId).ConfigureAwait(false);
+            string dbMessage = await AddMetaDataAsync(userId, uaNamespace, nodeSet, legacyNodesetHashCode).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(dbMessage))
             {
                 _logger.LogError(dbMessage);
@@ -430,7 +430,7 @@ namespace Opc.Ua.Cloud.Library
             return (uint)hashCode;
         }
 
-        public async Task<string> AddMetaDataAsync(UANameSpace uaNamespace, UANodeSet nodeSet, uint legacyNodesetHashCode, string userId)
+        public async Task<string> AddMetaDataAsync(string userId, UANameSpace uaNamespace, UANodeSet nodeSet, uint legacyNodesetHashCode)
         {
             string message = "Internal error: transaction not executed";
             try
@@ -457,7 +457,7 @@ namespace Opc.Ua.Cloud.Library
                         return;
                     }
 
-                    NamespaceMetaDataModel nameSpaceModel = MapRESTNamespaceToNamespaceMetaDataModel(uaNamespace, userId);
+                    NamespaceMetaDataModel nameSpaceModel = MapRESTNamespaceToNamespaceMetaDataModel(userId, uaNamespace);
 
 
                     await _dbContext.AddAsync(nameSpaceModel).ConfigureAwait(false);
@@ -538,7 +538,7 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
-        public async Task<UANameSpace> RetrieveAllMetadataAsync(uint nodesetId, string userId)
+        public async Task<UANameSpace> RetrieveAllMetadataAsync(string userId, uint nodesetId)
         {
             try
             {
@@ -590,7 +590,7 @@ namespace Opc.Ua.Cloud.Library
             return matchingNodeSets;
         }
 
-        public UANameSpace[] FindNodesets(string[] keywords, string userId, int? offset, int? limit)
+        public UANameSpace[] FindNodesets(string userId, string[] keywords, int? offset, int? limit)
         {
             var uaNamespaceModel = SearchNodesets(keywords, userId)
                 .OrderBy(n => n.ModelUri)
@@ -678,7 +678,7 @@ namespace Opc.Ua.Cloud.Library
             return nodeSetMetaSaved;
         }
 
-        private NamespaceMetaDataModel MapRESTNamespaceToNamespaceMetaDataModel(UANameSpace uaNamespace, string userId)
+        private NamespaceMetaDataModel MapRESTNamespaceToNamespaceMetaDataModel(string userId, UANameSpace uaNamespace)
         {
             // fix up license expression
             string licenseExpression = uaNamespace.License switch {
@@ -835,7 +835,7 @@ namespace Opc.Ua.Cloud.Library
             return Array.Empty<string>();
         }
 
-        public string GetNode(string expandedNodeId, string identifier, string userId)
+        public string GetNode(string userId, string expandedNodeId, string identifier)
         {
             // create a substring from expandedNodeId by removing "nsu=" from the start and parsing until the first ";"
             string modelUri = expandedNodeId.Substring(4, expandedNodeId.IndexOf(';', StringComparison.OrdinalIgnoreCase) - 4);

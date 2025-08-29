@@ -32,6 +32,7 @@ using System.Buffers.Text;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using System.Net;
 using System.Net.Mime;
 using System.Text;
 using System.Threading.Tasks;
@@ -82,6 +83,8 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public async Task<IActionResult> GetAllSubmodelElements([FromRoute][Required] string submodelIdentifier, [FromQuery] int limit, [FromQuery] string cursor, [FromQuery] string level, [FromQuery] string extent, [FromQuery] string diff)
         {
+            //CM-Q: Diff is not explained. What is it for?
+
             string decodedSubmodelIdentifier = null;
             if (submodelIdentifier != null)
             {
@@ -128,19 +131,48 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public IActionResult GetAllSubmodels([FromQuery][StringLength(3072, MinimumLength = 1)] string semanticId, [FromQuery] string idShort, [FromQuery] int limit, [FromQuery] string cursor, [FromQuery] string level, [FromQuery] string extent)
         {
-            string reqSemanticId = string.Empty;
-            try
+            //CM-Q: extend is unclear. What are the different "extents"?
+            //CM-Q: level is unclear. What are the different "levels"? The sample nodesets only have one level as we can tell.
+
+            string reqSemanticId = null; ;
+            if (!string.IsNullOrEmpty(semanticId))
             {
-                reqSemanticId = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(semanticId)));
+                try
+                {
+                    reqSemanticId = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(semanticId)));
+                }
+                catch (Exception)
+                {
+                    reqSemanticId = Uri.UnescapeDataString(semanticId);
+                }
             }
-            catch (Exception)
+
+            string idShortDecoded = null; ;
+            if (!string.IsNullOrEmpty(idShort))
             {
-                reqSemanticId = Uri.UnescapeDataString(semanticId);
+                try
+                {
+                    idShortDecoded = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(idShort)));
+                }
+                catch (Exception)
+                {
+                    idShortDecoded = Uri.UnescapeDataString(idShort);
+                }
             }
+
 
             Reference reference = new Reference { Keys = new List<Key> { new Key("Submodel", reqSemanticId) } };
 
-            List<Submodel> submodelList = _aasEnvService.GetAllSubmodels(reference, idShort);
+            List<Submodel> submodelList = null;
+            if (idShortDecoded == null)
+            {
+                submodelList = _aasEnvService.GetAllSubmodels(User.Identity.Name, reference);
+            }
+            else
+            {
+                submodelList = _aasEnvService.GetSubmodelById(User.Identity.Name, idShortDecoded, reference);
+            }
+
 
             PagedResult<Submodel> output = PagedResult.ToPagedList<Submodel>(submodelList, new PaginationParameters(cursor, limit));
 
@@ -172,6 +204,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public async Task<IActionResult> GetSubmodelById([FromRoute][Required] string submodelIdentifier, [FromQuery] string level, [FromQuery] string extent)
         {
+            //CM-Q: level and extend see GetAllSubmodels
             string decodedSubmodelIdentifier = string.Empty;
             try
             {
@@ -181,7 +214,7 @@ namespace AdminShell
             {
                 decodedSubmodelIdentifier = Uri.UnescapeDataString(submodelIdentifier);
             }
-            Submodel output = await _aasEnvService.GetSubmodelById(decodedSubmodelIdentifier, User.Identity.Name).ConfigureAwait(false);
+            Submodel output = await _aasEnvService.GetSubmodelById(User.Identity.Name, decodedSubmodelIdentifier).ConfigureAwait(false);
 
             return new ObjectResult(output);
         }
@@ -229,17 +262,23 @@ namespace AdminShell
 
             byte[] content = await _aasEnvService.GetFileByPath(decodedSubmodelIdentifier, idShortPath, User.Identity.Name).ConfigureAwait(false);
 
-            // content-disposition so that the aasx file can be downloaded from the web browser.
-            ContentDisposition contentDisposition = new() {
-                FileName = "thumbnail",
-                Inline = false
-            };
+            if (content?.Length > 0)
+            {
+                // content-disposition so that the aasx file can be downloaded from the web browser.
+                ContentDisposition contentDisposition = new() {
+                    FileName = "thumbnail",
+                    Inline = false
+                };
 
-            HttpContext.Response.Headers.Append("Content-Disposition", contentDisposition.ToString());
-            HttpContext.Response.ContentLength = content.Length;
-            HttpContext.Response.ContentType = "application/octet-stream";
-
-            await HttpContext.Response.Body.WriteAsync(content);
+                HttpContext.Response.Headers.Append("Content-Disposition", contentDisposition.ToString());
+                HttpContext.Response.ContentLength = content.Length;
+                HttpContext.Response.ContentType = "application/octet-stream";
+                await HttpContext.Response.Body.WriteAsync(content);
+            }
+            else
+            {
+                return NotFound();
+            }
 
             return new EmptyResult();
         }
