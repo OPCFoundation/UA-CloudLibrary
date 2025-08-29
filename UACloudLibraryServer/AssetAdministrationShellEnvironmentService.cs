@@ -50,24 +50,24 @@ namespace AdminShell
         }
 
 
-        public async Task<List<AssetAdministrationShellDescriptor>> GetAllAssetAdministrationShellDescriptors(string userId)
+        public List<AssetAdministrationShellDescriptor> GetAllAssetAdministrationShellDescriptors(string userId)
         {
             List<AssetAdministrationShellDescriptor> output = new();
 
             // Query database for all Asset Administration Shells
-            List<NodesetViewerNode> aasList = await _client.GetAllNodesOfTypeAsync(userId, "Asset Admin Shells", bChildren: true).ConfigureAwait(false);
+            List<NodesetViewerNode> aasList = _cldata.GetAllNodesOfType(userId, "Asset Admin Shells");
 
             if (aasList != null)
             {
                 // Loop through all the Asset Administration Shells we found above.
                 foreach (NodesetViewerNode a in aasList)
                 {
-                    string strUri = a.Id;
+                    string strCloudLibId = a.Id;
 
                     List<Endpoint> listEPs = new();
                     Endpoint ep = new Endpoint() {
                         Interface = "AAS-1.0",
-                        ProtocolInformation = new ProtocolInformation() { Href = $"https://v3.2.example.com/shells/{strUri}" },
+                        ProtocolInformation = new ProtocolInformation() { Href = $"https://v3.2.example.com/shells/{strCloudLibId}" },
 
                     };
                     listEPs.Add(ep);
@@ -83,13 +83,13 @@ namespace AdminShell
                         AssetKind = AssetKind.Instance,
                         AssetType = "Not Applicable",
                         Endpoints = listEPs,
-                        GlobalAssetId = $"https://example.com/ids/{strUri}",
+                        GlobalAssetId = $"https://example.com/ids/{strCloudLibId}",
                         IdShort = a.Id,
                         Id = a.Text + ";" + a.Value
                     };
 
                     aasd.SubmodelDescriptors = new List<SubmodelDescriptor>();
-                    List<NodesetViewerNode> submodels = a.Children?.Where(child => child.Text == "Submodels").ToList();
+                    List<NodesetViewerNode> submodels = _cldata.GetAllSubModelNodesForAssetAdminShell(userId, "Submodels", strCloudLibId);
                     if (submodels != null)
                     {
                         foreach (NodesetViewerNode s in submodels)
@@ -97,16 +97,16 @@ namespace AdminShell
                             List<Endpoint> listSmdep = new();
                             Endpoint smdep = new Endpoint() {
                                 Interface = "SUBMODEL-1.0",
-                                ProtocolInformation = new ProtocolInformation() { Href = $"https://v3.2.example.com/shells/{strUri}" },
+                                ProtocolInformation = new ProtocolInformation() { Href = $"https://v3.2.example.com/shells/{strCloudLibId}" },
 
                             };
                             listSmdep.Add(smdep);
-                            Reference reference = new Reference { Keys = new List<Key> { new Key("GlobalReference", $"http://example.com/idta/nameplate/{strUri}") } };
+                            Reference reference = new Reference { Keys = new List<Key> { new Key("GlobalReference", $"http://example.com/idta/nameplate/{strCloudLibId}") } };
 
                             SubmodelDescriptor smd = new() {
                                 Endpoints = listSmdep,
                                 IdShort = s.Id,
-                                Id = $"https://example.com/ids/sm/{strUri}",
+                                Id = $"https://example.com/ids/sm/{strCloudLibId}",
                                 SemanticId = reference
                             };
 
@@ -125,8 +125,8 @@ namespace AdminShell
         {
             AssetAdministrationShellDescriptor aasd = new();
 
-            // Query database for all Asset Administration Shells
-            List<NodesetViewerNode> aasList = await _client.GetAllNodesOfTypeAsync(userId, "Asset Admin Shells", strCloudLibId: idShort, bChildren: true).ConfigureAwait(false);
+            // Query OPC for the specified asset admin shell scriptor
+            List<NodesetViewerNode> aasList = await _client.GetNodeOfTypeById(userId, "Asset Admin Shells", strCloudLibId: idShort, bChildren: true).ConfigureAwait(false);
 
             if (aasList != null)
             {
@@ -189,19 +189,19 @@ namespace AdminShell
         }
 
 
-        public async Task<List<AssetAdministrationShell>> GetAllAssetAdministrationShells(string userId, List<string> assetIds = null, string idShort = null)
+        public List<AssetAdministrationShell> GetAllAssetAdministrationShells(string userId, List<string> assetIds = null, string idShort = null)
         {
             List<AssetAdministrationShell> output = new();
 
             // Query database for all Asset Administration Shells
-            List<NodesetViewerNode> aasList = await _client.GetAllNodesOfTypeAsync(userId, "Asset Admin Shells", strCloudLibId: idShort, bChildren: true).ConfigureAwait(false);
+            List<NodesetViewerNode> aasList = _cldata.GetAllNodesOfType(userId, "Asset Admin Shells");
 
             if (aasList != null)
             {
                 // Loop through all the Asset Administration Shells we found above.
                 foreach (NodesetViewerNode a in aasList)
                 {
-                    string strUri = a.Id;
+                    string strCloudLibId = a.Id;
                     AssetAdministrationShell aas = new() {
                         ModelType = ModelTypes.AssetAdministrationShell,
                         Identification = new Identifier() { Id = a.Id, Value = a.Value },
@@ -209,7 +209,7 @@ namespace AdminShell
                         Id = a.Text + ";" + a.Value
                     };
 
-                    List<NodesetViewerNode> submodels = a.Children?.Where(child => child.Text == "Submodels").ToList();
+                    List<NodesetViewerNode> submodels = _cldata.GetAllSubModelNodesForAssetAdminShell(userId, "Submodels", strCloudLibId);
                     if (submodels != null)
                     {
                         foreach (NodesetViewerNode s in submodels)
@@ -267,12 +267,103 @@ namespace AdminShell
             return output;
         }
 
-        public async Task<List<Submodel>> GetAllSubmodels(string userId, string strCloudLibIdentifier, Reference reqSemanticId = null)
+        public AssetAdministrationShell GetAssetAdministrationShellById(string userId, string strCloudLibId = null)
+        {
+            AssetAdministrationShell output = new();
+
+            // Query database for the Asset Administration Shell of given ID
+            List<NodesetViewerNode> aasList = _cldata.GetAllNodesOfType(userId, "Asset Admin Shells", strCloudLibId);
+
+            if (aasList != null)
+            {
+                // Loop through all the Asset Administration Shells we found above.
+                foreach (NodesetViewerNode a in aasList)
+                {
+                    output = new() {
+                        ModelType = ModelTypes.AssetAdministrationShell,
+                        Identification = new Identifier() { Id = a.Id, Value = a.Value },
+                        IdShort = a.Id,
+                        Id = a.Text + ";" + a.Value
+                    };
+
+                    List<NodesetViewerNode> submodels = _cldata.GetAllSubModelNodesForAssetAdminShell(userId, "Submodels", strCloudLibId);
+                    if (submodels != null)
+                    {
+                        foreach (NodesetViewerNode s in submodels)
+                        {
+                            ModelReference mr = new ModelReference() {
+                                Keys = new List<Key>()
+                            {
+                                new Key()
+                                {
+                                    Value = s.Id,
+                                    Type = KeyElements.Submodel
+                                }
+                            }
+                            };
+                            output.Submodels.Add(mr);
+                        }
+                    }
+                }
+            }
+
+            return output;
+        }
+
+
+        public List<Submodel> GetAllSubmodels(string userId, Reference reqSemanticId = null)
         {
             List<Submodel> output = new();
 
             // Get All Submodels
-            List<NodesetViewerNode> submodelList = await _client.GetAllNodesOfTypeAsync(userId, "Submodels", bChildren: false).ConfigureAwait(false);
+            List<NodesetViewerNode> submodelList = _cldata.GetAllNodesOfType(userId, "Submodels");
+            if (submodelList != null)
+            {
+                foreach (NodesetViewerNode subNode in submodelList)
+                {
+                    Submodel sub = new() {
+                        ModelType = ModelTypes.Submodel,
+                        Id = $"{subNode.Text};{subNode.Value}",
+                        Identification = new Identifier() { Id = subNode.Id, Value = subNode.Text },
+                        IdShort = subNode.Id,
+                        SemanticId = new Reference() { Type = KeyElements.ExternalReference, Keys = new List<Key>() { new Key() { Value = subNode.Text, Type = KeyElements.GlobalReference } } },
+                        DisplayName = new List<LangString>() { new LangString() { Text = subNode.Text } },
+                        Description = new List<LangString>() { new LangString() { Text = string.Empty /* TODO */ } }
+                    };
+
+                    output.Add(sub);
+                }
+            }
+
+            // Apply filters
+            if (output.Count > 0)
+            {
+
+                // Filter based on SemanticId
+                if ((reqSemanticId != null) && (reqSemanticId.Keys[0].Value != null))
+                {
+                    if (output.Count > 0)
+                    {
+                        var submodels = output.Where(s => s.SemanticId.Matches(reqSemanticId)).ToList();
+                        if ((submodels == null) || submodels?.Count == 0)
+                        {
+                            Console.WriteLine($"Submodels with requested SemnaticId Not Found.");
+                        }
+
+                        output = submodels;
+                    }
+                }
+            }
+
+            return output;
+        }
+
+        public List<Submodel> GetSubmodelById(string userId, string strCloudLibId, Reference reqSemanticId = null)
+        {
+            List<Submodel> output = new();
+
+            // Get All Submodels
+            List<NodesetViewerNode> submodelList = _cldata.GetAllNodesOfType(userId, "Submodels");
             if (submodelList != null)
             {
                 foreach (NodesetViewerNode subNode in submodelList)
@@ -295,12 +386,12 @@ namespace AdminShell
             if (output.Count > 0)
             {
                 // Filter based on idShort
-                if (!string.IsNullOrEmpty(strCloudLibIdentifier))
+                if (!string.IsNullOrEmpty(strCloudLibId))
                 {
-                    var submodels = output.Where(s => s.IdShort.Equals(strCloudLibIdentifier, StringComparison.OrdinalIgnoreCase)).ToList();
+                    var submodels = output.Where(s => s.IdShort.Equals(strCloudLibId, StringComparison.OrdinalIgnoreCase)).ToList();
                     if ((submodels == null) || (submodels?.Count == 0))
                     {
-                        Console.WriteLine($"Submodels with IdShort {strCloudLibIdentifier} Not Found.");
+                        Console.WriteLine($"Submodels with IdShort {strCloudLibId} Not Found.");
                     }
 
                     output = submodels;
@@ -324,6 +415,8 @@ namespace AdminShell
 
             return output;
         }
+
+
 
         private async Task<List<SubmodelElement>> ReadSubmodelElementNodes(string nodesetIdentifier, NodesetViewerNode subNode, bool browseDeep, string userId)
         {
@@ -382,41 +475,52 @@ namespace AdminShell
             return output;
         }
 
-        public async Task<List<ConceptDescription>> GetAllConceptDescriptions(string userId, string idShort = null, string reqIsCaseOf = null, string reqDataSpecificationRef = null)
+        //public async Task<List<ConceptDescription>> GetAllConceptDescriptions(string userId, string idShort = null, string reqIsCaseOf = null, string reqDataSpecificationRef = null)
+        public List<ConceptDescription> GetAllConceptDescriptions(string userId, string idShort = null, string reqIsCaseOf = null, string reqDataSpecificationRef = null)
         {
             List<ConceptDescription> output = new();
 
             // Query database for all Concept Descriptions
-            List<NodesetViewerNode> conceptDescrNodes = await _client.GetAllNodesOfTypeAsync(userId, "Concept Descriptions", bChildren: true, strCloudLibId: idShort).ConfigureAwait(false);
+            List<NodesetViewerNode> conceptDescrNodes = _cldata.GetAllNodesOfType(userId, "Concept Descriptions");
 
             if (conceptDescrNodes != null)
             {
                 foreach (NodesetViewerNode cdNode in conceptDescrNodes)
                 {
-                    if (idShort == null || idShort == cdNode.Id)
-                    {
-                        List<NodesetViewerNode> cdr = cdNode.Children?.Where(child => child.Text == "Concept Descriptions").ToList();
+                    // A database-only implementation.
+                    ConceptDescription cd = new() {
+                        ModelType = ModelTypes.ConceptDescription,
+                        IdShort = cdNode.Text,
+                        Id = cdNode.Id,
+                    };
+                    output.Add(cd);
 
-                        if (cdr != null && !string.IsNullOrEmpty(cdr[0].Id))
-                        {
-                            List<NodesetViewerNode> cdrItems = await _client.GetChildren(userId, cdNode.Id, cdr[0].Id).ConfigureAwait(false);
-                            if (cdrItems != null)
-                            {
-                                foreach (NodesetViewerNode item in cdrItems)
-                                {
-                                    ConceptDescription cd = new() {
-                                        ModelType = ModelTypes.ConceptDescription,
-                                        IdShort = item.Text,
-                                        Id = item.Id,
-                                    };
+                    // Drilling any deeper requires us to replace the above _cldata.GetAllNodesOfType
+                    // with a call to the OPC/UA driven _client.GetAllNodesOfType
 
-                                    output.Add(cd);
+                    //if (idShort == null || idShort == cdNode.Id)
+                    //{
+                    //    List<NodesetViewerNode> cdr = cdNode.Children?.Where(child => child.Text == "Concept Descriptions").ToList();
 
-                                }
-                            }
-                        }
+                    //    if (cdr != null && !string.IsNullOrEmpty(cdr[0].Id))
+                    //    {
+                    //        List<NodesetViewerNode> cdrItems = await _client.GetChildren(userId, cdNode.Id, cdr[0].Id).ConfigureAwait(false);
+                    //        if (cdrItems != null)
+                    //        {
+                    //            foreach (NodesetViewerNode item in cdrItems)
+                    //            {
+                    //                ConceptDescription cd = new() {
+                    //                    ModelType = ModelTypes.ConceptDescription,
+                    //                    IdShort = item.Text,
+                    //                    Id = item.Id,
+                    //                };
 
-                    }
+                    //                output.Add(cd);
+
+                    //            }
+                    //        }
+                    //    }
+                    //}
                 }
             }
 
@@ -439,8 +543,8 @@ namespace AdminShell
         {
             List<ConceptDescription> output = new();
 
-            // Query database for all Concept Descriptions
-            List<NodesetViewerNode> conceptDescrNodes = await _client.GetAllNodesOfTypeAsync(userId, "Concept Descriptions", bChildren: true, strCloudLibId: nodesetIdentifier).ConfigureAwait(false);
+            // Query database for Concept Descriptions
+            List<NodesetViewerNode> conceptDescrNodes = _cldata.GetAllNodesOfType(userId, "Concept Descriptions", nodesetIdentifier);
 
             if (conceptDescrNodes != null)
             {
@@ -448,7 +552,7 @@ namespace AdminShell
                 {
                     if (nodesetIdentifier == cdNode.Id)
                     {
-                        List<NodesetViewerNode> cdr = cdNode.Children?.Where(child => child.Text == "Concept Descriptions").ToList();
+                        List<NodesetViewerNode> cdr = await _client.GetChildren(userId, nodesetIdentifier, cdNode.Text).ConfigureAwait(false);
 
                         if (cdr != null && !string.IsNullOrEmpty(cdr[0].Id))
                         {
@@ -517,9 +621,9 @@ namespace AdminShell
             return null;
         }
 
-        public async Task<AssetInformation> GetAssetInformationFromAas(string userId, string nodesetIdentifier)
+        public AssetInformation GetAssetInformationFromAas(string userId, string nodesetIdentifier)
         {
-            List<AssetAdministrationShell> aasList = await GetAllAssetAdministrationShells(userId, null, nodesetIdentifier).ConfigureAwait(false);
+            List<AssetAdministrationShell> aasList = GetAllAssetAdministrationShells(userId, null, nodesetIdentifier);
             if (aasList != null && aasList.Count > 0)
             {
                 return aasList.FirstOrDefault().AssetInformation;
@@ -556,9 +660,9 @@ namespace AdminShell
             return byteArray;
         }
 
-        public async Task<List<Reference>> GetAllSubmodelReferences(string userId, string nodesetIdentifier)
+        public List<Reference> GetAllSubmodelReferences(string userId, string nodesetIdentifier)
         {
-            List<AssetAdministrationShell> aasList = await GetAllAssetAdministrationShells(userId, null, nodesetIdentifier).ConfigureAwait(false);
+            List<AssetAdministrationShell> aasList = GetAllAssetAdministrationShells(userId, null, nodesetIdentifier);
 
             if (aasList != null)
             {

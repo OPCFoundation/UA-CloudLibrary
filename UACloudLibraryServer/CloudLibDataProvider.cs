@@ -112,13 +112,11 @@ namespace Opc.Ua.Cloud.Library
             return result;
         }
 
-        public List<NodesetViewerNode> GetAllSubModelNodesForAssetAdminShell(string strUserId, string strType, string strDefault, string strUri = null)
+        public List<NodesetViewerNode> GetAllSubModelNodesForAssetAdminShell(string strUserId, string strType, string strCloudLibId)
         {
             List<NodesetViewerNode> result = new();
 
-            bool bIgnoreUri = string.IsNullOrEmpty(strUri);
-
-            var allNodes = GetNodeSets(strUserId);
+            var allNodes = GetNodeSets(strUserId, strCloudLibId);
             foreach (var nodeset in allNodes)
             {
                 NodesetViewerNode nswn = new();
@@ -126,13 +124,10 @@ namespace Opc.Ua.Cloud.Library
                 {
                     if (xx.DisplayName[0].Text == strType)
                     {
-                        if (bIgnoreUri || xx.NodeId.Contains(strUri, StringComparison.CurrentCulture))
-                        {
-                            nswn.Id = nodeset.ModelUri;
-                            nswn.Value = nodeset.Identifier;
-                            nswn.Text = nodeset.ModelUri;
-                            result.Add(nswn);
-                        }
+                        nswn.Id = nodeset.ModelUri;
+                        nswn.Value = nodeset.Identifier;
+                        nswn.Text = nodeset.ModelUri;
+                        result.Add(nswn);
                     }
                 }
             }

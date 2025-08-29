@@ -126,7 +126,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public async Task<IActionResult> GetAllSubmodels([FromQuery][StringLength(3072, MinimumLength = 1)] string semanticId, [FromQuery] string idShort, [FromQuery] int limit, [FromQuery] string cursor, [FromQuery] string level, [FromQuery] string extent)
+        public IActionResult GetAllSubmodels([FromQuery][StringLength(3072, MinimumLength = 1)] string semanticId, [FromQuery] string idShort, [FromQuery] int limit, [FromQuery] string cursor, [FromQuery] string level, [FromQuery] string extent)
         {
             string reqSemanticId = null; ;
             if (!string.IsNullOrEmpty(semanticId))
@@ -141,9 +141,32 @@ namespace AdminShell
                 }
             }
 
+            string idShortDecoded = null; ;
+            if (!string.IsNullOrEmpty(idShort))
+            {
+                try
+                {
+                    reqSemanticId = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(idShort)));
+                }
+                catch (Exception)
+                {
+                    reqSemanticId = Uri.UnescapeDataString(idShort);
+                }
+            }
+
+
             Reference reference = new Reference { Keys = new List<Key> { new Key("Submodel", reqSemanticId) } };
 
-            List<Submodel> submodelList = await _aasEnvService.GetAllSubmodels(User.Identity.Name, idShort, reference).ConfigureAwait(false);
+            List<Submodel> submodelList = null;
+            if (idShortDecoded == null)
+            {
+                submodelList = _aasEnvService.GetAllSubmodels(User.Identity.Name, reference);
+            }
+            else
+            {
+                submodelList = _aasEnvService.GetSubmodelById(User.Identity.Name, idShortDecoded, reference);
+            }
+
 
             PagedResult<Submodel> output = PagedResult.ToPagedList<Submodel>(submodelList, new PaginationParameters(cursor, limit));
 

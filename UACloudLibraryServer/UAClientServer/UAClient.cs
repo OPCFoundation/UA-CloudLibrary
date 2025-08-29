@@ -70,7 +70,7 @@ namespace AdminShell
             _database = database;
         }
 
-        public async Task<List<NodesetViewerNode>> GetAllNodesOfTypeAsync(string userId, string strType, bool bChildren = false, string strCloudLibId = null)
+        public async Task<List<NodesetViewerNode>> GetNodeOfTypeById(string userId, string strType, bool bChildren = false, string strCloudLibId = null)
         {
             List<NodesetViewerNode> allNodesOfType = _database.GetAllNodesOfType(userId, strType, strCloudLibId);
             if (bChildren == false)
