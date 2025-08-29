@@ -70,29 +70,6 @@ namespace AdminShell
             _database = database;
         }
 
-        public async Task<List<NodesetViewerNode>> GetNodesetsOfTypeById(string userId, string strType, bool bChildren = false, string strCloudLibId = null)
-        {
-            List<NodesetViewerNode> allNodesetsOfType = _database.GetAllNodesOfType(userId, strType, strCloudLibId);
-            if (bChildren == false)
-            {
-                return allNodesetsOfType;
-            }
-
-            List<NodesetViewerNode> listNodesWithChildren = new();
-            foreach (NodesetViewerNode aNode in allNodesetsOfType)
-            {
-                NodesetViewerNode newnode = new() {
-                    Id = aNode.Id,
-                    Text = aNode.Text,
-                    Value = aNode.Value,
-                    Children = await GetChildren(userId, aNode.Id, ObjectIds.ObjectsFolder.ToString()).ConfigureAwait(false)
-                };
-                listNodesWithChildren.Add(newnode);
-            }
-
-            return listNodesWithChildren;
-        }
-
         public async Task<List<NodesetViewerNode>> GetChildren(string userId, string nodesetIdentifier, string nodeId)
         {
             List<NodesetViewerNode> nodes = null;
