@@ -275,7 +275,7 @@ namespace AdminShell
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedAasIdentifier)} is null");
             }
 
-            AssetInformation output =  _aasEnvService.GetAssetInformationFromAas(User.Identity.Name, decodedAasIdentifier);
+            AssetInformation output = _aasEnvService.GetAssetInformationFromAas(User.Identity.Name, decodedAasIdentifier);
 
             return new ObjectResult(output);
         }
