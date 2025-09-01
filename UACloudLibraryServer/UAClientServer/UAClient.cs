@@ -33,6 +33,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using Microsoft.EntityFrameworkCore;
@@ -504,16 +505,25 @@ namespace AdminShell
             }
         }
 
+        private readonly SemaphoreSlim SessionSemaphoreSlim = new SemaphoreSlim(1, 1);
         private async Task<bool> ValidateSession(string userId, string nodesetIdentifier)
         {
-            if (_session == null || !_session.Connected)
+            await SessionSemaphoreSlim.WaitAsync();
+            try
             {
-                _session = await CreateSessionAsync(userId, nodesetIdentifier).ConfigureAwait(false);
                 if (_session == null || !_session.Connected)
                 {
-                    Console.WriteLine("Failed to create OPC UA session.");
-                    return false;
+                    _session = await CreateSessionAsync(userId, nodesetIdentifier).ConfigureAwait(false);
+                    if (_session == null || !_session.Connected)
+                    {
+                        Console.WriteLine("Failed to create OPC UA session.");
+                        return false;
+                    }
                 }
+            }
+            finally
+            {
+                SessionSemaphoreSlim.Release();
             }
 
             return true;
