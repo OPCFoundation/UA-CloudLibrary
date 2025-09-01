@@ -205,6 +205,7 @@ namespace AdminShell
                 return value;
             }
 
+            int cMaxRetry = 1000;
             EndpointDescription selectedEndpoint = null;
             while (selectedEndpoint == null)
             {
@@ -230,44 +231,52 @@ namespace AdminShell
                         _port = 5000;
                     }
                 }
+
+                cMaxRetry--;
+                if (cMaxRetry < 1)
+                    break;
             }
 
-            NodesetFileNodeManager nodeManager = (NodesetFileNodeManager)_server.CurrentInstance.NodeManager.NodeManagers[2];
-
-            // first load dependencies
-            await LoadDependentNodesetsRecursiveAsync(userId, nodesetIdentifier, nodeManager).ConfigureAwait(false);
-
-            // now load the nodeset itself
-            DbFiles nodesetXml = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
-            if (nodesetXml != null)
+            if (!String.IsNullOrEmpty(nodesetIdentifier))
             {
+                NodesetFileNodeManager nodeManager = (NodesetFileNodeManager)_server.CurrentInstance.NodeManager.NodeManagers[2];
 
-                nodeManager.AddNamespace(nodesetXml.Blob);
-                nodeManager.AddNodesAndValues(nodesetXml.Blob, nodesetXml.Values);
+                // first load dependencies
+                await LoadDependentNodesetsRecursiveAsync(userId, nodesetIdentifier, nodeManager).ConfigureAwait(false);
 
-                ConfiguredEndpoint configuredEndpoint = new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(_app.ApplicationConfiguration));
-                Opc.Ua.Client.Session newSession = await Opc.Ua.Client.Session.Create(
-                        _app.ApplicationConfiguration,
-                        configuredEndpoint,
-                        true,
-                        false,
-                        string.Empty,
-                        30000,
-                        new UserIdentity(new AnonymousIdentityToken()),
-                        null).ConfigureAwait(false);
+                // now load the nodeset itself
+                DbFiles nodesetXml = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
+                if (nodesetXml != null)
+                {
 
-                newSession.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
-
-                newSession.FetchNamespaceTables();
-
-                _sessions[nodesetIdentifier] = newSession;
-                return newSession;
+                    nodeManager.AddNamespace(nodesetXml.Blob);
+                    nodeManager.AddNodesAndValues(nodesetXml.Blob, nodesetXml.Values);
+                }
+                else
+                {
+                    Console.WriteLine($"Required model for {nodesetIdentifier} not found in database.");
+                }
             }
-            else
-            {
-                Console.WriteLine($"Required model for {nodesetIdentifier} not found in database.");
-            }
-            return null;
+
+            // Even if we cannot load the nodeset, attempt to create a session as the user requests.
+            ConfiguredEndpoint configuredEndpoint = new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(_app.ApplicationConfiguration));
+            Opc.Ua.Client.Session newSession = await Opc.Ua.Client.Session.Create(
+                    _app.ApplicationConfiguration,
+                    configuredEndpoint,
+                    true,
+                    false,
+                    string.Empty,
+                    30000,
+                    new UserIdentity(new AnonymousIdentityToken()),
+                    null).ConfigureAwait(false);
+
+            newSession.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
+
+            newSession.FetchNamespaceTables();
+
+            _sessions[nodesetIdentifier] = newSession;
+
+            return newSession;
         }
 
         private async Task LoadDependentNodesetsRecursiveAsync(string userId, string nodesetIdentifier, NodesetFileNodeManager nodeManager)
