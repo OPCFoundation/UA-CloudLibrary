@@ -490,24 +490,46 @@ namespace AdminShell
             return output;
         }
 
-        public List<ConceptDescription> GetAllConceptDescriptions(string userId, string idShort = null, string reqIsCaseOf = null, string reqDataSpecificationRef = null)
+        public async Task<List<ConceptDescription>> GetAllConceptDescriptions(string userId, string idShort = null, string reqIsCaseOf = null, string reqDataSpecificationRef = null)
         {
             List<ConceptDescription> output = new();
 
             // Query database for all Concept Descriptions
-            List<NodesetViewerNode> listnsvnConceptDesrciption = GetAllNodesetsOfType(userId, "Concept Descriptions");
+            List<NodesetViewerNode> listConceptDescriptions = GetAllNodesetsOfType(userId, "Concept Descriptions");
 
-            if (listnsvnConceptDesrciption != null)
+            if (listConceptDescriptions != null)
             {
-                foreach (NodesetViewerNode cdNode in listnsvnConceptDesrciption)
+                foreach (NodesetViewerNode cdNode in listConceptDescriptions)
                 {
-                    // A database-only implementation.
-                    ConceptDescription cd = new() {
-                        ModelType = ModelTypes.ConceptDescription,
-                        IdShort = cdNode.Text,
-                        Id = cdNode.Id,
-                    };
-                    output.Add(cd);
+                    //// A database-only implementation.
+                    //LangString display = new LangString();
+                    //display.Text = cdNode.Text;
+                    //ConceptDescription cd = new() {
+                    //    ModelType = ModelTypes.ConceptDescription,
+                    //    IdShort = cdNode.Text,
+                    //    Id = cdNode.Id,
+                    //    DisplayName = new List<AdminShell.LangString>   { display }
+                    //};
+                    //output.Add(cd);
+
+                    if (cdNode != null)
+                    {
+                        List<NodesetViewerNode> cdrItems = await _client.GetChildren(userId, cdNode.Id, cdNode.Value).ConfigureAwait(false);
+
+                        if (cdrItems != null)
+                        {
+                            foreach (NodesetViewerNode item in cdrItems)
+                            {
+                                ConceptDescription cd = new() {
+                                    ModelType = ModelTypes.ConceptDescription,
+                                    IdShort = item.Text,
+                                    Id = item.Id,
+                                };
+
+                                output.Add(cd);
+                            }
+                        }
+                    }
                 }
             }
 
@@ -534,29 +556,25 @@ namespace AdminShell
             List<NodesetViewerNode> listConceptDescriptions = GetNodesetOfTypeById(userId, "Concept Descriptions", nodesetIdentifier);
             if (listConceptDescriptions != null)
             {
-                foreach (NodesetViewerNode nsvnCD in listConceptDescriptions)
+                foreach (NodesetViewerNode cdNode in listConceptDescriptions)
                 {
-                    if (nsvnCD != null)
+                    if (cdNode != null)
                     {
-                        if (nodesetIdentifier == nsvnCD.Id)
+                        if (nodesetIdentifier == cdNode.Id)
                         {
-                            List<NodesetViewerNode> cdr = await _client.GetChildren(userId, nodesetIdentifier, nsvnCD.Text).ConfigureAwait(false);
+                            List<NodesetViewerNode> cdrItems = await _client.GetChildren(userId, nodesetIdentifier, cdNode.Value).ConfigureAwait(false);
 
-                            if (cdr != null && !string.IsNullOrEmpty(cdr[0].Id))
+                            if (cdrItems != null)
                             {
-                                List<NodesetViewerNode> cdrItems = await _client.GetChildren(userId, nsvnCD.Id, cdr[0].Id).ConfigureAwait(false);
-                                if (cdrItems != null)
+                                foreach (NodesetViewerNode item in cdrItems)
                                 {
-                                    foreach (NodesetViewerNode item in cdrItems)
-                                    {
-                                        ConceptDescription cd = new() {
-                                            ModelType = ModelTypes.ConceptDescription,
-                                            IdShort = item.Text,
-                                            Id = item.Id,
-                                        };
+                                    ConceptDescription cd = new() {
+                                        ModelType = ModelTypes.ConceptDescription,
+                                        IdShort = item.Text,
+                                        Id = item.Id,
+                                    };
 
-                                        output.Add(cd);
-                                    }
+                                    output.Add(cd);
                                 }
                             }
                         }
@@ -800,7 +818,7 @@ namespace AdminShell
         {
             List <NodesetViewerNode> nsvnReturn = new();
 
-            var allNodesets = _cldata.GetNodeSets(strUserId);
+            var allNodesets = _cldata.GetNodeSets(strUserId, strNodesetIdentifier);
             foreach (var nodeset in allNodesets)
             {
                 foreach (var nodesetObject in nodeset.Objects)
