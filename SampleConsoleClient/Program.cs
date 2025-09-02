@@ -72,10 +72,10 @@ namespace SampleConsoleClient
             webClient.DefaultRequestHeaders.Add("Authorization", "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(args[1] + ":" + args[2])));
 
             Console.WriteLine();
-            Console.WriteLine("Testing /infomodel/find?keywords");
+            Console.WriteLine("Testing /infomodel/find2?keywords");
 
             // return everything (keywords=*, other keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
-            Uri address = new Uri(webClient.BaseAddress, "infomodel/find?keywords=" + Uri.EscapeDataString("*"));
+            Uri address = new Uri(webClient.BaseAddress, "infomodel/find2?keywords=" + Uri.EscapeDataString("*"));
             HttpResponseMessage response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
             Console.WriteLine("Response: " + response.StatusCode.ToString());
             string responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);

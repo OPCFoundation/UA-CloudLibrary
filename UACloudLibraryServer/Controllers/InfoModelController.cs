@@ -60,8 +60,21 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
         [HttpGet]
         [Route("/infomodel/find")]
-        [SwaggerResponse(statusCode: 200, type: typeof(UANameSpace[]), description: "Discovered OPC UA Information Model results of the models found in the UA Cloud Library matching the keywords provided.")]
+        [SwaggerResponse(statusCode: 200, type: typeof(UANodesetResult[]), description: "Discovered OPC UA Information Model results of the models found in the UA Cloud Library matching the keywords provided.")]
         public IActionResult FindNamespaceAsync(
+        [FromQuery][SwaggerParameter("A list of keywords to search for in the information models. Specify * to return everything.")] string[] keywords,
+        [FromQuery][SwaggerParameter("Pagination offset")] int? offset,
+        [FromQuery][SwaggerParameter("Pagination limit")] int? limit
+        )
+        {
+            UANameSpace[] results = _database.FindNodesets(keywords, User.Identity.Name, offset, limit);
+            return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
+        }
+
+        [HttpGet]
+        [Route("/infomodel/find2")]
+        [SwaggerResponse(statusCode: 200, type: typeof(UANameSpace[]), description: "Discovered OPC UA Information Model results of the models found in the UA Cloud Library matching the keywords provided.")]
+        public IActionResult FindNamespaceAsync2(
             [FromQuery][SwaggerParameter("A list of keywords to search for in the information models. Specify * to return everything.")] string[] keywords,
             [FromQuery][SwaggerParameter("Pagination offset")] int? offset,
             [FromQuery][SwaggerParameter("Pagination limit")] int? limit
