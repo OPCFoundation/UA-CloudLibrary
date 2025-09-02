@@ -74,7 +74,7 @@ namespace IO.Swagger.Controllers
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public IActionResult GetAllConceptDescriptions([FromQuery] string idShort, [FromQuery] string isCaseOf, [FromQuery] string dataSpecificationRef, [FromQuery] int limit, [FromQuery] string cursor)
+        public async Task<IActionResult> GetAllConceptDescriptions([FromQuery] string idShort, [FromQuery] string isCaseOf, [FromQuery] string dataSpecificationRef, [FromQuery] int limit, [FromQuery] string cursor)
         {
             string strDecodedIdShort = null;
             try
@@ -114,7 +114,7 @@ namespace IO.Swagger.Controllers
             }
 
             List<ConceptDescription> cdList = new();
-            cdList = _aasEnvService.GetAllConceptDescriptions(User.Identity.Name, strDecodedIdShort, reqIsCaseOf, reqDataSpecificationRef);
+            cdList = await _aasEnvService.GetAllConceptDescriptions(User.Identity.Name, strDecodedIdShort, reqIsCaseOf, reqDataSpecificationRef).ConfigureAwait(false);
 
             PagedResult<ConceptDescription> output = PagedResult.ToPagedList<ConceptDescription>(cdList, new PaginationParameters(cursor, limit));
 
