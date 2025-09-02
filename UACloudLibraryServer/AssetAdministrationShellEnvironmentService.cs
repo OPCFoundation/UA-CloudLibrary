@@ -161,7 +161,7 @@ namespace AdminShell
                     aasdescrip.Id = nodeset.Text + ";" + nodeset.Value;
 
                     aasdescrip.SubmodelDescriptors = new List<SubmodelDescriptor>();
-                    List<NodesetViewerNode> listSubmodels = GetNodesetOfTypeById(userId, "Submodels", nodesetId); 
+                    List<NodesetViewerNode> listSubmodels = GetNodesetOfTypeById(userId, "Submodels", nodesetId);
                     if (listSubmodels != null)
                     {
                         foreach (NodesetViewerNode nsvnSubmodels in listSubmodels)
@@ -654,7 +654,7 @@ namespace AdminShell
         {
             List<SubmodelElement> output = new();
             List<Submodel> listSubmodel = GetSubmodelById(userId, nodesetIdentifier);
-            if ( listSubmodel != null)
+            if (listSubmodel != null)
             {
                 foreach (Submodel sm in listSubmodel)
                 {
@@ -816,7 +816,7 @@ namespace AdminShell
 
         public List<NodesetViewerNode> GetNodesetOfTypeById(string strUserId, string strType, string strNodesetIdentifier)
         {
-            List <NodesetViewerNode> nsvnReturn = new();
+            List<NodesetViewerNode> nsvnReturn = new();
 
             var allNodesets = _cldata.GetNodeSets(strUserId, strNodesetIdentifier);
             foreach (var nodeset in allNodesets)
