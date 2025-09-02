@@ -60,9 +60,9 @@ namespace AdminShell
             if (aasList != null)
             {
                 // Loop through all the Asset Administration Shells we found above.
-                foreach (NodesetViewerNode a in aasList)
+                foreach (NodesetViewerNode nsvNode in aasList)
                 {
-                    string strNodesetId = a.Id;
+                    string strNodesetId = nsvNode.Id;
 
                     List<Endpoint> listEPs = new();
                     Endpoint ep = new Endpoint() {
@@ -84,33 +84,36 @@ namespace AdminShell
                         AssetType = "Not Applicable",
                         Endpoints = listEPs,
                         GlobalAssetId = $"https://example.com/ids/{strNodesetId}",
-                        IdShort = a.Id,
-                        Id = a.Text + ";" + a.Value
+                        IdShort = nsvNode.Id,
+                        Id = nsvNode.Text + ";" + nsvNode.Value
                     };
 
                     aasd.SubmodelDescriptors = new List<SubmodelDescriptor>();
-                    List<NodesetViewerNode> submodels = GetAllNodesetsOfType(userId, "Submodels", strNodesetId);
-                    if (submodels != null)
+                    List<NodesetViewerNode> listSubmodel = GetNodesetOfTypeById(userId, "Submodels", strNodesetId);
+                    if (listSubmodel != null)
                     {
-                        foreach (NodesetViewerNode s in submodels)
+                        foreach (NodesetViewerNode nsvbsubmodel in listSubmodel)
                         {
-                            List<Endpoint> listSmdep = new();
-                            Endpoint smdep = new Endpoint() {
-                                Interface = "SUBMODEL-1.0",
-                                ProtocolInformation = new ProtocolInformation() { Href = $"https://v3.2.example.com/shells/{strNodesetId}" },
+                            if (nsvbsubmodel != null)
+                            {
+                                List<Endpoint> listSmdep = new();
+                                Endpoint smdep = new Endpoint() {
+                                    Interface = "SUBMODEL-1.0",
+                                    ProtocolInformation = new ProtocolInformation() { Href = $"https://v3.2.example.com/shells/{strNodesetId}" },
 
-                            };
-                            listSmdep.Add(smdep);
-                            Reference reference = new Reference { Keys = new List<Key> { new Key("GlobalReference", $"http://example.com/idta/nameplate/{strNodesetId}") } };
+                                };
+                                listSmdep.Add(smdep);
+                                Reference reference = new Reference { Keys = new List<Key> { new Key("GlobalReference", $"http://example.com/idta/nameplate/{strNodesetId}") } };
 
-                            SubmodelDescriptor smd = new() {
-                                Endpoints = listSmdep,
-                                IdShort = s.Id,
-                                Id = $"https://example.com/ids/sm/{strNodesetId}",
-                                SemanticId = reference
-                            };
+                                SubmodelDescriptor smd = new() {
+                                    Endpoints = listSmdep,
+                                    IdShort = nsvbsubmodel.Id,
+                                    Id = $"https://example.com/ids/sm/{strNodesetId}",
+                                    SemanticId = reference
+                                };
 
-                            aasd.SubmodelDescriptors.Add(smd);
+                                aasd.SubmodelDescriptors.Add(smd);
+                            }
                         }
                     }
 
@@ -121,111 +124,72 @@ namespace AdminShell
             return output;
         }
 
-        public List<NodesetViewerNode> GetAllNodesetsOfType(string strUserId, string strType, string strNodesetIdentifier = null)
+
+        public List<AssetAdministrationShellDescriptor> GetAssetAdministrationShellDescriptorById(string userId, string nodesetId)
         {
-            List<NodesetViewerNode> result = new();
+            List<AssetAdministrationShellDescriptor> aasdReturn = new();
 
-            var allNodesets = _cldata.GetNodeSets(strUserId, strNodesetIdentifier);
-            foreach (var nodeset in allNodesets)
+            List<NodesetViewerNode> listAAS = GetNodesetOfTypeById(userId, "Asset Admin Shells", nodesetId);
+            if (listAAS != null)
             {
-                foreach (var nodesetObject in nodeset.Objects)
+                foreach (var nodeset in listAAS)
                 {
-                    NodesetViewerNode nswn = new();
-                    if (nodesetObject.DisplayName[0].Text == strType)
-                    {
-                        nswn.Id = nodeset.Identifier;  // The CloudLib ID
-                        nswn.Value = nodesetObject.NodeId; // Original Uri
-                        nswn.Text = nodesetObject.Namespace;
+                    AssetAdministrationShellDescriptor aasdescrip = new();
 
-                        result.Add(nswn);
+                    string strUri = nodeset.Id;
+
+                    List<Endpoint> listEPs = new();
+                    Endpoint ep = new Endpoint() {
+                        Interface = "AAS-1.0",
+                        ProtocolInformation = new ProtocolInformation() { Href = $"https://v3.2.example.com/shells/{strUri}" },
+
+                    };
+                    listEPs.Add(ep);
+
+                    List<SpecificAssetId> listSai = new();
+                    SpecificAssetId sai = new SpecificAssetId() {
+                        Name = "assetKind",
+                        Value = "Instance",
+                        ExternalSubjectId = new Reference() { Type = KeyElements.GlobalReference },
+                    };
+
+                    aasdescrip.AssetKind = AssetKind.Instance;
+                    aasdescrip.AssetType = "Not Applicable";
+                    aasdescrip.Endpoints = listEPs;
+                    aasdescrip.GlobalAssetId = $"https://example.com/ids/{strUri}";
+                    aasdescrip.IdShort = nodeset.Id;
+                    aasdescrip.Id = nodeset.Text + ";" + nodeset.Value;
+
+                    aasdescrip.SubmodelDescriptors = new List<SubmodelDescriptor>();
+                    List<NodesetViewerNode> listSubmodels = GetNodesetOfTypeById(userId, "Submodels", nodesetId); 
+                    if (listSubmodels != null)
+                    {
+                        foreach (NodesetViewerNode nsvnSubmodels in listSubmodels)
+                        {
+                            List<Endpoint> listSmdep = new();
+                            Endpoint smdep = new Endpoint() {
+                                Interface = "SUBMODEL-1.0",
+                                ProtocolInformation = new ProtocolInformation() { Href = $"https://v3.2.example.com/shells/{strUri}" },
+
+                            };
+                            listSmdep.Add(smdep);
+                            Reference reference = new Reference { Keys = new List<Key> { new Key("GlobalReference", $"http://example.com/idta/nameplate/{strUri}") } };
+
+                            SubmodelDescriptor smd = new() {
+                                Endpoints = listSmdep,
+                                IdShort = nsvnSubmodels.Id,
+                                Id = $"https://example.com/ids/sm/{strUri}",
+                                SemanticId = reference
+                            };
+
+                            aasdescrip.SubmodelDescriptors.Add(smd);
+                        }
                     }
+                    aasdReturn.Add(aasdescrip);
                 }
             }
 
-            return result;
-        }
-
-        public NodesetViewerNode GetNodesetOfType(string strUserId, string strType, string strNodesetIdentifier = null)
-        {
-            var allNodesets = _cldata.GetNodeSets(strUserId, strNodesetIdentifier);
-            foreach (var nodeset in allNodesets)
-            {
-                foreach (var nodesetObject in nodeset.Objects)
-                {
-                    if (nodesetObject.DisplayName[0].Text == strType)
-                    {
-                        NodesetViewerNode nsvNode = new();
-                        nsvNode.Id = nodeset.Identifier;  // The CloudLib ID
-                        nsvNode.Value = nodesetObject.NodeId; // Original Uri
-                        nsvNode.Text = nodesetObject.Namespace;
-
-                        return nsvNode;
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        public AssetAdministrationShellDescriptor GetAssetAdministrationShellDescriptorById(string userId, string nodesetId)
-        {
-            var a = GetNodesetOfType(userId, "Asset Admin Shells", nodesetId);
-            if (a != null)
-            {
-                AssetAdministrationShellDescriptor aasd = new();
-                string strUri = a.Id;
-
-                List<Endpoint> listEPs = new();
-                Endpoint ep = new Endpoint() {
-                    Interface = "AAS-1.0",
-                    ProtocolInformation = new ProtocolInformation() { Href = $"https://v3.2.example.com/shells/{strUri}" },
-
-                };
-                listEPs.Add(ep);
-
-                List<SpecificAssetId> listSai = new();
-                SpecificAssetId sai = new SpecificAssetId() {
-                    Name = "assetKind",
-                    Value = "Instance",
-                    ExternalSubjectId = new Reference() { Type = KeyElements.GlobalReference },
-                };
-
-                aasd.AssetKind = AssetKind.Instance;
-                aasd.AssetType = "Not Applicable";
-                aasd.Endpoints = listEPs;
-                aasd.GlobalAssetId = $"https://example.com/ids/{strUri}";
-                aasd.IdShort = a.Id;
-                aasd.Id = a.Text + ";" + a.Value;
-
-                aasd.SubmodelDescriptors = new List<SubmodelDescriptor>();
-                List<NodesetViewerNode> submodels = a.Children?.Where(child => child.Text == "Submodels").ToList();
-                if (submodels != null)
-                {
-                    foreach (NodesetViewerNode s in submodels)
-                    {
-                        List<Endpoint> listSmdep = new();
-                        Endpoint smdep = new Endpoint() {
-                            Interface = "SUBMODEL-1.0",
-                            ProtocolInformation = new ProtocolInformation() { Href = $"https://v3.2.example.com/shells/{strUri}" },
-
-                        };
-                        listSmdep.Add(smdep);
-                        Reference reference = new Reference { Keys = new List<Key> { new Key("GlobalReference", $"http://example.com/idta/nameplate/{strUri}") } };
-
-                        SubmodelDescriptor smd = new() {
-                            Endpoints = listSmdep,
-                            IdShort = s.Id,
-                            Id = $"https://example.com/ids/sm/{strUri}",
-                            SemanticId = reference
-                        };
-
-                        aasd.SubmodelDescriptors.Add(smd);
-                    }
-                }
-                return aasd;
-            }
-
-            return null;
+            return aasdReturn;
         }
 
 
@@ -242,33 +206,36 @@ namespace AdminShell
                 foreach (NodesetViewerNode a in aasList)
                 {
                     string strCloudLibId = a.Id;
-                    AssetAdministrationShell aas = new() {
+                    AssetAdministrationShell aasReturn = new() {
                         ModelType = ModelTypes.AssetAdministrationShell,
                         Identification = new Identifier() { Id = a.Id, Value = a.Value },
                         IdShort = a.Id,
                         Id = a.Text + ";" + a.Value
                     };
 
-                    List<NodesetViewerNode> submodels = GetAllNodesetsOfType(userId, "Submodels", strCloudLibId);
-                    if (submodels != null)
+                    List<NodesetViewerNode> listSubmodel = GetNodesetOfTypeById(userId, "Submodels", strCloudLibId);
+                    if (listSubmodel != null)
                     {
-                        foreach (NodesetViewerNode s in submodels)
+                        foreach (NodesetViewerNode nsvnSubmodel in listSubmodel)
                         {
-                            ModelReference mr = new ModelReference() {
-                                Keys = new List<Key>()
+                            if (nsvnSubmodel != null)
                             {
-                                new Key()
-                                {
-                                    Value = s.Id,
-                                    Type = KeyElements.Submodel
-                                }
+                                ModelReference mr = new ModelReference() {
+                                    Keys = new List<Key>()
+                                    {
+                                        new Key()
+                                        {
+                                            Value = nsvnSubmodel.Id,
+                                            Type = KeyElements.Submodel
+                                        }
+                                    }
+                                };
+                                aasReturn.Submodels.Add(mr);
                             }
-                            };
-                            aas.Submodels.Add(mr);
+
+                            output.Add(aasReturn);
                         }
                     }
-
-                    output.Add(aas);
                 }
             }
 
@@ -307,45 +274,52 @@ namespace AdminShell
             return output;
         }
 
-        public AssetAdministrationShell GetAssetAdministrationShellById(string userId, string strCloudLibId = null)
+        public List<AssetAdministrationShell> GetAssetAdministrationShellById(string userId, string strCloudLibId = null)
         {
-            AssetAdministrationShell output = new();
+            List<AssetAdministrationShell> output = new();
 
             // Query database for the Asset Administration Shell of given ID
-            List<NodesetViewerNode> aasList = GetAllNodesetsOfType(userId, "Asset Admin Shells", strCloudLibId);
+            List<NodesetViewerNode> listAAS = GetNodesetOfTypeById(userId, "Asset Admin Shells", strCloudLibId);
 
-            if (aasList != null)
+            if (listAAS != null)
             {
-                // Loop through all the Asset Administration Shells we found above.
-                foreach (NodesetViewerNode a in aasList)
+                foreach (NodesetViewerNode nsvnAAS in listAAS)
                 {
-                    output = new() {
-                        ModelType = ModelTypes.AssetAdministrationShell,
-                        Identification = new Identifier() { Id = a.Id, Value = a.Value },
-                        IdShort = a.Id,
-                        Id = a.Text + ";" + a.Value
-                    };
-
-                    List<NodesetViewerNode> submodels = GetAllNodesetsOfType(userId, "Submodels", strCloudLibId);
-                    if (submodels != null)
+                    if (nsvnAAS != null)
                     {
-                        foreach (NodesetViewerNode s in submodels)
+                        AssetAdministrationShell aashell = new() {
+                            ModelType = ModelTypes.AssetAdministrationShell,
+                            Identification = new Identifier() { Id = nsvnAAS.Id, Value = nsvnAAS.Value },
+                            IdShort = nsvnAAS.Id,
+                            Id = nsvnAAS.Text + ";" + nsvnAAS.Value
+                        };
+
+                        List<NodesetViewerNode> listSubmodel = GetNodesetOfTypeById(userId, "Submodels", strCloudLibId);
+                        if (listSubmodel != null)
                         {
-                            ModelReference mr = new ModelReference() {
-                                Keys = new List<Key>()
+                            foreach (NodesetViewerNode nsvnSubmodel in listSubmodel)
                             {
-                                new Key()
+                                if (nsvnSubmodel != null)
                                 {
-                                    Value = s.Id,
-                                    Type = KeyElements.Submodel
+                                    ModelReference mr = new ModelReference() {
+                                        Keys = new List<Key>()
+                                {
+                                    new Key()
+                                    {
+                                        Value = nsvnSubmodel.Id,
+                                        Type = KeyElements.Submodel
+                                    }
+                                }
+                                    };
+                                    aashell.Submodels.Add(mr);
                                 }
                             }
-                            };
-                            output.Submodels.Add(mr);
                         }
+                        output.Add(aashell);
                     }
                 }
             }
+
 
             return output;
         }
@@ -356,22 +330,22 @@ namespace AdminShell
             List<Submodel> output = new();
 
             // Get All Submodels
-            List<NodesetViewerNode> submodelList = GetAllNodesetsOfType(userId, "Submodels");
-            if (submodelList != null)
+            List<NodesetViewerNode> listSubmodel = GetAllNodesetsOfType(userId, "Submodels");
+            if (listSubmodel != null)
             {
-                foreach (NodesetViewerNode subNode in submodelList)
+                foreach (NodesetViewerNode nsvnSubmodel in listSubmodel)
                 {
-                    Submodel sub = new() {
+                    Submodel subReturn = new() {
                         ModelType = ModelTypes.Submodel,
-                        Id = $"{subNode.Text};{subNode.Value}",
-                        Identification = new Identifier() { Id = subNode.Id, Value = subNode.Text },
-                        IdShort = subNode.Id,
-                        SemanticId = new Reference() { Type = KeyElements.ExternalReference, Keys = new List<Key>() { new Key() { Value = subNode.Text, Type = KeyElements.GlobalReference } } },
-                        DisplayName = new List<LangString>() { new LangString() { Text = subNode.Text } },
-                        Description = new List<LangString>() { new LangString() { Text = string.Empty /* TODO */ } }
+                        Id = $"{nsvnSubmodel.Text};{nsvnSubmodel.Value}",
+                        Identification = new Identifier() { Id = nsvnSubmodel.Id, Value = nsvnSubmodel.Text },
+                        IdShort = nsvnSubmodel.Id,
+                        SemanticId = new Reference() { Type = KeyElements.ExternalReference, Keys = new List<Key>() { new Key() { Value = nsvnSubmodel.Text, Type = KeyElements.GlobalReference } } },
+                        DisplayName = new List<LangString>() { new LangString() { Text = nsvnSubmodel.DisplayName } },
+                        Description = new List<LangString>() { new LangString() { Text = nsvnSubmodel.Description } }
                     };
 
-                    output.Add(sub);
+                    output.Add(subReturn);
                 }
             }
 
@@ -403,22 +377,25 @@ namespace AdminShell
             List<Submodel> output = new();
 
             // Get All Submodels
-            List<NodesetViewerNode> submodelList = GetAllNodesetsOfType(userId, "Submodels");
-            if (submodelList != null)
+            List<NodesetViewerNode> listSubmodel = GetNodesetOfTypeById(userId, "Submodels", strCloudLibId);
+            if (listSubmodel != null)
             {
-                foreach (NodesetViewerNode subNode in submodelList)
+                foreach (NodesetViewerNode nsvnSubmodel in listSubmodel)
                 {
-                    Submodel sub = new() {
-                        ModelType = ModelTypes.Submodel,
-                        Id = $"{subNode.Text};{subNode.Value}",
-                        Identification = new Identifier() { Id = subNode.Id, Value = subNode.Text },
-                        IdShort = subNode.Id,
-                        SemanticId = new Reference() { Type = KeyElements.ExternalReference, Keys = new List<Key>() { new Key() { Value = subNode.Text, Type = KeyElements.GlobalReference } } },
-                        DisplayName = new List<LangString>() { new LangString() { Text = subNode.Text } },
-                        Description = new List<LangString>() { new LangString() { Text = string.Empty /* TODO */ } }
-                    };
+                    if (nsvnSubmodel != null)
+                    {
+                        Submodel sub = new() {
+                            ModelType = ModelTypes.Submodel,
+                            Id = $"{nsvnSubmodel.Text};{nsvnSubmodel.Value}",
+                            Identification = new Identifier() { Id = nsvnSubmodel.Id, Value = nsvnSubmodel.Text },
+                            IdShort = nsvnSubmodel.Id,
+                            SemanticId = new Reference() { Type = KeyElements.ExternalReference, Keys = new List<Key>() { new Key() { Value = nsvnSubmodel.Text, Type = KeyElements.GlobalReference } } },
+                            DisplayName = new List<LangString>() { new LangString() { Text = nsvnSubmodel.DisplayName } },
+                            Description = new List<LangString>() { new LangString() { Text = nsvnSubmodel.Description } }
+                        };
 
-                    output.Add(sub);
+                        output.Add(sub);
+                    }
                 }
             }
 
@@ -455,8 +432,6 @@ namespace AdminShell
 
             return output;
         }
-
-
 
         private async Task<List<SubmodelElement>> ReadSubmodelElementNodes(string nodesetIdentifier, NodesetViewerNode subNode, bool browseDeep, string userId)
         {
@@ -520,11 +495,11 @@ namespace AdminShell
             List<ConceptDescription> output = new();
 
             // Query database for all Concept Descriptions
-            List<NodesetViewerNode> conceptDescrNodes = GetAllNodesetsOfType(userId, "Concept Descriptions");
+            List<NodesetViewerNode> listnsvnConceptDesrciption = GetAllNodesetsOfType(userId, "Concept Descriptions");
 
-            if (conceptDescrNodes != null)
+            if (listnsvnConceptDesrciption != null)
             {
-                foreach (NodesetViewerNode cdNode in conceptDescrNodes)
+                foreach (NodesetViewerNode cdNode in listnsvnConceptDesrciption)
                 {
                     // A database-only implementation.
                     ConceptDescription cd = new() {
@@ -556,82 +531,46 @@ namespace AdminShell
             List<ConceptDescription> output = new();
 
             // Query database for Concept Descriptions
-            List<NodesetViewerNode> conceptDescrNodes = GetAllNodesetsOfType(userId, "Concept Descriptions", nodesetIdentifier);
-
-            if (conceptDescrNodes != null)
+            List<NodesetViewerNode> listConceptDescriptions = GetNodesetOfTypeById(userId, "Concept Descriptions", nodesetIdentifier);
+            if (listConceptDescriptions != null)
             {
-                foreach (NodesetViewerNode cdNode in conceptDescrNodes)
+                foreach (NodesetViewerNode nsvnCD in listConceptDescriptions)
                 {
-                    if (nodesetIdentifier == cdNode.Id)
+                    if (nsvnCD != null)
                     {
-                        List<NodesetViewerNode> cdr = await _client.GetChildren(userId, nodesetIdentifier, cdNode.Text).ConfigureAwait(false);
-
-                        if (cdr != null && !string.IsNullOrEmpty(cdr[0].Id))
+                        if (nodesetIdentifier == nsvnCD.Id)
                         {
-                            List<NodesetViewerNode> cdrItems = await _client.GetChildren(userId, cdNode.Id, cdr[0].Id).ConfigureAwait(false);
-                            if (cdrItems != null)
-                            {
-                                foreach (NodesetViewerNode item in cdrItems)
-                                {
-                                    ConceptDescription cd = new() {
-                                        ModelType = ModelTypes.ConceptDescription,
-                                        IdShort = item.Text,
-                                        Id = item.Id,
-                                    };
+                            List<NodesetViewerNode> cdr = await _client.GetChildren(userId, nodesetIdentifier, nsvnCD.Text).ConfigureAwait(false);
 
-                                    output.Add(cd);
+                            if (cdr != null && !string.IsNullOrEmpty(cdr[0].Id))
+                            {
+                                List<NodesetViewerNode> cdrItems = await _client.GetChildren(userId, nsvnCD.Id, cdr[0].Id).ConfigureAwait(false);
+                                if (cdrItems != null)
+                                {
+                                    foreach (NodesetViewerNode item in cdrItems)
+                                    {
+                                        ConceptDescription cd = new() {
+                                            ModelType = ModelTypes.ConceptDescription,
+                                            IdShort = item.Text,
+                                            Id = item.Id,
+                                        };
+
+                                        output.Add(cd);
+                                    }
                                 }
                             }
                         }
                     }
+
                 }
+
             }
+
 
             return output;
         }
 
 
-        public async Task<Submodel> GetSubmodelById(string userId, string nodesetIdentifier)
-        {
-            List<NodesetViewerNode> nodeList = await _client.GetChildren(userId, nodesetIdentifier, ObjectIds.ObjectsFolder.ToString()).ConfigureAwait(false);
-            if (nodeList != null)
-            {
-                foreach (NodesetViewerNode node in nodeList)
-                {
-                    if (node.Text == "Submodels")
-                    {
-                        List<NodesetViewerNode> submodelList = await _client.GetChildren(userId, nodesetIdentifier, node.Id).ConfigureAwait(false);
-                        if (submodelList != null)
-                        {
-                            if (submodelList.Count > 1)
-                            {
-                                throw new NotImplementedException($"Currently only a single Submodel per OPC UA nodeset file is supported.");
-                            }
-
-                            foreach (NodesetViewerNode subNode in submodelList)
-                            {
-                                Submodel sub = new() {
-                                    ModelType = ModelTypes.Submodel,
-                                    Id = subNode.Id,
-                                    Identification = new Identifier() { Id = subNode.Id, Value = subNode.Text },
-                                    IdShort = subNode.Id + ";" + subNode.Text,
-                                    SemanticId = new Reference() { Type = KeyElements.ExternalReference, Keys = new List<Key>() { new Key() { Value = subNode.Text, Type = KeyElements.GlobalReference } } },
-                                    DisplayName = new List<LangString>() { new LangString() { Text = subNode.Text } },
-                                    Description = new List<LangString>() { new LangString() { Text = await _client.VariableRead(userId, nodesetIdentifier, subNode.Id).ConfigureAwait(false) } }
-                                };
-
-                                // get all submodel elements
-                                sub.SubmodelElements.AddRange(await ReadSubmodelElementNodes(nodesetIdentifier, subNode, true, userId).ConfigureAwait(false));
-
-                                return sub;
-                            }
-                        }
-                    }
-                }
-            }
-
-            return null;
-        }
 
         public AssetInformation GetAssetInformationFromAas(string userId, string nodesetIdentifier)
         {
@@ -646,12 +585,12 @@ namespace AdminShell
             }
         }
 
-        public async Task<byte[]> GetFileByPath(string nodesetIdentifier, string idShortPath, string userId)
+        public byte[] GetFileByPath(string nodesetIdentifier, string idShortPath, string userId)
         {
             byte[] byteArray = null;
             string fileName = null;
 
-            SubmodelElement sme = await GetSubmodelElementByPath(nodesetIdentifier, idShortPath, userId).ConfigureAwait(false);
+            SubmodelElement sme = GetSubmodelElementByPath(nodesetIdentifier, idShortPath, userId);
             if (sme != null)
             {
                 if (sme is File file)
@@ -693,22 +632,30 @@ namespace AdminShell
             }
         }
 
-        public async Task<List<SubmodelElement>> GetAllSubmodelElementsFromSubmodel(string nodesetIdentifier, string userId)
+        public List<SubmodelElement> GetAllSubmodelElementsFromSubmodel(string nodesetIdentifier, string userId)
         {
-            var submodel = await GetSubmodelById(userId, nodesetIdentifier).ConfigureAwait(false);
-            if (submodel == null)
+            List<SubmodelElement> output = new();
+            List<Submodel> listSubmodel = GetSubmodelById(userId, nodesetIdentifier);
+            if ( listSubmodel != null)
             {
-                return null;
+                foreach (Submodel sm in listSubmodel)
+                {
+                    if (sm != null)
+                    {
+                        foreach (SubmodelElement element in sm.SubmodelElements)
+                        {
+                            output.Add(element);
+                        }
+                    }
+                }
             }
-            else
-            {
-                return submodel.SubmodelElements;
-            }
+
+            return output;
         }
 
-        public async Task<SubmodelElement> GetSubmodelElementByPath(string nodesetIdentifier, string idShortPath, string userId)
+        public SubmodelElement GetSubmodelElementByPath(string nodesetIdentifier, string idShortPath, string userId)
         {
-            Submodel submodel = await GetSubmodelById(userId, nodesetIdentifier).ConfigureAwait(false);
+            List<Submodel> submodel = GetSubmodelById(userId, nodesetIdentifier);
             if (submodel != null)
             {
                 return FindSubmodelElementByIdShortPath(submodel, idShortPath);
@@ -821,6 +768,57 @@ namespace AdminShell
                     return null;
                 }
             }
+        }
+
+        public List<NodesetViewerNode> GetAllNodesetsOfType(string strUserId, string strType)
+        {
+            List<NodesetViewerNode> result = new();
+
+            var allNodesets = _cldata.GetNodeSets(strUserId);
+            foreach (var nodeset in allNodesets)
+            {
+                foreach (var nodesetObject in nodeset.Objects)
+                {
+                    NodesetViewerNode nsvNode = new();
+                    if (nodesetObject.DisplayName[0].Text == strType)
+                    {
+                        nsvNode.Id = nodeset.Identifier;  // The CloudLib ID
+                        nsvNode.Value = nodesetObject.NodeId; // Original Uri
+                        nsvNode.Text = nodesetObject.Namespace;
+                        nsvNode.DisplayName = nodesetObject.DisplayName?.FirstOrDefault()?.Text ?? "";
+                        nsvNode.Description = nodesetObject.Description?.FirstOrDefault()?.Text ?? "";
+
+                        result.Add(nsvNode);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        public List<NodesetViewerNode> GetNodesetOfTypeById(string strUserId, string strType, string strNodesetIdentifier)
+        {
+            List <NodesetViewerNode> nsvnReturn = new();
+
+            var allNodesets = _cldata.GetNodeSets(strUserId);
+            foreach (var nodeset in allNodesets)
+            {
+                foreach (var nodesetObject in nodeset.Objects)
+                {
+                    if (nodesetObject.DisplayName[0].Text == strType)
+                    {
+                        NodesetViewerNode nsvNode = new();
+                        nsvNode.Id = nodeset.Identifier;  // The CloudLib ID
+                        nsvNode.Value = nodesetObject.NodeId; // Original Uri
+                        nsvNode.Text = nodesetObject.Namespace;
+                        nsvNode.DisplayName = nodesetObject.DisplayName?.FirstOrDefault()?.Text ?? "";
+                        nsvNode.Description = nodesetObject.Description?.FirstOrDefault()?.Text ?? "";
+                        nsvnReturn.Add(nsvNode);
+                    }
+                }
+            }
+
+            return nsvnReturn;
         }
 
         // Helpers to make for more readable paths, etc.

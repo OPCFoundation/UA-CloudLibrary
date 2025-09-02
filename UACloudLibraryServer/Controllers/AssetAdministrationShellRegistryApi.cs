@@ -117,7 +117,7 @@ namespace AdminShell
                 decodedAasIdentifier = Uri.UnescapeDataString(aasIdentifier);
             }
 
-            AssetAdministrationShellDescriptor aasdesc = _aasEnvService.GetAssetAdministrationShellDescriptorById(User.Identity.Name, decodedAasIdentifier);
+            List<AssetAdministrationShellDescriptor> aasdesc = _aasEnvService.GetAssetAdministrationShellDescriptorById(User.Identity.Name, decodedAasIdentifier);
 
             return new ObjectResult(aasdesc);
         }

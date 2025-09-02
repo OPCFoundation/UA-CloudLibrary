@@ -132,7 +132,7 @@ namespace AdminShell
                 strCloudLib = Uri.UnescapeDataString(aasIdentifier);
             }
 
-            AssetAdministrationShell aas = _aasEnvService.GetAssetAdministrationShellById(User.Identity.Name, strCloudLib);
+            List<AssetAdministrationShell> aas = _aasEnvService.GetAssetAdministrationShellById(User.Identity.Name, strCloudLib);
 
             return new ObjectResult(aas);
         }
@@ -223,7 +223,7 @@ namespace AdminShell
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedAasIdentifier)} is null");
             }
 
-            byte[] content = await _aasEnvService.GetFileByPath(decodedAasIdentifier, "https://admin-shell.io/idta/asset/thumbnail", User.Identity.Name).ConfigureAwait(false);
+            byte[] content = _aasEnvService.GetFileByPath(decodedAasIdentifier, "https://admin-shell.io/idta/asset/thumbnail", User.Identity.Name);
 
             // content-disposition so that the file can be downloaded from the web browser
             ContentDisposition contentDisposition = new() { FileName = "thumbnail" };

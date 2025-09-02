@@ -38,6 +38,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Opc.Ua.Cloud.Library;
+using Opc.Ua.Gds;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace AdminShell
@@ -97,11 +98,18 @@ namespace AdminShell
                     outputEnv.AssetAdministrationShells.Add(foundAas.First());
                 }
 
-                Submodel submodel = await _aasEnvService.GetSubmodelById(User.Identity.Name, aasId).ConfigureAwait(false);
-                if (submodel != null)
+                List<Submodel> listSubmodel = _aasEnvService.GetSubmodelById(User.Identity.Name, aasId);
+                if (listSubmodel != null)
                 {
-                    outputEnv.Submodels.Add(submodel);
+                    foreach (var submodel in listSubmodel)
+                    {
+                        if (submodel != null)
+                        {
+                            outputEnv.Submodels.Add(submodel);
+                        }
+                    }
                 }
+
                 if (includeConceptDescriptions == true)
                 {
                     var cdrList = await _aasEnvService.GetConceptDescriptionById(User.Identity.Name, aasId).ConfigureAwait(false);
