@@ -81,7 +81,7 @@ jobs:
     displayName: 'List of assemblies to sign'
     inputs:
       script: |
-        dir /b /s Opc.CloudLibrary.*.dll > .\list.txt
+        dir /b /s Opc.Ua.CloudLib.Client\bin\Opc.CloudLibrary.*.dll > .\list.txt
         dir /b /s .azurepipelines\*.* >> .\list.txt
         type .\list.txt
   - task: CmdLine@2
