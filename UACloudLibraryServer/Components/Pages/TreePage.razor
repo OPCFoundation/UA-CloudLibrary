@@ -216,13 +216,13 @@
 
         if ((ModalTitle == "Edit") && save)
         {
-            await _client.VariableWrite(NodesetIdentifier, SelectedNode.Id, ModalValue, UserName).ConfigureAwait(false);
-            NodeValue = await _client.VariableRead(NodesetIdentifier, SelectedNode.Id, UserName).ConfigureAwait(false);
+            await _client.VariableWrite(UserName, NodesetIdentifier, SelectedNode.Id, ModalValue).ConfigureAwait(false);
+            NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, SelectedNode.Id).ConfigureAwait(false);
         }
 
         if ((ModalTitle == "Copy") && save)
         {
-            CopyStatus = await _client.CopyNodeset(NodesetIdentifier, ModalValue, UserName).ConfigureAwait(false);
+            CopyStatus = await _client.CopyNodeset(UserName, NodesetIdentifier, ModalValue).ConfigureAwait(false);
         }
 
         await InvokeAsync(StateHasChanged).ConfigureAwait(false);
@@ -249,7 +249,7 @@
     {
         if (node.Children.Count == 0)
         {
-            node.Children = await _client.GetChildren(NodesetIdentifier, node.Id, UserName).ConfigureAwait(false);
+            node.Children = await _client.GetChildren(UserName, NodesetIdentifier, node.Id).ConfigureAwait(false);
 
             if (node.Children != null)
             {
@@ -262,7 +262,7 @@
     {
         SelectedNode = node;
 
-        NodeValue = await _client.VariableRead(NodesetIdentifier, node.Id, UserName).ConfigureAwait(false);
+        NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, node.Id).ConfigureAwait(false);
     }
 
     private bool HasChildNodes(NodesetViewerNode node)

@@ -37,7 +37,7 @@ namespace AdminShell
         [HttpPost]
         public async Task<ActionResult> Download(BrowserModel model)
         {
-            Dictionary<string, string> results = await _client.BrowseVariableNodesResursivelyAsync(model.NodesetIdentifier, null, User.Identity.Name).ConfigureAwait(false);
+            Dictionary<string, string> results = await _client.BrowseVariableNodesResursivelyAsync(User.Identity.Name, model.NodesetIdentifier, null).ConfigureAwait(false);
 
             return File(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(results)), "text/json", "nodevalues.json");
         }
@@ -51,7 +51,7 @@ namespace AdminShell
             {
                 DbFiles nodesetXml = await _storage.DownloadFileAsync(model.NodesetIdentifier).ConfigureAwait(false);
 
-                Dictionary<string, string> results = await _client.BrowseVariableNodesResursivelyAsync(model.NodesetIdentifier, null, User.Identity.Name).ConfigureAwait(false);
+                Dictionary<string, string> results = await _client.BrowseVariableNodesResursivelyAsync(User.Identity.Name, model.NodesetIdentifier, null).ConfigureAwait(false);
                 nodesetXml.Values = JsonConvert.SerializeObject(results);
 
                 string name = await _storage.UploadFileAsync(model.NodesetIdentifier, nodesetXml.Blob, nodesetXml.Values).ConfigureAwait(false);

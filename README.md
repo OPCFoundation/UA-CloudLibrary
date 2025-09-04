@@ -30,19 +30,48 @@ If you want to access the admin to the develpoment database instance open http:/
 
 ## Cloud Hosting Setup
 
-Environment variables that **must** be defined:
+### Required Settings - PostgreSQL
+You **must** have installed PostgreSQL version 11.20. You **must** also define one of the following two sets of environment variables:
 
-* PostgreSQLEndpoint: The endpoint of the PostgreSQL instance (that must be previously deployed in the hosting platform).
-* PostgreSQLUsername: The username to use to log in to the PostgreSQL instance.
-* PostgreSQLPassword: The password to use to log in to the PostgreSQL instance.
-* ServicePassword: The administration password for the REST service (username admin).
+#### PostgreSQL Set 1: Three environment variables
+* ``PostgreSQLEndpoint``: The endpoint of the PostgreSQL instance (that must be previously deployed in the hosting platform).
+* ``PostgreSQLUsername``: The username to use to log in to the PostgreSQL instance.
+* ``PostgreSQLPassword``: The password to use to log in to the PostgreSQL instance.
 
+#### PostgreSQL Set 2: One connection string
+*  ``ConnectionStrings__CloudLibraryPostgreSQL``: All of the above values, as a connection string instead of as individual environment variables. Example:
+```
+"Server=localhost; Username=MyUserName;Password=MyUserPassword;Database=uacloudlib;Port=5432;Include Error Detail=true",
+```
+Note that you must create a user account with set privileges to access the database.
+
+### Setting Password for Test Account
+To enable access, from both Swagger and the REST APIs, you must set a password using this environment variable:
+* ``ServicePassword``: The administration password for Swagger and REST service.
+
+Note: The user name is ``admin``.
+
+### Optional Settings
 Environment variables that **can optionally** be defined:
 
-* EmailSenderAPIKey: The API key for the email sender service
-* RegistrationEmailFrom: The "from" email address to use for user registration confirmation emails
-* RegistrationEmailReplyTo: The "replyto" email address to use for user registration confirmation emails
+* ``EmailSenderAPIKey``: The API key for the email sender service
+* ``RegistrationEmailFrom``: The "from" email address to use for user registration confirmation emails
+* ``RegistrationEmailReplyTo``: The "replyto" email address to use for user registration confirmation emails
 
+* ``CloudLibrary__ApprovalRequired``: Whether items are filtered based on ``Approval Status``
+* ``AllowSelfRegistration``: Whether users can self-register for a user account (default: ``true``).
+
+### Optional Settings - Captcha
+Curtail bot access using the using Google reCAPTCHA.  
+  **Note: If you enable this feature without an active account will prevent user self-registration from working correctly.**
+* ``CaptchaSettings__Enabled``: Toggle whether to use reCAPTCHA (default: ``false``). 
+* ``CaptchaSettings__SiteVerifyUrl``: Verify user input (default: ``https://www.google.com/recaptcha/api/siteverify``)
+* ``CaptchaSettings__ClientApiUrl``: Source for loading JavaScript library (default:``https://www.google.com/recaptcha/api.js?render=``)
+* ``CaptchaSettings__SecretKey``: Private key. Obtain from reCAPTCHA admin console.
+* ``CaptchaSettings__SiteKey``: Public key. Obtain from reCAPTCHA admin console.
+* ``CaptchaSettings__BotThreshold``: Minimum score between 0.0 (bot likely) and 1.0 (human likely). (default: ``0.5``)
+
+    **Note: The use of double underscores ('__') represents a nested JSON keys.**
 
 ## Deployment
 

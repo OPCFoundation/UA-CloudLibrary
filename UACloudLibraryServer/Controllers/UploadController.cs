@@ -186,7 +186,7 @@ namespace UANodesetWebViewer.Controllers
                     nameSpace.SupportedLocales = locales.Split(',');
                 }
 
-                string result = await _database.UploadNamespaceAndNodesetAsync(nameSpace, valuesContent, overwrite, User.Identity.Name).ConfigureAwait(false);
+                string result = await _database.UploadNamespaceAndNodesetAsync(User.Identity.Name, nameSpace, valuesContent, overwrite).ConfigureAwait(false);
 
                 return View("Index", result);
             }
