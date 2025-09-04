@@ -1,0 +1,44 @@
+﻿services:
+  sdk.example:
+    image: sdk.example
+    build:
+      context: .
+      dockerfile: Sdk.Example/Dockerfile
+    environment:
+      - DOTNET_ENVIRONMENT=test # contains configuration for docker compose setup
+    depends_on:
+      controlplane:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    links:
+      - postgres
+      - controlplane
+  
+  
+  
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: SdkApi
+    ports:
+      - "15432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d SdkApi" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  controlplane:
+    image: "mvd-controlplane"
+    volumes:
+      - ./Sdk.Example/res/configuration.properties:/app/configuration.properties
+      - ./Sdk.Example/res/deployment/assets/participants/participants.local.json:/app/deployment/assets/participants/participants.local.json
+
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/check/readiness" ]
+      interval: 11s
+      timeout: 5s
+      retries: 5
