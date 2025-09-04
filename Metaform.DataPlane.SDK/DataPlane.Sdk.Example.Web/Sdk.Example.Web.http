@@ -1,6 +1,0 @@
-@Sdk.Example.Web_HostAddress = http://localhost:5001
-
-GET {{Sdk.Example.Web_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
