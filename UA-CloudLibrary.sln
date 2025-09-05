@@ -13,6 +13,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		Directory.Build.targets = Directory.Build.targets
 		.github\workflows\docker.yml = .github\workflows\docker.yml
 		Dockerfile = Dockerfile
+		local-dev-docker\docker_pgadmin_servers.json = local-dev-docker\docker_pgadmin_servers.json
 		.github\workflows\dotnet.yml = .github\workflows\dotnet.yml
 		LICENSE = LICENSE
 		Licenses\OPC Foundation MIT License.txt = Licenses\OPC Foundation MIT License.txt
@@ -45,6 +46,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudLibSyncAzureFunction", "CloudLibSyncAzureFunction\CloudLibSyncAzureFunction.csproj", "{6A7EF892-71D1-4076-AD10-7F67F276528B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlobToPGTable", "BlobToPGTable\BlobToPGTable.csproj", "{EFDB69DA-5981-213C-6004-C89DF47078B2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataPlane.Sdk.Core", "Metaform.DataPlane.SDK\DataPlane.Sdk.Core\DataPlane.Sdk.Core.csproj", "{9F396452-6ED3-DDB6-40C4-02C22649AB38}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -305,6 +308,36 @@ Global
 		{EFDB69DA-5981-213C-6004-C89DF47078B2}.Staging|x64.Build.0 = Release|Any CPU
 		{EFDB69DA-5981-213C-6004-C89DF47078B2}.Staging|x86.ActiveCfg = Release|Any CPU
 		{EFDB69DA-5981-213C-6004-C89DF47078B2}.Staging|x86.Build.0 = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Debug|ARM.ActiveCfg = Debug|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Debug|ARM.Build.0 = Debug|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Debug|x64.Build.0 = Debug|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Debug|x86.Build.0 = Debug|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Release|ARM.ActiveCfg = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Release|ARM.Build.0 = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Release|ARM64.Build.0 = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Release|x64.ActiveCfg = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Release|x64.Build.0 = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Release|x86.ActiveCfg = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Release|x86.Build.0 = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Staging|Any CPU.ActiveCfg = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Staging|Any CPU.Build.0 = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Staging|ARM.ActiveCfg = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Staging|ARM.Build.0 = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Staging|ARM64.ActiveCfg = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Staging|ARM64.Build.0 = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Staging|x64.ActiveCfg = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Staging|x64.Build.0 = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Staging|x86.ActiveCfg = Release|Any CPU
+		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Staging|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
