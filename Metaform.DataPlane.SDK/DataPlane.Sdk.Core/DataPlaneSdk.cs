@@ -13,7 +13,7 @@ using Void = Void;
 public class DataPlaneSdk
 {
 #pragma warning disable CA1051
-    private Func<DataFlow, StatusResult<IList<ProvisionResource>>>? OnProvision;
+    public Func<DataFlow, StatusResult<IList<ProvisionResource>>>? OnProvision;
     public Func<DataFlow, StatusResult<Void>>? OnRecover;
     public Func<DataFlow, StatusResult<DataFlowResponseMessage>>? OnStart;
     public Func<DataFlow, StatusResult<Void>>? OnSuspend;
