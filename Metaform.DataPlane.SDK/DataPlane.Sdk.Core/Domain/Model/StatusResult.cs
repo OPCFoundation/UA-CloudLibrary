@@ -5,6 +5,7 @@ namespace DataPlane.Sdk.Core.Domain.Model;
 public class StatusResult<TContent>(TContent? content, StatusFailure? failure)
     : AbstractResult<TContent, StatusFailure>(content, failure)
 {
+#pragma warning disable CA1000
     public static StatusResult<TContent> Success(TContent? content)
     {
         return new StatusResult<TContent>(content, null);
@@ -46,6 +47,7 @@ public class StatusResult<TContent>(TContent? content, StatusFailure? failure)
     }
 }
 
+#pragma warning restore CA1000
 public class StatusFailure
 {
     public required string Message { get; set; }
