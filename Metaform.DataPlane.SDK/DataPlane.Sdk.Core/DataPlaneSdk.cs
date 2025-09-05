@@ -12,12 +12,14 @@ using Void = Void;
 
 public class DataPlaneSdk
 {
-    public Func<DataFlow, StatusResult<IList<ProvisionResource>>>? OnProvision;
+#pragma warning disable CA1051
+    private Func<DataFlow, StatusResult<IList<ProvisionResource>>>? OnProvision;
     public Func<DataFlow, StatusResult<Void>>? OnRecover;
     public Func<DataFlow, StatusResult<DataFlowResponseMessage>>? OnStart;
     public Func<DataFlow, StatusResult<Void>>? OnSuspend;
     public Func<DataFlow, StatusResult<Void>>? OnTerminate;
     public Func<DataFlowStartMessage, StatusResult<Void>>? OnValidateStartMessage;
+#pragma warning restore CA1051
 
     //todo: make the lease id configurable
     public DataFlowContext DataFlowStore { get; set; } = DataFlowContextFactory.CreateInMem("test-lock-id");
