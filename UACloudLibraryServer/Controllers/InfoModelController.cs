@@ -67,7 +67,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [FromQuery][SwaggerParameter("Pagination limit")] int? limit
         )
         {
-            UANameSpace[] results = _database.FindNodesets(keywords, User.Identity.Name, offset, limit);
+            UANameSpace[] results = _database.FindNodesets(User.Identity.Name, keywords, offset, limit);
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
