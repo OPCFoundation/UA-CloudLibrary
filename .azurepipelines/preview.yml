@@ -19,7 +19,7 @@ jobs:
 - job: nuget${{parameters.config}}
   displayName: Pack Nugets ${{parameters.config}}
   pool:
-    vmImage: 'windows-2022'
+    vmImage: 'windows-2025'
   variables:
   - group: codesign
   - name: solution 
@@ -40,11 +40,11 @@ jobs:
   - checkout: self
     fetchDepth: 0
   - task: UseDotNet@2
-    displayName: 'Install .NET 6.0'
+    displayName: 'Install .NET 9.0'
     inputs:
       packageType: 'sdk'
-      version: '6.0.x'
-      includePreviewVersions: false  
+      version: '9.0.x'
+      includePreviewVersions: false
   - task: DotNetCoreCLI@2
     inputs:
       command: 'custom'
@@ -81,7 +81,7 @@ jobs:
     displayName: 'List of assemblies to sign'
     inputs:
       script: |
-        dir /b /s UA-CloudLibrary-Client\Opc.CloudLibrary.*.dll > .\list.txt
+        dir /b /s Opc.Ua.CloudLib.Client\bin\Opc.Ua.Cloud.Library.*.dll > .\list.txt
         dir /b /s .azurepipelines\*.* >> .\list.txt
         type .\list.txt
   - task: CmdLine@2
