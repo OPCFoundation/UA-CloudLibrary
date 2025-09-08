@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "CloudLibSync": {
+      "commandName": "Project",
+      "commandLineArgs": "download https://localhost:32772/ erichb@microsoft.com EMoerike11!!"
+    }
+  }
+}
