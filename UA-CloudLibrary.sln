@@ -28,8 +28,10 @@ Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-co
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "azurepipelines", "azurepipelines", "{1AB4086F-0197-46C1-9C79-FCCAA05B90D6}"
 	ProjectSection(SolutionItems) = preProject
+		.azurepipelines\get-version.ps1 = .azurepipelines\get-version.ps1
 		.azurepipelines\preview.yml = .azurepipelines\preview.yml
 		.azurepipelines\set-version.ps1 = .azurepipelines\set-version.ps1
+		.azurepipelines\signlistDebug.txt = .azurepipelines\signlistDebug.txt
 		.azurepipelines\signlistRelease.txt = .azurepipelines\signlistRelease.txt
 	EndProjectSection
 EndProject

@@ -9,15 +9,14 @@
 
 try {
     # Try install tool
-    # Note: Keep Version 3.6.133, it is known working for 4 digit versioning 
-    & dotnet @("tool", "install", "--tool-path", "./tools", "--version", "3.6.146", "--framework", "net90", "nbgv") 2>&1 
+    & dotnet @("tool", "install", "--tool-path", "./tools", "--version", "3.6.146", "--framework", "net90", "nbgv") 2>&1
 
     $props = (& ./tools/nbgv  @("get-version", "-f", "json")) | ConvertFrom-Json
     if ($LastExitCode -ne 0) {
         throw "Error: 'nbgv get-version -f json' failed with $($LastExitCode)."
     }
 
-    return [pscustomobject] @{ 
+    return [pscustomobject] @{
         Full = $props.CloudBuildAllVars.NBGV_Version
         Pre = $props.CloudBuildAllVars.NBGV_PrereleaseVersion
         Public = $props.CloudBuildAllVars.NBGV_PublicRelease
