@@ -38,7 +38,6 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Opc.Ua.Cloud.Library;
-using Opc.Ua.Gds;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace AdminShell
@@ -77,10 +76,6 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public async Task<IActionResult> GenerateSerializationByIds([FromQuery] List<string> aasIds, [FromQuery] List<string> submodelIds, [FromQuery] bool? includeConceptDescriptions)
         {
-            ///
-            /// PY-Q: The spec says that multiple formats (Json, xml, etc) are supported. There is no paramter on tihs function.
-            /// Currently is returning JSON.
-
             IEnumerable<string> decodedAasIds = aasIds.Select(aasId => Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasId)))).ToList();
             IEnumerable<string> decodedSubmodelIds = submodelIds.Select(submodelId => Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelId)))).ToList();
 
