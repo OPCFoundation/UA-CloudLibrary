@@ -824,8 +824,5 @@ namespace AdminShell
                 }
             }
         }
-
-
-
     }
 }
