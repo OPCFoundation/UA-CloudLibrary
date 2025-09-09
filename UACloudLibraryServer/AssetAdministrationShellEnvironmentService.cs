@@ -49,11 +49,11 @@ namespace AdminShell
             _cldata = cldata;
         }
 
-        public List<NodesetViewerNode> GetAllNodesetsOfType(string strUserId, string strType)
+        public List<NodesetViewerNode> GetAllNodesetsOfType(string userId, string strType)
         {
             List<NodesetViewerNode> result = new();
 
-            var allNodesets = _cldata.GetNodeSets(strUserId);
+            var allNodesets = _cldata.GetNodeSets(userId);
             foreach (var nodeset in allNodesets)
             {
                 foreach (var nodesetObject in nodeset.Objects)
@@ -75,11 +75,14 @@ namespace AdminShell
             return result;
         }
 
-        public List<NodesetViewerNode> GetNodesetOfTypeById(string strUserId, string strType, string idShort)
+        public List<NodesetViewerNode> GetNodesetOfTypeById(string userId, string strType, string idShort)
         {
             List<NodesetViewerNode> nsvnReturn = new();
 
-            var allNodesets = _cldata.GetNodeSets(strUserId, idShort);
+            // Database functions expect 'null' when value not provided.
+            idShort = String.IsNullOrEmpty(idShort) ? null : idShort;
+
+            var allNodesets = _cldata.GetNodeSets(userId, idShort);
             foreach (var nodeset in allNodesets)
             {
                 foreach (var nodesetObject in nodeset.Objects)
