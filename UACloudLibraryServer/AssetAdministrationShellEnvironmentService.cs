@@ -49,6 +49,56 @@ namespace AdminShell
             _cldata = cldata;
         }
 
+        public List<NodesetViewerNode> GetAllNodesetsOfType(string strUserId, string strType)
+        {
+            List<NodesetViewerNode> result = new();
+
+            var allNodesets = _cldata.GetNodeSets(strUserId);
+            foreach (var nodeset in allNodesets)
+            {
+                foreach (var nodesetObject in nodeset.Objects)
+                {
+                    NodesetViewerNode nsvNode = new();
+                    if (nodesetObject.DisplayName[0].Text == strType)
+                    {
+                        nsvNode.Id = nodeset.Identifier;  // The CloudLib ID
+                        nsvNode.Value = nodesetObject.NodeId; // Original Uri
+                        nsvNode.Text = nodesetObject.Namespace;
+                        nsvNode.DisplayName = nodesetObject.DisplayName?.FirstOrDefault()?.Text ?? "";
+                        nsvNode.Description = nodesetObject.Description?.FirstOrDefault()?.Text ?? "";
+
+                        result.Add(nsvNode);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        public List<NodesetViewerNode> GetNodesetOfTypeById(string strUserId, string strType, string idShort)
+        {
+            List<NodesetViewerNode> nsvnReturn = new();
+
+            var allNodesets = _cldata.GetNodeSets(strUserId, idShort);
+            foreach (var nodeset in allNodesets)
+            {
+                foreach (var nodesetObject in nodeset.Objects)
+                {
+                    if (nodesetObject.DisplayName[0].Text == strType)
+                    {
+                        NodesetViewerNode nsvNode = new();
+                        nsvNode.Id = nodeset.Identifier;  // The CloudLib ID
+                        nsvNode.Value = nodesetObject.NodeId; // Original Uri
+                        nsvNode.Text = nodesetObject.Namespace;
+                        nsvNode.DisplayName = nodesetObject.DisplayName?.FirstOrDefault()?.Text ?? "";
+                        nsvNode.Description = nodesetObject.Description?.FirstOrDefault()?.Text ?? "";
+                        nsvnReturn.Add(nsvNode);
+                    }
+                }
+            }
+
+            return nsvnReturn;
+        }
 
         public List<AssetAdministrationShellDescriptor> GetAllAssetAdministrationShellDescriptors(string userId)
         {
@@ -775,56 +825,6 @@ namespace AdminShell
             }
         }
 
-        public List<NodesetViewerNode> GetAllNodesetsOfType(string strUserId, string strType)
-        {
-            List<NodesetViewerNode> result = new();
-
-            var allNodesets = _cldata.GetNodeSets(strUserId);
-            foreach (var nodeset in allNodesets)
-            {
-                foreach (var nodesetObject in nodeset.Objects)
-                {
-                    NodesetViewerNode nsvNode = new();
-                    if (nodesetObject.DisplayName[0].Text == strType)
-                    {
-                        nsvNode.Id = nodeset.Identifier;  // The CloudLib ID
-                        nsvNode.Value = nodesetObject.NodeId; // Original Uri
-                        nsvNode.Text = nodesetObject.Namespace;
-                        nsvNode.DisplayName = nodesetObject.DisplayName?.FirstOrDefault()?.Text ?? "";
-                        nsvNode.Description = nodesetObject.Description?.FirstOrDefault()?.Text ?? "";
-
-                        result.Add(nsvNode);
-                    }
-                }
-            }
-
-            return result;
-        }
-
-        public List<NodesetViewerNode> GetNodesetOfTypeById(string strUserId, string strType, string idShort)
-        {
-            List<NodesetViewerNode> nsvnReturn = new();
-
-            var allNodesets = _cldata.GetNodeSets(strUserId, idShort);
-            foreach (var nodeset in allNodesets)
-            {
-                foreach (var nodesetObject in nodeset.Objects)
-                {
-                    if (nodesetObject.DisplayName[0].Text == strType)
-                    {
-                        NodesetViewerNode nsvNode = new();
-                        nsvNode.Id = nodeset.Identifier;  // The CloudLib ID
-                        nsvNode.Value = nodesetObject.NodeId; // Original Uri
-                        nsvNode.Text = nodesetObject.Namespace;
-                        nsvNode.DisplayName = nodesetObject.DisplayName?.FirstOrDefault()?.Text ?? "";
-                        nsvNode.Description = nodesetObject.Description?.FirstOrDefault()?.Text ?? "";
-                        nsvnReturn.Add(nsvNode);
-                    }
-                }
-            }
-
-            return nsvnReturn;
-        }
 
 
     }
