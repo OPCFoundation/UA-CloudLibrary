@@ -63,7 +63,7 @@ Environment variables that **can optionally** be defined:
 
 ### Optional Settings - Captcha
 Curtail bot access using the using Google reCAPTCHA.  
-  **Note: If you enable this feature without an active account will prevent user self-registration from working correctly.**
+  **Note: If you enable reCAPTCHA without an active account, it breaks user self-registration.**
 * ``CaptchaSettings__Enabled``: Toggle whether to use reCAPTCHA (default: ``false``). 
 * ``CaptchaSettings__SiteVerifyUrl``: Verify user input (default: ``https://www.google.com/recaptcha/api/siteverify``)
 * ``CaptchaSettings__ClientApiUrl``: Source for loading JavaScript library (default:``https://www.google.com/recaptcha/api.js?render=``)
@@ -71,7 +71,7 @@ Curtail bot access using the using Google reCAPTCHA.
 * ``CaptchaSettings__SiteKey``: Public key. Obtain from reCAPTCHA admin console.
 * ``CaptchaSettings__BotThreshold``: Minimum score between 0.0 (bot likely) and 1.0 (human likely). (default: ``0.5``)
 
-    **Note: The use of double underscores ('__') represents a nested JSON keys.**
+    **Note: A double underscore ('__') in environment variable keys creates nested configuration sections (hierarchical keys).**
 
 ## Deployment
 
