@@ -122,17 +122,17 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public IActionResult GetAssetAdministrationShellById([FromRoute][Required] string aasIdentifier)
         {
-            string strCloudLib = string.Empty;
+            string decodedAasIdentifier = string.Empty;
             try
             {
-                strCloudLib = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+                decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
             }
             catch (Exception)
             {
-                strCloudLib = Uri.UnescapeDataString(aasIdentifier);
+                decodedAasIdentifier = Uri.UnescapeDataString(aasIdentifier);
             }
 
-            List<AssetAdministrationShell> aas = _aasEnvService.GetAssetAdministrationShellById(User.Identity.Name, strCloudLib);
+            List<AssetAdministrationShell> aas = _aasEnvService.GetAssetAdministrationShellById(User.Identity.Name, decodedAasIdentifier);
 
             return new ObjectResult(aas);
         }
