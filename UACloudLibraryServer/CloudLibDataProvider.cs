@@ -82,7 +82,7 @@ namespace Opc.Ua.Cloud.Library
             }
             else
             {
-                IQueryable<NodeSetModel> nodeSetQuery = SearchNodesets(keywords, userId);
+                IQueryable<NodeSetModel> nodeSetQuery = SearchNodesets(userId, keywords);
                 if (modelUri != null && publicationDate != null)
                 {
                     nodeSets = nodeSetQuery.Where(nsm => nsm.ModelUri == modelUri && nsm.PublicationDate == publicationDate);
@@ -561,7 +561,7 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
-        internal IQueryable<NodeSetModel> SearchNodesets(string[] keywords, string userId)
+        internal IQueryable<NodeSetModel> SearchNodesets(string userId, string[] keywords)
         {
             IQueryable<NodeSetModel> matchingNodeSets;
 
@@ -592,7 +592,7 @@ namespace Opc.Ua.Cloud.Library
 
         public UANameSpace[] FindNodesets(string userId, string[] keywords, int? offset, int? limit)
         {
-            var uaNamespaceModel = SearchNodesets(keywords, userId)
+            var uaNamespaceModel = SearchNodesets(userId, keywords)
                 .OrderBy(n => n.ModelUri)
                 .Skip(offset ?? 0)
                 .Take(limit ?? 100)

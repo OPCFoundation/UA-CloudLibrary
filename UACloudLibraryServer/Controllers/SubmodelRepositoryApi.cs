@@ -98,7 +98,7 @@ namespace AdminShell
                 }
             }
 
-            List<SubmodelElement> submodelElements = _aasEnvService.GetAllSubmodelElementsFromSubmodel(decodedSubmodelIdentifier, User.Identity.Name);
+            List<SubmodelElement> submodelElements = _aasEnvService.GetAllSubmodelElementsFromSubmodel(User.Identity.Name, decodedSubmodelIdentifier);
 
             PagedResult<SubmodelElement> output = PagedResult.ToPagedList<SubmodelElement>(submodelElements, new PaginationParameters(cursor, limit));
 
@@ -260,7 +260,7 @@ namespace AdminShell
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedSubmodelIdentifier)} is null");
             }
 
-            byte[] content = _aasEnvService.GetFileByPath(decodedSubmodelIdentifier, idShortPath, User.Identity.Name);
+            byte[] content = _aasEnvService.GetFileByPath(User.Identity.Name, decodedSubmodelIdentifier, idShortPath);
 
             if (content?.Length > 0)
             {
@@ -320,7 +320,7 @@ namespace AdminShell
                 decodedSubmodelIdentifier = Uri.UnescapeDataString(submodelIdentifier);
             }
 
-            SubmodelElement output = _aasEnvService.GetSubmodelElementByPath(decodedSubmodelIdentifier, idShortPath, User.Identity.Name);
+            SubmodelElement output = _aasEnvService.GetSubmodelElementByPath(User.Identity.Name, decodedSubmodelIdentifier, idShortPath);
 
             return new ObjectResult(output);
         }

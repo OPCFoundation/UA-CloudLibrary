@@ -223,7 +223,7 @@ namespace AdminShell
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedAasIdentifier)} is null");
             }
 
-            byte[] content = _aasEnvService.GetFileByPath(decodedAasIdentifier, "https://admin-shell.io/idta/asset/thumbnail", User.Identity.Name);
+            byte[] content = _aasEnvService.GetFileByPath(User.Identity.Name, decodedAasIdentifier, "https://admin-shell.io/idta/asset/thumbnail");
 
             // content-disposition so that the file can be downloaded from the web browser
             ContentDisposition contentDisposition = new() { FileName = "thumbnail" };

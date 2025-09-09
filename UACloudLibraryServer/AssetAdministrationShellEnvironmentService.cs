@@ -486,7 +486,7 @@ namespace AdminShell
             return output;
         }
 
-        private async Task<List<SubmodelElement>> ReadSubmodelElementNodes(string idShort, NodesetViewerNode subNode, bool browseDeep, string userId)
+        private async Task<List<SubmodelElement>> ReadSubmodelElementNodes(string userId, string idShort, NodesetViewerNode subNode, bool browseDeep)
         {
             List<SubmodelElement> output = new();
 
@@ -498,7 +498,7 @@ namespace AdminShell
                     if (browseDeep)
                     {
                         // check for children - if there are, create a smel instead of an sme
-                        List<SubmodelElement> children = await ReadSubmodelElementNodes(idShort, smeNode, browseDeep, userId).ConfigureAwait(false);
+                        List<SubmodelElement> children = await ReadSubmodelElementNodes(userId, idShort, smeNode, browseDeep).ConfigureAwait(false);
                         if (children.Count > 0)
                         {
                             SubmodelElementList smel = new() {
@@ -643,12 +643,12 @@ namespace AdminShell
             }
         }
 
-        public byte[] GetFileByPath(string idShort, string idShortPath, string userId)
+        public byte[] GetFileByPath(string userId, string idShort, string idShortPath)
         {
             byte[] byteArray = null;
             string fileName = null;
 
-            SubmodelElement sme = GetSubmodelElementByPath(idShort, idShortPath, userId);
+            SubmodelElement sme = GetSubmodelElementByPath(userId, idShort, idShortPath);
             if (sme != null)
             {
                 if (sme is File file)
@@ -690,7 +690,7 @@ namespace AdminShell
             }
         }
 
-        public List<SubmodelElement> GetAllSubmodelElementsFromSubmodel(string idShort, string userId)
+        public List<SubmodelElement> GetAllSubmodelElementsFromSubmodel(string userId, string idShort)
         {
             List<SubmodelElement> output = new();
             List<Submodel> listSubmodel = GetSubmodelById(userId, idShort);
@@ -711,7 +711,7 @@ namespace AdminShell
             return output;
         }
 
-        public SubmodelElement GetSubmodelElementByPath(string idShort, string idShortPath, string userId)
+        public SubmodelElement GetSubmodelElementByPath(string userId, string idShort, string idShortPath)
         {
             List<Submodel> submodel = GetSubmodelById(userId, idShort);
             if (submodel != null)
