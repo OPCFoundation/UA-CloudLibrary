@@ -64,6 +64,8 @@ namespace AdminShell
         private static uint _port = 5000;
         private static ConcurrentDictionary<string, Opc.Ua.Client.Session> _sessions = new();
 
+        private readonly SemaphoreSlim SessionSemaphoreSlim = new SemaphoreSlim(1, 1);
+
         public UAClient(ApplicationInstance app, DbFileStorage storage, CloudLibDataProvider database)
         {
             _app = app;
@@ -200,45 +202,47 @@ namespace AdminShell
 
         private async Task<Opc.Ua.Client.Session> CreateSessionAsync(string userId, string nodesetIdentifier)
         {
-            if (_sessions.TryGetValue(nodesetIdentifier, out Opc.Ua.Client.Session value) && (value != null) && value.Connected)
-            {
-                return value;
-            }
-
-            int cMaxRetry = 1000;
             EndpointDescription selectedEndpoint = null;
-            while (selectedEndpoint == null)
-            {
-                try
-                {
-                    _server = new SimpleServer(_app, _port);
-
-                    await _server.StartServerAsync().ConfigureAwait(false);
-
-                    selectedEndpoint = CoreClientUtils.SelectEndpoint(_app.ApplicationConfiguration, "opc.tcp://localhost:" + _port, true);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("Failed to establish an OPC UA server connection on port " + _port + ": " + ex.Message);
-                }
-
-                lock (_app)
-                {
-                    _port++;
-
-                    if (_port > 10000)
-                    {
-                        _port = 5000;
-                    }
-                }
-
-                cMaxRetry--;
-                if (cMaxRetry < 1)
-                    break;
-            }
 
             if (!String.IsNullOrEmpty(nodesetIdentifier))
             {
+                if (_sessions.TryGetValue(nodesetIdentifier, out Opc.Ua.Client.Session value) && (value != null) && value.Connected)
+                {
+                    return value;
+                }
+
+                int cMaxRetry = 5000;
+                while (selectedEndpoint == null)
+                {
+                    try
+                    {
+                        _server = new SimpleServer(_app, _port);
+
+                        await _server.StartServerAsync().ConfigureAwait(false);
+
+                        selectedEndpoint = CoreClientUtils.SelectEndpoint(_app.ApplicationConfiguration, "opc.tcp://localhost:" + _port, true);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("Failed to establish an OPC UA server connection on port " + _port + ": " + ex.Message);
+                    }
+
+                    lock (_app)
+                    {
+                        _port++;
+
+                        if (_port > 10000)
+                        {
+                            _port = 5000;
+                        }
+                    }
+
+                    cMaxRetry--;
+                    if (cMaxRetry < 1)
+                        break;
+                }
+
+
                 NodesetFileNodeManager nodeManager = (NodesetFileNodeManager)_server.CurrentInstance.NodeManager.NodeManagers[2];
 
                 // first load dependencies
@@ -258,9 +262,13 @@ namespace AdminShell
                 }
             }
 
-            // Even if we cannot load the nodeset, attempt to create a session as the user requests.
-            ConfiguredEndpoint configuredEndpoint = new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(_app.ApplicationConfiguration));
-            Opc.Ua.Client.Session newSession = await Opc.Ua.Client.Session.Create(
+            await SessionSemaphoreSlim.WaitAsync().ConfigureAwait(false);
+            Opc.Ua.Client.Session newSession = null;
+            try
+            {
+                // Even if we cannot load the nodeset, attempt to create a session as the user requests.
+                ConfiguredEndpoint configuredEndpoint = new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(_app.ApplicationConfiguration));
+                newSession = await Opc.Ua.Client.Session.Create(
                     _app.ApplicationConfiguration,
                     configuredEndpoint,
                     true,
@@ -270,11 +278,19 @@ namespace AdminShell
                     new UserIdentity(new AnonymousIdentityToken()),
                     null).ConfigureAwait(false);
 
-            newSession.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
+                newSession.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
 
-            newSession.FetchNamespaceTables();
+                newSession.FetchNamespaceTables();
+            }
+            finally
+            {
+                SessionSemaphoreSlim.Release();
+            }
 
-            _sessions[nodesetIdentifier] = newSession;
+            if (!String.IsNullOrEmpty(nodesetIdentifier))
+            {
+                _sessions[nodesetIdentifier] = newSession;
+            }
 
             return newSession;
         }
@@ -514,25 +530,16 @@ namespace AdminShell
             }
         }
 
-        private readonly SemaphoreSlim SessionSemaphoreSlim = new SemaphoreSlim(1, 1);
         private async Task<bool> ValidateSession(string userId, string nodesetIdentifier)
         {
-            await SessionSemaphoreSlim.WaitAsync();
-            try
+            if (_session == null || !_session.Connected)
             {
+                _session = await CreateSessionAsync(userId, nodesetIdentifier).ConfigureAwait(false);
                 if (_session == null || !_session.Connected)
                 {
-                    _session = await CreateSessionAsync(userId, nodesetIdentifier).ConfigureAwait(false);
-                    if (_session == null || !_session.Connected)
-                    {
-                        Console.WriteLine("Failed to create OPC UA session.");
-                        return false;
-                    }
+                    Console.WriteLine("Failed to create OPC UA session.");
+                    return false;
                 }
-            }
-            finally
-            {
-                SessionSemaphoreSlim.Release();
             }
 
             return true;
