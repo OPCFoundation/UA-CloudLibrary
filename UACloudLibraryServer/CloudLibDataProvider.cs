@@ -43,6 +43,7 @@ using Microsoft.Extensions.Logging;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Cloud.Library.NodeSetIndex;
 using Opc.Ua.Export;
+using SendGrid.Helpers.Mail;
 using static NpgsqlTypes.NpgsqlTsQuery;
 
 namespace Opc.Ua.Cloud.Library
@@ -130,15 +131,15 @@ namespace Opc.Ua.Cloud.Library
             IQueryable<NodeSetModel> nodeSets;
             if (modelUri != null && publicationDate != null)
             {
-                nodeSets = NodeSets.AsQueryable().Where(nsm => (nsm.ModelUri == modelUri) && (nsm.PublicationDate == publicationDate) && ((userId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId)));
+                nodeSets = NodeSets.AsQueryable().Where(nsm => (nsm.ModelUri == modelUri) && (nsm.PublicationDate == publicationDate) && ((userId == "admin") || (nsm.Metadata.UserId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId)));
             }
             else if (modelUri != null)
             {
-                nodeSets = NodeSets.AsQueryable().Where(nsm => (nsm.ModelUri == modelUri) && ((userId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId)));
+                nodeSets = NodeSets.AsQueryable().Where(nsm => (nsm.ModelUri == modelUri) && ((userId == "admin") || (nsm.Metadata.UserId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId)));
             }
             else
             {
-                nodeSets = NodeSets.AsQueryable().Where(nsm => (userId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId));
+                nodeSets = NodeSets.AsQueryable().Where(nsm => (userId == "admin") || (nsm.Metadata.UserId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId));
             }
 
             IQueryable<T> nodeModels = nodeSets.SelectMany(selector);
@@ -229,14 +230,14 @@ namespace Opc.Ua.Cloud.Library
 
                         // check userId matches if nodeset already exists
                         NamespaceMetaDataModel existingLegacyNamespaces = _dbContext.NamespaceMetaDataWithUnapproved
-                            .Where(n => (n.NodesetId == legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)) && ((userId == "admin") || (n.UserId == userId) || string.IsNullOrEmpty(n.UserId)))
+                            .Where(n => (n.NodesetId == legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)) && ((userId == "admin") || (n.UserId == "admin") || (n.UserId == userId) || string.IsNullOrEmpty(n.UserId)))
                             .Include(n => n.NodeSet)
                             .FirstOrDefault();
 
                         if (existingLegacyNamespaces != null)
                         {
                             // we treat no user in the database like an admin user
-                            if (string.IsNullOrEmpty(existingLegacyNamespaces.UserId) && (userId != "admin"))
+                            if ((string.IsNullOrEmpty(existingLegacyNamespaces.UserId) || (existingLegacyNamespaces.UserId == "admin")) && (userId != "admin"))
                             {
                                 return $"Nodeset already exists for admin user. Cannot overwrite with user {userId}";
                             }
@@ -264,14 +265,14 @@ namespace Opc.Ua.Cloud.Library
 
             // check userId matches if nodeset already exists
             NamespaceMetaDataModel existingNamespaces = _dbContext.NamespaceMetaDataWithUnapproved
-                .Where(n => (n.NodesetId == uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)) && ((userId == "admin") || (n.UserId == userId) || string.IsNullOrEmpty(n.UserId)))
+                .Where(n => (n.NodesetId == uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)) && ((userId == "admin") || (n.UserId == "admin") || (n.UserId == userId) || string.IsNullOrEmpty(n.UserId)))
                 .Include(n => n.NodeSet)
                 .FirstOrDefault();
 
             if (existingNamespaces != null)
             {
                 // we treat no user in the database like an admin user
-                if (string.IsNullOrEmpty(existingNamespaces.UserId) && (userId != "admin"))
+                if ((string.IsNullOrEmpty(existingNamespaces.UserId) || (existingNamespaces.UserId == "admin")) && (userId != "admin"))
                 {
                     return $"Nodeset already exists for admin user. Cannot overwrite with user {userId}";
                 }
@@ -543,7 +544,7 @@ namespace Opc.Ua.Cloud.Library
             try
             {
                 NamespaceMetaDataModel namespaceModel = await _dbContext.NamespaceMetaDataWithUnapproved
-                    .Where(md => md.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture) && ((userId == "admin") || (md.UserId == userId) || string.IsNullOrEmpty(md.UserId)))
+                    .Where(md => md.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture) && ((userId == "admin") || (md.UserId == "admin") || (md.UserId == userId) || string.IsNullOrEmpty(md.UserId)))
                     .Include(md => md.NodeSet)
                     .FirstOrDefaultAsync().ConfigureAwait(false);
 
@@ -573,7 +574,7 @@ namespace Opc.Ua.Cloud.Library
                     .Where(nsm =>
                         NamespaceMetaData.Any(md =>
                             (md.NodesetId == nsm.Identifier)
-                            && ((userId == "admin") || (md.UserId == userId) || string.IsNullOrEmpty(md.UserId))
+                            && ((userId == "admin") || (md.UserId == "admin") || (md.UserId == userId) || string.IsNullOrEmpty(md.UserId))
                             && (Regex.IsMatch(md.Title, keywordRegex, RegexOptions.IgnoreCase)
                             || Regex.IsMatch(md.Description, keywordRegex, RegexOptions.IgnoreCase)
                             || Regex.IsMatch(md.NodeSet.ModelUri, keywordRegex, RegexOptions.IgnoreCase)
@@ -584,7 +585,7 @@ namespace Opc.Ua.Cloud.Library
             }
             else
             {
-                matchingNodeSets = NodeSets.AsQueryable().Where(nsm => (userId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId));
+                matchingNodeSets = NodeSets.AsQueryable().Where(nsm => (userId == "admin") || (nsm.Metadata.UserId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId));
             }
 
             return matchingNodeSets;
@@ -596,7 +597,7 @@ namespace Opc.Ua.Cloud.Library
                 .OrderBy(n => n.ModelUri)
                 .Skip(offset ?? 0)
                 .Take(limit ?? 100)
-                .Select(n => NamespaceMetaData.Where(nmd => nmd.NodesetId == n.Identifier && ((userId == "admin") || (nmd.UserId == userId) || string.IsNullOrEmpty(nmd.UserId)))
+                .Select(n => NamespaceMetaData.Where(nmd => nmd.NodesetId == n.Identifier && ((userId == "admin") || (nmd.UserId == "admin") || (nmd.UserId == userId) || string.IsNullOrEmpty(nmd.UserId)))
                 .Include(nmd => nmd.NodeSet).FirstOrDefault())
                 .ToList();
 
@@ -608,7 +609,7 @@ namespace Opc.Ua.Cloud.Library
             try
             {
                 string[] namesAndIds = NodeSets
-                    .Where(nsm => (userId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId))
+                    .Where(nsm => (userId == "admin") || (nsm.Metadata.UserId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId))
                     .Select(nsm => new { nsm.ModelUri, nsm.Identifier, nsm.Version, nsm.PublicationDate })
                     .Select(n => $"{n.ModelUri},{n.Identifier},{n.Version},{n.PublicationDate}")
                     .ToArray();
@@ -628,7 +629,7 @@ namespace Opc.Ua.Cloud.Library
             try
             {
                 var categoryAndNodesetIds = NamespaceMetaData
-                    .Where(md => (userId == "admin") || (md.UserId == userId) || string.IsNullOrEmpty(md.UserId))
+                    .Where(md => (userId == "admin") || (md.UserId == "admin") || (md.UserId == userId) || string.IsNullOrEmpty(md.UserId))
                     .Select(md => new { md.Title, md.NodesetId })
                     .ToList();
 

@@ -289,7 +289,7 @@ namespace AdminShell
 
                     // check if we have the required model in the database
                     List<NodeSetModel> matchingNodeSets = await _database.NodeSets
-                        .Where(nsm => nsm.ModelUri == requiredModel.ModelUri && ((userId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId)))
+                        .Where(nsm => nsm.ModelUri == requiredModel.ModelUri && ((userId == "admin") || (nsm.Metadata.UserId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId)))
                         .ToListAsync()
                         .ConfigureAwait(false);
 
