@@ -33,7 +33,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using Microsoft.EntityFrameworkCore;
 using Opc.Ua;
 using Opc.Ua.Client;
@@ -62,6 +64,8 @@ namespace AdminShell
         private static uint _port = 5000;
         private static ConcurrentDictionary<string, Opc.Ua.Client.Session> _sessions = new();
 
+        private readonly SemaphoreSlim SessionSemaphoreSlim = new SemaphoreSlim(1, 1);
+
         public UAClient(ApplicationInstance app, DbFileStorage storage, CloudLibDataProvider database)
         {
             _app = app;
@@ -69,14 +73,14 @@ namespace AdminShell
             _database = database;
         }
 
-        public async Task<List<NodesetViewerNode>> GetChildren(string nodesetIdentifier, string nodeId, string userId)
+        public async Task<List<NodesetViewerNode>> GetChildren(string userId, string nodesetIdentifier, string nodeId)
         {
             List<NodesetViewerNode> nodes = null;
             ReferenceDescriptionCollection references = null;
 
             try
             {
-                if (!await ValidateSession(nodesetIdentifier, userId).ConfigureAwait(false))
+                if (!await ValidateSession(userId, nodesetIdentifier).ConfigureAwait(false))
                 {
                     return null;
                 }
@@ -117,7 +121,7 @@ namespace AdminShell
             return nodes;
         }
 
-        public async Task<Dictionary<string, string>> BrowseVariableNodesResursivelyAsync(string nodesetIdentifier, string nodeId, string userId)
+        public async Task<Dictionary<string, string>> BrowseVariableNodesResursivelyAsync(string userId, string nodesetIdentifier, string nodeId)
         {
             Dictionary<string, string> results = new();
 
@@ -130,7 +134,7 @@ namespace AdminShell
 
             try
             {
-                if (!await ValidateSession(nodesetIdentifier, userId).ConfigureAwait(false))
+                if (!await ValidateSession(userId, nodesetIdentifier).ConfigureAwait(false))
                 {
                     return null;
                 }
@@ -166,7 +170,7 @@ namespace AdminShell
                     {
                         try
                         {
-                            string value = await VariableRead(nodesetIdentifier, description.NodeId.ToString(), userId).ConfigureAwait(false);
+                            string value = await VariableRead(userId, nodesetIdentifier, description.NodeId.ToString()).ConfigureAwait(false);
                             if (!string.IsNullOrEmpty(value))
                             {
                                 results.Add(description.NodeId.ToString(), value);
@@ -179,7 +183,7 @@ namespace AdminShell
                     }
 
                     // recursively browse child variable nodes
-                    Dictionary<string, string> childResults = await BrowseVariableNodesResursivelyAsync(nodesetIdentifier, description.NodeId.ToString(), userId).ConfigureAwait(false);
+                    Dictionary<string, string> childResults = await BrowseVariableNodesResursivelyAsync(userId, nodesetIdentifier, description.NodeId.ToString()).ConfigureAwait(false);
                     if (childResults != null)
                     {
                         foreach (KeyValuePair<string, string> kvp in childResults)
@@ -196,79 +200,102 @@ namespace AdminShell
             return results;
         }
 
-        private async Task<Opc.Ua.Client.Session> CreateSessionAsync(string nodesetIdentifier, string userId)
+        private async Task<Opc.Ua.Client.Session> CreateSessionAsync(string userId, string nodesetIdentifier)
         {
-            if (_sessions.TryGetValue(nodesetIdentifier, out Opc.Ua.Client.Session value) && (value != null) && value.Connected)
-            {
-                return value;
-            }
-
             EndpointDescription selectedEndpoint = null;
-            while (selectedEndpoint == null)
+
+            if (!String.IsNullOrEmpty(nodesetIdentifier))
             {
-                try
+                if (_sessions.TryGetValue(nodesetIdentifier, out Opc.Ua.Client.Session value) && (value != null) && value.Connected)
                 {
-                    _server = new SimpleServer(_app, _port);
-
-                    await _server.StartServerAsync().ConfigureAwait(false);
-
-                    selectedEndpoint = CoreClientUtils.SelectEndpoint(_app.ApplicationConfiguration, "opc.tcp://localhost:" + _port, true);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("Failed to establish an OPC UA server connection on port " + _port + ": " + ex.Message);
+                    return value;
                 }
 
-                lock (_app)
+                int cMaxRetry = 5000;
+                while (selectedEndpoint == null)
                 {
-                    _port++;
-
-                    if (_port > 10000)
+                    try
                     {
-                        _port = 5000;
+                        _server = new SimpleServer(_app, _port);
+
+                        await _server.StartServerAsync().ConfigureAwait(false);
+
+                        selectedEndpoint = CoreClientUtils.SelectEndpoint(_app.ApplicationConfiguration, "opc.tcp://localhost:" + _port, true);
                     }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("Failed to establish an OPC UA server connection on port " + _port + ": " + ex.Message);
+                    }
+
+                    lock (_app)
+                    {
+                        _port++;
+
+                        if (_port > 10000)
+                        {
+                            _port = 5000;
+                        }
+                    }
+
+                    cMaxRetry--;
+                    if (cMaxRetry < 1)
+                        break;
+                }
+
+
+                NodesetFileNodeManager nodeManager = (NodesetFileNodeManager)_server.CurrentInstance.NodeManager.NodeManagers[2];
+
+                // first load dependencies
+                await LoadDependentNodesetsRecursiveAsync(userId, nodesetIdentifier, nodeManager).ConfigureAwait(false);
+
+                // now load the nodeset itself
+                DbFiles nodesetXml = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
+                if (nodesetXml != null)
+                {
+
+                    nodeManager.AddNamespace(nodesetXml.Blob);
+                    nodeManager.AddNodesAndValues(nodesetXml.Blob, nodesetXml.Values);
+                }
+                else
+                {
+                    Console.WriteLine($"Required model for {nodesetIdentifier} not found in database.");
                 }
             }
 
-            NodesetFileNodeManager nodeManager = (NodesetFileNodeManager)_server.CurrentInstance.NodeManager.NodeManagers[2];
-
-            // first load dependencies
-            await LoadDependentNodesetsRecursiveAsync(nodesetIdentifier, nodeManager, userId).ConfigureAwait(false);
-
-            // now load the nodeset itself
-            DbFiles nodesetXml = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
-            if (nodesetXml != null)
+            await SessionSemaphoreSlim.WaitAsync().ConfigureAwait(false);
+            Opc.Ua.Client.Session newSession = null;
+            try
             {
-
-                nodeManager.AddNamespace(nodesetXml.Blob);
-                nodeManager.AddNodesAndValues(nodesetXml.Blob, nodesetXml.Values);
-
+                // Even if we cannot load the nodeset, attempt to create a session as the user requests.
                 ConfiguredEndpoint configuredEndpoint = new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(_app.ApplicationConfiguration));
-                Opc.Ua.Client.Session newSession = await Opc.Ua.Client.Session.Create(
-                        _app.ApplicationConfiguration,
-                        configuredEndpoint,
-                        true,
-                        false,
-                        string.Empty,
-                        30000,
-                        new UserIdentity(new AnonymousIdentityToken()),
-                        null).ConfigureAwait(false);
+                newSession = await Opc.Ua.Client.Session.Create(
+                    _app.ApplicationConfiguration,
+                    configuredEndpoint,
+                    true,
+                    false,
+                    string.Empty,
+                    30000,
+                    new UserIdentity(new AnonymousIdentityToken()),
+                    null).ConfigureAwait(false);
 
                 newSession.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
 
                 newSession.FetchNamespaceTables();
-
-                _sessions[nodesetIdentifier] = newSession;
-                return newSession;
             }
-            else
+            finally
             {
-                Console.WriteLine($"Required model for {nodesetIdentifier} not found in database.");
-                return null;
+                SessionSemaphoreSlim.Release();
             }
+
+            if (!String.IsNullOrEmpty(nodesetIdentifier))
+            {
+                _sessions[nodesetIdentifier] = newSession;
+            }
+
+            return newSession;
         }
 
-        private async Task LoadDependentNodesetsRecursiveAsync(string nodesetIdentifier, NodesetFileNodeManager nodeManager, string userId)
+        private async Task LoadDependentNodesetsRecursiveAsync(string userId, string nodesetIdentifier, NodesetFileNodeManager nodeManager)
         {
             NodeSetModel nodeSetMeta = await _database.GetNodeSets(userId, nodesetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false);
             if ((nodeSetMeta != null) && (nodeSetMeta.RequiredModels != null) && (nodeSetMeta.RequiredModels.Count > 0))
@@ -302,7 +329,7 @@ namespace AdminShell
 
                     NodeSetModel dependentNodeset = NodeModelUtils.GetMatchingOrHigherNodeSet(matchingNodeSets, requiredModel.PublicationDate, requiredModel.Version);
 
-                    await LoadDependentNodesetsRecursiveAsync(dependentNodeset.Identifier, nodeManager, userId).ConfigureAwait(false);
+                    await LoadDependentNodesetsRecursiveAsync(userId, dependentNodeset.Identifier, nodeManager).ConfigureAwait(false);
 
                     DbFiles nodesetXml = await _storage.DownloadFileAsync(dependentNodeset.Identifier).ConfigureAwait(false);
                     nodeManager.AddNamespace(nodesetXml.Blob);
@@ -411,7 +438,7 @@ namespace AdminShell
             return references;
         }
 
-        public async Task<string> VariableRead(string nodesetIdentifier, string nodeId, string userId)
+        public async Task<string> VariableRead(string userId, string nodesetIdentifier, string nodeId)
         {
             string value = string.Empty;
 
@@ -421,7 +448,7 @@ namespace AdminShell
                 DiagnosticInfoCollection diagnosticInfos = null;
                 ReadValueIdCollection nodesToRead = new();
 
-                if (!await ValidateSession(nodesetIdentifier, userId).ConfigureAwait(false))
+                if (!await ValidateSession(userId, nodesetIdentifier).ConfigureAwait(false))
                 {
                     return string.Empty;
                 }
@@ -459,11 +486,11 @@ namespace AdminShell
             return value;
         }
 
-        public async Task VariableWrite(string nodesetIdentifier, string nodeId, string payload, string userId)
+        public async Task VariableWrite(string userId, string nodesetIdentifier, string nodeId, string payload)
         {
             try
             {
-                if (!await ValidateSession(nodesetIdentifier, userId).ConfigureAwait(false))
+                if (!await ValidateSession(userId, nodesetIdentifier).ConfigureAwait(false))
                 {
                     return;
                 }
@@ -503,11 +530,11 @@ namespace AdminShell
             }
         }
 
-        private async Task<bool> ValidateSession(string nodesetIdentifier, string userId)
+        private async Task<bool> ValidateSession(string userId, string nodesetIdentifier)
         {
             if (_session == null || !_session.Connected)
             {
-                _session = await CreateSessionAsync(nodesetIdentifier, userId).ConfigureAwait(false);
+                _session = await CreateSessionAsync(userId, nodesetIdentifier).ConfigureAwait(false);
                 if (_session == null || !_session.Connected)
                 {
                     Console.WriteLine("Failed to create OPC UA session.");
@@ -518,13 +545,13 @@ namespace AdminShell
             return true;
         }
 
-        public async Task<string> CopyNodeset(string nodesetIdentifier, string name, string userId)
+        public async Task<string> CopyNodeset(string userId, string nodesetIdentifier, string name)
         {
             try
             {
                 DbFiles file = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
 
-                UANameSpace metadata = await _database.RetrieveAllMetadataAsync(uint.Parse(nodesetIdentifier, CultureInfo.InvariantCulture), userId).ConfigureAwait(false);
+                UANameSpace metadata = await _database.RetrieveAllMetadataAsync(userId, uint.Parse(nodesetIdentifier, CultureInfo.InvariantCulture)).ConfigureAwait(false);
 
                 metadata.Title = name;
                 metadata.Nodeset.NodesetXml = file.Blob;
@@ -540,7 +567,7 @@ namespace AdminShell
                 sb.Insert(start, now);
                 metadata.Nodeset.NodesetXml = sb.ToString();
 
-                return await _database.UploadNamespaceAndNodesetAsync(metadata, file.Values, false, userId).ConfigureAwait(false);
+                return await _database.UploadNamespaceAndNodesetAsync(userId, metadata, file.Values, false).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

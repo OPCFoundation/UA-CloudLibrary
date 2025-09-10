@@ -67,7 +67,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [FromQuery][SwaggerParameter("Pagination limit")] int? limit
         )
         {
-            UANameSpace[] results = _database.FindNodesets(keywords, User.Identity.Name, offset, limit);
+            UANameSpace[] results = _database.FindNodesets(User.Identity.Name, keywords, offset, limit);
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -80,7 +80,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             [FromQuery][SwaggerParameter("Pagination limit")] int? limit
             )
         {
-            UANameSpace[] results = _database.FindNodesets(keywords, User.Identity.Name, offset, limit);
+            UANameSpace[] results = _database.FindNodesets(User.Identity.Name, keywords, offset, limit);
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -163,7 +163,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("Could not parse expanded node ID") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            string nodeInfo = _database.GetNode(expandedNodeId, identifier, User.Identity.Name);
+            string nodeInfo = _database.GetNode(User.Identity.Name, expandedNodeId, identifier);
             if (string.IsNullOrEmpty(nodeInfo))
             {
                 return new ObjectResult("Failed to find node information") { StatusCode = (int)HttpStatusCode.NotFound };
@@ -200,7 +200,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID, User.Identity.Name).ConfigureAwait(false);
+            UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(User.Identity.Name, nodeSetID).ConfigureAwait(false);
             if (uaNamespace == null)
             {
                 return new ObjectResult("Failed to find nodeset metadata") { StatusCode = (int)HttpStatusCode.NotFound };
@@ -247,7 +247,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
             }
 
-            UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(nodeSetID, User.Identity.Name).ConfigureAwait(false);
+            UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(User.Identity.Name, nodeSetID).ConfigureAwait(false);
             if (uaNamespace == null)
             {
                 return new ObjectResult("Failed to find nodeset metadata") { StatusCode = (int)HttpStatusCode.NotFound };
@@ -277,7 +277,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult($"No nodeset XML was specified") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            string result = await _database.UploadNamespaceAndNodesetAsync(uaNamespace, string.Empty, overwrite, User.Identity.Name).ConfigureAwait(false);
+            string result = await _database.UploadNamespaceAndNodesetAsync(User.Identity.Name, uaNamespace, string.Empty, overwrite).ConfigureAwait(false);
             if (result != "success")
             {
                 return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.InternalServerError };

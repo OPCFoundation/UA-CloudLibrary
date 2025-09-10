@@ -74,7 +74,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public IActionResult GenerateSerializationByIds([FromQuery] List<string> aasIds, [FromQuery] List<string> submodelIds, [FromQuery] bool? includeConceptDescriptions)
+        public async Task<IActionResult> GenerateSerializationByIds([FromQuery] List<string> aasIds, [FromQuery] List<string> submodelIds, [FromQuery] bool? includeConceptDescriptions)
         {
             IEnumerable<string> decodedAasIds = aasIds.Select(aasId => Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasId)))).ToList();
             IEnumerable<string> decodedSubmodelIds = submodelIds.Select(submodelId => Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelId)))).ToList();
@@ -82,8 +82,9 @@ namespace AdminShell
             dynamic outputEnv = new ExpandoObject();
             outputEnv.AssetAdministrationShells = new List<AssetAdministrationShell>();
             outputEnv.Submodels = new List<Submodel>();
+            outputEnv.ConceptDescriptions = new List<ConceptDescription>();
 
-            var aasList = _aasEnvService.GetAllAssetAdministrationShells();
+            var aasList = _aasEnvService.GetAllAssetAdministrationShells(User.Identity.Name);
             foreach (var aasId in decodedAasIds)
             {
                 var foundAas = aasList.Where(a => a.Identification.Id.Equals(aasId, StringComparison.OrdinalIgnoreCase));
@@ -91,15 +92,26 @@ namespace AdminShell
                 {
                     outputEnv.AssetAdministrationShells.Add(foundAas.First());
                 }
-            }
 
-            var submodelList = _aasEnvService.GetAllSubmodels();
-            foreach (var submodelId in decodedSubmodelIds)
-            {
-                var foundSubmodel = submodelList.Where(s => s.Identification.Id.Equals(submodelId, StringComparison.OrdinalIgnoreCase));
-                if (foundSubmodel.Any())
+                List<Submodel> listSubmodel = _aasEnvService.GetSubmodelById(User.Identity.Name, aasId);
+                if (listSubmodel != null)
                 {
-                    outputEnv.Submodels.Add(foundSubmodel.First());
+                    foreach (var submodel in listSubmodel)
+                    {
+                        if (submodel != null)
+                        {
+                            outputEnv.Submodels.Add(submodel);
+                        }
+                    }
+                }
+
+                if (includeConceptDescriptions == true)
+                {
+                    var cdrList = await _aasEnvService.GetConceptDescriptionById(User.Identity.Name, aasId).ConfigureAwait(false);
+                    if (cdrList.Count > 0)
+                    {
+                        outputEnv.ConceptDescriptions.AddRange(cdrList);
+                    }
                 }
             }
 
