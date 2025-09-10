@@ -835,57 +835,5 @@ namespace Opc.Ua.Cloud.Library
 
             return Array.Empty<string>();
         }
-
-        public string GetNode(string userId, string expandedNodeId, string identifier)
-        {
-            // create a substring from expandedNodeId by removing "nsu=" from the start and parsing until the first ";"
-            string modelUri = expandedNodeId.Substring(4, expandedNodeId.IndexOf(';', StringComparison.OrdinalIgnoreCase) - 4);
-
-            NodeSetModel matchingNodeset = _dbContext.Set<NodeSetModel>().Where(nsm => nsm.Identifier == identifier).FirstOrDefault();
-
-            ObjectTypeModel objectTypeModel = GetNodeModels(nsm => nsm.ObjectTypes, userId, modelUri, matchingNodeset.PublicationDate, expandedNodeId).FirstOrDefault();
-            if (objectTypeModel != null)
-            {
-                return "Object Type;" + objectTypeModel.ToString();
-            }
-
-            VariableTypeModel variableTypeModel = GetNodeModels(nsm => nsm.VariableTypes, userId, modelUri, matchingNodeset.PublicationDate, expandedNodeId).FirstOrDefault();
-            if (variableTypeModel != null)
-            {
-                return "Variable Type;" + variableTypeModel.ToString();
-            }
-
-            DataTypeModel dataTypeModel = GetNodeModels(nsm => nsm.DataTypes, userId, modelUri, matchingNodeset.PublicationDate, expandedNodeId).FirstOrDefault();
-            if (dataTypeModel != null)
-            {
-                return "Data Type;" + dataTypeModel.ToString();
-            }
-
-            ReferenceTypeModel referenceTypeModel = GetNodeModels(nsm => nsm.ReferenceTypes, userId, modelUri, matchingNodeset.PublicationDate, expandedNodeId).FirstOrDefault();
-            if (referenceTypeModel != null)
-            {
-                return "Reference Type;" + referenceTypeModel.ToString();
-            }
-
-            ObjectModel objectModel = GetNodeModels(nsm => nsm.Objects, userId, modelUri, matchingNodeset.PublicationDate, expandedNodeId).FirstOrDefault();
-            if (objectModel != null)
-            {
-                return "Object;" + objectModel.ToString();
-            }
-
-            PropertyModel propertyModel = GetNodeModels(nsm => nsm.Properties, userId, modelUri, matchingNodeset.PublicationDate, expandedNodeId).FirstOrDefault();
-            if (propertyModel != null)
-            {
-                return "Property;" + propertyModel.ToString();
-            }
-
-            DataVariableModel variableModel = GetNodeModels(nsm => nsm.DataVariables, userId, modelUri, matchingNodeset.PublicationDate, expandedNodeId).FirstOrDefault();
-            if (variableModel != null)
-            {
-                return "Variable;" + variableModel.ToString();
-            }
-
-            return string.Empty;
-        }
     }
 }

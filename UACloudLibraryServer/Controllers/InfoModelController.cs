@@ -149,30 +149,6 @@ namespace Opc.Ua.Cloud.Library.Controllers
         }
 
         [HttpGet]
-        [Route("/infomodel/node")]
-        [SwaggerResponse(statusCode: 200, type: typeof(string), description: "The OPC UA node and its metadata.")]
-        [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The expended node ID provided could not be parsed.")]
-        [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The expended node ID provided could not be found.")]
-        public IActionResult GetNodeAsync(
-            [FromQuery][SwaggerParameter("The expanded node ID of the OPC UA node requested, starting with nsu=.")] string expandedNodeId,
-            [FromQuery][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier
-            )
-        {
-            if (string.IsNullOrEmpty(expandedNodeId) || !expandedNodeId.StartsWith("nsu=", StringComparison.InvariantCulture))
-            {
-                return new ObjectResult("Could not parse expanded node ID") { StatusCode = (int)HttpStatusCode.BadRequest };
-            }
-
-            string nodeInfo = _database.GetNode(User.Identity.Name, expandedNodeId, identifier);
-            if (string.IsNullOrEmpty(nodeInfo))
-            {
-                return new ObjectResult("Failed to find node information") { StatusCode = (int)HttpStatusCode.NotFound };
-            }
-
-            return new ObjectResult(nodeInfo) { StatusCode = (int)HttpStatusCode.OK };
-        }
-
-        [HttpGet]
         [Route("/infomodel/download/{identifier}")]
         [SwaggerResponse(statusCode: 200, type: typeof(UANameSpace), description: "The OPC UA Information model and its metadata.")]
         [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The identifier provided could not be parsed.")]
