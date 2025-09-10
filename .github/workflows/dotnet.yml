@@ -79,6 +79,9 @@ jobs:
     - name: Restore dependencies CloudLibSyncAzureFunction
       working-directory: CloudLibSyncAzureFunction
       run: dotnet restore
+    - name: Restore dependencies DataPlane.Sdk.Core.Test
+      working-directory: Metaform.DataPlane.SDK/DataPlane.Sdk.Core.Test
+      run: dotnet restore
     - name: Build
       run: dotnet build UA-CloudLibrary.sln --configuration Release --no-restore
     - name: Test
