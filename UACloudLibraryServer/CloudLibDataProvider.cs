@@ -591,17 +591,18 @@ namespace Opc.Ua.Cloud.Library
             return matchingNodeSets;
         }
 
-        public UANameSpace[] FindNodesets(string userId, string[] keywords, int? offset, int? limit)
+        public UANameSpace[] FindNodesets(string userId, string[] keywords, string namespaceUri, int? offset, int? limit)
         {
-            var uaNamespaceModel = SearchNodesets(userId, keywords)
+            List<NamespaceMetaDataModel> uaNamespaceModels = SearchNodesets(userId, keywords)
                 .OrderBy(n => n.ModelUri)
                 .Skip(offset ?? 0)
                 .Take(limit ?? 100)
-                .Select(n => NamespaceMetaData.Where(nmd => nmd.NodesetId == n.Identifier && ((userId == "admin") || (nmd.UserId == "admin") || (nmd.UserId == userId) || string.IsNullOrEmpty(nmd.UserId)))
+                .Select(n => NamespaceMetaData.Where(nmd => ((namespaceUri == null) || (nmd.NodeSet.ModelUri == namespaceUri)) && (nmd.NodesetId == n.Identifier) && ((userId == "admin") || (nmd.UserId == "admin") || (nmd.UserId == userId) || string.IsNullOrEmpty(nmd.UserId)))
                 .Include(nmd => nmd.NodeSet).FirstOrDefault())
+                .Where(n => n != null)
                 .ToList();
 
-            return uaNamespaceModel.Select(MapNamespaceMetaDataModelToRESTNamespace).ToArray();
+            return uaNamespaceModels.Select(MapNamespaceMetaDataModelToRESTNamespace).ToArray();
         }
 
         public Task<string[]> GetAllNamespacesAndNodesets(string userId)
@@ -742,6 +743,11 @@ namespace Opc.Ua.Cloud.Library
 
         private UANameSpace MapNamespaceMetaDataModelToRESTNamespace(NamespaceMetaDataModel metadataModel)
         {
+            if (metadataModel == null)
+            {
+                return null;
+            }
+
             return new UANameSpace {
                 CreationTime = metadataModel.CreationTime,
                 Title = metadataModel.Title,
