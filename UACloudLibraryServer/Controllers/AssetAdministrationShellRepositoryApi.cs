@@ -31,6 +31,7 @@ using System;
 using System.Buffers.Text;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Net.Mime;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -91,7 +92,20 @@ namespace AdminShell
                 }
             }
 
-            List<AssetAdministrationShell> aasList = _aasEnvService.GetAllAssetAdministrationShells(reqAssetIds, idShort);
+            string decodedidShort = string.Empty;
+            if (!string.IsNullOrEmpty(idShort))
+            {
+                try
+                {
+                    decodedidShort = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(idShort)));
+                }
+                catch (Exception)
+                {
+                    decodedidShort = Uri.UnescapeDataString(idShort);
+                }
+            }
+
+            List<AssetAdministrationShell> aasList = _aasEnvService.GetAllAssetAdministrationShells(User.Identity.Name, reqAssetIds, decodedidShort);
 
             PagedResult<AssetAdministrationShell> output = PagedResult.ToPagedList<AssetAdministrationShell>(aasList, new PaginationParameters(cursor, limit));
 
@@ -121,9 +135,17 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public async Task<IActionResult> GetAssetAdministrationShellById([FromRoute][Required] string aasIdentifier)
         {
-            string decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            string decodedAasIdentifier = string.Empty;
+            try
+            {
+                decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            }
+            catch (Exception)
+            {
+                decodedAasIdentifier = Uri.UnescapeDataString(aasIdentifier);
+            }
 
-            AssetAdministrationShell aas = await _aasEnvService.GetAssetAdministrationShellById(decodedAasIdentifier, User.Identity.Name).ConfigureAwait(false);
+            AssetAdministrationShell aas = await _aasEnvService.GetAssetAdministrationShellById(User.Identity.Name, decodedAasIdentifier).ConfigureAwait(false);
 
             return new ObjectResult(aas);
         }
@@ -153,13 +175,22 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public async Task<IActionResult> GetAllSubmodelReferences([FromRoute][Required] string aasIdentifier, [FromQuery] int limit, [FromQuery] string cursor)
         {
-            string decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            string decodedAasIdentifier = string.Empty;
+            try
+            {
+                decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            }
+            catch (Exception)
+            {
+                decodedAasIdentifier = Uri.UnescapeDataString(aasIdentifier);
+            }
+
             if (decodedAasIdentifier == null)
             {
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedAasIdentifier)} is null");
             }
 
-            List<Reference> submodels = await _aasEnvService.GetAllSubmodelReferences(decodedAasIdentifier, User.Identity.Name).ConfigureAwait(false);
+            List<Reference> submodels = await _aasEnvService.GetAllSubmodelReferences(User.Identity.Name, decodedAasIdentifier).ConfigureAwait(false);
 
             PagedResult<Reference> output = PagedResult.ToPagedList<Reference>(submodels, new PaginationParameters(cursor, limit));
 
@@ -189,14 +220,23 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public async Task<IActionResult> GetThumbnail([FromRoute][Required] string aasIdentifier)
         {
-            string decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            string decodedAasIdentifier = string.Empty;
+            try
+            {
+                decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            }
+            catch (Exception)
+            {
+                decodedAasIdentifier = Uri.UnescapeDataString(aasIdentifier);
+            }
+
 
             if (decodedAasIdentifier == null)
             {
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedAasIdentifier)} is null");
             }
 
-            byte[] content = await _aasEnvService.GetFileByPath(decodedAasIdentifier, "https://admin-shell.io/idta/asset/thumbnail", User.Identity.Name).ConfigureAwait(false);
+            byte[] content = await _aasEnvService.GetFileByPath(User.Identity.Name, decodedAasIdentifier, "https://admin-shell.io/idta/asset/thumbnail").ConfigureAwait(false);
 
             // content-disposition so that the file can be downloaded from the web browser
             ContentDisposition contentDisposition = new() { FileName = "thumbnail" };
@@ -232,14 +272,23 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public async Task<IActionResult> GetAssetInformation([FromRoute][Required] string aasIdentifier)
         {
-            string decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            string decodedAasIdentifier = string.Empty;
+            try
+            {
+                decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            }
+            catch (Exception)
+            {
+                decodedAasIdentifier = Uri.UnescapeDataString(aasIdentifier);
+            }
+
 
             if (decodedAasIdentifier == null)
             {
                 throw new ArgumentException($"Cannot proceed as {nameof(decodedAasIdentifier)} is null");
             }
 
-            AssetInformation output = await _aasEnvService.GetAssetInformationFromAas(decodedAasIdentifier, User.Identity.Name).ConfigureAwait(false);
+            AssetInformation output = await _aasEnvService.GetAssetInformationFromAas(User.Identity.Name, decodedAasIdentifier).ConfigureAwait(false);
 
             return new ObjectResult(output);
         }

@@ -29,32 +29,35 @@
 
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
-using Opc.Ua;
-using Opc.Ua.Configuration;
-using Opc.Ua.Server;
+using Newtonsoft.Json;
 
-namespace AdminShell
+namespace Opc.Ua.Cloud.Library.Models
 {
-    public class SimpleServer : StandardServer
+    public class UANodesetResult : UANameSpace
     {
-        private readonly ApplicationInstance _app;
+        [JsonProperty(PropertyName = "nodesetId")]
+        public uint LegacyId { get => Nodeset?.Identifier ?? 0; }
 
-        public SimpleServer(ApplicationInstance app, uint port)
+        [JsonProperty(PropertyName = "nodesetTitle")]
+        public string LegacyTitle { get => Title; }
+
+        [JsonProperty(PropertyName = "orgName")]
+        public string LegacyOrgName { get; }
+
+        // TODO enum vs. string & compat
+        [JsonProperty(PropertyName = "version")]
+        public string LegacyVersion { get => Nodeset?.Version; }
+
+        [JsonProperty(PropertyName = "publicationDate")]
+        public System.DateTime? LegacyPublicationDate { get => Nodeset?.PublicationDate; }
+
+        [JsonProperty(PropertyName = "nodesetNamespaceUri")]
+        public string LegacyNamespaceUri
         {
-            _app = app;
-
-            _app.ApplicationConfiguration.ServerConfiguration.BaseAddresses[0] = "opc.tcp://localhost:" + port;
+            get => Nodeset?.NamespaceUri?.OriginalString;
         }
 
-        protected override MasterNodeManager CreateMasterNodeManager(IServerInternal server, ApplicationConfiguration configuration)
-        {
-            List<INodeManager> nodeManagers = new()
-            {
-                new NodesetFileNodeManager(server, configuration)
-            };
-
-            return new MasterNodeManager(server, configuration, null, nodeManagers.ToArray());
-        }
+        [JsonProperty(PropertyName = "requiredNodesets")]
+        public List<RequiredModelInfo> LegacyRequiredNodesets { get => Nodeset?.RequiredModels; }
     }
 }

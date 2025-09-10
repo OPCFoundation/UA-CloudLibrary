@@ -85,7 +85,7 @@ namespace Opc.Ua.Cloud.Client
             }
 
             // keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
-            string relativeUri = $"infomodel/find{PrepareArgumentsString(keywords)}&offset={offset}&limit={limit}";
+            string relativeUri = $"infomodel/find2{PrepareArgumentsString(keywords)}&offset={offset}&limit={limit}";
             Uri address = new Uri(client.BaseAddress, relativeUri);
             HttpResponseMessage response = await client.GetAsync(address).ConfigureAwait(false);
 

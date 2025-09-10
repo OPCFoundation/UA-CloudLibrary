@@ -26,6 +26,8 @@ namespace BlobToPGTable
             using var conn = new NpgsqlConnection(args[2]);
             conn.Open();
 
+            await RenameTable(conn).ConfigureAwait(false);
+
             if (args[0] == "Azure")
             {
                 var blobServiceClient = new BlobServiceClient(args[1]);
@@ -58,7 +60,7 @@ namespace BlobToPGTable
                     return;
                 }
 
-                ListObjectsV2Response response = await s3Client.ListObjectsV2Async(new ListObjectsV2Request(){ BucketName = uri.Bucket }).ConfigureAwait(false);
+                ListObjectsV2Response response = await s3Client.ListObjectsV2Async(new ListObjectsV2Request() { BucketName = uri.Bucket }).ConfigureAwait(false);
                 foreach (S3Object entry in response.S3Objects)
                 {
                     var req = new GetObjectRequest {
@@ -105,8 +107,50 @@ namespace BlobToPGTable
             conn.Close();
         }
 
+        private static async Task RenameTable(NpgsqlConnection conn)
+        {
+            string oldTableName = "RequiredModelInfo";
+            string newTableName = "RequiredModelInfoModel";
+
+            // Check if the new table name already exists
+            string checkQuery = @"
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = 'public'
+                    AND table_name = @newTableName
+                );";
+
+            using (var checkCmd = new NpgsqlCommand(checkQuery, conn))
+            {
+                checkCmd.Parameters.AddWithValue("newTableName", newTableName);
+
+                object? result = await checkCmd.ExecuteScalarAsync().ConfigureAwait(false);
+                bool tableExists = result is bool exists && exists;
+
+                if (!tableExists)
+                {
+                    string renameQuery = $"ALTER TABLE \"{oldTableName}\" RENAME TO \"{newTableName}\";";
+
+                    using var renameCmd = new NpgsqlCommand(renameQuery, conn);
+                    await renameCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+                    Console.WriteLine($"Table renamed from {oldTableName} to {newTableName}");
+                }
+                else
+                {
+                    Console.WriteLine($"Table {newTableName} already exists. Rename skipped.");
+                }
+            }
+        }
+
         static async Task UpdateDatabase(NpgsqlConnection conn, string name, string nodesetXml)
         {
+            using (var cmd = new NpgsqlCommand("CREATE TABLE IF NOT EXISTS public.\"DbFiles\" (\"Name\" TEXT PRIMARY KEY, \"Blob\" TEXT)", conn))
+            {
+                await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
+
             using (var cmd = new NpgsqlCommand("INSERT INTO \"public\".\"DbFiles\" (\"Name\", \"Blob\") VALUES (@blobName, @nodesetXml)", conn))
             {
                 cmd.Parameters.AddWithValue("blobName", name);
@@ -114,7 +158,7 @@ namespace BlobToPGTable
 
                 await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
             }
-
+            
             // verify successful insertion by reading back the data
             using (var verifyCmd = new NpgsqlCommand("SELECT * FROM \"public\".\"DbFiles\" WHERE \"Name\" = @blobName", conn))
             {

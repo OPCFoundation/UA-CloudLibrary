@@ -151,11 +151,11 @@ namespace Opc.Ua.Cloud.Library
         {
             public LocalizedText()
             {
-                Text = "";
+                Text = string.Empty;
             }
 
 #nullable enable
-            public string Text { get => _text; set => _text = value ?? ""; }
+            public string Text { get => _text; set => _text = value ?? string.Empty; }
 
             private string _text;
 #nullable restore

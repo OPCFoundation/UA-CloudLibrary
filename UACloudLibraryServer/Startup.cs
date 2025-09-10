@@ -329,6 +329,7 @@ namespace Opc.Ua.Cloud.Library
 
             app.UseSwaggerUI(c => {
                 c.SwaggerEndpoint("/swagger/v1/swagger.json", "UA Cloud Library REST Service");
+                c.EnablePersistAuthorization();
             });
 
             app.UseHttpsRedirection();
@@ -453,7 +454,7 @@ namespace Opc.Ua.Cloud.Library
 
                     Utils.Tracing.TraceEventHandler += new EventHandler<TraceEventArgs>(OpcStackLoggingHandler);
 
-                    Console.WriteLine("OPC UA client/server started.");
+                    Console.WriteLine("OPC UA client/server app started.");
                 }
                 catch (Exception ex)
                 {

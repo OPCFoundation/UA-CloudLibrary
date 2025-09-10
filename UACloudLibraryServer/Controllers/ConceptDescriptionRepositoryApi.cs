@@ -27,6 +27,7 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
 using System.Buffers.Text;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -73,22 +74,47 @@ namespace IO.Swagger.Controllers
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public IActionResult GetAllConceptDescriptions([FromQuery] string idShort, [FromQuery] string isCaseOf, [FromQuery] string dataSpecificationRef, [FromQuery] int limit, [FromQuery] string cursor)
+        public async Task<IActionResult> GetAllConceptDescriptions([FromQuery] string idShort, [FromQuery] string isCaseOf, [FromQuery] string dataSpecificationRef, [FromQuery] int limit, [FromQuery] string cursor)
         {
+            string strDecodedIdShort = null;
+            try
+            {
+                strDecodedIdShort = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(idShort)));
+            }
+            catch (Exception)
+            {
+                strDecodedIdShort = idShort;
+            }
+
+
             string reqIsCaseOf = null;
             if (!string.IsNullOrEmpty(isCaseOf))
             {
-                reqIsCaseOf = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(isCaseOf)));
+                try
+                {
+                    reqIsCaseOf = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(isCaseOf)));
+                }
+                catch (Exception)
+                {
+                    reqIsCaseOf = Uri.UnescapeDataString(isCaseOf);
+                }
             }
 
             string reqDataSpecificationRef = null;
             if (!string.IsNullOrEmpty(dataSpecificationRef))
             {
-                reqDataSpecificationRef = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(dataSpecificationRef)));
+                try
+                {
+                    reqDataSpecificationRef = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(dataSpecificationRef)));
+                }
+                catch (Exception)
+                {
+                    reqDataSpecificationRef = Uri.UnescapeDataString(dataSpecificationRef);
+                }
             }
 
             List<ConceptDescription> cdList = new();
-            cdList = _aasEnvService.GetAllConceptDescriptions(idShort, reqIsCaseOf, reqDataSpecificationRef);
+            cdList = await _aasEnvService.GetAllConceptDescriptions(User.Identity.Name, strDecodedIdShort, reqIsCaseOf, reqDataSpecificationRef).ConfigureAwait(false);
 
             PagedResult<ConceptDescription> output = PagedResult.ToPagedList<ConceptDescription>(cdList, new PaginationParameters(cursor, limit));
 
@@ -116,11 +142,21 @@ namespace IO.Swagger.Controllers
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public async Task<IActionResult> GetConceptDescriptionById([FromRoute][Required] string cdIdentifier)
         {
-            string decodedCdIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(cdIdentifier)));
+            string decodedCdIdentifier = null;
+            try
+            {
+                decodedCdIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(cdIdentifier)));
+            }
+            catch (Exception)
+            {
+                decodedCdIdentifier = Uri.UnescapeDataString(cdIdentifier);
+            }
 
-            ConceptDescription output = await _aasEnvService.GetConceptDescriptionById(decodedCdIdentifier, User.Identity.Name).ConfigureAwait(false);
+            List<ConceptDescription> cdList = new();
+            cdList = await _aasEnvService.GetConceptDescriptionById(User.Identity.Name, decodedCdIdentifier).ConfigureAwait(false);
 
-            return new ObjectResult(output);
+
+            return new ObjectResult(cdList);
         }
     }
 }
