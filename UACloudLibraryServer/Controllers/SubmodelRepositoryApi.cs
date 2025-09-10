@@ -130,9 +130,6 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public IActionResult GetAllSubmodels([FromQuery][StringLength(3072, MinimumLength = 1)] string semanticId, [FromQuery] string idShort, [FromQuery] int limit, [FromQuery] string cursor, [FromQuery] string level, [FromQuery] string extent)
         {
-            //CM-Q: extend is unclear. What are the different "extents"?
-            //CM-Q: level is unclear. What are the different "levels"? The sample nodesets only have one level as we can tell.
-
             string reqSemanticId = null; ;
             if (!string.IsNullOrEmpty(semanticId))
             {
@@ -203,7 +200,6 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public IActionResult GetSubmodelById([FromRoute][Required] string submodelIdentifier, [FromQuery] string level, [FromQuery] string extent)
         {
-            //CM-Q: level and extend see GetAllSubmodels
             string decodedSubmodelIdentifier = string.Empty;
             try
             {
