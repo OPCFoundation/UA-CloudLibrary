@@ -56,22 +56,5 @@ namespace AdminShell
 
             return new MasterNodeManager(server, configuration, null, nodeManagers.ToArray());
         }
-
-        public async Task StartServerAsync()
-        {
-            Console.WriteLine("Starting OPC UA server on endpoint " + _app.ApplicationConfiguration.ServerConfiguration.BaseAddresses[0]);
-
-            try
-            {
-                await _app.Start(this).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("StartServerAsync: " + ex.Message);
-                return;
-            }
-
-            Console.WriteLine("OPC UA server started.");
-        }
     }
 }
