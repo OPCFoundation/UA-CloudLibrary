@@ -92,7 +92,20 @@ namespace AdminShell
                 }
             }
 
-            List<AssetAdministrationShell> aasList = _aasEnvService.GetAllAssetAdministrationShells(User.Identity.Name, reqAssetIds, idShort);
+            string decodedidShort = string.Empty;
+            if (!string.IsNullOrEmpty(idShort))
+            {
+                try
+                {
+                    decodedidShort = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(idShort)));
+                }
+                catch (Exception)
+                {
+                    decodedidShort = Uri.UnescapeDataString(idShort);
+                }
+            }
+
+            List<AssetAdministrationShell> aasList = _aasEnvService.GetAllAssetAdministrationShells(User.Identity.Name, reqAssetIds, decodedidShort);
 
             PagedResult<AssetAdministrationShell> output = PagedResult.ToPagedList<AssetAdministrationShell>(aasList, new PaginationParameters(cursor, limit));
 
