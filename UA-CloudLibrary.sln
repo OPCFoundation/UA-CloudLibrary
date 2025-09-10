@@ -28,10 +28,8 @@ Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-co
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "azurepipelines", "azurepipelines", "{1AB4086F-0197-46C1-9C79-FCCAA05B90D6}"
 	ProjectSection(SolutionItems) = preProject
-		.azurepipelines\get-version.ps1 = .azurepipelines\get-version.ps1
 		.azurepipelines\preview.yml = .azurepipelines\preview.yml
 		.azurepipelines\set-version.ps1 = .azurepipelines\set-version.ps1
-		.azurepipelines\signlistDebug.txt = .azurepipelines\signlistDebug.txt
 		.azurepipelines\signlistRelease.txt = .azurepipelines\signlistRelease.txt
 	EndProjectSection
 EndProject
@@ -50,6 +48,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlobToPGTable", "BlobToPGTable\BlobToPGTable.csproj", "{EFDB69DA-5981-213C-6004-C89DF47078B2}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataPlane.Sdk.Core", "Metaform.DataPlane.SDK\DataPlane.Sdk.Core\DataPlane.Sdk.Core.csproj", "{9F396452-6ED3-DDB6-40C4-02C22649AB38}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataPlane.Sdk.Core.Test", "Metaform.DataPlane.SDK\DataPlane.Sdk.Core.Test\DataPlane.Sdk.Core.Test.csproj", "{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -340,6 +340,36 @@ Global
 		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Staging|x64.Build.0 = Release|Any CPU
 		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Staging|x86.ActiveCfg = Release|Any CPU
 		{9F396452-6ED3-DDB6-40C4-02C22649AB38}.Staging|x86.Build.0 = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Debug|ARM.ActiveCfg = Debug|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Debug|ARM.Build.0 = Debug|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Debug|x64.Build.0 = Debug|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Debug|x86.Build.0 = Debug|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Release|ARM.ActiveCfg = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Release|ARM.Build.0 = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Release|ARM64.Build.0 = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Release|x64.ActiveCfg = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Release|x64.Build.0 = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Release|x86.ActiveCfg = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Release|x86.Build.0 = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Staging|Any CPU.ActiveCfg = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Staging|Any CPU.Build.0 = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Staging|ARM.ActiveCfg = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Staging|ARM.Build.0 = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Staging|ARM64.ActiveCfg = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Staging|ARM64.Build.0 = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Staging|x64.ActiveCfg = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Staging|x64.Build.0 = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Staging|x86.ActiveCfg = Release|Any CPU
+		{E17E3ABC-D153-4225-9B51-7D4C8C5928F6}.Staging|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
