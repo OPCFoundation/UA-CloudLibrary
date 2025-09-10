@@ -83,7 +83,6 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public IActionResult GetAllSubmodelElements([FromRoute][Required] string submodelIdentifier, [FromQuery] int limit, [FromQuery] string cursor, [FromQuery] string level, [FromQuery] string extent, [FromQuery] string diff)
         {
-            //CM-Q: Diff is not explained. What is it for?
 
             string decodedSubmodelIdentifier = null;
             if (submodelIdentifier != null)
