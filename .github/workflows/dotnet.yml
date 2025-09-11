@@ -57,7 +57,7 @@ jobs:
       with:
         dotnet-version: '9.0.x'
     - name: Add private NuGet source
-      run: dotnet nuget add source https://nuget.pkg.github.com/metaform/index.json --name metaform --username barnstee --password ${{ secrets.NUGET_PAT }} --store-password-in-clear-text
+      run: dotnet nuget add source https://nuget.pkg.github.com/metaform/index.json --name metaform --username ${{ github.repository_owner }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text
     - name: Restore dependencies BlobToPGTable
       working-directory: BlobToPGTable
       run: dotnet restore --verbosity detailed
