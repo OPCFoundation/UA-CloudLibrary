@@ -5,13 +5,12 @@ WORKDIR /app
 EXPOSE 8080
 EXPOSE 443
 
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG GITHUB_USERNAME
 ARG GITHUB_TOKEN
-
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 COPY ["UACloudLibraryServer/UA-CloudLibrary.csproj", "UACloudLibraryServer/"]
-RUN dotnet nuget add source https://nuget.pkg.github.com/metaform/index.json --name metaform --username $GITHUB_USERNAME --password $GITHUB_TOKEN --store-password-in-clear-text
+RUN dotnet nuget add source https://nuget.pkg.github.com/metaform/index.json --name metaform --username ${GITHUB_USERNAME} --password ${GITHUB_TOKEN} --store-password-in-clear-text
 RUN dotnet restore "UACloudLibraryServer/UA-CloudLibrary.csproj"
 COPY . .
 WORKDIR "/src/UACloudLibraryServer"
