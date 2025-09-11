@@ -20,12 +20,6 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
-      - name: Add private NuGet source
-        run: dotnet nuget add source https://nuget.pkg.github.com/metaform/index.json \
-            --name metaform \
-            --username barnstee \
-            --password ${{ secrets.NUGET_PASSWORD }} \
-            --store-password-in-clear-text
       - name: Workaround
         #https://github.com/dotnet/format/issues/1433#issuecomment-1055920818
         run: dotnet tool install -g dotnet-format --version "9.*" --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/index.json
