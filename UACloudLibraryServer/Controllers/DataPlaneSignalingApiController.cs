@@ -1,152 +1,131 @@
+using System;
+using System.Threading.Tasks;
+using DataPlane.Sdk.Api.Authorization;
+using DataPlane.Sdk.Core;
+using DataPlane.Sdk.Core.Domain.Interfaces;
+using DataPlane.Sdk.Core.Domain.Messages;
+using DataPlane.Sdk.Core.Domain.Model;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
-namespace DataPlane.Sdk.Api.Controllers
+namespace DataPlane.Sdk.Api.Controllers;
+
+[Authorize(Policy = "DataFlowAccess")]
+[ApiController]
+[Route("/api/v1/{participantContextId}/dataflows")]
+public class DataPlaneSignalingApiController(
+    IDataPlaneSignalingService signalingService,
+    IAuthorizationService authorizationService,
+    IOptions<DataPlaneSdkOptions> options)
+    : ControllerBase
 {
-    using System.Text.Json;
-    using System.Text.Json.Nodes;
-    using System.Threading.Tasks;
-    using DataPlane.Sdk.Api.Authorization;
-    using DataPlane.Sdk.Core.Domain.Interfaces;
-    using DataPlane.Sdk.Core.Domain.Messages;
-    using Microsoft.AspNetCore.Authorization;
-    using Microsoft.AspNetCore.Mvc;
-
-    [Authorize(Policy = "ApiPolicy")]
-    [ApiController]
-    [Route("/api/v1")]
-    public class DataPlaneSignalingApiController(
-        IDataPlaneSignalingService signalingService,
-        IAuthorizationService authorizationService)
-        : ControllerBase
+    [HttpPost("prepare")]
+    public async Task<IActionResult> Prepare([FromRoute] string participantContextId, DataFlowPrepareMessage prepareMessage)
     {
-        [Authorize]
-        [HttpGet("{participantContextId}/dataflows/{dataFlowId}/state")]
-        public async Task<IActionResult> GetTransferState([FromRoute] string dataFlowId, [FromRoute] string participantContextId)
+        if (!(await authorizationService.AuthorizeAsync(User, new ResourceTuple(participantContextId, null), "DataFlowAccess")).Succeeded)
         {
-            if (!(await authorizationService.AuthorizeAsync(User, new ResourceTuple(participantContextId, dataFlowId), "DataFlowAccess")).Succeeded)
-            {
-                return Forbid();
-            }
-
-            var state = await signalingService.GetTransferStateAsync(dataFlowId);
-
-            return state.IsSucceeded ? Ok(state.Content) : StatusCode((int)state.Failure!.Reason, state);
+            return Forbid();
         }
 
-        [Authorize]
-        [HttpPost("{participantContextId}/dataflows/")]
-        public async Task<IActionResult> StartDataFlow([FromRoute] string participantContextId, JsonObject jsonObject)
+        var statusResult = await signalingService.PrepareAsync(prepareMessage);
+
+        if (statusResult.IsSucceeded)
         {
-            if (!(await authorizationService.AuthorizeAsync(User, new ResourceTuple(participantContextId, null), "DataFlowAccess")).Succeeded)
-            {
-                return Forbid();
-            }
-
-            var type = jsonObject["@type"]?.ToString();
-
-            return type switch {
-                nameof(DataFlowStartMessage) => await HandleStartMessage(jsonObject),
-                nameof(DataFlowProvisionMessage) => await HandleProvisionMessage(jsonObject),
-                _ => BadRequest($"Unknown message type {type}")
+            var dataFlow = statusResult.Content!;
+            return dataFlow.State switch {
+                DataFlowState.Preparing => Accepted(new Uri($"/api/v1/{participantContextId}/dataflows/{dataFlow.Id}", UriKind.Relative),
+                    new DataFlowResponseMessage {
+                        DataFlowId = dataFlow.Id,
+                        State = dataFlow.State.ToString(),
+                        DataplaneId = options.Value.DataplaneId
+                    }),
+                DataFlowState.Prepared => Ok(new DataFlowResponseMessage {
+                    DataFlowId = dataFlow.Id,
+                    DataplaneId = options.Value.DataplaneId,
+                    State = dataFlow.State.ToString()
+                }),
+                _ => BadRequest($"DataFlow state {dataFlow.State} is not expected")
             };
         }
 
-        private async Task<IActionResult> HandleProvisionMessage(JsonObject message)
+        return StatusCode((int)statusResult.Failure!.Reason, statusResult);
+    }
+
+    [HttpPost("{dataFlowId}/start")]
+    public async Task<IActionResult> Start([FromRoute] string participantContextId, [FromRoute] string dataFlowId, DataFlowStartMessage startMessage)
+    {
+        if (!(await authorizationService.AuthorizeAsync(User, new ResourceTuple(participantContextId, dataFlowId), "DataFlowAccess")).Succeeded)
         {
-            var startMessage = message.Deserialize<DataFlowProvisionMessage>();
-            if (startMessage == null)
-            {
-                return BadRequest($"Cannot deserialize {nameof(DataFlowProvisionMessage)}");
-            }
-
-            var result = await signalingService.ProvisionAsync(startMessage);
-            if (result.IsFailed)
-            {
-                return BadRequest(result.Failure?.Message);
-            }
-
-            return Ok(result.Content);
+            return Forbid();
         }
 
-        private async Task<IActionResult> HandleStartMessage(JsonObject message)
+
+        var statusResult = await signalingService.StartAsync(startMessage);
+        if (statusResult.IsSucceeded)
         {
-            var startMessage = message.Deserialize<DataFlowStartMessage>();
-            if (startMessage == null)
-            {
-                return BadRequest($"Cannot deserialize {nameof(DataFlowStartMessage)}");
-            }
-
-            var valid = await signalingService.ValidateStartMessageAsync(startMessage);
-            if (!valid.IsSucceeded)
-            {
-                return BadRequest(valid.Failure?.Message);
-            }
-
-            var result = await signalingService.StartAsync(startMessage);
-            if (result.IsFailed)
-            {
-                return BadRequest(result.Failure?.Message);
-            }
-
-            return Ok(result.Content);
+            var dataFlow = statusResult.Content!;
+            return dataFlow.State switch {
+                DataFlowState.Starting => Accepted(new Uri($"/api/v1/{participantContextId}/dataflows/{dataFlow.Id}", UriKind.Relative),
+                    new DataFlowResponseMessage {
+                        DataFlowId = dataFlowId,
+                        DataplaneId = options.Value.DataplaneId,
+                        State = dataFlow.State.ToString(),
+                        DataAddress = dataFlow.Destination
+                    }),
+                DataFlowState.Started => Ok(new DataFlowResponseMessage {
+                    DataFlowId = dataFlowId,
+                    DataAddress = dataFlow.Destination,
+                    DataplaneId = options.Value.DataplaneId,
+                    State = dataFlow.State.ToString()
+                }),
+                _ => BadRequest($"DataFlow state {dataFlow.State} is not expected")
+            };
         }
 
-        [Authorize]
-        [HttpPost("{participantContextId}/dataflows/{dataFlowId}/suspend")]
-        public async Task<IActionResult> SuspendDataFlow([FromRoute] string dataFlowId, [FromRoute] string participantContextId,
-            DataFlowSuspendMessage suspendMessage)
+        return StatusCode((int)statusResult.Failure!.Reason, statusResult);
+    }
+
+    [HttpPost("{dataFlowId}/suspend")]
+    public async Task<IActionResult> Suspend([FromRoute] string participantContextId, [FromRoute] string dataFlowId, DataFlowSuspendMessage suspendMessage)
+    {
+        if (!(await authorizationService.AuthorizeAsync(User, new ResourceTuple(participantContextId, dataFlowId), "DataFlowAccess")).Succeeded)
         {
-            if (!(await authorizationService.AuthorizeAsync(User, new ResourceTuple(participantContextId, dataFlowId), "DataFlowAccess")).Succeeded)
-            {
-                return Forbid();
-            }
-
-            var result = await signalingService.SuspendAsync(dataFlowId, suspendMessage.Reason);
-            if (result.IsFailed)
-            {
-                return BadRequest(result.Failure?.Message);
-            }
-
-            return Ok(result.Content);
+            return Forbid();
         }
 
-        [Authorize]
-        [HttpPost("{participantContextId}/dataflows/{dataFlowId}/terminate")]
-        public async Task<IActionResult> TerminateDataFlow([FromRoute] string dataFlowId, [FromRoute] string participantContextId,
-            DataFlowTerminationMessage terminateMessage)
+        var statusResult = await signalingService.SuspendAsync(dataFlowId, suspendMessage.Reason);
+        return statusResult.IsSucceeded ? Ok() : StatusCode((int)statusResult.Failure!.Reason, statusResult);
+    }
+
+    [HttpPost("{dataFlowId}/terminate")]
+    public async Task<IActionResult> Terminate([FromRoute] string participantContextId, [FromRoute] string dataFlowId,
+        DataFlowTerminationMessage terminateMessage)
+    {
+        if (!(await authorizationService.AuthorizeAsync(User, new ResourceTuple(participantContextId, dataFlowId), "DataFlowAccess")).Succeeded)
         {
-            if (!(await authorizationService.AuthorizeAsync(User, new ResourceTuple(participantContextId, dataFlowId), "DataFlowAccess")).Succeeded)
-            {
-                return Forbid();
-            }
-
-            var result = await signalingService.TerminateAsync(dataFlowId, terminateMessage.Reason);
-            if (result.IsFailed)
-            {
-                return BadRequest(result.Failure?.Message);
-            }
-
-            return Ok(result.Content);
+            return Forbid();
         }
 
-        [HttpGet("check")]
-        public IActionResult CheckHealth()
+        var statusResult = await signalingService.TerminateAsync(dataFlowId, terminateMessage.Reason);
+        return statusResult.IsSucceeded ? Ok() : StatusCode((int)statusResult.Failure!.Reason, statusResult);
+    }
+
+    [HttpGet("{dataFlowId}")]
+    public async Task<IActionResult> GetStatus([FromRoute] string dataFlowId, [FromRoute] string participantContextId)
+    {
+        if (!(await authorizationService.AuthorizeAsync(User, new ResourceTuple(participantContextId, dataFlowId), "DataFlowAccess")).Succeeded)
         {
-            return Ok();
+            return Forbid();
         }
 
-        [Authorize]
-        [HttpGet("foo/{fooId}")]
-        public async Task<IActionResult> GetFoo([FromRoute] string fooId, [FromRoute] string participantContextId)
-        {
-            var authorizationResult = await authorizationService.AuthorizeAsync(User, new ResourceTuple(participantContextId, fooId), "FooAccess");
+        var state = await signalingService.GetTransferStateAsync(dataFlowId);
 
-            if (!authorizationResult.Succeeded)
-            {
-                return Forbid();
-            }
-
-
-            return Ok();
-        }
+        return state.IsSucceeded
+            ? Ok(new DataFlowStatusResponseMessage {
+                Id = dataFlowId,
+                State = state.Content
+            })
+            : StatusCode((int)state.Failure!.Reason, state);
     }
 }
