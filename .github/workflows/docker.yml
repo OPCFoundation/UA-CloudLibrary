@@ -40,3 +40,7 @@ jobs:
         tags: |
           ghcr.io/${{ steps.get_repo.outputs.lowercase }}:${{ steps.nbgv.outputs.SemVer2 }}
           ghcr.io/${{ steps.get_repo.outputs.lowercase }}:latest
+        build-args: |
+          GITHUB_USERNAME=${{ github.repository_owner }}
+          GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+
