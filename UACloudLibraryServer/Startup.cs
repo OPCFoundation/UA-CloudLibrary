@@ -137,7 +137,7 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddSdkServices(sdk, dataplaneConfig);
 
-            services.AddSingleton<IAuthorizationHandler, DataFlowAuthorizationHandler>();
+            services.AddScoped<IAuthorizationHandler, DataFlowAuthorizationHandler>();
 
             if (!string.IsNullOrEmpty(Configuration["UseSendGridEmailSender"]))
             {
