@@ -60,25 +60,25 @@ jobs:
       run: dotnet nuget add source https://nuget.pkg.github.com/metaform/index.json --name metaform --username ${{ github.repository_owner }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text
     - name: Restore dependencies BlobToPGTable
       working-directory: BlobToPGTable
-      run: dotnet restore --verbosity detailed
+      run: dotnet restore
     - name: Restore dependencies UA-CloudLibrary
       working-directory: UACloudLibraryServer
-      run: dotnet restore --verbosity detailed
+      run: dotnet restore
     - name: Restore dependencies UA-CloudLibrary .NET Client
-      run: dotnet restore --verbosity detailed
+      run: dotnet restore
       working-directory: Opc.Ua.CloudLib.Client
     - name: Restore dependencies SampleConsoleClient
-      run: dotnet restore --verbosity detailed
+      run: dotnet restore
       working-directory: SampleConsoleClient
     - name: Restore dependencies CloudLibClientTests
-      run: dotnet restore --verbosity detailed
+      run: dotnet restore
       working-directory: Tests/CloudLibClientTests
     - name: Restore dependencies CloudLibSync
       working-directory: CloudLibSync
-      run: dotnet restore --verbosity detailed
+      run: dotnet restore
     - name: Restore dependencies CloudLibSyncAzureFunction
       working-directory: CloudLibSyncAzureFunction
-      run: dotnet restore --verbosity detailed
+      run: dotnet restore
     - name: Build
       run: dotnet build UA-CloudLibrary.sln --configuration Release --no-restore
     - name: Test
