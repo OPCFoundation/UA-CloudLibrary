@@ -1,3 +1,5 @@
+using System;
+using System.Threading.Tasks;
 using DataPlane.Sdk.Core.Data;
 using DataPlane.Sdk.Core.Infrastructure;
 using Testcontainers.PostgreSql;
@@ -12,7 +14,7 @@ public class PostgresFixture : AbstractFixture, IAsyncDisposable
     {
         Context = CreateDbContext();
         var signalingService = new DataPlaneSignalingService(Context, Sdk);
-        InitializeFixture(Context, signalingService);
+        InitializeFixture(Context, signalingService).GetAwaiter().GetResult();
     }
 
     public async ValueTask DisposeAsync()

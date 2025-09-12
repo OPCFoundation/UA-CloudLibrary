@@ -1,39 +1,62 @@
-using DataPlane.Sdk.Api;
-using DataPlane.Sdk.Api.Authorization.DataFlows;
-using DataPlane.Sdk.Api.Controllers;
-using DataPlane.Sdk.Api.Test;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
 
-const string testAuthScheme = "Test";
-
-var builder = WebApplication.CreateBuilder(args);
-
-var services = builder.Services;
-services.AddAuthentication(testAuthScheme)
-    .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(testAuthScheme, _ => { });
-
-services.Configure<AuthenticationOptions>(options =>
+namespace DataPlane.Sdk.Api.Test
 {
-    options.DefaultAuthenticateScheme = testAuthScheme;
-    options.DefaultChallengeScheme = testAuthScheme;
-});
+    using System.Threading.Tasks;
+    using DataPlane.Sdk.Api.Authorization.DataFlows;
+    using DataPlane.Sdk.Api.Controllers;
+    using DataPlane.Sdk.Core.Data;
+    using DataPlane.Sdk.Core.Domain.Interfaces;
+    using Microsoft.AspNetCore.Authentication;
+    using Microsoft.AspNetCore.Authorization;
+    using Microsoft.AspNetCore.Builder;
+    using Microsoft.AspNetCore.Hosting;
+    using Microsoft.AspNetCore.TestHost;
+    using Microsoft.Extensions.DependencyInjection;
+    using Microsoft.Extensions.Hosting;
 
-services.AddControllers()
-    .AddApplicationPart(typeof(DataPlaneSignalingApiController).Assembly);
+    public static class TestProgram
+    {
+        public static async Task<TestServer> CreateTestServerAsync(DataFlowContext context, IDataPlaneSignalingService service)
+        {
+            IHostBuilder hostBuilder = new HostBuilder().ConfigureWebHostDefaults(webBuilder => {
+                webBuilder.UseTestServer();
+                webBuilder.ConfigureServices(services => {
+                    const string testAuthScheme = "Test";
 
-services.AddSingleton<IAuthorizationHandler, DataFlowAuthorizationHandler>();
+                    services.AddAuthentication(testAuthScheme)
+                        .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(testAuthScheme, _ => { });
 
-services.AddAuthorizationBuilder().AddPolicy("DataFlowAccess", delegate (AuthorizationPolicyBuilder policy) {
-    policy.Requirements.Add(new DataFlowRequirement());
-});
+                    services.Configure<AuthenticationOptions>(options => {
+                        options.DefaultAuthenticateScheme = testAuthScheme;
+                        options.DefaultChallengeScheme = testAuthScheme;
+                    });
 
-var app = builder.Build();
+                    services.AddControllers()
+                        .AddApplicationPart(typeof(DataPlaneSignalingApiController).Assembly);
 
-app.UseRouting();
-app.UseAuthentication();
-app.UseAuthorization();
-app.MapControllers();
-app.Run();
+                    services.AddSingleton<IAuthorizationHandler, DataFlowAuthorizationHandler>();
+                    services.AddSingleton<IDataPlaneStore>(context);
+                    services.AddSingleton(service);
+
+                    services.AddAuthorizationBuilder().AddPolicy("DataFlowAccess", policy => {
+                        policy.Requirements.Add(new DataFlowRequirement());
+                    });
+                });
+
+                webBuilder.Configure(app => {
+                    app.UseRouting();
+                    app.UseAuthentication();
+                    app.UseAuthorization();
+                    app.UseEndpoints(endpoints =>
+                    {
+                        endpoints.MapControllers();
+                    });
+                });
+            });
+
+            IHost host = await hostBuilder.StartAsync().ConfigureAwait(false);
+
+            return host.GetTestServer();
+        }
+    }
+}
