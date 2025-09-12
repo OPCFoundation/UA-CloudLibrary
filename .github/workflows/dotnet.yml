@@ -12,14 +12,16 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: 🤘 checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: recursive
           fetch-depth: 0
       - name: ⚙ dotnet
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
+      - name: Add private NuGet source
+        run: dotnet nuget add source https://nuget.pkg.github.com/metaform/index.json --name metaform --username ${{ github.repository_owner }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text
       - name: Workaround
         #https://github.com/dotnet/format/issues/1433#issuecomment-1055920818
         run: dotnet tool install -g dotnet-format --version "9.*" --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/index.json
@@ -35,7 +37,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-
     - name: Start PostgreSQL on Ubuntu
       run: |
         sudo systemctl start postgresql.service
@@ -49,15 +50,16 @@ jobs:
     - name: List existing databases
       run: |
         sudo -u postgres psql -l --command="\du"
-
     - name: 🤘 checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
     - name: ⚙ dotnet
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '9.0.x'
+    - name: Add private NuGet source
+      run: dotnet nuget add source https://nuget.pkg.github.com/metaform/index.json --name metaform --username ${{ github.repository_owner }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text
     - name: Restore dependencies BlobToPGTable
       working-directory: BlobToPGTable
       run: dotnet restore
@@ -73,6 +75,9 @@ jobs:
     - name: Restore dependencies CloudLibClientTests
       run: dotnet restore
       working-directory: Tests/CloudLibClientTests
+    - name: Restore dependencies DataPlane.Sdk.Api.Test
+      run: dotnet restore
+      working-directory: Tests/DataPlane.Sdk.Api.Test
     - name: Restore dependencies CloudLibSync
       working-directory: CloudLibSync
       run: dotnet restore

@@ -38,8 +38,13 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using AdminShell;
+using DataPlane.Sdk.Api.Authorization.DataFlows;
+using DataPlane.Sdk.Core;
+using DataPlane.Sdk.Core.Domain.Model;
+using HttpDataplane.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OAuth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
@@ -53,9 +58,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Identity.Web;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Opc.Ua.Cloud.Library.Authentication;
 using Opc.Ua.Configuration;
+using static DataPlane.Sdk.Core.Data.DataFlowContextFactory;
+using static DataPlane.Sdk.Core.Domain.Model.StatusResult;
+using IConfiguration = Microsoft.Extensions.Configuration.IConfiguration;
 
 [assembly: CLSCompliant(false)]
 namespace Opc.Ua.Cloud.Library
@@ -102,6 +111,33 @@ namespace Opc.Ua.Cloud.Library
             services.AddScoped<AssetAdministrationShellEnvironmentService>();
 
             services.AddScoped<CaptchaValidation>();
+
+            // initialize and configure the DataPlaneSdk
+            var dataplaneConfig = Configuration.GetSection("DataPlaneSdk");
+            var config = dataplaneConfig.Get<DataPlaneSdkOptions>() ?? throw new ArgumentException("Configuration invalid!");
+            var dataFlowContext = () => CreatePostgres(Configuration, config.RuntimeId);
+            var permissionService = new DataService(dataFlowContext.Invoke());
+            var sdk = new DataPlaneSdk {
+                DataFlowStore = dataFlowContext,
+                RuntimeId = config.RuntimeId,
+                OnStart = f => {
+                    permissionService.CreatePublicEndpoint(f).GetAwaiter().GetResult();
+                    return StatusResult<DataFlow>.Success(f);
+                },
+                OnRecover = _ => Success(),
+                OnTerminate = _ => Success(),
+                OnSuspend = _ => Success(),
+                OnPrepare = f => {
+                    f.State = DataFlowState.Prepared;
+                    return StatusResult<DataFlow>.Success(f);
+                }
+            };
+
+            services.AddSingleton(permissionService);
+
+            services.AddSdkServices(sdk, dataplaneConfig);
+
+            services.AddScoped<IAuthorizationHandler, DataFlowAuthorizationHandler>();
 
             if (!string.IsNullOrEmpty(Configuration["UseSendGridEmailSender"]))
             {
@@ -183,6 +219,7 @@ namespace Opc.Ua.Cloud.Library
                 options.AddPolicy("ApprovalPolicy", policy => policy.RequireRole("Administrator"));
                 options.AddPolicy("UserAdministrationPolicy", policy => policy.RequireRole("Administrator"));
                 options.AddPolicy("DeletePolicy", policy => policy.RequireRole("Administrator"));
+                options.AddPolicy("DataFlowAccess", policy => policy.Requirements.Add(new DataFlowRequirement()));
             });
 
             if (Configuration["APIKeyAuth"] != null)
@@ -315,7 +352,6 @@ namespace Opc.Ua.Cloud.Library
                 endpoints.MapRazorPages();
             });
         }
-
 
         public class CloudLibStartupTask : IHostedService
         {
