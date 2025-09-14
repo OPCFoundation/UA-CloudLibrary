@@ -219,7 +219,10 @@ namespace Opc.Ua.Cloud.Library
                 options.AddPolicy("ApprovalPolicy", policy => policy.RequireRole("Administrator"));
                 options.AddPolicy("UserAdministrationPolicy", policy => policy.RequireRole("Administrator"));
                 options.AddPolicy("DeletePolicy", policy => policy.RequireRole("Administrator"));
-                options.AddPolicy("DataFlowAccess", policy => policy.Requirements.Add(new DataFlowRequirement()));
+                options.AddPolicy("DataFlowAccess", policy => {
+                    policy.RequireAuthenticatedUser();
+                    policy.Requirements.Add(new DataFlowRequirement());
+                });
             });
 
             if (Configuration["APIKeyAuth"] != null)
@@ -236,7 +239,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 services.AddAuthorization(options => {
                     options.AddPolicy("ApiPolicy", policy => {
-                        policy.AddAuthenticationSchemes("BasicAuthentication", "SignedInUserAuthentication");
+                        policy.AddAuthenticationSchemes("BasicAuthentication").RequireAuthenticatedUser();
                         policy.AddAuthenticationSchemes("SignedInUserAuthentication").RequireAuthenticatedUser();
                     });
                 });

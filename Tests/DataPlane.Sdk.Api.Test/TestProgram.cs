@@ -39,8 +39,8 @@ namespace DataPlane.Sdk.Api.Test
                     services.AddSingleton(service);
 
                     services.AddAuthorizationBuilder().AddPolicy("DataFlowAccess", policy => {
-                        //policy.Requirements.Add(new DataFlowRequirement());
                         policy.RequireAuthenticatedUser();
+                        policy.Requirements.Add(new DataFlowRequirement());
                     });
                 });
 
