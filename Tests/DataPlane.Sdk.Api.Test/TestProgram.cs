@@ -13,6 +13,7 @@ namespace DataPlane.Sdk.Api.Test
     using Microsoft.AspNetCore.TestHost;
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Hosting;
+    using Opc.Ua.Cloud.Library.Models;
 
     public static class TestProgram
     {

@@ -7,6 +7,7 @@ using DataPlane.Sdk.Core.Domain.Interfaces;
 using DataPlane.Sdk.Core.Domain.Model;
 using Microsoft.AspNetCore.Authorization;
 using Moq;
+using Opc.Ua.Cloud.Library.Models;
 using Shouldly;
 
 namespace DataPlane.Sdk.Api.Test;

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using DataPlane.Sdk.Core.Domain.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Opc.Ua.Cloud.Library.Models;
 
 namespace DataPlane.Sdk.Api.Authorization.DataFlows;
 

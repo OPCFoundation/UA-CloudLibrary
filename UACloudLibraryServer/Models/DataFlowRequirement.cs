@@ -1,5 +1,4 @@
-
-namespace DataPlane.Sdk.Api.Authorization.DataFlows
+namespace Opc.Ua.Cloud.Library.Models
 {
     using Microsoft.AspNetCore.Authorization;
 

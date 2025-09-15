@@ -9,6 +9,12 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
 * User management UI
 * Cross-platform: Runs on any edge or cloud that can host a container and a PostgreSQL instance
 
+## Architecture
+
+The UA Cloud Library is implemented as a set of Docker containers. The main container hosts the REST API and the user management website. A PostgreSQL database is used to store the information models and user data:
+
+![Architecture](https://raw.githubusercontent.com/OPCFoundation/UA-CloudLibrary/main/docs/architecture.png)
+
 ## Getting Started (Client Access)
 
 If you want to access the globally hosted instance from the OPC Foundation at https://uacloudlibrary.opcfoundation.org from our software, you can integrate the source code from the SampleConsoleClient found in this repo. It exercises the REST API.
