@@ -22,7 +22,6 @@ public class PostgresFixture : AbstractFixture, IAsyncDisposable
         if (_postgreSqlContainer != null)
         {
             await _postgreSqlContainer.DisposeAsync();
-            await _postgreSqlContainer.DisposeAsync();
         }
     }
 

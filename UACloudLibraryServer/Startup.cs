@@ -121,7 +121,7 @@ namespace Opc.Ua.Cloud.Library
                 DataFlowStore = dataFlowContext,
                 RuntimeId = config.RuntimeId,
                 OnStart = f => {
-                    permissionService.CreatePublicEndpoint(f).GetAwaiter().GetResult();
+                    permissionService.CreatePublicEndpoint(f).ConfigureAwait(false);
                     return StatusResult<DataFlow>.Success(f);
                 },
                 OnRecover = _ => Success(),
