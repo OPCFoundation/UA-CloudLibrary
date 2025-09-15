@@ -49,27 +49,22 @@ namespace AdminShell
             _cldata = cldata;
         }
 
-        public List<NodesetViewerNode> GetAllNodesetsOfType(string userId, string strType)
+        public List<NodesetViewerNode> GetAllNodesCalled(string userId, string strType)
         {
             List<NodesetViewerNode> result = new();
 
-            var allNodesets = _cldata.GetNodeSets(userId);
-            foreach (var nodeset in allNodesets)
+            List<ObjectModel> nodesetObjects = _cldata.GetNodeModels(nsm => nsm.Objects, userId).Where(nsm => nsm.DisplayName[0].Text == strType).ToList();
+            foreach (ObjectModel nodesetObject in nodesetObjects)
             {
-                foreach (var nodesetObject in nodeset.Objects)
-                {
-                    NodesetViewerNode nsvNode = new();
-                    if (nodesetObject.DisplayName[0].Text == strType)
-                    {
-                        nsvNode.Id = nodeset.Identifier;
-                        nsvNode.Value = nodesetObject.NodeId;
-                        nsvNode.Text = nodesetObject.Namespace;
-                        nsvNode.DisplayName = nodesetObject.DisplayName?.FirstOrDefault()?.Text ?? string.Empty;
-                        nsvNode.Description = nodesetObject.Description?.FirstOrDefault()?.Text ?? string.Empty;
+                NodesetViewerNode nsvNode = new() {
+                    Id = nodesetObject.NodeSet.Identifier,
+                    Value = nodesetObject.NodeId,
+                    Text = nodesetObject.Namespace,
+                    DisplayName = nodesetObject.DisplayName?.FirstOrDefault()?.Text ?? string.Empty,
+                    Description = nodesetObject.Description?.FirstOrDefault()?.Text ?? string.Empty
+                };
 
-                        result.Add(nsvNode);
-                    }
-                }
+                result.Add(nsvNode);
             }
 
             return result;
@@ -108,7 +103,7 @@ namespace AdminShell
             List<AssetAdministrationShellDescriptor> output = new();
 
             // Query database for all Asset Administration Shells
-            List<NodesetViewerNode> aasList = GetAllNodesetsOfType(userId, "Asset Admin Shells");
+            List<NodesetViewerNode> aasList = GetAllNodesCalled(userId, "Asset Admin Shells");
 
             if (aasList != null)
             {
@@ -250,7 +245,7 @@ namespace AdminShell
             List<AssetAdministrationShell> output = new();
 
             // Query database for all Asset Administration Shells
-            List<NodesetViewerNode> aasList = GetAllNodesetsOfType(userId, "Asset Admin Shells");
+            List<NodesetViewerNode> aasList = GetAllNodesCalled(userId, "Asset Admin Shells");
 
             if (aasList != null)
             {
@@ -381,7 +376,7 @@ namespace AdminShell
             List<Submodel> output = new();
 
             // Get All Submodels
-            List<NodesetViewerNode> listSubmodel = GetAllNodesetsOfType(userId, "Submodels");
+            List<NodesetViewerNode> listSubmodel = GetAllNodesCalled(userId, "Submodels");
             if (listSubmodel != null)
             {
                 foreach (NodesetViewerNode nsvnSubmodel in listSubmodel)
@@ -527,7 +522,7 @@ namespace AdminShell
             List<ConceptDescription> output = new();
 
             // Query database for all Concept Descriptions
-            List<NodesetViewerNode> listConceptDescriptions = GetAllNodesetsOfType(userId, "Concept Descriptions");
+            List<NodesetViewerNode> listConceptDescriptions = GetAllNodesCalled(userId, "Concept Descriptions");
 
             if (listConceptDescriptions != null)
             {
