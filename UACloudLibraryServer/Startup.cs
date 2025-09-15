@@ -220,7 +220,6 @@ namespace Opc.Ua.Cloud.Library
                 options.AddPolicy("UserAdministrationPolicy", policy => policy.RequireRole("Administrator"));
                 options.AddPolicy("DeletePolicy", policy => policy.RequireRole("Administrator"));
                 options.AddPolicy("DataFlowAccess", policy => {
-                    policy.RequireAuthenticatedUser();
                     policy.Requirements.Add(new DataFlowRequirement());
                 });
             });

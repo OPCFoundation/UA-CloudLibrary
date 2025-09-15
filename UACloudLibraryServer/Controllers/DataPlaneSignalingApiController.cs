@@ -11,7 +11,6 @@ using Microsoft.Extensions.Options;
 
 namespace DataPlane.Sdk.Api.Controllers;
 
-[Authorize(Policy = "DataFlowAccess")]
 [ApiController]
 [Route("/api/v1/{participantContextId}/dataflows")]
 public class DataPlaneSignalingApiController(

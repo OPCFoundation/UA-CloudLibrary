@@ -35,13 +35,14 @@ namespace DataPlane.Sdk.Api.Test
                     services.AddControllers()
                         .AddApplicationPart(typeof(DataPlaneSignalingApiController).Assembly);
 
-                    services.AddSingleton<IAuthorizationHandler, DataFlowAuthorizationHandler>();
+                    services.AddScoped<IAuthorizationHandler, DataFlowAuthorizationHandler>();
                     services.AddSingleton<IDataPlaneStore>(context);
                     services.AddSingleton(service);
 
-                    services.AddAuthorizationBuilder().AddPolicy("DataFlowAccess", policy => {
-                        policy.RequireAuthenticatedUser();
-                        policy.Requirements.Add(new DataFlowRequirement());
+                    services.AddAuthorization(options => {
+                        options.AddPolicy("DataFlowAccess", policy => {
+                            policy.Requirements.Add(new DataFlowRequirement());
+                        });
                     });
                 });
 

@@ -6,8 +6,7 @@ using Opc.Ua.Cloud.Library.Models;
 
 namespace DataPlane.Sdk.Api.Authorization.DataFlows;
 
-public class DataFlowAuthorizationHandler(IDataPlaneStore store)
-    : AuthorizationHandler<DataFlowRequirement, ResourceTuple>
+public class DataFlowAuthorizationHandler(IDataPlaneStore store) : AuthorizationHandler<DataFlowRequirement, ResourceTuple>
 {
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context,
         DataFlowRequirement requirement, ResourceTuple resource)
