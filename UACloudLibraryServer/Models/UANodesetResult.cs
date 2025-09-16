@@ -44,7 +44,6 @@ namespace Opc.Ua.Cloud.Library.Models
         [JsonProperty(PropertyName = "orgName")]
         public string LegacyOrgName { get; }
 
-        // TODO enum vs. string & compat
         [JsonProperty(PropertyName = "version")]
         public string LegacyVersion { get => Nodeset?.Version; }
 

@@ -32,6 +32,7 @@ using System.Buffers.Text;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
@@ -69,21 +70,56 @@ namespace AdminShell
         [HttpGet]
         [Route("/api/v3.0/shell-descriptors")]
         [SwaggerOperation("GetAllAssetAdministrationShellDescriptors")]
-        [SwaggerResponse(statusCode: 200, type: typeof(List<AssetAdministrationShellDescriptor>), description: "Requested Asset Administration Shell Descriptors")]
+        [SwaggerResponse(statusCode: 200, type: typeof(PagedResult<AssetAdministrationShellDescriptor>), description: "Requested Asset Administration Shell Descriptors")]
         [SwaggerResponse(statusCode: 400, type: typeof(Result), description: "Bad Request, e.g. the request parameters of the format of the request body is wrong.")]
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual IActionResult GetAllAssetAdministrationShellDescriptors([FromQuery] int? limit, [FromQuery] string cursor, [FromQuery] AssetKind assetKind, [FromQuery][RegularExpression("/^([\\\\x09\\\\x0a\\\\x0d\\\\x20-\\\\ud7ff\\\\ue000-\\\\ufffd]|\\\\ud800[\\\\udc00-\\\\udfff]|[\\\\ud801-\\\\udbfe][\\\\udc00-\\\\udfff]|\\\\udbff[\\\\udc00-\\\\udfff])*$/")][StringLength(2048, MinimumLength = 1)] string assetType)
+        public IActionResult GetAllAssetAdministrationShellDescriptors([FromQuery] int? limit, [FromQuery] string cursor, [FromQuery] AssetKind assetKind, [FromQuery] string assetType)
         {
-            //CM-Q: assetKind and assetType used for filtering or as a "include in Return" flag?
             List<AssetAdministrationShellDescriptor> aasList = _aasEnvService.GetAllAssetAdministrationShellDescriptors(User.Identity.Name);
+
             if (limit != null)
             {
                 PagedResult<AssetAdministrationShellDescriptor> output = PagedResult.ToPagedList<AssetAdministrationShellDescriptor>(aasList, new PaginationParameters(cursor, limit.Value));
                 return new ObjectResult(output);
             }
+
             return new ObjectResult(aasList);
+        }
+
+        /// <summary>
+        /// Returns all Submodel Descriptors
+        /// </summary>
+        /// <param name="aasIdentifier">The Asset Administration Shell’s unique id (UTF8-BASE64-URL-encoded)</param>
+        /// <param name="limit">The maximum number of elements in the response array</param>
+        /// <param name="cursor">A server-generated identifier retrieved from pagingMetadata that specifies from which position the result listing should continue</param>
+        /// <response code="200">Requested Submodel Descriptors</response>
+        /// <response code="400">Bad Request, e.g. the request parameters of the format of the request body is wrong.</response>
+        /// <response code="403">Forbidden</response>
+        /// <response code="404">Not Found</response>
+        /// <response code="500">Internal Server Error</response>
+        /// <response code="0">Default error handling for unmentioned status codes</response>
+        [HttpGet]
+        [Route("/api/v3.0/shell-descriptors/{aasIdentifier}/submodel-descriptors")]
+        [SwaggerOperation("GetAllSubmodelDescriptorsThroughSuperpath")]
+        [SwaggerResponse(statusCode: 200, type: typeof(PagedResult<SubmodelDescriptor>), description: "Requested Submodel Descriptors")]
+        [SwaggerResponse(statusCode: 400, type: typeof(Result), description: "Bad Request, e.g. the request parameters of the format of the request body is wrong.")]
+        [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
+        [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
+        [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
+        [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
+        public IActionResult GetAllSubmodelDescriptorsThroughSuperpath([FromRoute][Required] string aasIdentifier, [FromQuery] int? limit, [FromQuery] string cursor)
+        {
+            List<SubmodelDescriptor> submodelList = _aasEnvService.GetAllSubmodelDescriptors(User.Identity.Name, aasIdentifier);
+
+            if (limit != null)
+            {
+                PagedResult<SubmodelDescriptor> output = PagedResult.ToPagedList<SubmodelDescriptor>(submodelList, new PaginationParameters(cursor, limit.Value));
+                return new ObjectResult(output);
+            }
+
+            return new ObjectResult(submodelList);
         }
 
         /// <summary>
@@ -105,7 +141,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public virtual IActionResult GetAssetAdministrationShellDescriptorById([FromRoute][Required] string aasIdentifier)
+        public IActionResult GetAssetAdministrationShellDescriptorById([FromRoute][Required] string aasIdentifier)
         {
             string decodedAasIdentifier = null;
             try
@@ -117,9 +153,56 @@ namespace AdminShell
                 decodedAasIdentifier = Uri.UnescapeDataString(aasIdentifier);
             }
 
-            List<AssetAdministrationShellDescriptor> aasdesc = _aasEnvService.GetAssetAdministrationShellDescriptorById(User.Identity.Name, decodedAasIdentifier);
+            AssetAdministrationShellDescriptor aasDescriptor = _aasEnvService.GetAssetAdministrationShellDescriptorById(User.Identity.Name, decodedAasIdentifier);
 
-            return new ObjectResult(aasdesc);
+            return new ObjectResult(aasDescriptor);
+        }
+
+        /// <summary>
+        /// Returns a specific Submodel Descriptor
+        /// </summary>
+        /// <param name="aasIdentifier">The Asset Administration Shell’s unique id (UTF8-BASE64-URL-encoded)</param>
+        /// <param name="submodelIdentifier">The Submodel’s unique id (UTF8-BASE64-URL-encoded)</param>
+        /// <response code="200">Requested Submodel Descriptor</response>
+        /// <response code="400">Bad Request, e.g. the request parameters of the format of the request body is wrong.</response>
+        /// <response code="403">Forbidden</response>
+        /// <response code="404">Not Found</response>
+        /// <response code="500">Internal Server Error</response>
+        /// <response code="0">Default error handling for unmentioned status codes</response>
+        [HttpGet]
+        [Route("/api/v3.0/shell-descriptors/{aasIdentifier}/submodel-descriptors/{submodelIdentifier}")]
+        [SwaggerOperation("GetSubmodelDescriptorByIdThroughSuperpath")]
+        [SwaggerResponse(statusCode: 200, type: typeof(SubmodelDescriptor), description: "Requested Submodel Descriptor")]
+        [SwaggerResponse(statusCode: 400, type: typeof(Result), description: "Bad Request, e.g. the request parameters of the format of the request body is wrong.")]
+        [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
+        [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
+        [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
+        [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
+        public IActionResult GetSubmodelDescriptorByIdThroughSuperpath([FromRoute][Required] string aasIdentifier, [FromRoute][Required] string submodelIdentifier)
+        {
+            string decodedAasIdentifier = null;
+            try
+            {
+                decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            }
+            catch (Exception)
+            {
+                decodedAasIdentifier = Uri.UnescapeDataString(aasIdentifier);
+            }
+
+            string decodedSubmodelIdentifier = null;
+            try
+            {
+                decodedSubmodelIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(submodelIdentifier)));
+            }
+            catch (Exception)
+            {
+                decodedSubmodelIdentifier = Uri.UnescapeDataString(submodelIdentifier);
+            }
+
+            SubmodelDescriptor submodelDescriptor = _aasEnvService.GetSubmodelDescriptorById(User.Identity.Name, decodedSubmodelIdentifier);
+
+            return new ObjectResult(submodelDescriptor);
         }
     }
 }
