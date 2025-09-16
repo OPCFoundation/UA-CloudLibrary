@@ -25,7 +25,13 @@ Start development in three simple steps:
 
 The OPC UA CloudLib Website should open in the browser.
 
-If you want to access the admin to the develpoment database instance open http://localhost:8080/ in your browser
+If you want to access the database admin (PGAdmin) to the development database instance open http://localhost:8088/ in your browser. You will need to register a new server in PGAdmin with the following settings:
+* Name: uacloudlib
+* Host name/address: db
+* Port: 5432
+* Maintenance database: uacloudlib
+* Username: uacloudlib
+* Password: uacloudlib
 
 
 ## Cloud Hosting Setup
