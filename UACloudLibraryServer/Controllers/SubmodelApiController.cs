@@ -42,11 +42,11 @@ namespace AdminShell
 {
     [Authorize(Policy = "ApiPolicy")]
     [ApiController]
-    public class SubmodelAPIApiController : ControllerBase
+    public class SubmodelApiController : ControllerBase
     {
         private readonly AssetAdministrationShellEnvironmentService _aasEnvService;
 
-        public SubmodelAPIApiController(AssetAdministrationShellEnvironmentService aasEnvService)
+        public SubmodelApiController(AssetAdministrationShellEnvironmentService aasEnvService)
         {
             _aasEnvService = aasEnvService;
         }

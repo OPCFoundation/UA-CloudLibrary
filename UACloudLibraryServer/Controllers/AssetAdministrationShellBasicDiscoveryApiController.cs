@@ -39,8 +39,15 @@ namespace AdminShell
 {
     [Authorize(Policy = "ApiPolicy")]
     [ApiController]
-    public class AssetAdministrationShellBasicDiscoveryAPIApiController : ControllerBase
+    public class AssetAdministrationShellBasicDiscoveryApiController : ControllerBase
     {
+        private readonly AssetAdministrationShellEnvironmentService _aasEnvService;
+
+        public AssetAdministrationShellBasicDiscoveryApiController(AssetAdministrationShellEnvironmentService aasEnvService)
+        {
+            _aasEnvService = aasEnvService;
+        }
+
         /// <summary>
         /// Returns a list of Asset Administration Shell ids linked to specific Asset identifiers
         /// </summary>
