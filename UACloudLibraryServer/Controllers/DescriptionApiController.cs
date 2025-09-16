@@ -51,14 +51,13 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 200, type: typeof(ServiceDescription), description: "Requested Description")]
         [SwaggerResponse(statusCode: 401, type: typeof(Result), description: "Unauthorized, e.g. the server refused the authorization attempt.")]
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
-        public virtual IActionResult GetDescription()
+        public IActionResult GetDescription()
         {
             return new ObjectResult(new ServiceDescription() {
                 Profiles = new List<Profile>()
                 {
-                    Profile.AssetAdministrationShellRepositoryServiceSpecificationV30MinimalProfileEnum,
-                    Profile.SubmodelRepositoryServiceSpecificationV30MinimalProfileEnum,
-                    Profile.RegistryServiceSpecificationV30AssetAdministrationShellRegistryEnum
+                    Profile.RegistryAndDiscoveryServiceSpecificationV30Enum,
+                    Profile.SubmodelServiceSpecificationV30ValueProfileEnum
                 }
             });
         }

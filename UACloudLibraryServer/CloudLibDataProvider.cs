@@ -116,7 +116,7 @@ namespace Opc.Ua.Cloud.Library
                 : _dbContext.NodeSetsWithUnapproved;
         }
 
-        private IQueryable<T> GetNodeModels<T>(Expression<Func<NodeSetModel, IEnumerable<T>>> selector, string userId, string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<T> GetNodeModels<T>(Expression<Func<NodeSetModel, IEnumerable<T>>> selector, string userId, string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
             where T : NodeModel
         {
             if (nodeId != null && modelUri == null)

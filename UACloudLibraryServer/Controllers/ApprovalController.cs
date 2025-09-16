@@ -54,7 +54,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
         [HttpPut]
         [Route("/approval/{identifier}")]
-        [Authorize(Policy = "ApprovalPolicy")]
+        [Authorize(Policy = "AdministrationPolicy")]
         [SwaggerResponse(statusCode: 200, type: typeof(string), description: "A status message indicating the successful approval.")]
         [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The provided nodeset was not found.")]
         [SwaggerResponse(statusCode: 500, type: typeof(string), description: "The provided information model could not be stored or updated.")]
