@@ -29,13 +29,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Opc.Ua;
 using Opc.Ua.Cloud.Library;
-using Opc.Ua.Export;
 
 namespace AdminShell
 {
@@ -55,7 +52,9 @@ namespace AdminShell
             List<AssetAdministrationShellDescriptor> output = new();
 
             // Query database for all Asset Administration Shells
-            List<ObjectModel> aasList = _dataProvider.GetNodeModels(nsm => nsm.Objects, userId).Where(nsm => nsm.DisplayName[0].Text == "Asset Admin Shells").ToList();
+            List<ObjectModel> aasList = _dataProvider.GetNodeModels(nsm => nsm.Objects, userId)
+                .Where(nsm => (nsm.DisplayName != null) && (nsm.DisplayName.Count > 0) && (nsm.DisplayName[0].Text == "Asset Admin Shells"))
+                .ToList();
             if (aasList != null)
             {
                 // Loop through all the Asset Administration Shells we found above.
@@ -124,7 +123,9 @@ namespace AdminShell
 
         public AssetAdministrationShellDescriptor GetAssetAdministrationShellDescriptorById(string userId, string idShort)
         {
-            ObjectModel aas = _dataProvider.GetNodeSets(userId, idShort).FirstOrDefault()?.Objects.FirstOrDefault(o => o.DisplayName[0].Text == "Asset Admin Shells");
+            ObjectModel aas = _dataProvider.GetNodeSets(userId, idShort)
+                .FirstOrDefault()?.Objects
+                .FirstOrDefault(o => (o.DisplayName != null) && (o.DisplayName.Count > 0) && (o.DisplayName[0].Text == "Asset Admin Shells"));
             if (aas != null)
             {
                 List<Endpoint> aasEndpoints = new() {
@@ -192,7 +193,9 @@ namespace AdminShell
             List<SubmodelDescriptor> output = new();
 
             // Query database for all Submodels
-            List<ObjectModel> submodelList = _dataProvider.GetNodeModels(nsm => nsm.Objects, userId).Where(nsm => nsm.DisplayName[0].Text == "Submodels").ToList();
+            List<ObjectModel> submodelList = _dataProvider.GetNodeModels(nsm => nsm.Objects, userId)
+                .Where(nsm => (nsm.DisplayName != null) && (nsm.DisplayName.Count > 0) && (nsm.DisplayName[0].Text == "Submodels"))
+                .ToList();
             if (submodelList != null)
             {
                 // Loop through all the submodels we found above.
@@ -227,7 +230,9 @@ namespace AdminShell
 
         public SubmodelDescriptor GetSubmodelDescriptorById(string userId, string idShort)
         {
-            ObjectModel submodel = _dataProvider.GetNodeSets(userId, idShort).FirstOrDefault()?.Objects.FirstOrDefault(o => o.DisplayName[0].Text == "Submodels");
+            ObjectModel submodel = _dataProvider.GetNodeSets(userId, idShort)
+                .FirstOrDefault()?.Objects
+                .FirstOrDefault(o => (o.DisplayName != null) && (o.DisplayName.Count > 0) && (o.DisplayName[0].Text == "Submodels"));
             if (submodel != null)
             {
                 List<Endpoint> submodelEndpoints = new() {

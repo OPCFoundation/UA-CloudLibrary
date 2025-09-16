@@ -71,7 +71,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public async Task<IActionResult> GetSubmodel(string submodelIdentifier, [FromQuery]string level, [FromQuery]string extent)
+        public async Task<IActionResult> GetSubmodel([FromRoute][Required] string submodelIdentifier, [FromQuery] string level, [FromQuery] string extent)
         {
             string decodedSubmodelIdentifier = string.Empty;
             try
@@ -108,7 +108,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 403, type: typeof(Result), description: "Forbidden")]
         [SwaggerResponse(statusCode: 500, type: typeof(Result), description: "Internal Server Error")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public async Task<IActionResult> GetSubmodelValueOnly(string submodelIdentifier, [FromQuery]string level, [FromQuery]string extent)
+        public async Task<IActionResult> GetSubmodelValueOnly([FromRoute][Required] string submodelIdentifier, [FromQuery] string level, [FromQuery] string extent)
         {
             string decodedSubmodelIdentifier = string.Empty;
             try
