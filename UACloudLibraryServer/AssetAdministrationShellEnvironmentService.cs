@@ -29,6 +29,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
@@ -41,60 +42,12 @@ namespace AdminShell
     public class AssetAdministrationShellEnvironmentService
     {
         private readonly UAClient _client;
-        private readonly CloudLibDataProvider _cldata;
+        private readonly CloudLibDataProvider _dataProvider;
 
-        public AssetAdministrationShellEnvironmentService(UAClient client, CloudLibDataProvider cldata)
+        public AssetAdministrationShellEnvironmentService(UAClient client, CloudLibDataProvider dataProvider)
         {
             _client = client;
-            _cldata = cldata;
-        }
-
-        public List<NodesetViewerNode> GetNodesetsbyName(string userId, string name)
-        {
-            List<NodesetViewerNode> result = new();
-
-            List<ObjectModel> nodesetObjects = _cldata.GetNodeModels(nsm => nsm.Objects, userId).Where(nsm => nsm.DisplayName[0].Text == name).ToList();
-            foreach (ObjectModel nodesetObject in nodesetObjects)
-            {
-                NodesetViewerNode nsvNode = new() {
-                    Id = nodesetObject.NodeSet.Identifier,
-                    Value = nodesetObject.NodeId,
-                    Text = nodesetObject.Namespace,
-                    DisplayName = nodesetObject.DisplayName?.FirstOrDefault()?.Text ?? string.Empty,
-                    Description = nodesetObject.Description?.FirstOrDefault()?.Text ?? string.Empty
-                };
-
-                result.Add(nsvNode);
-            }
-
-            return result;
-        }
-
-
-        public NodesetViewerNode GetNodesetByNameAndId(string userId, string name, string idShort)
-        {
-            // Database functions expect 'null' when value not provided.
-            idShort = string.IsNullOrEmpty(idShort) ? null : idShort;
-
-            NodeSetModel nodeset = _cldata.GetNodeSets(userId, idShort).FirstOrDefault();
-            if (nodeset != null)
-            {
-                foreach (var nodesetObject in nodeset.Objects)
-                {
-                    if (nodesetObject.DisplayName[0].Text == name)
-                    {
-                        return new NodesetViewerNode() {
-                            Id = nodeset.Identifier,
-                            Value = nodesetObject.NodeId,
-                            Text = nodesetObject.Namespace,
-                            DisplayName = nodesetObject.DisplayName?.FirstOrDefault()?.Text ?? string.Empty,
-                            Description = nodesetObject.Description?.FirstOrDefault()?.Text ?? string.Empty
-                        };
-                    }
-                }
-            }
-
-            return null;
+            _dataProvider = dataProvider;
         }
 
         public List<AssetAdministrationShellDescriptor> GetAllAssetAdministrationShellDescriptors(string userId)
@@ -102,16 +55,16 @@ namespace AdminShell
             List<AssetAdministrationShellDescriptor> output = new();
 
             // Query database for all Asset Administration Shells
-            List<NodesetViewerNode> aasList = GetNodesetsbyName(userId, "Asset Admin Shells");
+            List<ObjectModel> aasList = _dataProvider.GetNodeModels(nsm => nsm.Objects, userId).Where(nsm => nsm.DisplayName[0].Text == "Asset Admin Shells").ToList();
             if (aasList != null)
             {
                 // Loop through all the Asset Administration Shells we found above.
-                foreach (NodesetViewerNode aas in aasList)
+                foreach (ObjectModel aas in aasList)
                 {
                     List<Endpoint> aasEndpoints = new() {
                         new Endpoint() {
                             Interface = "AAS-1.0",
-                            ProtocolInformation = new ProtocolInformation() { Href = $"http://example.com/idta/shells/{aas.Id}" },
+                            ProtocolInformation = new ProtocolInformation() { Href = $"http://example.com/idta/shells/{aas.NodeSet.Identifier}" },
                         }
                     };
 
@@ -119,30 +72,45 @@ namespace AdminShell
                         AssetKind = AssetKind.Instance,
                         AssetType = "Not Applicable",
                         Endpoints = aasEndpoints,
-                        GlobalAssetId = $"http://example.com/idta/ids/{aas.Id}",
-                        IdShort = aas.Id,
-                        Id = aas.Text + ";" + aas.Value
+                        GlobalAssetId = $"http://example.com/idta/ids/{aas.NodeSet.Identifier}",
+                        IdShort = aas.NodeSet.Identifier,
+                        Id = aas.NodeId
                     };
 
                     aasDescriptor.SubmodelDescriptors = new List<SubmodelDescriptor>();
-                    NodesetViewerNode submodel = GetNodesetByNameAndId(userId, "Submodels", aas.Id); // TODO: Read the correct Submodel IdShort from the references
-                    if (submodel != null)
+
+                    if (aas.AllReferencedNodes != null)
                     {
-                        List<Endpoint> submodelEndpoints = new() {
-                            new Endpoint() {
-                                Interface = "SUBMODEL-1.0",
-                                ProtocolInformation = new ProtocolInformation() { Href = $"http://example.com/idta/shells/{submodel.Id}" }
+                        foreach (var reference in aas.AllReferencedNodes)
+                        {
+                            ObjectModel submodel = _dataProvider.GetNodeSets(userId, aas.NodeSet.Identifier)
+                                .FirstOrDefault()?.Objects
+                                .FirstOrDefault(o => (o.Namespace == reference.Node.Namespace) && (o.NodeId == reference.Node.NodeId));
+                            if (submodel != null)
+                            {
+                                List<Endpoint> submodelEndpoints = new() {
+                                    new Endpoint() {
+                                        Interface = "SUBMODEL-1.0",
+                                        ProtocolInformation = new ProtocolInformation() {
+                                            Href = $"http://example.com/idta/shells/{submodel.NodeSet.Identifier}"
+                                        }
+                                    }
+                                };
+
+                                SubmodelDescriptor submodelDescriptor = new() {
+                                    Endpoints = submodelEndpoints,
+                                    IdShort = submodel.NodeSet.Identifier,
+                                    Id = $"http://example.com/idta/ids/{submodel.NodeSet.Identifier}",
+                                    SemanticId = new Reference {
+                                        Keys = new List<Key> {
+                                        new Key("GlobalReference", $"http://example.com/idta/submodels/{submodel.NodeSet.Identifier}")
+                                    }
+                                    }
+                                };
+
+                                aasDescriptor.SubmodelDescriptors.Add(submodelDescriptor);
                             }
-                        };
-
-                        SubmodelDescriptor submodelDescriptor = new() {
-                            Endpoints = submodelEndpoints,
-                            IdShort = submodel.Id,
-                            Id = $"http://example.com/idta/ids/{submodel.Id}",
-                            SemanticId = new Reference { Keys = new List<Key> { new Key("GlobalReference", $"http://example.com/idta/submodels/{submodel.Id}") } }
-                        };
-
-                        aasDescriptor.SubmodelDescriptors.Add(submodelDescriptor);
+                        }
                     }
 
                     output.Add(aasDescriptor);
@@ -156,43 +124,60 @@ namespace AdminShell
         {
             AssetAdministrationShellDescriptor aasDescriptor = null;
 
-            NodesetViewerNode aas = GetNodesetByNameAndId(userId, "Asset Admin Shells", idShort);
+            ObjectModel aas = _dataProvider.GetNodeSets(userId, idShort).FirstOrDefault()?.Objects.FirstOrDefault(o => o.DisplayName[0].Text == "Asset Admin Shells");
             if (aas != null)
             {
                 List<Endpoint> aasEndpoints = new();
                 Endpoint aasEndpoint = new Endpoint() {
                     Interface = "AAS-1.0",
-                    ProtocolInformation = new ProtocolInformation() { Href = $"http://example.com/idta/shells/{aas.Id}" },
-
+                    ProtocolInformation = new ProtocolInformation() {
+                        Href = $"http://example.com/idta/shells/{aas.NodeSet.Identifier}"
+                    }
                 };
+
                 aasEndpoints.Add(aasEndpoint);
 
                 aasDescriptor.AssetKind = AssetKind.Instance;
                 aasDescriptor.AssetType = "Not Applicable";
                 aasDescriptor.Endpoints = aasEndpoints;
-                aasDescriptor.GlobalAssetId = $"http://example.com/idta/ids/{aas.Id}";
-                aasDescriptor.IdShort = aas.Id;
-                aasDescriptor.Id = aas.Text + ";" + aas.Value;
+                aasDescriptor.GlobalAssetId = $"http://example.com/idta/ids/{aas.NodeSet.Identifier}";
+                aasDescriptor.IdShort = aas.NodeSet.Identifier;
+                aasDescriptor.Id = aas.NodeId;
 
                 aasDescriptor.SubmodelDescriptors = new List<SubmodelDescriptor>();
-                NodesetViewerNode submodel = GetNodesetByNameAndId(userId, "Submodels", aas.Id); // TODO: Read the correct Submodel IdShort from the references
-                if (submodel != null)
+
+                if (aas.AllReferencedNodes != null)
                 {
-                    List<Endpoint> submodelEndpoints = new() {
-                        new Endpoint() {
-                            Interface = "SUBMODEL-1.0",
-                            ProtocolInformation = new ProtocolInformation() { Href = $"http://example.com/idta/submodels/{submodel.Id}" }
+                    foreach (var reference in aas.AllReferencedNodes)
+                    {
+                        ObjectModel submodel = _dataProvider.GetNodeSets(userId, aas.NodeSet.Identifier)
+                            .FirstOrDefault()?.Objects
+                            .FirstOrDefault(o => (o.Namespace == reference.Node.Namespace) && (o.NodeId == reference.Node.NodeId));
+                        if (submodel != null)
+                        {
+                            List<Endpoint> submodelEndpoints = new() {
+                                new Endpoint() {
+                                    Interface = "SUBMODEL-1.0",
+                                    ProtocolInformation = new ProtocolInformation() {
+                                        Href = $"http://example.com/idta/shells/{submodel.NodeSet.Identifier}"
+                                    }
+                                }
+                            };
+
+                            SubmodelDescriptor submodelDescriptor = new() {
+                                Endpoints = submodelEndpoints,
+                                IdShort = submodel.NodeSet.Identifier,
+                                Id = $"http://example.com/idta/ids/{submodel.NodeSet.Identifier}",
+                                SemanticId = new Reference {
+                                    Keys = new List<Key> {
+                                    new Key("GlobalReference", $"http://example.com/idta/submodels/{submodel.NodeSet.Identifier}")
+                                }
+                                }
+                            };
+
+                            aasDescriptor.SubmodelDescriptors.Add(submodelDescriptor);
                         }
-                    };
-
-                    SubmodelDescriptor submodelDescriptor = new() {
-                        Endpoints = submodelEndpoints,
-                        IdShort = submodel.Id,
-                        Id = $"http://example.com/idta/ids/{submodel.Id}",
-                        SemanticId = new Reference { Keys = new List<Key> { new Key("GlobalReference", $"http://example.com/idta/submodels/{submodel.Id}") } }
-                    };
-
-                    aasDescriptor.SubmodelDescriptors.Add(submodelDescriptor);
+                    }
                 }
 
                 return aasDescriptor;
@@ -206,24 +191,30 @@ namespace AdminShell
             List<SubmodelDescriptor> output = new();
 
             // Query database for all Submodels
-            List<NodesetViewerNode> submodelList = GetNodesetsbyName(userId, "Submodels");
+            List<ObjectModel> submodelList = _dataProvider.GetNodeModels(nsm => nsm.Objects, userId).Where(nsm => nsm.DisplayName[0].Text == "Submodels").ToList();
             if (submodelList != null)
             {
                 // Loop through all the submodels we found above.
-                foreach (NodesetViewerNode submodel in submodelList)
+                foreach (ObjectModel submodel in submodelList)
                 {
                     List<Endpoint> submodelEndpoints = new() {
                         new Endpoint() {
                             Interface = "SUBMODEL-1.0",
-                            ProtocolInformation = new ProtocolInformation() { Href = $"http://example.com/idta/submodels/{submodel.Id}" }
+                            ProtocolInformation = new ProtocolInformation() {
+                                Href = $"http://example.com/idta/submodels/{submodel.NodeSet.Identifier}"
+                            }
                         }
                     };
 
                     SubmodelDescriptor submodelDescriptor = new() {
                         Endpoints = submodelEndpoints,
-                        IdShort = submodel.Id,
-                        Id = $"http://example.com/idta/ids/{submodel.Id}",
-                        SemanticId = new Reference { Keys = new List<Key> { new Key("GlobalReference", $"http://example.com/idta/submodels/{submodel.Id}") } }
+                        IdShort = submodel.NodeSet.Identifier,
+                        Id = $"http://example.com/idta/ids/{submodel.NodeSet.Identifier}",
+                        SemanticId = new Reference {
+                            Keys = new List<Key> {
+                                new Key("GlobalReference", $"http://example.com/idta/submodels/{submodel.NodeSet.Identifier}")
+                            }
+                        }
                     };
 
                     output.Add(submodelDescriptor);
@@ -235,21 +226,27 @@ namespace AdminShell
 
         public SubmodelDescriptor GetSubmodelDescriptorById(string userId, string idShort)
         {
-            NodesetViewerNode submodel = GetNodesetByNameAndId(userId, "Submodels", idShort);
+            ObjectModel submodel = _dataProvider.GetNodeSets(userId, idShort).FirstOrDefault()?.Objects.FirstOrDefault(o => o.DisplayName[0].Text == "Submodels");
             if (submodel != null)
             {
                 List<Endpoint> submodelEndpoints = new() {
                     new Endpoint() {
                         Interface = "SUBMODEL-1.0",
-                        ProtocolInformation = new ProtocolInformation() { Href = $"http://example.com/idta/submodels/{submodel.Id}" }
+                        ProtocolInformation = new ProtocolInformation() {
+                            Href = $"http://example.com/idta/submodels/{submodel.NodeSet.Identifier}"
+                        }
                     }
                 };
 
                 SubmodelDescriptor submodelDescriptor = new() {
                     Endpoints = submodelEndpoints,
-                    IdShort = submodel.Id,
-                    Id = $"http://example.com/idta/ids/{submodel.Id}",
-                    SemanticId = new Reference { Keys = new List<Key> { new Key("GlobalReference", $"http://example.com/idta/submodels/{submodel.Id}") } }
+                    IdShort = submodel.NodeSet.Identifier,
+                    Id = $"http://example.com/idta/ids/{submodel.NodeSet.Identifier}",
+                    SemanticId = new Reference {
+                        Keys = new List<Key> {
+                            new Key("GlobalReference", $"http://example.com/idta/submodels/{submodel.NodeSet.Identifier}")
+                        }
+                    }
                 };
 
                 return submodelDescriptor;
