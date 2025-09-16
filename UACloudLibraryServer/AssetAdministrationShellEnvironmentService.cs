@@ -64,7 +64,9 @@ namespace AdminShell
                     List<Endpoint> aasEndpoints = new() {
                         new Endpoint() {
                             Interface = "AAS-1.0",
-                            ProtocolInformation = new ProtocolInformation() { Href = $"http://example.com/idta/shells/{aas.NodeSet.Identifier}" },
+                            ProtocolInformation = new ProtocolInformation() {
+                                Href = $"http://example.com/idta/shells/{aas.NodeSet.Identifier}"
+                            }
                         }
                     };
 
@@ -74,10 +76,10 @@ namespace AdminShell
                         Endpoints = aasEndpoints,
                         GlobalAssetId = $"http://example.com/idta/ids/{aas.NodeSet.Identifier}",
                         IdShort = aas.NodeSet.Identifier,
-                        Id = aas.NodeId
+                        Id = aas.NodeId,
+                        SpecificAssetIds = new List<SpecificAssetId>(), // TODO: fill this from database
+                        SubmodelDescriptors = new List<SubmodelDescriptor>()
                     };
-
-                    aasDescriptor.SubmodelDescriptors = new List<SubmodelDescriptor>();
 
                     if (aas.AllReferencedNodes != null)
                     {
@@ -122,29 +124,28 @@ namespace AdminShell
 
         public AssetAdministrationShellDescriptor GetAssetAdministrationShellDescriptorById(string userId, string idShort)
         {
-            AssetAdministrationShellDescriptor aasDescriptor = null;
-
             ObjectModel aas = _dataProvider.GetNodeSets(userId, idShort).FirstOrDefault()?.Objects.FirstOrDefault(o => o.DisplayName[0].Text == "Asset Admin Shells");
             if (aas != null)
             {
-                List<Endpoint> aasEndpoints = new();
-                Endpoint aasEndpoint = new Endpoint() {
-                    Interface = "AAS-1.0",
-                    ProtocolInformation = new ProtocolInformation() {
-                        Href = $"http://example.com/idta/shells/{aas.NodeSet.Identifier}"
+                List<Endpoint> aasEndpoints = new() {
+                    new Endpoint() {
+                        Interface = "AAS-1.0",
+                        ProtocolInformation = new ProtocolInformation() {
+                            Href = $"http://example.com/idta/shells/{aas.NodeSet.Identifier}"
+                        }
                     }
                 };
 
-                aasEndpoints.Add(aasEndpoint);
-
-                aasDescriptor.AssetKind = AssetKind.Instance;
-                aasDescriptor.AssetType = "Not Applicable";
-                aasDescriptor.Endpoints = aasEndpoints;
-                aasDescriptor.GlobalAssetId = $"http://example.com/idta/ids/{aas.NodeSet.Identifier}";
-                aasDescriptor.IdShort = aas.NodeSet.Identifier;
-                aasDescriptor.Id = aas.NodeId;
-
-                aasDescriptor.SubmodelDescriptors = new List<SubmodelDescriptor>();
+                AssetAdministrationShellDescriptor aasDescriptor = new() {
+                    AssetKind = AssetKind.Instance,
+                    AssetType = "Not Applicable",
+                    Endpoints = aasEndpoints,
+                    GlobalAssetId = $"http://example.com/idta/ids/{aas.NodeSet.Identifier}",
+                    IdShort = aas.NodeSet.Identifier,
+                    Id = aas.NodeId,
+                    SpecificAssetIds = new List<SpecificAssetId>(), // TODO: fill this from database
+                    SubmodelDescriptors = new List<SubmodelDescriptor>()
+                };
 
                 if (aas.AllReferencedNodes != null)
                 {

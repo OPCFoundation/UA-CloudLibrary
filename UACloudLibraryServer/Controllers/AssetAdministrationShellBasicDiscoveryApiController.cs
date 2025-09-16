@@ -28,8 +28,10 @@
  * ======================================================================*/
 
 using System;
+using System.Buffers.Text;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
@@ -63,11 +65,30 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public IActionResult GetAllAssetAdministrationShellIdsByAssetLink([FromQuery]List<SpecificAssetId> assetIds, [FromQuery]int? limit, [FromQuery]string cursor)
         {
-            string exampleJson = null;
-            var example = exampleJson != null
-            ? JsonConvert.DeserializeObject<List<string>>(exampleJson)
-            : default(List<string>);            //TODO: Implement
-            return new ObjectResult(example);
+            List<string> result = new();
+
+            List<AssetAdministrationShellDescriptor> shellDescriptors = _aasEnvService.GetAllAssetAdministrationShellDescriptors(User.Identity.Name);
+            foreach (AssetAdministrationShellDescriptor shellDescriptor in shellDescriptors)
+            {
+                if (shellDescriptor.SpecificAssetIds == null)
+                {
+                    continue;
+                }
+
+                foreach (SpecificAssetId specificAssetId in shellDescriptor.SpecificAssetIds)
+                {
+                    foreach (SpecificAssetId assetId in assetIds)
+                    {
+                        if ((assetId.Name == specificAssetId.Name) && (assetId.Value == specificAssetId.Value))
+                        {
+                            result.Add(shellDescriptor.GlobalAssetId);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            return new ObjectResult(result);
         }
 
         /// <summary>
@@ -85,11 +106,25 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public IActionResult GetAllAssetLinksById([FromRoute][Required]string aasIdentifier)
         {
-            string exampleJson = null;
-            var example = exampleJson != null
-            ? JsonConvert.DeserializeObject<List<SpecificAssetId>>(exampleJson)
-            : default(List<SpecificAssetId>);            //TODO: Implement
-            return new ObjectResult(example);
+            List<string> result = new();
+
+            string decodedAasIdentifier = null;
+            try
+            {
+                decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            }
+            catch (Exception)
+            {
+                decodedAasIdentifier = Uri.UnescapeDataString(aasIdentifier);
+            }
+
+            AssetAdministrationShellDescriptor shellDescriptor = _aasEnvService.GetAssetAdministrationShellDescriptorById(User.Identity.Name, decodedAasIdentifier);
+            if (shellDescriptor != null)
+            {
+                return new ObjectResult(shellDescriptor.SpecificAssetIds);
+            }
+
+            return new ObjectResult(result);
         }
 
         /// <summary>
@@ -112,11 +147,35 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public IActionResult PostAllAssetLinksById([FromBody]List<SpecificAssetId> body, [FromRoute][Required]string aasIdentifier)
         {
-            string exampleJson = null;
-            var example = exampleJson != null
-            ? JsonConvert.DeserializeObject<List<SpecificAssetId>>(exampleJson)
-            : default(List<SpecificAssetId>);            //TODO: Implement
-            return new ObjectResult(example);
+            List <SpecificAssetId> result = new();
+
+            string decodedAasIdentifier = null;
+            try
+            {
+                decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            }
+            catch (Exception)
+            {
+                decodedAasIdentifier = Uri.UnescapeDataString(aasIdentifier);
+            }
+
+            AssetAdministrationShellDescriptor shellDescriptor = _aasEnvService.GetAssetAdministrationShellDescriptorById(User.Identity.Name, decodedAasIdentifier);
+            if (shellDescriptor != null)
+            {
+                if (shellDescriptor.SpecificAssetIds == null)
+                {
+                    shellDescriptor.SpecificAssetIds = new List<SpecificAssetId>();
+                }
+
+                // add new entries
+                shellDescriptor.SpecificAssetIds.AddRange(body);
+
+                // TODO: persist the aasIdentifier and SpecificAssetIds as key-value pairs in a database table
+
+                return new ObjectResult(shellDescriptor.SpecificAssetIds);
+            }
+
+            return new ObjectResult(result);
         }
     }
 }
