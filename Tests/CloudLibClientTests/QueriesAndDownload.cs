@@ -118,7 +118,6 @@ namespace CloudLibClient.Tests
                             NamespaceUri = rm.ModelUri,
                             PublicationDate = rm.PublicationDate,
                             Version = rm.Version,
-                            // TODO verify AvailableModel
                         }).ToList();
 
             Assert.Equal(expectedModels?.OrderBy(m => m.NamespaceUri), requiredModels?.OrderBy(m => m.NamespaceUri), new RequiredModelInfoComparer());
