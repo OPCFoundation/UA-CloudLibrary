@@ -63,7 +63,7 @@ namespace AdminShell
         [SwaggerOperation("GetAllAssetAdministrationShellIdsByAssetLink")]
         [SwaggerResponse(statusCode: 200, type: typeof(List<string>), description: "Requested Asset Administration Shell ids")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public IActionResult GetAllAssetAdministrationShellIdsByAssetLink([FromQuery]List<SpecificAssetId> assetIds, [FromQuery]int? limit, [FromQuery]string cursor)
+        public IActionResult GetAllAssetAdministrationShellIdsByAssetLink([FromQuery] List<SpecificAssetId> assetIds, [FromQuery] int? limit, [FromQuery] string cursor)
         {
             List<string> result = new();
 
@@ -104,7 +104,7 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 200, type: typeof(List<SpecificAssetId>), description: "Requested specific Asset identifiers")]
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public IActionResult GetAllAssetLinksById([FromRoute][Required]string aasIdentifier)
+        public IActionResult GetAllAssetLinksById([FromRoute][Required] string aasIdentifier)
         {
             List<string> result = new();
 
@@ -145,9 +145,9 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 404, type: typeof(Result), description: "Not Found")]
         [SwaggerResponse(statusCode: 409, type: typeof(Result), description: "Conflict, a resource which shall be created exists already. Might be thrown if a Submodel or SubmodelElement with the same ShortId is contained in a POST request.")]
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
-        public IActionResult PostAllAssetLinksById([FromBody]List<SpecificAssetId> body, [FromRoute][Required]string aasIdentifier)
+        public IActionResult PostAllAssetLinksById([FromBody] List<SpecificAssetId> body, [FromRoute][Required] string aasIdentifier)
         {
-            List <SpecificAssetId> result = new();
+            List<SpecificAssetId> result = new();
 
             string decodedAasIdentifier = null;
             try
