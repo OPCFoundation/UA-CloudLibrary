@@ -350,7 +350,7 @@ public abstract class DataPlaneSignalingApiControllerTest(DataFlowContext dataFl
     }
 
     [Fact]
-    public async Task? StartSdkValidationFailsExpect400()
+    public async Task StartSdkValidationFailsExpect400()
     {
         Sdk.OnStart = null;
         Sdk.OnValidateStartMessage = _ => StatusResult.FromCode(400, "Invalid message");
