@@ -64,7 +64,7 @@ namespace AdminShell
         private static uint _port = 5000;
         private static ConcurrentDictionary<string, Opc.Ua.Client.Session> _sessions = new();
 
-        private readonly SemaphoreSlim SessionSemaphoreSlim = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
 
         public UAClient(ApplicationInstance app, DbFileStorage storage, CloudLibDataProvider database)
         {
@@ -99,7 +99,7 @@ namespace AdminShell
             catch (Exception ex)
             {
                 Console.WriteLine("GetChildren: " + ex.Message);
-                DisposeSession(); //CM: Must go through dispose to remove session from _session table.
+                DisposeSession();
             }
 
             if ((references != null) && (references.Count > 0))
@@ -200,101 +200,6 @@ namespace AdminShell
             return results;
         }
 
-        private async Task<Opc.Ua.Client.Session> CreateSessionAsync(string userId, string nodesetIdentifier)
-        {
-            EndpointDescription selectedEndpoint = null;
-
-            if (!String.IsNullOrEmpty(nodesetIdentifier))
-            {
-                if (_sessions.TryGetValue(nodesetIdentifier, out Opc.Ua.Client.Session value) && (value != null) && value.Connected)
-                {
-                    return value;
-                }
-
-                int cMaxRetry = 5000;
-                while (selectedEndpoint == null)
-                {
-                    try
-                    {
-                        _server = new SimpleServer(_app, _port);
-
-                        await _server.StartServerAsync().ConfigureAwait(false);
-
-                        selectedEndpoint = CoreClientUtils.SelectEndpoint(_app.ApplicationConfiguration, "opc.tcp://localhost:" + _port, true);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine("Failed to establish an OPC UA server connection on port " + _port + ": " + ex.Message);
-                    }
-
-                    lock (_app)
-                    {
-                        _port++;
-
-                        if (_port > 10000)
-                        {
-                            _port = 5000;
-                        }
-                    }
-
-                    cMaxRetry--;
-                    if (cMaxRetry < 1)
-                        break;
-                }
-
-
-                NodesetFileNodeManager nodeManager = (NodesetFileNodeManager)_server.CurrentInstance.NodeManager.NodeManagers[2];
-
-                // first load dependencies
-                await LoadDependentNodesetsRecursiveAsync(userId, nodesetIdentifier, nodeManager).ConfigureAwait(false);
-
-                // now load the nodeset itself
-                DbFiles nodesetXml = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
-                if (nodesetXml != null)
-                {
-
-                    nodeManager.AddNamespace(nodesetXml.Blob);
-                    nodeManager.AddNodesAndValues(nodesetXml.Blob, nodesetXml.Values);
-                }
-                else
-                {
-                    Console.WriteLine($"Required model for {nodesetIdentifier} not found in database.");
-                }
-            }
-
-            await SessionSemaphoreSlim.WaitAsync().ConfigureAwait(false);
-            Opc.Ua.Client.Session newSession = null;
-            try
-            {
-                // Even if we cannot load the nodeset, attempt to create a session as the user requests.
-                ConfiguredEndpoint configuredEndpoint = new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(_app.ApplicationConfiguration));
-                newSession = await Opc.Ua.Client.Session.Create(
-                    _app.ApplicationConfiguration,
-                    configuredEndpoint,
-                    true,
-                    false,
-                    string.Empty,
-                    30000,
-                    new UserIdentity(new AnonymousIdentityToken()),
-                    null).ConfigureAwait(false);
-
-                newSession.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
-
-                newSession.FetchNamespaceTables();
-            }
-            finally
-            {
-                SessionSemaphoreSlim.Release();
-            }
-
-            if (!String.IsNullOrEmpty(nodesetIdentifier))
-            {
-                _sessions[nodesetIdentifier] = newSession;
-            }
-
-            return newSession;
-        }
-
         private async Task LoadDependentNodesetsRecursiveAsync(string userId, string nodesetIdentifier, NodesetFileNodeManager nodeManager)
         {
             NodeSetModel nodeSetMeta = await _database.GetNodeSets(userId, nodesetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false);
@@ -316,7 +221,7 @@ namespace AdminShell
 
                     // check if we have the required model in the database
                     List<NodeSetModel> matchingNodeSets = await _database.NodeSets
-                        .Where(nsm => nsm.ModelUri == requiredModel.ModelUri && ((userId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId)))
+                        .Where(nsm => nsm.ModelUri == requiredModel.ModelUri && ((userId == "admin") || (nsm.Metadata.UserId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId)))
                         .ToListAsync()
                         .ConfigureAwait(false);
 
@@ -532,13 +437,112 @@ namespace AdminShell
 
         private async Task<bool> ValidateSession(string userId, string nodesetIdentifier)
         {
+            if (string.IsNullOrEmpty(nodesetIdentifier))
+            {
+                Console.WriteLine("Failed to validate session: No nodeset identifier specified.");
+                return false;
+            }
+
+            // check if we have an existing session for this nodeset
             if (_session == null || !_session.Connected)
             {
-                _session = await CreateSessionAsync(userId, nodesetIdentifier).ConfigureAwait(false);
-                if (_session == null || !_session.Connected)
+                EndpointDescription selectedEndpoint = null;
+
+                if (_sessions.TryGetValue(nodesetIdentifier, out Opc.Ua.Client.Session value) && (value != null) && value.Connected)
                 {
-                    Console.WriteLine("Failed to create OPC UA session.");
-                    return false;
+                    Console.WriteLine("Re-using existing OPC UA server and session for nodeset " + nodesetIdentifier);
+                    _session = value;
+                }
+                else
+                {
+                    Console.WriteLine("Starting new OPC UA server and session for nodeset " + nodesetIdentifier);
+
+                    await _lock.WaitAsync().ConfigureAwait(false);
+
+                    try
+                    {
+                        int maxRetry = 5000;
+                        while (selectedEndpoint == null)
+                        {
+                            if (maxRetry < 1)
+                            {
+                                Console.WriteLine("Failed to start OPC UA server: Max retries reached!");
+                                return false;
+                            }
+
+                            try
+                            {
+                                Console.WriteLine("Starting OPC UA server on port " + _port);
+
+                                _server = new SimpleServer(_app, _port);
+
+                                await _app.Start(_server).ConfigureAwait(false);
+
+                                selectedEndpoint = CoreClientUtils.SelectEndpoint(_app.ApplicationConfiguration, "opc.tcp://localhost:" + _port, true);
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine("Failed to establish an OPC UA server connection on port " + _port + ": " + ex.Message);
+                            }
+
+                            _port++;
+
+                            if (_port > 10000)
+                            {
+                                _port = 5000;
+                            }
+
+                            maxRetry--;
+                        }
+
+                        NodesetFileNodeManager nodeManager = (NodesetFileNodeManager)_server.CurrentInstance.NodeManager.NodeManagers[2];
+
+                        // first load dependencies
+                        await LoadDependentNodesetsRecursiveAsync(userId, nodesetIdentifier, nodeManager).ConfigureAwait(false);
+
+                        // now load the nodeset itself
+                        DbFiles nodesetXml = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
+                        if (nodesetXml != null)
+                        {
+
+                            nodeManager.AddNamespace(nodesetXml.Blob);
+                            nodeManager.AddNodesAndValues(nodesetXml.Blob, nodesetXml.Values);
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Nodeset {nodesetIdentifier} not found in database.");
+                            return false;
+                        }
+
+                        ConfiguredEndpoint configuredEndpoint = new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(_app.ApplicationConfiguration));
+                        Opc.Ua.Client.Session newSession = await Opc.Ua.Client.Session.Create(
+                            _app.ApplicationConfiguration,
+                            configuredEndpoint,
+                            true,
+                            false,
+                            string.Empty,
+                            30000,
+                            new UserIdentity(new AnonymousIdentityToken()),
+                            null).ConfigureAwait(false);
+
+                        if (newSession == null || !newSession.Connected)
+                        {
+                            Console.WriteLine("Failed to create new OPC UA session.");
+                            return false;
+                        }
+
+                        newSession.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
+                        newSession.FetchNamespaceTables();
+
+                        _sessions[nodesetIdentifier] = newSession;
+                        _session = newSession;
+
+                        Console.WriteLine("OPC UA server started and session created for nodeset " + nodesetIdentifier);
+                    }
+                    finally
+                    {
+                        _lock.Release();
+                    }
                 }
             }
 
@@ -586,12 +590,14 @@ namespace AdminShell
                     _sessions.TryRemove(key, out _);
                 }
             }
+
             if (_session != null)
             {
                 if (_session.Connected)
                 {
                     _session.Close();
                 }
+
                 _session.Dispose();
                 _session = null;
             }
@@ -610,7 +616,7 @@ namespace AdminShell
 
             if (_server != null)
             {
-                _app.Stop();
+                _server.Stop();
                 _server = null;
             }
         }

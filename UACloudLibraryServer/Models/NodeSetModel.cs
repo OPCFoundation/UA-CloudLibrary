@@ -155,7 +155,7 @@ namespace Opc.Ua.Cloud.Library
             }
 
 #nullable enable
-            public string Text { get => _text; set => _text = value ?? ""; }
+            public string Text { get => _text; set => _text = value ?? string.Empty; }
 
             private string _text;
 #nullable restore

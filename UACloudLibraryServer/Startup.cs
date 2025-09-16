@@ -385,7 +385,7 @@ namespace Opc.Ua.Cloud.Library
 
                     Utils.Tracing.TraceEventHandler += new EventHandler<TraceEventArgs>(OpcStackLoggingHandler);
 
-                    Console.WriteLine("OPC UA client/server started.");
+                    Console.WriteLine("OPC UA client/server app started.");
                 }
                 catch (Exception ex)
                 {
