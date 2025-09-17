@@ -113,31 +113,32 @@ namespace Opc.Ua.Cloud.Library
             services.AddScoped<CaptchaValidation>();
 
             // initialize and configure the DataPlaneSdk
-            var dataplaneConfig = Configuration.GetSection("DataPlaneSdk");
-            var config = dataplaneConfig.Get<DataPlaneSdkOptions>() ?? throw new ArgumentException("Configuration invalid!");
-            var dataFlowContext = () => CreatePostgres(Configuration, config.RuntimeId);
-            var permissionService = new DataFlowService(dataFlowContext.Invoke());
-            var sdk = new DataPlaneSdk {
-                DataFlowStore = dataFlowContext,
-                RuntimeId = config.RuntimeId,
-                OnStart = f => {
-                    permissionService.CreatePublicEndpoint(f).ConfigureAwait(false);
-                    return StatusResult<DataFlow>.Success(f);
-                },
-                OnRecover = _ => Success(),
-                OnTerminate = _ => Success(),
-                OnSuspend = _ => Success(),
-                OnPrepare = f => {
-                    f.State = DataFlowState.Prepared;
-                    return StatusResult<DataFlow>.Success(f);
-                }
-            };
+            IConfigurationSection dataPlaneConfigSection = Configuration.GetSection("DataPlaneSdk");
+            DataPlaneSdkOptions dataPlaneConfig = dataPlaneConfigSection.Get<DataPlaneSdkOptions>();
+            if (dataPlaneConfig != null)
+            {
+                var dataFlowContext = () => CreatePostgres(Configuration, dataPlaneConfig.RuntimeId);
+                var permissionService = new DataFlowService(dataFlowContext.Invoke());
+                var sdk = new DataPlaneSdk {
+                    DataFlowStore = dataFlowContext,
+                    RuntimeId = dataPlaneConfig.RuntimeId,
+                    OnStart = f => {
+                        permissionService.CreatePublicEndpoint(f).ConfigureAwait(false);
+                        return StatusResult<DataFlow>.Success(f);
+                    },
+                    OnRecover = _ => Success(),
+                    OnTerminate = _ => Success(),
+                    OnSuspend = _ => Success(),
+                    OnPrepare = f => {
+                        f.State = DataFlowState.Prepared;
+                        return StatusResult<DataFlow>.Success(f);
+                    }
+                };
 
-            services.AddSingleton(permissionService);
-
-            services.AddSdkServices(sdk, dataplaneConfig);
-
-            services.AddScoped<IAuthorizationHandler, DataFlowAuthorizationHandler>();
+                services.AddSingleton(permissionService);
+                services.AddSdkServices(sdk, dataPlaneConfigSection);
+                services.AddScoped<IAuthorizationHandler, DataFlowAuthorizationHandler>();
+            }
 
             if (!string.IsNullOrEmpty(Configuration["UseSendGridEmailSender"]))
             {
