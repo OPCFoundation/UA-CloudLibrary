@@ -49,11 +49,11 @@ namespace CloudLibClient.Tests
                             { "CloudLibrary:ApprovalRequired", "false" },
                             { "OAuth2ClientId", "Test" },
                             { "OAuth2ClientSecret", "TestSecret" },
-                            { "DataPlaneSdk__ControlApi__BaseUrl", "http://localhost:8083/api/control" },
-                            { "DataPlaneSdk__InstanceId", "cloudlib-dataplane-instance" },
-                            { "DataPlaneSdk__RuntimeId", "cloudlib-lock-id" },
-                            { "DataPlaneSdk__AllowedSourceTypes", "cloudlib-source-type" },
-                            { "DataPlaneSdk__AllowedTransferTypes", "cloudlib-transfer-type" }
+                            { "DataPlaneSdk:ControlApi:BaseUrl", "http://localhost:8083/api/control" },
+                            { "DataPlaneSdk:InstanceId", "cloudlib-dataplane-instance" },
+                            { "DataPlaneSdk:RuntimeId", "cloudlib-lock-id" },
+                            { "DataPlaneSdk:AllowedSourceTypes", "cloudlib-source-type" },
+                            { "DataPlaneSdk:AllowedTransferTypes", "cloudlib-transfer-type" }
                         })
                 );
         }
