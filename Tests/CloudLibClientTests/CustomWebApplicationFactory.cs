@@ -48,8 +48,12 @@ namespace CloudLibClient.Tests
                             { "ConnectionStrings:CloudLibraryPostgreSQL", "Server=localhost;Username=testuser;Database=cloudlib_test;Port=5432;Password=password;SSLMode=Prefer;Include Error Detail=true" },
                             { "CloudLibrary:ApprovalRequired", "false" },
                             { "OAuth2ClientId", "Test" },
-                            { "OAuth2ClientSecret", "TestSecret" }
-
+                            { "OAuth2ClientSecret", "TestSecret" },
+                            { "DataPlaneSdk__ControlApi__BaseUrl", "http://localhost:8083/api/control" },
+                            { "DataPlaneSdk__InstanceId", "cloudlib-dataplane-instance" },
+                            { "DataPlaneSdk__RuntimeId", "cloudlib-lock-id" },
+                            { "DataPlaneSdk__AllowedSourceTypes", "cloudlib-source-type" },
+                            { "DataPlaneSdk__AllowedTransferTypes", "cloudlib-transfer-type" }
                         })
                 );
         }
