@@ -22,10 +22,10 @@ jobs:
           dotnet-version: '9.0.x'
       - name: Add private NuGet source
         run: |
-          dotnet nuget add source https://nuget.pkg.github.com/metaform/index.json `
-            --name metaform `
-            --username ${{ github.repository_owner }} `
-            --password ${{ secrets.GITHUB_TOKEN }} `
+          dotnet nuget add source https://nuget.pkg.github.com/metaform/index.json \
+            --name metaform \
+            --username ${{ github.repository_owner }} \
+            --password ${{ secrets.GITHUB_TOKEN }} \
             --store-password-in-clear-text
       - name: Workaround
         #https://github.com/dotnet/format/issues/1433#issuecomment-1055920818
@@ -65,10 +65,10 @@ jobs:
         dotnet-version: '9.0.x'
     - name: Add private NuGet source
       run: |
-        dotnet nuget add source https://nuget.pkg.github.com/metaform/index.json `
-          --name metaform `
-          --username ${{ github.repository_owner }} `
-          --password ${{ secrets.GITHUB_TOKEN }} `
+        dotnet nuget add source https://nuget.pkg.github.com/metaform/index.json \
+          --name metaform \
+          --username ${{ github.repository_owner }} \
+          --password ${{ secrets.GITHUB_TOKEN }} \
           --store-password-in-clear-text
     - name: Restore dependencies BlobToPGTable
       working-directory: BlobToPGTable
@@ -106,10 +106,10 @@ jobs:
     - name: add github nuget-feed#
       if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
       run: |
-        dotnet nuget add source `
-          --username ${{ github.repository_owner }} `
-          --password ${{ secrets.GITHUB_TOKEN }} `
-          --store-password-in-clear-text `
+        dotnet nuget add source \
+          --username ${{ github.repository_owner }} \
+          --password ${{ secrets.GITHUB_TOKEN }} \
+          --store-password-in-clear-text \
           --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
     - name: publish NuGet
       if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
