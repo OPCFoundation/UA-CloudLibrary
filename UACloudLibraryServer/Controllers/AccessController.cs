@@ -49,11 +49,9 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [HttpPut]
         [Route("/access/roles/{roleName}")]
         [Authorize(Policy = "AdministrationPolicy")]
-        [SwaggerResponse(statusCode: 200, type: typeof(string), description: "A status message indicating the successful approval.")]
-        [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The provided nodeset was not found.")]
-        [SwaggerResponse(statusCode: 500, type: typeof(string), description: "The provided information model could not be stored or updated.")]
+        [SwaggerResponse(statusCode: 200, type: typeof(string), description: "A status message indicating the successful addition.")]
         public async Task<IActionResult> AddRoleAsync(
-            [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string roleName,
+            [FromRoute][Required][SwaggerParameter("Role name.")] string roleName,
             [FromServices] RoleManager<IdentityRole> roleManager
             )
         {
@@ -62,17 +60,16 @@ namespace Opc.Ua.Cloud.Library.Controllers
             {
                 return this.BadRequest(result);
             }
+
             return new ObjectResult("Role added successfully") { StatusCode = (int)HttpStatusCode.OK };
         }
         [HttpPut]
         [Route("/access/userRoles/{userId}/{roleName}")]
         [Authorize(Policy = "AdministrationPolicy")]
-        [SwaggerResponse(statusCode: 200, type: typeof(string), description: "A status message indicating the successful approval.")]
-        [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The provided nodeset was not found.")]
-        [SwaggerResponse(statusCode: 500, type: typeof(string), description: "The provided information model could not be stored or updated.")]
+        [SwaggerResponse(statusCode: 200, type: typeof(string), description: "A status message indicating the successful addition.")]
         public async Task<IActionResult> AddRoleToUserAsync(
-            [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string userId,
-            [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string roleName,
+            [FromRoute][Required][SwaggerParameter("User name.")] string userId,
+            [FromRoute][Required][SwaggerParameter("Role name.")] string roleName,
             [FromServices] UserManager<IdentityUser> userManager
             )
         {
@@ -86,6 +83,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             {
                 return this.BadRequest(result);
             }
+
             return new ObjectResult("User role added successfully") { StatusCode = (int)HttpStatusCode.OK };
         }
     }
