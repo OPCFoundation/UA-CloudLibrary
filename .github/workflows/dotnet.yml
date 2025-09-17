@@ -21,11 +21,12 @@ jobs:
         with:
           dotnet-version: '9.0.x'
       - name: Add private NuGet source
-        run: dotnet nuget add source https://nuget.pkg.github.com/metaform/index.json \
-             --name metaform \
-             --username ${{ github.repository_owner }} \
-             --password ${{ secrets.GITHUB_TOKEN }} \
-             --store-password-in-clear-text
+        run: |
+          dotnet nuget add source https://nuget.pkg.github.com/metaform/index.json `
+            --name metaform `
+            --username ${{ github.repository_owner }} `
+            --password ${{ secrets.GITHUB_TOKEN }} `
+            --store-password-in-clear-text
       - name: Workaround
         #https://github.com/dotnet/format/issues/1433#issuecomment-1055920818
         run: dotnet tool install -g dotnet-format --version "9.*" --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/index.json
@@ -63,11 +64,12 @@ jobs:
       with:
         dotnet-version: '9.0.x'
     - name: Add private NuGet source
-      run: dotnet nuget add source https://nuget.pkg.github.com/metaform/index.json \
-           --name metaform \
-           --username ${{ github.repository_owner }} \
-           --password ${{ secrets.GITHUB_TOKEN }} \
-           --store-password-in-clear-text
+      run: |
+        dotnet nuget add source https://nuget.pkg.github.com/metaform/index.json `
+          --name metaform `
+          --username ${{ github.repository_owner }} `
+          --password ${{ secrets.GITHUB_TOKEN }} `
+          --store-password-in-clear-text
     - name: Restore dependencies BlobToPGTable
       working-directory: BlobToPGTable
       run: dotnet restore
@@ -103,11 +105,12 @@ jobs:
       run: dotnet pack Opc.Ua.CloudLib.Client/Opc.Ua.Cloud.Library.Client.csproj --configuration Release
     - name: add github nuget-feed#
       if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
-      run: dotnet nuget add source \
-           --username ${{ github.repository_owner }} \
-           --password ${{ secrets.GITHUB_TOKEN }} \
-           --store-password-in-clear-text \
-           --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+      run: |
+        dotnet nuget add source `
+          --username ${{ github.repository_owner }} `
+          --password ${{ secrets.GITHUB_TOKEN }} `
+          --store-password-in-clear-text `
+          --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
     - name: publish NuGet
       if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
       run: dotnet nuget push "Opc.Ua.CloudLib.Client/bin/Release/*.nupkg"  --source "github"
