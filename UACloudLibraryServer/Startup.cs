@@ -116,7 +116,7 @@ namespace Opc.Ua.Cloud.Library
             var dataplaneConfig = Configuration.GetSection("DataPlaneSdk");
             var config = dataplaneConfig.Get<DataPlaneSdkOptions>() ?? throw new ArgumentException("Configuration invalid!");
             var dataFlowContext = () => CreatePostgres(Configuration, config.RuntimeId);
-            var permissionService = new DataService(dataFlowContext.Invoke());
+            var permissionService = new DataFlowService(dataFlowContext.Invoke());
             var sdk = new DataPlaneSdk {
                 DataFlowStore = dataFlowContext,
                 RuntimeId = config.RuntimeId,

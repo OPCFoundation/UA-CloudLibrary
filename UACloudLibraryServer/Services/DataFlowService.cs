@@ -7,7 +7,7 @@ using DataPlane.Sdk.Core.Domain.Model;
 
 namespace HttpDataplane.Services;
 
-public class DataService(IDataPlaneStore dataFlowStore) : IDataService
+public class DataFlowService(IDataPlaneStore dataFlowStore) : IDataService
 {
     public Task<bool> IsPermitted(string apiKey, DataFlow dataFlow)
     {
