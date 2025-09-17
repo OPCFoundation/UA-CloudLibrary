@@ -48,7 +48,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
         [HttpPut]
         [Route("/access/roles/{roleName}")]
-        [Authorize(Policy = "UserAdministrationPolicy")]
+        [Authorize(Policy = "AdministrationPolicy")]
         [SwaggerResponse(statusCode: 200, type: typeof(string), description: "A status message indicating the successful approval.")]
         [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The provided nodeset was not found.")]
         [SwaggerResponse(statusCode: 500, type: typeof(string), description: "The provided information model could not be stored or updated.")]
@@ -66,7 +66,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         }
         [HttpPut]
         [Route("/access/userRoles/{userId}/{roleName}")]
-        [Authorize(Policy = "UserAdministrationPolicy")]
+        [Authorize(Policy = "AdministrationPolicy")]
         [SwaggerResponse(statusCode: 200, type: typeof(string), description: "A status message indicating the successful approval.")]
         [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The provided nodeset was not found.")]
         [SwaggerResponse(statusCode: 500, type: typeof(string), description: "The provided information model could not be stored or updated.")]

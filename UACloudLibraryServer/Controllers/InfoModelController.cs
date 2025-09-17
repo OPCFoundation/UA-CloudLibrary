@@ -202,7 +202,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             return new ObjectResult(uaNamespace) { StatusCode = (int)HttpStatusCode.OK };
         }
 
-        [Authorize(Policy = "DeletePolicy")]
+        [Authorize(Policy = "AdministrationPolicy")]
         [HttpDelete]
         [Route("/infomodel/delete/{identifier}")]
         [SwaggerResponse(statusCode: 200, type: typeof(UANameSpace), description: "The OPC UA Information model and its metadata.")]
