@@ -75,6 +75,8 @@ Then add the following connection string:
 5 Database Tables Explained
 -------------
 
+REMARK: The tables need more description including their indexes and foreign keys. Also adding a Database Diagram for the OPCUA related tables.
+
 Once the database is created the following tables are created in the database:
 
 * **AspNetRoles**: Contains the roles for the user management (e.g. "Admin", "User")
