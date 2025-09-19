@@ -20,7 +20,7 @@ The UA Cloud Library is implemented as a set of Docker containers. The main cont
 
 ## Getting Started (Client Access)
 
-If you want to access the globally hosted instance from the OPC Foundation at https://uacloudlibrary.opcfoundation.org from our software, you can integrate the source code from the SampleConsoleClient found in this repo. It exercises the REST API.
+If you want to access your own instance or the globally hosted instance from the OPC Foundation at https://uacloudlibrary.opcfoundation.org from our software, you can integrate the source code from the SampleConsoleClient found in this repo. It exercises the REST API.
 
 **Warning:** In the latest version of the REST API, a new infomodel/find2 API is introduced, returning a [UANameSpace](https://raw.githubusercontent.com/OPCFoundation/UA-CloudLibrary/refs/heads/main/Opc.Ua.CloudLib.Client/Models/UANameSpace.cs) structure, to align it with the rest of the REST API. The SampleConsoleClient is updated to work with the latest version of the REST API. Please update your client code accordingly if you were using an older version of the REST API! The older version will be removed in a future version of the API.
 
@@ -34,7 +34,13 @@ Start development in three simple steps:
 
 The OPC UA CloudLib Website opens in the browser.
 
-If you want to access the admin to the develpoment database instance open http://localhost:8080/ in your browser
+If you want to access the database via the PG Admin tool ([PGAdmin](https://www.pgadmin.org)) for the development database instance, open http://localhost:8088/ in your browser. You will need to register a new server in PGAdmin with the following settings:
+* Name: uacloudlib
+* Host name/address: db
+* Port: 5432
+* Maintenance database: uacloudlib
+* Username: uacloudlib
+* Password: uacloudlib
 
 ## Authentication and Authorization
 UA Cloud Library supports several authentication and authorization mechanisms. For access via the built-in UI, ASP.Net Core Identity is used and users can self-register using their email address, which needs to be verified. In addition, access to the UI via Azure Entra ID or Microsoft accounts can be optionally enabled via environment variables. Finally, the OPC Foundation hosted instance of the UA Cloud Library also supports access to the UI via OAuth and the OPC Foundation website user accounts. Access to the Swagger UI is also handled via ASP.Net Core Identity and users don't need to authenticate again once they are logged into the UI. The admin user account is enabled via the `ServicePassword` environment variable (see below).
@@ -48,6 +54,9 @@ There are only two types of user authorization policies supported by the UA Clou
 **Note: Custom roles can be added to users by the Admin user, if required by a calling service.**
 
 Approval of freshly uploaded OPC UA Information Models for download by everyone can be optionally enabled via an environment variable (see below).
+
+## Database Configuration
+The UA Cloud Library database configuration is documented in the [Database Setup](Docs/Database%20Setup.md) document.
 
 ## Cloud Hosting Setup
 

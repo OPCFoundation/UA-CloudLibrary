@@ -48,7 +48,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudLibSyncAzureFunction",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlobToPGTable", "BlobToPGTable\BlobToPGTable.csproj", "{EFDB69DA-5981-213C-6004-C89DF47078B2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataPlane.Sdk.Api.Test", "Tests\DataPlane.Sdk.Api.Test\DataPlane.Sdk.Api.Test.csproj", "{03D36D08-9106-6724-B968-4E9A9439EBBE}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+	ProjectSection(SolutionItems) = preProject
+		Docs\Database Setup.md = Docs\Database Setup.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

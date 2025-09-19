@@ -35,7 +35,7 @@
         "PostgreSQLUsername": "",
         "PostgreSQLPassword": "",
         "EmailSenderAPIKey": "",
-        "ServicePassword": "testpw"
+        "ServicePassword": ""
       },
       "publishAllPorts": true,
       "useSSL": true
