@@ -28,7 +28,13 @@ Start development in three simple steps:
 
 The OPC UA CloudLib Website opens in the browser.
 
-If you want to access the admin to the develpoment database instance open http://localhost:8080/ in your browser
+If you want to access the database admin (PGAdmin) to the development database instance open http://localhost:8088/ in your browser. You will need to register a new server in PGAdmin with the following settings:
+* Name: uacloudlib
+* Host name/address: db
+* Port: 5432
+* Maintenance database: uacloudlib
+* Username: uacloudlib
+* Password: uacloudlib
 
 ## Authentication and Authorization
 UA Cloud Library supports several authentication and authorization mechanisms. For access via the built-in UI, ASP.Net Core Identity is used and users can self-register using their email address, which needs to be verified. In addition, access to the UI via Azure Entra ID or Microsoft accounts can be optionally enabled via environment variables. Finally, the OPC Foundation hosted instance of the UA Cloud Library also supports access to the UI via OAuth and the OPC Foundation website user accounts. Access to the Swagger UI is also handled via ASP.Net Core Identity and users don't need to authenticate again once they are logged into the UI. The admin user account is enabled via the `ServicePassword` environment variable (see below).
