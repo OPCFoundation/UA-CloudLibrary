@@ -51,6 +51,7 @@ Access to the REST API is handled via 1 default and 3 optional mechanisms:
 * API keys for service-to-service communication, if enabled via environment variables. API keys can then be created and managed via the UI.
 
 There are only two types of user authorization policies supported by the UA Cloud Library: The Admin user and all other users. The Admin user has full access to all functionality, including user management, approving freshly uploaded OPC UA Information Models for download by everyone and deleting existing OPC UA Information Models. Users can upload, download, search, browse, and author OPC UA Information Models.
+
 **Note: Custom roles can be added to users by the Admin user, if required by a calling service.**
 
 Approval of freshly uploaded OPC UA Information Models for download by everyone can be optionally enabled via an environment variable (see below).
