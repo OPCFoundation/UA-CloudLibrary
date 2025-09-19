@@ -42,6 +42,8 @@ If you want to access the database via the PG Admin tool ([PGAdmin](https://www.
 * Username: uacloudlib
 * Password: uacloudlib
 
+**Note: Currently, the UA Cloud Library relies on a NuGet package from Metaform not yet available from nuget.org. You will need to configure a custom NuGet source in Visual Studio's NuGet Package Manager for it by clicking on the little settings cog in the UI, clicking the + sign, and entering `https://nuget.pkg.github.com/metaform/index.json` under Source. Metaform requires authentication for downloading NuGet packages, so when prompted, login using your GitHub username and a GitHub classic personal access token as password, which you can generate from your GitHub user account under Developer Settings -> Personal Access Tokens -> Tokens (classic). The token needs to have the `read:packages` scope.**
+
 ## Authentication and Authorization
 UA Cloud Library supports several authentication and authorization mechanisms. For access via the built-in UI, ASP.Net Core Identity is used and users can self-register using their email address, which needs to be verified. In addition, access to the UI via Azure Entra ID or Microsoft accounts can be optionally enabled via environment variables. Finally, the OPC Foundation hosted instance of the UA Cloud Library also supports access to the UI via OAuth and the OPC Foundation website user accounts. Access to the Swagger UI is also handled via ASP.Net Core Identity and users don't need to authenticate again once they are logged into the UI. The admin user account is enabled via the `ServicePassword` environment variable (see below).
 Access to the REST API is handled via 1 default and 3 optional mechanisms:
