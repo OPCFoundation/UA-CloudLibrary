@@ -77,13 +77,13 @@ You **must** have installed PostgreSQL version 11.20 or higher. You **must** als
 ```
 "Server=localhost; Username=MyUserName;Password=MyUserPassword;Database=uacloudlib;Port=5432;Include Error Detail=true",
 ```
-Note that you must create a user account with set privileges to access the database.
+**Note: that you must create a user account with set privileges to access the database.**
 
 ### Setting Password for Admin Account
 To enable access, from both Swagger and the REST API, you must set a password using this environment variable:
 * `ServicePassword`: The administration password for Swagger and REST service.
 
-Note: The user name is `admin`.
+**Note: The user name is `admin`.**
 
 ### Optional Settings
 Environment variables that **can optionally** be defined:
@@ -98,7 +98,7 @@ Environment variables that **can optionally** be defined:
 ### Optional Settings - Captcha
 Curtail bot access using the Google reCAPTCHA.  
 
- **Note: If you enable reCAPTCHA without an active account, it breaks user self-registration.**
+**Note: If you enable reCAPTCHA without an active account, it breaks user self-registration.**
 
 * `CaptchaSettings__Enabled`: Toggle whether to use reCAPTCHA (default: `false`). 
 * `CaptchaSettings__SiteVerifyUrl`: Verify user input (default: `https://www.google.com/recaptcha/api/siteverify`)
