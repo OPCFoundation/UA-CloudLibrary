@@ -96,11 +96,13 @@ Environment variables that **can optionally** be defined:
 * `AllowSelfRegistration`: Whether users can self-register for a user account (default: ``true``).
 
 ### Optional Settings - Captcha
-Curtail bot access using the using Google reCAPTCHA.  
+Curtail bot access using the Google reCAPTCHA.  
+
 **Note: If you enable reCAPTCHA without an active account, it breaks user self-registration.**
-* `CaptchaSettings__Enabled`: Toggle whether to use reCAPTCHA (default: ``false``). 
-* `CaptchaSettings__SiteVerifyUrl`: Verify user input (default: ``https://www.google.com/recaptcha/api/siteverify``)
-* `CaptchaSettings__ClientApiUrl`: Source for loading JavaScript library (default:``https://www.google.com/recaptcha/api.js?render=``)
+
+* `CaptchaSettings__Enabled`: Toggle whether to use reCAPTCHA (default: `false`). 
+* `CaptchaSettings__SiteVerifyUrl`: Verify user input (default: `https://www.google.com/recaptcha/api/siteverify`)
+* `CaptchaSettings__ClientApiUrl`: Source for loading JavaScript library (default:`https://www.google.com/recaptcha/api.js?render=`)
 * `CaptchaSettings__SecretKey`: Private key. Obtain from reCAPTCHA admin console.
 * `CaptchaSettings__SiteKey`: Public key. Obtain from reCAPTCHA admin console.
 * `CaptchaSettings__BotThreshold`: Minimum score between 0.0 (bot likely) and 1.0 (human likely). (default: ``0.5``)
