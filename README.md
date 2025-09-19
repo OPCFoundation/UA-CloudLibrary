@@ -20,12 +20,6 @@ The UA Cloud Library is implemented as a set of Docker containers. The main cont
 
 ## Using the UA Cloud Library from a Client Application
 
-The UA Cloud Library is implemented as a set of Docker containers. The main container hosts the REST API and the user management website. A PostgreSQL database is used to store the information models and user data:
-
-![Architecture](https://raw.githubusercontent.com/OPCFoundation/UA-CloudLibrary/main/docs/architecture.png)
-
-## Getting Started (Client Access)
-
 If you want to access your own instance or the globally hosted instance from the OPC Foundation at https://uacloudlibrary.opcfoundation.org from our software, you can integrate the source code from the SampleConsoleClient found in this repo. It exercises the REST API.
 
 **Warning:** In the latest version of the REST API, a new infomodel/find2 API is introduced, returning a [UANameSpace](https://raw.githubusercontent.com/OPCFoundation/UA-CloudLibrary/refs/heads/main/Opc.Ua.CloudLib.Client/Models/UANameSpace.cs) structure, to align it with the rest of the REST API. The SampleConsoleClient is updated to work with the latest version of the REST API. Please update your client code accordingly if you were using an older version of the REST API! The older version will be removed in a future version of the API.
