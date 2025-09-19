@@ -314,7 +314,6 @@ namespace Opc.Ua.Cloud.Library
             });
         }
 
-
         public class CloudLibStartupTask : IHostedService
         {
             private readonly IServiceProvider _serviceProvider;
