@@ -12,9 +12,9 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
 * Simple OPC UA Information Model authoring UI
 * Cross-platform: Runs on any edge or cloud that can host a container and a PostgreSQL instance
 
-## Getting Started (Client Access)
+## Using the UA Cloud Library from a Client Application
 
-If you want to access the globally hosted instance from the OPC Foundation at https://uacloudlibrary.opcfoundation.org from our software, you can integrate the source code from the SampleConsoleClient found in this repo. It exercises the REST API.
+If you want to access your own instance or the globally hosted instance from the OPC Foundation at https://uacloudlibrary.opcfoundation.org from our software, you can integrate the source code from the SampleConsoleClient found in this repo. It exercises the REST API.
 
 **Warning:** In the latest version of the REST API, a new infomodel/find2 API is introduced, returning a [UANameSpace](https://raw.githubusercontent.com/OPCFoundation/UA-CloudLibrary/refs/heads/main/Opc.Ua.CloudLib.Client/Models/UANameSpace.cs) structure, to align it with the rest of the REST API. The SampleConsoleClient is updated to work with the latest version of the REST API. Please update your client code accordingly if you were using an older version of the REST API! The older version will be removed in a future version of the API.
 
@@ -28,7 +28,7 @@ Start development in three simple steps:
 
 The OPC UA CloudLib Website opens in the browser.
 
-If you want to access the database admin (PGAdmin) to the development database instance open http://localhost:8088/ in your browser. You will need to register a new server in PGAdmin with the following settings:
+If you want to access the database via the PG Admin tool ([PGAdmin](https://www.pgadmin.org)) for the development database instance, open http://localhost:8088/ in your browser. You will need to register a new server in PGAdmin with the following settings:
 * Name: uacloudlib
 * Host name/address: db
 * Port: 5432
@@ -46,6 +46,9 @@ Access to the REST API is handled via 1 default and 3 optional mechanisms:
 There are only two types of user authorization policies supported by the UA Cloud Library: The Admin user and all other users. The Admin user has full access to all functionality, including user management, approving freshly uploaded OPC UA Information Models for download by everyone and deleting existing OPC UA Information Models. Users can upload, download, search, browse, and author OPC UA Information Models.
 * Note: Custom roles can be added to users by the Admin user, if required by a calling service.
 Approval of freshly uploaded OPC UA Information Models for download by everyone can be optionally enabled via an environment variable (see below).
+
+## Database Configuration
+The UA Cloud Library database configuration is documented in the [Database Setup](Docs/Database%20Setup.md) document.
 
 ## Cloud Hosting Setup
 
