@@ -4,9 +4,12 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
 
 ## Features
 
-* REST interface
+* REST interfaces
 * Swagger UI
 * User management UI
+* OPC UA Information Model upload and download
+* OPC UA Information Model browse and search
+* Simple OPC UA Information Model authoring UI
 * Cross-platform: Runs on any edge or cloud that can host a container and a PostgreSQL instance
 
 ## Getting Started (Client Access)
@@ -23,7 +26,7 @@ Start development in three simple steps:
 2. Open with Visual Studio 2019+
 3. Select ``docker-compose`` as startup project and hit F5 or the "play button"
 
-The OPC UA CloudLib Website should open in the browser.
+The OPC UA CloudLib Website opens in the browser.
 
 If you want to access the database admin (PGAdmin) to the development database instance open http://localhost:8088/ in your browser. You will need to register a new server in PGAdmin with the following settings:
 * Name: uacloudlib
@@ -33,11 +36,24 @@ If you want to access the database admin (PGAdmin) to the development database i
 * Username: uacloudlib
 * Password: uacloudlib
 
+## Authentication and Authorization
+UA Cloud Library supports several authentication and authorization mechanisms. For access via the built-in UI, ASP.Net Core Identity is used and users can self-register using their email address, which needs to be verified. In addition, access to the UI via Azure Entra ID or Microsoft accounts can be optionally enabled via environment variables. Finally, the OPC Foundation hosted instance of the UA Cloud Library also supports access to the UI via OAuth and the OPC Foundation website user accounts. Access to the Swagger UI is also handled via ASP.Net Core Identity and users don't need to authenticate again once they are logged into the UI. The admin user account is enabled via the `ServicePassword` environment variable (see below).
+Access to the REST API is handled via 1 default and 3 optional mechanisms:
+* Basic authentication using the ASP.Net Core Identity user accounts. This is the default mechanism.
+* Basic authentication using Azure Entra ID or Microsoft accounts, if enabled via environment variables.
+* OAuth using the OPC Foundation website user accounts, if enabled via environment variables.
+* API keys for service-to-service communication, if enabled via environment variables. API keys can then be created and managed via the UI.
+There are only two types of user authorization policies supported by the UA Cloud Library: The Admin user and all other users. The Admin user has full access to all functionality, including user management, approving freshly uploaded OPC UA Information Models for download by everyone and deleting existing OPC UA Information Models. Users can upload, download, search, browse, and author OPC UA Information Models.
+* Note: Custom roles can be added to users by the Admin user, if required by a calling service.
+Approval of freshly uploaded OPC UA Information Models for download by everyone can be optionally enabled via an environment variable (see below).
 
 ## Cloud Hosting Setup
 
+### Migrating from version 1.0 to version 1.1
+To migrate from version 1.0 to version 1.1, you need to update your database as V1.1 no longer requires blob storage. We provided a command line tool called BlobToPGTable in this repository for the major clouds which will complete this step for you.
+
 ### Required Settings - PostgreSQL
-You **must** have installed PostgreSQL version 11.20. You **must** also define one of the following two sets of environment variables:
+You **must** have installed PostgreSQL version 11.20 or higher. You **must** also define one of the following two sets of environment variables:
 
 #### PostgreSQL Set 1: Three environment variables
 * ``PostgreSQLEndpoint``: The endpoint of the PostgreSQL instance (that must be previously deployed in the hosting platform).
@@ -51,8 +67,8 @@ You **must** have installed PostgreSQL version 11.20. You **must** also define o
 ```
 Note that you must create a user account with set privileges to access the database.
 
-### Setting Password for Test Account
-To enable access, from both Swagger and the REST APIs, you must set a password using this environment variable:
+### Setting Password for Admin Account
+To enable access, from both Swagger and the REST API, you must set a password using this environment variable:
 * ``ServicePassword``: The administration password for Swagger and REST service.
 
 Note: The user name is ``admin``.
@@ -64,7 +80,7 @@ Environment variables that **can optionally** be defined:
 * ``RegistrationEmailFrom``: The "from" email address to use for user registration confirmation emails
 * ``RegistrationEmailReplyTo``: The "replyto" email address to use for user registration confirmation emails
 
-* ``CloudLibrary__ApprovalRequired``: Whether items are filtered based on ``Approval Status``
+* ``CloudLibrary__ApprovalRequired``: Whether OPC UA Information Models are filtered based on approval by the Admin user.
 * ``AllowSelfRegistration``: Whether users can self-register for a user account (default: ``true``).
 
 ### Optional Settings - Captcha
