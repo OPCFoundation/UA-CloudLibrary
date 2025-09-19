@@ -93,19 +93,19 @@ Environment variables that **can optionally** be defined:
 * `RegistrationEmailReplyTo`: The "replyto" email address to use for user registration confirmation emails
 
 * `CloudLibrary__ApprovalRequired`: Whether OPC UA Information Models are filtered based on approval by the Admin user.
-* `AllowSelfRegistration`: Whether users can self-register for a user account (default: ``true``).
+* `AllowSelfRegistration`: Whether users can self-register for a user account (default: `true`).
 
 ### Optional Settings - Captcha
 Curtail bot access using the Google reCAPTCHA.  
 
-**Note: If you enable reCAPTCHA without an active account, it breaks user self-registration.**
+ **Note: If you enable reCAPTCHA without an active account, it breaks user self-registration.**
 
 * `CaptchaSettings__Enabled`: Toggle whether to use reCAPTCHA (default: `false`). 
 * `CaptchaSettings__SiteVerifyUrl`: Verify user input (default: `https://www.google.com/recaptcha/api/siteverify`)
 * `CaptchaSettings__ClientApiUrl`: Source for loading JavaScript library (default:`https://www.google.com/recaptcha/api.js?render=`)
 * `CaptchaSettings__SecretKey`: Private key. Obtain from reCAPTCHA admin console.
 * `CaptchaSettings__SiteKey`: Public key. Obtain from reCAPTCHA admin console.
-* `CaptchaSettings__BotThreshold`: Minimum score between 0.0 (bot likely) and 1.0 (human likely). (default: ``0.5``)
+* `CaptchaSettings__BotThreshold`: Minimum score between 0.0 (bot likely) and 1.0 (human likely). (default: `0.5`)
 
 ### Optional Settings - Eclipse Dataspace Connector (EDC) Data Plane SDK
 Configure the EDC Data Plane SDK to enable this instance of the UA Cloud Library as an EDC data plane.
