@@ -16,6 +16,12 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
 
 The UA Cloud Library is implemented as a set of Docker containers. The main container hosts the REST API and the user management website. A PostgreSQL database is used to store the information models and user data:
 
+![Architecture](https://github.com/OPCFoundation/UA-CloudLibrary/blob/main/Docs/architecture.png)
+
+## Using the UA Cloud Library from a Client Application
+
+The UA Cloud Library is implemented as a set of Docker containers. The main container hosts the REST API and the user management website. A PostgreSQL database is used to store the information models and user data:
+
 ![Architecture](https://raw.githubusercontent.com/OPCFoundation/UA-CloudLibrary/main/docs/architecture.png)
 
 ## Getting Started (Client Access)
