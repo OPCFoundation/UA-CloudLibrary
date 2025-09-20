@@ -42,7 +42,7 @@ public class ControlApiServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task RegisterSuccess()
+    public async Task Register_Success()
     {
         _mockServer
             .Given(Request.Create().WithPath("/api/control/v1/dataplanes").UsingPost())
@@ -65,7 +65,7 @@ public class ControlApiServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task RegisterFailure()
+    public async Task Register_Failure()
     {
         _mockServer
             .Given(Request.Create().WithPath("/api/control/v1/dataplanes").UsingPost())
@@ -84,7 +84,7 @@ public class ControlApiServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task RegisterMissingSourceOrTransferType()
+    public async Task Register_MissingSourceOrTransferType()
     {
         await Should.ThrowAsync<ArgumentException>(async () =>
         {
@@ -99,7 +99,7 @@ public class ControlApiServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task UnregisterDataPlaneSuccess()
+    public async Task UnregisterDataPlane_Success()
     {
         _mockServer
             .Given(Request.Create().WithPath($"/api/control/v1/dataplanes/{TestDataPlaneId}/unregister").UsingPut())
@@ -109,7 +109,7 @@ public class ControlApiServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task UnregisterDataPlaneNotFound()
+    public async Task UnregisterDataPlane_NotFound()
     {
         _mockServer
             .Given(Request.Create().WithPath($"/api/control/v1/dataplanes/{TestDataPlaneId}/unregister").UsingPut())

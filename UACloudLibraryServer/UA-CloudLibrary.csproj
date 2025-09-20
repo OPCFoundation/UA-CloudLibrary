@@ -29,7 +29,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="DataPlane.Sdk.Core" Version="0.0.1-alpha3" />
 		<PackageReference Include="JsonSubTypes" Version="2.0.1" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.MicrosoftAccount" Version="9.0.8" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.8" />
@@ -50,6 +49,7 @@
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.3" />
 		<PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="9.0.3" />
 		<PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="9.0.3" />
+		<ProjectReference Include="..\Metaform.DataPlane.SDK\DataPlane.Sdk.Core\DataPlane.Sdk.Core.csproj" />
     <PackageReference Update="Microsoft.SourceLink.GitHub" Version="8.0.0" />
     <PackageReference Update="Nerdbank.GitVersioning" Version="3.7.115" />
 	</ItemGroup>

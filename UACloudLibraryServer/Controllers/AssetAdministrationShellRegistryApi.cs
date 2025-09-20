@@ -27,8 +27,14 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Buffers.Text;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Text;
+using System.Text.Json.Nodes;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
@@ -70,8 +76,14 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public virtual IActionResult GetAllAssetAdministrationShellDescriptors([FromQuery] int? limit, [FromQuery] string cursor, [FromQuery] AssetKind assetKind, [FromQuery][RegularExpression("/^([\\\\x09\\\\x0a\\\\x0d\\\\x20-\\\\ud7ff\\\\ue000-\\\\ufffd]|\\\\ud800[\\\\udc00-\\\\udfff]|[\\\\ud801-\\\\udbfe][\\\\udc00-\\\\udfff]|\\\\udbff[\\\\udc00-\\\\udfff])*$/")][StringLength(2048, MinimumLength = 1)] string assetType)
         {
-            // TODO: Implement the logic to retrieve all Asset Administration Shell Descriptors based on the provided parameters.
-            return new ObjectResult(new List<AssetAdministrationShellDescriptor>());
+            //CM-Q: assetKind and assetType used for filtering or as a "include in Return" flag?
+            List<AssetAdministrationShellDescriptor> aasList = _aasEnvService.GetAllAssetAdministrationShellDescriptors(User.Identity.Name);
+            if (limit != null)
+            {
+                PagedResult<AssetAdministrationShellDescriptor> output = PagedResult.ToPagedList<AssetAdministrationShellDescriptor>(aasList, new PaginationParameters(cursor, limit.Value));
+                return new ObjectResult(output);
+            }
+            return new ObjectResult(aasList);
         }
 
         /// <summary>
@@ -95,8 +107,19 @@ namespace AdminShell
         [SwaggerResponse(statusCode: 0, type: typeof(Result), description: "Default error handling for unmentioned status codes")]
         public virtual IActionResult GetAssetAdministrationShellDescriptorById([FromRoute][Required] string aasIdentifier)
         {
-            // TODO: Implement the logic to retrieve a specific Asset Administration Shell Descriptor based on the provided aasIdentifier.
-            return new ObjectResult(new AssetAdministrationShellDescriptor());
+            string decodedAasIdentifier = null;
+            try
+            {
+                decodedAasIdentifier = Encoding.UTF8.GetString(Base64Url.DecodeFromUtf8(Encoding.UTF8.GetBytes(aasIdentifier)));
+            }
+            catch (Exception)
+            {
+                decodedAasIdentifier = Uri.UnescapeDataString(aasIdentifier);
+            }
+
+            List<AssetAdministrationShellDescriptor> aasdesc = _aasEnvService.GetAssetAdministrationShellDescriptorById(User.Identity.Name, decodedAasIdentifier);
+
+            return new ObjectResult(aasdesc);
         }
     }
 }

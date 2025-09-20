@@ -39,7 +39,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task GetStateWhenExists()
+    public async Task GetState_WhenExists()
     {
         var flow = CreateDataFlow("test-process-id", Provisioning);
         _dataFlowContext.DataFlows.Add(flow);
@@ -50,7 +50,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task GetStateWhenNotExists()
+    public async Task GetState_WhenNotExists()
     {
         var result = await _service.GetTransferStateAsync("non-existing-id");
         result.ShouldNotBeNull();
@@ -60,7 +60,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task StartAsyncShouldReturnSuccessWhenDataFlowIsCreated()
+    public async Task StartAsync_ShouldReturnSuccess_WhenDataFlowIsCreated()
     {
         var message = CreateStartMessage();
 
@@ -75,7 +75,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task StartAsyncShouldReturnSuccessWhenDataFlowExists()
+    public async Task StartAsync_ShouldReturnSuccess_WhenDataFlowExists()
     {
         const string id = "test-process-id";
         var message = CreateStartMessage();
@@ -95,7 +95,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task StartAsyncShouldReturnSuccessWhenDataFlowIsAlreadyStarted()
+    public async Task StartAsync_ShouldReturnSuccess_WhenDataFlowIsAlreadyStarted()
     {
         var startMessage = CreateStartMessage();
         var dataFlow = CreateDataFlow(startMessage.ProcessId, Started);
@@ -112,7 +112,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task StartAsyncShouldReturnFailureWhenSdkReportsFailure()
+    public async Task StartAsync_ShouldReturnFailure_WhenSdkReportsFailure()
     {
         var startMessage = CreateStartMessage();
 
@@ -133,7 +133,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task StartAsyncShouldReturnFailureWhenDataFlowIsLeased()
+    public async Task StartAsync_ShouldReturnFailure_WhenDataFlowIsLeased()
     {
         var startMessage = CreateStartMessage();
         var dataFlow = CreateDataFlow(startMessage.ProcessId, Started);
@@ -158,7 +158,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task ProvisionAsyncShouldReturnSuccessWhenNotExists()
+    public async Task ProvisionAsync_ShouldReturnSuccess_WhenNotExists()
     {
         var msg = CreateProvisionMessage();
         var provisionMock = new Mock<Func<DataFlow, StatusResult<IList<ProvisionResource>>>>();
@@ -181,7 +181,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task ProvisionAsyncShouldReturnSuccessWhenAlreadyExists()
+    public async Task ProvisionAsync_ShouldReturnSuccess_WhenAlreadyExists()
     {
         var flow = CreateDataFlow("flow-id1", Provisioning);
         _dataFlowContext.DataFlows.Add(flow);
@@ -211,7 +211,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task ProvisionAsyncShouldReturnFailureWhenSdkReportsFailure()
+    public async Task ProvisionAsync_ShouldReturnFailure_WhenSdkReportsFailure()
     {
         var msg = CreateProvisionMessage();
         var provisionMock = new Mock<Func<DataFlow, StatusResult<IList<ProvisionResource>>>>();
@@ -228,7 +228,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task ProvisionAsyncShouldMoveToNotifiedWhenNoResources()
+    public async Task ProvisionAsync_ShouldMoveToNotified_WhenNoResources()
     {
         var msg = CreateProvisionMessage();
         var result = await _service.ProvisionAsync(msg);
@@ -240,7 +240,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task TerminateAsyncShouldReturnSuccessWhenDataFlowExists()
+    public async Task TerminateAsync_ShouldReturnSuccess_WhenDataFlowExists()
     {
         const string dataFlowId = "test-flow-id";
         const string reason = "Test termination";
@@ -256,7 +256,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task TerminateAsyncVerifySdkEventInvoked()
+    public async Task TerminateAsync_VerifySdkEventInvoked()
     {
         const string dataFlowId = "test-flow-id";
         const string reason = "Test termination";
@@ -278,7 +278,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task TerminateAsyncDataFlowNotFound()
+    public async Task TerminateAsync_DataFlowNotFound()
     {
         const string dataFlowId = "test-flow-id";
 
@@ -288,7 +288,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task TerminateAsyncShouldReturnFailureWhenSdkReportsFailure()
+    public async Task TerminateAsync_ShouldReturnFailure_WhenSdkReportsFailure()
     {
         const string dataFlowId = "test-flow-id";
         const string reason = "Test termination";
@@ -314,7 +314,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task TerminateAsyncShouldReturnSuccessWhenAlreadyTerminated()
+    public async Task TerminateAsync_ShouldReturnSuccess_WhenAlreadyTerminated()
     {
         const string dataFlowId = "test-flow-id";
         const string reason = "Test Suspend";
@@ -334,7 +334,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task TerminateAsyncShouldDeprovisionWhenInProvisioned()
+    public async Task TerminateAsync_ShouldDeprovision_WhenInProvisioned()
     {
         const string dataFlowId = "test-flow-id";
         const string reason = "Test Suspend";
@@ -351,7 +351,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task SuspendAsyncShouldReturnSuccessWhenDataFlowExists()
+    public async Task SuspendAsync_ShouldReturnSuccess_WhenDataFlowExists()
     {
         const string dataFlowId = "test-flow-id";
         const string reason = "Test Suspend";
@@ -367,7 +367,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task SuspendAsyncVerifySdkEventInvoked()
+    public async Task SuspendAsync_VerifySdkEventInvoked()
     {
         const string dataFlowId = "test-flow-id";
         const string reason = "Test Suspend";
@@ -389,7 +389,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task SuspendAsyncDataFlowNotFound()
+    public async Task SuspendAsync_DataFlowNotFound()
     {
         const string dataFlowId = "test-flow-id";
 
@@ -399,7 +399,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task SuspendAsyncShouldReturnFailureWhenSdkReportsFailure()
+    public async Task SuspendAsync_ShouldReturnFailure_WhenSdkReportsFailure()
     {
         const string dataFlowId = "test-flow-id";
         const string reason = "Test Suspend";
@@ -425,7 +425,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task SuspendAsyncShouldReturnSuccessWhenAlreadySuspended()
+    public async Task SuspendAsync_ShouldReturnSuccess_WhenAlreadySuspended()
     {
         const string dataFlowId = "test-flow-id";
         const string reason = "Test Suspend";
@@ -446,7 +446,7 @@ public abstract class DataPlaneSignalingServiceTest : IDisposable
 }
 
 [CollectionDefinition("SignalingService")] //parallelize tests in this collection
-public class DataPlaneSignalingServiceTestGroup;
+public class TestCollection;
 
 [Collection("SignalingService")]
 public class InMemDataPlaneSignalingServiceTest : DataPlaneSignalingServiceTest

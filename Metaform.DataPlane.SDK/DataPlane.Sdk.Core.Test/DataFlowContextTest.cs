@@ -20,7 +20,7 @@ public class DataFlowContextTest
 
 
     [Fact]
-    public async Task SaveAsyncShouldAddNewDataFlow()
+    public async Task SaveAsync_ShouldAddNewDataFlow()
     {
         var dataFlow = TestMethods.CreateDataFlow("test-flow-id");
         await _context.UpsertAsync(dataFlow);
@@ -34,7 +34,7 @@ public class DataFlowContextTest
     }
 
     [Fact]
-    public async Task SaveAsyncShouldUpdateExistingDataFlow()
+    public async Task SaveAsync_ShouldUpdateExistingDataFlow()
     {
         //create data flow
         var dataFlow = TestMethods.CreateDataFlow("test-flow-id");
@@ -53,7 +53,7 @@ public class DataFlowContextTest
     }
 
     [Fact]
-    public async Task FindByIdAsyncShouldReturnDataFlowWhenExists()
+    public async Task FindByIdAsync_ShouldReturnDataFlow_WhenExists()
     {
         var dataFlow = TestMethods.CreateDataFlow("test-flow-id");
         await _context.DataFlows.AddAsync(dataFlow);
@@ -66,14 +66,14 @@ public class DataFlowContextTest
     }
 
     [Fact]
-    public async Task FindByIdAsyncShouldReturnNullWhenNotExist()
+    public async Task FindByIdAsync_ShouldReturnNull_WhenNotExist()
     {
         var foundFlow = await _context.FindByIdAsync("non-existent-id");
         foundFlow.ShouldBeNull();
     }
 
     [Fact]
-    public async Task FindByIdAndLeaseAsyncShouldReturnDataFlowWhenExistsAndLeaseAcquired()
+    public async Task FindByIdAndLeaseAsync_ShouldReturnDataFlow_WhenExistsAndLeaseAcquired()
     {
         var dataFlow = TestMethods.CreateDataFlow("test-flow-id");
         await _context.DataFlows.AddAsync(dataFlow);
@@ -95,7 +95,7 @@ public class DataFlowContextTest
     }
 
     [Fact]
-    public async Task FindByIdAndLeaseAsyncShouldReturnNullWhenNotExists()
+    public async Task FindByIdAndLeaseAsync_ShouldReturnNull_WhenNotExists()
     {
         var result = await _context.FindByIdAndLeaseAsync("not-exist");
         result.IsFailed.ShouldBeTrue();
@@ -103,7 +103,7 @@ public class DataFlowContextTest
     }
 
     [Fact]
-    public async Task FindByIdAndLeaseAsyncShouldFailWhenAlreadyLeased()
+    public async Task FindByIdAndLeaseAsync_ShouldFail_WhenAlreadyLeased()
     {
         var dataFlow = TestMethods.CreateDataFlow("test-flow-id");
         await _context.DataFlows.AddAsync(dataFlow);
@@ -123,7 +123,7 @@ public class DataFlowContextTest
     }
 
     [Fact]
-    public async Task FindByIdAndLeaseAsyncShouldSucceedWhenAlreadyLeasedBySelf()
+    public async Task FindByIdAndLeaseAsync_ShouldSucceed_WhenAlreadyLeasedBySelf()
     {
         var dataFlow = TestMethods.CreateDataFlow("test-flow-id");
         await _context.DataFlows.AddAsync(dataFlow);
