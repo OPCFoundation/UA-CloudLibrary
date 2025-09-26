@@ -45,9 +45,9 @@ namespace AdminShell
         [HttpPost]
         public async Task<ActionResult> Save(BrowserModel model)
         {
-            NamespaceMetaDataModel nodeSet = _database.NamespaceMetaData.Where(n => n.NodesetId == model.NodesetIdentifier).FirstOrDefault();
+            NodeSetModel nodeSet = _database.GetNodeSets(User.Identity.Name, model.NodesetIdentifier).FirstOrDefault();
 
-            if ((nodeSet != null) && (User.Identity.Name == nodeSet.UserId))
+            if ((nodeSet != null) && (User.Identity.Name == nodeSet.Metadata.UserId))
             {
                 DbFiles nodesetXml = await _storage.DownloadFileAsync(model.NodesetIdentifier).ConfigureAwait(false);
 

@@ -30,6 +30,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Net;
 using System.Threading.Tasks;
+using AdminShell;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -42,12 +43,12 @@ namespace Opc.Ua.Cloud.Library.Controllers
     [ApiController]
     public class ApprovalController : Controller
     {
-        private readonly CloudLibDataProvider _database;
+        private readonly UAClient _client;
         private readonly ILogger _logger;
 
-        public ApprovalController(CloudLibDataProvider database, ILoggerFactory logger)
+        public ApprovalController(UAClient client, ILoggerFactory logger)
         {
-            _database = database;
+            _client = client;
             _logger = logger.CreateLogger("ApprovalController");
         }
 
@@ -60,12 +61,12 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 500, type: typeof(string), description: "The provided information model could not be stored or updated.")]
         public async Task<IActionResult> ApproveNameSpaceAsync(
             [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier,
-            [FromQuery][SwaggerParameter("Status of the approval")] ApprovalStatus status,
-            [FromQuery][SwaggerParameter("Information about the approval")] string approvalInformation)
+            [FromQuery][SwaggerParameter("(Unused)")] ApprovalStatus status,
+            [FromQuery][Required][SwaggerParameter("(Name of the approved namespace)")] string name)
         {
-            if (await _database.ApproveNamespaceAsync(identifier, status, approvalInformation).ConfigureAwait(false) != null)
+            if (await _client.CopyNodeset(User.Identity.Name, identifier, name).ConfigureAwait(false) != null)
             {
-                return new ObjectResult("Approval status updated successfully") { StatusCode = (int)HttpStatusCode.OK };
+                return new ObjectResult("Approval successful") { StatusCode = (int)HttpStatusCode.OK };
             }
             _logger.LogError($"Approval failed: {identifier} not found.");
             return NotFound();
