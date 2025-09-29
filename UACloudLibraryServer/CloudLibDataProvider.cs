@@ -41,7 +41,6 @@ using LinqKit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Cloud.Library.NodeSetIndex;
 using Opc.Ua.Export;
