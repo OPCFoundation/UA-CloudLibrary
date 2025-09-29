@@ -56,7 +56,7 @@ There are only two types of user authorization policies supported by the UA Clou
 
 **Note: Custom roles can be added to users by the Admin user, if required by a calling service.**
 
-Approval of freshly uploaded OPC UA Information Models for download by everyone can be optionally enabled via an environment variable (see below).
+Approval of freshly uploaded OPC UA Information Models for download by everyone can be completed via the REST API.
 
 ## Database Configuration
 The UA Cloud Library database configuration is documented in the [Database Setup](Docs/Database%20Setup.md) document.
@@ -93,8 +93,6 @@ Environment variables that **can optionally** be defined:
 * `EmailSenderAPIKey`: The API key for the email sender service
 * `RegistrationEmailFrom`: The "from" email address to use for user registration confirmation emails
 * `RegistrationEmailReplyTo`: The "replyto" email address to use for user registration confirmation emails
-
-* `CloudLibrary__ApprovalRequired`: Whether OPC UA Information Models are filtered based on approval by the Admin user.
 * `AllowSelfRegistration`: Whether users can self-register for a user account (default: `true`).
 
 ### Optional Settings - Captcha
