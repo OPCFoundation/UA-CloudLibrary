@@ -84,7 +84,6 @@
                                                     <span class="badge badge-primary float-right">@item.Title</span>
                                                 }
                                                 <h5 class="card-title">@item.Title</h5>
-                                                <h6 class="card-subtitle mb-2 text-muted">by @item.Title</h6>
                                             </div>
                                             <div class="card-body">
                                                 <p class="card-text">
@@ -92,7 +91,14 @@
                                                 </p>
                                                 <div class="card-text-footer">
                                                     <div>
-                                                        Owner: @item.UserId
+                                                        Owner: @if (string.IsNullOrEmpty(item.UserId))
+                                                        {
+                                                            <span>Administrator</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span>@item.UserId</span>
+                                                        }
                                                     </div>
                                                     <div>
                                                         License: @item.License
