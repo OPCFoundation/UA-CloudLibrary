@@ -120,7 +120,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             string[] types = await _database.GetAllTypes(User.Identity.Name, identifier).ConfigureAwait(false);
             if ((types == null) || (types.Length == 0))
             {
-                return new ObjectResult("Failed to find nodeset types") { StatusCode = (int)HttpStatusCode.NotFound };
+                return new ObjectResult("No types defined in nodeset.") { StatusCode = (int)HttpStatusCode.NotFound };
             }
 
             return new ObjectResult(types) { StatusCode = (int)HttpStatusCode.OK };
@@ -143,7 +143,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             string[] instances = await _database.GetAllInstances(User.Identity.Name, identifier).ConfigureAwait(false);
             if ((instances == null) || (instances.Length == 0))
             {
-                return new ObjectResult("Failed to find nodeset instances") { StatusCode = (int)HttpStatusCode.NotFound };
+                return new ObjectResult("No instances defined in nodeset.") { StatusCode = (int)HttpStatusCode.NotFound };
             }
 
             return new ObjectResult(instances) { StatusCode = (int)HttpStatusCode.OK };
