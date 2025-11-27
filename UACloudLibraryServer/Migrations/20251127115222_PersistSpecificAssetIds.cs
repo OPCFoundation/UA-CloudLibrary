@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
@@ -13,29 +13,25 @@ namespace Opc.Ua.Cloud.Library
         {
             migrationBuilder.CreateTable(
                 name: "Reference",
-                columns: table => new
-                {
+                columns: table => new {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Type = table.Column<int>(type: "integer", nullable: false)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_Reference", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
                 name: "Key",
-                columns: table => new
-                {
+                columns: table => new {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Type = table.Column<int>(type: "integer", nullable: false),
                     Value = table.Column<string>(type: "text", nullable: false),
                     ReferenceId = table.Column<int>(type: "integer", nullable: true)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_Key", x => x.Id);
                     table.ForeignKey(
                         name: "FK_Key_Reference_ReferenceId",
@@ -46,8 +42,7 @@ namespace Opc.Ua.Cloud.Library
 
             migrationBuilder.CreateTable(
                 name: "SpecificAssetId",
-                columns: table => new
-                {
+                columns: table => new {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Name = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
@@ -55,8 +50,7 @@ namespace Opc.Ua.Cloud.Library
                     ExternalSubjectIdId = table.Column<int>(type: "integer", nullable: true),
                     SemanticIdId = table.Column<int>(type: "integer", nullable: true)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_SpecificAssetId", x => x.Id);
                     table.ForeignKey(
                         name: "FK_SpecificAssetId_Reference_ExternalSubjectIdId",
@@ -72,15 +66,13 @@ namespace Opc.Ua.Cloud.Library
 
             migrationBuilder.CreateTable(
                 name: "PersistSpecificAssetIds",
-                columns: table => new
-                {
+                columns: table => new {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     AASId = table.Column<string>(type: "text", nullable: true),
                     AssetIdId = table.Column<int>(type: "integer", nullable: true)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_PersistSpecificAssetIds", x => x.Id);
                     table.ForeignKey(
                         name: "FK_PersistSpecificAssetIds_SpecificAssetId_AssetIdId",
