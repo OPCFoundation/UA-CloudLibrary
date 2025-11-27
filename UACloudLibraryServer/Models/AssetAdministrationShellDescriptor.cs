@@ -40,7 +40,7 @@ namespace AdminShell
         /// <summary>
         /// Gets or Sets GlobalAssetId
         /// </summary>
-        [RegularExpression("/^([\\x09\\x0a\\x0d\\x20-\\ud7ff\\ue000-\\ufffd]|\\ud800[\\udc00-\\udfff]|[\\ud801-\\udbfe][\\udc00-\\udfff]|\\udbff[\\udc00-\\udfff])*$/")]
+        [RegularExpression("^([\\x09\\x0a\\x0d\\x20-\\ud7ff\\ue000-\\ufffd]|\\ud800[\\udc00-\\udfff]|[\\ud801-\\udbfe][\\udc00-\\udfff]|\\udbff[\\udc00-\\udfff])*$")]
         [StringLength(2048, MinimumLength = 1)]
         [DataMember(Name = "globalAssetId")]
         public string GlobalAssetId { get; set; }
@@ -48,7 +48,7 @@ namespace AdminShell
         /// <summary>
         /// Gets or Sets IdShort
         /// </summary>
-        [RegularExpression("/^[a-zA-Z][a-zA-Z0-9_-]*[a-zA-Z0-9_]+$/")]
+        [RegularExpression("^[a-zA-Z][a-zA-Z0-9_-]*[a-zA-Z0-9_]+$")]
         [StringLength(128, MinimumLength = 1)]
         [DataMember(Name = "idShort")]
         public string IdShort { get; set; }
@@ -57,7 +57,7 @@ namespace AdminShell
         /// Gets or Sets Id
         /// </summary>
         [Required]
-        [RegularExpression("/^([\\x09\\x0a\\x0d\\x20-\\ud7ff\\ue000-\\ufffd]|\\ud800[\\udc00-\\udfff]|[\\ud801-\\udbfe][\\udc00-\\udfff]|\\udbff[\\udc00-\\udfff])*$/")]
+        [RegularExpression("^([\\x09\\x0a\\x0d\\x20-\\ud7ff\\ue000-\\ufffd]|\\ud800[\\udc00-\\udfff]|[\\ud801-\\udbfe][\\udc00-\\udfff]|\\udbff[\\udc00-\\udfff])*$")]
         [StringLength(2048, MinimumLength = 1)]
         [DataMember(Name = "id")]
         public string Id { get; set; }

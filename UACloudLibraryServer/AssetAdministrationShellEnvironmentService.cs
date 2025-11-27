@@ -47,6 +47,11 @@ namespace AdminShell
             _dataProvider = dataProvider;
         }
 
+        public void UpdateAssetAdministrationShellDescriptor(string userName, string decodedAasIdentifier, AssetAdministrationShellDescriptor shellDescriptor)
+        {
+            _dataProvider.UpdateAssetAdministrationShellDescriptor(userName, decodedAasIdentifier, shellDescriptor);
+        }
+
         public List<AssetAdministrationShellDescriptor> GetAllAssetAdministrationShellDescriptors(string userId)
         {
             List<AssetAdministrationShellDescriptor> output = new();
@@ -76,7 +81,7 @@ namespace AdminShell
                         GlobalAssetId = $"http://example.com/idta/ids/{aas.NodeSet.Identifier}",
                         IdShort = aas.NodeSet.Identifier,
                         Id = aas.NodeId,
-                        SpecificAssetIds = new List<SpecificAssetId>(), // TODO: fill this from database
+                        SpecificAssetIds = _dataProvider.GetAssetAdministrationShellDescriptor(userId, aas.NodeSet.Identifier),
                         SubmodelDescriptors = new List<SubmodelDescriptor>()
                     };
 
@@ -144,7 +149,7 @@ namespace AdminShell
                     GlobalAssetId = $"http://example.com/idta/ids/{aas.NodeSet.Identifier}",
                     IdShort = aas.NodeSet.Identifier,
                     Id = aas.NodeId,
-                    SpecificAssetIds = new List<SpecificAssetId>(), // TODO: fill this from database
+                    SpecificAssetIds = _dataProvider.GetAssetAdministrationShellDescriptor(userId, aas.NodeSet.Identifier),
                     SubmodelDescriptors = new List<SubmodelDescriptor>()
                 };
 

@@ -2,6 +2,8 @@
 namespace AdminShell
 {
     using System.Collections.Generic;
+    using System.ComponentModel.DataAnnotations;
+    using System.ComponentModel.DataAnnotations.Schema;
     using System.Runtime.Serialization;
     using System.Xml.Serialization;
 
@@ -9,17 +11,21 @@ namespace AdminShell
     [XmlType(TypeName = "reference")]
     public class Reference
     {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public virtual int Id { get; set; }
+
         [XmlElement(ElementName = "type")]
         [DataMember(Name = "type")]
-        public KeyElements Type { get; set; } = KeyElements.GlobalReference;
+        public virtual KeyElements Type { get; set; } = KeyElements.GlobalReference;
 
         [DataMember(Name = "keys")]
         [XmlArray(ElementName = "keys")]
         [XmlArrayItem(ElementName = "key")]
-        public List<Key> Keys { get; set; } = new();
+        public virtual List<Key> Keys { get; set; } = new();
 
         [XmlIgnore]
-        public int Count { get { return Keys.Count; } }
+        public virtual int Count { get { return Keys.Count; } }
 
         public Reference() { }
 

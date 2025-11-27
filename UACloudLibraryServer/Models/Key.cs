@@ -3,6 +3,7 @@ namespace AdminShell
 {
     using System;
     using System.ComponentModel.DataAnnotations;
+    using System.ComponentModel.DataAnnotations.Schema;
     using System.Globalization;
     using System.Runtime.Serialization;
     using System.Xml;
@@ -12,17 +13,21 @@ namespace AdminShell
     [DataContract]
     public class Key
     {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public virtual int Id { get; set; }
+
         [Required]
         [DataMember(Name = "type")]
         [XmlAttribute(AttributeName = "type")]
         [MetaModelNameAttribute("Key.Type")]
-        public KeyElements Type { get; set; }
+        public virtual KeyElements Type { get; set; }
 
         [Required]
         [XmlText]
         [DataMember(Name = "value")]
         [MetaModelNameAttribute("Key.Value")]
-        public string Value { get; set; }
+        public virtual string Value { get; set; }
 
         public Key()
         {

@@ -33,6 +33,7 @@ using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection.Emit;
+using AdminShell;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -108,6 +109,8 @@ namespace Opc.Ua.Cloud.Library
 
         public DbSet<DbFiles> DBFiles { get; set; }
 
+        public DbSet<PersistedSpecificAssetIds> PersistedSpecificAssetIds { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -146,6 +149,8 @@ namespace Opc.Ua.Cloud.Library
                 .IsTsVectorExpressionIndex("english");
 
             builder.Entity<DbFiles>();
+
+            builder.Entity<PersistedSpecificAssetIds>();
         }
 
         public void CreateNodeModel(ModelBuilder modelBuilder, bool cascadeDelete = false, bool methodArgs = false)
