@@ -121,8 +121,7 @@ namespace Opc.Ua.Cloud.Library
                 .Ignore(nsm => nsm.HeaderComments)
                 .HasAlternateKey(nm => nm.Identifier);
 
-            builder.Entity<NodeModel>()
-                .Ignore(nm => nm.AllReferencedNodes);
+            builder.Entity<NodeModel>();
 
             builder.Entity<NodeModel>()
                 .HasIndex(nm => new { nm.BrowseName })
@@ -156,7 +155,6 @@ namespace Opc.Ua.Cloud.Library
         public void CreateNodeModel(ModelBuilder modelBuilder, bool cascadeDelete = false, bool methodArgs = false)
         {
             modelBuilder.Owned<NodeModel.LocalizedText>();
-            modelBuilder.Owned<NodeModel.NodeAndReference>();
             modelBuilder.Owned<VariableModel.EngineeringUnitInfo>();
             modelBuilder.Owned<DataTypeModel.StructureField>();
             modelBuilder.Owned<DataTypeModel.UaEnumField>();
@@ -299,75 +297,28 @@ namespace Opc.Ua.Cloud.Library
                 .HasMany(nm => nm.Interfaces).WithMany(v => v.NodesWithInterface);
 
             {
-                var orn = modelBuilder.Entity<NodeModel>()
-                    .OwnsMany(nm => nm.OtherReferencedNodes);
-
-                orn.WithOwner()
-                    .HasForeignKey("OwnerNodeId", "OwnerModelUri", "OwnerPublicationDate");
-
+                var orn = modelBuilder.Entity<NodeModel>();
                 orn.Property<string>("ReferencedNodeId");
                 orn.Property<string>("ReferencedModelUri");
                 orn.Property<DateTime?>("ReferencedPublicationDate");
-
-                var ornFK = orn.HasOne(nr => nr.Node).WithMany()
-                    .HasForeignKey("ReferencedNodeId", "ReferencedModelUri", "ReferencedPublicationDate");
-
-                if (cascadeDelete)
-                {
-                    ornFK.OnDelete(DeleteBehavior.Cascade);
-                }
-
                 orn.Property<string>("OwnerNodeId");
                 orn.Property<string>("OwnerModelUri");
                 orn.Property<DateTime?>("OwnerPublicationDate");
-
-                //orn.Ignore(nr => nr.ReferenceType);
                 orn.Property<string>("ReferenceTypeNodeId");
                 orn.Property<string>("ReferenceTypeModelUri");
                 orn.Property<DateTime?>("ReferenceTypePublicationDate");
-
-                var ornRTFK = orn.HasOne(nr => nr.ReferenceType).WithMany()
-                    .HasForeignKey("ReferenceTypeNodeId", "ReferenceTypeModelUri", "ReferenceTypePublicationDate");
-
-                if (cascadeDelete)
-                {
-                    ornRTFK.OnDelete(DeleteBehavior.Cascade);
-                }
             }
             {
-                var orn = modelBuilder.Entity<NodeModel>()
-                    .OwnsMany(nm => nm.OtherReferencingNodes);
-
-                orn.WithOwner()
-                    .HasForeignKey("OwnerNodeId", "OwnerModelUri", "OwnerPublicationDate");
-
+                var orn = modelBuilder.Entity<NodeModel>();
                 orn.Property<string>("ReferencingNodeId");
                 orn.Property<string>("ReferencingModelUri");
                 orn.Property<DateTime?>("ReferencingPublicationDate");
-
-                var ornFK = orn.HasOne(nr => nr.Node).WithMany()
-                    .HasForeignKey("ReferencingNodeId", "ReferencingModelUri", "ReferencingPublicationDate");
-
-                if (cascadeDelete)
-                {
-                    ornFK.OnDelete(DeleteBehavior.Cascade);
-                }
-
                 orn.Property<string>("OwnerNodeId");
                 orn.Property<string>("OwnerModelUri");
                 orn.Property<DateTime?>("OwnerPublicationDate");
-
                 orn.Property<string>("ReferenceTypeNodeId");
                 orn.Property<string>("ReferenceTypeModelUri");
                 orn.Property<DateTime?>("ReferenceTypePublicationDate");
-
-                var ornRTFK = orn.HasOne(nr => nr.ReferenceType).WithMany()
-                    .HasForeignKey("ReferenceTypeNodeId", "ReferenceTypeModelUri", "ReferenceTypePublicationDate");
-
-                if (cascadeDelete)
-                {
-                    ornRTFK.OnDelete(DeleteBehavior.Cascade);
-                }
             }
         }
 

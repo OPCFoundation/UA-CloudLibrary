@@ -35,7 +35,6 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Xml.Linq;
 using Microsoft.EntityFrameworkCore;
 using Opc.Ua;
 using Opc.Ua.Client;
@@ -337,6 +336,36 @@ namespace AdminShell
             while (true);
 
             return references;
+        }
+
+        public async Task<object> GetTypeDefinition(string userId, string nodesetIdentifier, string nodeId)
+        {
+            if (!await ValidateSession(userId, nodesetIdentifier).ConfigureAwait(false))
+            {
+                return string.Empty;
+            }
+
+            // read the variable node from the OPC UA server
+            Node node = _session.ReadNode(ExpandedNodeId.ToNodeId(new ExpandedNodeId(nodeId), _session.NamespaceUris));
+            if (node?.NodeClass == NodeClass.DataType)
+            {
+                // return complex type definition
+                DataTypeNode dataTypeNode = (DataTypeNode)node;
+                return new { Namespaces = _session.NamespaceUris.ToArray(), dataTypeNode.DataTypeDefinition };
+            }
+            else
+            {
+                // return references
+                ReferenceDescriptionCollection references = Browse(_session, new BrowseDescription {
+                    NodeId = ExpandedNodeId.ToNodeId(new ExpandedNodeId(nodeId), _session.NamespaceUris),
+                    BrowseDirection = BrowseDirection.Forward,
+                    ReferenceTypeId = null,
+                    IncludeSubtypes = true,
+                    NodeClassMask = 0,
+                    ResultMask = (uint)BrowseResultMask.All
+                });
+                return new { Namespaces = _session.NamespaceUris.ToArray(), references };
+            }
         }
 
         public async Task<string> VariableRead(string userId, string nodesetIdentifier, string nodeId)

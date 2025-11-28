@@ -85,40 +85,6 @@ namespace AdminShell
                         SubmodelDescriptors = new List<SubmodelDescriptor>()
                     };
 
-                    if (aas.AllReferencedNodes != null)
-                    {
-                        foreach (var reference in aas.AllReferencedNodes)
-                        {
-                            ObjectModel submodel = _dataProvider.GetNodeSets(userId, aas.NodeSet.Identifier)
-                                .FirstOrDefault()?.Objects
-                                .FirstOrDefault(o => (o.Namespace == reference.Node.Namespace) && (o.NodeId == reference.Node.NodeId));
-                            if (submodel != null)
-                            {
-                                List<Endpoint> submodelEndpoints = new() {
-                                    new Endpoint() {
-                                        Interface = "SUBMODEL-1.0",
-                                        ProtocolInformation = new ProtocolInformation() {
-                                            Href = $"http://example.com/idta/shells/{submodel.NodeSet.Identifier}"
-                                        }
-                                    }
-                                };
-
-                                SubmodelDescriptor submodelDescriptor = new() {
-                                    Endpoints = submodelEndpoints,
-                                    IdShort = submodel.NodeSet.Identifier,
-                                    Id = $"http://example.com/idta/ids/{submodel.NodeSet.Identifier}",
-                                    SemanticId = new Reference {
-                                        Keys = new List<Key> {
-                                        new Key("GlobalReference", $"http://example.com/idta/submodels/{submodel.NodeSet.Identifier}")
-                                    }
-                                    }
-                                };
-
-                                aasDescriptor.SubmodelDescriptors.Add(submodelDescriptor);
-                            }
-                        }
-                    }
-
                     output.Add(aasDescriptor);
                 }
             }
@@ -152,40 +118,6 @@ namespace AdminShell
                     SpecificAssetIds = _dataProvider.GetAssetAdministrationShellDescriptor(userId, aas.NodeSet.Identifier),
                     SubmodelDescriptors = new List<SubmodelDescriptor>()
                 };
-
-                if (aas.AllReferencedNodes != null)
-                {
-                    foreach (var reference in aas.AllReferencedNodes)
-                    {
-                        ObjectModel submodel = _dataProvider.GetNodeSets(userId, aas.NodeSet.Identifier)
-                            .FirstOrDefault()?.Objects
-                            .FirstOrDefault(o => (o.Namespace == reference.Node.Namespace) && (o.NodeId == reference.Node.NodeId));
-                        if (submodel != null)
-                        {
-                            List<Endpoint> submodelEndpoints = new() {
-                                new Endpoint() {
-                                    Interface = "SUBMODEL-1.0",
-                                    ProtocolInformation = new ProtocolInformation() {
-                                        Href = $"http://example.com/idta/shells/{submodel.NodeSet.Identifier}"
-                                    }
-                                }
-                            };
-
-                            SubmodelDescriptor submodelDescriptor = new() {
-                                Endpoints = submodelEndpoints,
-                                IdShort = submodel.NodeSet.Identifier,
-                                Id = $"http://example.com/idta/ids/{submodel.NodeSet.Identifier}",
-                                SemanticId = new Reference {
-                                    Keys = new List<Key> {
-                                    new Key("GlobalReference", $"http://example.com/idta/submodels/{submodel.NodeSet.Identifier}")
-                                }
-                                }
-                            };
-
-                            aasDescriptor.SubmodelDescriptors.Add(submodelDescriptor);
-                        }
-                    }
-                }
 
                 return aasDescriptor;
             }

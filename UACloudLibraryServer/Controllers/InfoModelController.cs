@@ -33,12 +33,15 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+using AdminShell;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Opc.Ua.Cloud.Library.Models;
+using Org.BouncyCastle.Tls;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace Opc.Ua.Cloud.Library.Controllers
@@ -49,13 +52,13 @@ namespace Opc.Ua.Cloud.Library.Controllers
     {
         private readonly DbFileStorage _storage;
         private readonly CloudLibDataProvider _database;
-        private readonly ILogger _logger;
+        private readonly UAClient _client;
 
-        public InfoModelController(DbFileStorage storage, CloudLibDataProvider database, ILoggerFactory logger)
+        public InfoModelController(DbFileStorage storage, CloudLibDataProvider database, UAClient client)
         {
             _storage = storage;
             _database = database;
-            _logger = logger.CreateLogger("InfoModelController");
+            _client = client;
         }
 
         [HttpGet]
@@ -123,7 +126,15 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("No types defined in nodeset.") { StatusCode = (int)HttpStatusCode.NotFound };
             }
 
-            return new ObjectResult(types) { StatusCode = (int)HttpStatusCode.OK };
+            List<object> results = new();
+            foreach (var type in types)
+            {
+                string[] parts = type.Split(',');
+                object definition = await _client.GetTypeDefinition(User.Identity.Name, identifier, parts[0]).ConfigureAwait(false);
+                results.Add(new { type, definition });
+            }
+
+            return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
         [HttpGet]

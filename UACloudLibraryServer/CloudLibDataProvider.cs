@@ -805,8 +805,7 @@ namespace Opc.Ua.Cloud.Library
                 List<string> typeList = new();
                 foreach (NodeModel model in types)
                 {
-                    string expandedNodeIdWithBrowseName = model.NodeId + ";" + model.BrowseName;
-                    typeList.Add(expandedNodeIdWithBrowseName);
+                    typeList.Add(model.NodeId + "," + model.BrowseName);
                 }
 
                 return typeList.ToArray();
@@ -830,8 +829,7 @@ namespace Opc.Ua.Cloud.Library
                 List<string> instanceList = new();
                 foreach (NodeModel model in instances)
                 {
-                    string expandedNodeIdWithBrowseName = model.NodeId + ";" + model.BrowseName;
-                    instanceList.Add(expandedNodeIdWithBrowseName);
+                    instanceList.Add(model.NodeId + "," + model.BrowseName);
                 }
 
                 return instanceList.ToArray();
