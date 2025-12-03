@@ -796,10 +796,10 @@ namespace Opc.Ua.Cloud.Library
             {
                 List<NodeModel> types =
                 [
-                    .. GetNodeModels(nsm => nsm.ObjectTypes, userId, nodeSetMeta.ModelUri),
-                    .. GetNodeModels(nsm => nsm.VariableTypes, userId, nodeSetMeta.ModelUri),
-                    .. GetNodeModels(nsm => nsm.DataTypes, userId, nodeSetMeta.ModelUri),
-                    .. GetNodeModels(nsm => nsm.ReferenceTypes, userId, nodeSetMeta.ModelUri),
+                    .. GetNodeModels(nsm => nsm.ObjectTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
+                    .. GetNodeModels(nsm => nsm.VariableTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
+                    .. GetNodeModels(nsm => nsm.DataTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
+                    .. GetNodeModels(nsm => nsm.ReferenceTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
                 ];
 
                 List<string> typeList = new();
@@ -821,9 +821,9 @@ namespace Opc.Ua.Cloud.Library
             {
                 List<NodeModel> instances =
                 [
-                    .. GetNodeModels(nsm => nsm.Objects, userId, nodeSetMeta.ModelUri),
-                    .. GetNodeModels(nsm => nsm.Properties, userId, nodeSetMeta.ModelUri),
-                    .. GetNodeModels(nsm => nsm.DataVariables, userId, nodeSetMeta.ModelUri),
+                    .. GetNodeModels(nsm => nsm.Objects, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
+                    .. GetNodeModels(nsm => nsm.Properties, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
+                    .. GetNodeModels(nsm => nsm.DataVariables, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
                 ];
 
                 List<string> instanceList = new();
