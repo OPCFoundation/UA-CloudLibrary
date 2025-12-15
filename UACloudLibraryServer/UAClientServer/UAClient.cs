@@ -46,7 +46,7 @@ using Opc.Ua.Configuration;
 
 namespace AdminShell
 {
-    public class UAClient : IDisposable
+    public class UAClient : IAsyncDisposable
     {
         public List<string> LoadedNamespaces => ((NodesetFileNodeManager)_server?.CurrentInstance.NodeManager.NodeManagers[2])?.NamespaceUris.ToList() ?? new List<string>();
 
@@ -57,11 +57,11 @@ namespace AdminShell
         private readonly CloudLibDataProvider _database;
 
         private SimpleServer _server;
-        private Opc.Ua.Client.Session _session;
+        private Opc.Ua.Client.ISession _session;
         private SessionReconnectHandler _reconnectHandler;
 
         private static uint _port = 5000;
-        private static ConcurrentDictionary<string, Opc.Ua.Client.Session> _sessions = new();
+        private static ConcurrentDictionary<string, Opc.Ua.Client.ISession> _sessions = new();
 
         private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
 
@@ -93,12 +93,13 @@ namespace AdminShell
                     ResultMask = (uint)BrowseResultMask.All
                 };
 
-                references = Browse(_session, nodeToBrowse);
+                references = await Browse(_session, nodeToBrowse).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 Console.WriteLine("GetChildren: " + ex.Message);
-                DisposeSession();
+
+                await DisposeSession().ConfigureAwait(false);
             }
 
             if ((references != null) && (references.Count > 0))
@@ -147,12 +148,13 @@ namespace AdminShell
                     ResultMask = (uint)BrowseResultMask.All
                 };
 
-                references = Browse(_session, nodeToBrowse);
+                references = await Browse(_session, nodeToBrowse).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 Console.WriteLine("BrowseVariableNodesResursivelyAsync: " + ex.Message);
-                DisposeSession();
+
+                await DisposeSession().ConfigureAwait(false);
             }
 
             if ((references != null) && (references.Count > 0))
@@ -282,60 +284,54 @@ namespace AdminShell
             }
         }
 
-        private ReferenceDescriptionCollection Browse(Opc.Ua.Client.Session session, BrowseDescription nodeToBrowse)
+        private async Task<ReferenceDescriptionCollection> Browse(Opc.Ua.Client.ISession session, BrowseDescription nodeToBrowse)
         {
-            ReferenceDescriptionCollection references = new ReferenceDescriptionCollection();
-
-            BrowseDescriptionCollection nodesToBrowse = new BrowseDescriptionCollection
-            {
-                nodeToBrowse
-            };
-
-            session.Browse(
-            null,
-            null,
-            0,
-            nodesToBrowse,
-            out BrowseResultCollection results,
-            out DiagnosticInfoCollection diagnosticInfos);
-
-            ClientBase.ValidateResponse(results, nodesToBrowse);
-            ClientBase.ValidateDiagnosticInfos(diagnosticInfos, nodesToBrowse);
+            (ResponseHeader responseHeader,
+            Byte[] continuationPoints,
+            ReferenceDescriptionCollection referencesList) = await session.BrowseAsync(
+                null,
+                null,
+                nodeToBrowse.NodeId,
+                0,
+                BrowseDirection.Forward,
+                null,
+                true,
+                nodeToBrowse.NodeClassMask
+                ).ConfigureAwait(false);
 
             do
             {
-                if (StatusCode.IsBad(results[0].StatusCode))
+                if (referencesList.Count == 0 || continuationPoints == null)
                 {
                     break;
                 }
 
-                for (int i = 0; i < results[0].References.Count; i++)
-                {
-                    references.Add(results[0].References[i]);
-                }
-
-                if (results[0].References.Count == 0 || results[0].ContinuationPoint == null)
-                {
-                    break;
-                }
-
-                ByteStringCollection continuationPoints = new ByteStringCollection {
-                    results[0].ContinuationPoint
-                };
-
-                session.BrowseNext(
+                (ResponseHeader responseHeaderNext,
+                Byte[] continuationPointsNext,
+                ReferenceDescriptionCollection referencesListNext) = await session.BrowseNextAsync(
                     null,
                     false,
-                    continuationPoints,
-                    out results,
-                    out diagnosticInfos);
+                    continuationPoints
+                ).ConfigureAwait(false);
 
-                ClientBase.ValidateResponse(results, continuationPoints);
-                ClientBase.ValidateDiagnosticInfos(diagnosticInfos, continuationPoints);
+                if (referencesListNext.Count > 0)
+                {
+                    // append results to the master list
+                    referencesList.AddRange(referencesListNext);
+                }
+
+                if (continuationPointsNext == null)
+                {
+                    break;
+                }
+                else
+                {
+                    continuationPoints = continuationPointsNext;
+                }
             }
             while (true);
 
-            return references;
+            return referencesList;
         }
 
         public async Task<object> GetTypeDefinition(string userId, string nodesetIdentifier, string nodeId)
@@ -346,7 +342,7 @@ namespace AdminShell
             }
 
             // read the variable node from the OPC UA server
-            Node node = _session.ReadNode(ExpandedNodeId.ToNodeId(new ExpandedNodeId(nodeId), _session.NamespaceUris));
+            Node node = await _session.ReadNodeAsync(ExpandedNodeId.ToNodeId(new ExpandedNodeId(nodeId), _session.NamespaceUris)).ConfigureAwait(false);
             if (node?.NodeClass == NodeClass.DataType)
             {
                 // return complex type definition
@@ -356,14 +352,14 @@ namespace AdminShell
             else
             {
                 // return references
-                ReferenceDescriptionCollection references = Browse(_session, new BrowseDescription {
+                ReferenceDescriptionCollection references = await Browse(_session, new BrowseDescription {
                     NodeId = ExpandedNodeId.ToNodeId(new ExpandedNodeId(nodeId), _session.NamespaceUris),
                     BrowseDirection = BrowseDirection.Forward,
                     ReferenceTypeId = null,
                     IncludeSubtypes = true,
                     NodeClassMask = 0,
                     ResultMask = (uint)BrowseResultMask.All
-                });
+                }).ConfigureAwait(false);
                 return new { Namespaces = _session.NamespaceUris.ToArray(), references };
             }
         }
@@ -374,8 +370,6 @@ namespace AdminShell
 
             try
             {
-                DataValueCollection values = null;
-                DiagnosticInfoCollection diagnosticInfos = null;
                 ReadValueIdCollection nodesToRead = new();
 
                 if (!await ValidateSession(userId, nodesetIdentifier).ConfigureAwait(false))
@@ -384,7 +378,7 @@ namespace AdminShell
                 }
 
                 // read the variable node from the OPC UA server
-                VariableNode node = (VariableNode)_session.ReadNode(ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris));
+                VariableNode node = (VariableNode)await _session.ReadNodeAsync(ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris)).ConfigureAwait(false);
 
                 ReadValueId valueId = new();
                 valueId.NodeId = ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris);
@@ -396,16 +390,16 @@ namespace AdminShell
                 // load complex type system
                 ComplexTypeSystem complexTypeSystem = new(_session);
                 ExpandedNodeId nodeTypeId = node.DataType;
-                await complexTypeSystem.LoadType(nodeTypeId).ConfigureAwait(false);
+                await complexTypeSystem.LoadTypeAsync(nodeTypeId).ConfigureAwait(false);
 
-                ResponseHeader responseHeader = _session.Read(null, 0, TimestampsToReturn.Both, nodesToRead, out values, out diagnosticInfos);
+                ReadResponse response = await _session.ReadAsync(null, 0, TimestampsToReturn.Both, nodesToRead, CancellationToken.None).ConfigureAwait(false);
 
-                ClientBase.ValidateResponse(values, nodesToRead);
-                ClientBase.ValidateDiagnosticInfos(diagnosticInfos, nodesToRead);
+                ClientBase.ValidateResponse(response.Results, nodesToRead);
+                ClientBase.ValidateDiagnosticInfos(response.DiagnosticInfos, nodesToRead);
 
-                if ((values.Count > 0) && (values[0].Value != null))
+                if ((response.Results.Count > 0) && (response.Results[0].Value != null))
                 {
-                    value = values[0].ToString();
+                    value = response.Results[0].ToString();
                 }
             }
             catch (Exception ex)
@@ -437,21 +431,14 @@ namespace AdminShell
                     nodeToWrite
                 };
 
-                StatusCodeCollection results = null;
-                DiagnosticInfoCollection diagnosticInfos = null;
+                WriteResponse response = await _session.WriteAsync(null, nodesToWrite, CancellationToken.None).ConfigureAwait(false);
 
-                ResponseHeader responseHeader = _session.Write(
-                    null,
-                    nodesToWrite,
-                    out results,
-                    out diagnosticInfos);
+                ClientBase.ValidateResponse(response.Results, nodesToWrite);
+                ClientBase.ValidateDiagnosticInfos(response.DiagnosticInfos, nodesToWrite);
 
-                ClientBase.ValidateResponse(results, nodesToWrite);
-                ClientBase.ValidateDiagnosticInfos(diagnosticInfos, nodesToWrite);
-
-                if (StatusCode.IsBad(results[0]))
+                if (StatusCode.IsBad(response.Results[0]))
                 {
-                    throw ServiceResultException.Create(results[0], 0, diagnosticInfos, responseHeader.StringTable);
+                    throw ServiceResultException.Create(response.Results[0], 0, response.DiagnosticInfos, response.ResponseHeader.StringTable);
                 }
             }
             catch (Exception ex)
@@ -473,7 +460,7 @@ namespace AdminShell
             {
                 EndpointDescription selectedEndpoint = null;
 
-                if (_sessions.TryGetValue(nodesetIdentifier, out Opc.Ua.Client.Session value) && (value != null) && value.Connected)
+                if (_sessions.TryGetValue(nodesetIdentifier, out Opc.Ua.Client.ISession value) && (value != null) && value.Connected)
                 {
                     Console.WriteLine("Re-using existing OPC UA server and session for nodeset " + nodesetIdentifier);
                     _session = value;
@@ -501,9 +488,9 @@ namespace AdminShell
 
                                 _server = new SimpleServer(_app, _port);
 
-                                await _app.Start(_server).ConfigureAwait(false);
+                                await _app.StartAsync(_server).ConfigureAwait(false);
 
-                                selectedEndpoint = CoreClientUtils.SelectEndpoint(_app.ApplicationConfiguration, "opc.tcp://localhost:" + _port, true);
+                                selectedEndpoint = await CoreClientUtils.SelectEndpointAsync(_app.ApplicationConfiguration, "opc.tcp://localhost:" + _port, true).ConfigureAwait(false);
                             }
                             catch (Exception ex)
                             {
@@ -540,7 +527,7 @@ namespace AdminShell
                         }
 
                         ConfiguredEndpoint configuredEndpoint = new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(_app.ApplicationConfiguration));
-                        Opc.Ua.Client.Session newSession = await Opc.Ua.Client.Session.Create(
+                        Opc.Ua.Client.ISession newSession = await DefaultSessionFactory.Instance.CreateAsync(
                             _app.ApplicationConfiguration,
                             configuredEndpoint,
                             true,
@@ -557,7 +544,8 @@ namespace AdminShell
                         }
 
                         newSession.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
-                        newSession.FetchNamespaceTables();
+
+                        await newSession.FetchNamespaceTablesAsync().ConfigureAwait(false);
 
                         _sessions[nodesetIdentifier] = newSession;
                         _session = newSession;
@@ -605,7 +593,7 @@ namespace AdminShell
             }
         }
 
-        public void DisposeSession()
+        public async Task DisposeSession()
         {
             // remove session from our concurrent dictionary
             foreach (var key in _sessions.Keys.ToList())
@@ -620,7 +608,7 @@ namespace AdminShell
             {
                 if (_session.Connected)
                 {
-                    _session.Close();
+                    await _session.CloseAsync().ConfigureAwait(false);
                 }
 
                 _session.Dispose();
@@ -628,10 +616,10 @@ namespace AdminShell
             }
         }
 
-        public void Dispose()
+        public async ValueTask DisposeAsync()
         {
             // remove session from our concurrent dictionary
-            DisposeSession();
+            await DisposeSession().ConfigureAwait(false);
 
             if (_reconnectHandler != null)
             {
