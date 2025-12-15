@@ -22,7 +22,7 @@ jobs:
           dotnet-version: '10.0.x'
       - name: Workaround
         #https://github.com/dotnet/format/issues/1433#issuecomment-1055920818
-        run: dotnet tool install -g dotnet-format --version "10.*" --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10/nuget/v3/index.json
+        run: dotnet tool install -g dotnet-format --version "10.0" --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10/nuget/v3/index.json
       - name: ✓ ensure format UA-CloudLibrary Server
         working-directory: UACloudLibraryServer
         run: dotnet-format --verify-no-changes -v:diag --exclude ~/.nuget
