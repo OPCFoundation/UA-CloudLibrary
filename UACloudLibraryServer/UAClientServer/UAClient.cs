@@ -48,9 +48,9 @@ namespace AdminShell
 {
     public class UAClient : IAsyncDisposable
     {
-        public List<string> LoadedNamespaces => ((NodesetFileNodeManager)_server?.CurrentInstance.NodeManager.NodeManagers[2])?.NamespaceUris.ToList() ?? new List<string>();
+        public Dictionary<string, Tuple<string, string>> LoadedNamespaces { get; private set; } = new();
 
-        public List<string> MissingNamespaces { get; private set; } = new List<string>();
+        public List<string> MissingNamespaces { get; private set; } = new();
 
         private readonly ApplicationInstance _app;
         private readonly DbFileStorage _storage;
@@ -208,8 +208,37 @@ namespace AdminShell
             {
                 foreach (RequiredModelInfoModel requiredModel in nodeSetMeta.RequiredModels)
                 {
-                    if (requiredModel.ModelUri == "http://opcfoundation.org/UA/")
+                    if (requiredModel.ModelUri == Namespaces.OpcUa)
                     {
+                        if (!LoadedNamespaces.ContainsKey(Namespaces.OpcUa))
+                        {
+                            // Get the default namespace metadata node
+                            NodeState defaultNamespace = _server.CurrentInstance.NodeManager.ConfigurationNodeManager.Find(ObjectIds.OPCUANamespaceMetadata);
+                            if (defaultNamespace == null)
+                            {
+                                continue;
+                            }
+
+                            if (string.Equals(defaultNamespace.BrowseName.Name, Namespaces.OpcUa, StringComparison.Ordinal))
+                            {
+                                List<BaseInstanceState> namespaceProperty = new();
+                                defaultNamespace.GetChildren(_server.CurrentInstance.DefaultSystemContext, namespaceProperty);
+                                foreach (var property in namespaceProperty)
+                                {
+                                    if (string.Equals(property.BrowseName.Name, "NamespaceVersion", StringComparison.Ordinal))
+                                    {
+                                        string version = ((BaseVariableState)property).Value.ToString();
+                                        if (!string.IsNullOrEmpty(version))
+                                        {
+                                            LoadedNamespaces.Add(Namespaces.OpcUa, new Tuple<string, string>(requiredModel.Version, version));
+                                        }
+
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
                         // skip the base UA nodeset as it is always loaded
                         continue;
                     }
@@ -236,6 +265,8 @@ namespace AdminShell
                     DbFiles nodesetXml = await _storage.DownloadFileAsync(dependentNodeset.Identifier).ConfigureAwait(false);
                     nodeManager.AddNamespace(nodesetXml.Blob);
                     nodeManager.AddNodesAndValues(nodesetXml.Blob, nodesetXml.Values);
+
+                    LoadedNamespaces.Add(nodeManager.NamespaceUris.Last(), new Tuple<string, string>(requiredModel.Version, dependentNodeset.Version));
                 }
             }
         }
@@ -255,7 +286,7 @@ namespace AdminShell
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture, "--- RECONNECTED --- {0}", _session.Endpoint.EndpointUrl));
         }
 
-        private void StandardClient_KeepAlive(ISession sender, KeepAliveEventArgs e)
+        private void StandardClient_KeepAlive(Opc.Ua.Client.ISession sender, KeepAliveEventArgs e)
         {
             if (e != null && sender != null)
             {
@@ -519,6 +550,9 @@ namespace AdminShell
 
                             nodeManager.AddNamespace(nodesetXml.Blob);
                             nodeManager.AddNodesAndValues(nodesetXml.Blob, nodesetXml.Values);
+
+                            NodeSetModel nodeSetMeta = await _database.GetNodeSets(userId, nodesetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false);
+                            LoadedNamespaces.Add(nodeManager.NamespaceUris.Last(), new Tuple<string, string>(nodeSetMeta.Version, nodeSetMeta.Version));
                         }
                         else
                         {
