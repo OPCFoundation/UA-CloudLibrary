@@ -12,9 +12,15 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
 * Simple OPC UA Information Model authoring UI
 * Cross-platform: Runs on any edge or cloud that can host a container and a PostgreSQL instance
 
-## Getting Started (Client Access)
+## Architecture
 
-If you want to access the globally hosted instance from the OPC Foundation at https://uacloudlibrary.opcfoundation.org from our software, you can integrate the source code from the SampleConsoleClient found in this repo. It exercises the REST API.
+The UA Cloud Library is implemented as a set of Docker containers. The main container hosts the REST API and the user management website. A PostgreSQL database is used to store the information models and user data:
+
+![Architecture](https://github.com/OPCFoundation/UA-CloudLibrary/blob/main/Docs/architecture.png)
+
+## Using the UA Cloud Library from a Client Application
+
+If you want to access your own instance or the globally hosted instance from the OPC Foundation at https://uacloudlibrary.opcfoundation.org from our software, you can integrate the source code from the SampleConsoleClient found in this repo. It exercises the REST API.
 
 **Warning:** In the latest version of the REST API, a new infomodel/find2 API is introduced, returning a [UANameSpace](https://raw.githubusercontent.com/OPCFoundation/UA-CloudLibrary/refs/heads/main/Opc.Ua.CloudLib.Client/Models/UANameSpace.cs) structure, to align it with the rest of the REST API. The SampleConsoleClient is updated to work with the latest version of the REST API. Please update your client code accordingly if you were using an older version of the REST API! The older version will be removed in a future version of the API.
 
@@ -43,9 +49,15 @@ Access to the REST API is handled via 1 default and 3 optional mechanisms:
 * Basic authentication using Azure Entra ID or Microsoft accounts, if enabled via environment variables.
 * OAuth using the OPC Foundation website user accounts, if enabled via environment variables.
 * API keys for service-to-service communication, if enabled via environment variables. API keys can then be created and managed via the UI.
+
 There are only two types of user authorization policies supported by the UA Cloud Library: The Admin user and all other users. The Admin user has full access to all functionality, including user management, approving freshly uploaded OPC UA Information Models for download by everyone and deleting existing OPC UA Information Models. Users can upload, download, search, browse, and author OPC UA Information Models.
-* Note: Custom roles can be added to users by the Admin user, if required by a calling service.
-Approval of freshly uploaded OPC UA Information Models for download by everyone can be optionally enabled via an environment variable (see below).
+
+**Note: Custom roles can be added to users by the Admin user, if required by a calling service.**
+
+Approval of freshly uploaded OPC UA Information Models for download by everyone can be completed via the REST API.
+
+## Database Configuration
+The UA Cloud Library database configuration is documented in the [Database Setup](Docs/Database%20Setup.md) document.
 
 ## Cloud Hosting Setup
 
@@ -56,44 +68,44 @@ To migrate from version 1.0 to version 1.1, you need to update your database as 
 You **must** have installed PostgreSQL version 11.20 or higher. You **must** also define one of the following two sets of environment variables:
 
 #### PostgreSQL Set 1: Three environment variables
-* ``PostgreSQLEndpoint``: The endpoint of the PostgreSQL instance (that must be previously deployed in the hosting platform).
-* ``PostgreSQLUsername``: The username to use to log in to the PostgreSQL instance.
-* ``PostgreSQLPassword``: The password to use to log in to the PostgreSQL instance.
+* `PostgreSQLEndpoint`: The endpoint of the PostgreSQL instance (that must be previously deployed in the hosting platform).
+* `PostgreSQLUsername`: The username to use to log in to the PostgreSQL instance.
+* `PostgreSQLPassword`: The password to use to log in to the PostgreSQL instance.
 
 #### PostgreSQL Set 2: One connection string
-*  ``ConnectionStrings__CloudLibraryPostgreSQL``: All of the above values, as a connection string instead of as individual environment variables. Example:
+*  `ConnectionStrings__CloudLibraryPostgreSQL`: All of the above values, as a connection string instead of as individual environment variables. Example:
 ```
 "Server=localhost; Username=MyUserName;Password=MyUserPassword;Database=uacloudlib;Port=5432;Include Error Detail=true",
 ```
-Note that you must create a user account with set privileges to access the database.
+**Note: that you must create a user account with set privileges to access the database.**
 
 ### Setting Password for Admin Account
 To enable access, from both Swagger and the REST API, you must set a password using this environment variable:
-* ``ServicePassword``: The administration password for Swagger and REST service.
+* `ServicePassword`: The administration password for Swagger and REST service.
 
-Note: The user name is ``admin``.
+**Note: The user name is `admin`.**
 
 ### Optional Settings
 Environment variables that **can optionally** be defined:
 
-* ``EmailSenderAPIKey``: The API key for the email sender service
-* ``RegistrationEmailFrom``: The "from" email address to use for user registration confirmation emails
-* ``RegistrationEmailReplyTo``: The "replyto" email address to use for user registration confirmation emails
-
-* ``CloudLibrary__ApprovalRequired``: Whether OPC UA Information Models are filtered based on approval by the Admin user.
-* ``AllowSelfRegistration``: Whether users can self-register for a user account (default: ``true``).
+* `EmailSenderAPIKey`: The API key for the email sender service
+* `RegistrationEmailFrom`: The "from" email address to use for user registration confirmation emails
+* `RegistrationEmailReplyTo`: The "replyto" email address to use for user registration confirmation emails
+* `AllowSelfRegistration`: Whether users can self-register for a user account (default: `true`).
 
 ### Optional Settings - Captcha
-Curtail bot access using the using Google reCAPTCHA.  
-  **Note: If you enable reCAPTCHA without an active account, it breaks user self-registration.**
-* ``CaptchaSettings__Enabled``: Toggle whether to use reCAPTCHA (default: ``false``). 
-* ``CaptchaSettings__SiteVerifyUrl``: Verify user input (default: ``https://www.google.com/recaptcha/api/siteverify``)
-* ``CaptchaSettings__ClientApiUrl``: Source for loading JavaScript library (default:``https://www.google.com/recaptcha/api.js?render=``)
-* ``CaptchaSettings__SecretKey``: Private key. Obtain from reCAPTCHA admin console.
-* ``CaptchaSettings__SiteKey``: Public key. Obtain from reCAPTCHA admin console.
-* ``CaptchaSettings__BotThreshold``: Minimum score between 0.0 (bot likely) and 1.0 (human likely). (default: ``0.5``)
+Curtail bot access using the Google reCAPTCHA.  
 
-    **Note: A double underscore ('__') in environment variable keys creates nested configuration sections (hierarchical keys).**
+**Note: If you enable reCAPTCHA without an active account, it breaks user self-registration.**
+
+* `CaptchaSettings__Enabled`: Toggle whether to use reCAPTCHA (default: `false`). 
+* `CaptchaSettings__SiteVerifyUrl`: Verify user input (default: `https://www.google.com/recaptcha/api/siteverify`)
+* `CaptchaSettings__ClientApiUrl`: Source for loading JavaScript library (default:`https://www.google.com/recaptcha/api.js?render=`)
+* `CaptchaSettings__SecretKey`: Private key. Obtain from reCAPTCHA admin console.
+* `CaptchaSettings__SiteKey`: Public key. Obtain from reCAPTCHA admin console.
+* `CaptchaSettings__BotThreshold`: Minimum score between 0.0 (bot likely) and 1.0 (human likely). (default: `0.5`)
+
+**Note: A double underscore ('__') in environment variable keys creates nested configuration sections (hierarchical keys).**
 
 ## Deployment
 

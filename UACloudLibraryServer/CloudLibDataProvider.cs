@@ -36,16 +36,15 @@ using System.Linq.Expressions;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using AdminShell;
 using Extensions;
+using LinqKit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Cloud.Library.NodeSetIndex;
 using Opc.Ua.Export;
-using SendGrid.Helpers.Mail;
-using static NpgsqlTypes.NpgsqlTsQuery;
 
 namespace Opc.Ua.Cloud.Library
 {
@@ -54,14 +53,30 @@ namespace Opc.Ua.Cloud.Library
         private readonly AppDbContext _dbContext = null;
         private readonly DbFileStorage _storage;
         private readonly ILogger _logger;
-        private readonly bool _approvalRequired;
 
         public CloudLibDataProvider(AppDbContext context, ILoggerFactory logger, DbFileStorage storage, IConfiguration configuration)
         {
             _dbContext = context;
             _storage = storage;
             _logger = logger.CreateLogger("CloudLibDataProvider");
-            _approvalRequired = configuration.GetSection("CloudLibrary")?.GetValue<bool>("ApprovalRequired") ?? false;
+        }
+
+        private Expression<Func<NamespaceMetaDataModel, bool>> GetMetadataUserFilter(string userId)
+        {
+            return nsm =>
+                (userId == "admin") ||
+                (nsm.UserId == "admin") ||
+                (nsm.UserId == userId) ||
+                string.IsNullOrEmpty(nsm.UserId);
+        }
+
+        private Expression<Func<NodeSetModel, bool>> GetNodesetUserFilter(string userId)
+        {
+            return nsm =>
+                (userId == "admin") ||
+                (nsm.Metadata.UserId == "admin") ||
+                (nsm.Metadata.UserId == userId) ||
+                string.IsNullOrEmpty(nsm.Metadata.UserId);
         }
 
         public IQueryable<NodeSetModel> GetNodeSets(
@@ -79,41 +94,44 @@ namespace Opc.Ua.Cloud.Library
                     throw new ArgumentException($"Must not specify other parameters when providing identifier.");
                 }
 
-                nodeSets = _dbContext.NodeSetsWithUnapproved.AsQueryable().Where(nsm => nsm.Identifier == identifier);
+                nodeSets = _dbContext.NodeSetsWithUnapproved
+                    .AsExpandable()
+                    .Where(nsm => nsm.Identifier == identifier)
+                    .Where(GetNodesetUserFilter(userId));
+            }
+            else if (!string.IsNullOrEmpty(modelUri) && (publicationDate == null) && (keywords == null))
+            {
+                nodeSets = _dbContext.NodeSetsWithUnapproved
+                    .AsExpandable()
+                    .Where(nsm => nsm.ModelUri == modelUri)
+                    .Where(GetNodesetUserFilter(userId));
             }
             else
             {
                 IQueryable<NodeSetModel> nodeSetQuery = SearchNodesets(userId, keywords);
-                if (modelUri != null && publicationDate != null)
+                if (!string.IsNullOrEmpty(modelUri) && (publicationDate != null))
                 {
-                    nodeSets = nodeSetQuery.Where(nsm => nsm.ModelUri == modelUri && nsm.PublicationDate == publicationDate);
+                    nodeSets = nodeSetQuery
+                        .AsExpandable()
+                        .Where(nsm => nsm.ModelUri == modelUri)
+                        .Where(nsm => nsm.PublicationDate == publicationDate)
+                        .Where(GetNodesetUserFilter(userId));
                 }
-                else if (modelUri != null)
+                else if (!string.IsNullOrEmpty(modelUri))
                 {
-                    nodeSets = nodeSetQuery.Where(nsm => nsm.ModelUri == modelUri);
+                    nodeSets = nodeSetQuery
+                        .AsExpandable()
+                        .Where(nsm => nsm.ModelUri == modelUri)
+                        .Where(GetNodesetUserFilter(userId));
                 }
                 else
                 {
-                    nodeSets = nodeSetQuery;
+                    nodeSets = nodeSetQuery
+                        .Where(GetNodesetUserFilter(userId));
                 }
             }
 
             return nodeSets;
-        }
-
-        public IQueryable<NamespaceMetaDataModel> NamespaceMetaData
-        {
-            get => _approvalRequired
-                ? _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.ApprovalStatus == ApprovalStatus.Approved)
-                : _dbContext.NamespaceMetaDataWithUnapproved;
-        }
-
-        public IQueryable<NodeSetModel> NodeSets
-        {
-            get =>
-                _approvalRequired
-                ? _dbContext.NodeSetsWithUnapproved.Where(n => _dbContext.NamespaceMetaDataWithUnapproved.Any(nmd => nmd.NodesetId == n.Identifier && nmd.ApprovalStatus == ApprovalStatus.Approved))
-                : _dbContext.NodeSetsWithUnapproved;
         }
 
         public IQueryable<T> GetNodeModels<T>(Expression<Func<NodeSetModel, IEnumerable<T>>> selector, string userId, string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
@@ -131,15 +149,23 @@ namespace Opc.Ua.Cloud.Library
             IQueryable<NodeSetModel> nodeSets;
             if (modelUri != null && publicationDate != null)
             {
-                nodeSets = NodeSets.AsQueryable().Where(nsm => (nsm.ModelUri == modelUri) && (nsm.PublicationDate == publicationDate) && ((userId == "admin") || (nsm.Metadata.UserId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId)));
+                nodeSets = _dbContext.NodeSetsWithUnapproved
+                    .AsExpandable()
+                    .Where(nsm => nsm.ModelUri == modelUri)
+                    .Where(nsm => nsm.PublicationDate == publicationDate)
+                    .Where(GetNodesetUserFilter(userId));
             }
             else if (modelUri != null)
             {
-                nodeSets = NodeSets.AsQueryable().Where(nsm => (nsm.ModelUri == modelUri) && ((userId == "admin") || (nsm.Metadata.UserId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId)));
+                nodeSets = _dbContext.NodeSetsWithUnapproved
+                    .AsExpandable()
+                    .Where(nsm => nsm.ModelUri == modelUri)
+                    .Where(GetNodesetUserFilter(userId));
             }
             else
             {
-                nodeSets = NodeSets.AsQueryable().Where(nsm => (userId == "admin") || (nsm.Metadata.UserId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId));
+                nodeSets = _dbContext.NodeSetsWithUnapproved
+                    .Where(GetNodesetUserFilter(userId));
             }
 
             IQueryable<T> nodeModels = nodeSets.SelectMany(selector);
@@ -544,7 +570,9 @@ namespace Opc.Ua.Cloud.Library
             try
             {
                 NamespaceMetaDataModel namespaceModel = await _dbContext.NamespaceMetaDataWithUnapproved
-                    .Where(md => md.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture) && ((userId == "admin") || (md.UserId == "admin") || (md.UserId == userId) || string.IsNullOrEmpty(md.UserId)))
+                    .AsExpandable()
+                    .Where(md => md.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture))
+                    .Where(GetMetadataUserFilter(userId))
                     .Include(md => md.NodeSet)
                     .FirstOrDefaultAsync().ConfigureAwait(false);
 
@@ -569,23 +597,21 @@ namespace Opc.Ua.Cloud.Library
             if ((keywords != null) && (keywords.Length != 0) && (keywords[0] != "*"))
             {
                 string keywordRegex = $".*({string.Join('|', keywords)}).*";
-                matchingNodeSets =
-                    NodeSets
-                    .Where(nsm =>
-                        NamespaceMetaData.Any(md =>
-                            (md.NodesetId == nsm.Identifier)
-                            && ((userId == "admin") || (md.UserId == "admin") || (md.UserId == userId) || string.IsNullOrEmpty(md.UserId))
-                            && (Regex.IsMatch(md.Title, keywordRegex, RegexOptions.IgnoreCase)
-                            || Regex.IsMatch(md.Description, keywordRegex, RegexOptions.IgnoreCase)
-                            || Regex.IsMatch(md.NodeSet.ModelUri, keywordRegex, RegexOptions.IgnoreCase)
-                            || Regex.IsMatch(string.Join(",", md.Keywords), keywordRegex, RegexOptions.IgnoreCase)
-                            )
-                        )
-                    );
+
+                matchingNodeSets = _dbContext.NodeSetsWithUnapproved
+                    .AsExpandable()
+                    .Where(GetNodesetUserFilter(userId))
+                    .Where(md => (Regex.IsMatch(md.Metadata.Title, keywordRegex, RegexOptions.IgnoreCase)
+                        || Regex.IsMatch(md.Metadata.Description, keywordRegex, RegexOptions.IgnoreCase)
+                        || Regex.IsMatch(md.Metadata.NodeSet.ModelUri, keywordRegex, RegexOptions.IgnoreCase)
+                        || Regex.IsMatch(string.Join(",", md.Metadata.Keywords), keywordRegex, RegexOptions.IgnoreCase)
+                    )
+                );
             }
             else
             {
-                matchingNodeSets = NodeSets.AsQueryable().Where(nsm => (userId == "admin") || (nsm.Metadata.UserId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId));
+                matchingNodeSets = _dbContext.NodeSetsWithUnapproved
+                    .Where(GetNodesetUserFilter(userId));
             }
 
             return matchingNodeSets;
@@ -597,7 +623,11 @@ namespace Opc.Ua.Cloud.Library
                 .OrderBy(n => n.ModelUri)
                 .Skip(offset ?? 0)
                 .Take(limit ?? 100)
-                .Select(n => NamespaceMetaData.Where(nmd => ((namespaceUri == null) || (nmd.NodeSet.ModelUri == namespaceUri)) && (nmd.NodesetId == n.Identifier) && ((userId == "admin") || (nmd.UserId == "admin") || (nmd.UserId == userId) || string.IsNullOrEmpty(nmd.UserId)))
+                .Select(n => _dbContext.NamespaceMetaDataWithUnapproved
+                    .AsExpandable()
+                    .Where(nmd => (namespaceUri == null) || (nmd.NodeSet.ModelUri == namespaceUri))
+                    .Where(nmd => nmd.NodesetId == n.Identifier)
+                    .Where(GetMetadataUserFilter(userId))
                 .Include(nmd => nmd.NodeSet).FirstOrDefault())
                 .Where(n => n != null)
                 .ToList();
@@ -609,8 +639,8 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                string[] namesAndIds = NodeSets
-                    .Where(nsm => (userId == "admin") || (nsm.Metadata.UserId == "admin") || (nsm.Metadata.UserId == userId) || string.IsNullOrEmpty(nsm.Metadata.UserId))
+                string[] namesAndIds = _dbContext.NodeSetsWithUnapproved
+                    .Where(GetNodesetUserFilter(userId))
                     .Select(nsm => new { nsm.ModelUri, nsm.Identifier, nsm.Version, nsm.PublicationDate })
                     .Select(n => $"{n.ModelUri},{n.Identifier},{n.Version},{n.PublicationDate}")
                     .ToArray();
@@ -629,8 +659,8 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                var categoryAndNodesetIds = NamespaceMetaData
-                    .Where(md => (userId == "admin") || (md.UserId == "admin") || (md.UserId == userId) || string.IsNullOrEmpty(md.UserId))
+                var categoryAndNodesetIds = _dbContext.NamespaceMetaDataWithUnapproved
+                    .Where(GetMetadataUserFilter(userId))
                     .Select(md => new { md.Title, md.NodesetId })
                     .ToList();
 
@@ -646,38 +676,6 @@ namespace Opc.Ua.Cloud.Library
             }
 
             return Task.FromResult(Array.Empty<string>());
-        }
-
-        public async Task<NamespaceMetaDataModel> ApproveNamespaceAsync(string identifier, ApprovalStatus status, string approvalInformation)
-        {
-            NamespaceMetaDataModel nodeSetMeta = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync().ConfigureAwait(false);
-            if (nodeSetMeta == null) return null;
-
-            nodeSetMeta.ApprovalStatus = status;
-            nodeSetMeta.ApprovalInformation = approvalInformation;
-
-            if (status == ApprovalStatus.Canceled)
-            {
-                try
-                {
-                    await _storage.DeleteFileAsync(nodeSetMeta.NodesetId).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning($"Failed to delete file on Approval cancelation for {nodeSetMeta.NodesetId}: {ex.Message}");
-                }
-
-                await DeleteAllRecordsForNodesetAsync(uint.Parse(nodeSetMeta.NodesetId, CultureInfo.InvariantCulture)).ConfigureAwait(false);
-
-                return nodeSetMeta;
-            }
-
-            _dbContext.Attach(nodeSetMeta);
-
-            await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-            NamespaceMetaDataModel nodeSetMetaSaved = await _dbContext.NamespaceMetaDataWithUnapproved.Where(n => n.NodesetId == identifier).FirstOrDefaultAsync().ConfigureAwait(false);
-
-            return nodeSetMetaSaved;
         }
 
         private NamespaceMetaDataModel MapRESTNamespaceToNamespaceMetaDataModel(string userId, UANameSpace uaNamespace)
@@ -705,7 +703,7 @@ namespace Opc.Ua.Cloud.Library
                 TestSpecificationUrl = uaNamespace.TestSpecificationUrl?.ToString(),
                 SupportedLocales = uaNamespace.SupportedLocales,
                 NumberOfDownloads = uaNamespace.NumberOfDownloads,
-                ApprovalStatus = ApprovalStatus.Pending,
+                ApprovalStatus = ApprovalStatus.Approved,
                 CreationTime = uaNamespace.CreationTime != null ? uaNamespace.CreationTime.GetNormalizedDate() : DateTime.UtcNow,
                 UserId = userId
             };
