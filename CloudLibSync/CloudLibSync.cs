@@ -152,7 +152,7 @@ namespace Opc.Ua.CloudLib.Sync
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError($"Error uploading {uaNamespace.Nodeset.NamespaceUri}, {identifier}: {ex.Message}");
+                            _logger.LogError($"Error uploading {uaNamespace?.Nodeset?.NamespaceUri}, {identifier}: {ex.Message}");
                         }
                     }
 
@@ -199,7 +199,7 @@ namespace Opc.Ua.CloudLib.Sync
 
                 if (addressSpace.Nodeset == null || string.IsNullOrEmpty(addressSpace.Nodeset.NodesetXml))
                 {
-                    string xmlFile = Path.Combine(Path.GetDirectoryName(file)??file, Path.GetFileNameWithoutExtension(file) + ".xml");
+                    string xmlFile = Path.Combine(Path.GetDirectoryName(file) ?? file, Path.GetFileNameWithoutExtension(file) + ".xml");
                     if (File.Exists(xmlFile))
                     {
                         string xml = File.ReadAllText(xmlFile);
