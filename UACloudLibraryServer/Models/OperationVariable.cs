@@ -9,13 +9,6 @@ namespace AdminShell
     [DataContract]
     public class OperationVariable
     {
-        public enum Direction
-        {
-            In,
-            Out,
-            InOut
-        };
-
         [Required]
         [DataMember(Name = "value")]
         [XmlElement(ElementName = "value")]

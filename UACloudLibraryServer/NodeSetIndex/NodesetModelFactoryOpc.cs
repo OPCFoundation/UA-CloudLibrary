@@ -149,21 +149,6 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             nodeModel.NodeSet = _nodesetModel;
             nodeModel.NodeId = _opcContext.GetExpandedNodeId(opcNode.NodeId);
 
-            foreach (NodeStateHierarchyReference reference in _opcContext.GetHierarchyReferences(opcNode))
-            {
-                NodeModel referenceNodeModel = new() {
-                    DisplayName = new LocalizedText(reference.TargetId.ToString()).ToModel(),
-                    NodeId = reference.TargetId.ToString()
-                };
-
-                NodeModel referenceTypeModel = new() {
-                    DisplayName = new LocalizedText(_opcContext.GetExpandedNodeId(reference.ReferenceTypeId)).ToModel(),
-                    NodeId = _opcContext.GetExpandedNodeId(reference.ReferenceTypeId)
-                };
-
-                nodeModel.AllReferencedNodes = new List<NodeAndReference>() { new NodeAndReference() { Node = referenceNodeModel, ReferenceType = referenceTypeModel } };
-            }
-
             if (!_nodesetModel.AllNodesByNodeId.TryAdd(nodeModel.NodeId, nodeModel))
             {
                 throw new ArgumentException($"Duplicate node {nodeModel} for {opcNode} in the nodeset.");

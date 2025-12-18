@@ -61,7 +61,6 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 500, type: typeof(string), description: "The provided information model could not be stored or updated.")]
         public async Task<IActionResult> ApproveNameSpaceAsync(
             [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier,
-            [FromQuery][SwaggerParameter("(Unused)")] ApprovalStatus status,
             [FromQuery][Required][SwaggerParameter("(Name of the approved namespace)")] string name)
         {
             if (await _client.CopyNodeset(User.Identity.Name, identifier, name).ConfigureAwait(false) != null)

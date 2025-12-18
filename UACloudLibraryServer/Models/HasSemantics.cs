@@ -9,6 +9,6 @@ namespace AdminShell
     {
         [DataMember(Name = "semanticId")]
         [XmlElement(ElementName = "semanticId")]
-        public Reference SemanticId { get; set; }
+        public virtual Reference SemanticId { get; set; }
     }
 }

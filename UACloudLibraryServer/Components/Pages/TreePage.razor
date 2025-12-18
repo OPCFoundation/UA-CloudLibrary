@@ -28,9 +28,9 @@
                                 </div>
                                 <div class="card-body">
                                     <span>http://opcfoundation.org/UA/</span><br/>
-                                    @foreach (var ns in _client.LoadedNamespaces)
+                                    @foreach (KeyValuePair<string, Tuple<string, string>> ns in _client.LoadedNamespaces)
                                     {
-                                        <span>@ns</span><br/>
+                                        <span>@ns.Key ReqVer: @ns.Value.Item1 LoadVer: @ns.Value.Item2</span><br/>
                                     }
                                 </div>
                             </div>

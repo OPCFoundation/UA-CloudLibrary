@@ -35,9 +35,8 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Opc.Ua.Cloud.Library.Authentication;
 
-namespace Opc.Ua.Cloud.Library
+namespace Opc.Ua.Cloud.Library.Authentication
 {
     public class UserService
     {
@@ -111,7 +110,7 @@ namespace Opc.Ua.Cloud.Library
                     claims.Add(new Claim(ClaimTypes.Role, role));
                 }
 
-                claims.AddRange(await this._userManager.GetClaimsAsync(user).ConfigureAwait(false));
+                claims.AddRange(await _userManager.GetClaimsAsync(user).ConfigureAwait(false));
                 return claims;
             }
         }
@@ -138,7 +137,7 @@ namespace Opc.Ua.Cloud.Library
                 claims.Add(new Claim(ClaimTypes.Role, role));
             }
 
-            claims.AddRange(await this._userManager.GetClaimsAsync(user).ConfigureAwait(false));
+            claims.AddRange(await _userManager.GetClaimsAsync(user).ConfigureAwait(false));
             if (!claims.Any(c => c.Type == ClaimTypes.Name))
             {
                 claims.Add(new Claim(ClaimTypes.Name, user.UserName));

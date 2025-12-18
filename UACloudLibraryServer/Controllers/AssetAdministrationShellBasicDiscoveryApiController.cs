@@ -170,7 +170,8 @@ namespace AdminShell
                 // add new entries
                 shellDescriptor.SpecificAssetIds.AddRange(body);
 
-                // TODO: persist the aasIdentifier and SpecificAssetIds as key-value pairs in a database table
+                // persist the aasIdentifier and SpecificAssetIds as key-value pairs in a database table
+                _aasEnvService.UpdateAssetAdministrationShellDescriptor(User.Identity.Name, decodedAasIdentifier, shellDescriptor);
 
                 return new ObjectResult(shellDescriptor.SpecificAssetIds);
             }

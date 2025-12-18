@@ -796,17 +796,16 @@ namespace Opc.Ua.Cloud.Library
             {
                 List<NodeModel> types =
                 [
-                    .. GetNodeModels(nsm => nsm.ObjectTypes, userId, nodeSetMeta.ModelUri),
-                    .. GetNodeModels(nsm => nsm.VariableTypes, userId, nodeSetMeta.ModelUri),
-                    .. GetNodeModels(nsm => nsm.DataTypes, userId, nodeSetMeta.ModelUri),
-                    .. GetNodeModels(nsm => nsm.ReferenceTypes, userId, nodeSetMeta.ModelUri),
+                    .. GetNodeModels(nsm => nsm.ObjectTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
+                    .. GetNodeModels(nsm => nsm.VariableTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
+                    .. GetNodeModels(nsm => nsm.DataTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
+                    .. GetNodeModels(nsm => nsm.ReferenceTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
                 ];
 
                 List<string> typeList = new();
                 foreach (NodeModel model in types)
                 {
-                    string expandedNodeIdWithBrowseName = model.NodeId + ";" + model.BrowseName;
-                    typeList.Add(expandedNodeIdWithBrowseName);
+                    typeList.Add(model.NodeId + "," + model.BrowseName);
                 }
 
                 return typeList.ToArray();
@@ -822,22 +821,64 @@ namespace Opc.Ua.Cloud.Library
             {
                 List<NodeModel> instances =
                 [
-                    .. GetNodeModels(nsm => nsm.Objects, userId, nodeSetMeta.ModelUri),
-                    .. GetNodeModels(nsm => nsm.Properties, userId, nodeSetMeta.ModelUri),
-                    .. GetNodeModels(nsm => nsm.DataVariables, userId, nodeSetMeta.ModelUri),
+                    .. GetNodeModels(nsm => nsm.Objects, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
+                    .. GetNodeModels(nsm => nsm.Properties, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
+                    .. GetNodeModels(nsm => nsm.DataVariables, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
                 ];
 
                 List<string> instanceList = new();
                 foreach (NodeModel model in instances)
                 {
-                    string expandedNodeIdWithBrowseName = model.NodeId + ";" + model.BrowseName;
-                    instanceList.Add(expandedNodeIdWithBrowseName);
+                    instanceList.Add(model.NodeId + "," + model.BrowseName);
                 }
 
                 return instanceList.ToArray();
             }
 
             return Array.Empty<string>();
+        }
+
+        public void UpdateAssetAdministrationShellDescriptor(string userName, string decodedAasIdentifier, AssetAdministrationShellDescriptor shellDescriptor)
+        {
+            // check user permissions
+            if (!GetNodeSets(userName, decodedAasIdentifier).Any())
+            {
+                throw new UnauthorizedAccessException("User is not authorized to update this AAS.");
+            }
+
+            foreach (var assetId in shellDescriptor.SpecificAssetIds)
+            {
+                PersistedSpecificAssetIds newEntry = new() {
+                    AASId = decodedAasIdentifier,
+                    AssetId = assetId
+                };
+
+                // check if this one is already added
+                if (_dbContext.PersistedSpecificAssetIds.Any(e => e.AASId == decodedAasIdentifier && e.AssetId.Name == assetId.Name && e.AssetId.Value == assetId.Value))
+                {
+                    continue;
+                }
+                else
+                {
+                    _dbContext.PersistedSpecificAssetIds.Add(newEntry);
+                }
+            }
+
+            _dbContext.SaveChanges();
+        }
+
+        internal List<SpecificAssetId> GetAssetAdministrationShellDescriptor(string userName, string decodedAasIdentifier)
+        {
+            // check user permissions
+            if (!GetNodeSets(userName, decodedAasIdentifier).Any())
+            {
+                throw new UnauthorizedAccessException("User is not authorized to update this AAS.");
+            }
+
+            return _dbContext.PersistedSpecificAssetIds
+                .Where(e => e.AASId == decodedAasIdentifier)
+                .Select(e => e.AssetId)
+                .ToList();
         }
     }
 }

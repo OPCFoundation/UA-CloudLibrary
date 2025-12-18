@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Opc.Ua.Cloud.Library;
@@ -11,9 +12,11 @@ using Opc.Ua.Cloud.Library;
 namespace Opc.Ua.Cloud.Library
 {
     [DbContext(typeof(AppDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251127115222_PersistSpecificAssetIds")]
+    partial class PersistSpecificAssetIds
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -172,6 +175,33 @@ namespace Opc.Ua.Cloud.Library
                     b.HasIndex("NodesWithInterfaceNodeId", "NodesWithInterfaceNodeSetModelUri", "NodesWithInterfaceNodeSetPublicationDate");
 
                     b.ToTable("InterfaceModelNodeModel");
+                });
+
+            modelBuilder.Entity("MethodModelNodeModel", b =>
+                {
+                    b.Property<string>("MethodsNodeId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MethodsNodeSetModelUri")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("MethodsNodeSetPublicationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("NodesWithMethodsNodeId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("NodesWithMethodsNodeSetModelUri")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("NodesWithMethodsNodeSetPublicationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("MethodsNodeId", "MethodsNodeSetModelUri", "MethodsNodeSetPublicationDate", "NodesWithMethodsNodeId", "NodesWithMethodsNodeSetModelUri", "NodesWithMethodsNodeSetPublicationDate");
+
+                    b.HasIndex("NodesWithMethodsNodeId", "NodesWithMethodsNodeSetModelUri", "NodesWithMethodsNodeSetPublicationDate");
+
+                    b.ToTable("MethodModelNodeModel");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -401,6 +431,33 @@ namespace Opc.Ua.Cloud.Library
                     b.ToTable("NodeModelObjectModel");
                 });
 
+            modelBuilder.Entity("NodeModelObjectTypeModel", b =>
+                {
+                    b.Property<string>("EventsNodeId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EventsNodeSetModelUri")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("EventsNodeSetPublicationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("NodesWithEventsNodeId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("NodesWithEventsNodeSetModelUri")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("NodesWithEventsNodeSetPublicationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("EventsNodeId", "EventsNodeSetModelUri", "EventsNodeSetPublicationDate", "NodesWithEventsNodeId", "NodesWithEventsNodeSetModelUri", "NodesWithEventsNodeSetPublicationDate");
+
+                    b.HasIndex("NodesWithEventsNodeId", "NodesWithEventsNodeSetModelUri", "NodesWithEventsNodeSetPublicationDate");
+
+                    b.ToTable("NodeModelObjectTypeModel");
+                });
+
             modelBuilder.Entity("NodeModelVariableModel", b =>
                 {
                     b.Property<string>("NodesWithPropertiesNodeId")
@@ -527,64 +584,10 @@ namespace Opc.Ua.Cloud.Library
                     b.Property<string>("Documentation")
                         .HasColumnType("text");
 
-                    b.Property<string>("MethodModelNodeId")
-                        .HasColumnType("text");
-
-                    b.Property<string>("MethodModelNodeSetModelUri")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("MethodModelNodeSetPublicationDate")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("NodeSetUnknownNodesModelUri")
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("NodeSetUnknownNodesPublicationDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ObjectTypeModelNodeId")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ObjectTypeModelNodeSetModelUri")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("ObjectTypeModelNodeSetPublicationDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("OwnerModelUri")
-                        .HasColumnType("text");
-
-                    b.Property<string>("OwnerNodeId")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("OwnerPublicationDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ReferenceTypeModelUri")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ReferenceTypeNodeId")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("ReferenceTypePublicationDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ReferencedModelUri")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ReferencedNodeId")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("ReferencedPublicationDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ReferencingModelUri")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ReferencingNodeId")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("ReferencingPublicationDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ReleaseStatus")
@@ -603,10 +606,6 @@ namespace Opc.Ua.Cloud.Library
                     b.HasIndex("NodeSetModelUri", "NodeSetPublicationDate");
 
                     b.HasIndex("NodeSetUnknownNodesModelUri", "NodeSetUnknownNodesPublicationDate");
-
-                    b.HasIndex("MethodModelNodeId", "MethodModelNodeSetModelUri", "MethodModelNodeSetPublicationDate");
-
-                    b.HasIndex("ObjectTypeModelNodeId", "ObjectTypeModelNodeSetModelUri", "ObjectTypeModelNodeSetPublicationDate");
 
                     b.ToTable("Nodes", (string)null);
 
@@ -1009,6 +1008,21 @@ namespace Opc.Ua.Cloud.Library
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("MethodModelNodeModel", b =>
+                {
+                    b.HasOne("Opc.Ua.Cloud.Library.MethodModel", null)
+                        .WithMany()
+                        .HasForeignKey("MethodsNodeId", "MethodsNodeSetModelUri", "MethodsNodeSetPublicationDate")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Opc.Ua.Cloud.Library.NodeModel", null)
+                        .WithMany()
+                        .HasForeignKey("NodesWithMethodsNodeId", "NodesWithMethodsNodeSetModelUri", "NodesWithMethodsNodeSetPublicationDate")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -1075,6 +1089,21 @@ namespace Opc.Ua.Cloud.Library
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("NodeModelObjectTypeModel", b =>
+                {
+                    b.HasOne("Opc.Ua.Cloud.Library.ObjectTypeModel", null)
+                        .WithMany()
+                        .HasForeignKey("EventsNodeId", "EventsNodeSetModelUri", "EventsNodeSetPublicationDate")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Opc.Ua.Cloud.Library.NodeModel", null)
+                        .WithMany()
+                        .HasForeignKey("NodesWithEventsNodeId", "NodesWithEventsNodeSetModelUri", "NodesWithEventsNodeSetPublicationDate")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("NodeModelVariableModel", b =>
                 {
                     b.HasOne("Opc.Ua.Cloud.Library.NodeModel", null)
@@ -1102,14 +1131,6 @@ namespace Opc.Ua.Cloud.Library
                         .WithMany("UnknownNodes")
                         .HasForeignKey("NodeSetUnknownNodesModelUri", "NodeSetUnknownNodesPublicationDate")
                         .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("Opc.Ua.Cloud.Library.MethodModel", null)
-                        .WithMany("NodesWithMethods")
-                        .HasForeignKey("MethodModelNodeId", "MethodModelNodeSetModelUri", "MethodModelNodeSetPublicationDate");
-
-                    b.HasOne("Opc.Ua.Cloud.Library.ObjectTypeModel", null)
-                        .WithMany("NodesWithEvents")
-                        .HasForeignKey("ObjectTypeModelNodeId", "ObjectTypeModelNodeSetModelUri", "ObjectTypeModelNodeSetPublicationDate");
 
                     b.OwnsMany("Opc.Ua.Cloud.Library.NodeModel+LocalizedText", "Description", b1 =>
                         {
@@ -1175,11 +1196,137 @@ namespace Opc.Ua.Cloud.Library
                                 .HasForeignKey("NodeModelNodeId", "NodeModelNodeSetModelUri", "NodeModelNodeSetPublicationDate");
                         });
 
+                    b.OwnsMany("Opc.Ua.Cloud.Library.NodeModel+NodeAndReference", "OtherReferencedNodes", b1 =>
+                        {
+                            b1.Property<string>("OwnerNodeId")
+                                .HasColumnType("text");
+
+                            b1.Property<string>("OwnerModelUri")
+                                .HasColumnType("text");
+
+                            b1.Property<DateTime>("OwnerPublicationDate")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("integer");
+
+                            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
+
+                            b1.Property<string>("ReferenceTypeModelUri")
+                                .HasColumnType("text");
+
+                            b1.Property<string>("ReferenceTypeNodeId")
+                                .HasColumnType("text");
+
+                            b1.Property<DateTime?>("ReferenceTypePublicationDate")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.Property<string>("ReferencedModelUri")
+                                .HasColumnType("text");
+
+                            b1.Property<string>("ReferencedNodeId")
+                                .HasColumnType("text");
+
+                            b1.Property<DateTime?>("ReferencedPublicationDate")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.HasKey("OwnerNodeId", "OwnerModelUri", "OwnerPublicationDate", "Id");
+
+                            b1.HasIndex("ReferenceTypeNodeId", "ReferenceTypeModelUri", "ReferenceTypePublicationDate");
+
+                            b1.HasIndex("ReferencedNodeId", "ReferencedModelUri", "ReferencedPublicationDate");
+
+                            b1.ToTable("Nodes_OtherReferencedNodes");
+
+                            b1.WithOwner()
+                                .HasForeignKey("OwnerNodeId", "OwnerModelUri", "OwnerPublicationDate");
+
+                            b1.HasOne("Opc.Ua.Cloud.Library.NodeModel", "ReferenceType")
+                                .WithMany()
+                                .HasForeignKey("ReferenceTypeNodeId", "ReferenceTypeModelUri", "ReferenceTypePublicationDate")
+                                .OnDelete(DeleteBehavior.Cascade);
+
+                            b1.HasOne("Opc.Ua.Cloud.Library.NodeModel", "Node")
+                                .WithMany()
+                                .HasForeignKey("ReferencedNodeId", "ReferencedModelUri", "ReferencedPublicationDate")
+                                .OnDelete(DeleteBehavior.Cascade);
+
+                            b1.Navigation("Node");
+
+                            b1.Navigation("ReferenceType");
+                        });
+
+                    b.OwnsMany("Opc.Ua.Cloud.Library.NodeModel+NodeAndReference", "OtherReferencingNodes", b1 =>
+                        {
+                            b1.Property<string>("OwnerNodeId")
+                                .HasColumnType("text");
+
+                            b1.Property<string>("OwnerModelUri")
+                                .HasColumnType("text");
+
+                            b1.Property<DateTime>("OwnerPublicationDate")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("integer");
+
+                            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
+
+                            b1.Property<string>("ReferenceTypeModelUri")
+                                .HasColumnType("text");
+
+                            b1.Property<string>("ReferenceTypeNodeId")
+                                .HasColumnType("text");
+
+                            b1.Property<DateTime?>("ReferenceTypePublicationDate")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.Property<string>("ReferencingModelUri")
+                                .HasColumnType("text");
+
+                            b1.Property<string>("ReferencingNodeId")
+                                .HasColumnType("text");
+
+                            b1.Property<DateTime?>("ReferencingPublicationDate")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.HasKey("OwnerNodeId", "OwnerModelUri", "OwnerPublicationDate", "Id");
+
+                            b1.HasIndex("ReferenceTypeNodeId", "ReferenceTypeModelUri", "ReferenceTypePublicationDate");
+
+                            b1.HasIndex("ReferencingNodeId", "ReferencingModelUri", "ReferencingPublicationDate");
+
+                            b1.ToTable("Nodes_OtherReferencingNodes");
+
+                            b1.WithOwner()
+                                .HasForeignKey("OwnerNodeId", "OwnerModelUri", "OwnerPublicationDate");
+
+                            b1.HasOne("Opc.Ua.Cloud.Library.NodeModel", "ReferenceType")
+                                .WithMany()
+                                .HasForeignKey("ReferenceTypeNodeId", "ReferenceTypeModelUri", "ReferenceTypePublicationDate")
+                                .OnDelete(DeleteBehavior.Cascade);
+
+                            b1.HasOne("Opc.Ua.Cloud.Library.NodeModel", "Node")
+                                .WithMany()
+                                .HasForeignKey("ReferencingNodeId", "ReferencingModelUri", "ReferencingPublicationDate")
+                                .OnDelete(DeleteBehavior.Cascade);
+
+                            b1.Navigation("Node");
+
+                            b1.Navigation("ReferenceType");
+                        });
+
                     b.Navigation("Description");
 
                     b.Navigation("DisplayName");
 
                     b.Navigation("NodeSet");
+
+                    b.Navigation("OtherReferencedNodes");
+
+                    b.Navigation("OtherReferencingNodes");
                 });
 
             modelBuilder.Entity("Opc.Ua.Cloud.Library.NodeSetModel", b =>
@@ -1762,16 +1909,6 @@ namespace Opc.Ua.Cloud.Library
                     b.Navigation("UnknownNodes");
 
                     b.Navigation("VariableTypes");
-                });
-
-            modelBuilder.Entity("Opc.Ua.Cloud.Library.MethodModel", b =>
-                {
-                    b.Navigation("NodesWithMethods");
-                });
-
-            modelBuilder.Entity("Opc.Ua.Cloud.Library.ObjectTypeModel", b =>
-                {
-                    b.Navigation("NodesWithEvents");
                 });
 #pragma warning restore 612, 618
         }

@@ -5,32 +5,32 @@ using Newtonsoft.Json;
 
 namespace AdminShell
 {
+    /// <summary>
+    /// Gets or Sets Type
+    /// </summary>
+    [JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum ProtocolInformationSecurityAttributesType
+    {
+        /// <summary>
+        /// Enum NONEEnum for NONE
+        /// </summary>
+        [EnumMember(Value = "NONE")]
+        NONEEnum = 0,
+        /// <summary>
+        /// Enum RFCTLSAEnum for RFC_TLSA
+        /// </summary>
+        [EnumMember(Value = "RFC_TLSA")]
+        RFCTLSAEnum = 1,
+        /// <summary>
+        /// Enum W3CDIDEnum for W3C_DID
+        /// </summary>
+        [EnumMember(Value = "W3C_DID")]
+        W3CDIDEnum = 2
+    }
+
     [DataContract]
     public partial class ProtocolInformationSecurityAttributes
     {
-        /// <summary>
-        /// Gets or Sets Type
-        /// </summary>
-        [JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
-        public enum ProtocolInformationSecurityAttributesType
-        {
-            /// <summary>
-            /// Enum NONEEnum for NONE
-            /// </summary>
-            [EnumMember(Value = "NONE")]
-            NONEEnum = 0,
-            /// <summary>
-            /// Enum RFCTLSAEnum for RFC_TLSA
-            /// </summary>
-            [EnumMember(Value = "RFC_TLSA")]
-            RFCTLSAEnum = 1,
-            /// <summary>
-            /// Enum W3CDIDEnum for W3C_DID
-            /// </summary>
-            [EnumMember(Value = "W3C_DID")]
-            W3CDIDEnum = 2
-        }
-
         /// <summary>
         /// Gets or Sets Type
         /// </summary>

@@ -143,8 +143,6 @@ namespace Opc.Ua.Cloud.Library
 
         public string NodeId { get; set; }
 
-        public IEnumerable<NodeAndReference> AllReferencedNodes { get; set; }
-
         public virtual NodeSetModel NodeSet { get; set; }
 
         public class LocalizedText
@@ -188,64 +186,6 @@ namespace Opc.Ua.Cloud.Library
         /// OPC UA: HasInterface references (or of derivce reference types)
         /// </summary>
         public virtual List<InterfaceModel> Interfaces { get; set; } = new List<InterfaceModel>();
-
-        /// <summary>
-        /// TBD - defer for now
-        /// OPC UA: HasComponent references (or of derived reference types) to a MethodType
-        /// </summary>
-        public virtual List<MethodModel> Methods { get; set; } = new List<MethodModel>();
-
-        /// <summary>
-        /// OPC UA: GeneratesEvent references (or of derived reference types)
-        /// </summary>
-        public virtual List<ObjectTypeModel> Events { get; set; } = new List<ObjectTypeModel>();
-
-        public class NodeAndReference : IEquatable<NodeAndReference>
-        {
-            public virtual NodeModel Node { get; set; }
-
-            public virtual NodeModel ReferenceType { get; set; }
-
-            public override bool Equals(object obj)
-            {
-                return Equals(obj as NodeAndReference);
-            }
-
-            public bool Equals(NodeAndReference other)
-            {
-                return other is not null &&
-                       EqualityComparer<NodeModel>.Default.Equals(Node, other.Node) &&
-                       EqualityComparer<NodeModel>.Default.Equals(ReferenceType, other.ReferenceType);
-            }
-
-            public override int GetHashCode()
-            {
-#if !NETSTANDARD2_0 && !NETSTANDARD2_1
-                return HashCode.Combine(Node, ReferenceType);
-#else
-                return HashCode.Combine(Node, ReferenceType, "");
-#endif
-            }
-
-            public static bool operator ==(NodeAndReference left, NodeAndReference right)
-            {
-                return EqualityComparer<NodeAndReference>.Default.Equals(left, right);
-            }
-
-            public static bool operator !=(NodeAndReference left, NodeAndReference right)
-            {
-                return !(left == right);
-            }
-
-            public override string ToString()
-            {
-                return $"{ReferenceType?.ToString()} {Node}";
-            }
-        }
-
-        public virtual List<NodeAndReference> OtherReferencedNodes { get; set; } = new List<NodeAndReference>();
-
-        public virtual List<NodeAndReference> OtherReferencingNodes { get; set; } = new List<NodeAndReference>();
 
         public override string ToString()
         {

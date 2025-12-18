@@ -35,7 +35,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
-namespace Opc.Ua.Cloud.Library
+namespace Opc.Ua.Cloud.Library.Authentication
 {
     public class CaptchaSettings
     {
@@ -156,7 +156,7 @@ namespace Opc.Ua.Cloud.Library
 
                     //check the reCaptcha response
                     string data = await response.Content.ReadAsStringAsync().ConfigureAwait(false);  //Make sure to add a reference to System.Net.Http.Formatting.dll
-                    ReCaptchaResponse recaptchaResponse = Newtonsoft.Json.JsonConvert.DeserializeObject<ReCaptchaResponse>(data);
+                    ReCaptchaResponse recaptchaResponse = JsonConvert.DeserializeObject<ReCaptchaResponse>(data);
                     if (recaptchaResponse == null)
                     {
                         _logger.LogCritical($"ValidateCaptcha|Expected Google reCaptcha response was null");
