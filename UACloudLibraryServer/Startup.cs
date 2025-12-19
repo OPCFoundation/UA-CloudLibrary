@@ -361,11 +361,9 @@ namespace Opc.Ua.Cloud.Library
                     await uaApp.CheckApplicationInstanceCertificatesAsync(false, 0).ConfigureAwait(false);
 
                     // create cert validator
-                    config.CertificateValidator = new CertificateValidator();
+                    config.CertificateValidator = new CertificateValidator(DefaultTelemetry.Create(builder => builder.AddConsole()));
                     config.CertificateValidator.CertificateValidation += new CertificateValidationEventHandler(CertificateValidator_CertificateValidation);
                     await config.CertificateValidator.UpdateAsync(config).ConfigureAwait(false);
-
-                    Utils.Tracing.TraceEventHandler += new EventHandler<TraceEventArgs>(OpcStackLoggingHandler);
 
                     Console.WriteLine("OPC UA client/server app started.");
                 }
@@ -382,29 +380,6 @@ namespace Opc.Ua.Cloud.Library
                 {
                     // accept all OPC UA client certificates
                     e.Accept = true;
-                }
-            }
-
-            private void OpcStackLoggingHandler(object sender, TraceEventArgs e)
-            {
-                ApplicationInstance app = sender as ApplicationInstance;
-                if ((e.TraceMask & (Utils.TraceMasks.Error | Utils.TraceMasks.StackTrace | Utils.TraceMasks.StartStop | Utils.TraceMasks.ExternalSystem | Utils.TraceMasks.Security)) != 0)
-                {
-                    if (e.Exception != null)
-                    {
-                        Console.WriteLine("OPCUA: " + e.Exception.Message);
-                        return;
-                    }
-
-                    if (!string.IsNullOrEmpty(e.Format))
-                    {
-                        Console.WriteLine("OPCUA: " + e.Format);
-                    }
-
-                    if (!string.IsNullOrEmpty(e.Message))
-                    {
-                        Console.WriteLine("OPCUA: " + e.Message);
-                    }
                 }
             }
 

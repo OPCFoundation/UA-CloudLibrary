@@ -311,7 +311,14 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             {
                 if (variableTypeNode.WrappedValue.Value is ExtensionObject extensionObject)
                 {
-                    variableTypeModel.Value = ((System.Xml.XmlNode)extensionObject.Body).OuterXml;
+                    if (extensionObject.Body is System.Xml.XmlNode xmlNode)
+                    {
+                        variableTypeModel.Value = xmlNode.OuterXml;
+                    }
+                    else
+                    {
+                        variableTypeModel.Value = extensionObject.Body.ToString();
+                    }
                 }
                 else
                 {
