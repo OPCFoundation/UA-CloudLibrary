@@ -60,7 +60,7 @@ namespace Opc.Ua.Cloud.Library
         private SessionReconnectHandler _reconnectHandler;
         private ITelemetryContext _telemetry;
 
-    private static uint _port = 5000;
+        private static uint _port = 5000;
         private static ConcurrentDictionary<string, Opc.Ua.Client.ISession> _sessions = new();
 
         private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
