@@ -277,10 +277,10 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
         private void AddDataTypeInfo(VariableModel variableModel, BaseVariableState variableNode)
         {
-            AddDataTypeInfo(variableModel, $"{variableNode.GetType()} {variableNode}", variableNode.DataType, variableNode.ValueRank, variableNode.ArrayDimensions, variableNode.WrappedValue);
+            AddDataTypeInfo(variableModel, $"{variableNode.GetType()} {variableNode}", variableNode.DataType, variableNode.ValueRank, variableNode.ArrayDimensions);
         }
 
-        private void AddDataTypeInfo(VariableModel variableModel, string variableNodeDiagInfo, NodeId dataTypeNodeId, int valueRank, ReadOnlyList<uint> arrayDimensions, Variant wrappedValue)
+        private void AddDataTypeInfo(VariableModel variableModel, string variableNodeDiagInfo, NodeId dataTypeNodeId, int valueRank, ReadOnlyList<uint> arrayDimensions)
         {
             variableModel.DataType = dataTypeNodeId.ToString();
 
