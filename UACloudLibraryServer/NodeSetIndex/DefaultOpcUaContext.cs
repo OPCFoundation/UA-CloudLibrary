@@ -55,7 +55,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
             var typeTable = new TypeTable(namespaceTable);
 
-            _systemContext = new SystemContext() {
+            _systemContext = new SystemContext(DefaultTelemetry.Create(builder => builder.AddConsole())) {
                 NamespaceUris = namespaceTable,
                 TypeTable = typeTable
             };

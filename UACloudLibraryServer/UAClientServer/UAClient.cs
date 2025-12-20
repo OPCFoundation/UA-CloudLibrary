@@ -36,15 +36,14 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Opc.Ua;
+using Microsoft.Extensions.Logging;
 using Opc.Ua.Client;
 using Opc.Ua.Client.ComplexTypes;
-using Opc.Ua.Cloud.Library;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Cloud.Library.NodeSetIndex;
 using Opc.Ua.Configuration;
 
-namespace AdminShell
+namespace Opc.Ua.Cloud.Library
 {
     public class UAClient : IAsyncDisposable
     {
@@ -59,6 +58,7 @@ namespace AdminShell
         private SimpleServer _server;
         private Opc.Ua.Client.ISession _session;
         private SessionReconnectHandler _reconnectHandler;
+        private ITelemetryContext _telemetry;
 
         private static uint _port = 5000;
         private static ConcurrentDictionary<string, Opc.Ua.Client.ISession> _sessions = new();
@@ -70,6 +70,8 @@ namespace AdminShell
             _app = app;
             _storage = storage;
             _database = database;
+
+            _telemetry = DefaultTelemetry.Create(builder => builder.AddConsole());
         }
 
         public async Task<List<NodesetViewerNode>> GetChildren(string userId, string nodesetIdentifier, string nodeId)
@@ -308,7 +310,7 @@ namespace AdminShell
                     if (e.Status.StatusCode == StatusCodes.BadNoCommunication && _reconnectHandler == null)
                     {
                         Console.WriteLine("--- RECONNECTING --- {0}", sender.Endpoint.EndpointUrl);
-                        _reconnectHandler = new SessionReconnectHandler();
+                        _reconnectHandler = new SessionReconnectHandler(_telemetry);
                         _reconnectHandler.BeginReconnect(sender, 10000, Client_ReconnectComplete);
                     }
                 }
@@ -521,7 +523,7 @@ namespace AdminShell
 
                                 await _app.StartAsync(_server).ConfigureAwait(false);
 
-                                selectedEndpoint = await CoreClientUtils.SelectEndpointAsync(_app.ApplicationConfiguration, "opc.tcp://localhost:" + _port, true).ConfigureAwait(false);
+                                selectedEndpoint = await CoreClientUtils.SelectEndpointAsync(_app.ApplicationConfiguration, "opc.tcp://localhost:" + _port, true, _telemetry).ConfigureAwait(false);
                             }
                             catch (Exception ex)
                             {
@@ -561,7 +563,7 @@ namespace AdminShell
                         }
 
                         ConfiguredEndpoint configuredEndpoint = new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(_app.ApplicationConfiguration));
-                        Opc.Ua.Client.ISession newSession = await DefaultSessionFactory.Instance.CreateAsync(
+                        Opc.Ua.Client.ISession newSession = await new DefaultSessionFactory(_telemetry).CreateAsync(
                             _app.ApplicationConfiguration,
                             configuredEndpoint,
                             true,
@@ -663,7 +665,7 @@ namespace AdminShell
 
             if (_server != null)
             {
-                _server.Stop();
+                await _server.StopAsync().ConfigureAwait(false);
                 _server = null;
             }
         }
