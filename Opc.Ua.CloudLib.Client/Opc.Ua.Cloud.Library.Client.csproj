@@ -3,7 +3,7 @@
   <PropertyGroup>
     <AssemblyName>Opc.Ua.Cloud.Library.Client</AssemblyName>
     <PackageId>OPCFoundation.NetStandard.Opc.Ua.Cloud.Library.Client</PackageId>
-    <TargetFrameworks>net9.0;netstandard2.1</TargetFrameworks>
+    <TargetFrameworks>net10.0;netstandard2.1</TargetFrameworks>
     <RootNamespace>Opc.Ua.Cloud.Library.Client</RootNamespace>
     <Description>OPC UA Cloud Library Client Class Library</Description>
     <IsPackable>true</IsPackable>
@@ -27,7 +27,7 @@
 
 
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
 
 
@@ -36,7 +36,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Update="Nerdbank.GitVersioning" Version="3.7.115" />
+    <PackageReference Update="Nerdbank.GitVersioning" Version="3.9.50" />
   </ItemGroup>
 
 

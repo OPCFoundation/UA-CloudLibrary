@@ -20,9 +20,6 @@ Commands:
   sync <sourceUrl> <sourceUserName> <sourcePassword> <targetUrl> <targetUserName> <targetPassword>  Downloads all nodests and their metadata from a Cloud Library (source) and uploads it to another Cloud Library (target).
   download <sourceUrl> <sourceUserName> <sourcePassword>                                            Downloads all nodesets and their metadata from a Cloud Library to a local directory.
   upload <targetUrl> <targetUserName> <targetPassword>                                              Uploads nodesets and their metadata from a local directory to a cloud library.
-
-
-C:\Github.OpcFoundation\UA-CloudLibrary_pyao_aas_rest_apis\CloudLibSync\bin\Debug\net9.0>
 ```
 
 

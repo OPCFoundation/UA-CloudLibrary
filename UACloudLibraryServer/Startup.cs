@@ -53,7 +53,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Identity.Web;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using Opc.Ua.Cloud.Library.Authentication;
 using Opc.Ua.Configuration;
 
@@ -220,38 +220,23 @@ namespace Opc.Ua.Cloud.Library
                     Scheme = "basic"
                 });
 
-                options.AddSecurityRequirement(new OpenApiSecurityRequirement {
-                {
-                        new OpenApiSecurityScheme
-                        {
-                            Reference = new OpenApiReference
-                            {
-                                Type = ReferenceType.SecurityScheme,
-                                Id = "basicAuth"
-                            }
-                        },
-                        Array.Empty<string>()
-                }});
+
+                options.AddSecurityRequirement(document => new OpenApiSecurityRequirement {
+                    [new OpenApiSecuritySchemeReference("basicAuth", document)] = []
+                });
+
 
                 if (Configuration["APIKeyAuth"] != null)
                 {
                     options.AddSecurityDefinition("ApiKeyAuth", new OpenApiSecurityScheme {
                         Type = SecuritySchemeType.ApiKey,
                         In = ParameterLocation.Header,
-                        Name = "X-API-Key",
-                        //Scheme = "basic"
+                        Name = "X-API-Key"
                     });
 
-                    options.AddSecurityRequirement(new OpenApiSecurityRequirement {
-                    {
-                        new OpenApiSecurityScheme {
-                            Reference = new OpenApiReference {
-                                Type = ReferenceType.SecurityScheme,
-                                Id = "ApiKeyAuth"
-                            }
-                        },
-                        Array.Empty<string>()
-                    }});
+                    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement {
+                        [new OpenApiSecuritySchemeReference("ApiKeyAuth", document)] = []
+                    });
                 }
 
                 options.CustomSchemaIds(type => type.ToString());
@@ -370,17 +355,15 @@ namespace Opc.Ua.Cloud.Library
                     }
 
                     // load the application configuration
-                    ApplicationConfiguration config = await uaApp.LoadApplicationConfiguration(Path.Combine(Directory.GetCurrentDirectory(), "Application.Config.xml"), false).ConfigureAwait(false);
+                    ApplicationConfiguration config = await uaApp.LoadApplicationConfigurationAsync(Path.Combine(Directory.GetCurrentDirectory(), "Application.Config.xml"), false).ConfigureAwait(false);
 
                     // check the application certificate
-                    await uaApp.CheckApplicationInstanceCertificates(false, 0).ConfigureAwait(false);
+                    await uaApp.CheckApplicationInstanceCertificatesAsync(false, 0).ConfigureAwait(false);
 
                     // create cert validator
-                    config.CertificateValidator = new CertificateValidator();
+                    config.CertificateValidator = new CertificateValidator(DefaultTelemetry.Create(builder => builder.AddConsole()));
                     config.CertificateValidator.CertificateValidation += new CertificateValidationEventHandler(CertificateValidator_CertificateValidation);
-                    await config.CertificateValidator.Update(config).ConfigureAwait(false);
-
-                    Utils.Tracing.TraceEventHandler += new EventHandler<TraceEventArgs>(OpcStackLoggingHandler);
+                    await config.CertificateValidator.UpdateAsync(config).ConfigureAwait(false);
 
                     Console.WriteLine("OPC UA client/server app started.");
                 }
@@ -397,29 +380,6 @@ namespace Opc.Ua.Cloud.Library
                 {
                     // accept all OPC UA client certificates
                     e.Accept = true;
-                }
-            }
-
-            private void OpcStackLoggingHandler(object sender, TraceEventArgs e)
-            {
-                ApplicationInstance app = sender as ApplicationInstance;
-                if ((e.TraceMask & (Utils.TraceMasks.Error | Utils.TraceMasks.StackTrace | Utils.TraceMasks.StartStop | Utils.TraceMasks.ExternalSystem | Utils.TraceMasks.Security)) != 0)
-                {
-                    if (e.Exception != null)
-                    {
-                        Console.WriteLine("OPCUA: " + e.Exception.Message);
-                        return;
-                    }
-
-                    if (!string.IsNullOrEmpty(e.Format))
-                    {
-                        Console.WriteLine("OPCUA: " + e.Format);
-                    }
-
-                    if (!string.IsNullOrEmpty(e.Message))
-                    {
-                        Console.WriteLine("OPCUA: " + e.Message);
-                    }
                 }
             }
 

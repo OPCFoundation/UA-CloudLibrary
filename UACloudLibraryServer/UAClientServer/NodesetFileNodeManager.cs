@@ -33,11 +33,10 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using Newtonsoft.Json;
-using Opc.Ua;
 using Opc.Ua.Export;
 using Opc.Ua.Server;
 
-namespace AdminShell
+namespace Opc.Ua.Cloud.Library
 {
     public class NodesetFileNodeManager : CustomNodeManager2
     {

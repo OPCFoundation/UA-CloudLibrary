@@ -27,14 +27,11 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
-using Opc.Ua;
 using Opc.Ua.Configuration;
 using Opc.Ua.Server;
 
-namespace AdminShell
+namespace Opc.Ua.Cloud.Library
 {
     public class SimpleServer : StandardServer
     {

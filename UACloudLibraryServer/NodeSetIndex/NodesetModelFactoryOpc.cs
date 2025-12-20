@@ -277,10 +277,10 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
         private void AddDataTypeInfo(VariableModel variableModel, BaseVariableState variableNode)
         {
-            AddDataTypeInfo(variableModel, $"{variableNode.GetType()} {variableNode}", variableNode.DataType, variableNode.ValueRank, variableNode.ArrayDimensions, variableNode.WrappedValue);
+            AddDataTypeInfo(variableModel, $"{variableNode.GetType()} {variableNode}", variableNode.DataType, variableNode.ValueRank, variableNode.ArrayDimensions);
         }
 
-        private void AddDataTypeInfo(VariableModel variableModel, string variableNodeDiagInfo, NodeId dataTypeNodeId, int valueRank, ReadOnlyList<uint> arrayDimensions, Variant wrappedValue)
+        private void AddDataTypeInfo(VariableModel variableModel, string variableNodeDiagInfo, NodeId dataTypeNodeId, int valueRank, ReadOnlyList<uint> arrayDimensions)
         {
             variableModel.DataType = dataTypeNodeId.ToString();
 
@@ -311,7 +311,14 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             {
                 if (variableTypeNode.WrappedValue.Value is ExtensionObject extensionObject)
                 {
-                    variableTypeModel.Value = ((System.Xml.XmlNode)extensionObject.Body).OuterXml;
+                    if (extensionObject.Body is System.Xml.XmlNode xmlNode)
+                    {
+                        variableTypeModel.Value = xmlNode.OuterXml;
+                    }
+                    else
+                    {
+                        variableTypeModel.Value = extensionObject.Body.ToString();
+                    }
                 }
                 else
                 {
