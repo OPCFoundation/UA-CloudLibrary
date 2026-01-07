@@ -30,7 +30,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace AdminShell
+namespace Opc.Ua.Cloud.Library
 {
     public class NodesetViewerNode : IComparable<NodesetViewerNode>
     {
