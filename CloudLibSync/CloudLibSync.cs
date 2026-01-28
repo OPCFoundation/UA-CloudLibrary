@@ -41,7 +41,11 @@ namespace Opc.Ua.CloudLib.Sync
             {
                 // Get all NodeSets
                 nodeSetResult = await sourceClient.GetBasicNodesetInformationAsync(cursor, 50).ConfigureAwait(false);
-
+                if (nodeSetResult == null)
+                {
+                    _logger.LogInformation($"Could not connect to source library. Possibly wrong credentials or url?");
+                    return;
+                }
                 foreach (UANameSpace nodeSetAndCursor in nodeSetResult)
                 {
                     // Download each NodeSet
@@ -72,7 +76,7 @@ namespace Opc.Ua.CloudLib.Sync
                         }
                         _logger.LogInformation($"Downloaded {namespaceKey.ModelUri} {namespaceKey.PublicationDate}, {identifier}");
 
-                        if (nodeSetXmlDir != null)
+                        if (!string.IsNullOrEmpty(nodeSetXmlDir)) //The default is "" and that crashes downstream during Directory.CreateDirectory("")
                         {
                             SaveNodeSetAsXmlFile(uaNamespace, nodeSetXmlDir);
                         }
@@ -108,6 +112,11 @@ namespace Opc.Ua.CloudLib.Sync
                 do
                 {
                     targetNodeSetResult = await targetClient.GetBasicNodesetInformationAsync(targetCursor, 10).ConfigureAwait(false);
+                    if (targetNodeSetResult == null)
+                    {
+                        _logger.LogInformation($"Could not connect to target library. Possibly wrong credentials or url?");
+                        return;
+                    }
                     targetNodesets.AddRange(targetNodeSetResult);
                     targetCursor += targetNodeSetResult.Count;
                 }
@@ -120,7 +129,11 @@ namespace Opc.Ua.CloudLib.Sync
                 do
                 {
                     sourceNodeSetResult = await sourceClient.GetBasicNodesetInformationAsync(sourceCursor, 10).ConfigureAwait(false);
-
+                    if (sourceNodeSetResult == null)
+                    {
+                        _logger.LogInformation($"Could not connect to source library. Possibly wrong credentials or url?");
+                        return;
+                    }
                     // Get the ones that are not already on the target
                     var toSync = sourceNodeSetResult
                         .Where(source => !targetNodesets
@@ -134,7 +147,11 @@ namespace Opc.Ua.CloudLib.Sync
                         // Download each NodeSet
                         string identifier = nodeSet.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
                         UANameSpace uaNamespace = await sourceClient.DownloadNodesetAsync(identifier).ConfigureAwait(false);
-
+                        if (uaNamespace == null)
+                        {
+                            _logger.LogInformation($"Could not download NodeSet with identifier:{identifier}");
+                            continue;
+                        }
                         try
                         {
                             VerifyAndFixupNodeSetMeta(uaNamespace);
