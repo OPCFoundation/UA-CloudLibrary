@@ -252,14 +252,15 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 500, type: typeof(string), description: "The provided information model could not be stored or updated.")]
         public async Task<IActionResult> UploadNamespaceAsync(
             [FromBody][Required][SwaggerParameter("The OPC UA Information model to upload.")] UANameSpace uaNamespace,
-            [FromQuery][SwaggerParameter("An optional flag if existing OPC UA Information models in the library should be overwritten.")] bool overwrite = false)
+            [FromQuery][SwaggerParameter("An optional flag if existing OPC UA Information models in the library should be overwritten.")] bool overwrite = false,
+            [FromQuery][SwaggerParameter("An optional parameter containing the OPC UA Information model values to upload (as an array of JSON key-value pairs in the format {nodeId: value}).")] string values = "")
         {
             if (uaNamespace?.Nodeset?.NodesetXml == null)
             {
                 return new ObjectResult($"No nodeset XML was specified") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            string result = await _database.UploadNamespaceAndNodesetAsync(User.Identity.Name, uaNamespace, string.Empty, overwrite).ConfigureAwait(false);
+            string result = await _database.UploadNamespaceAndNodesetAsync(User.Identity.Name, uaNamespace, values, overwrite).ConfigureAwait(false);
             if (result != "success")
             {
                 return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.InternalServerError };
