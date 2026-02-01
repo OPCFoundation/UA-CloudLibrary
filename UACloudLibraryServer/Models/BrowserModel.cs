@@ -1,5 +1,5 @@
 
-namespace AdminShell
+namespace Opc.Ua.Cloud.Library.Models
 {
     public class BrowserModel
     {

@@ -13,22 +13,12 @@ namespace AdminShell
         [Required]
         [DataMember(Name = "language")]
         [XmlAttribute(AttributeName = "lang")]
-        [MetaModelNameAttribute("LangString.Language")]
         public string Language { get; set; } = "en";
 
         [Required]
         [DataMember(Name = "text")]
         [XmlText]
-        [MetaModelNameAttribute("LangString.Text")]
         public string Text { get; set; } = string.Empty;
-
-        public LangString() { }
-
-        public LangString(LangString src)
-        {
-            Language = src.Language;
-            Text = src.Text;
-        }
     }
 }
 

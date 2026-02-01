@@ -109,8 +109,6 @@ namespace Opc.Ua.Cloud.Library
 
         public DbSet<DbFiles> DBFiles { get; set; }
 
-        public DbSet<PersistedSpecificAssetIds> PersistedSpecificAssetIds { get; set; }
-
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -148,8 +146,6 @@ namespace Opc.Ua.Cloud.Library
                 .IsTsVectorExpressionIndex("english");
 
             builder.Entity<DbFiles>();
-
-            builder.Entity<PersistedSpecificAssetIds>();
         }
 
         public void CreateNodeModel(ModelBuilder modelBuilder, bool cascadeDelete = false, bool methodArgs = false)
