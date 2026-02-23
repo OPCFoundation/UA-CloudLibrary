@@ -95,7 +95,10 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
             await _signInManager.SignOutAsync().ConfigureAwait(false);
 
-            _logger.LogInformation("User with ID '{UserId}' deleted themselves.", userId);
+            if (_logger.IsEnabled(LogLevel.Information))
+            {
+                _logger.LogInformation("User with ID '{UserId}' deleted themselves.", userId);
+            }
 
             return Redirect("~/");
         }

@@ -74,7 +74,11 @@ namespace Opc.Ua.CloudLib.Sync
                             }
                             File.WriteAllText(Path.Combine(localDir, "Original", $"{fileName}.{identifier}.json"), original);
                         }
-                        _logger.LogInformation($"Downloaded {namespaceKey.ModelUri} {namespaceKey.PublicationDate}, {identifier}");
+
+                        if (_logger.IsEnabled(LogLevel.Information))
+                        {
+                            _logger.LogInformation($"Downloaded {namespaceKey.ModelUri} {namespaceKey.PublicationDate}, {identifier}");
+                        }
 
                         if (!string.IsNullOrEmpty(nodeSetXmlDir)) //The default is "" and that crashes downstream during Directory.CreateDirectory("")
                         {
@@ -149,7 +153,11 @@ namespace Opc.Ua.CloudLib.Sync
                         UANameSpace uaNamespace = await sourceClient.DownloadNodesetAsync(identifier).ConfigureAwait(false);
                         if (uaNamespace == null)
                         {
-                            _logger.LogInformation($"Could not download NodeSet with identifier:{identifier}");
+                            if (_logger.IsEnabled(LogLevel.Information))
+                            {
+                                _logger.LogInformation($"Could not download NodeSet with identifier:{identifier}");
+                            }
+
                             continue;
                         }
                         try
@@ -160,7 +168,10 @@ namespace Opc.Ua.CloudLib.Sync
                             if (response.Status == System.Net.HttpStatusCode.OK)
                             {
                                 bAdded = true;
-                                _logger.LogInformation($"Uploaded {uaNamespace.Nodeset.NamespaceUri}, {identifier}");
+                                if (_logger.IsEnabled(LogLevel.Information))
+                                {
+                                    _logger.LogInformation($"Uploaded {uaNamespace.Nodeset.NamespaceUri}, {identifier}");
+                                }
                             }
                             else
                             {
@@ -210,7 +221,11 @@ namespace Opc.Ua.CloudLib.Sync
                 UANameSpace? addressSpace = JsonConvert.DeserializeObject<UANameSpace>(uploadJson);
                 if (addressSpace == null)
                 {
-                    _logger.LogInformation($"Error uploading {file}: failed to parse.");
+                    if (_logger.IsEnabled(LogLevel.Information))
+                    {
+                        _logger.LogInformation($"Error uploading {file}: failed to parse.");
+                    }
+
                     continue;
                 }
 
@@ -226,7 +241,11 @@ namespace Opc.Ua.CloudLib.Sync
 
                 if (addressSpace.Nodeset == null || string.IsNullOrEmpty(addressSpace.Nodeset.NodesetXml))
                 {
-                    _logger.LogInformation($"Error uploading {file}: no Nodeset found in file.");
+                    if (_logger.IsEnabled(LogLevel.Information))
+                    {
+                        _logger.LogInformation($"Error uploading {file}: no Nodeset found in file.");
+                    }
+
                     continue;
                 }
 
@@ -253,7 +272,10 @@ namespace Opc.Ua.CloudLib.Sync
                 (System.Net.HttpStatusCode Status, string Message) response = await targetClient.UploadNodeSetAsync(addressSpace, overwrite).ConfigureAwait(false);
                 if (response.Status == System.Net.HttpStatusCode.OK)
                 {
-                    _logger.LogInformation($"Uploaded {addressSpace.Nodeset.NamespaceUri}, {addressSpace.Nodeset.Identifier}");
+                    if (_logger.IsEnabled(LogLevel.Information))
+                    {
+                        _logger.LogInformation($"Uploaded {addressSpace.Nodeset.NamespaceUri}, {addressSpace.Nodeset.Identifier}");
+                    }
                 }
                 else
                 {
