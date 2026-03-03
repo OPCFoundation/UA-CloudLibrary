@@ -193,7 +193,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             if (nodesetXMLOnly)
             {
                 await _database.IncrementDownloadCountAsync(nodeSetID).ConfigureAwait(false);
-                return new ObjectResult(nodesetXml) { StatusCode = (int)HttpStatusCode.OK };
+                return new ObjectResult(nodesetXml.Blob) { StatusCode = (int)HttpStatusCode.OK };
             }
 
             if (!metadataOnly)
