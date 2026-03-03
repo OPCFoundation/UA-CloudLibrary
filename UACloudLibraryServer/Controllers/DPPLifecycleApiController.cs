@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,59 +14,47 @@ namespace Opc.Ua.Cloud.Library.Controllers
     [ApiController]
     public class DPPLifecycleApiController : ControllerBase
     {
-        private readonly DPPService _dppService = new();
+        private readonly DPPService _dppService;
+
+        public DPPLifecycleApiController(DPPService dppService)
+        {
+            _dppService = dppService;
+        }
 
         public record ReadDppIdsRequest(List<string> productIds);
 
         [HttpGet("dpps/{dppId}")]
-        public ActionResult<ApiResponse<JsonObject>> ReadDppById([FromRoute] string dppId)
+        public async Task<ActionResult<ApiResponse<DigitalProductPassport>>> ReadDppById([FromRoute] string dppId)
         {
-            var dpp = _dppService.GetByDppId(dppId);
+            var dpp = await _dppService.GetByDppId(User.Identity.Name, dppId).ConfigureAwait(false);
 
             if (dpp is null)
             {
-                return NotFound(new ApiResponse<JsonObject>(
+                return NotFound(new ApiResponse<DigitalProductPassport>(
                     DppApiStatusCodes.ClientErrorResourceNotFound,
                     payload: null,
                     result: new ApiResult(new() { new ApiMessage("Error", "Resource not found") })
                 ));
             }
 
-            return Ok(new ApiResponse<JsonObject>(DppApiStatusCodes.Success, dpp));
+            return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, dpp));
         }
 
         [HttpGet("dppsByProductId/{productId}")]
-        public ActionResult<ApiResponse<JsonObject>> ReadDppByProductId([FromRoute] string productId)
+        public async Task<ActionResult<ApiResponse<DigitalProductPassport>>> ReadDppByProductId([FromRoute] string productId)
         {
-            var dpp = _dppService.GetByProductId(productId);
+            var dpp = await _dppService.GetByProductId(User.Identity.Name, productId).ConfigureAwait(false);
 
             if (dpp is null)
             {
-                return NotFound(new ApiResponse<JsonObject>(
+                return NotFound(new ApiResponse<DigitalProductPassport>(
                     DppApiStatusCodes.ClientErrorResourceNotFound,
                     payload: null,
                     result: new ApiResult(new() { new ApiMessage("Error", "Resource not found") })
                 ));
             }
 
-            return Ok(new ApiResponse<JsonObject>(DppApiStatusCodes.Success, dpp));
-        }
-
-        [HttpGet("dppsByIdAndDate/{dppId}")]
-        public ActionResult<ApiResponse<JsonObject>> ReadDppByIdAndDate([FromRoute] string dppId, [FromQuery] DateTime timestamp)
-        {
-            var dpp = _dppService.GetDppVersionByIdAndDate(dppId, timestamp);
-
-            if (dpp is null)
-            {
-                return NotFound(new ApiResponse<JsonObject>(
-                    DppApiStatusCodes.ClientErrorResourceNotFound,
-                    payload: null,
-                    result: new ApiResult(new() { new ApiMessage("Error", "Resource not found") })
-                ));
-            }
-
-            return Ok(new ApiResponse<JsonObject>(DppApiStatusCodes.Success, dpp));
+            return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, dpp));
         }
 
         [HttpPost("dppsByProductIds")]
@@ -80,26 +69,26 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 ));
             }
 
-            var ids = _dppService.GetDppIdsByProductIds(request.productIds).ToList();
+            var ids = _dppService.GetDppIdsByProductIds(User.Identity.Name, request.productIds).ToList();
 
             return Ok(new ApiResponse<List<string>>(DppApiStatusCodes.Success, ids));
         }
 
         [HttpGet("/dpps/{dppId}/elements/{*elementPath}")]
-        public ActionResult<ApiResponse<JsonNode>> ReadDataElement([FromRoute] string dppId, [FromRoute] string elementPath)
+        public async Task<ActionResult<ApiResponse<DataElement>>> ReadDataElement([FromRoute] string dppId, [FromRoute] string elementPath)
         {
-            var node = _dppService.GetElement(dppId, elementPath);
+            var node = await _dppService.GetElement(User.Identity.Name, dppId, elementPath).ConfigureAwait(false);
 
             if (node is null)
             {
-                return NotFound(new ApiResponse<JsonNode>(
+                return NotFound(new ApiResponse<DataElement>(
                     DppApiStatusCodes.ClientErrorResourceNotFound,
                     payload: null,
                     result: new ApiResult(new() { new ApiMessage("Error", "Resource or element not found") })
                 ));
             }
 
-            return Ok(new ApiResponse<JsonNode>(DppApiStatusCodes.Success, node));
+            return Ok(new ApiResponse<DataElement>(DppApiStatusCodes.Success, node));
         }
     }
 }

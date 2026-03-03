@@ -39,12 +39,10 @@ namespace AdminShell
     public class AssetAdministrationShellEnvironmentService
     {
         private readonly UAClient _client;
-        private readonly CloudLibDataProvider _dataProvider;
 
-        public AssetAdministrationShellEnvironmentService(UAClient client, CloudLibDataProvider dataProvider)
+        public AssetAdministrationShellEnvironmentService(UAClient client)
         {
             _client = client;
-            _dataProvider = dataProvider;
         }
 
         public async Task<Submodel> GetSubmodelById(string userId, string idShort)
