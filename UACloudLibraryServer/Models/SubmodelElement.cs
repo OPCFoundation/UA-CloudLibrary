@@ -4,12 +4,19 @@ namespace AdminShell
     using System;
     using System.Collections.Generic;
     using System.Runtime.Serialization;
+    using System.Text.Json.Serialization;
     using System.Xml.Serialization;
-    using JsonSubTypes;
     using Newtonsoft.Json;
+    using Opc.Ua.Cloud.Library.Models;
 
     [DataContract]
-    [JsonConverter(typeof(JsonSubtypes), "ModelType")]
+    // Polymorphism is based on discriminator property "ModelType".
+    [JsonPolymorphic(TypeDiscriminatorPropertyName = "ModelType")]
+    [JsonDerivedType(typeof(AASProperty), "AASProperty")]
+    [JsonDerivedType(typeof(MultiLanguageProperty), "MultiLanguageProperty")]
+    [JsonDerivedType(typeof(SubmodelElementCollection), "SubmodelElementCollection")]
+    [JsonDerivedType(typeof(SubmodelElementList), "SubmodelElementList")]
+    [JsonDerivedType(typeof(GlobalReferenceElement), "GlobalReferenceElement")]
     public class SubmodelElement
     {
         [DataMember(Name = "semanticId")]
