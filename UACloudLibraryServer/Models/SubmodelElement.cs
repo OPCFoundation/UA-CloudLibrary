@@ -1,13 +1,9 @@
 
 namespace AdminShell
 {
-    using System;
-    using System.Collections.Generic;
     using System.Runtime.Serialization;
     using System.Text.Json.Serialization;
     using System.Xml.Serialization;
-    using Newtonsoft.Json;
-    using Opc.Ua.Cloud.Library.Models;
 
     [DataContract]
     // Polymorphism is based on discriminator property "ModelType".

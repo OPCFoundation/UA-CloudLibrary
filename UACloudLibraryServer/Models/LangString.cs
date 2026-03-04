@@ -4,7 +4,6 @@ namespace AdminShell
     using System.ComponentModel.DataAnnotations;
     using System.Runtime.Serialization;
     using System.Xml.Serialization;
-    using Newtonsoft.Json;
 
     [DataContract]
     [XmlType(TypeName = "langString")]
