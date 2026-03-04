@@ -99,11 +99,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 if (node.Text == "DigitalProductPassport")
                 {
-                    List<NodesetViewerNode> dppNodes = await _client.GetChildren(userId, nodesetIdentifier, node.Id).ConfigureAwait(false);
-                    if (dppNodes is { Count: > 0 })
-                    {
-                        return await GenerateDPPFromDPPNode(userId, nodesetIdentifier, dppNodes[0]).ConfigureAwait(false);
-                    }
+                    return await GenerateDPPFromDPPNode(userId, nodesetIdentifier, node).ConfigureAwait(false);
                 }
             }
 

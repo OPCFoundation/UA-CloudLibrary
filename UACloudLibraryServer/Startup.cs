@@ -101,6 +101,8 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddScoped<AssetAdministrationShellEnvironmentService>();
 
+            services.AddScoped<DPPService>();
+
             services.AddScoped<CaptchaValidation>();
 
             if (!string.IsNullOrEmpty(Configuration["UseSendGridEmailSender"]))
