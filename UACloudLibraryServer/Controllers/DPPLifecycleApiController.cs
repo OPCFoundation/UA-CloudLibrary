@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
@@ -24,7 +25,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         public record ReadDppIdsRequest(List<string> productIds);
 
         [HttpGet("dpps/{dppId}")]
-        public async Task<ActionResult<ApiResponse<DigitalProductPassport>>> ReadDppById([FromRoute] string dppId)
+        public async Task<ActionResult<ApiResponse<DigitalProductPassport>>> ReadDppById([FromRoute][Required] string dppId)
         {
             var dpp = await _dppService.GetByDppId(User.Identity.Name, dppId).ConfigureAwait(false);
 
@@ -41,7 +42,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         }
 
         [HttpGet("dppsByProductId/{productId}")]
-        public async Task<ActionResult<ApiResponse<DigitalProductPassport>>> ReadDppByProductId([FromRoute] string productId)
+        public async Task<ActionResult<ApiResponse<DigitalProductPassport>>> ReadDppByProductId([FromRoute][Required] string productId)
         {
             var dpp = await _dppService.GetByProductId(User.Identity.Name, productId).ConfigureAwait(false);
 
@@ -58,7 +59,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         }
 
         [HttpPost("dppsByProductIds")]
-        public ActionResult<ApiResponse<List<string>>> ReadDppIdsByProductIds([FromBody] ReadDppIdsRequest request)
+        public ActionResult<ApiResponse<List<string>>> ReadDppIdsByProductIds([FromBody][Required] ReadDppIdsRequest request)
         {
             if (request.productIds is null || request.productIds.Count == 0)
             {
@@ -75,7 +76,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         }
 
         [HttpGet("/dpps/{dppId}/elements/{*elementPath}")]
-        public async Task<ActionResult<ApiResponse<DataElement>>> ReadDataElement([FromRoute] string dppId, [FromRoute] string elementPath)
+        public async Task<ActionResult<ApiResponse<DataElement>>> ReadDataElement([FromRoute][Required] string dppId, [FromRoute][Required] string elementPath)
         {
             var node = await _dppService.GetElement(User.Identity.Name, dppId, elementPath).ConfigureAwait(false);
 

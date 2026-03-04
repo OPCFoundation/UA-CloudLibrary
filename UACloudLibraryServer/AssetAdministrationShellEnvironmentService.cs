@@ -97,7 +97,7 @@ namespace AdminShell
                         if (children.Count > 0)
                         {
                             SubmodelElementList smel = new() {
-                                SemanticId = subNode.Text,
+                                SemanticId = smeNode.Text,
                             };
 
                             smel.Value.AddRange(children);

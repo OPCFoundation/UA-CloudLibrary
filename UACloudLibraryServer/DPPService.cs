@@ -43,10 +43,25 @@ namespace Opc.Ua.Cloud.Library
 
             if (dppList != null)
             {
+                // return the latest DPP if multiple are found for the same product id
+                DigitalProductPassport latestDpp = null;
                 foreach (ObjectModel dpp in dppList)
                 {
-                    return await BrowseDppFromRootAsync(userId, dpp.NodeSet.Identifier).ConfigureAwait(false);
+                    if (latestDpp == null)
+                    {
+                        latestDpp = await BrowseDppFromRootAsync(userId, dpp.NodeSet.Identifier).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        DigitalProductPassport currentDpp = await BrowseDppFromRootAsync(userId, dpp.NodeSet.Identifier).ConfigureAwait(false);
+                        if ((currentDpp != null) && (currentDpp.LastUpdate > latestDpp.LastUpdate))
+                        {
+                            latestDpp = currentDpp;
+                        }
+                    }
                 }
+
+                return latestDpp;
             }
 
             _logger.LogWarning("DPP not found for product id {ProductId}", productId);
@@ -57,15 +72,18 @@ namespace Opc.Ua.Cloud.Library
         {
             var result = new List<string>();
 
-            List<ObjectModel> dppList = _dataProvider.GetNodeModels(nsm => nsm.Objects, userId)
-                .Where(nsm => (nsm.DisplayName != null) && (nsm.DisplayName.Count > 0) && (nsm.DisplayName[0].Text == "UniqueProductIdentifier"))
+            foreach (string productId in productIds)
+            {
+                List<ObjectModel> dppList = _dataProvider.GetNodeModels(nsm => nsm.Objects, userId)
+                .Where(nsm => (nsm.DisplayName != null) && (nsm.DisplayName.Count > 0) && (nsm.DisplayName[0].Text == "UniqueProductIdentifier") && (nsm.NodeId == productId))
                 .ToList();
 
-            if (dppList != null)
-            {
-                foreach (ObjectModel dpp in dppList)
+                if (dppList != null)
                 {
-                    result.Add(dpp.NodeSet.Identifier);
+                    foreach (ObjectModel dpp in dppList)
+                    {
+                        result.Add(dpp.NodeSet.Identifier);
+                    }
                 }
             }
 
@@ -162,7 +180,7 @@ namespace Opc.Ua.Cloud.Library
             }
 
             return new DigitalProductPassport {
-                DigitalProductPassportId = dppNode.Text,
+                DigitalProductPassportId = nodesetIdentifier,
                 UniqueProductIdentifier = uniqueProductId,
                 DppSchemaVersion = schemaVersion,
                 DppStatus = status,
