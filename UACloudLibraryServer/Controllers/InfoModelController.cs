@@ -31,10 +31,8 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Net;
 using System.Threading.Tasks;
-using AdminShell;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
 using Opc.Ua.Cloud.Library.Models;
 using Swashbuckle.AspNetCore.Annotations;
 

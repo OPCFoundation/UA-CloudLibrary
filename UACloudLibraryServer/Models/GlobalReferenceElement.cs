@@ -5,23 +5,11 @@ namespace AdminShell
     using System.Xml.Serialization;
 
     [DataContract]
-    public class GlobalReferenceElement : ReferenceElement
+    public class GlobalReferenceElement : SubmodelElement
     {
         [DataMember(Name = "grvalue")]
         [XmlElement(ElementName = "grvalue")]
-        public GlobalReference GRValue { get; set; } = new GlobalReference();
-
-        public GlobalReferenceElement() { }
-
-        public GlobalReferenceElement(SubmodelElement src)
-            : base(src)
-        {
-            if (!(src is GlobalReferenceElement gre))
-                return;
-
-            if (gre.Value != null)
-                this.Value = new GlobalReference(gre.Value);
-        }
+        public string GRValue { get; set; } = string.Empty;
     }
 }
 
