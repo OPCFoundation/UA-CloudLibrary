@@ -837,48 +837,5 @@ namespace Opc.Ua.Cloud.Library
 
             return Array.Empty<string>();
         }
-
-        public void UpdateAssetAdministrationShellDescriptor(string userName, string decodedAasIdentifier, AssetAdministrationShellDescriptor shellDescriptor)
-        {
-            // check user permissions
-            if (!GetNodeSets(userName, decodedAasIdentifier).Any())
-            {
-                throw new UnauthorizedAccessException("User is not authorized to update this AAS.");
-            }
-
-            foreach (var assetId in shellDescriptor.SpecificAssetIds)
-            {
-                PersistedSpecificAssetIds newEntry = new() {
-                    AASId = decodedAasIdentifier,
-                    AssetId = assetId
-                };
-
-                // check if this one is already added
-                if (_dbContext.PersistedSpecificAssetIds.Any(e => e.AASId == decodedAasIdentifier && e.AssetId.Name == assetId.Name && e.AssetId.Value == assetId.Value))
-                {
-                    continue;
-                }
-                else
-                {
-                    _dbContext.PersistedSpecificAssetIds.Add(newEntry);
-                }
-            }
-
-            _dbContext.SaveChanges();
-        }
-
-        internal List<SpecificAssetId> GetAssetAdministrationShellDescriptor(string userName, string decodedAasIdentifier)
-        {
-            // check user permissions
-            if (!GetNodeSets(userName, decodedAasIdentifier).Any())
-            {
-                throw new UnauthorizedAccessException("User is not authorized to update this AAS.");
-            }
-
-            return _dbContext.PersistedSpecificAssetIds
-                .Where(e => e.AASId == decodedAasIdentifier)
-                .Select(e => e.AssetId)
-                .ToList();
-        }
     }
 }

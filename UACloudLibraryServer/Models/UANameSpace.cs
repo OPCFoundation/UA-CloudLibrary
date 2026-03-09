@@ -29,7 +29,7 @@
 
 using System;
 using System.Collections.Generic;
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
 namespace Opc.Ua.Cloud.Library.Models
 {
@@ -62,67 +62,67 @@ namespace Opc.Ua.Cloud.Library.Models
         /// <summary>Gets or sets the title.</summary>
         /// <value>The title.</value>
         [JsonRequired]
-        [JsonProperty("title")]
+        [JsonPropertyName("title")]
         public string Title { get; set; }
 
         /// <summary>Gets or sets the license.</summary>
         /// <value>The license.</value>
-        [JsonProperty("license")]
+        [JsonPropertyName("license")]
         public string License { get; set; }
 
         /// <summary>Gets or sets the copyright text.</summary>
         /// <value>The copyright text.</value>
 		[JsonRequired]
-        [JsonProperty("copyrightText")]
+        [JsonPropertyName("copyrightText")]
         public string CopyrightText { get; set; }
 
         /// <summary>Gets or sets the description.</summary>
         /// <value>The description.</value>
 		[JsonRequired]
-        [JsonProperty("description")]
+        [JsonPropertyName("description")]
         public string Description { get; set; }
 
         /// <summary>
         /// Link to additional documentation, specifications, GitHub, etc.
         /// For example, If the address space is based on a standard or official UA Information Model, this links to the standard or the OPC specification URL.
         /// </summary>
-        [JsonProperty("documentationUrl")]
+        [JsonPropertyName("documentationUrl")]
         public Uri DocumentationUrl { get; set; }
 
         /// <summary>Gets or sets the icon URL.</summary>
         /// <value>The icon URL.</value>
-        [JsonProperty("iconUrl")]
+        [JsonPropertyName("iconUrl")]
         public Uri IconUrl { get; set; }
 
         /// <summary>Gets or sets the license URL.</summary>
         /// <value>The license URL.</value>
-        [JsonProperty("licenseUrl")]
+        [JsonPropertyName("licenseUrl")]
         public Uri LicenseUrl { get; set; }
 
         /// <summary>Gets or sets the key words.</summary>
         /// <value>The key words.</value>
-        [JsonProperty("keywords")]
+        [JsonPropertyName("keywords")]
         public string[] Keywords { get; set; }
 
         /// <summary>Gets or sets the purchasing information URL.</summary>
         /// <value>The purchasing information URL.</value>
-        [JsonProperty("purchasingInformationUrl")]
+        [JsonPropertyName("purchasingInformationUrl")]
         public Uri PurchasingInformationUrl { get; set; }
 
         /// <summary>Gets or sets the release notes URL.</summary>
         /// <value>The release notes URL.</value>
-        [JsonProperty("releaseNotesUrl")]
+        [JsonPropertyName("releaseNotesUrl")]
         public Uri ReleaseNotesUrl { get; set; }
 
         /// <summary>Gets or sets the release notes URL.</summary>
         /// <value>The release notes URL.</value>
-        [JsonProperty("testSpecificationUrl")]
+        [JsonPropertyName("testSpecificationUrl")]
         public Uri TestSpecificationUrl { get; set; }
 
         /// <summary>
         /// Supported ISO language codes
         /// </summary>
-        [JsonProperty("supportedLocales")]
+        [JsonPropertyName("supportedLocales")]
         public string[] SupportedLocales { get; set; }
 
         /// <summary>
@@ -169,7 +169,7 @@ namespace Opc.Ua.Cloud.Library.Models
         /// <summary>
         /// The time the nodeset was uploaded to the cloud library
         /// </summary>
-        [JsonProperty("creationTime")]
+        [JsonPropertyName("creationTime")]
         public DateTime? CreationTime { get; set; }
 
         /// <summary>
@@ -195,38 +195,38 @@ namespace Opc.Ua.Cloud.Library.Models
 
         /// <summary>Gets or sets the nodeset XML.</summary>
         /// <value>The nodeset XML.</value>
-        [JsonProperty("nodesetXml")]
+        [JsonPropertyName("nodesetXml")]
         public string NodesetXml { get; set; }
 
         /// <summary>Gets or sets the identifier.</summary>
         /// <value>The identifier.</value>
-        [JsonProperty("identifier")]
+        [JsonPropertyName("identifier")]
         public uint Identifier { get; set; }
 
         /// <summary>Gets or sets the namespace URI.</summary>
         /// <value>The namespace URI.</value>
-        [JsonProperty("namespaceUri")]
+        [JsonPropertyName("namespaceUri")]
         public Uri NamespaceUri { get; set; }
 
         /// <summary>Gets or sets the version.</summary>
         /// <value>The version.</value>
-        [JsonProperty("version")]
+        [JsonPropertyName("version")]
         public string Version { get; set; }
 
         /// <summary>Gets or sets the publication date.</summary>
         /// <value>The publication date.</value>
-        [JsonProperty("publicationDate")]
+        [JsonPropertyName("publicationDate")]
         public DateTime PublicationDate { get; set; }
 
         /// <summary>Gets or sets the last modified date.</summary>
         /// <value>The last modified date.</value>
-        [JsonProperty("lastModifiedDate")]
+        [JsonPropertyName("lastModifiedDate")]
         public DateTime LastModifiedDate { get; set; }
 
         /// <summary>
         /// Nodesets that this nodeset depends on
         /// </summary>
-        [JsonProperty("requiredModels")]
+        [JsonPropertyName("requiredModels")]
         public List<RequiredModelInfo> RequiredModels { get; set; }
     }
 
