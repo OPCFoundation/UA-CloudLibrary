@@ -1,55 +1,23 @@
 
 namespace AdminShell
 {
-    using System;
-    using System.Collections.Generic;
     using System.Runtime.Serialization;
+    using System.Text.Json.Serialization;
     using System.Xml.Serialization;
-    using JsonSubTypes;
-    using Newtonsoft.Json;
 
     [DataContract]
-    [JsonConverter(typeof(JsonSubtypes), "ModelType")]
-    public class SubmodelElement : Referable
+    // Polymorphism is based on discriminator property "ModelType".
+    [JsonPolymorphic(TypeDiscriminatorPropertyName = "ModelType")]
+    [JsonDerivedType(typeof(AASProperty), "AASProperty")]
+    [JsonDerivedType(typeof(MultiLanguageProperty), "MultiLanguageProperty")]
+    [JsonDerivedType(typeof(SubmodelElementCollection), "SubmodelElementCollection")]
+    [JsonDerivedType(typeof(SubmodelElementList), "SubmodelElementList")]
+    [JsonDerivedType(typeof(GlobalReferenceElement), "GlobalReferenceElement")]
+    public class SubmodelElement
     {
-        public static Type[] PROPMLP { get; set; } = new Type[]
-        {
-            typeof(MultiLanguageProperty), typeof(AASProperty)
-        };
-
         [DataMember(Name = "semanticId")]
         [XmlElement(ElementName = "semanticId")]
-        public SemanticId SemanticId { get; set; } = new();
-
-        [DataMember(Name = "qualifiers")]
-        [XmlArray(ElementName = "qualifiers")]
-        [XmlArrayItem(ElementName = "qualifier")]
-        public List<Qualifier> Qualifiers { get; set; } = new();
-
-        [DataMember(Name = "kind")]
-        [XmlElement(ElementName = "kind")]
-        public ModelingKind Kind { get; set; } = new();
-
-        public SubmodelElement()
-            : base() { }
-
-        public SubmodelElement(SubmodelElement src)
-            : base(src)
-        {
-            if (src == null)
-            {
-                return;
-            }
-
-            SemanticId = src.SemanticId;
-
-            Kind = src.Kind;
-
-            foreach (var q in src.Qualifiers)
-            {
-                Qualifiers.Add(new Qualifier(q));
-            }
-        }
+        public string SemanticId { get; set; }
     }
 }
 

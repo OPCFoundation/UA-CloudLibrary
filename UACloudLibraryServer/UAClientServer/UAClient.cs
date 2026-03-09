@@ -74,7 +74,7 @@ namespace Opc.Ua.Cloud.Library
             _telemetry = DefaultTelemetry.Create(builder => builder.AddConsole());
         }
 
-        public async Task<List<NodesetViewerNode>> GetChildren(string userId, string nodesetIdentifier, string nodeId)
+        public async Task<List<NodesetViewerNode>> GetChildren(string userId, string nodesetIdentifier, string nodeId, bool includeTypes = false)
         {
             List<NodesetViewerNode> nodes = null;
             ReferenceDescriptionCollection references = null;
@@ -86,12 +86,18 @@ namespace Opc.Ua.Cloud.Library
                     return null;
                 }
 
+                uint mask = (uint)(NodeClass.Object | NodeClass.Variable);
+                if (includeTypes)
+                {
+                    mask = mask | (uint)(NodeClass.DataType | NodeClass.VariableType | NodeClass.ObjectType);
+                }
+
                 BrowseDescription nodeToBrowse = new() {
                     NodeId = ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris),
                     BrowseDirection = BrowseDirection.Forward,
                     ReferenceTypeId = ReferenceTypeIds.HierarchicalReferences,
                     IncludeSubtypes = true,
-                    NodeClassMask = (uint)(NodeClass.Object | NodeClass.Variable | NodeClass.ObjectType),
+                    NodeClassMask = mask,
                     ResultMask = (uint)BrowseResultMask.All
                 };
 
@@ -553,8 +559,11 @@ namespace Opc.Ua.Cloud.Library
                             nodeManager.AddNamespace(nodesetXml.Blob);
                             nodeManager.AddNodesAndValues(nodesetXml.Blob, nodesetXml.Values);
 
-                            NodeSetModel nodeSetMeta = await _database.GetNodeSets(userId, nodesetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false);
-                            LoadedNamespaces.Add(nodeManager.NamespaceUris.Last(), new Tuple<string, string>(nodeSetMeta.Version, nodeSetMeta.Version));
+                            if (!LoadedNamespaces.ContainsKey(nodeManager.NamespaceUris.Last()))
+                            {
+                                NodeSetModel nodeSetMeta = await _database.GetNodeSets(userId, nodesetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false);
+                                LoadedNamespaces.Add(nodeManager.NamespaceUris.Last(), new Tuple<string, string>(nodeSetMeta.Version, nodeSetMeta.Version));
+                            }
                         }
                         else
                         {

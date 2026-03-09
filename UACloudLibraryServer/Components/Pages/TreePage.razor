@@ -247,7 +247,7 @@
     {
         if (node.Children.Count == 0)
         {
-            node.Children = await _client.GetChildren(UserName, NodesetIdentifier, node.Id).ConfigureAwait(false);
+            node.Children = await _client.GetChildren(UserName, NodesetIdentifier, node.Id, true).ConfigureAwait(false);
 
             if (node.Children != null)
             {
