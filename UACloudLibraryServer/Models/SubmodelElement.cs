@@ -13,7 +13,7 @@ namespace AdminShell
     [JsonDerivedType(typeof(SubmodelElementCollection), "SubmodelElementCollection")]
     [JsonDerivedType(typeof(SubmodelElementList), "SubmodelElementList")]
     [JsonDerivedType(typeof(SubmodelElementStruct), "SubmodelElementStruct")]
-    [JsonDerivedType(typeof(File), "file")]
+    [JsonDerivedType(typeof(File), "File")]
     public class SubmodelElement
     {
         [DataMember(Name = "semanticId")]
