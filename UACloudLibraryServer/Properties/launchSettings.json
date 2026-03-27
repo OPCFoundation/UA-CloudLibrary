@@ -31,11 +31,11 @@
       "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "PostgreSQLEndpoint": "",
-        "PostgreSQLUsername": "",
-        "PostgreSQLPassword": "",
+        "PostgreSQLEndpoint": "uacloudlib-staging.postgres.database.azure.com",
+        "PostgreSQLUsername": "opcua",
+        "PostgreSQLPassword": "r.NZJ:9z7Y5iLr.",
         "EmailSenderAPIKey": "",
-        "ServicePassword": ""
+        "ServicePassword": "testpw"
       },
       "publishAllPorts": true,
       "useSSL": true
