@@ -28,20 +28,13 @@
  * ======================================================================*/
 
 using System;
-using System.Diagnostics;
 using System.IO;
-using System.Net;
-using System.Net.Http;
-using System.Net.Mail;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Newtonsoft.Json;
 using Opc.Ua.Cloud.Library;
-using Opc.Ua.Cloud.Library.Controllers;
 using Opc.Ua.Cloud.Library.Models;
 
 namespace UANodesetWebViewer.Controllers

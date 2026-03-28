@@ -7,26 +7,18 @@ namespace AdminShell
     using Newtonsoft.Json;
 
     [DataContract]
-    public class File : DataElement
+    public class File : SubmodelElement
     {
         [Required]
         [DataMember(Name = "contentType")]
         [XmlElement(ElementName = "mimeType")]
-        [MetaModelNameAttribute("File.MimeType")]
         public string MimeType { get; set; }
 
         [DataMember(Name = "value")]
         [XmlElement(ElementName = "value")]
-        [MetaModelNameAttribute("File.Value")]
         public string Value { get; set; }
 
-        public File()
-        {
-            ModelType = ModelTypes.File;
-        }
-
         public File(SubmodelElement src)
-            : base(src)
         {
             if (!(src is File file))
             {
@@ -35,7 +27,6 @@ namespace AdminShell
 
             MimeType = file.MimeType;
             Value = file.Value;
-            ModelType = ModelTypes.File;
         }
     }
 }
