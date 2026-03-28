@@ -48,6 +48,7 @@ namespace SampleConsoleClient
             {
                 Console.WriteLine();
                 Console.WriteLine("Usage: SampleConsoleClient <UA Cloud Library instance URL> <username> <password>");
+                Console.WriteLine("    or SampleConsoleClient <UA Cloud Library instance URL> TOKEN <ApiToken>");
                 return;
             }
 
@@ -69,14 +70,17 @@ namespace SampleConsoleClient
                 BaseAddress = new Uri(args[0])
             };
 
-            webClient.DefaultRequestHeaders.Add("Authorization", "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(args[1] + ":" + args[2])));
+            if (args[1] != "TOKEN")
+                webClient.DefaultRequestHeaders.Add("Authorization", "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(args[1] + ":" + args[2])));
+            else
+                webClient.DefaultRequestHeaders.Add("x-api-key", args[2]);
 
             Console.WriteLine();
             Console.WriteLine("Testing /infomodel/find2?keywords");
 
             // return everything (keywords=*, other keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
             Uri address = new Uri(webClient.BaseAddress, "infomodel/find2?keywords=" + Uri.EscapeDataString("*"));
-            HttpResponseMessage response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
+            HttpResponseMessage response = await webClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, address)).ConfigureAwait(false);
             Console.WriteLine("Response: " + response.StatusCode.ToString());
             string responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             UANameSpace[] nodesets = null;
@@ -96,7 +100,7 @@ namespace SampleConsoleClient
                 // pick the first identifier returned previously
                 string identifier = nodesets[0].Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
                 address = new Uri(webClient.BaseAddress, "infomodel/download/" + Uri.EscapeDataString(identifier));
-                response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
+                response = await webClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, address)).ConfigureAwait(false);
 
                 Console.WriteLine("Response: " + response.StatusCode.ToString());
                 string responseStr = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -114,7 +118,7 @@ namespace SampleConsoleClient
         {
             Console.WriteLine("\n\nTesting the client library");
 
-            UACloudLibClient client = new UACloudLibClient(args[0], args[1], args[2]);
+            UACloudLibClient client = (args[1] == "TOKEN" ? new UACloudLibClient(args[0], args[2]) : new UACloudLibClient(args[0], args[1], args[2]));
 
             List<UANameSpace> restResult = await client.GetBasicNodesetInformationAsync(0, 10).ConfigureAwait(false);
             if (restResult?.Count > 0)
