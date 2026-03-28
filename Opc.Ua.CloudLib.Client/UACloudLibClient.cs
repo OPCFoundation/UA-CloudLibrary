@@ -30,14 +30,11 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using Opc.Ua.Cloud.Client.Models;
 
 [assembly: CLSCompliant(false)]
@@ -96,6 +93,21 @@ namespace Opc.Ua.Cloud.Client
 
             string temp = Convert.ToBase64String(Encoding.UTF8.GetBytes(strUsername + ":" + strPassword));
             _restClient = new RestClient(strEndpoint, new AuthenticationHeaderValue("Basic", temp));
+        }
+
+        /// <summary>Initializes a new instance of the <see cref="UACloudLibClient" /> class using an Api Token.</summary>
+        /// <param name="strEndpoint">The string endpoint.</param>
+        /// <param name="strApiToken">The string ApiToken.</param>
+        public UACloudLibClient(string strEndpoint, string strApiToken)
+        {
+            if (string.IsNullOrEmpty(strEndpoint))
+            {
+                strEndpoint = _standardEndpoint.ToString();
+            }
+
+            BaseEndpoint = new Uri(strEndpoint);
+
+            _restClient = new RestClient(strEndpoint, new AuthenticationHeaderValue("ApiToken", strApiToken));
         }
 
         /// <summary>
