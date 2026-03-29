@@ -20,7 +20,8 @@ namespace AdminShell
         [XmlArrayItem(ElementName = "multiLanguageProperty", Type = typeof(MultiLanguageProperty))]
         [XmlArrayItem(ElementName = "submodelElementCollection", Type = typeof(SubmodelElementCollection))]
         [XmlArrayItem(ElementName = "submodelElementList", Type = typeof(SubmodelElementList))]
-        [XmlArrayItem(ElementName = "globalReferenceElement", Type = typeof(GlobalReferenceElement))]
+        [XmlArrayItem(ElementName = "submodelElementStruct", Type = typeof(SubmodelElementStruct))]
+        [XmlArrayItem(ElementName = "file", Type = typeof(File))]
         public List<SubmodelElement> Value { get; set; } = new();
     }
 }
