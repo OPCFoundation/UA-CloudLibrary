@@ -29,7 +29,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -64,7 +63,10 @@ namespace Opc.Ua.Cloud.Client
         {
             client = new HttpClient();
             client.BaseAddress = new Uri(address);
-            client.DefaultRequestHeaders.Authorization = authentication;
+            if (authentication?.Scheme == "ApiToken")
+                client.DefaultRequestHeaders.Add("x-api-key", authentication.Parameter);
+            else
+                client.DefaultRequestHeaders.Authorization = authentication;
         }
 
         public RestClient(HttpClient httpClient)
