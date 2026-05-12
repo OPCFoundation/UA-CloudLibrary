@@ -115,7 +115,7 @@ Docker containers are automatically built for the UA Cloud Library. The latest v
 
 ## Security – STRIDE Threat Analysis (UA-CloudLibrary server)
 
-The following STRIDE-based threat model covers the `UACloudLibraryServer` project (the ASP.NET Core / Blazor Server application that exposes the REST API, Swagger UI, GraphQL endpoint, user-management UI, OPC UA Information Model upload/download, AAS / DPP services and the embedded OPC UA server). Each row identifies a representative threat for one of the six STRIDE categories and lists the corresponding in-code or operational mitigation already implemented in this repository, plus any residual recommendations for operators.
+The following STRIDE-based threat model covers the `UACloudLibraryServer` project (the ASP.NET Core / Blazor Server application that exposes the REST API, Swagger UI, user-management UI, OPC UA Information Model upload/download, DPP service and the embedded OPC UA server). Each row identifies a representative threat for one of the six STRIDE categories and lists the corresponding in-code or operational mitigation already implemented in this repository, plus any residual recommendations for operators.
 
 | # | STRIDE category | Asset / entry point | Threat scenario | Mitigation in `UACloudLibraryServer` |
 |---|-----------------|---------------------|-----------------|---------------------------------------|
