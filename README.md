@@ -154,6 +154,9 @@ The UA Cloud Library implements comprehensive security measures for API key auth
 
 #### **API Key Type and Expiration**
 * **Access Control:** API keys can be configured as **Read-Only** or **Read-Write** to limit permissions
+  - **Read-Write Keys:** Required for all mutating operations (POST, PUT, DELETE)
+  - **Read-Only Keys:** Only permitted for read operations (GET); automatically rejected for POST/PUT/DELETE endpoints
+  - **Automatic Enforcement:** Authorization policy enforces access restrictions at the HTTP method level
 * **Automatic Expiration:** Keys can be set to expire after configurable periods:
   - 1 Day
   - 30 Days
