@@ -59,6 +59,20 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
             [DataType(DataType.Text)]
             [Display(Name = "API Key Name")]
             public string NewApiKeyName { get; set; }
+
+            /// <summary>
+            ///     API Key Type - Read-Only or Read-Write
+            /// </summary>
+            [Required]
+            [Display(Name = "API Key Type")]
+            public string ApiKeyType { get; set; }
+
+            /// <summary>
+            ///     API Key Expiration period
+            /// </summary>
+            [Required]
+            [Display(Name = "Expiration")]
+            public string Expiration { get; set; }
         }
 
         public async Task<IActionResult> OnGetAsync()
@@ -113,7 +127,12 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
 
                 try
                 {
-                    string newApiKey = await ApiKeyTokenProvider.GenerateAndSetAuthenticationTokenAsync(_userManager, user, newApiKeyName).ConfigureAwait(false);
+                    string newApiKey = await ApiKeyTokenProvider.GenerateAndSetAuthenticationTokenAsync(
+                        _userManager, 
+                        user, 
+                        newApiKeyName, 
+                        Input.ApiKeyType, 
+                        Input.Expiration).ConfigureAwait(false);
                     if (string.IsNullOrEmpty(newApiKey))
                     {
                         ModelState.AddModelError(string.Empty, "A key with this name already exists.");
