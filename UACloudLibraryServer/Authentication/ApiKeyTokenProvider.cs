@@ -268,6 +268,43 @@ namespace Opc.Ua.Cloud.Library.Authentication
             List<IdentityUserToken<string>> tokens = await _appDbContext.UserTokens.Where(t => t.UserId == user.Id && t.LoginProvider == ApiKeyTokenProvider.ApiKeyProviderName).ToListAsync().ConfigureAwait(false);
             return tokens.Select(t => (t.Name, t.Value.Substring(0, 4))).ToList();
         }
+
+        /// <summary>
+        /// Gets the API key type (Read-Only or Read-Write) for a specific API key.
+        /// </summary>
+        /// <param name="user">The user who owns the API key.</param>
+        /// <param name="apiKeyName">The name of the API key.</param>
+        /// <returns>The API key type string, or null if not found or no metadata.</returns>
+        public async Task<string> GetApiKeyTypeAsync(IdentityUser user, string apiKeyName)
+        {
+            IdentityUserToken<string> token = await _appDbContext.UserTokens
+                .FirstOrDefaultAsync(t => t.UserId == user.Id 
+                    && t.LoginProvider == ApiKeyTokenProvider.ApiKeyProviderName 
+                    && t.Name == apiKeyName)
+                .ConfigureAwait(false);
+
+            if (token == null || string.IsNullOrEmpty(token.Value))
+            {
+                return null;
+            }
+
+            // Extract API key type from metadata
+            // Format: {prefix}{hash}|Type:{type}|Expiration:{period}|ExpiresAt:{date}
+            int typeIndex = token.Value.IndexOf("|Type:");
+            if (typeIndex < 0)
+            {
+                // No metadata, assume Read-Write for backward compatibility
+                return "Read-Write";
+            }
+
+            string typePart = token.Value.Substring(typeIndex + "|Type:".Length);
+            int nextSeparator = typePart.IndexOf('|');
+            string apiKeyType = nextSeparator > 0 
+                ? typePart.Substring(0, nextSeparator) 
+                : typePart;
+
+            return apiKeyType;
+        }
     }
 
     [Serializable]

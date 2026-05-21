@@ -143,6 +143,13 @@ namespace Opc.Ua.Cloud.Library.Authentication
                 claims.Add(new Claim(ClaimTypes.Name, user.UserName));
             }
 
+            // Add API key type claim
+            string apiKeyType = await _apiKeyTokenProvider.GetApiKeyTypeAsync(user, parsedApiKey.ApiKeyName).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(apiKeyType))
+            {
+                claims.Add(new Claim("ApiKeyType", apiKeyType));
+            }
+
             return claims;
         }
     }
