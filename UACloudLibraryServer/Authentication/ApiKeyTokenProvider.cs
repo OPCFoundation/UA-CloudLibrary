@@ -71,6 +71,9 @@ namespace Opc.Ua.Cloud.Library.Authentication
 
         public async Task<bool> ValidateAsync(string purpose, string token, UserManager<IdentityUser> manager, IdentityUser user)
         {
+            // Delay validation by 500ms to mitigate DOS/brute-force attacks
+            await Task.Delay(500).ConfigureAwait(false);
+
             if (!string.IsNullOrEmpty(purpose))
             {
                 string authTokenHash = await manager.GetAuthenticationTokenAsync(user, ApiKeyProviderName, purpose).ConfigureAwait(false);
@@ -140,6 +143,9 @@ namespace Opc.Ua.Cloud.Library.Authentication
 
         public async Task<(string UserId, string ApiKeyName)> FindUserForApiKey(string apiKey, UserManager<IdentityUser> manager)
         {
+            // Delay validation by 500ms to mitigate DOS/brute-force attacks
+            await Task.Delay(500).ConfigureAwait(false);
+
             if (apiKey.Length < 4)
             {
                 throw new ArgumentException($"Invalid API key format");
@@ -206,7 +212,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
             UserManager<IdentityUser> userManager, 
             IdentityUser user, 
             string newApiKeyName,
-            string apiKeyType = "Read-Write",
+            string apiKeyType = "Read-Only",
             string apiKeyExpiration = "Unlimited")
         {
             string existingToken = await userManager.GetAuthenticationTokenAsync(user, ApiKeyProviderName, newApiKeyName).ConfigureAwait(false);
