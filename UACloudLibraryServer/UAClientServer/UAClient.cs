@@ -638,6 +638,46 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
+        public async Task<Dictionary<string, DbFiles>> GetAllLoadedNodesetFilesAsync(string userId)
+        {
+            var nodesetFiles = new Dictionary<string, DbFiles>();
+
+            foreach (var loadedNamespace in LoadedNamespaces)
+            {
+                try
+                {
+                    // Get nodeset metadata by namespace URI
+                    var matchingNodeSets = await _database.GetNodeSets(userId, null, loadedNamespace.Key).ToListAsync().ConfigureAwait(false);
+
+                    if (matchingNodeSets != null && matchingNodeSets.Count > 0)
+                    {
+                        // Get the nodeset that matches the loaded version
+                        var nodeSet = matchingNodeSets.FirstOrDefault(ns => ns.Version == loadedNamespace.Value.Item2);
+                        if (nodeSet == null)
+                        {
+                            // Fall back to first match if exact version not found
+                            nodeSet = matchingNodeSets.First();
+                        }
+
+                        // Download the file
+                        DbFiles file = await _storage.DownloadFileAsync(nodeSet.Identifier).ConfigureAwait(false);
+                        if (file != null)
+                        {
+                            // Use namespace + version as key to ensure uniqueness
+                            string fileKey = $"{loadedNamespace.Key}_{loadedNamespace.Value.Item2}";
+                            nodesetFiles[fileKey] = file;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error retrieving nodeset for {loadedNamespace.Key}: {ex.Message}");
+                }
+            }
+
+            return nodesetFiles;
+        }
+
         public async Task DisposeSession()
         {
             // remove session from our concurrent dictionary
