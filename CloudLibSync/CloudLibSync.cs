@@ -25,15 +25,15 @@ namespace Opc.Ua.CloudLib.Sync
         /// <summary>
         /// Downloads node sets from a cloud library to a local directory
         /// </summary>
-        /// <param name="sourceUrl"></param>
-        /// <param name="sourceUserName"></param>
-        /// <param name="sourcePassword"></param>
-        /// <param name="localDir"></param>
-        /// <param name="nodeSetXmlDir"></param>
+        /// <param name="sourceUrl">The source cloud library URL</param>
+        /// <param name="sourceAuth">The source username (Basic Auth) or API key (API key auth)</param>
+        /// <param name="sourcePassword">The source password (Basic Auth only, can be null for API key auth)</param>
+        /// <param name="localDir">Local directory to save downloaded nodesets</param>
+        /// <param name="nodeSetXmlDir">Optional directory to save nodeset XML files</param>
         /// <returns></returns>
-        public async Task DownloadAsync(string sourceUrl, string sourceUserName, string sourcePassword, string localDir, string nodeSetXmlDir)
+        public async Task DownloadAsync(string sourceUrl, string sourceAuth, string? sourcePassword, string localDir, string nodeSetXmlDir)
         {
-            var sourceClient = new UACloudLibClient(sourceUrl, sourceUserName, sourcePassword);
+            UACloudLibClient sourceClient = CreateClient(sourceUrl, sourceAuth, sourcePassword);
 
             List<UANameSpace> nodeSetResult;
             int cursor = 0;
@@ -93,19 +93,41 @@ namespace Opc.Ua.CloudLib.Sync
         }
 
         /// <summary>
+        /// Creates a UACloudLibClient with the appropriate authentication method
+        /// </summary>
+        /// <param name="url">The cloud library URL</param>
+        /// <param name="authValue">Username (Basic Auth) or API key (API key auth)</param>
+        /// <param name="password">Password (Basic Auth only, null for API key auth)</param>
+        /// <returns>Configured UACloudLibClient instance</returns>
+        private static UACloudLibClient CreateClient(string url, string authValue, string? password)
+        {
+            // If password is null or empty, assume API key authentication
+            if (string.IsNullOrEmpty(password))
+            {
+                return new UACloudLibClient(url, authValue);
+            }
+            else
+            {
+                // Basic authentication with username and password
+                return new UACloudLibClient(url, authValue, password);
+            }
+        }
+
+        /// <summary>
         /// Synchronizes from one Cloud Library to another.
         /// </summary>
-        /// <param name="sourceUrl"></param>
-        /// <param name="sourceUserName"></param>
-        /// <param name="sourcePassword"></param>
-        /// <param name="targetUrl"></param>
-        /// <param name="targetUserName"></param>
-        /// <param name="targetPassword"></param>
+        /// <param name="sourceUrl">The source cloud library URL</param>
+        /// <param name="sourceAuth">The source username (Basic Auth) or API key (API key auth)</param>
+        /// <param name="sourcePassword">The source password (Basic Auth only, can be null for API key auth)</param>
+        /// <param name="targetUrl">The target cloud library URL</param>
+        /// <param name="targetAuth">The target username (Basic Auth) or API key (API key auth)</param>
+        /// <param name="targetPassword">The target password (Basic Auth only, can be null for API key auth)</param>
+        /// <param name="overwrite">Whether to overwrite existing nodesets</param>
         /// <returns></returns>
-        public async Task SynchronizeAsync(string sourceUrl, string sourceUserName, string sourcePassword, string targetUrl, string targetUserName, string targetPassword, bool overwrite = false)
+        public async Task SynchronizeAsync(string sourceUrl, string sourceAuth, string? sourcePassword, string targetUrl, string targetAuth, string? targetPassword, bool overwrite = false)
         {
-            var sourceClient = new UACloudLibClient(sourceUrl, sourceUserName, sourcePassword);
-            var targetClient = new UACloudLibClient(targetUrl, targetUserName, targetPassword);
+            UACloudLibClient sourceClient = CreateClient(sourceUrl, sourceAuth, sourcePassword);
+            UACloudLibClient targetClient = CreateClient(targetUrl, targetAuth, targetPassword);
 
             bool bAdded;
             do
@@ -194,15 +216,16 @@ namespace Opc.Ua.CloudLib.Sync
         /// <summary>
         /// Uploads nodesets from a local directory to a Cloud Library
         /// </summary>
-        /// <param name="targetUrl"></param>
-        /// <param name="targetUserName"></param>
-        /// <param name="targetPassword"></param>
-        /// <param name="localDir"></param>
-        /// <param name="fileName"></param>
+        /// <param name="targetUrl">The target cloud library URL</param>
+        /// <param name="targetAuth">The target username (Basic Auth) or API key (API key auth)</param>
+        /// <param name="targetPassword">The target password (Basic Auth only, can be null for API key auth)</param>
+        /// <param name="localDir">Local directory containing nodesets to upload</param>
+        /// <param name="fileName">Optional specific filename to upload, otherwise all files in localDir</param>
+        /// <param name="overwrite">Whether to overwrite existing nodesets</param>
         /// <returns></returns>
-        public async Task UploadAsync(string targetUrl, string targetUserName, string targetPassword, string localDir, string fileName, bool overwrite = false)
+        public async Task UploadAsync(string targetUrl, string targetAuth, string? targetPassword, string localDir, string fileName, bool overwrite = false)
         {
-            var targetClient = new UACloudLibClient(targetUrl, targetUserName, targetPassword);
+            UACloudLibClient targetClient = CreateClient(targetUrl, targetAuth, targetPassword);
 
             var filesToUpload = new List<string>();
             if (!string.IsNullOrEmpty(fileName))

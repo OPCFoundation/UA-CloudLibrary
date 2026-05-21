@@ -71,8 +71,8 @@ namespace Opc.Ua.Cloud.Library.Authentication
 
         public async Task<bool> ValidateAsync(string purpose, string token, UserManager<IdentityUser> manager, IdentityUser user)
         {
-            // Delay validation by 500ms to mitigate DOS/brute-force attacks
-            await Task.Delay(500).ConfigureAwait(false);
+            // Delay validation by 150ms to mitigate DOS/brute-force attacks
+            await Task.Delay(150).ConfigureAwait(false);
 
             if (!string.IsNullOrEmpty(purpose))
             {
@@ -143,8 +143,8 @@ namespace Opc.Ua.Cloud.Library.Authentication
 
         public async Task<(string UserId, string ApiKeyName)> FindUserForApiKey(string apiKey, UserManager<IdentityUser> manager)
         {
-            // Delay validation by 500ms to mitigate DOS/brute-force attacks
-            await Task.Delay(500).ConfigureAwait(false);
+            // Delay validation by 150ms to mitigate DOS/brute-force attacks
+            await Task.Delay(150).ConfigureAwait(false);
 
             if (apiKey.Length < 4)
             {

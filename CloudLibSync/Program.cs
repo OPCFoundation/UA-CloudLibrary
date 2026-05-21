@@ -15,12 +15,28 @@ sealed class Program : ILogger
 
     public async Task<int> MainAsync(string[] args)
     {
-        var sourceUrlArg = new Argument<string>("sourceUrl");
-        var sourceUserArg = new Argument<string>("sourceUserName");
-        var sourcePwdArg = new Argument<string>("sourcePassword");
-        var targetUrlArg = new Argument<string>("targetUrl");
-        var targetUserArg = new Argument<string>("targetUserName");
-        var targetPwdArg = new Argument<string>("targetPassword");
+        // Source arguments and options
+        var sourceUrlArg = new Argument<string>("sourceUrl") {
+            Description = "Source Cloud Library URL"
+        };
+        var sourceAuthArg = new Argument<string>("sourceAuth") {
+            Description = "Source username (for Basic Auth) or API key (for API key auth)"
+        };
+        var sourcePwdOpt = new Option<string?>("--sourcePassword") {
+            Description = "Source password (only required for Basic Auth, omit for API key auth)"
+        };
+
+        // Target arguments and options
+        var targetUrlArg = new Argument<string>("targetUrl") {
+            Description = "Target Cloud Library URL"
+        };
+        var targetAuthArg = new Argument<string>("targetAuth") {
+            Description = "Target username (for Basic Auth) or API key (for API key auth)"
+        };
+        var targetPwdOpt = new Option<string?>("--targetPassword") {
+            Description = "Target password (only required for Basic Auth, omit for API key auth)"
+        };
+
         var overwriteOpt = new Option<bool>("--overwrite") {
             Description = "If specified, allows existing nodesets in a Cloud Library to be overwritten."
         };
@@ -43,8 +59,8 @@ sealed class Program : ILogger
             "Uploads nodesets and their metadata from a local directory to a cloud library.")
         {
             targetUrlArg,
-            targetUserArg,
-            targetPwdArg,
+            targetAuthArg,
+            targetPwdOpt,
             localDirOpt,
             fileNameOpt,
             overwriteOpt
@@ -55,8 +71,8 @@ sealed class Program : ILogger
             "Downloads all nodesets and their metadata from a Cloud Library to a local directory.")
         {
             sourceUrlArg,
-            sourceUserArg,
-            sourcePwdArg,
+            sourceAuthArg,
+            sourcePwdOpt,
             localDirOpt,
             nodeSetXmlDirOpt,
         };
@@ -66,11 +82,11 @@ sealed class Program : ILogger
             "Downloads all nodesets and their metadata from a Cloud Library (source) and uploads it to another Cloud Library (target).")
         {
             sourceUrlArg,
-            sourceUserArg,
-            sourcePwdArg,
+            sourceAuthArg,
+            sourcePwdOpt,
             targetUrlArg,
-            targetUserArg,
-            targetPwdArg,
+            targetAuthArg,
+            targetPwdOpt,
             overwriteOpt
         };
 
@@ -83,8 +99,8 @@ sealed class Program : ILogger
 
         uploadCommand.SetAction(parseResult => {
             var targetUrl = parseResult.GetValue(targetUrlArg);
-            var targetUserName = parseResult.GetValue(targetUserArg);
-            var targetPassword = parseResult.GetValue(targetPwdArg);
+            var targetAuth = parseResult.GetValue(targetAuthArg);
+            var targetPassword = parseResult.GetValue(targetPwdOpt);
             var localDir = parseResult.GetValue(localDirOpt) ?? string.Empty;
             var fileName = parseResult.GetValue(fileNameOpt) ?? string.Empty;
             var overwrite = parseResult.GetValue(overwriteOpt);
@@ -93,18 +109,14 @@ sealed class Program : ILogger
             {
                 throw new ArgumentException("targetUrl is required.", nameof(args));
             }
-            if (string.IsNullOrEmpty(targetUserName))
+            if (string.IsNullOrEmpty(targetAuth))
             {
-                throw new ArgumentException("targetUserName is required.", nameof(args));
-            }
-            if (string.IsNullOrEmpty(targetPassword))
-            {
-                throw new ArgumentException("targetPassword is required.", nameof(args));
+                throw new ArgumentException("targetAuth (username or API key) is required.", nameof(args));
             }
 
             return new CloudLibSync(this).UploadAsync(
                 targetUrl,
-                targetUserName,
+                targetAuth,
                 targetPassword,
                 localDir,
                 fileName,
@@ -114,8 +126,8 @@ sealed class Program : ILogger
 
         downloadCommand.SetAction(parseResult => {
             var sourceUrl = parseResult.GetValue(sourceUrlArg);
-            var sourceUserName = parseResult.GetValue(sourceUserArg);
-            var sourcePassword = parseResult.GetValue(sourcePwdArg);
+            var sourceAuth = parseResult.GetValue(sourceAuthArg);
+            var sourcePassword = parseResult.GetValue(sourcePwdOpt);
             var localDir = parseResult.GetValue(localDirOpt) ?? string.Empty;
             var nodeSetXmlDir = parseResult.GetValue(nodeSetXmlDirOpt) ?? string.Empty;
 
@@ -123,18 +135,14 @@ sealed class Program : ILogger
             {
                 throw new ArgumentException("sourceUrl is required.", nameof(args));
             }
-            if (string.IsNullOrEmpty(sourceUserName))
+            if (string.IsNullOrEmpty(sourceAuth))
             {
-                throw new ArgumentException("sourceUserName is required.", nameof(args));
-            }
-            if (string.IsNullOrEmpty(sourcePassword))
-            {
-                throw new ArgumentException("sourcePassword is required.", nameof(args));
+                throw new ArgumentException("sourceAuth (username or API key) is required.", nameof(args));
             }
 
             return new CloudLibSync(this).DownloadAsync(
                 sourceUrl,
-                sourceUserName,
+                sourceAuth,
                 sourcePassword,
                 localDir,
                 nodeSetXmlDir
@@ -143,44 +151,36 @@ sealed class Program : ILogger
 
         syncCommand.SetAction(parseResult => {
             var sourceUrl = parseResult.GetValue(sourceUrlArg);
-            var sourceUserName = parseResult.GetValue(sourceUserArg);
-            var sourcePassword = parseResult.GetValue(sourcePwdArg);
+            var sourceAuth = parseResult.GetValue(sourceAuthArg);
+            var sourcePassword = parseResult.GetValue(sourcePwdOpt);
             var targetUrl = parseResult.GetValue(targetUrlArg);
-            var targetUserName = parseResult.GetValue(targetUserArg);
-            var targetPassword = parseResult.GetValue(targetPwdArg);
+            var targetAuth = parseResult.GetValue(targetAuthArg);
+            var targetPassword = parseResult.GetValue(targetPwdOpt);
             var overwrite = parseResult.GetValue(overwriteOpt);
 
             if (string.IsNullOrEmpty(sourceUrl))
             {
                 throw new ArgumentException("sourceUrl is required.", nameof(args));
             }
-            if (string.IsNullOrEmpty(sourceUserName))
+            if (string.IsNullOrEmpty(sourceAuth))
             {
-                throw new ArgumentException("sourceUserName is required.", nameof(args));
-            }
-            if (string.IsNullOrEmpty(sourcePassword))
-            {
-                throw new ArgumentException("sourcePassword is required.", nameof(args));
+                throw new ArgumentException("sourceAuth (username or API key) is required.", nameof(args));
             }
             if (string.IsNullOrEmpty(targetUrl))
             {
                 throw new ArgumentException("targetUrl is required.", nameof(args));
             }
-            if (string.IsNullOrEmpty(targetUserName))
+            if (string.IsNullOrEmpty(targetAuth))
             {
-                throw new ArgumentException("targetUserName is required.", nameof(args));
-            }
-            if (string.IsNullOrEmpty(targetPassword))
-            {
-                throw new ArgumentException("targetPassword is required.", nameof(args));
+                throw new ArgumentException("targetAuth (username or API key) is required.", nameof(args));
             }
 
             return new CloudLibSync(this).SynchronizeAsync(
                 sourceUrl,
-                sourceUserName,
+                sourceAuth,
                 sourcePassword,
                 targetUrl,
-                targetUserName,
+                targetAuth,
                 targetPassword,
                 overwrite
             );

@@ -20,7 +20,48 @@ The UA Cloud Library is implemented as a set of Docker containers. The main cont
 
 ## Using the UA Cloud Library from a Client Application
 
-If you want to access your own instance or the globally hosted instance from the OPC Foundation at https://uacloudlibrary.opcfoundation.org from our software, you can integrate the source code from the SampleConsoleClient found in this repo. It exercises the REST API.
+If you want to access your own instance or the globally hosted instance from the OPC Foundation at https://uacloudlibrary.opcfoundation.org from your software, you can use the `Opc.Ua.CloudLib.Client` NuGet package or integrate the source code from the SampleConsoleClient found in this repo.
+
+### Client Library Installation
+
+```bash
+dotnet add package Opc.Ua.Cloud.Library.Client
+```
+
+### Authentication Options
+
+The client library supports multiple authentication methods:
+
+#### 1. API Key Authentication (Recommended)
+
+```csharp
+using Opc.Ua.Cloud.Client;
+
+// With custom endpoint
+var client = new UACloudLibClient(
+    "https://uacloudlibrary.opcfoundation.org",
+    "CLxx_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+);
+
+// With default OPC Foundation endpoint
+var client = new UACloudLibClient("CLxx_xxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+```
+
+API keys come in two types:
+- **Read-Only**: For browsing, searching, and downloading nodesets
+- **Read-Write**: For all operations including uploading and modifying nodesets
+
+#### 2. Basic Authentication
+
+```csharp
+var client = new UACloudLibClient(
+    "https://uacloudlibrary.opcfoundation.org",
+    "username",
+    "password"
+);
+```
+
+For complete documentation and examples, see the [Client Library README](Opc.Ua.CloudLib.Client/README.md).
 
 **Warning:** In the latest version of the REST API, a new infomodel/find2 API is introduced, returning a [UANameSpace](https://raw.githubusercontent.com/OPCFoundation/UA-CloudLibrary/refs/heads/main/Opc.Ua.CloudLib.Client/Models/UANameSpace.cs) structure, to align it with the rest of the REST API. The SampleConsoleClient is updated to work with the latest version of the REST API. Please update your client code accordingly if you were using an older version of the REST API! The older version will be removed in a future version of the API.
 
@@ -141,15 +182,15 @@ The following STRIDE-based threat model covers the `UACloudLibraryServer` projec
 The UA Cloud Library implements comprehensive security measures for API key authentication to protect against various attack vectors:
 
 #### **DOS Attack Prevention**
-* **Rate Limiting:** A mandatory 500ms delay is applied to every API key validation attempt, effectively limiting attackers to **2 validation attempts per second** per connection
+* **Rate Limiting:** A mandatory 150ms delay is applied to every API key validation attempt, effectively limiting attackers to **~6-7 validation attempts per second** per connection
 * **Resource Protection:** Prevents rapid-fire requests from overwhelming the server
 * **CPU/Database Protection:** Reduces the load from brute-force attempts on password hashing and database queries
 
 #### **Brute-Force Attack Mitigation**
-* **Time Cost:** The 500ms validation delay makes brute-force attacks **500x slower** (from ~1000s of attempts/sec to ~2 attempts/sec)
+* **Time Cost:** The 150ms validation delay makes brute-force attacks **~150x slower** (from ~1000s of attempts/sec to ~6-7 attempts/sec)
 * **Practical Impact:** To test 1 million API keys would require:
   - **Without delay:** ~16 minutes (at 1000/sec)
-  - **With delay:** ~5.7 days (at 2/sec)
+  - **With delay:** ~1.7 days (at 6.67/sec)
 * **Exponential Deterrent:** Combined with account lockouts, makes attacks practically infeasible
 
 #### **API Key Type and Expiration**
@@ -166,6 +207,33 @@ The UA Cloud Library implements comprehensive security measures for API key auth
 * **Expiration Enforcement:** Expired keys are automatically rejected during validation
 * **Audit Trail:** Failed attempts with expired keys are logged for security monitoring
 
+#### **Client Library Support**
+
+The `Opc.Ua.CloudLib.Client` NuGet package provides native support for API key authentication:
+
+```csharp
+// Simple API key usage
+var client = new UACloudLibClient("CLxx_xxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+
+// With custom endpoint
+var client = new UACloudLibClient(
+    "https://uacloudlibrary.opcfoundation.org",
+    "CLxx_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+);
+
+// Uploading requires Read-Write API key
+var (status, message) = await client.UploadNodeSetAsync(myNodeset);
+```
+
+**Best Practices for API Key Usage:**
+- Use Read-Only keys for applications that only browse or download nodesets
+- Use Read-Write keys only for applications that need to upload or modify content
+- Store API keys in environment variables or secure vaults, never in source code
+- Set appropriate expiration dates based on your security requirements
+- Rotate keys regularly and delete unused keys
+
+For complete client library documentation and examples, see the [Client Library README](Opc.Ua.CloudLib.Client/README.md).
+
 #### **Cryptographic Security**
 * **Secure Generation:** API keys are generated using `RandomNumberGenerator.GetBytes(32)` (256-bit entropy)
 * **Base64URL Encoding:** Keys are encoded using Base64URL to ensure safe transmission in HTTP headers
@@ -175,21 +243,21 @@ The UA Cloud Library implements comprehensive security measures for API key auth
 #### **Metadata and Auditing**
 * **Metadata Format:** API key metadata is stored alongside the hash: `{prefix}{hash}|Type:{type}|Expiration:{period}|ExpiresAt:{ISO8601-date}`
 * **Audit Logging:** All validation failures, expired key usage, and cache collisions are logged with warnings
-* **Timing Attack Prevention:** Fixed 500ms delay is applied regardless of validation outcome (success, failure, cache hit, or cache miss)
+* **Timing Attack Prevention:** Fixed 150ms delay is applied regardless of validation outcome (success, failure, cache hit, or cache miss)
 
 #### **Attack Scenario Effectiveness**
 
-| Attack Type | Without Delay | With 500ms Delay | Effectiveness |
+| Attack Type | Without Delay | With 150ms Delay | Effectiveness |
 |-------------|---------------|------------------|---------------|
-| Brute Force (1M keys) | 16 minutes | 5.7 days | **99.5% slower** ✅ |
-| DOS (1000 req/sec) | Server overload | Max 2 req/sec | **99.8% reduction** ✅ |
+| Brute Force (1M keys) | 16 minutes | 1.7 days | **~99% slower** ✅ |
+| DOS (1000 req/sec) | Server overload | Max ~6-7 req/sec | **~99.3% reduction** ✅ |
 | Timing Analysis | Exploitable | Fixed timing | **Mitigated** ✅ |
 
 #### **Performance Considerations**
 * **Async Implementation:** Uses `Task.Delay()` which doesn't block threads, allowing the server to handle other requests during the delay
 * **Non-Blocking:** Better than thread-blocking alternatives like `Thread.Sleep()`
 * **Cache-Aware:** Even cached keys experience the validation delay, maintaining consistent security
-* **Acceptable Overhead:** For REST API calls, 500ms is typically acceptable latency
+* **Acceptable Overhead:** For REST API calls, 150ms is typically acceptable latency
 
 ### Residual recommendations for operators
 
