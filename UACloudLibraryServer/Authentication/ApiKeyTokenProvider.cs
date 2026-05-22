@@ -84,9 +84,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
 
                 // Extract the hash part (everything before the metadata separator '|')
                 int metadataSeparatorIndex = authTokenHash.IndexOf('|');
-                string hashPart = metadataSeparatorIndex > 0 
-                    ? authTokenHash.Substring(0, metadataSeparatorIndex) 
-                    : authTokenHash;
+                string hashPart = metadataSeparatorIndex > 0 ? authTokenHash.Substring(0, metadataSeparatorIndex) : authTokenHash;
 
                 // Verify the hash
                 PasswordVerificationResult result = manager.PasswordHasher.VerifyHashedPassword(user, hashPart.Substring(4), token);
@@ -126,9 +124,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
 
             string expiresAtPart = metadata.Substring(expiresAtIndex + "|ExpiresAt:".Length);
             int nextSeparator = expiresAtPart.IndexOf('|');
-            string expiresAtString = nextSeparator > 0 
-                ? expiresAtPart.Substring(0, nextSeparator) 
-                : expiresAtPart;
+            string expiresAtString = nextSeparator > 0 ? expiresAtPart.Substring(0, nextSeparator) : expiresAtPart;
 
             if (DateTime.TryParse(expiresAtString, out DateTime expirationDate))
             {
@@ -166,9 +162,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
                 // Extract the hash part (everything before the metadata separator '|')
                 string tokenValue = candidateToken.Value;
                 int metadataSeparatorIndex = tokenValue.IndexOf('|');
-                string hashPart = metadataSeparatorIndex > 0 
-                    ? tokenValue.Substring(0, metadataSeparatorIndex) 
-                    : tokenValue;
+                string hashPart = metadataSeparatorIndex > 0 ? tokenValue.Substring(0, metadataSeparatorIndex) : tokenValue;
 
                 PasswordVerificationResult result = manager.PasswordHasher.VerifyHashedPassword(user, hashPart.Substring(4), apiKey);
                 if (result == PasswordVerificationResult.Success || result == PasswordVerificationResult.SuccessRehashNeeded)
@@ -208,12 +202,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
         /// <param name="apiKeyExpiration">Expiration period for the API key (Unlimited, 1 Day, 30 Days, 6 Month, 1 Year).</param>
         /// <returns>The generated api key, or null if a key with the name already exists.</returns>
         /// <exception cref="ApiKeyGenerationException"></exception>
-        public static async Task<string> GenerateAndSetAuthenticationTokenAsync(
-            UserManager<IdentityUser> userManager, 
-            IdentityUser user, 
-            string newApiKeyName,
-            string apiKeyType = "Read-Only",
-            string apiKeyExpiration = "Unlimited")
+        public static async Task<string> GenerateAndSetAuthenticationTokenAsync(UserManager<IdentityUser> userManager, IdentityUser user, string newApiKeyName, string apiKeyType = "Read-Only", string apiKeyExpiration = "Unlimited")
         {
             string existingToken = await userManager.GetAuthenticationTokenAsync(user, ApiKeyProviderName, newApiKeyName).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(existingToken))
@@ -278,9 +267,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
         public async Task<string> GetApiKeyTypeAsync(IdentityUser user, string apiKeyName)
         {
             IdentityUserToken<string> token = await _appDbContext.UserTokens
-                .FirstOrDefaultAsync(t => t.UserId == user.Id 
-                    && t.LoginProvider == ApiKeyTokenProvider.ApiKeyProviderName 
-                    && t.Name == apiKeyName)
+                .FirstOrDefaultAsync(t => t.UserId == user.Id && t.LoginProvider == ApiKeyTokenProvider.ApiKeyProviderName && t.Name == apiKeyName)
                 .ConfigureAwait(false);
 
             if (token == null || string.IsNullOrEmpty(token.Value))
@@ -299,9 +286,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
 
             string typePart = token.Value.Substring(typeIndex + "|Type:".Length);
             int nextSeparator = typePart.IndexOf('|');
-            string apiKeyType = nextSeparator > 0 
-                ? typePart.Substring(0, nextSeparator) 
-                : typePart;
+            string apiKeyType = nextSeparator > 0 ? typePart.Substring(0, nextSeparator) : typePart;
 
             return apiKeyType;
         }
