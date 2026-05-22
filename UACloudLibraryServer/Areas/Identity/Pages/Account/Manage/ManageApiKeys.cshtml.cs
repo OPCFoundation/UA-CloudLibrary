@@ -128,11 +128,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
                 try
                 {
                     string newApiKey = await ApiKeyTokenProvider.GenerateAndSetAuthenticationTokenAsync(
-                        _userManager, 
-                        user, 
-                        newApiKeyName, 
-                        Input.ApiKeyType, 
-                        Input.Expiration).ConfigureAwait(false);
+                        _userManager, user, newApiKeyName, Input.ApiKeyType, Input.Expiration).ConfigureAwait(false);
                     if (string.IsNullOrEmpty(newApiKey))
                     {
                         ModelState.AddModelError(string.Empty, "A key with this name already exists.");
