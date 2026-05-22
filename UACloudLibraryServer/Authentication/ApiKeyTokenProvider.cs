@@ -241,8 +241,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
         {
             DateTime now = DateTime.UtcNow;
 
-            return expirationPeriod switch
-            {
+            return expirationPeriod switch {
                 "1 Day" => now.AddDays(1),
                 "30 Days" => now.AddDays(30),
                 "6 Month" => now.AddMonths(6),
