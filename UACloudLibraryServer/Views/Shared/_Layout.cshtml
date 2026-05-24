@@ -49,15 +49,10 @@
     <script src="_framework/blazor.server.js"></script>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script>
-        function downloadFileFromBase64(filename, base64Data) {
-            // Convert base64 to blob
-            const byteCharacters = atob(base64Data);
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-                byteNumbers[i] = byteCharacters.charCodeAt(i);
-            }
-            const byteArray = new Uint8Array(byteNumbers);
-            const blob = new Blob([byteArray], { type: 'application/zip' });
+        async function downloadFileFromBase64(filename, base64Data) {
+            // Decode base64 via fetch data-URL (efficient native decoding, no char-by-char loop)
+            const response = await fetch(`data:application/zip;base64,${base64Data}`);
+            const blob = await response.blob();
 
             // Create download link
             const url = window.URL.createObjectURL(blob);

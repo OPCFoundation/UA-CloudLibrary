@@ -562,7 +562,14 @@ namespace Opc.Ua.Cloud.Library
                             if (!LoadedNamespaces.ContainsKey(nodeManager.NamespaceUris.Last()))
                             {
                                 NodeSetModel nodeSetMeta = await _database.GetNodeSets(userId, nodesetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false);
-                                LoadedNamespaces.Add(nodeManager.NamespaceUris.Last(), new Tuple<string, string>(nodeSetMeta.Version, nodeSetMeta.Version));
+                                if (nodeSetMeta != null)
+                                {
+                                    LoadedNamespaces.Add(nodeManager.NamespaceUris.Last(), new Tuple<string, string>(nodeSetMeta.Version, nodeSetMeta.Version));
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"Nodeset metadata for {nodesetIdentifier} not found in database.");
+                                }
                             }
                         }
                         else
@@ -642,7 +649,18 @@ namespace Opc.Ua.Cloud.Library
         {
             var nodesetFiles = new Dictionary<string, DbFiles>();
 
-            foreach (var loadedNamespace in LoadedNamespaces)
+            await _lock.WaitAsync().ConfigureAwait(false);
+            KeyValuePair<string, Tuple<string, string>>[] loadedNamespacesSnapshot;
+            try
+            {
+                loadedNamespacesSnapshot = LoadedNamespaces.ToArray();
+            }
+            finally
+            {
+                _lock.Release();
+            }
+
+            foreach (var loadedNamespace in loadedNamespacesSnapshot)
             {
                 try
                 {
