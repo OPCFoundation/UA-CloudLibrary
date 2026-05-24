@@ -309,7 +309,8 @@
                 foreach (var kvp in nodesetFiles)
                 {
                     // Sanitize the filename (replace invalid characters)
-                    string sanitizedKey = string.Join("_", kvp.Key.Split(Path.GetInvalidFileNameChars()));
+                    var url = new Uri(kvp.Key);
+                    string sanitizedKey = string.Join("_", (url.Host+url.PathAndQuery).Split(Path.GetInvalidFileNameChars()));
                     string fileName = $"{sanitizedKey}.xml";
 
                     // Create an entry in the zip file
