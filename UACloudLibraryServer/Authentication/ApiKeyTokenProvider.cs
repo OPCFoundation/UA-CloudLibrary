@@ -29,6 +29,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Security.Cryptography;
@@ -123,13 +124,14 @@ namespace Opc.Ua.Cloud.Library.Authentication
             int nextSeparator = expiresAtPart.IndexOf('|');
             string expiresAtString = nextSeparator > 0 ? expiresAtPart.Substring(0, nextSeparator) : expiresAtPart;
 
-            if (DateTime.TryParse(expiresAtString, out DateTime expirationDate))
+            if (DateTime.TryParse(expiresAtString, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out DateTime expirationDate))
             {
                 return DateTime.UtcNow > expirationDate;
             }
 
-            // If we can't parse the date, assume not expired for safety
-            return false;
+            // If we can't parse the date, fail closed: treat the key as expired
+            _logger.LogWarning("Could not parse API key expiration date '{ExpiresAt}'; treating key as expired.", expiresAtString);
+            return true;
         }
 
         static Dictionary<string, (string UserId, string apiKeyName)> _apiKeyToUserMap = new();
