@@ -279,8 +279,8 @@ namespace Opc.Ua.Cloud.Library.Authentication
             int typeIndex = token.Value.IndexOf("|Type:");
             if (typeIndex < 0)
             {
-                // No metadata, assume Read-Write for backward compatibility
-                return "Read-Write";
+                // No metadata: default to Read-Only for least-privilege (legacy keys must be regenerated for write access)
+                return "Read-Only";
             }
 
             string typePart = token.Value.Substring(typeIndex + "|Type:".Length);
