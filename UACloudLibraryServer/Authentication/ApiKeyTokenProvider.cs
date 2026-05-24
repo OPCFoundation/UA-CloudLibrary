@@ -71,9 +71,6 @@ namespace Opc.Ua.Cloud.Library.Authentication
 
         public async Task<bool> ValidateAsync(string purpose, string token, UserManager<IdentityUser> manager, IdentityUser user)
         {
-            // Delay validation by 150ms to mitigate DOS/brute-force attacks
-            await Task.Delay(150).ConfigureAwait(false);
-
             if (!string.IsNullOrEmpty(purpose))
             {
                 string authTokenHash = await manager.GetAuthenticationTokenAsync(user, ApiKeyProviderName, purpose).ConfigureAwait(false);
