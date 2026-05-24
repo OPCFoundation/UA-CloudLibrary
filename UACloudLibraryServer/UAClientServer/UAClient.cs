@@ -649,7 +649,18 @@ namespace Opc.Ua.Cloud.Library
         {
             var nodesetFiles = new Dictionary<string, DbFiles>();
 
-            foreach (var loadedNamespace in LoadedNamespaces)
+            await _lock.WaitAsync().ConfigureAwait(false);
+            KeyValuePair<string, Tuple<string, string>>[] loadedNamespacesSnapshot;
+            try
+            {
+                loadedNamespacesSnapshot = LoadedNamespaces.ToArray();
+            }
+            finally
+            {
+                _lock.Release();
+            }
+
+            foreach (var loadedNamespace in loadedNamespacesSnapshot)
             {
                 try
                 {
