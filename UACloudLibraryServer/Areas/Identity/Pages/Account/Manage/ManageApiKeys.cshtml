@@ -34,7 +34,7 @@
 							</label>
 							<div class="input-group">
 								<input type="text" id="generatedApiKey" class="form-control font-monospace bg-light" value="@Model.GeneratedApiKey" readonly />
-								<button class="btn btn-outline-primary" type="button" onclick="copyApiKey()">
+								<button class="btn btn-outline-primary" type="button" onclick="copyApiKey(event)">
 									<i class="bi bi-clipboard"></i> Copy
 								</button>
 							</div>
@@ -171,7 +171,7 @@
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
-        function copyApiKey() {
+        function copyApiKey(event) {
             var apiKeyInput = document.getElementById('generatedApiKey');
             apiKeyInput.select();
             apiKeyInput.setSelectionRange(0, 99999); // For mobile devices
