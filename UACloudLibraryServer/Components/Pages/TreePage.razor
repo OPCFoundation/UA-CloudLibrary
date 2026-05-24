@@ -325,15 +325,13 @@
             // Reset the stream position
             memoryStream.Position = 0;
 
-            // Convert to base64 for JavaScript download
-            var base64 = Convert.ToBase64String(memoryStream.ToArray());
-
             // Generate a filename with timestamp
             var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
             var zipFileName = $"Nodesets_{NodesetName}_{timestamp}.zip";
 
-            // Trigger download using JavaScript
-            await JSRuntime.InvokeVoidAsync("downloadFileFromBase64", zipFileName, base64);
+            // Stream the zip file directly to the browser
+            using var streamReference = new DotNetStreamReference(memoryStream);
+            await JSRuntime.InvokeVoidAsync("downloadFileFromStream", zipFileName, streamReference);
         }
         catch (Exception ex)
         {

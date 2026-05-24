@@ -69,6 +69,20 @@
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
         }
+
+        async function downloadFileFromStream(filename, contentStreamReference) {
+            const arrayBuffer = await contentStreamReference.arrayBuffer();
+            const blob = new Blob([arrayBuffer], { type: 'application/zip' });
+            const url = URL.createObjectURL(blob);
+            const anchorElement = document.createElement('a');
+
+            anchorElement.href = url;
+            anchorElement.download = filename;
+            anchorElement.click();
+            anchorElement.remove();
+
+            URL.revokeObjectURL(url);
+        }
     </script>
     @RenderSection("Scripts", required: false)
 </body>
