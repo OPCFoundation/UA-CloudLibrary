@@ -138,7 +138,10 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
         private NodeModel InitializeNodeModel(NodeModel nodeModel, NodeState opcNode)
         {
-            _logger.LogTrace($"Creating node variableModel for {opcNode}");
+            if (_logger.IsEnabled(LogLevel.Trace))
+            {
+                _logger.LogTrace($"Creating node variableModel for {opcNode}");
+            }
 
             nodeModel.DisplayName = opcNode.DisplayName.ToModel();
             nodeModel.BrowseName = _opcContext.GetModelBrowseName(opcNode.BrowseName);
@@ -155,7 +158,10 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             }
             else
             {
-                _logger.LogTrace($"Created node dataTypeModel {nodeModel} for {opcNode}");
+                if (_logger.IsEnabled(LogLevel.Trace))
+                {
+                    _logger.LogTrace($"Created node dataTypeModel {nodeModel} for {opcNode}");
+                }
             }
 
             return nodeModel;

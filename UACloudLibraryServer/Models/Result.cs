@@ -10,7 +10,7 @@ namespace AdminShell
     {
         [DataMember(Name = "messages")]
         [XmlArray(ElementName = "messages")]
-        public List<Message> Messages { get; set; }
+        public List<string> Messages { get; set; }
 
         [DataMember(Name = "success")]
         [XmlElement(ElementName = "success")]

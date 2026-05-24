@@ -90,6 +90,11 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
             [EmailAddress]
             [Display(Name = "New email")]
             public string NewEmail { get; set; }
+
+            [Required]
+            [DataType(DataType.Password)]
+            [Display(Name = "Current password")]
+            public string Password { get; set; }
         }
 
         private async Task LoadAsync(IdentityUser user)
@@ -130,6 +135,13 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
             if (!ModelState.IsValid)
             {
                 await LoadAsync(user);
+                return Page();
+            }
+
+            if (!await _userManager.CheckPasswordAsync(user, Input.Password).ConfigureAwait(false))
+            {
+                ModelState.AddModelError(string.Empty, "Incorrect password.");
+                await LoadAsync(user).ConfigureAwait(false);
                 return Page();
             }
 

@@ -41,7 +41,11 @@ namespace Opc.Ua.CloudLib.Sync
             {
                 // Get all NodeSets
                 nodeSetResult = await sourceClient.GetBasicNodesetInformationAsync(cursor, 50).ConfigureAwait(false);
-
+                if (nodeSetResult == null)
+                {
+                    _logger.LogInformation($"Could not connect to source library. Possibly wrong credentials or url?");
+                    return;
+                }
                 foreach (UANameSpace nodeSetAndCursor in nodeSetResult)
                 {
                     // Download each NodeSet
@@ -70,9 +74,13 @@ namespace Opc.Ua.CloudLib.Sync
                             }
                             File.WriteAllText(Path.Combine(localDir, "Original", $"{fileName}.{identifier}.json"), original);
                         }
-                        _logger.LogInformation($"Downloaded {namespaceKey.ModelUri} {namespaceKey.PublicationDate}, {identifier}");
 
-                        if (nodeSetXmlDir != null)
+                        if (_logger.IsEnabled(LogLevel.Information))
+                        {
+                            _logger.LogInformation($"Downloaded {namespaceKey.ModelUri} {namespaceKey.PublicationDate}, {identifier}");
+                        }
+
+                        if (!string.IsNullOrEmpty(nodeSetXmlDir)) //The default is "" and that crashes downstream during Directory.CreateDirectory("")
                         {
                             SaveNodeSetAsXmlFile(uaNamespace, nodeSetXmlDir);
                         }
@@ -108,6 +116,11 @@ namespace Opc.Ua.CloudLib.Sync
                 do
                 {
                     targetNodeSetResult = await targetClient.GetBasicNodesetInformationAsync(targetCursor, 10).ConfigureAwait(false);
+                    if (targetNodeSetResult == null)
+                    {
+                        _logger.LogInformation($"Could not connect to target library. Possibly wrong credentials or url?");
+                        return;
+                    }
                     targetNodesets.AddRange(targetNodeSetResult);
                     targetCursor += targetNodeSetResult.Count;
                 }
@@ -120,7 +133,11 @@ namespace Opc.Ua.CloudLib.Sync
                 do
                 {
                     sourceNodeSetResult = await sourceClient.GetBasicNodesetInformationAsync(sourceCursor, 10).ConfigureAwait(false);
-
+                    if (sourceNodeSetResult == null)
+                    {
+                        _logger.LogInformation($"Could not connect to source library. Possibly wrong credentials or url?");
+                        return;
+                    }
                     // Get the ones that are not already on the target
                     var toSync = sourceNodeSetResult
                         .Where(source => !targetNodesets
@@ -134,7 +151,15 @@ namespace Opc.Ua.CloudLib.Sync
                         // Download each NodeSet
                         string identifier = nodeSet.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
                         UANameSpace uaNamespace = await sourceClient.DownloadNodesetAsync(identifier).ConfigureAwait(false);
+                        if (uaNamespace == null)
+                        {
+                            if (_logger.IsEnabled(LogLevel.Information))
+                            {
+                                _logger.LogInformation($"Could not download NodeSet with identifier:{identifier}");
+                            }
 
+                            continue;
+                        }
                         try
                         {
                             VerifyAndFixupNodeSetMeta(uaNamespace);
@@ -143,7 +168,10 @@ namespace Opc.Ua.CloudLib.Sync
                             if (response.Status == System.Net.HttpStatusCode.OK)
                             {
                                 bAdded = true;
-                                _logger.LogInformation($"Uploaded {uaNamespace.Nodeset.NamespaceUri}, {identifier}");
+                                if (_logger.IsEnabled(LogLevel.Information))
+                                {
+                                    _logger.LogInformation($"Uploaded {uaNamespace.Nodeset.NamespaceUri}, {identifier}");
+                                }
                             }
                             else
                             {
@@ -193,7 +221,11 @@ namespace Opc.Ua.CloudLib.Sync
                 UANameSpace? addressSpace = JsonConvert.DeserializeObject<UANameSpace>(uploadJson);
                 if (addressSpace == null)
                 {
-                    _logger.LogInformation($"Error uploading {file}: failed to parse.");
+                    if (_logger.IsEnabled(LogLevel.Information))
+                    {
+                        _logger.LogInformation($"Error uploading {file}: failed to parse.");
+                    }
+
                     continue;
                 }
 
@@ -209,7 +241,11 @@ namespace Opc.Ua.CloudLib.Sync
 
                 if (addressSpace.Nodeset == null || string.IsNullOrEmpty(addressSpace.Nodeset.NodesetXml))
                 {
-                    _logger.LogInformation($"Error uploading {file}: no Nodeset found in file.");
+                    if (_logger.IsEnabled(LogLevel.Information))
+                    {
+                        _logger.LogInformation($"Error uploading {file}: no Nodeset found in file.");
+                    }
+
                     continue;
                 }
 
@@ -236,7 +272,10 @@ namespace Opc.Ua.CloudLib.Sync
                 (System.Net.HttpStatusCode Status, string Message) response = await targetClient.UploadNodeSetAsync(addressSpace, overwrite).ConfigureAwait(false);
                 if (response.Status == System.Net.HttpStatusCode.OK)
                 {
-                    _logger.LogInformation($"Uploaded {addressSpace.Nodeset.NamespaceUri}, {addressSpace.Nodeset.Identifier}");
+                    if (_logger.IsEnabled(LogLevel.Information))
+                    {
+                        _logger.LogInformation($"Uploaded {addressSpace.Nodeset.NamespaceUri}, {addressSpace.Nodeset.Identifier}");
+                    }
                 }
                 else
                 {

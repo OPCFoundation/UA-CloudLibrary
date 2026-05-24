@@ -75,7 +75,7 @@ namespace Opc.Ua.Cloud.Library
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddControllersWithViews().AddNewtonsoftJson();
+            services.AddControllersWithViews();
 
             services.AddRazorComponents().AddInteractiveServerComponents();
 
@@ -100,6 +100,8 @@ namespace Opc.Ua.Cloud.Library
             services.AddSingleton<ApplicationInstance>();
 
             services.AddScoped<AssetAdministrationShellEnvironmentService>();
+
+            services.AddScoped<DPPService>();
 
             services.AddScoped<CaptchaValidation>();
 
@@ -243,8 +245,6 @@ namespace Opc.Ua.Cloud.Library
 
                 options.EnableAnnotations();
             });
-
-            services.AddSwaggerGenNewtonsoftSupport();
 
             string serviceName = Configuration["Application"] ?? "UACloudLibrary";
 

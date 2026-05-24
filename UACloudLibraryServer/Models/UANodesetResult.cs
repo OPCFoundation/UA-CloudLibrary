@@ -27,36 +27,35 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-using System;
 using System.Collections.Generic;
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
 namespace Opc.Ua.Cloud.Library.Models
 {
     public class UANodesetResult : UANameSpace
     {
-        [JsonProperty(PropertyName = "nodesetId")]
+        [JsonPropertyName("nodesetId")]
         public uint LegacyId { get => Nodeset?.Identifier ?? 0; }
 
-        [JsonProperty(PropertyName = "nodesetTitle")]
+        [JsonPropertyName("nodesetTitle")]
         public string LegacyTitle { get => Title; }
 
-        [JsonProperty(PropertyName = "orgName")]
+        [JsonPropertyName("orgName")]
         public string LegacyOrgName { get; }
 
-        [JsonProperty(PropertyName = "version")]
+        [JsonPropertyName("version")]
         public string LegacyVersion { get => Nodeset?.Version; }
 
-        [JsonProperty(PropertyName = "publicationDate")]
+        [JsonPropertyName("publicationDate")]
         public System.DateTime? LegacyPublicationDate { get => Nodeset?.PublicationDate; }
 
-        [JsonProperty(PropertyName = "nodesetNamespaceUri")]
+        [JsonPropertyName("nodesetNamespaceUri")]
         public string LegacyNamespaceUri
         {
             get => Nodeset?.NamespaceUri?.OriginalString;
         }
 
-        [JsonProperty(PropertyName = "requiredNodesets")]
+        [JsonPropertyName("requiredNodesets")]
         public List<RequiredModelInfo> LegacyRequiredNodesets { get => Nodeset?.RequiredModels; }
     }
 }

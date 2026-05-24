@@ -150,7 +150,11 @@ namespace Opc.Ua.Cloud.Library.Authentication
                     if (!response.IsSuccessStatusCode)
                     {
                         string msg = $"{(int)response.StatusCode}-{response.ReasonPhrase}";
-                        _logger.LogCritical($"ValidateCaptcha|Error occurred in the API call: {msg}");
+                        if (_logger.IsEnabled(LogLevel.Critical))
+                        {
+                            _logger.LogCritical($"ValidateCaptcha|Error occurred in the API call: {msg}");
+                        }
+
                         return "An error occurred validating the Captcha response. Please contact your system administrator.";
                     }
 
@@ -166,19 +170,30 @@ namespace Opc.Ua.Cloud.Library.Authentication
                     if (!recaptchaResponse.success)
                     {
                         string errors = string.Join(",", recaptchaResponse.errorCodes);
-                        _logger.LogCritical($"ValidateCaptcha| Google reCaptcha returned error(s): {errors}");
+                        if (_logger.IsEnabled(LogLevel.Critical))
+                        {
+                            _logger.LogCritical($"ValidateCaptcha| Google reCaptcha returned error(s): {errors}");
+                        }
+
                         return "Error(s) occurred validating the Captcha response. Please contact your system administrator.";
                     }
 
                     // anything less than 0.5 is a bot
                     if (recaptchaResponse.score < _captchaSettings.BotThreshold)
                     {
-                        _logger.LogCritical($"ValidateCaptcha|Bot score: {recaptchaResponse.score} < Threshold: {_captchaSettings.BotThreshold}");
+                        if (_logger.IsEnabled(LogLevel.Critical))
+                        {
+                            _logger.LogCritical($"ValidateCaptcha|Bot score: {recaptchaResponse.score} < Threshold: {_captchaSettings.BotThreshold}");
+                        }
+
                         return "You are not a human. If you believe this is not correct, please contact your system administrator.";
                     }
                     else
                     {
-                        _logger.LogInformation($"ValidateCaptcha|Goggle Bot score: {recaptchaResponse.score} (0 bad, {_captchaSettings.BotThreshold} threshold, 1 good)");
+                        if (_logger.IsEnabled(LogLevel.Information))
+                        {
+                            _logger.LogInformation($"ValidateCaptcha|Goggle Bot score: {recaptchaResponse.score} (0 bad, {_captchaSettings.BotThreshold} threshold, 1 good)");
+                        }
                     }
                     //if we get here, all good.
                     return null;
