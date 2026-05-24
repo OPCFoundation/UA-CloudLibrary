@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 #nullable disable
 
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
@@ -108,10 +109,34 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
             return RedirectToPage();
         }
 
+        private static readonly HashSet<string> AllowedApiKeyTypes = new(StringComparer.Ordinal) { "Read-Only", "Read-Write" };
+        private static readonly HashSet<string> AllowedExpirations = new(StringComparer.Ordinal) { "Unlimited", "1 Day", "30 Days", "6 Month", "1 Year" };
+
         public async Task<IActionResult> OnPostAsync()
         {
             if (!ModelState.IsValid)
             {
+                return Page();
+            }
+
+            if (!AllowedApiKeyTypes.Contains(Input.ApiKeyType))
+            {
+                ModelState.AddModelError(string.Empty, "Invalid API key type.");
+                ApiKeysAndNames = await _apiKeyTokenProvider.GetUserApiKeysAsync(await _userManager.GetUserAsync(User).ConfigureAwait(false)).ConfigureAwait(false);
+                return Page();
+            }
+
+            if (!AllowedExpirations.Contains(Input.Expiration))
+            {
+                ModelState.AddModelError(string.Empty, "Invalid expiration period.");
+                ApiKeysAndNames = await _apiKeyTokenProvider.GetUserApiKeysAsync(await _userManager.GetUserAsync(User).ConfigureAwait(false)).ConfigureAwait(false);
+                return Page();
+            }
+
+            if (Input.ApiKeyType == "Read-Write" && Input.Expiration == "Unlimited")
+            {
+                ModelState.AddModelError(string.Empty, "Read-Write API keys must have an expiration date.");
+                ApiKeysAndNames = await _apiKeyTokenProvider.GetUserApiKeysAsync(await _userManager.GetUserAsync(User).ConfigureAwait(false)).ConfigureAwait(false);
                 return Page();
             }
 
