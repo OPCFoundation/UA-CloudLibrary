@@ -670,11 +670,7 @@ namespace Opc.Ua.Cloud.Library
                     if (matchingNodeSets != null && matchingNodeSets.Count > 0)
                     {
                         // Get the nodeset that matches the loaded version
-var nodeSet = matchingNodeSets.FirstOrDefault(ns => ns.Version == loadedNamespace.Value.Item2)
-    ?? matchingNodeSets
-        .OrderByDescending(ns => ns.PublicationDate ?? DateTime.MinValue)
-        .ThenByDescending(ns => ns.Version)
-        .First();
+                        var nodeSet = matchingNodeSets.FirstOrDefault(ns => ns.Version == loadedNamespace.Value.Item2) ?? matchingNodeSets.OrderByDescending(ns => ns.PublicationDate ?? DateTime.MinValue).ThenByDescending(ns => ns.Version).First();
 
                         // Download the file
                         DbFiles file = await _storage.DownloadFileAsync(nodeSet.Identifier).ConfigureAwait(false);
