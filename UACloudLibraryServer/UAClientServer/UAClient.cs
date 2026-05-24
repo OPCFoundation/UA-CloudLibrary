@@ -74,7 +74,7 @@ namespace Opc.Ua.Cloud.Library
             _telemetry = DefaultTelemetry.Create(builder => builder.AddConsole());
         }
 
-        public async Task<List<NodesetViewerNode>> GetChildren(string userId, string nodesetIdentifier, string nodeId)
+        public async Task<List<NodesetViewerNode>> GetChildren(string userId, string nodesetIdentifier, string nodeId, bool includeTypes = false)
         {
             List<NodesetViewerNode> nodes = null;
             ReferenceDescriptionCollection references = null;
@@ -86,12 +86,18 @@ namespace Opc.Ua.Cloud.Library
                     return null;
                 }
 
+                uint mask = (uint)(NodeClass.Object | NodeClass.Variable);
+                if (includeTypes)
+                {
+                    mask = mask | (uint)(NodeClass.DataType | NodeClass.VariableType | NodeClass.ObjectType);
+                }
+
                 BrowseDescription nodeToBrowse = new() {
                     NodeId = ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris),
                     BrowseDirection = BrowseDirection.Forward,
                     ReferenceTypeId = ReferenceTypeIds.HierarchicalReferences,
                     IncludeSubtypes = true,
-                    NodeClassMask = (uint)(NodeClass.Object | NodeClass.Variable | NodeClass.ObjectType),
+                    NodeClassMask = mask,
                     ResultMask = (uint)BrowseResultMask.All
                 };
 
@@ -553,8 +559,11 @@ namespace Opc.Ua.Cloud.Library
                             nodeManager.AddNamespace(nodesetXml.Blob);
                             nodeManager.AddNodesAndValues(nodesetXml.Blob, nodesetXml.Values);
 
-                            NodeSetModel nodeSetMeta = await _database.GetNodeSets(userId, nodesetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false);
-                            LoadedNamespaces.Add(nodeManager.NamespaceUris.Last(), new Tuple<string, string>(nodeSetMeta.Version, nodeSetMeta.Version));
+                            if (!LoadedNamespaces.ContainsKey(nodeManager.NamespaceUris.Last()))
+                            {
+                                NodeSetModel nodeSetMeta = await _database.GetNodeSets(userId, nodesetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false);
+                                LoadedNamespaces.Add(nodeManager.NamespaceUris.Last(), new Tuple<string, string>(nodeSetMeta.Version, nodeSetMeta.Version));
+                            }
                         }
                         else
                         {
@@ -627,6 +636,46 @@ namespace Opc.Ua.Cloud.Library
                 Console.WriteLine("CopyNodeset: " + ex.Message);
                 return ex.Message;
             }
+        }
+
+        public async Task<Dictionary<string, DbFiles>> GetAllLoadedNodesetFilesAsync(string userId)
+        {
+            var nodesetFiles = new Dictionary<string, DbFiles>();
+
+            foreach (var loadedNamespace in LoadedNamespaces)
+            {
+                try
+                {
+                    // Get nodeset metadata by namespace URI
+                    var matchingNodeSets = await _database.GetNodeSets(userId, null, loadedNamespace.Key).ToListAsync().ConfigureAwait(false);
+
+                    if (matchingNodeSets != null && matchingNodeSets.Count > 0)
+                    {
+                        // Get the nodeset that matches the loaded version
+                        var nodeSet = matchingNodeSets.FirstOrDefault(ns => ns.Version == loadedNamespace.Value.Item2);
+                        if (nodeSet == null)
+                        {
+                            // Fall back to first match if exact version not found
+                            nodeSet = matchingNodeSets.First();
+                        }
+
+                        // Download the file
+                        DbFiles file = await _storage.DownloadFileAsync(nodeSet.Identifier).ConfigureAwait(false);
+                        if (file != null)
+                        {
+                            // Use namespace + version as key to ensure uniqueness
+                            string fileKey = $"{loadedNamespace.Key}_{loadedNamespace.Value.Item2}";
+                            nodesetFiles[fileKey] = file;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error retrieving nodeset for {loadedNamespace.Key}: {ex.Message}");
+                }
+            }
+
+            return nodesetFiles;
         }
 
         public async Task DisposeSession()

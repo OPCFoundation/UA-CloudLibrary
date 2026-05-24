@@ -5,14 +5,18 @@
 @using System.Net.Http.Json
 @using System.Text.Json
 @using System.Web
+@using System.IO
+@using System.IO.Compression
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Web;
 @using Microsoft.AspNetCore.Http
+@using Microsoft.JSInterop
 @using AdminShell
 @using Opc.Ua
 
 @inject UAClient _client
+@inject IJSRuntime JSRuntime
 
 <h1>@NodesetName</h1>
 <div style="height:100%">
@@ -24,7 +28,19 @@
                         <div class="col-6">
                             <div class="card h-100">
                                 <div class="card-header">
-                                    <b>Loaded Nodesets</b><br/>
+                                    <b>Loaded Nodesets</b>
+                                    <button type="button" class="btn btn-primary btn-sm" style="float: right" @onclick="DownloadAllDependencyNodesets" disabled="@IsDownloading">
+                                        @if (IsDownloading)
+                                        {
+                                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                            <span> Preparing...</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Download All</span>
+                                        }
+                                    </button>
+                                    <br/>
                                 </div>
                                 <div class="card-body">
                                     @foreach (KeyValuePair<string, Tuple<string, string>> ns in _client.LoadedNamespaces)
@@ -174,6 +190,8 @@
 
     private string CopyStatus = string.Empty;
 
+    private bool IsDownloading = false;
+
     private List<NodesetViewerNode> TreeNodes = new();
 
     private string NodeValue { get; set; } = string.Empty;
@@ -247,7 +265,7 @@
     {
         if (node.Children.Count == 0)
         {
-            node.Children = await _client.GetChildren(UserName, NodesetIdentifier, node.Id).ConfigureAwait(false);
+            node.Children = await _client.GetChildren(UserName, NodesetIdentifier, node.Id, true).ConfigureAwait(false);
 
             if (node.Children != null)
             {
@@ -266,6 +284,66 @@
     private bool HasChildNodes(NodesetViewerNode node)
     {
         return (node.Children != null);
+    }
+
+    private async Task DownloadAllDependencyNodesets()
+    {
+        try
+        {
+            IsDownloading = true;
+            await InvokeAsync(StateHasChanged);
+
+            // Get all loaded nodeset files
+            var nodesetFiles = await _client.GetAllLoadedNodesetFilesAsync(UserName);
+
+            if (nodesetFiles == null || nodesetFiles.Count == 0)
+            {
+                Console.WriteLine("No nodesets found to download.");
+                return;
+            }
+
+            // Create a zip file in memory
+            using var memoryStream = new MemoryStream();
+            using (var archive = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
+            {
+                foreach (var kvp in nodesetFiles)
+                {
+                    // Sanitize the filename (replace invalid characters)
+                    string sanitizedKey = string.Join("_", kvp.Key.Split(Path.GetInvalidFileNameChars()));
+                    string fileName = $"{sanitizedKey}.xml";
+
+                    // Create an entry in the zip file
+                    var zipEntry = archive.CreateEntry(fileName, CompressionLevel.Optimal);
+
+                    // Write the nodeset XML to the zip entry
+                    using var entryStream = zipEntry.Open();
+                    using var streamWriter = new StreamWriter(entryStream);
+                    await streamWriter.WriteAsync(kvp.Value.Blob);
+                }
+            }
+
+            // Reset the stream position
+            memoryStream.Position = 0;
+
+            // Convert to base64 for JavaScript download
+            var base64 = Convert.ToBase64String(memoryStream.ToArray());
+
+            // Generate a filename with timestamp
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+            var zipFileName = $"Nodesets_{NodesetName}_{timestamp}.zip";
+
+            // Trigger download using JavaScript
+            await JSRuntime.InvokeVoidAsync("downloadFileFromBase64", zipFileName, base64);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error downloading nodesets: {ex.Message}");
+        }
+        finally
+        {
+            IsDownloading = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private string ViewNodeType(NodesetViewerNode item)
