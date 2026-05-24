@@ -206,7 +206,6 @@ namespace Opc.Ua.Cloud.Library
                     options.AddPolicy("ApiPolicy", policy => {
                         policy.AddAuthenticationSchemes("BasicAuthentication").RequireAuthenticatedUser();
                         policy.AddAuthenticationSchemes("SignedInUserAuthentication").RequireAuthenticatedUser();
-                        policy.AddRequirements(new ReadWriteApiKeyRequirement());
                     });
                 });
             }
