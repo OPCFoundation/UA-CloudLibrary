@@ -100,7 +100,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
         [HttpGet]
         [Route("/infomodel/types/{identifier}")]
-        [SwaggerResponse(statusCode: 200, type: typeof(string[]), description: "The OPC UA Information model types.")]
+        [SwaggerResponse(statusCode: 200, type: typeof(UATypeDefinitionResult[]), description: "The OPC UA Information model types together with their type definitions.")]
         [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The identifier provided could not be parsed.")]
         [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The identifier provided could not be found.")]
         public async Task<IActionResult> GetAllTypesAsync(
@@ -118,12 +118,12 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("No types defined in nodeset.") { StatusCode = (int)HttpStatusCode.NotFound };
             }
 
-            List<object> results = new();
+            List<UATypeDefinitionResult> results = new();
             foreach (var type in types)
             {
                 string[] parts = type.Split(',');
                 object definition = await _client.GetTypeDefinition(User.Identity.Name, identifier, parts[0]).ConfigureAwait(false);
-                results.Add(new { type, definition });
+                results.Add(new UATypeDefinitionResult { Type = type, Definition = definition });
             }
 
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
@@ -208,6 +208,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [Authorize(Policy = "AdministrationPolicy")]
         [HttpDelete]
         [Route("/infomodel/delete/{identifier}")]
+        [SwaggerOperation(Description = "Deletes an OPC UA Information model from the UA Cloud Library. Requires administrator privileges.")]
         [SwaggerResponse(statusCode: 200, type: typeof(UANameSpace), description: "The OPC UA Information model and its metadata.")]
         [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The identifier provided could not be parsed.")]
         [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The identifier provided could not be found.")]
@@ -245,6 +246,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [HttpPut]
         [Route("/infomodel/upload")]
         [SwaggerResponse(statusCode: 200, type: typeof(string), description: "A status message indicating the successful upload.")]
+        [SwaggerResponse(statusCode: 400, type: typeof(string), description: "No nodeset XML was specified in the request body.")]
         [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The provided nodeset file failed verification.")]
         [SwaggerResponse(statusCode: 409, type: typeof(string), description: "An existing information model with the same identifier already exists in the UA Cloud Library and the overwrite flag was not set or the contributor name of existing information model is different to the one provided.")]
         [SwaggerResponse(statusCode: 500, type: typeof(string), description: "The provided information model could not be stored or updated.")]
