@@ -35,6 +35,7 @@ namespace Opc.Ua.Cloud.Library.Models
     public sealed record ApiResponse<T>(
         string statusCode,
         T payload = default,
-        ApiResult result = null
+        ApiResult result = null,
+        Pagination pagination = null
     );
 }

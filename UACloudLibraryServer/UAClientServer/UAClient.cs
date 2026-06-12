@@ -449,13 +449,13 @@ namespace Opc.Ua.Cloud.Library
             return value;
         }
 
-        public async Task VariableWrite(string userId, string nodesetIdentifier, string nodeId, string payload)
+        public async Task<bool> VariableWrite(string userId, string nodesetIdentifier, string nodeId, string payload)
         {
             try
             {
                 if (!await ValidateSession(userId, nodesetIdentifier).ConfigureAwait(false))
                 {
-                    return;
+                    return false;
                 }
 
                 NodeId nodeID = ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris);
@@ -479,10 +479,13 @@ namespace Opc.Ua.Cloud.Library
                 {
                     throw ServiceResultException.Create(response.Results[0], 0, response.DiagnosticInfos, response.ResponseHeader.StringTable);
                 }
+
+                return true;
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Writing OPC UA node failed: " + ex.Message);
+                return false;
             }
         }
 

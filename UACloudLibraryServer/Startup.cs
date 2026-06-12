@@ -103,6 +103,10 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddScoped<DPPService>();
 
+            // EN 18221 Clause 4.2 archiving hook, satisfied with durable persistence
+            // via the existing DbFileStorage layer.
+            services.AddScoped<IDppVersionArchive, DbFileVersionArchive>();
+
             services.AddScoped<CaptchaValidation>();
 
             if (!string.IsNullOrEmpty(Configuration["UseSendGridEmailSender"]))

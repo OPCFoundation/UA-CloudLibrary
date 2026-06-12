@@ -56,6 +56,213 @@ There are only two types of user authorization policies supported by the UA Clou
 
 Approval of freshly uploaded OPC UA Information Models for download by everyone can be completed via the REST API.
 
+## Digital Product Passport (DPP)
+
+The UA Cloud Library hosts a Digital Product Passport (DPP) Lifecycle API that exposes selected OPC UA information models as DPPs. It is aligned with three European Norms:
+
+* **EN 18221** &mdash; *Digital product passport - data storage, archiving, and data persistence* &mdash; shapes the storage, archiving and version-retrieval behaviour (Clause 4.1 storage, Clause 4.2 archiving).
+* **EN 18222** &mdash; *Digital Product Passport - Application Programming Interfaces (APIs) for the product passport lifecycle management and searchability* &mdash; shapes the REST surface (`ReadDppById`, `ReadDppByProductId`, `ReadDppIdsByProductIds`, `ReadDataElement`, `UpdateDppById`, `UpdateDataElement`, `ReadDppVersionByIdAndDate`).
+* **EN 18223** &mdash; *Digital Product Passport - System interoperability* &mdash; shapes the semantic data model (Clause 4: `DigitalProductPassport` and its `DataElement` subclasses) and the JSON serialization (Clause 5 / Annex A).
+
+The DPP surface is implemented by:
+
+* [`Controllers/DPPLifecycleApiController.cs`](UACloudLibraryServer/Controllers/DPPLifecycleApiController.cs) &mdash; the HTTP boundary.
+* [`DPPService.cs`](UACloudLibraryServer/DPPService.cs) &mdash; the service-layer orchestration.
+* [`UAClientServer/UAClient.cs`](UACloudLibraryServer/UAClientServer/UAClient.cs) &mdash; live access to the embedded OPC UA server.
+* [`DbFileStorage.cs`](UACloudLibraryServer/DbFileStorage.cs) &mdash; durable persistence of nodeset XML and variable values.
+* [`IDppVersionArchive.cs`](UACloudLibraryServer/IDppVersionArchive.cs) and [`DbFileVersionArchive.cs`](UACloudLibraryServer/DbFileVersionArchive.cs) &mdash; durable archive of DPP version snapshots.
+* [`Models/DppModel.cs`](UACloudLibraryServer/Models/DppModel.cs), [`Models/DppApiResponse.cs`](UACloudLibraryServer/Models/DppApiResponse.cs), [`Models/Pagination.cs`](UACloudLibraryServer/Models/Pagination.cs) &mdash; request/response contracts.
+* [`DppJsonPath.cs`](UACloudLibraryServer/DppJsonPath.cs) &mdash; the JSONPath subset used for `elementIdPath` addressing.
+
+### Conceptual model
+
+A DPP is constructed on-demand from an OPC UA nodeset that has been uploaded to the Cloud Library. The DPP root, its `uniqueProductIdentifier`, `granularity`, `dppStatus`, `lastUpdate` timestamp, `economicOperatorId`/`facilityId`, `contentSpecificationIds`, and the tree of `DataElement` children are read from the live OPC UA address space rooted at the `Objects` folder of the addressed nodeset. The DPP identifier (`dppId`) is the nodeset identifier issued by the Cloud Library on upload.
+
+The DPP header follows EN 18223 Clause 4.1.2.1 Table 1:
+
+| Property | Cardinality | Notes |
+|---|---|---|
+| `digitalProductPassportId` | [1] | Globally unique, URI/URL-shaped. |
+| `uniqueProductIdentifier` | [1] | Product identifier per EN 18219. |
+| `granularity` | [1] | Enumeration: `Model`, `Batch`, `Item`. |
+| `dppSchemaVersion` | [1] | Reference standard the DPP schema follows. |
+| `dppStatus` | [1] | e.g. `active`, `inactive`, `archived`, `invalid`. |
+| `lastUpdate` | [1] | UTC timestamp per ISO 8601-1. |
+| `economicOperatorId` | [1] | Operator identifier per EN 18219. |
+| `facilityId` | [0..1] | Facility identifier per EN 18219. |
+| `contentSpecificationIds` | [0..*] | References to horizontal or product-type content specifications. |
+| `elements` | [0..*] | Tree of `DataElement` instances. |
+
+`DataElement` is a polymorphic type discriminated by the `objectType` property (EN 18223 Clause 4.1.2.3 - 4.1.2.8):
+
+| `objectType` | C# type | Purpose |
+|---|---|---|
+| `DataElementCollection` | `DataElementCollection` | A named container of child `DataElement`s (mixed types allowed). |
+| `SingleValuedDataElement` | `SingleValuedDataElement` | A leaf carrying a single value (any JSON primitive, object or array). |
+| `MultiValuedDataElement` | `MultiValuedDataElement` | A leaf carrying a homogenous, non-empty list of nested `DataElement`s (children serialized under `value`). |
+| `RelatedResource` | `RelatedResource` | A reference to an external resource (document, certificate) with `contentType`, `url`, optional `language` and `resourceTitle`. |
+| `MultiLanguageDataElement` | `MultiLanguageDataElement` | A language-dependent value with one or more `{ value, language }` entries under `value`. |
+
+### Serialization (EN 18223 Clause 5 / Annex A)
+
+EN 18223 defines two equivalent JSON serializations:
+
+* a **compressed** form (Clause 5.2) where each `DataElement` uses its `elementId` as the JSON object key and `dictionaryReference`/`valueDataType` are looked up from an external data dictionary, and
+* an **expanded** form (Annex A) where every `DataElement` is a self-describing JSON object carrying `objectType`, `elementId`, optional `dictionaryReference`, optional `valueDataType` and the value/children of the element.
+
+This implementation emits the **expanded form** in every response from [`DPPLifecycleApiController`](UACloudLibraryServer/Controllers/DPPLifecycleApiController.cs) and accepts the same expanded form on `PATCH` requests. This choice keeps DPP payloads self-describing and removes the need for the client to resolve dictionary references in order to interpret a value. The expanded form is structurally identical to the examples shown in EN 18223 Annex A.
+
+The discriminator property is `objectType` (EN 18223 Clause 5.2.2 / Annex A). The mapping between the EN 18223 subclasses and the JSON shape produced by [`DppModel.cs`](UACloudLibraryServer/Models/DppModel.cs) is:
+
+| EN 18223 subclass | Clause | JSON shape |
+|---|---|---|
+| `DigitalProductPassport` | 4.1.2.1 / 5.2.4 | Top-level object with the header properties above and an `elements` array. |
+| `DataElementCollection` | 4.1.2.4 / 5.2.5 | `{ "objectType": "DataElementCollection", "elementId": ..., "elements": [ ... ] }`. |
+| `SingleValuedDataElement` | 4.1.2.5 / 5.2.6 | `{ "objectType": "SingleValuedDataElement", "elementId": ..., "valueDataType": ..., "value": <any JSON type> }`. |
+| `MultiValuedDataElement` | 4.1.2.6 / 5.2.7 | `{ "objectType": "MultiValuedDataElement", "elementId": ..., "valueDataType": ..., "value": [ ...same-type DataElements... ] }` (children under `value`, per Annex A Example 4). |
+| `RelatedResource` | 4.1.2.7 / 5.2.8 | `{ "objectType": "RelatedResource", "elementId": ..., "contentType": ..., "url": ..., "language": ..., "resourceTitle": ... }`. |
+| `MultiLanguageDataElement` | 4.1.2.8 / 5.2.9 | `{ "objectType": "MultiLanguageDataElement", "elementId": ..., "value": [ { "value": "...", "language": "en-GB" }, ... ] }`. |
+
+`valueDataType` values follow the XSD-to-JSON mapping table of EN 18223 Clause 5.2.3 (e.g. `xsd:integer`, `xsd:decimal`, `xsd:boolean`, `xsd:string`, `xsd:dateTime`, `xsd:anyURI`, `xsd:base64Binary`). The unsupported XSD types listed in Clause 4.1.2.9 (`ENTITIES`, `IDREFS`, `NMTOKENS`, `NOTATION`, `QName` and the XSD `string`-derived built-ins) are also not produced by this server.
+
+Example DPP body returned by `GET v1/dpps/{dppId}` (abbreviated, expanded form):
+
+```json
+{
+  "digitalProductPassportId": "https://uacloudlibrary.example.org/dpp/123",
+  "uniqueProductIdentifier": "https://example.org/products/abc",
+  "granularity": "Model",
+  "dppSchemaVersion": "EN18223:v1.0",
+  "dppStatus": "active",
+  "lastUpdate": "2025-08-22T03:12:00Z",
+  "economicOperatorId": "gxx:ppp456789",
+  "facilityId": "gxx:xxx987654",
+  "contentSpecificationIds": ["EN1234_xyz", "EN5678_abc"],
+  "elements": [
+    {
+      "objectType": "DataElementCollection",
+      "elementId": "performanceMetrics",
+      "elements": [
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "maxPressure",
+          "valueDataType": "xsd:float",
+          "value": 750.0
+        },
+        {
+          "objectType": "MultiValuedDataElement",
+          "elementId": "efficiencyRatings",
+          "valueDataType": "xsd:float",
+          "value": [
+            { "objectType": "SingleValuedDataElement", "elementId": "r1", "valueDataType": "xsd:float", "value": 0.95 },
+            { "objectType": "SingleValuedDataElement", "elementId": "r2", "valueDataType": "xsd:float", "value": 0.92 }
+          ]
+        }
+      ]
+    },
+    {
+      "objectType": "MultiLanguageDataElement",
+      "elementId": "productDescription",
+      "value": [
+        { "value": "Smart Thermostat", "language": "en-GB" },
+        { "value": "Intelligenter Thermostat", "language": "de-DE" }
+      ]
+    },
+    {
+      "objectType": "RelatedResource",
+      "elementId": "userManual",
+      "contentType": "application/pdf",
+      "url": "https://data.example.com/manuals/thermostat.pdf",
+      "language": "en-GB",
+      "resourceTitle": "User Manual"
+    }
+  ]
+}
+```
+
+### Response envelope
+
+Every endpoint returns the same envelope (`ApiResponse<T>` in `Models/DppApiResponse.cs`):
+
+```jsonc
+{
+  "statusCode": "Success",                 // DppApiStatusCodes constant
+  "payload":    { /* T */ },               // method-specific result, may be null on error
+  "result":     { "message": [             // optional human-readable messages
+      { "messageType": "Error", "text": "Resource not found" }
+  ]},
+  "pagination": { "nextCursor": "20", "hasMore": true, "limit": 20 } // only on paged methods
+}
+```
+
+The `statusCode` values are the symbolic constants from `DppApiStatusCodes` (`Success`, `ClientErrorBadRequest`, `ClientErrorResourceNotFound`, `ServerInternalError`, ...). The HTTP status code mirrors the envelope status (`200`, `400`, `404`, `500`).
+
+### Endpoints
+
+All routes are versioned under `v1/` and require an authenticated principal satisfying the `ApiPolicy` (Basic auth, signed-in cookie, or `X-API-Key` &mdash; see [Authentication and Authorization](#authentication-and-authorization)).
+
+| Method | Route | DPP lifecycle operation |
+|---|---|---|
+| `GET`   | `v1/dpps/{dppId}` | Returns the full DPP rooted at the addressed nodeset. |
+| `GET`   | `v1/dppsByProductId/{productId}` | Returns the latest DPP whose `UniqueProductIdentifier` equals `productId` (resolved by browsing all nodesets visible to the caller and picking the newest `lastUpdate`). |
+| `POST`  | `v1/dppsByProductIds` | Returns the list of DPP identifiers matching the supplied `productIds`. Supports paging via `?limit=` and `?cursor=` query parameters; the response envelope carries a `pagination` block. |
+| `GET`   | `v1/dpps/{dppId}/elements/{*elementIdPath}` | Returns the `DataElement` addressed by the JSONPath subset described below. |
+| `PATCH` | `v1/dpps/{dppId}` | Applies a partial DPP using RFC 7396 JSON Merge Patch semantics. Accepts `application/json` or `application/merge-patch+json`. Snapshots the pre-update DPP into the archive, writes leaf values to the live OPC UA server, then persists the new values. |
+| `PATCH` | `v1/dpps/{dppId}/elements/{*elementIdPath}` | Updates a single addressed leaf element. Snapshots, writes, and persists as above. |
+| `GET`   | `v1/dpps/{dppId}/versions/{date}` | Returns the DPP snapshot that was active at the supplied ISO 8601 timestamp. If `date` is &ge; "now", the live DPP is returned; otherwise the archive is consulted. Returns `404` when no version existed at that point in time. |
+
+The request body for `POST v1/dppsByProductIds` is:
+
+```json
+{ "productIds": ["urn:product:1", "urn:product:2"] }
+```
+
+### `elementIdPath` &mdash; JSONPath addressing
+
+`elementIdPath` is a JSONPath expression rooted at the `DigitalProductPassport.elements` collection. The parser ([`DppJsonPath`](UACloudLibraryServer/DppJsonPath.cs)) accepts the subset of RFC 9535 actually used by the DPP data model:
+
+* Optional root identifier `$` or `$.`.
+* Dot child selector: `.name`.
+* Bracket name selector with single or double quotes: `['name']`, `["name"]`.
+* Bracket index selector: `[0]`, `[3]`.
+
+Filter expressions, wildcards (`*`), slice selectors and the descendant operator (`..`) are rejected with `ClientErrorBadRequest`. Examples:
+
+```
+manufacturer
+materials[0].name
+$['battery']['cells'][2]['voltage']
+```
+
+### Write semantics, archival and persistence
+
+The DPP update path strictly separates the three concerns of the Browser UI's `Save` flow:
+
+1. **Pre-update snapshot.** Before any write, `DPPService` browses the current DPP and calls `IDppVersionArchive.ArchiveAsync(dppId, snapshot, DateTimeOffset.UtcNow)`. This satisfies the EN 18221 Clause 4.2 requirement that *“archiving starts when the first change of the initial digital product passport occurs”* and that *“all changes to the digital product passport shall be archived”*.
+2. **Live write.** The resolved leaf values are written to the running embedded OPC UA server via `UAClient.VariableWrite(...)`. `UAClient` does *not* persist anything to the database.
+3. **Explicit persistence.** After the live write succeeds, `DPPService.PersistNodesetValuesAsync(...)` re-browses the variables and upserts the serialized values into `DbFiles.Values` through `DbFileStorage.UploadFileAsync(...)`, so the change survives a server restart (the embedded OPC UA server rehydrates values from `DbFiles.Values` on startup via `NodesetFileNodeManager.AddNodesAndValues`).
+
+To prevent a save from silently overwriting an earlier on-disk version, the persistence step rewrites the `PublicationDate="..."` attribute in the stored nodeset XML to the current UTC timestamp (second precision, `yyyy-MM-ddTHH:mm:ssZ`). This mirrors the in-XML date bump already used by `UAClient.CopyNodeset` and ensures every persisted save is uniquely datable.
+
+### Durable version archive
+
+The archive implements the archiving rules of EN 18221 Clause 4.2 (point-in-time retrievability of all past changes during the DPP lifetime) by reusing the existing `DbFileStorage`:
+
+* Each snapshot is stored as its own row in the `DbFiles` table whose `Name` follows the layout `dpp-archive::{dppId}::{capturedAtUtcTicks:D19}` and whose `Blob` holds the JSON-serialized `DigitalProductPassport`.
+* The fixed-width 19-digit tick suffix makes lexicographic ordering match chronological order, so retrieving the snapshot at or before a target timestamp is an ordered prefix scan via `DbFileStorage.ListFileNamesAsync(prefix)`.
+* If two snapshots collide on the same UTC tick (concurrent updates), the row name is nudged forward by one tick at a time until a free key is found, so older snapshots are never overwritten.
+
+`DbFileVersionArchive` is registered as a scoped service in `Startup.ConfigureServices`, aligned with the scoped `AppDbContext` that backs `DbFileStorage`.
+
+### Error responses
+
+| Condition | HTTP | `statusCode` |
+|---|---|---|
+| Resource (DPP or element) does not exist | 404 | `ClientErrorResourceNotFound` |
+| Invalid request body, malformed `elementIdPath`, bad `date`, bad pagination input | 400 | `ClientErrorBadRequest` |
+| Live OPC UA write or post-write persistence failed | 500 | `ServerInternalError` |
+| Method succeeded | 200 | `Success` |
+
 ## Database Configuration
 The UA Cloud Library database configuration is documented in the [Database Setup](Docs/Database%20Setup.md) document.
 

@@ -28,6 +28,7 @@
  * ======================================================================*/
 
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
@@ -163,6 +164,35 @@ namespace Opc.Ua.Cloud.Library
             {
                 _logger.LogError(ex.Message);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Lists the names of all files whose key starts with <paramref name="prefix"/>, sorted
+        /// ascending. Used by features that key multiple related rows by a shared prefix
+        /// (e.g. the DPP version archive stores one row per snapshot).
+        /// </summary>
+        public async Task<IReadOnlyList<string>> ListFileNamesAsync(string prefix, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrEmpty(prefix))
+            {
+                return Array.Empty<string>();
+            }
+
+            try
+            {
+                return await _dbContext.DBFiles
+                    .AsNoTracking()
+                    .Where(n => n.Name.StartsWith(prefix))
+                    .OrderBy(n => n.Name)
+                    .Select(n => n.Name)
+                    .ToListAsync(cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.Message);
+                return Array.Empty<string>();
             }
         }
     }

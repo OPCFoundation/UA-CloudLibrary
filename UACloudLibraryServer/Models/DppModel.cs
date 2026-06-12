@@ -6,6 +6,18 @@ using System.Text.Json.Serialization;
 
 namespace Opc.Ua.Cloud.Library.Models
 {
+    /// <summary>
+    /// Level of granularity for <see cref="DigitalProductPassport.UniqueProductIdentifier"/>,
+    /// per EN 18223 Clause 4.1.2.2 (enumeration for the <c>granularity</c> attribute).
+    /// </summary>
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public enum Granularity
+    {
+        Model,
+        Batch,
+        Item
+    }
+
     public class DigitalProductPassport
     {
         [JsonPropertyName("digitalProductPassportId")]
@@ -13,6 +25,10 @@ namespace Opc.Ua.Cloud.Library.Models
 
         [JsonPropertyName("uniqueProductIdentifier")]
         public required string UniqueProductIdentifier { get; init; }
+
+        // EN 18223 Clause 4.1.2.1 Table 1: required enumeration (model | batch | item).
+        [JsonPropertyName("granularity")]
+        public Granularity Granularity { get; init; } = Granularity.Model;
 
         [JsonPropertyName("dppSchemaVersion")]
         public required string DppSchemaVersion { get; init; }
@@ -30,6 +46,12 @@ namespace Opc.Ua.Cloud.Library.Models
         [JsonPropertyName("facilityId")]
         public string FacilityId { get; init; }
 
+        // EN 18223 Clause 4.1.2.1 Table 1: optional [0..*] list of references to
+        // horizontal or product-type related content specifications for the DPP.
+        [JsonPropertyName("contentSpecificationIds")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<string> ContentSpecificationIds { get; init; }
+
         [JsonPropertyName("elements")]
         public List<DataElement> Elements { get; init; } = new();
     }
@@ -39,6 +61,8 @@ namespace Opc.Ua.Cloud.Library.Models
     [JsonDerivedType(typeof(DataElementCollection), "DataElementCollection")]
     [JsonDerivedType(typeof(SingleValuedDataElement), "SingleValuedDataElement")]
     [JsonDerivedType(typeof(MultiValuedDataElement), "MultiValuedDataElement")]
+    [JsonDerivedType(typeof(RelatedResource), "RelatedResource")]
+    [JsonDerivedType(typeof(MultiLanguageDataElement), "MultiLanguageDataElement")]
     public abstract class DataElement
     {
         [JsonPropertyName("elementId")]
@@ -99,5 +123,53 @@ namespace Opc.Ua.Cloud.Library.Models
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Semantic representation of a document or certificate attached to a DPP,
+    /// per EN 18223 Clause 4.1.2.7 (Table 5).
+    /// </summary>
+    public class RelatedResource : DataElement
+    {
+        // IANA Media Type / MIME type (required).
+        [JsonPropertyName("contentType")]
+        public required string ContentType { get; init; }
+
+        // URL per RFC 3986 (required).
+        [JsonPropertyName("url")]
+        public required string Url { get; init; }
+
+        // Optional localized language tag (e.g. "en-GB").
+        [JsonPropertyName("language")]
+        public string Language { get; init; }
+
+        // Optional human readable title.
+        [JsonPropertyName("resourceTitle")]
+        public string ResourceTitle { get; init; }
+    }
+
+    /// <summary>
+    /// A single language-dependent value carried by a <see cref="MultiLanguageDataElement"/>,
+    /// per EN 18223 Clause 4.1.2.8.2 (Table 6).
+    /// </summary>
+    public class MultiLanguageValue
+    {
+        [JsonPropertyName("value")]
+        public required string Value { get; init; }
+
+        // Localized language tag (e.g. "en-GB"), required.
+        [JsonPropertyName("language")]
+        public required string Language { get; init; }
+    }
+
+    /// <summary>
+    /// A language-dependent data point whose value varies with the associated language,
+    /// per EN 18223 Clause 4.1.2.8. Serialized with one or more <see cref="MultiLanguageValue"/>
+    /// entries under the <c>value</c> array (Annex A, Example 6).
+    /// </summary>
+    public class MultiLanguageDataElement : DataElement
+    {
+        [JsonPropertyName("value")]
+        public List<MultiLanguageValue> Value { get; init; } = new();
     }
 }
