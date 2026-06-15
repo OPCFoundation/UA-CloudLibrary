@@ -80,7 +80,10 @@ namespace Opc.Ua.Cloud.Library.Authentication
                     // User authenticated with API key
                     if (apiKeyTypeClaim.Value == "Read-Write")
                     {
-                        _logger.LogDebug("Read-Write API key allowed for {HttpMethod} to {Path}", httpMethod, httpContext.Request.Path);
+                        if (_logger.IsEnabled(LogLevel.Debug))
+                        {
+                            _logger.LogDebug("Read-Write API key allowed for {HttpMethod} to {Path}", httpMethod, httpContext.Request.Path);
+                        }
                         context.Succeed(requirement);
                     }
                     else
@@ -93,7 +96,10 @@ namespace Opc.Ua.Cloud.Library.Authentication
                 {
                     // Not using API key authentication (could be Basic Auth, cookies, etc.)
                     // Allow these through - they're not subject to API key type restrictions
-                    _logger.LogDebug("Non-API-key authentication allowed for {HttpMethod} to {Path}", httpMethod, httpContext.Request.Path);
+                    if (_logger.IsEnabled(LogLevel.Debug))
+                    {
+                        _logger.LogDebug("Non-API-key authentication allowed for {HttpMethod} to {Path}", httpMethod, httpContext.Request.Path);
+                    }
                     context.Succeed(requirement);
                 }
             }
