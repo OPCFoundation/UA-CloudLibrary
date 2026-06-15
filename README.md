@@ -84,7 +84,7 @@ The DPP header follows EN 18223 Clause 4.1.2.1 Table 1:
 |---|---|---|
 | `digitalProductPassportId` | [1] | Globally unique, URI/URL-shaped. |
 | `uniqueProductIdentifier` | [1] | Product identifier per EN 18219. |
-| `granularity` | [1] | Enumeration: `Model`, `Batch`, `Item`. |
+| `granularity` | [1] | Enumeration: `model`, `batch`, `item` (EN 18223 Clause 4.1.2.2 — lowercase on the wire). |
 | `dppSchemaVersion` | [1] | Reference standard the DPP schema follows. |
 | `dppStatus` | [1] | e.g. `active`, `inactive`, `archived`, `invalid`. |
 | `lastUpdate` | [1] | UTC timestamp per ISO 8601-1. |
@@ -131,7 +131,7 @@ Example DPP body returned by `GET v1/dpps/{dppId}` (abbreviated, expanded form):
 {
   "digitalProductPassportId": "https://uacloudlibrary.example.org/dpp/123",
   "uniqueProductIdentifier": "https://example.org/products/abc",
-  "granularity": "Model",
+  "granularity": "model",
   "dppSchemaVersion": "EN18223:v1.0",
   "dppStatus": "active",
   "lastUpdate": "2025-08-22T03:12:00Z",
@@ -207,7 +207,7 @@ All routes are versioned under `v1/` and require an authenticated principal sati
 | `GET`   | `v1/dppsByProductId/{productId}` | Returns the latest DPP whose `UniqueProductIdentifier` equals `productId` (resolved by browsing all nodesets visible to the caller and picking the newest `lastUpdate`). |
 | `POST`  | `v1/dppsByProductIds` | Returns the list of DPP identifiers matching the supplied `productIds`. Supports paging via `?limit=` and `?cursor=` query parameters; the response envelope carries a `pagination` block. |
 | `GET`   | `v1/dpps/{dppId}/elements/{*elementIdPath}` | Returns the `DataElement` addressed by the JSONPath subset described below. |
-| `PATCH` | `v1/dpps/{dppId}` | Applies a partial DPP using RFC 7396 JSON Merge Patch semantics. Accepts `application/json` or `application/merge-patch+json`. Snapshots the pre-update DPP into the archive, writes leaf values to the live OPC UA server, then persists the new values. |
+| `PATCH` | `v1/dpps/{dppId}` | Applies a partial DPP with merge-patch-shaped semantics: only members present in the request body are touched, members that are absent are left unchanged. Full RFC 7396 deletion (`null` means "delete that field") is **not** supported because the DPP is backed by a fixed OPC UA address space, so `null` on any scalar field and any non-array value for `elements` are rejected as `400`. Accepts `application/json`. Snapshots the pre-update DPP into the archive, writes leaf values to the live OPC UA server, then persists the new values. |
 | `PATCH` | `v1/dpps/{dppId}/elements/{*elementIdPath}` | Updates a single addressed leaf element. Snapshots, writes, and persists as above. |
 | `GET`   | `v1/dpps/{dppId}/versions/{date}` | Returns the DPP snapshot that was active at the supplied ISO 8601 timestamp. If `date` is &ge; "now", the live DPP is returned; otherwise the archive is consulted. Returns `404` when no version existed at that point in time. |
 

@@ -156,9 +156,11 @@ namespace Opc.Ua.Cloud.Library.Controllers
         }
 
         // EN 18222: PATCH v1/dpps/{dppId}
-        // Body is the partial DPP (RFC 7396 JSON Merge Patch).
+        // Body is the partial DPP. Update semantics are merge-patch-shaped (only members present
+        // in the body are touched); full RFC 7396 deletion via null is not supported because the
+        // DPP is backed by a fixed OPC UA address space. See DPPService.UpdateDppById remarks.
         [HttpPatch("dpps/{dppId}")]
-        [Consumes("application/json", "application/merge-patch+json")]
+        [Consumes("application/json")]
         public async Task<ActionResult<ApiResponse<DigitalProductPassport>>> UpdateDppById(
             [FromRoute][Required] string dppId,
             [FromBody][Required] JsonObject partialDPP)
@@ -197,8 +199,10 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
         // EN 18222: PATCH v1/dpps/{dppId}/elements/{elementIdPath}
         // Body is the new value (or a partial DataElement object) for the addressed leaf element.
+        // Update semantics are merge-patch-shaped, not RFC 7396: deletion of a leaf via null is
+        // not supported. See DPPService.UpdateDataElement remarks.
         [HttpPatch("dpps/{dppId}/elements/{*elementIdPath}")]
-        [Consumes("application/json", "application/merge-patch+json")]
+        [Consumes("application/json")]
         public async Task<ActionResult<ApiResponse<DataElement>>> UpdateDataElement(
             [FromRoute][Required] string dppId,
             [FromRoute][Required] string elementIdPath,

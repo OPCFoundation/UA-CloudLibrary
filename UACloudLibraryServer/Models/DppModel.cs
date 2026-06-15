@@ -9,12 +9,20 @@ namespace Opc.Ua.Cloud.Library.Models
     /// <summary>
     /// Level of granularity for <see cref="DigitalProductPassport.UniqueProductIdentifier"/>,
     /// per EN 18223 Clause 4.1.2.2 (enumeration for the <c>granularity</c> attribute).
+    /// The wire values are the lowercase tokens <c>"model"</c>, <c>"batch"</c>, <c>"item"</c>
+    /// fixed by the standard; each member uses <see cref="JsonStringEnumMemberNameAttribute"/>
+    /// to map to its spec-mandated token regardless of any project-wide naming policy.
     /// </summary>
-    [JsonConverter(typeof(JsonStringEnumConverter))]
+    [JsonConverter(typeof(JsonStringEnumConverter<Granularity>))]
     public enum Granularity
     {
+        [JsonStringEnumMemberName("model")]
         Model,
+
+        [JsonStringEnumMemberName("batch")]
         Batch,
+
+        [JsonStringEnumMemberName("item")]
         Item
     }
 

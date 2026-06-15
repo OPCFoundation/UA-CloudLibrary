@@ -251,19 +251,29 @@ namespace Opc.Ua.Cloud.Library
             };
 
         /// <summary>
-        /// Applies a partial update (RFC 7396 JSON Merge Patch semantics) to the DPP with the given ID
-        /// per EN 18222 (Method UpdateDPPById).
+        /// Applies a partial update to the DPP with the given ID per EN 18222 (Method UpdateDPPById).
         /// </summary>
         /// <remarks>
+        /// The update has merge-patch-shaped semantics (RFC 7396): only the fields that appear
+        /// in the request body are touched, and members that are absent from the body are left
+        /// unchanged. The full RFC 7396 deletion rule (a JSON member with value <c>null</c> means
+        /// "delete that field") is intentionally <b>not</b> implemented because the DPP is backed
+        /// by a fixed OPC UA address space (nodes cannot be created or destroyed at runtime, and
+        /// EN 18223 Clause 4.1.2.1 Table 1 marks most header fields as required with cardinality
+        /// [1]). Consequently:
+        /// <list type="bullet">
+        ///   <item>An explicit <c>null</c> on any scalar field is rejected as <see cref="UpdateDppResult.BadRequest"/>.</item>
+        ///   <item>The <c>elements</c> member must be a JSON array; <c>null</c> and any non-array value are rejected.</item>
+        ///   <item>Within <c>elements</c>, each entry updates the leaf addressed by its <c>elementId</c>;
+        ///         child <c>DataElement</c> nodes are never added or removed.</item>
+        /// </list>
         /// The spec requires that "if the update of some parts fails the complete update process will fail
         /// and there should be no changes adopted in the DPP". OPC UA writes are not transactional, so this
         /// method performs an up-front resolution pass (locating every target node and validating field names)
         /// before issuing any writes, minimizing the risk of partial application. A snapshot of the current DPP
         /// state is captured to <see cref="IDppVersionArchive"/> immediately before writes are applied,
         /// satisfying the EN 18221 Clause 4.2 archiving requirement (durable archival depends on the configured
-        /// <see cref="IDppVersionArchive"/> implementation). Following RFC 7396, a JSON member whose value is
-        /// <c>null</c> means "delete that field"; for the OPC UA backing store this is approximated by
-        /// writing an empty string to the underlying variable.
+        /// <see cref="IDppVersionArchive"/> implementation).
         /// </remarks>
         public async Task<(UpdateDppResult Result, string ErrorMessage, DigitalProductPassport Updated)> UpdateDppById(
             string userId, string dppId, JsonObject partial)
@@ -312,7 +322,8 @@ namespace Opc.Ua.Cloud.Library
 
                     if (entry.Value is not JsonArray elementsArray)
                     {
-                        return (UpdateDppResult.BadRequest, "'elements' must be a JSON array.", null);
+                        // Deletion / clearing of the elements collection is not supported; see method remarks.
+                        return (UpdateDppResult.BadRequest, "'elements' must be a JSON array (deletion via null is not supported).", null);
                     }
 
                     var (err, resolved) = await ResolveElementWritesAsync(userId, dppId, elementsNode, elementsArray, "elements").ConfigureAwait(false);
@@ -334,6 +345,14 @@ namespace Opc.Ua.Cloud.Library
                 if (target == null)
                 {
                     return (UpdateDppResult.BadRequest, $"DPP does not expose field: '{entry.Key}'.", null);
+                }
+
+                // Reject explicit null on scalar fields: deletion is not supported (see method remarks).
+                // Omitting the member from the request leaves the field unchanged, which is the spec-correct
+                // way to "not touch" a field under merge-patch-shaped semantics.
+                if (entry.Value is null)
+                {
+                    return (UpdateDppResult.BadRequest, $"Field '{entry.Key}' cannot be set to null; omit it from the request to leave it unchanged.", null);
                 }
 
                 pendingWrites.Add((target.Id, JsonNodeToWireValue(entry.Value), entry.Key));
@@ -575,8 +594,10 @@ namespace Opc.Ua.Cloud.Library
                     continue;
                 }
 
-                // Element entry with no actionable content (e.g. just metadata) is ignored, matching
-                // RFC 7396 semantics where unspecified members are left unchanged.
+                // Element entry with no actionable content (e.g. just metadata) is ignored under
+                // the merge-patch-shaped semantics described on UpdateDppById: members that are
+                // absent from the partial body are left unchanged. (Full RFC 7396 deletion is not
+                // supported, because the underlying OPC UA Elements subtree is a fixed schema.)
             }
 
             return (null, writes);

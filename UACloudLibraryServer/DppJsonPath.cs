@@ -167,6 +167,15 @@ namespace Opc.Ua.Cloud.Library
                     int start = i;
                     while (i < span.Length && span[i] != '.' && span[i] != '[')
                     {
+                        // Reject the wildcard selector here too: without this guard the
+                        // unprefixed leading segment would accept "*" or "foo*bar" as a
+                        // literal name, contradicting the documented RFC 9535 subset.
+                        if (span[i] == '*')
+                        {
+                            error = "Wildcard '*' is not supported.";
+                            return false;
+                        }
+
                         i++;
                     }
 
