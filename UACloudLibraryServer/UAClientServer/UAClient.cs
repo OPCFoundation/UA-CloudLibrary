@@ -565,7 +565,14 @@ namespace Opc.Ua.Cloud.Library
                             if (!LoadedNamespaces.ContainsKey(nodeManager.NamespaceUris.Last()))
                             {
                                 NodeSetModel nodeSetMeta = await _database.GetNodeSets(userId, nodesetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false);
-                                LoadedNamespaces.Add(nodeManager.NamespaceUris.Last(), new Tuple<string, string>(nodeSetMeta.Version, nodeSetMeta.Version));
+                                if (nodeSetMeta != null)
+                                {
+                                    LoadedNamespaces.Add(nodeManager.NamespaceUris.Last(), new Tuple<string, string>(nodeSetMeta.Version, nodeSetMeta.Version));
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"Nodeset metadata for {nodesetIdentifier} not found in database.");
+                                }
                             }
                         }
                         else
@@ -639,6 +646,52 @@ namespace Opc.Ua.Cloud.Library
                 Console.WriteLine("CopyNodeset: " + ex.Message);
                 return ex.Message;
             }
+        }
+
+        public async Task<Dictionary<string, DbFiles>> GetAllLoadedNodesetFilesAsync(string userId)
+        {
+            var nodesetFiles = new Dictionary<string, DbFiles>();
+
+            await _lock.WaitAsync().ConfigureAwait(false);
+            KeyValuePair<string, Tuple<string, string>>[] loadedNamespacesSnapshot;
+            try
+            {
+                loadedNamespacesSnapshot = LoadedNamespaces.ToArray();
+            }
+            finally
+            {
+                _lock.Release();
+            }
+
+            foreach (var loadedNamespace in loadedNamespacesSnapshot)
+            {
+                try
+                {
+                    // Get nodeset metadata by namespace URI
+                    var matchingNodeSets = await _database.GetNodeSets(userId, null, loadedNamespace.Key).ToListAsync().ConfigureAwait(false);
+
+                    if (matchingNodeSets != null && matchingNodeSets.Count > 0)
+                    {
+                        // Get the nodeset that matches the loaded version
+                        var nodeSet = matchingNodeSets.FirstOrDefault(ns => ns.Version == loadedNamespace.Value.Item2) ?? matchingNodeSets.OrderByDescending(ns => ns.PublicationDate ?? DateTime.MinValue).ThenByDescending(ns => ns.Version).First();
+
+                        // Download the file
+                        DbFiles file = await _storage.DownloadFileAsync(nodeSet.Identifier).ConfigureAwait(false);
+                        if (file != null)
+                        {
+                            // Use namespace + version as key to ensure uniqueness
+                            string fileKey = $"{loadedNamespace.Key}_{loadedNamespace.Value.Item2}";
+                            nodesetFiles[fileKey] = file;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error retrieving nodeset for {loadedNamespace.Key}: {ex.Message}");
+                }
+            }
+
+            return nodesetFiles;
         }
 
         public async Task DisposeSession()
