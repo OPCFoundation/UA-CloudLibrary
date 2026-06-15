@@ -116,21 +116,6 @@ namespace Opc.Ua.Cloud.Client
             _restClient = new RestClient(strEndpoint, new AuthenticationHeaderValue("Basic", temp));
         }
 
-        /// <summary>Initializes a new instance of the <see cref="UACloudLibClient" /> class using an Api Token.</summary>
-        /// <param name="strEndpoint">The string endpoint.</param>
-        /// <param name="strApiToken">The string ApiToken.</param>
-        public UACloudLibClient(string strEndpoint, string strApiToken)
-        {
-            if (string.IsNullOrEmpty(strEndpoint))
-            {
-                strEndpoint = _standardEndpoint.ToString();
-            }
-
-            BaseEndpoint = new Uri(strEndpoint);
-
-            _restClient = new RestClient(strEndpoint, new AuthenticationHeaderValue("ApiToken", strApiToken));
-        }
-
         /// <summary>
         /// Initializes a new instance of the <see cref="UACloudLibClient" /> class using API key authentication.
         /// </summary>
