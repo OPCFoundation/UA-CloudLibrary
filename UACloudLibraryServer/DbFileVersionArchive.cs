@@ -19,15 +19,18 @@ namespace Opc.Ua.Cloud.Library
     /// </summary>
     public sealed class DbFileVersionArchive : IDppVersionArchive
     {
-        // Row-name layout: "dpp-archive::{dppId}::{capturedAtUtcTicks:D19}-{counter:D6}{randomHex}"
+        // Row-name layout: "dpp-archive::{dppId}::{capturedAtUtcTicks:D19}-{counter:X6}{randomHex}"
         //
         // The fixed-width D19 tick stamp is the dominant sort key, so lexicographic ordering
         // still matches chronological order and the at-or-before lookup in GetVersionAtAsync
-        // remains an ordered prefix scan. The "-{counter:D6}{randomHex}" suffix exists only to
+        // remains an ordered prefix scan. The "-{counter:X6}{randomHex}" suffix exists only to
         // break ties when multiple snapshots are captured at the same tick:
-        //  - {counter:D6} is a per-process monotonic counter (Interlocked.Increment), so two
-        //    in-process callers that observe the same tick are guaranteed to produce distinct,
-        //    deterministically-ordered names without any DB round-trip.
+        //  - {counter:X6} is a per-process monotonic counter (Interlocked.Increment) masked to
+        //    24 bits and formatted as 6 uppercase hex chars so the field stays exactly 6 chars
+        //    wide (decimal D6 could exceed 6 chars once the counter rolled past 999,999 and
+        //    would break the lexicographic-equals-chronological ordering within a single tick).
+        //    Two in-process callers that observe the same tick are guaranteed to produce
+        //    distinct, deterministically-ordered names without any DB round-trip.
         //  - {randomHex} is 8 hex chars from RandomNumberGenerator, making the row name unique
         //    across processes as well. This makes the underlying insert itself the arbiter:
         //    DbFiles.Name is the [Key] of the table, so the database uniqueness constraint
@@ -191,7 +194,7 @@ namespace Opc.Ua.Cloud.Library
 
             string tail = rowName.Substring(prefix.Length);
 
-            // The tail is "{ticks:D19}-{counter:D6}{randomHex}"; isolate the tick field by
+            // The tail is "{ticks:D19}-{counter:X6}{randomHex}"; isolate the tick field by
             // splitting on the first '-'. For backward compatibility, also accept the legacy
             // "{ticks:D19}" layout (no suffix) so any previously archived rows still parse.
             int separatorIndex = tail.IndexOf(TickSuffixSeparator, StringComparison.Ordinal);

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace Opc.Ua.Cloud.Library.Models
 {
@@ -36,6 +37,7 @@ namespace Opc.Ua.Cloud.Library.Models
         string statusCode,
         T payload = default,
         ApiResult result = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         Pagination pagination = null
     );
 }

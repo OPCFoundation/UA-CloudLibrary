@@ -293,7 +293,7 @@ The archive implements the archiving rules of EN 18221 Clause 4.2 (point-in-time
 * The fixed-width 19-digit tick stamp remains the dominant sort key, so lexicographic ordering still matches chronological order: retrieving the snapshot at or before a target timestamp is an ordered prefix scan via `DbFileStorage.ListFileNamesAsync(prefix)`. Ties within the same tick are broken deterministically by `(counter, randomHex)`, so the scan still selects the most recent write at that tick.
 * Because the row name is unique by construction, the underlying `DbFiles.Name` primary key (a unique constraint) is the sole arbiter of collisions. Two concurrent archive writes cannot overwrite one another, and the archived tick value always reflects the snapshot's true capture time.
 
-`DbFileVersionArchive` is registered as a scoped service in `Startup.ConfigureServices`, aligned with the scoped `AppDbContext` that backs `DbFileStorage`.
+`DbFileVersionArchive` is registered as a scoped service in `Startup.ConfigureServices`. Its dependency `DbFileStorage` (and the underlying `AppDbContext`) are registered as transient, so each archive instance gets a fresh storage layer scoped to the current HTTP request without sharing change-tracker state across requests.
 
 ### Error responses
 
