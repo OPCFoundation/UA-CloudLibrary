@@ -9,11 +9,14 @@ namespace UACloudLibraryServer.UnitTests
     /// <summary>
     /// Unit tests for <see cref="DPPService.ParseLeafValue"/>. OPC UA persists leaf
     /// variables as strings, but DPP write requests accept typed JSON literals
-    /// (numbers, booleans, arrays, objects). This helper restores typing on the
-    /// read path so a write-then-read round-trip preserves the original JSON value
-    /// kind. Plain strings that are not valid JSON literals must fall back to a
-    /// string-wrapped <see cref="JsonValue"/> so existing stored data is not
-    /// silently reinterpreted.
+    /// (objects, arrays, quoted strings). This helper restores typing on the
+    /// read path so a write-then-read round-trip preserves structural JSON values.
+    /// Numeric, boolean, and bare-null literals are NOT re-typed: without per-leaf
+    /// type metadata, retyping "007" as the number 7 or "true" as a boolean would
+    /// silently change the semantics and formatting of plain-string IDs that
+    /// happen to look like JSON literals (serial numbers, codes with leading
+    /// zeros, etc.). Plain strings always fall back to a string-wrapped
+    /// <see cref="JsonValue"/> so existing stored data is preserved verbatim.
     /// </summary>
     public class ParseLeafValueTests
     {
@@ -45,24 +48,31 @@ namespace UACloudLibraryServer.UnitTests
         }
 
         [Theory]
-        [InlineData("123", 123)]
-        [InlineData("-5", -5)]
-        [InlineData("0", 0)]
-        public void ParseLeafValue_NumericString_BecomesNumber(string raw, int expected)
+        [InlineData("123")]
+        [InlineData("-5")]
+        [InlineData("0")]
+        [InlineData("007")]            // leading-zero IDs must not be coerced to the number 7
+        [InlineData("3.14")]
+        [InlineData("1e10")]
+        public void ParseLeafValue_NumericString_StaysString(string raw)
         {
+            // Numeric-looking strings are NOT re-typed: serial numbers, product codes and
+            // similar identifiers must round-trip verbatim, including any leading zeros.
             JsonNode node = DPPService.ParseLeafValue(raw);
             Assert.NotNull(node);
-            Assert.Equal(expected, node.GetValue<int>());
+            Assert.Equal(raw, node.GetValue<string>());
         }
 
         [Theory]
-        [InlineData("true", true)]
-        [InlineData("false", false)]
-        public void ParseLeafValue_BooleanString_BecomesBoolean(string raw, bool expected)
+        [InlineData("true")]
+        [InlineData("false")]
+        public void ParseLeafValue_BooleanString_StaysString(string raw)
         {
+            // Boolean-looking strings are NOT re-typed for the same reason: without per-leaf
+            // type metadata we cannot tell "true" the literal from "true" the stored string.
             JsonNode node = DPPService.ParseLeafValue(raw);
             Assert.NotNull(node);
-            Assert.Equal(expected, node.GetValue<bool>());
+            Assert.Equal(raw, node.GetValue<string>());
         }
 
         [Fact]
@@ -93,10 +103,10 @@ namespace UACloudLibraryServer.UnitTests
         }
 
         [Fact]
-        public void ParseLeafValue_LiteralNull_FallsBackToStringWrap()
+        public void ParseLeafValue_LiteralNull_StaysString()
         {
-            // JsonNode.Parse("null") returns null; the helper coalesces that to a string
-            // wrap so the caller does not lose the original value entirely.
+            // The bare literal "null" is also excluded from re-typing: a stored "null" string
+            // round-trips as a string so it can be distinguished from an actual absent value.
             JsonNode node = DPPService.ParseLeafValue("null");
             Assert.NotNull(node);
             Assert.Equal("null", node.GetValue<string>());
@@ -110,6 +120,10 @@ namespace UACloudLibraryServer.UnitTests
         [InlineData("trueish")]
         public void ParseLeafValue_MalformedJson_FallsBackToString(string raw)
         {
+            // Malformed structural JSON (unbalanced '[' or '{') exercises the JsonException
+            // fallback inside ParseLeafValue. Non-structural inputs ("1abc", "trueish",
+            // "-not-a-number") never enter the parser at all but must also surface as the
+            // verbatim string - this theory pins both paths.
             JsonNode node = DPPService.ParseLeafValue(raw);
             Assert.NotNull(node);
             Assert.Equal(raw, node.GetValue<string>());

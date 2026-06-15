@@ -97,9 +97,17 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 ));
             }
 
-            var ids = _dppService.GetDppIdsByProductIds(User.Identity.Name, request.productIds).ToList();
-
-            // Apply in-memory pagination on the resolved identifier set.
+            // Apply in-memory pagination on the resolved identifier set. GetDppIdsByProductIds
+            // does not guarantee a deterministic order and can return duplicates when the same
+            // DPP backs more than one of the supplied productIds; both would make the integer
+            // cursor produce inconsistent pages across requests (same cursor -> different page)
+            // and let clients miss or repeat IDs. Normalize with a stable ordinal sort + dedup
+            // before slicing so the cursor positions a fixed sequence.
+            List<string> ids = _dppService.GetDppIdsByProductIds(User.Identity.Name, request.productIds)
+                .Where(id => !string.IsNullOrEmpty(id))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(id => id, StringComparer.Ordinal)
+                .ToList();
             int startIndex = 0;
             if (!string.IsNullOrEmpty(cursor))
             {

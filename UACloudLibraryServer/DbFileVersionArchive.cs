@@ -75,7 +75,7 @@ namespace Opc.Ua.Cloud.Library
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public async Task ArchiveAsync(string dppId, DigitalProductPassport snapshot, DateTimeOffset capturedAtUtc)
+        public async Task<bool> ArchiveAsync(string dppId, DigitalProductPassport snapshot, DateTimeOffset capturedAtUtc)
         {
             if (string.IsNullOrEmpty(dppId))
             {
@@ -95,8 +95,14 @@ namespace Opc.Ua.Cloud.Library
             string stored = await _storage.UploadFileAsync(name, payload, null).ConfigureAwait(false);
             if (string.IsNullOrEmpty(stored))
             {
+                // Per EN 18221 Clause 4.2 the archive write is part of the update transaction:
+                // surfacing the failure lets DPPService translate it into WriteFailed so the
+                // client sees the broken archival guarantee instead of a false-positive 200.
                 _logger.LogError("DbFileVersionArchive: failed to persist snapshot for DPP {DppId} at {CapturedAtUtc}.", dppId, capturedAtUtc);
+                return false;
             }
+
+            return true;
         }
 
         public async Task<DigitalProductPassport> GetVersionAtAsync(string dppId, DateTimeOffset asOfUtc)

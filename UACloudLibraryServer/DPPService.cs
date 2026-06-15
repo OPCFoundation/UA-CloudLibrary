@@ -63,8 +63,18 @@ namespace Opc.Ua.Cloud.Library
                 return archived;
             }
 
-            // No archived snapshot: only the live DPP is available. The spec wants the version
-            // valid at the requested date, so return null when nothing was archived for that time.
+            // No archived snapshot covering the requested timestamp. Before reporting "no version"
+            // we still fall back to the live DPP when its own LastUpdate is at or before the
+            // requested instant: in that case the live state IS the version that was active at
+            // 'target' (there has been no update since), so returning null would surface a 404 for
+            // a perfectly valid historical read - e.g. any read before the first update ever runs,
+            // when the archive is empty by definition.
+            DigitalProductPassport live = await GetByDppId(userId, dppId).ConfigureAwait(false);
+            if (live != null && live.LastUpdate.ToUniversalTime() <= target)
+            {
+                return live;
+            }
+
             return null;
         }
 
@@ -408,10 +418,19 @@ namespace Opc.Ua.Cloud.Library
 
             // Only now that the change is durable do we commit the pre-update snapshot to the
             // archive. Archiving last keeps the version history in sync with what actually got
-            // persisted and avoids phantom archive entries for failed updates.
+            // persisted and avoids phantom archive entries for failed updates. EN 18221 Clause 4.2
+            // makes archival part of the update contract, so a persistence-level archive failure
+            // is propagated as WriteFailed rather than swallowed - returning 200 here would let
+            // the live DPP advance without a retrievable previous version, silently breaking
+            // ReadDPPVersionByIdAndDate.
             if (preUpdate != null)
             {
-                await _archive.ArchiveAsync(dppId, preUpdate, DateTimeOffset.UtcNow).ConfigureAwait(false);
+                bool archived = await _archive.ArchiveAsync(dppId, preUpdate, DateTimeOffset.UtcNow).ConfigureAwait(false);
+                if (!archived)
+                {
+                    _logger.LogError("UpdateDppById: archive write failed for DPP {DppId}; update is durable but previous version is not retrievable.", dppId);
+                    return (UpdateDppResult.WriteFailed, "Update applied but previous version could not be archived.", null);
+                }
             }
 
             DigitalProductPassport updated = await GetByDppId(userId, dppId).ConfigureAwait(false);
@@ -556,9 +575,18 @@ namespace Opc.Ua.Cloud.Library
             // Only commit the archive snapshot after the change is durable, matching the ordering
             // used by UpdateDppById and keeping the version history aligned with what actually got
             // persisted (Clause 4.7 - previous version remains addressable, but only for real updates).
+            // A persistence-level archive failure is propagated as WriteFailed rather than
+            // swallowed: EN 18221 Clause 4.2 treats archival as part of the update contract, and
+            // returning 200 with an unarchived previous version would silently break
+            // ReadDPPVersionByIdAndDate for this DPP.
             if (preUpdate != null)
             {
-                await _archive.ArchiveAsync(dppId, preUpdate, DateTimeOffset.UtcNow).ConfigureAwait(false);
+                bool archived = await _archive.ArchiveAsync(dppId, preUpdate, DateTimeOffset.UtcNow).ConfigureAwait(false);
+                if (!archived)
+                {
+                    _logger.LogError("UpdateDataElement: archive write failed for DPP {DppId}; update is durable but previous version is not retrievable.", dppId);
+                    return (UpdateDppResult.WriteFailed, "Update applied but previous version could not be archived.", null);
+                }
             }
 
             (ElementResult readResult, _, DataElement updated) = await GetElement(userId, dppId, elementIdPath).ConfigureAwait(false);
@@ -965,11 +993,15 @@ namespace Opc.Ua.Cloud.Library
 
         // Leaf variables are persisted as strings by the OPC UA layer, but writes accept typed JSON
         // (numbers, booleans, arrays, objects) via JsonNodeToWireValue, which serializes those as
-        // their JSON text form. To round-trip those writes back to clients as typed JSON values
-        // rather than quoted strings, attempt to parse the stored string as a JSON literal first.
-        // Plain strings that do not happen to be valid JSON (the common case for IDs, names, etc.)
-        // simply fall back to the JsonValue.Create string wrapping used previously, so existing
-        // stored data continues to surface unchanged.
+        // their JSON text form. To round-trip structured writes (objects / arrays) back to clients
+        // as typed JSON rather than quoted strings, we attempt to parse the stored string as a
+        // JSON literal first - but only when its leading character unambiguously marks structural
+        // JSON ('{', '[' or '"'). Bare numeric / boolean / null literals are intentionally NOT
+        // re-typed: stored strings such as serial numbers, product IDs or values with significant
+        // leading zeros ("007") would otherwise be silently coerced into a JSON number (7), which
+        // changes semantics and loses formatting. Clients that need typed scalars can opt in by
+        // writing an explicit JSON object/array shape (e.g. a wrapped MultiValuedDataElement) or
+        // by parsing the returned string themselves.
         //
         // Exposed as internal (not private) so the unit-test assembly can exercise the round-trip
         // matrix without instantiating the full DPPService dependency graph.
@@ -981,12 +1013,10 @@ namespace Opc.Ua.Cloud.Library
             }
 
             char first = raw[0];
-            // Only attempt parsing when the leading character is a JSON structural / literal start.
-            // This avoids parser allocations for the overwhelmingly common plain-string case and
-            // keeps unrelated strings that happen to start with a digit-prefixed identifier from
-            // being silently retyped.
-            if (first is not ('{' or '[' or '"' or 't' or 'f' or 'n')
-                && (first < '0' || first > '9') && first != '-')
+            // Only attempt parsing when the leading character is a JSON STRUCTURAL start
+            // ('{' object, '[' array, '"' quoted string). Numeric / boolean / null literals are
+            // intentionally excluded - see method remarks.
+            if (first is not ('{' or '[' or '"'))
             {
                 return JsonValue.Create(raw);
             }

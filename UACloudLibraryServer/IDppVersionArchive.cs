@@ -19,7 +19,14 @@ namespace Opc.Ua.Cloud.Library
         /// <summary>
         /// Persists a snapshot of <paramref name="snapshot"/> for the given DPP id at <paramref name="capturedAtUtc"/>.
         /// </summary>
-        Task ArchiveAsync(string dppId, DigitalProductPassport snapshot, DateTimeOffset capturedAtUtc);
+        /// <returns>
+        /// <c>true</c> when the snapshot was durably stored, <c>false</c> otherwise. Callers
+        /// implementing the EN 18221 Clause 4.2 archival guarantee MUST treat <c>false</c> as a
+        /// hard failure of the surrounding update operation - returning success in that case
+        /// would silently violate the archival contract that <c>ReadDPPVersionByIdAndDate</c>
+        /// relies on.
+        /// </returns>
+        Task<bool> ArchiveAsync(string dppId, DigitalProductPassport snapshot, DateTimeOffset capturedAtUtc);
 
         /// <summary>
         /// Returns the snapshot that was active at or before <paramref name="asOfUtc"/>, or <c>null</c>
