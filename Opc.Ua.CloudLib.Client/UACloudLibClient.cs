@@ -41,6 +41,22 @@ using Opc.Ua.Cloud.Client.Models;
 namespace Opc.Ua.Cloud.Client
 {
     /// <summary>
+    /// Specifies the type of API key for authentication
+    /// </summary>
+    public enum ApiKeyType
+    {
+        /// <summary>
+        /// Read-Only API key - allows only GET operations
+        /// </summary>
+        ReadOnly,
+
+        /// <summary>
+        /// Read-Write API key - allows all operations including POST, PUT, DELETE
+        /// </summary>
+        ReadWrite
+    }
+
+    /// <summary>
     /// This class handles the quering and conversion of the response
     /// </summary>
     public partial class UACloudLibClient : IDisposable
@@ -76,6 +92,11 @@ namespace Opc.Ua.Cloud.Client
             /// Password to use for authenticating with the cloud library
             /// </summary>
             public string Password { get; set; }
+
+            /// <summary>
+            /// API Key to use for authenticating with the cloud library (alternative to Username/Password)
+            /// </summary>
+            public string ApiKey { get; set; }
         }
 
         /// <summary>Initializes a new instance of the <see cref="UACloudLibClient" /> class.</summary>
@@ -108,6 +129,41 @@ namespace Opc.Ua.Cloud.Client
             BaseEndpoint = new Uri(strEndpoint);
 
             _restClient = new RestClient(strEndpoint, new AuthenticationHeaderValue("ApiToken", strApiToken));
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="UACloudLibClient" /> class using API key authentication.
+        /// </summary>
+        /// <param name="strEndpoint">The string endpoint.</param>
+        /// <param name="apiKey">The API key for authentication.</param>
+        /// <remarks>
+        /// API keys can be either Read-Only or Read-Write. Read-Only keys can only perform GET operations,
+        /// while Read-Write keys can perform all operations including POST, PUT, and DELETE.
+        /// </remarks>
+        public UACloudLibClient(string strEndpoint, string apiKey)
+        {
+            if (string.IsNullOrEmpty(strEndpoint))
+            {
+                strEndpoint = _standardEndpoint.ToString();
+            }
+
+            BaseEndpoint = new Uri(strEndpoint);
+
+            _restClient = new RestClient(strEndpoint, apiKey);
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="UACloudLibClient" /> class using API key authentication with default endpoint.
+        /// </summary>
+        /// <param name="apiKey">The API key for authentication.</param>
+        /// <remarks>
+        /// Uses the default OPC Foundation Cloud Library endpoint.
+        /// API keys can be either Read-Only or Read-Write. Read-Only keys can only perform GET operations,
+        /// while Read-Write keys can perform all operations including POST, PUT, and DELETE.
+        /// </remarks>
+        public UACloudLibClient(string apiKey)
+            : this(_standardEndpoint.ToString(), apiKey)
+        {
         }
 
         /// <summary>

@@ -40,6 +40,7 @@ using System.Threading.Tasks;
 using AdminShell;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OAuth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
@@ -90,6 +91,9 @@ namespace Opc.Ua.Cloud.Library
                 .AddTokenProvider<ApiKeyTokenProvider>(ApiKeyTokenProvider.ApiKeyProviderName);
 
             services.AddScoped<UserService>();
+
+            services.AddHttpContextAccessor();
+            services.AddSingleton<IAuthorizationHandler, ReadWriteApiKeyHandler>();
 
             services.AddTransient<CloudLibDataProvider>();
 
@@ -196,6 +200,7 @@ namespace Opc.Ua.Cloud.Library
                         policy.AddAuthenticationSchemes("BasicAuthentication").RequireAuthenticatedUser();
                         policy.AddAuthenticationSchemes("SignedInUserAuthentication").RequireAuthenticatedUser();
                         policy.AddAuthenticationSchemes("ApiKeyAuthentication").RequireAuthenticatedUser();
+                        policy.AddRequirements(new ReadWriteApiKeyRequirement());
                     });
                 });
             }

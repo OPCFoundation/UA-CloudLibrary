@@ -46,6 +46,7 @@ namespace Opc.Ua.Cloud.Client
     internal class RestClient : IDisposable
     {
         private HttpClient client;
+        private const string ApiKeyHeaderName = "x-api-key";
 
         public AuthenticationHeaderValue Authentication
         {
@@ -67,6 +68,23 @@ namespace Opc.Ua.Cloud.Client
                 client.DefaultRequestHeaders.Add("x-api-key", authentication.Parameter);
             else
                 client.DefaultRequestHeaders.Authorization = authentication;
+        }
+
+        /// <summary>
+        /// Initializes a new instance with API key authentication
+        /// </summary>
+        /// <param name="address">The base address of the cloud library</param>
+        /// <param name="apiKey">The API key for authentication</param>
+        public RestClient(string address, string apiKey)
+        {
+            client = new HttpClient();
+            client.BaseAddress = new Uri(address);
+
+            // API keys are sent via x-api-key header, not Authorization header
+            if (!string.IsNullOrEmpty(apiKey))
+            {
+                client.DefaultRequestHeaders.Add(ApiKeyHeaderName, apiKey);
+            }
         }
 
         public RestClient(HttpClient httpClient)

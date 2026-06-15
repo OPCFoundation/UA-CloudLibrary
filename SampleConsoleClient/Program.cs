@@ -44,11 +44,16 @@ namespace SampleConsoleClient
     {
         static async Task Main(string[] args)
         {
-            if (args.Length < 3)
+            if (args.Length < 2)
             {
                 Console.WriteLine();
-                Console.WriteLine("Usage: SampleConsoleClient <UA Cloud Library instance URL> <username> <password>");
-                Console.WriteLine("    or SampleConsoleClient <UA Cloud Library instance URL> TOKEN <ApiToken>");
+                Console.WriteLine("Usage:");
+                Console.WriteLine("  Basic Auth:  SampleConsoleClient <UA Cloud Library instance URL> <username> <password>");
+                Console.WriteLine("  API Key:     SampleConsoleClient <UA Cloud Library instance URL> <API key>");
+                Console.WriteLine();
+                Console.WriteLine("Examples:");
+                Console.WriteLine("  SampleConsoleClient https://uacloudlibrary.opcfoundation.org myuser mypass");
+                Console.WriteLine("  SampleConsoleClient https://uacloudlibrary.opcfoundation.org CLxx_xxxxxxxxxxxxxxxxxxxxxxxxxxxx");
                 return;
             }
 
@@ -70,10 +75,19 @@ namespace SampleConsoleClient
                 BaseAddress = new Uri(args[0])
             };
 
-            if (args[1] != "TOKEN")
+            // Determine authentication method based on number of arguments
+            if (args.Length >= 3)
+            {
+                // Basic authentication with username and password
                 webClient.DefaultRequestHeaders.Add("Authorization", "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(args[1] + ":" + args[2])));
-            else
-                webClient.DefaultRequestHeaders.Add("x-api-key", args[2]);
+                Console.WriteLine("Using Basic Authentication");
+            }
+            else if (args.Length == 2)
+            {
+                // API key authentication
+                webClient.DefaultRequestHeaders.Add("x-api-key", args[1]);
+                Console.WriteLine("Using API Key Authentication");
+            }
 
             Console.WriteLine();
             Console.WriteLine("Testing /infomodel/find2?keywords");
@@ -118,7 +132,21 @@ namespace SampleConsoleClient
         {
             Console.WriteLine("\n\nTesting the client library");
 
-            UACloudLibClient client = (args[1] == "TOKEN" ? new UACloudLibClient(args[0], args[2]) : new UACloudLibClient(args[0], args[1], args[2]));
+            UACloudLibClient client;
+
+            // Determine authentication method based on number of arguments
+            if (args.Length >= 3)
+            {
+                // Basic authentication with username and password
+                Console.WriteLine("Creating client with Basic Authentication");
+                client = new UACloudLibClient(args[0], args[1], args[2]);
+            }
+            else
+            {
+                // API key authentication
+                Console.WriteLine("Creating client with API Key Authentication");
+                client = new UACloudLibClient(args[0], args[1]);
+            }
 
             List<UANameSpace> restResult = await client.GetBasicNodesetInformationAsync(0, 10).ConfigureAwait(false);
             if (restResult?.Count > 0)

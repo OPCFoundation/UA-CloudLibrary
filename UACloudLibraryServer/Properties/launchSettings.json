@@ -33,9 +33,9 @@
         "ASPNETCORE_ENVIRONMENT": "Development",
         "PostgreSQLEndpoint": "uacloudlib-staging.postgres.database.azure.com",
         "PostgreSQLUsername": "opcua",
-        "PostgreSQLPassword": ".wP9AMD2-xf!WRD",
+        "PostgreSQLPassword": "",
         "EmailSenderAPIKey": "",
-        "ServicePassword": "testpw"
+        "ServicePassword": ""
       },
       "publishAllPorts": true,
       "useSSL": true
