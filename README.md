@@ -286,11 +286,11 @@ The DPP update path strictly separates the three concerns of the Browser UI's `S
 
 No-op updates (an empty PATCH body, or a body whose entries all resolve to zero concrete writes) short-circuit before step 2, so they never touch the OPC UA address space, never bump the persisted `PublicationDate`, and never create an archive entry.
 
-To prevent a save from silently overwriting an earlier on-disk version, the persistence step rewrites the `PublicationDate="..."` attribute in the stored nodeset XML to the current UTC timestamp (second precision, `yyyy-MM-ddTHH:mm:ssZ`). This mirrors the in-XML date bump already used by `UAClient.CopyNodeset` and ensures every persisted save is uniquely datable.
+To prevent a save from silently overwriting an earlier on-disk version, the persistence step rewrites the `PublicationDate="..."` attribute in the stored nodeset XML to the current UTC timestamp with millisecond precision (`yyyy-MM-ddTHH:mm:ss.fffZ`). This mirrors the in-XML date bump already used by `UAClient.CopyNodeset` and ensures every persisted save is uniquely datable even when updates land in the same wall-clock second.
 
 When the update payload addresses an element via `value`, the server decides leaf-vs-collection semantics from the **live OPC UA browse** of the matched node, not from the client-supplied `objectType` field. If the live node has children the array under `value` is recursed into (multivalued collection); if it has no children the array is written as-is (multilanguage leaf). This keeps a malicious or buggy client from forcing an array payload onto the wrong parent node.
 
-DPP leaf values are persisted by the OPC UA layer as strings. To round-trip typed JSON literals (numbers, booleans, arrays, objects), the read path attempts to parse each stored string as a JSON literal; values that are not valid JSON (the common case for IDs, names, etc.) surface unchanged as JSON strings.
+DPP leaf values are persisted by the OPC UA layer as strings. The read path only re-types values whose stored text starts with an unambiguous JSON **structural** marker (`{`, `[` or `"`): JSON objects, arrays and quoted strings round-trip as their typed `JsonNode` form, while everything else surfaces verbatim as a JSON string. Numeric, boolean and bare-`null` literals are intentionally **not** re-typed because there is no per-leaf type metadata to tell e.g. the product code `"007"` apart from the number `7`, or the stored string `"true"` apart from the boolean `true`. Clients that need typed scalars should write them inside an explicit JSON object / array shape (e.g. a `MultiValuedDataElement.value` entry) and parse leaf strings themselves when needed.
 
 ### Durable version archive
 

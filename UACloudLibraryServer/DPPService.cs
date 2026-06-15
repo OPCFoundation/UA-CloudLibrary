@@ -773,8 +773,15 @@ namespace Opc.Ua.Cloud.Library
         }
 
         // Rewrites the PublicationDate="..." attribute in the nodeset XML to the current UTC time
-        // (second precision). Returns the input unchanged if the attribute is not present or
-        // appears malformed; that way callers never lose the XML blob due to a parse mismatch.
+        // with millisecond precision. Millisecond precision (not second) is required because
+        // PersistNodesetValuesAsync is invoked once per update and the README/docs guarantee that
+        // every persisted save is a distinct version: two updates landing in the same wall-clock
+        // second would otherwise share the same PublicationDate value and silently overwrite each
+        // other's "version" stamp. The standard nodeset XML grammar allows a fractional-seconds
+        // component on xs:dateTime, so consumers that ignore the fraction still see a valid
+        // ISO 8601 / UA-compliant timestamp. Returns the input unchanged if the attribute is not
+        // present or appears malformed; that way callers never lose the XML blob due to a parse
+        // mismatch.
         private static string AdvancePublicationDate(string nodesetXml)
         {
             if (string.IsNullOrEmpty(nodesetXml))
@@ -796,7 +803,7 @@ namespace Opc.Ua.Cloud.Library
                 return nodesetXml;
             }
 
-            string now = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss'Z'", CultureInfo.InvariantCulture);
+            string now = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
             var sb = new StringBuilder(nodesetXml);
             sb.Remove(valueStart, valueEnd - valueStart);
             sb.Insert(valueStart, now);
