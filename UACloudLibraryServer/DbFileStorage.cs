@@ -181,9 +181,11 @@ namespace Opc.Ua.Cloud.Library
 
             try
             {
+                // StringComparison.Ordinal keeps the predicate culture-insensitive and is
+                // translated by EF Core to a SQL LIKE on the underlying provider.
                 return await _dbContext.DBFiles
                     .AsNoTracking()
-                    .Where(n => n.Name.StartsWith(prefix))
+                    .Where(n => n.Name.StartsWith(prefix, StringComparison.Ordinal))
                     .OrderBy(n => n.Name)
                     .Select(n => n.Name)
                     .ToListAsync(cancellationToken)

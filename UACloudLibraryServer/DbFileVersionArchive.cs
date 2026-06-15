@@ -191,7 +191,7 @@ namespace Opc.Ua.Cloud.Library
             // The tail is "{ticks:D19}-{counter:D6}{randomHex}"; isolate the tick field by
             // splitting on the first '-'. For backward compatibility, also accept the legacy
             // "{ticks:D19}" layout (no suffix) so any previously archived rows still parse.
-            int separatorIndex = tail.IndexOf(TickSuffixSeparator, StringComparison.InvariantCulture);
+            int separatorIndex = tail.IndexOf(TickSuffixSeparator, StringComparison.Ordinal);
             string tickField = separatorIndex < 0 ? tail : tail.Substring(0, separatorIndex);
 
             return long.TryParse(tickField, NumberStyles.Integer, CultureInfo.InvariantCulture, out ticks);

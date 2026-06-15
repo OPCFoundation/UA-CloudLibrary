@@ -289,9 +289,9 @@ To prevent a save from silently overwriting an earlier on-disk version, the pers
 
 The archive implements the archiving rules of EN 18221 Clause 4.2 (point-in-time retrievability of all past changes during the DPP lifetime) by reusing the existing `DbFileStorage`:
 
-* Each snapshot is stored as its own row in the `DbFiles` table whose `Name` follows the layout `dpp-archive::{dppId}::{capturedAtUtcTicks:D19}` and whose `Blob` holds the JSON-serialized `DigitalProductPassport`.
-* The fixed-width 19-digit tick suffix makes lexicographic ordering match chronological order, so retrieving the snapshot at or before a target timestamp is an ordered prefix scan via `DbFileStorage.ListFileNamesAsync(prefix)`.
-* If two snapshots collide on the same UTC tick (concurrent updates), the row name is nudged forward by one tick at a time until a free key is found, so older snapshots are never overwritten.
+* Each snapshot is stored as its own row in the `DbFiles` table whose `Name` follows the layout `dpp-archive::{dppId}::{capturedAtUtcTicks:D19}-{counter:D6}{randomHex8}` and whose `Blob` holds the JSON-serialized `DigitalProductPassport`. The trailing `-{counter:D6}{randomHex8}` segment combines a per-process monotonic counter with 4 random bytes (8 hex chars) so each row name is unique by construction, both within and across processes.
+* The fixed-width 19-digit tick stamp remains the dominant sort key, so lexicographic ordering still matches chronological order: retrieving the snapshot at or before a target timestamp is an ordered prefix scan via `DbFileStorage.ListFileNamesAsync(prefix)`. Ties within the same tick are broken deterministically by `(counter, randomHex)`, so the scan still selects the most recent write at that tick.
+* Because the row name is unique by construction, the underlying `DbFiles.Name` primary key (a unique constraint) is the sole arbiter of collisions. Two concurrent archive writes cannot overwrite one another, and the archived tick value always reflects the snapshot's true capture time.
 
 `DbFileVersionArchive` is registered as a scoped service in `Startup.ConfigureServices`, aligned with the scoped `AppDbContext` that backs `DbFileStorage`.
 

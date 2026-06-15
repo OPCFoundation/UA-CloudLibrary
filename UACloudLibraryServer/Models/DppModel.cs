@@ -52,6 +52,7 @@ namespace Opc.Ua.Cloud.Library.Models
         public required string EconomicOperatorId { get; init; }
 
         [JsonPropertyName("facilityId")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string FacilityId { get; init; }
 
         // EN 18223 Clause 4.1.2.1 Table 1: optional [0..*] list of references to
@@ -77,6 +78,7 @@ namespace Opc.Ua.Cloud.Library.Models
         public required string ElementId { get; init; }
 
         [JsonPropertyName("dictionaryReference")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string DictionaryReference { get; init; }
     }
 
@@ -149,10 +151,12 @@ namespace Opc.Ua.Cloud.Library.Models
 
         // Optional localized language tag (e.g. "en-GB").
         [JsonPropertyName("language")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string Language { get; init; }
 
         // Optional human readable title.
         [JsonPropertyName("resourceTitle")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string ResourceTitle { get; init; }
     }
 
