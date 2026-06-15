@@ -134,9 +134,9 @@ namespace Opc.Ua.Cloud.Library
         }
 
         public async Task<(ElementResult Result, string ErrorMessage, DataElement Element)> GetElement(
-            string userId, string dppId, string elementPath)
+            string userId, string dppId, string elementIdPath)
         {
-            if (!DppJsonPath.TryParse(elementPath, out IReadOnlyList<DppJsonPath.Segment> segments, out string parseError))
+            if (!DppJsonPath.TryParse(elementIdPath, out IReadOnlyList<DppJsonPath.Segment> segments, out string parseError))
             {
                 return (ElementResult.BadRequest, parseError, null);
             }
@@ -158,6 +158,17 @@ namespace Opc.Ua.Cloud.Library
             if (segments[0].IsName && string.Equals(segments[0].Name, "elements", StringComparison.Ordinal))
             {
                 startIndex = 1;
+            }
+
+            // After consuming an optional "elements" prefix the path must still address a specific
+            // DataElement. Paths like "elements" or "$.elements" are a client error (they name the
+            // collection root, not an element); report this as BadRequest to stay consistent with
+            // UpdateDataElement, which returns the same shape for the same semantic mistake.
+            if (startIndex >= segments.Count)
+            {
+                return (ElementResult.BadRequest,
+                    "elementIdPath must address a specific element, not the elements root.",
+                    null);
             }
 
             DataElement match = ResolveElement(roots, segments, startIndex);

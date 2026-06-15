@@ -97,53 +97,25 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 ));
             }
 
-            // Apply in-memory pagination on the resolved identifier set. GetDppIdsByProductIds
-            // does not guarantee a deterministic order and can return duplicates when the same
-            // DPP backs more than one of the supplied productIds; both would make the integer
-            // cursor produce inconsistent pages across requests (same cursor -> different page)
-            // and let clients miss or repeat IDs. Normalize with a stable ordinal sort + dedup
-            // before slicing so the cursor positions a fixed sequence.
-            List<string> ids = _dppService.GetDppIdsByProductIds(User.Identity.Name, request.productIds)
-                .Where(id => !string.IsNullOrEmpty(id))
-                .Distinct(StringComparer.Ordinal)
-                .OrderBy(id => id, StringComparer.Ordinal)
-                .ToList();
-            int startIndex = 0;
-            if (!string.IsNullOrEmpty(cursor))
+            // Apply in-memory pagination on the resolved identifier set. The slicing,
+            // deduplication, ordinal sort and cursor parsing rules live in DppPagination so they
+            // can be unit-tested without the HTTP pipeline; the controller only translates the
+            // outcome into the spec-shaped ApiResponse envelope.
+            IEnumerable<string> rawIds = _dppService.GetDppIdsByProductIds(User.Identity.Name, request.productIds);
+            DppPagination.SliceOutcome outcome = DppPagination.TrySlice(
+                rawIds, limit, cursor,
+                out List<string> page,
+                out Pagination pagination,
+                out string sliceError);
+
+            if (outcome == DppPagination.SliceOutcome.CursorMalformed)
             {
-                // A cursor was supplied: it must be a valid non-negative invariant-culture
-                // integer (the same format we emit in 'nextCursor'). Silently treating a
-                // malformed cursor as "start over" makes pagination loop on the client.
-                if (!int.TryParse(cursor, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedCursor)
-                    || parsedCursor < 0)
-                {
-                    return BadRequest(new ApiResponse<List<string>>(
-                        DppApiStatusCodes.ClientErrorBadRequest,
-                        payload: null,
-                        result: new ApiResult(new() { new ApiMessage("Error", "cursor must be a non-negative integer") })
-                    ));
-                }
-
-                startIndex = Math.Min(parsedCursor, ids.Count);
+                return BadRequest(new ApiResponse<List<string>>(
+                    DppApiStatusCodes.ClientErrorBadRequest,
+                    payload: null,
+                    result: new ApiResult(new() { new ApiMessage("Error", sliceError) })
+                ));
             }
-
-            List<string> page = ids.Skip(startIndex).ToList();
-            string nextCursor = null;
-            bool hasMore = false;
-
-            if (limit is int max && page.Count > max)
-            {
-                page = page.Take(max).ToList();
-                int next = startIndex + max;
-                nextCursor = next.ToString(CultureInfo.InvariantCulture);
-                hasMore = true;
-            }
-
-            // EN 18222 keeps pagination metadata adjacent to,
-            // but separate from, the payload — surface it via the response envelope.
-            Pagination pagination = (limit.HasValue || !string.IsNullOrEmpty(cursor))
-                ? new Pagination(nextCursor, hasMore, limit)
-                : null;
 
             return Ok(new ApiResponse<List<string>>(DppApiStatusCodes.Success, page, result: null, pagination: pagination));
         }
@@ -263,60 +235,15 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
         // EN 18222: GET v1/dpps/{dppId}/versions/{date}
         // The 'date' segment is an ISO 8601 timestamp identifying the DPP snapshot to return.
-        //
-        // The accepted format set is the explicit ISO 8601 grammar the contract documents -
-        // calendar date with optional time (seconds, optional fractional seconds) and an
-        // optional zone designator ('Z' or +/-HH:mm). DateTimeOffset.TryParse would silently
-        // accept many culture-shaped strings under InvariantCulture (e.g. "12/31/2024",
-        // "31-Dec-2024", "2024/12/31 14:30") that the error message explicitly rules out,
-        // letting clients submit ambiguous input and silently get the wrong snapshot.
-        private static readonly string[] s_iso8601Formats =
-        {
-            // Date only.
-            "yyyy-MM-dd",
-
-            // Date + time, no zone (treated as UTC via AssumeUniversal below).
-            "yyyy-MM-ddTHH:mm",
-            "yyyy-MM-ddTHH:mm:ss",
-            "yyyy-MM-ddTHH:mm:ss.f",
-            "yyyy-MM-ddTHH:mm:ss.ff",
-            "yyyy-MM-ddTHH:mm:ss.fff",
-            "yyyy-MM-ddTHH:mm:ss.ffff",
-            "yyyy-MM-ddTHH:mm:ss.fffff",
-            "yyyy-MM-ddTHH:mm:ss.ffffff",
-            "yyyy-MM-ddTHH:mm:ss.fffffff",
-
-            // Date + time + 'Z' (explicit UTC).
-            "yyyy-MM-ddTHH:mmZ",
-            "yyyy-MM-ddTHH:mm:ssZ",
-            "yyyy-MM-ddTHH:mm:ss.fZ",
-            "yyyy-MM-ddTHH:mm:ss.ffZ",
-            "yyyy-MM-ddTHH:mm:ss.fffZ",
-            "yyyy-MM-ddTHH:mm:ss.ffffZ",
-            "yyyy-MM-ddTHH:mm:ss.fffffZ",
-            "yyyy-MM-ddTHH:mm:ss.ffffffZ",
-            "yyyy-MM-ddTHH:mm:ss.fffffffZ",
-
-            // Date + time + numeric offset (+HH:mm / -HH:mm).
-            "yyyy-MM-ddTHH:mmzzz",
-            "yyyy-MM-ddTHH:mm:sszzz",
-            "yyyy-MM-ddTHH:mm:ss.fzzz",
-            "yyyy-MM-ddTHH:mm:ss.ffzzz",
-            "yyyy-MM-ddTHH:mm:ss.fffzzz",
-            "yyyy-MM-ddTHH:mm:ss.ffffzzz",
-            "yyyy-MM-ddTHH:mm:ss.fffffzzz",
-            "yyyy-MM-ddTHH:mm:ss.ffffffzzz",
-            "yyyy-MM-ddTHH:mm:ss.fffffffzzz",
-        };
+        // The accepted format set and the strict-vs-permissive parsing rule live in
+        // DppDateParser so they can be unit-tested without the HTTP pipeline.
 
         [HttpGet("dpps/{dppId}/versions/{date}")]
         public async Task<ActionResult<ApiResponse<DigitalProductPassport>>> ReadDppVersionByIdAndDate(
             [FromRoute][Required] string dppId,
             [FromRoute][Required] string date)
         {
-            if (!DateTimeOffset.TryParseExact(date, s_iso8601Formats, System.Globalization.CultureInfo.InvariantCulture,
-                    System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
-                    out DateTimeOffset asOf))
+            if (!DppDateParser.TryParse(date, out DateTimeOffset asOf))
             {
                 return BadRequest(new ApiResponse<DigitalProductPassport>(
                     DppApiStatusCodes.ClientErrorBadRequest,

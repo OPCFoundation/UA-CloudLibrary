@@ -103,6 +103,7 @@ namespace Opc.Ua.Cloud.Library
                             error = "Wildcard '*' is not supported.";
                             return false;
                         }
+
                         i++;
                     }
 
