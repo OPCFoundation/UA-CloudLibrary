@@ -81,7 +81,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
                 }
 
                 // Extract the hash part (everything before the metadata separator '|')
-                int metadataSeparatorIndex = authTokenHash.IndexOf('|');
+                int metadataSeparatorIndex = authTokenHash.IndexOf('|', StringComparison.Ordinal);
                 string hashPart = metadataSeparatorIndex > 0 ? authTokenHash.Substring(0, metadataSeparatorIndex) : authTokenHash;
 
                 // Verify the hash
@@ -113,7 +113,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
         {
             // Extract ExpiresAt value from metadata
             // Format: |Type:Read-Write|Expiration:30 Days|ExpiresAt:2025-02-15T10:30:00.0000000Z
-            int expiresAtIndex = metadata.IndexOf("|ExpiresAt:");
+            int expiresAtIndex = metadata.IndexOf("|ExpiresAt:", StringComparison.Ordinal);
             if (expiresAtIndex < 0)
             {
                 // No expiration date means unlimited
@@ -121,7 +121,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
             }
 
             string expiresAtPart = metadata.Substring(expiresAtIndex + "|ExpiresAt:".Length);
-            int nextSeparator = expiresAtPart.IndexOf('|');
+            int nextSeparator = expiresAtPart.IndexOf('|', StringComparison.Ordinal);
             string expiresAtString = nextSeparator > 0 ? expiresAtPart.Substring(0, nextSeparator) : expiresAtPart;
 
             if (DateTime.TryParse(expiresAtString, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out DateTime expirationDate))
@@ -160,7 +160,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
 
                 // Extract the hash part (everything before the metadata separator '|')
                 string tokenValue = candidateToken.Value;
-                int metadataSeparatorIndex = tokenValue.IndexOf('|');
+                int metadataSeparatorIndex = tokenValue.IndexOf('|', StringComparison.Ordinal);
                 string hashPart = metadataSeparatorIndex > 0 ? tokenValue.Substring(0, metadataSeparatorIndex) : tokenValue;
 
                 PasswordVerificationResult result = manager.PasswordHasher.VerifyHashedPassword(user, hashPart.Substring(4), apiKey);
@@ -275,7 +275,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
 
             // Extract API key type from metadata
             // Format: {prefix}{hash}|Type:{type}|Expiration:{period}|ExpiresAt:{date}
-            int typeIndex = token.Value.IndexOf("|Type:");
+            int typeIndex = token.Value.IndexOf("|Type:", StringComparison.Ordinal);
             if (typeIndex < 0)
             {
                 // No metadata: default to Read-Only for least-privilege (legacy keys must be regenerated for write access)
@@ -283,7 +283,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
             }
 
             string typePart = token.Value.Substring(typeIndex + "|Type:".Length);
-            int nextSeparator = typePart.IndexOf('|');
+            int nextSeparator = typePart.IndexOf('|', StringComparison.Ordinal);
             string apiKeyType = nextSeparator > 0 ? typePart.Substring(0, nextSeparator) : typePart;
 
             return apiKeyType;
