@@ -271,8 +271,9 @@ namespace Opc.Ua.Cloud.Library
         /// and there should be no changes adopted in the DPP". OPC UA writes are not transactional, so this
         /// method performs an up-front resolution pass (locating every target node and validating field names)
         /// before issuing any writes, minimizing the risk of partial application. A snapshot of the current DPP
-        /// state is captured to <see cref="IDppVersionArchive"/> immediately before writes are applied,
-        /// satisfying the EN 18221 Clause 4.2 archiving requirement (durable archival depends on the configured
+        /// state is committed to <see cref="IDppVersionArchive"/> only after the live writes and the persistence
+        /// step both succeed, so a failed update never leaves a phantom archive entry. This satisfies the
+        /// EN 18221 Clause 4.2 archiving requirement (durable archival depends on the configured
         /// <see cref="IDppVersionArchive"/> implementation).
         /// </remarks>
         public async Task<(UpdateDppResult Result, string ErrorMessage, DigitalProductPassport Updated)> UpdateDppById(
@@ -281,6 +282,17 @@ namespace Opc.Ua.Cloud.Library
             if (partial is null)
             {
                 return (UpdateDppResult.BadRequest, "Request body must contain a partial DPP object.", null);
+            }
+
+            // An empty body is a no-op under merge-patch-shaped semantics. Returning early avoids
+            // touching the OPC UA address space, creating a redundant archive entry, or bumping
+            // the persisted PublicationDate when there is nothing to change.
+            if (partial.Count == 0)
+            {
+                DigitalProductPassport unchanged = await GetByDppId(userId, dppId).ConfigureAwait(false);
+                return unchanged is null
+                    ? (UpdateDppResult.NotFound, null, null)
+                    : (UpdateDppResult.Success, null, unchanged);
             }
 
             // Locate the DPP root node in the OPC UA address space (same lookup pattern as the read path).
@@ -359,13 +371,21 @@ namespace Opc.Ua.Cloud.Library
             }
 
             // --- Phase 2: apply the resolved writes. Fail-fast on the first OPC UA write error. ---
-            // Snapshot the current DPP before mutating so ReadDPPVersionByIdAndDate can serve the
-            // pre-update version (EN 18221 Clause 4.2 archiving requirement).
-            DigitalProductPassport preUpdate = await GetByDppId(userId, dppId).ConfigureAwait(false);
-            if (preUpdate != null)
+            // A resolved patch with no concrete writes (e.g. only inert metadata entries) is a
+            // no-op: avoid archiving, persisting, or bumping the publication date in that case.
+            if (pendingWrites.Count == 0)
             {
-                await _archive.ArchiveAsync(dppId, preUpdate, DateTimeOffset.UtcNow).ConfigureAwait(false);
+                DigitalProductPassport unchanged = await GetByDppId(userId, dppId).ConfigureAwait(false);
+                return unchanged is null
+                    ? (UpdateDppResult.NotFound, null, null)
+                    : (UpdateDppResult.Success, null, unchanged);
             }
+
+            // Snapshot the current DPP before mutating so ReadDPPVersionByIdAndDate can serve the
+            // pre-update version (EN 18221 Clause 4.2 archiving requirement). The snapshot is
+            // captured here but only committed to the archive after the live writes and the
+            // persistence step both succeed, so a failed update never leaves a phantom archive row.
+            DigitalProductPassport preUpdate = await GetByDppId(userId, dppId).ConfigureAwait(false);
 
             foreach (var (nodeId, value, fieldPath) in pendingWrites)
             {
@@ -386,6 +406,14 @@ namespace Opc.Ua.Cloud.Library
                 return (UpdateDppResult.WriteFailed, "Update applied in memory but could not be persisted to storage.", null);
             }
 
+            // Only now that the change is durable do we commit the pre-update snapshot to the
+            // archive. Archiving last keeps the version history in sync with what actually got
+            // persisted and avoids phantom archive entries for failed updates.
+            if (preUpdate != null)
+            {
+                await _archive.ArchiveAsync(dppId, preUpdate, DateTimeOffset.UtcNow).ConfigureAwait(false);
+            }
+
             DigitalProductPassport updated = await GetByDppId(userId, dppId).ConfigureAwait(false);
             return (UpdateDppResult.Success, null, updated);
         }
@@ -398,9 +426,10 @@ namespace Opc.Ua.Cloud.Library
         /// The path must refer to a single leaf element (a <c>SingleValuedDataElement</c> in our model).
         /// Targeting a <c>DataElementCollection</c> is a client error because the spec requires the update
         /// of "a specific data element" and the request body carries a single value/object payload, not an
-        /// entire subtree shape. The pre-update DPP is archived through <see cref="IDppVersionArchive"/>
-        /// before the write is applied, consistent with the archival contract used by
-        /// <see cref="UpdateDppById"/>.
+        /// entire subtree shape. A snapshot of the pre-update DPP is committed to
+        /// <see cref="IDppVersionArchive"/> only after the live write and the persistence step both succeed,
+        /// matching the archival contract used by <see cref="UpdateDppById"/> and ensuring failed writes
+        /// never leave a phantom archive entry.
         /// </remarks>
         public async Task<(UpdateDppResult Result, string ErrorMessage, DataElement Updated)> UpdateDataElement(
             string userId, string dppId, string elementIdPath, JsonNode newValue)
@@ -504,12 +533,11 @@ namespace Opc.Ua.Cloud.Library
                     null);
             }
 
-            // Snapshot before mutating so the previous version remains addressable (Clause 4.7).
+            // Snapshot the pre-update DPP up front so we capture the version that was live before
+            // this write was issued. The snapshot is only committed to the archive once both the
+            // VariableWrite and PersistNodesetValuesAsync calls below succeed - that way a failed
+            // update never produces a phantom archive entry.
             DigitalProductPassport preUpdate = await GetByDppId(userId, dppId).ConfigureAwait(false);
-            if (preUpdate != null)
-            {
-                await _archive.ArchiveAsync(dppId, preUpdate, DateTimeOffset.UtcNow).ConfigureAwait(false);
-            }
 
             bool ok = await _client.VariableWrite(userId, dppId, current.Id, JsonNodeToWireValue(payloadValue)).ConfigureAwait(false);
             if (!ok)
@@ -523,6 +551,14 @@ namespace Opc.Ua.Cloud.Library
             {
                 _logger.LogError("UpdateDataElement: failed to persist updated values for DPP {DppId}.", dppId);
                 return (UpdateDppResult.WriteFailed, "Update applied in memory but could not be persisted to storage.", null);
+            }
+
+            // Only commit the archive snapshot after the change is durable, matching the ordering
+            // used by UpdateDppById and keeping the version history aligned with what actually got
+            // persisted (Clause 4.7 - previous version remains addressable, but only for real updates).
+            if (preUpdate != null)
+            {
+                await _archive.ArchiveAsync(dppId, preUpdate, DateTimeOffset.UtcNow).ConfigureAwait(false);
             }
 
             (ElementResult readResult, _, DataElement updated) = await GetElement(userId, dppId, elementIdPath).ConfigureAwait(false);
@@ -592,27 +628,40 @@ namespace Opc.Ua.Cloud.Library
                         return ($"Element '{currentPath}' has an explicit null value; null is not a supported update.", null);
                     }
 
-                    // MultiLanguageDataElement.value is a leaf payload (array of {value,language}
-                    // entries, no elementId). Per EN 18223 Annex A, the whole array is the
-                    // localized value of this single variable and must not be recursed into.
-                    bool isMultiLanguage = elementObj.TryGetPropertyValue("objectType", out JsonNode objectTypeNode)
-                        && objectTypeNode is JsonValue objectTypeValue
-                        && objectTypeValue.TryGetValue(out string objectType)
-                        && string.Equals(objectType, "MultiLanguageDataElement", StringComparison.Ordinal);
-
-                    // MultiValuedDataElement: per EN 18223 Annex A Example 4, the homogenous
-                    // child DataElements are nested under 'value' as a JSON array. Recurse so
-                    // each child resolves to its own OPC UA node id.
-                    if (valueNode is JsonArray valueArray && !isMultiLanguage)
+                    // When 'value' is a JSON array we must distinguish two cases that share the
+                    // same wire shape:
+                    //   - MultiValuedDataElement (EN 18223 Annex A Example 4): the homogenous
+                    //     child DataElements live under 'value' and each child needs to resolve to
+                    //     its own OPC UA node id, so we recurse.
+                    //   - MultiLanguageDataElement (EN 18223 Annex A): the whole [{value,language}]
+                    //     array is the localized value of a single leaf variable and must be
+                    //     written to 'match' as-is without recursion.
+                    //
+                    // The authoritative signal is the live OPC UA tree: collection elements have
+                    // child variables under them, leaf variables do not. We probe the server and
+                    // only fall back to the client-supplied objectType hint if the server result is
+                    // ambiguous (no children at all). This stops a malicious or buggy client from
+                    // forcing the server to write an entire array payload onto the wrong parent
+                    // node by lying about objectType.
+                    if (valueNode is JsonArray valueArray)
                     {
-                        var (err, nestedWrites) = await ResolveElementWritesAsync(userId, nodesetIdentifier, match, valueArray, currentPath).ConfigureAwait(false);
-                        if (err != null)
+                        List<NodesetViewerNode> matchChildren = await _client.GetChildren(userId, nodesetIdentifier, match.Id).ConfigureAwait(false);
+                        bool isCollectionNode = matchChildren != null && matchChildren.Count > 0;
+
+                        if (isCollectionNode)
                         {
-                            return (err, null);
+                            var (err, nestedWrites) = await ResolveElementWritesAsync(userId, nodesetIdentifier, match, valueArray, currentPath).ConfigureAwait(false);
+                            if (err != null)
+                            {
+                                return (err, null);
+                            }
+
+                            writes.AddRange(nestedWrites);
+                            continue;
                         }
 
-                        writes.AddRange(nestedWrites);
-                        continue;
+                        // Leaf node carrying an array payload (e.g. MultiLanguageDataElement).
+                        // Fall through to the scalar leaf write below.
                     }
 
                     // Leaf value update: SingleValuedDataElement.value (any non-array JSON value)
@@ -896,12 +945,51 @@ namespace Opc.Ua.Cloud.Library
                     string value = await _client.VariableRead(userId, nodesetIdentifier, childNode.Id).ConfigureAwait(false);
                     output.Add(new SingleValuedDataElement {
                         ElementId = childNode.Text,
-                        Value = JsonValue.Create(value)
+                        Value = ParseLeafValue(value)
                     });
                 }
             }
 
             return output;
+        }
+
+        // Leaf variables are persisted as strings by the OPC UA layer, but writes accept typed JSON
+        // (numbers, booleans, arrays, objects) via JsonNodeToWireValue, which serializes those as
+        // their JSON text form. To round-trip those writes back to clients as typed JSON values
+        // rather than quoted strings, attempt to parse the stored string as a JSON literal first.
+        // Plain strings that do not happen to be valid JSON (the common case for IDs, names, etc.)
+        // simply fall back to the JsonValue.Create string wrapping used previously, so existing
+        // stored data continues to surface unchanged.
+        //
+        // Exposed as internal (not private) so the unit-test assembly can exercise the round-trip
+        // matrix without instantiating the full DPPService dependency graph.
+        internal static JsonNode ParseLeafValue(string raw)
+        {
+            if (string.IsNullOrEmpty(raw))
+            {
+                return JsonValue.Create(raw);
+            }
+
+            char first = raw[0];
+            // Only attempt parsing when the leading character is a JSON structural / literal start.
+            // This avoids parser allocations for the overwhelmingly common plain-string case and
+            // keeps unrelated strings that happen to start with a digit-prefixed identifier from
+            // being silently retyped.
+            if (first is not ('{' or '[' or '"' or 't' or 'f' or 'n')
+                && (first < '0' || first > '9') && first != '-')
+            {
+                return JsonValue.Create(raw);
+            }
+
+            try
+            {
+                JsonNode parsed = JsonNode.Parse(raw);
+                return parsed ?? JsonValue.Create(raw);
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                return JsonValue.Create(raw);
+            }
         }
     }
 }

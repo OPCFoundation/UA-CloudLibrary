@@ -47,8 +47,10 @@ namespace Opc.Ua.Cloud.Library
         private const char TickSuffixSeparator = '-';
 
         // Per-process monotonic counter for the in-process tie-break component of the row name.
-        // Starts negative so the first increment wraps to a small positive value; the field is
-        // long-sized so practical wraparound is impossible.
+        // Initialized to the default 0; the first Interlocked.Increment yields 1, then increments
+        // climb monotonically. BuildRowName masks the result with 0xFFFFFF so the field always
+        // fits in the fixed 6-char X6 hex slot, which means wraparound is harmless and the long
+        // backing field is effectively never exhausted in practice.
         private static long s_sequence;
 
         // Snapshots must round-trip the polymorphic DataElement hierarchy declared on

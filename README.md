@@ -279,11 +279,18 @@ $['battery']['cells'][2]['voltage']
 
 The DPP update path strictly separates the three concerns of the Browser UI's `Save` flow:
 
-1. **Pre-update snapshot.** Before any write, `DPPService` browses the current DPP and calls `IDppVersionArchive.ArchiveAsync(dppId, snapshot, DateTimeOffset.UtcNow)`. This satisfies the EN 18221 Clause 4.2 requirement that *“archiving starts when the first change of the initial digital product passport occurs”* and that *“all changes to the digital product passport shall be archived”*.
+1. **Pre-update snapshot capture.** Before any write, `DPPService` browses the current DPP and keeps the snapshot in memory.
 2. **Live write.** The resolved leaf values are written to the running embedded OPC UA server via `UAClient.VariableWrite(...)`. `UAClient` does *not* persist anything to the database.
 3. **Explicit persistence.** After the live write succeeds, `DPPService.PersistNodesetValuesAsync(...)` re-browses the variables and upserts the serialized values into `DbFiles.Values` through `DbFileStorage.UploadFileAsync(...)`, so the change survives a server restart (the embedded OPC UA server rehydrates values from `DbFiles.Values` on startup via `NodesetFileNodeManager.AddNodesAndValues`).
+4. **Archive commit.** Only after the live write **and** persistence both succeed does `DPPService` call `IDppVersionArchive.ArchiveAsync(dppId, snapshot, DateTimeOffset.UtcNow)` with the pre-update snapshot captured in step 1. Failed updates therefore never create phantom archive entries, and the archive view is always consistent with what was actually persisted. This satisfies the EN 18221 Clause 4.2 requirement that *“archiving starts when the first change of the initial digital product passport occurs”* and that *“all changes to the digital product passport shall be archived”*.
+
+No-op updates (an empty PATCH body, or a body whose entries all resolve to zero concrete writes) short-circuit before step 2, so they never touch the OPC UA address space, never bump the persisted `PublicationDate`, and never create an archive entry.
 
 To prevent a save from silently overwriting an earlier on-disk version, the persistence step rewrites the `PublicationDate="..."` attribute in the stored nodeset XML to the current UTC timestamp (second precision, `yyyy-MM-ddTHH:mm:ssZ`). This mirrors the in-XML date bump already used by `UAClient.CopyNodeset` and ensures every persisted save is uniquely datable.
+
+When the update payload addresses an element via `value`, the server decides leaf-vs-collection semantics from the **live OPC UA browse** of the matched node, not from the client-supplied `objectType` field. If the live node has children the array under `value` is recursed into (multivalued collection); if it has no children the array is written as-is (multilanguage leaf). This keeps a malicious or buggy client from forcing an array payload onto the wrong parent node.
+
+DPP leaf values are persisted by the OPC UA layer as strings. To round-trip typed JSON literals (numbers, booleans, arrays, objects), the read path attempts to parse each stored string as a JSON literal; values that are not valid JSON (the common case for IDs, names, etc.) surface unchanged as JSON strings.
 
 ### Durable version archive
 
