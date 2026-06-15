@@ -42,39 +42,41 @@ namespace Opc.Ua.Cloud.Library
 
         /// <summary>
         /// Returns the DPP snapshot that was active at <paramref name="asOfUtc"/>, per
-        /// EN 18222 (Method ReadDPPVersionByIdAndDate). If the requested
-        /// timestamp is at or after the current server time, the live DPP is returned; otherwise
-        /// the archive is consulted for the latest snapshot at or before that timestamp.
-        /// Returns <c>null</c> when no version of the DPP existed at the requested point in time.
+        /// EN 18222 (Method ReadDPPVersionByIdAndDate). If the requested timestamp is at or after
+        /// the live DPP's own <see cref="DigitalProductPassport.LastUpdate"/>, the live DPP is
+        /// returned; otherwise the archive is consulted for the latest snapshot at or before that
+        /// timestamp. Returns <c>null</c> when no version of the DPP existed at the requested
+        /// point in time.
         /// </summary>
         public async Task<DigitalProductPassport> GetDppVersionByIdAndDate(string userId, string dppId, DateTimeOffset asOfUtc)
         {
             DateTimeOffset target = asOfUtc.ToUniversalTime();
-            DateTimeOffset now = DateTimeOffset.UtcNow;
 
-            if (target >= now)
-            {
-                return await GetByDppId(userId, dppId).ConfigureAwait(false);
-            }
-
-            DigitalProductPassport archived = await _archive.GetVersionAtAsync(dppId, target).ConfigureAwait(false);
-            if (archived != null)
-            {
-                return archived;
-            }
-
-            // No archived snapshot covering the requested timestamp. Before reporting "no version"
-            // we still fall back to the live DPP when its own LastUpdate is at or before the
-            // requested instant: in that case the live state IS the version that was active at
-            // 'target' (there has been no update since), so returning null would surface a 404 for
-            // a perfectly valid historical read - e.g. any read before the first update ever runs,
-            // when the archive is empty by definition.
+            // Resolve the live DPP first: it is the active version for any target at or after its
+            // own LastUpdate, which is the common case (most ReadDPPVersionByIdAndDate calls ask
+            // for a timestamp that is in the past relative to "now" but still after the most
+            // recent update). Consulting the archive first here would return a stale pre-update
+            // snapshot for those calls; falling through to the archive only when target predates
+            // the live activation matches the EN 18222 contract that the result is the version
+            // that was actually active at 'target'.
             DigitalProductPassport live = await GetByDppId(userId, dppId).ConfigureAwait(false);
             if (live != null && live.LastUpdate.ToUniversalTime() <= target)
             {
                 return live;
             }
 
+            // Target is strictly earlier than the live DPP's activation time (or the DPP has no
+            // live counterpart at all). Look up the latest archived snapshot whose valid-from
+            // timestamp is at or before the target.
+            DigitalProductPassport archived = await _archive.GetVersionAtAsync(dppId, target).ConfigureAwait(false);
+            if (archived != null)
+            {
+                return archived;
+            }
+
+            // No archived snapshot covers the requested timestamp either. This is the genuine
+            // "no version existed at that point in time" case (e.g. the target predates the very
+            // first archived version), so a 404 from the controller is correct.
             return null;
         }
 
@@ -456,9 +458,18 @@ namespace Opc.Ua.Cloud.Library
             // is propagated as WriteFailed rather than swallowed - returning 200 here would let
             // the live DPP advance without a retrievable previous version, silently breaking
             // ReadDPPVersionByIdAndDate.
+            //
+            // The archive is keyed by "valid-from" timestamps: a snapshot stored at time T is
+            // considered the active version for any query asOfUtc >= T until the next snapshot.
+            // The pre-update version became active when its own LastUpdate stamp was written, so
+            // we archive it with preUpdate.LastUpdate (UTC-normalized) rather than UtcNow. Using
+            // UtcNow would record the moment the *new* version takes over, which makes the
+            // ordered lookup in IDppVersionArchive.GetVersionAtAsync miss the snapshot for any
+            // asOfUtc < UtcNow even though that asOfUtc was inside the snapshot's validity
+            // window.
             if (preUpdate != null)
             {
-                bool archived = await _archive.ArchiveAsync(dppId, preUpdate, DateTimeOffset.UtcNow).ConfigureAwait(false);
+                bool archived = await _archive.ArchiveAsync(dppId, preUpdate, preUpdate.LastUpdate.ToUniversalTime()).ConfigureAwait(false);
                 if (!archived)
                 {
                     _logger.LogError("UpdateDppById: archive write failed for DPP {DppId}; update is durable but previous version is not retrievable.", dppId);
@@ -625,10 +636,13 @@ namespace Opc.Ua.Cloud.Library
             // A persistence-level archive failure is propagated as WriteFailed rather than
             // swallowed: EN 18221 Clause 4.2 treats archival as part of the update contract, and
             // returning 200 with an unarchived previous version would silently break
-            // ReadDPPVersionByIdAndDate for this DPP.
+            // ReadDPPVersionByIdAndDate for this DPP. The snapshot is stored under its own
+            // LastUpdate stamp (i.e. when that version became active) so the archive's at-or-before
+            // lookup returns it for any asOfUtc inside its validity window - see the matching
+            // comment block in UpdateDppById for the full rationale.
             if (preUpdate != null)
             {
-                bool archived = await _archive.ArchiveAsync(dppId, preUpdate, DateTimeOffset.UtcNow).ConfigureAwait(false);
+                bool archived = await _archive.ArchiveAsync(dppId, preUpdate, preUpdate.LastUpdate.ToUniversalTime()).ConfigureAwait(false);
                 if (!archived)
                 {
                     _logger.LogError("UpdateDataElement: archive write failed for DPP {DppId}; update is durable but previous version is not retrievable.", dppId);
