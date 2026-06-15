@@ -96,6 +96,7 @@ namespace Opc.Ua.Cloud.Library.Models
     public class SingleValuedDataElement : DataElement
     {
         [JsonPropertyName("valueDataType")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? ValueDataType { get; init; }
 
         // Using JsonNode makes it easy to represent numbers/bools/strings/objects/arrays/null.
@@ -106,6 +107,7 @@ namespace Opc.Ua.Cloud.Library.Models
     public class MultiValuedDataElement : DataElement
     {
         [JsonPropertyName("valueDataType")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? ValueDataType { get; init; }
 
         // Rule says "all of the same type"

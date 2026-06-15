@@ -263,12 +263,58 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
         // EN 18222: GET v1/dpps/{dppId}/versions/{date}
         // The 'date' segment is an ISO 8601 timestamp identifying the DPP snapshot to return.
+        //
+        // The accepted format set is the explicit ISO 8601 grammar the contract documents -
+        // calendar date with optional time (seconds, optional fractional seconds) and an
+        // optional zone designator ('Z' or +/-HH:mm). DateTimeOffset.TryParse would silently
+        // accept many culture-shaped strings under InvariantCulture (e.g. "12/31/2024",
+        // "31-Dec-2024", "2024/12/31 14:30") that the error message explicitly rules out,
+        // letting clients submit ambiguous input and silently get the wrong snapshot.
+        private static readonly string[] s_iso8601Formats =
+        {
+            // Date only.
+            "yyyy-MM-dd",
+
+            // Date + time, no zone (treated as UTC via AssumeUniversal below).
+            "yyyy-MM-ddTHH:mm",
+            "yyyy-MM-ddTHH:mm:ss",
+            "yyyy-MM-ddTHH:mm:ss.f",
+            "yyyy-MM-ddTHH:mm:ss.ff",
+            "yyyy-MM-ddTHH:mm:ss.fff",
+            "yyyy-MM-ddTHH:mm:ss.ffff",
+            "yyyy-MM-ddTHH:mm:ss.fffff",
+            "yyyy-MM-ddTHH:mm:ss.ffffff",
+            "yyyy-MM-ddTHH:mm:ss.fffffff",
+
+            // Date + time + 'Z' (explicit UTC).
+            "yyyy-MM-ddTHH:mmZ",
+            "yyyy-MM-ddTHH:mm:ssZ",
+            "yyyy-MM-ddTHH:mm:ss.fZ",
+            "yyyy-MM-ddTHH:mm:ss.ffZ",
+            "yyyy-MM-ddTHH:mm:ss.fffZ",
+            "yyyy-MM-ddTHH:mm:ss.ffffZ",
+            "yyyy-MM-ddTHH:mm:ss.fffffZ",
+            "yyyy-MM-ddTHH:mm:ss.ffffffZ",
+            "yyyy-MM-ddTHH:mm:ss.fffffffZ",
+
+            // Date + time + numeric offset (+HH:mm / -HH:mm).
+            "yyyy-MM-ddTHH:mmzzz",
+            "yyyy-MM-ddTHH:mm:sszzz",
+            "yyyy-MM-ddTHH:mm:ss.fzzz",
+            "yyyy-MM-ddTHH:mm:ss.ffzzz",
+            "yyyy-MM-ddTHH:mm:ss.fffzzz",
+            "yyyy-MM-ddTHH:mm:ss.ffffzzz",
+            "yyyy-MM-ddTHH:mm:ss.fffffzzz",
+            "yyyy-MM-ddTHH:mm:ss.ffffffzzz",
+            "yyyy-MM-ddTHH:mm:ss.fffffffzzz",
+        };
+
         [HttpGet("dpps/{dppId}/versions/{date}")]
         public async Task<ActionResult<ApiResponse<DigitalProductPassport>>> ReadDppVersionByIdAndDate(
             [FromRoute][Required] string dppId,
             [FromRoute][Required] string date)
         {
-            if (!DateTimeOffset.TryParse(date, System.Globalization.CultureInfo.InvariantCulture,
+            if (!DateTimeOffset.TryParseExact(date, s_iso8601Formats, System.Globalization.CultureInfo.InvariantCulture,
                     System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
                     out DateTimeOffset asOf))
             {
