@@ -43,6 +43,21 @@ namespace UACloudLibraryServer.UnitTests
             Assert.Equal(TimeSpan.Zero, result.Offset); // AdjustToUniversal normalizes the offset.
         }
 
+        [Theory]
+        [InlineData("2024-12-31T14:30:45+0200")]
+        [InlineData("2024-12-31T14:30:45-0530")]
+        public void TryParse_AcceptsCompactNumericOffset_LenientZzzParsing(string value)
+        {
+            // The custom "zzz" specifier is documented as the extended form "+HH:mm"/"-HH:mm" when
+            // formatting, but .NET's TryParseExact is intentionally lenient on input and also
+            // accepts the RFC 3339 "basic" form "+HHmm"/"-HHmm" (no colon). Pinning that here so
+            // a future contributor narrowing the format list does not silently regress callers
+            // that already submit the compact offset.
+            Assert.True(DppDateParser.TryParse(value, out DateTimeOffset result),
+                $"Expected '{value}' to be accepted by the lenient zzz offset parser.");
+            Assert.Equal(TimeSpan.Zero, result.Offset); // AdjustToUniversal normalizes the offset.
+        }
+
         [Fact]
         public void TryParse_NormalizesPositiveOffsetToUtc()
         {
@@ -96,9 +111,10 @@ namespace UACloudLibraryServer.UnitTests
         public void TryParse_CultureShapedInput_IsRejected(string value)
         {
             // Each of these would slip past DateTimeOffset.TryParse(... InvariantCulture, ...) but
-            // is outside the strict ISO 8601 grammar the contract documents.
-            // Note: the RFC 3339 basic-offset form "+HHmm" (e.g. "2024-12-31T14:30:45+0200") is
-            // explicitly accepted by the documented "zzz" format and is NOT rejected here.
+            // is outside the strict ISO 8601 grammar the contract documents. Note: the RFC 3339
+            // basic-offset form "+HHmm" (e.g. "2024-12-31T14:30:45+0200") is NOT in this list -
+            // .NET's TryParseExact is lenient on "zzz" input and accepts it; that lenient behavior
+            // is pinned by TryParse_AcceptsCompactNumericOffset_LenientZzzParsing above.
             Assert.False(DppDateParser.TryParse(value, out _),
                 $"Expected '{value}' to be rejected by the strict ISO 8601 parser.");
         }

@@ -441,6 +441,11 @@ namespace Opc.Ua.Cloud.Library
             if (!await PersistNodesetValuesAsync(userId, dppId).ConfigureAwait(false))
             {
                 _logger.LogError("UpdateDppById: failed to persist updated values for DPP {DppId}.", dppId);
+                // The OPC UA writes succeeded but did not make it to durable storage. Honor the
+                // best-effort "no changes adopted on failure" contract by reverting the live nodes
+                // back to their captured pre-update values; otherwise the in-memory DPP would
+                // diverge from what is on disk until the next server restart.
+                await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
                 return (UpdateDppResult.WriteFailed, "Update applied in memory but could not be persisted to storage.", null);
             }
 
@@ -476,7 +481,9 @@ namespace Opc.Ua.Cloud.Library
         /// entire subtree shape. A snapshot of the pre-update DPP is committed to
         /// <see cref="IDppVersionArchive"/> only after the live write and the persistence step both succeed,
         /// matching the archival contract used by <see cref="UpdateDppById"/> and ensuring failed writes
-        /// never leave a phantom archive entry.
+        /// never leave a phantom archive entry. The leaf's pre-update value is captured before the live
+        /// write so the method can make a best-effort compensating restore if the persistence step fails,
+        /// honoring the same "no changes adopted on failure" contract as <see cref="UpdateDppById"/>.
         /// </remarks>
         public async Task<(UpdateDppResult Result, string ErrorMessage, DataElement Updated)> UpdateDataElement(
             string userId, string dppId, string elementIdPath, JsonNode newValue)
@@ -586,6 +593,13 @@ namespace Opc.Ua.Cloud.Library
             // update never produces a phantom archive entry.
             DigitalProductPassport preUpdate = await GetByDppId(userId, dppId).ConfigureAwait(false);
 
+            // Capture the live leaf value immediately before the write so we can roll back to it
+            // if any of the subsequent steps fail. Mirrors the appliedWrites bookkeeping in
+            // UpdateDppById and keeps the best-effort "no changes adopted on failure" contract
+            // honest for the single-element path too. Failures of the compensating restore itself
+            // are logged but otherwise unobservable - same caveat as UpdateDppById.
+            string originalLeafValue = await _client.VariableRead(userId, dppId, current.Id).ConfigureAwait(false);
+
             bool ok = await _client.VariableWrite(userId, dppId, current.Id, JsonNodeToWireValue(payloadValue)).ConfigureAwait(false);
             if (!ok)
             {
@@ -593,10 +607,15 @@ namespace Opc.Ua.Cloud.Library
                 return (UpdateDppResult.WriteFailed, $"Failed to write element '{elementIdPath}'.", null);
             }
 
+            var appliedWrites = new List<(string NodeId, string OriginalValue, string FieldPath)> {
+                (current.Id, originalLeafValue, elementIdPath)
+            };
+
             // Persist values to DbFiles.Values so the write survives a session restart.
             if (!await PersistNodesetValuesAsync(userId, dppId).ConfigureAwait(false))
             {
                 _logger.LogError("UpdateDataElement: failed to persist updated values for DPP {DppId}.", dppId);
+                await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
                 return (UpdateDppResult.WriteFailed, "Update applied in memory but could not be persisted to storage.", null);
             }
 
