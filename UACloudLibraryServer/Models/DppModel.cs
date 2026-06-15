@@ -4,6 +4,8 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
+#nullable enable
+
 namespace Opc.Ua.Cloud.Library.Models
 {
     /// <summary>
@@ -53,13 +55,13 @@ namespace Opc.Ua.Cloud.Library.Models
 
         [JsonPropertyName("facilityId")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string FacilityId { get; init; }
+        public string? FacilityId { get; init; }
 
         // EN 18223 Clause 4.1.2.1 Table 1: optional [0..*] list of references to
         // horizontal or product-type related content specifications for the DPP.
         [JsonPropertyName("contentSpecificationIds")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public List<string> ContentSpecificationIds { get; init; }
+        public List<string>? ContentSpecificationIds { get; init; }
 
         [JsonPropertyName("elements")]
         public List<DataElement> Elements { get; init; } = new();
@@ -79,7 +81,7 @@ namespace Opc.Ua.Cloud.Library.Models
 
         [JsonPropertyName("dictionaryReference")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string DictionaryReference { get; init; }
+        public string? DictionaryReference { get; init; }
     }
 
     // Must contain at least one DataElement
@@ -94,7 +96,7 @@ namespace Opc.Ua.Cloud.Library.Models
     public class SingleValuedDataElement : DataElement
     {
         [JsonPropertyName("valueDataType")]
-        public string ValueDataType { get; init; }
+        public string? ValueDataType { get; init; }
 
         // Using JsonNode makes it easy to represent numbers/bools/strings/objects/arrays/null.
         [JsonPropertyName("value")]
@@ -104,7 +106,7 @@ namespace Opc.Ua.Cloud.Library.Models
     public class MultiValuedDataElement : DataElement
     {
         [JsonPropertyName("valueDataType")]
-        public string ValueDataType { get; init; }
+        public string? ValueDataType { get; init; }
 
         // Rule says "all of the same type"
         [JsonPropertyName("value")]
@@ -152,12 +154,12 @@ namespace Opc.Ua.Cloud.Library.Models
         // Optional localized language tag (e.g. "en-GB").
         [JsonPropertyName("language")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string Language { get; init; }
+        public string? Language { get; init; }
 
         // Optional human readable title.
         [JsonPropertyName("resourceTitle")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string ResourceTitle { get; init; }
+        public string? ResourceTitle { get; init; }
     }
 
     /// <summary>

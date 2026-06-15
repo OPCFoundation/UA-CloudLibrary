@@ -101,10 +101,21 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             // Apply in-memory pagination on the resolved identifier set.
             int startIndex = 0;
-            if (!string.IsNullOrEmpty(cursor)
-                && int.TryParse(cursor, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedCursor)
-                && parsedCursor >= 0)
+            if (!string.IsNullOrEmpty(cursor))
             {
+                // A cursor was supplied: it must be a valid non-negative invariant-culture
+                // integer (the same format we emit in 'nextCursor'). Silently treating a
+                // malformed cursor as "start over" makes pagination loop on the client.
+                if (!int.TryParse(cursor, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedCursor)
+                    || parsedCursor < 0)
+                {
+                    return BadRequest(new ApiResponse<List<string>>(
+                        DppApiStatusCodes.ClientErrorBadRequest,
+                        payload: null,
+                        result: new ApiResult(new() { new ApiMessage("Error", "cursor must be a non-negative integer") })
+                    ));
+                }
+
                 startIndex = Math.Min(parsedCursor, ids.Count);
             }
 

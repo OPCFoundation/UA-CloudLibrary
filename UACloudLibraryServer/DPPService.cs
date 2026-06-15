@@ -494,6 +494,16 @@ namespace Opc.Ua.Cloud.Library
                 payloadValue = valueProperty;
             }
 
+            // Explicit JSON null is not a supported value: the OPC UA Elements subtree is a fixed
+            // schema, so null cannot be expressed as a deletion. Reject up front rather than
+            // writing an empty string (which is what JsonNodeToWireValue would otherwise produce).
+            if (payloadValue is null)
+            {
+                return (UpdateDppResult.BadRequest,
+                    "value must not be null; explicit null is not a supported update for a leaf element.",
+                    null);
+            }
+
             // Snapshot before mutating so the previous version remains addressable (Clause 4.7).
             DigitalProductPassport preUpdate = await GetByDppId(userId, dppId).ConfigureAwait(false);
             if (preUpdate != null)
@@ -574,6 +584,14 @@ namespace Opc.Ua.Cloud.Library
 
                 if (elementObj.TryGetPropertyValue("value", out JsonNode valueNode))
                 {
+                    // Explicit JSON null is not a supported update target: the underlying OPC UA
+                    // Elements subtree is a fixed schema, so null cannot express a deletion.
+                    // Without this guard, JsonNodeToWireValue(null) would silently write "".
+                    if (valueNode is null)
+                    {
+                        return ($"Element '{currentPath}' has an explicit null value; null is not a supported update.", null);
+                    }
+
                     // MultiLanguageDataElement.value is a leaf payload (array of {value,language}
                     // entries, no elementId). Per EN 18223 Annex A, the whole array is the
                     // localized value of this single variable and must not be recursed into.
