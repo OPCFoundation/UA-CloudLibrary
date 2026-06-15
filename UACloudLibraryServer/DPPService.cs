@@ -291,10 +291,14 @@ namespace Opc.Ua.Cloud.Library
         /// The spec requires that "if the update of some parts fails the complete update process will fail
         /// and there should be no changes adopted in the DPP". OPC UA writes are not transactional, so this
         /// method performs an up-front resolution pass (locating every target node and validating field names)
-        /// before issuing any writes, minimizing the risk of partial application. A snapshot of the current DPP
-        /// state is committed to <see cref="IDppVersionArchive"/> only after the live writes and the persistence
-        /// step both succeed, so a failed update never leaves a phantom archive entry. This satisfies the
-        /// EN 18221 Clause 4.2 archiving requirement (durable archival depends on the configured
+        /// before issuing any writes, minimizing the risk of partial application. When a write does fail
+        /// mid-way, the method makes a best-effort compensating restore of every already-applied write to
+        /// its pre-update value (captured immediately before each write); the only residual case where the
+        /// live DPP can stay partially mutated is when those restore writes themselves fail, which is logged
+        /// for operator reconciliation. A snapshot of the current DPP state is committed to
+        /// <see cref="IDppVersionArchive"/> only after the live writes and the persistence step both succeed,
+        /// so a failed update never leaves a phantom archive entry. This satisfies the EN 18221 Clause 4.2
+        /// archiving requirement (durable archival depends on the configured
         /// <see cref="IDppVersionArchive"/> implementation).
         /// </remarks>
         public async Task<(UpdateDppResult Result, string ErrorMessage, DigitalProductPassport Updated)> UpdateDppById(
@@ -408,14 +412,27 @@ namespace Opc.Ua.Cloud.Library
             // persistence step both succeed, so a failed update never leaves a phantom archive row.
             DigitalProductPassport preUpdate = await GetByDppId(userId, dppId).ConfigureAwait(false);
 
+            // EN 18222 requires that "if the update of some parts fails the complete update process
+            // will fail and there should be no changes adopted in the DPP". OPC UA writes are not
+            // transactional, so we honor that contract on a best-effort basis: capture each target's
+            // current value immediately before writing it, and on the first write failure attempt to
+            // restore every already-applied write to its captured baseline. The only residual case
+            // where the live DPP can stay partially mutated is when the compensating restore writes
+            // themselves fail, which is logged so operators can reconcile manually.
+            var appliedWrites = new List<(string NodeId, string OriginalValue, string FieldPath)>();
+
             foreach (var (nodeId, value, fieldPath) in pendingWrites)
             {
+                string originalValue = await _client.VariableRead(userId, dppId, nodeId).ConfigureAwait(false);
                 bool ok = await _client.VariableWrite(userId, dppId, nodeId, value).ConfigureAwait(false);
                 if (!ok)
                 {
                     _logger.LogError("UpdateDppById: write failed for DPP {DppId}, field '{Field}'.", dppId, fieldPath);
+                    await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
                     return (UpdateDppResult.WriteFailed, $"Failed to write field '{fieldPath}'.", null);
                 }
+
+                appliedWrites.Add((nodeId, originalValue, fieldPath));
             }
 
             // Mirror BrowserController.Save: writes go to the live SimpleServer in-memory, so we
@@ -726,6 +743,43 @@ namespace Opc.Ua.Cloud.Library
             }
 
             return (null, writes);
+        }
+
+        // Best-effort compensating rollback for the non-transactional OPC UA write loop in
+        // UpdateDppById. The list is iterated in reverse so the most-recently mutated node is
+        // restored first, mirroring how callers would unwind a try/finally chain. Failures to
+        // restore an individual node are logged but do not throw, because the only useful action
+        // from here is to surface as much diagnostic context as possible: at this point the
+        // original UpdateDppById call is already returning WriteFailed and the live DPP may
+        // still hold some of the in-flight values - logging lets operators reconcile manually.
+        private async Task TryRollbackWritesAsync(
+            string userId,
+            string dppId,
+            List<(string NodeId, string OriginalValue, string FieldPath)> appliedWrites)
+        {
+            for (int i = appliedWrites.Count - 1; i >= 0; i--)
+            {
+                var (nodeId, originalValue, fieldPath) = appliedWrites[i];
+                try
+                {
+                    bool restored = await _client.VariableWrite(userId, dppId, nodeId, originalValue ?? string.Empty).ConfigureAwait(false);
+                    if (!restored)
+                    {
+                        _logger.LogError(
+                            "UpdateDppById: rollback failed for DPP {DppId}, field '{Field}'. Live value may be inconsistent with the original snapshot.",
+                            dppId,
+                            fieldPath);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "UpdateDppById: rollback threw for DPP {DppId}, field '{Field}'. Live value may be inconsistent with the original snapshot.",
+                        dppId,
+                        fieldPath);
+                }
+            }
         }
 
         // Converts a JSON value to the string payload accepted by UAClient.VariableWrite.

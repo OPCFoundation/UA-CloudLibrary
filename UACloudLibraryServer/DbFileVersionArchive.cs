@@ -31,12 +31,17 @@ namespace Opc.Ua.Cloud.Library
         //    would break the lexicographic-equals-chronological ordering within a single tick).
         //    Two in-process callers that observe the same tick are guaranteed to produce
         //    distinct, deterministically-ordered names without any DB round-trip.
-        //  - {randomHex} is 8 hex chars from RandomNumberGenerator, making the row name unique
-        //    across processes as well. This makes the underlying insert itself the arbiter:
-        //    DbFiles.Name is the [Key] of the table, so the database uniqueness constraint
-        //    rejects any genuine duplicate instead of the previous racy check-then-write loop
-        //    (two callers can observe the same free name and both upsert through
-        //    UploadFileAsync, which silently overwrites the loser's row).
+        //  - {randomHex} is 8 hex chars from RandomNumberGenerator, extending the tie-break
+        //    across processes as well. Combined with the per-process counter, the name is
+        //    probabilistically unique by construction, which removes the previous racy
+        //    check-then-write loop entirely. Note that the underlying writer
+        //    (DbFileStorage.UploadFileAsync) is an upsert keyed on DbFiles.Name, so the
+        //    DbFiles primary key does not actively reject a duplicate - it silently overwrites
+        //    the prior row instead. Collisions are therefore not impossible, only vanishingly
+        //    unlikely (~1 in 2^32 per same-tick same-counter pair). Switching to an insert-only
+        //    write path would turn that into a hard rejection, which is a deliberate
+        //    open-ended improvement: today the archive trades a negligible collision risk for
+        //    a single, lock-free write per snapshot.
         //
         // Within the same tick, sort order is (counter asc, randomHex asc); the at-or-before
         // query in GetVersionAtAsync still selects the greatest candidate whose ticks <= target,
@@ -86,9 +91,13 @@ namespace Opc.Ua.Cloud.Library
 
             long ticks = capturedAtUtc.ToUniversalTime().UtcTicks;
 
-            // The row name carries a per-process counter plus a random tail, so it is unique
-            // by construction and the underlying DbFiles primary key (DbFiles.Name) is the
-            // sole arbiter of collisions. No check-then-write loop is needed.
+            // The row name carries a per-process counter plus a random tail, so it is
+            // probabilistically unique by construction. That removes the need for a
+            // check-then-write loop: the only remaining failure mode is an astronomically
+            // unlikely (counter, randomHex) collision within the same tick, in which case
+            // DbFileStorage.UploadFileAsync (an upsert) would silently overwrite the prior
+            // row. The collision odds (~1 in 2^32 per same-tick same-counter pair) are well
+            // below the practical concern threshold for an archive workload.
             string name = BuildRowName(dppId, ticks);
 
             string payload = JsonSerializer.Serialize(snapshot, s_snapshotJsonOptions);
@@ -170,12 +179,12 @@ namespace Opc.Ua.Cloud.Library
         private static string BuildRowName(string dppId, long ticks)
         {
             // Combine the per-process counter with a short random tail so the resulting name is
-            // unique across both threads and processes, eliminating the previous check-then-write
-            // race. The "-" separator is reserved (D19 ticks are all digits) so TryParseTicks can
-            // recover the tick field by splitting on the first '-'. The counter is formatted as a
-            // 6-char uppercase hex value so the 24-bit mask matches the field width exactly --
-            // keeping the suffix fixed-width preserves lexicographic = chronological ordering for
-            // collisions at the same tick.
+            // probabilistically unique across both threads and processes, eliminating the previous
+            // check-then-write race. The "-" separator is reserved (D19 ticks are all digits) so
+            // TryParseTicks can recover the tick field by splitting on the first '-'. The counter
+            // is formatted as a 6-char uppercase hex value so the 24-bit mask matches the field
+            // width exactly -- keeping the suffix fixed-width preserves lexicographic =
+            // chronological ordering for collisions at the same tick.
             long sequence = Interlocked.Increment(ref s_sequence) & 0xFFFFFF; // 24 bits = 6 hex digits
             string randomHex = NextRandomHex8();
             return BuildRowPrefix(dppId)
