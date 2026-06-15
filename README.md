@@ -123,7 +123,7 @@ The DPP header follows EN 18223 Clause 4.1.2.1 Table 1:
 
 | Property | Cardinality | Notes |
 |---|---|---|
-| `digitalProductPassportId` | [1] | Globally unique, URI/URL-shaped. |
+| `digitalProductPassportId` | [1] | Globally unique, opaque string. EN 18223 does not mandate a URI shape; this server emits the Cloud Library nodeset identifier (the decimal form of the nodeset's stable hash code, e.g. `"3851629631"`) so callers can round-trip the value back through the `v1/dpps/{dppId}` endpoints. |
 | `uniqueProductIdentifier` | [1] | Product identifier per EN 18219. |
 | `granularity` | [1] | Enumeration: `model`, `batch`, `item` (EN 18223 Clause 4.1.2.2 — lowercase on the wire). |
 | `dppSchemaVersion` | [1] | Reference standard the DPP schema follows. |
@@ -170,7 +170,7 @@ Example DPP body returned by `GET v1/dpps/{dppId}` (abbreviated, expanded form):
 
 ```json
 {
-  "digitalProductPassportId": "https://uacloudlibrary.example.org/dpp/123",
+  "digitalProductPassportId": "3851629631",
   "uniqueProductIdentifier": "https://example.org/products/abc",
   "granularity": "model",
   "dppSchemaVersion": "EN18223:v1.0",
@@ -289,7 +289,7 @@ To prevent a save from silently overwriting an earlier on-disk version, the pers
 
 The archive implements the archiving rules of EN 18221 Clause 4.2 (point-in-time retrievability of all past changes during the DPP lifetime) by reusing the existing `DbFileStorage`:
 
-* Each snapshot is stored as its own row in the `DbFiles` table whose `Name` follows the layout `dpp-archive::{dppId}::{capturedAtUtcTicks:D19}-{counter:D6}{randomHex8}` and whose `Blob` holds the JSON-serialized `DigitalProductPassport`. The trailing `-{counter:D6}{randomHex8}` segment combines a per-process monotonic counter with 4 random bytes (8 hex chars) so each row name is unique by construction, both within and across processes.
+* Each snapshot is stored as its own row in the `DbFiles` table whose `Name` follows the layout `dpp-archive::{dppId}::{capturedAtUtcTicks:D19}-{counter:X6}{randomHex8}` and whose `Blob` holds the JSON-serialized `DigitalProductPassport`. The trailing `-{counter:X6}{randomHex8}` segment combines a per-process monotonic counter (formatted as 6 uppercase hex chars, masked to 24 bits to keep the field fixed-width) with 4 random bytes (8 hex chars) so each row name is unique by construction, both within and across processes.
 * The fixed-width 19-digit tick stamp remains the dominant sort key, so lexicographic ordering still matches chronological order: retrieving the snapshot at or before a target timestamp is an ordered prefix scan via `DbFileStorage.ListFileNamesAsync(prefix)`. Ties within the same tick are broken deterministically by `(counter, randomHex)`, so the scan still selects the most recent write at that tick.
 * Because the row name is unique by construction, the underlying `DbFiles.Name` primary key (a unique constraint) is the sole arbiter of collisions. Two concurrent archive writes cannot overwrite one another, and the archived tick value always reflects the snapshot's true capture time.
 
