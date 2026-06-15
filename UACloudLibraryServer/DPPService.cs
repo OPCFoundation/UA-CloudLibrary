@@ -595,7 +595,17 @@ namespace Opc.Ua.Cloud.Library
                     return ($"Each entry under '{pathPrefix}' must carry an 'elementId'.", null);
                 }
 
-                string elementId = elementIdNode.GetValue<string>();
+                // Validate that elementId is a non-empty JSON string. JsonNode.GetValue<string>()
+                // throws InvalidOperationException for non-string JSON values (numbers, booleans,
+                // objects, arrays), which would surface as a 500 instead of the client-error
+                // BadRequest the caller expects for malformed input.
+                if (elementIdNode is not JsonValue elementIdValue
+                    || !elementIdValue.TryGetValue(out string elementId)
+                    || string.IsNullOrEmpty(elementId))
+                {
+                    return ($"Each entry under '{pathPrefix}' must carry a non-empty string 'elementId'.", null);
+                }
+
                 NodesetViewerNode match = liveChildren.FirstOrDefault(c => c.Text == elementId);
                 if (match == null)
                 {

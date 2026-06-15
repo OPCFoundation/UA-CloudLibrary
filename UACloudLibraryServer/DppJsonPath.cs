@@ -63,10 +63,19 @@ namespace Opc.Ua.Cloud.Library
             ReadOnlySpan<char> span = path.AsSpan();
             int i = 0;
 
-            // Optional RFC 9535 root identifier.
+            // Optional RFC 9535 root identifier. The supported subset only allows the bare
+            // '$' to be followed by a dot child selector ('.'), a bracket selector ('['), or
+            // the end of the expression. Without this guard the parser would silently treat
+            // inputs like "$elements" as an unprefixed name segment, accepting invalid
+            // JSONPath and misleading clients.
             if (span[i] == '$')
             {
                 i++;
+                if (i < span.Length && span[i] != '.' && span[i] != '[')
+                {
+                    error = $"Unexpected character '{span[i]}' after root identifier '$' in elementIdPath.";
+                    return false;
+                }
             }
 
             var result = new List<Segment>();
