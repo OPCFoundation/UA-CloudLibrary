@@ -161,13 +161,16 @@ namespace Opc.Ua.Cloud.Library
             // Combine the per-process counter with a short random tail so the resulting name is
             // unique across both threads and processes, eliminating the previous check-then-write
             // race. The "-" separator is reserved (D19 ticks are all digits) so TryParseTicks can
-            // recover the tick field by splitting on the first '-'.
-            long sequence = Interlocked.Increment(ref s_sequence) & 0xFFFFFF; // 6 hex digits' worth
+            // recover the tick field by splitting on the first '-'. The counter is formatted as a
+            // 6-char uppercase hex value so the 24-bit mask matches the field width exactly --
+            // keeping the suffix fixed-width preserves lexicographic = chronological ordering for
+            // collisions at the same tick.
+            long sequence = Interlocked.Increment(ref s_sequence) & 0xFFFFFF; // 24 bits = 6 hex digits
             string randomHex = NextRandomHex8();
             return BuildRowPrefix(dppId)
                 + ticks.ToString(TickFormat, CultureInfo.InvariantCulture)
                 + TickSuffixSeparator
-                + sequence.ToString("D6", CultureInfo.InvariantCulture)
+                + sequence.ToString("X6", CultureInfo.InvariantCulture)
                 + randomHex;
         }
 

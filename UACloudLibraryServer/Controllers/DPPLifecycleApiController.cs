@@ -101,7 +101,9 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             // Apply in-memory pagination on the resolved identifier set.
             int startIndex = 0;
-            if (!string.IsNullOrEmpty(cursor) && int.TryParse(cursor, out int parsedCursor) && parsedCursor >= 0)
+            if (!string.IsNullOrEmpty(cursor)
+                && int.TryParse(cursor, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedCursor)
+                && parsedCursor >= 0)
             {
                 startIndex = Math.Min(parsedCursor, ids.Count);
             }

@@ -498,7 +498,7 @@ namespace Opc.Ua.Cloud.Library
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex.Message);
+                _logger.LogError(ex, "AddMetaDataAsync failed for nodeset {NodesetIdentifier}.", uaNamespace?.Nodeset?.Identifier);
                 message = "Error: Could not save nodeset metadata";
             }
 
@@ -585,7 +585,7 @@ namespace Opc.Ua.Cloud.Library
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex.Message);
+                _logger.LogError(ex, "RetrieveAllMetadataAsync failed for nodeset {NodesetId}.", nodesetId);
                 throw;
             }
         }
@@ -649,7 +649,7 @@ namespace Opc.Ua.Cloud.Library
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex.Message);
+                _logger.LogError(ex, "GetAllNamespacesAndNodesets failed for user {UserId}.", userId);
             }
 
             return Task.FromResult(Array.Empty<string>());
@@ -672,7 +672,7 @@ namespace Opc.Ua.Cloud.Library
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex.Message);
+                _logger.LogError(ex, "GetAllNamesAndNodesets failed for user {UserId}.", userId);
             }
 
             return Task.FromResult(Array.Empty<string>());

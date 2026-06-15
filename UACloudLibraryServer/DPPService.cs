@@ -574,10 +574,18 @@ namespace Opc.Ua.Cloud.Library
 
                 if (elementObj.TryGetPropertyValue("value", out JsonNode valueNode))
                 {
+                    // MultiLanguageDataElement.value is a leaf payload (array of {value,language}
+                    // entries, no elementId). Per EN 18223 Annex A, the whole array is the
+                    // localized value of this single variable and must not be recursed into.
+                    bool isMultiLanguage = elementObj.TryGetPropertyValue("objectType", out JsonNode objectTypeNode)
+                        && objectTypeNode is JsonValue objectTypeValue
+                        && objectTypeValue.TryGetValue(out string objectType)
+                        && string.Equals(objectType, "MultiLanguageDataElement", StringComparison.Ordinal);
+
                     // MultiValuedDataElement: per EN 18223 Annex A Example 4, the homogenous
                     // child DataElements are nested under 'value' as a JSON array. Recurse so
                     // each child resolves to its own OPC UA node id.
-                    if (valueNode is JsonArray valueArray)
+                    if (valueNode is JsonArray valueArray && !isMultiLanguage)
                     {
                         var (err, nestedWrites) = await ResolveElementWritesAsync(userId, nodesetIdentifier, match, valueArray, currentPath).ConfigureAwait(false);
                         if (err != null)
@@ -589,7 +597,8 @@ namespace Opc.Ua.Cloud.Library
                         continue;
                     }
 
-                    // Leaf value update: SingleValuedDataElement.value (any non-array JSON value).
+                    // Leaf value update: SingleValuedDataElement.value (any non-array JSON value)
+                    // or MultiLanguageDataElement.value (array of {value,language} written as-is).
                     writes.Add((match.Id, JsonNodeToWireValue(valueNode), currentPath));
                     continue;
                 }
