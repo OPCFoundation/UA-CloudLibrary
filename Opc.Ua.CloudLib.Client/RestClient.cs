@@ -64,10 +64,7 @@ namespace Opc.Ua.Cloud.Client
         {
             client = new HttpClient();
             client.BaseAddress = new Uri(address);
-            if (authentication?.Scheme == "ApiToken")
-                client.DefaultRequestHeaders.Add("x-api-key", authentication.Parameter);
-            else
-                client.DefaultRequestHeaders.Authorization = authentication;
+            client.DefaultRequestHeaders.Authorization = authentication;
         }
 
         /// <summary>
