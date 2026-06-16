@@ -454,10 +454,10 @@ namespace Opc.Ua.Cloud.Library
             // Only now that the change is durable do we commit the pre-update snapshot to the
             // archive. Archiving last keeps the version history in sync with what actually got
             // persisted and avoids phantom archive entries for failed updates. EN 18221 Clause 4.2
-            // makes archival part of the update contract, so a persistence-level archive failure
-            // is propagated as WriteFailed rather than swallowed - returning 200 here would let
-            // the live DPP advance without a retrievable previous version, silently breaking
-            // ReadDPPVersionByIdAndDate.
+            // makes archival part of the update contract, so if archiving fails we treat the entire
+            // update as failed and roll back the already-applied writes to honor the "no changes
+            // adopted on failure" contract. This prevents clients from seeing a 500 for a durable
+            // update and inadvertently retrying (which would apply the update twice).
             //
             // The archive is keyed by "valid-from" timestamps: a snapshot stored at time T is
             // considered the active version for any query asOfUtc >= T until the next snapshot.
@@ -472,9 +472,24 @@ namespace Opc.Ua.Cloud.Library
                 bool archived = await _archive.ArchiveAsync(dppId, preUpdate, preUpdate.LastUpdate.ToUniversalTime()).ConfigureAwait(false);
                 if (!archived)
                 {
-                    _logger.LogError("UpdateDppById: archive write failed for DPP {DppId}; update is durable but previous version is not retrievable.", dppId);
-                    return (UpdateDppResult.WriteFailed, "Update applied but previous version could not be archived.", null);
+                    _logger.LogError("UpdateDppById: archive write failed for DPP {DppId}; rolling back durable update to honor no-changes-on-failure contract.", dppId);
+                    await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                    if (!await PersistNodesetValuesAsync(userId, dppId).ConfigureAwait(false))
+                    {
+                        _logger.LogError("UpdateDppById: rollback persist also failed for DPP {DppId}; update is now durable but archive is missing and client sees failure.", dppId);
+                    }
+                    return (UpdateDppResult.WriteFailed, "Update could not be completed; previous version could not be archived.", null);
                 }
+            }
+            else
+            {
+                // If preUpdate is null (e.g., GetByDppId failed), we cannot archive a previous version.
+                // This violates EN 18221 Clause 4.2, so roll back and fail the update rather than
+                // silently skipping archival.
+                _logger.LogError("UpdateDppById: could not capture pre-update snapshot for DPP {DppId}; rolling back durable update.", dppId);
+                await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                await PersistNodesetValuesAsync(userId, dppId).ConfigureAwait(false);
+                return (UpdateDppResult.WriteFailed, "Update could not be completed; previous version could not be captured for archival.", null);
             }
 
             DigitalProductPassport updated = await GetByDppId(userId, dppId).ConfigureAwait(false);
@@ -633,21 +648,37 @@ namespace Opc.Ua.Cloud.Library
             // Only commit the archive snapshot after the change is durable, matching the ordering
             // used by UpdateDppById and keeping the version history aligned with what actually got
             // persisted (Clause 4.7 - previous version remains addressable, but only for real updates).
-            // A persistence-level archive failure is propagated as WriteFailed rather than
-            // swallowed: EN 18221 Clause 4.2 treats archival as part of the update contract, and
-            // returning 200 with an unarchived previous version would silently break
-            // ReadDPPVersionByIdAndDate for this DPP. The snapshot is stored under its own
-            // LastUpdate stamp (i.e. when that version became active) so the archive's at-or-before
-            // lookup returns it for any asOfUtc inside its validity window - see the matching
-            // comment block in UpdateDppById for the full rationale.
+            // EN 18221 Clause 4.2 treats archival as part of the update contract, so if archiving
+            // fails we roll back the already-applied writes and re-persist to honor the
+            // "no changes adopted on failure" contract (same strategy as UpdateDppById). This
+            // prevents clients from seeing a 500 for a durable update and inadvertently retrying.
+            // The snapshot is stored under its own LastUpdate stamp (i.e. when that version became
+            // active) so the archive's at-or-before lookup returns it for any asOfUtc inside its
+            // validity window - see the matching comment block in UpdateDppById for the full
+            // rationale.
             if (preUpdate != null)
             {
                 bool archived = await _archive.ArchiveAsync(dppId, preUpdate, preUpdate.LastUpdate.ToUniversalTime()).ConfigureAwait(false);
                 if (!archived)
                 {
-                    _logger.LogError("UpdateDataElement: archive write failed for DPP {DppId}; update is durable but previous version is not retrievable.", dppId);
-                    return (UpdateDppResult.WriteFailed, "Update applied but previous version could not be archived.", null);
+                    _logger.LogError("UpdateDataElement: archive write failed for DPP {DppId}; rolling back durable update to honor no-changes-on-failure contract.", dppId);
+                    await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                    if (!await PersistNodesetValuesAsync(userId, dppId).ConfigureAwait(false))
+                    {
+                        _logger.LogError("UpdateDataElement: rollback persist also failed for DPP {DppId}; update is now durable but archive is missing and client sees failure.", dppId);
+                    }
+                    return (UpdateDppResult.WriteFailed, "Update could not be completed; previous version could not be archived.", null);
                 }
+            }
+            else
+            {
+                // If preUpdate is null (e.g., GetByDppId failed), we cannot archive a previous version.
+                // This violates EN 18221 Clause 4.2, so roll back and fail the update rather than
+                // silently skipping archival.
+                _logger.LogError("UpdateDataElement: could not capture pre-update snapshot for DPP {DppId}; rolling back durable update.", dppId);
+                await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                await PersistNodesetValuesAsync(userId, dppId).ConfigureAwait(false);
+                return (UpdateDppResult.WriteFailed, "Update could not be completed; previous version could not be captured for archival.", null);
             }
 
             (ElementResult readResult, _, DataElement updated) = await GetElement(userId, dppId, elementIdPath).ConfigureAwait(false);

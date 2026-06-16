@@ -63,7 +63,7 @@ var client = new UACloudLibClient(
 
 For complete documentation and examples, see the [Client Library README](Opc.Ua.CloudLib.Client/README.md).
 
-**Warning:** In the latest version of the REST API, a new infomodel/find2 API is introduced, returning a [UANameSpace](https://raw.githubusercontent.com/OPCFoundation/UA-CloudLibrary/refs/heads/main/Opc.Ua.CloudLib.Client/Models/UANameSpace.cs) structure, to align it with the rest of the REST API. The SampleConsoleClient is updated to work with the latest version of the REST API. Please update your client code accordingly if you were using an older version of the REST API! The older version will be removed in a future version of the API.
+**Warning:** In the latest version of the REST API, a new infomodel/find2 API is introduced, returning a [UANameSpace](https://raw.githubusercontent.com/OPCFoundation/UA-CloudLibrary/refs/heads/main/Opc.Ua.CloudLib.Client/Models/UANameSpace.cs) structure, to align it with the rest of the REST API.
 
 ## Development Setup
 
@@ -285,6 +285,8 @@ The DPP update path strictly separates the three concerns of the Browser UI's `S
 4. **Archive commit.** Only after the live write **and** persistence both succeed does `DPPService` call `IDppVersionArchive.ArchiveAsync(dppId, snapshot, snapshot.LastUpdate.ToUniversalTime())` with the pre-update snapshot captured in step 1. The capture timestamp is the snapshot's own `LastUpdate` (i.e. when that version *became active*) rather than `DateTimeOffset.UtcNow` (which would record when the *next* version takes over), so the archive's at-or-before lookup in `GetVersionAtAsync` correctly returns the snapshot for any `asOfUtc` inside its validity window. Failed updates therefore never create phantom archive entries, and the archive view is always consistent with what was actually persisted. This satisfies the EN 18221 Clause 4.2 requirement that *“archiving starts when the first change of the initial digital product passport occurs”* and that *“all changes to the digital product passport shall be archived”*.
 
 No-op updates (an empty PATCH body, or a body whose entries all resolve to zero concrete writes) short-circuit before step 2, so they never touch the OPC UA address space, never bump the persisted `PublicationDate`, and never create an archive entry.
+
+**Rollback on archive failure.** If pre-update snapshot capture fails (returns null) or archive commit fails after persistence, the entire update is rolled back: `DPPService` restores the already-applied writes to their captured original values and re-persists, then returns `WriteFailed` (500). This keeps the observable API outcome synchronized with the stored state and prevents clients from seeing a failure for a durable update and inadvertently retrying (which would apply the update twice). The only residual failure case where the DPP can stay partially mutated is when the compensating rollback writes themselves fail, which is logged so operators can reconcile manually.
 
 To prevent a save from silently overwriting an earlier on-disk version, the persistence step rewrites the `PublicationDate="..."` attribute in the stored nodeset XML to the current UTC timestamp with millisecond precision (`yyyy-MM-ddTHH:mm:ss.fffZ`). This mirrors the in-XML date bump already used by `UAClient.CopyNodeset` and ensures every persisted save is uniquely datable even when updates land in the same wall-clock second.
 
