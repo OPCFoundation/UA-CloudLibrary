@@ -380,6 +380,15 @@ namespace Opc.Ua.Cloud.Library
                     return (UpdateDppResult.BadRequest, $"Unknown DPP field: '{entry.Key}'.", null);
                 }
 
+                // lastUpdate is server-managed: every successful update advances it to a fresh UTC
+                // timestamp so the version-activation boundary stays monotonic and authoritative.
+                // Allowing a client to set it would let callers backdate a version or collide with
+                // an archived snapshot's valid-from stamp, so reject explicit attempts.
+                if (string.Equals(entry.Key, "lastUpdate", StringComparison.Ordinal))
+                {
+                    return (UpdateDppResult.BadRequest, "lastUpdate is server-managed and cannot be set explicitly; it is advanced automatically on every successful update.", null);
+                }
+
                 NodesetViewerNode target = dppProperties.FirstOrDefault(p => p.Text == browseName);
                 if (target == null)
                 {
@@ -436,6 +445,22 @@ namespace Opc.Ua.Cloud.Library
 
                 appliedWrites.Add((nodeId, originalValue, fieldPath));
             }
+
+            // Advance LastUpdate now that the field writes have all succeeded. This is the activation
+            // timestamp of the version this update produces; GetDppVersionByIdAndDate and
+            // GetByProductId rely on it to pick the correct/latest version. The bump is tracked in
+            // appliedWrites so a persistence or archival failure below rolls the timestamp back too.
+            // preUpdate was captured before this bump, so the archive still records the previous
+            // version under its own (older) LastUpdate, keeping the boundary unambiguous.
+            (string NodeId, string OriginalValue, string FieldPath)? lastUpdateWrite =
+                await BumpLastUpdateAsync(userId, dppId, dppProperties).ConfigureAwait(false);
+            if (lastUpdateWrite is null)
+            {
+                await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                return (UpdateDppResult.WriteFailed, "Update could not be completed; the version timestamp could not be advanced.", null);
+            }
+
+            appliedWrites.Add(lastUpdateWrite.Value);
 
             // Mirror BrowserController.Save: writes go to the live SimpleServer in-memory, so we
             // must explicitly snapshot the variable values back into DbFiles.Values for the change
@@ -651,6 +676,23 @@ namespace Opc.Ua.Cloud.Library
             var appliedWrites = new List<(string NodeId, string OriginalValue, string FieldPath)> {
                 (current.Id, originalLeafValue, elementIdPath)
             };
+
+            // Advance LastUpdate now that the leaf write has succeeded; this is the activation
+            // timestamp of the version this update produces. GetDppVersionByIdAndDate and
+            // GetByProductId rely on it to select the correct/latest version, so a leaf update must
+            // bump it just like UpdateDppById. The bump is appended to appliedWrites so a persistence
+            // or archival failure below rolls the timestamp back together with the leaf write.
+            // preUpdate was snapshotted before the bump, so the archive records the previous version
+            // under its own (older) LastUpdate, keeping the version boundary unambiguous.
+            (string NodeId, string OriginalValue, string FieldPath)? lastUpdateWrite =
+                await BumpLastUpdateAsync(userId, dppId, dppProperties).ConfigureAwait(false);
+            if (lastUpdateWrite is null)
+            {
+                await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                return (UpdateDppResult.WriteFailed, "Update could not be completed; the version timestamp could not be advanced.", null);
+            }
+
+            appliedWrites.Add(lastUpdateWrite.Value);
 
             // Persist values to DbFiles.Values so the write survives a session restart.
             if (!await PersistNodesetValuesAsync(userId, dppId).ConfigureAwait(false))
@@ -889,6 +931,45 @@ namespace Opc.Ua.Cloud.Library
                         fieldPath);
                 }
             }
+        }
+
+        // Writes a fresh UTC timestamp to the DPP's "LastUpdate" variable so version retrieval and
+        // "latest" selection stay correct after a mutation. GetDppVersionByIdAndDate uses LastUpdate
+        // as the live-vs-archive activation boundary and GetByProductId picks the latest DPP by
+        // LastUpdate, so every non-noop update must advance it. The new value is the activation time
+        // of the version produced by the current update; the pre-update snapshot is archived under
+        // its own (older) LastUpdate, giving an unambiguous boundary between the two versions.
+        //
+        // Returns the (NodeId, OriginalValue, FieldPath) tuple so the caller can add it to its
+        // appliedWrites bookkeeping and have the timestamp restored if a later step fails. Returns
+        // null when the LastUpdate node is missing or the write fails; the caller treats that as a
+        // failed update (fail-closed) rather than silently leaving the timestamp stale.
+        private async Task<(string NodeId, string OriginalValue, string FieldPath)?> BumpLastUpdateAsync(
+            string userId,
+            string dppId,
+            List<NodesetViewerNode> dppProperties)
+        {
+            NodesetViewerNode lastUpdateNode = dppProperties?.FirstOrDefault(p => p.Text == "LastUpdate");
+            if (lastUpdateNode == null)
+            {
+                _logger.LogError("UpdateDpp: DPP {DppId} does not expose a LastUpdate node; cannot advance the version timestamp.", dppId);
+                return null;
+            }
+
+            string originalValue = await _client.VariableRead(userId, dppId, lastUpdateNode.Id).ConfigureAwait(false);
+
+            // ISO 8601 round-trip ("O") format so the read path's DateTimeOffset.TryParse reconstructs
+            // the exact instant (including offset) without loss.
+            string freshTimestamp = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+
+            bool ok = await _client.VariableWrite(userId, dppId, lastUpdateNode.Id, freshTimestamp).ConfigureAwait(false);
+            if (!ok)
+            {
+                _logger.LogError("UpdateDpp: failed to write LastUpdate for DPP {DppId}.", dppId);
+                return null;
+            }
+
+            return (lastUpdateNode.Id, originalValue, "lastUpdate");
         }
 
         // Converts a JSON value to the string payload accepted by UAClient.VariableWrite.
