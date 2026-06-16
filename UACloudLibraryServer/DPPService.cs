@@ -551,7 +551,22 @@ namespace Opc.Ua.Cloud.Library
                 startIndex = 1;
             }
 
-            if (startIndex >= segments.Count)
+            // A trailing ".value" segment addresses the leaf's value property, not a child node. In our
+            // OPC UA model a leaf DataElement has no "value" child (its value is read/written on the
+            // element node itself), so walking that segment would fail with NotFound. RFC 9535 callers
+            // may legitimately address the leaf via "$.elements.myElement.value", so treat a trailing
+            // ".value" as addressing the owning element: drop it before the walk and re-read. We only
+            // strip it when at least one element-identifying segment remains after the optional
+            // "elements" prefix, otherwise "$.elements.value" would resolve to nothing.
+            int endIndex = segments.Count;
+            if (segments[endIndex - 1].IsName
+                && string.Equals(segments[endIndex - 1].Name, "value", StringComparison.Ordinal)
+                && endIndex - 1 > startIndex)
+            {
+                endIndex--;
+            }
+
+            if (startIndex >= endIndex)
             {
                 return (UpdateDppResult.BadRequest, "elementIdPath must address a specific element, not the elements root.", null);
             }
@@ -560,7 +575,7 @@ namespace Opc.Ua.Cloud.Library
             NodesetViewerNode current = elementsNode;
             List<NodesetViewerNode> currentChildren = await _client.GetChildren(userId, dppId, current.Id).ConfigureAwait(false);
 
-            for (int i = startIndex; i < segments.Count; i++)
+            for (int i = startIndex; i < endIndex; i++)
             {
                 if (currentChildren == null || currentChildren.Count == 0)
                 {
@@ -579,7 +594,7 @@ namespace Opc.Ua.Cloud.Library
 
                 current = next;
 
-                if (i < segments.Count - 1)
+                if (i < endIndex - 1)
                 {
                     currentChildren = await _client.GetChildren(userId, dppId, current.Id).ConfigureAwait(false);
                 }
@@ -681,13 +696,43 @@ namespace Opc.Ua.Cloud.Library
                 return (UpdateDppResult.WriteFailed, "Update could not be completed; previous version could not be captured for archival.", null);
             }
 
-            (ElementResult readResult, _, DataElement updated) = await GetElement(userId, dppId, elementIdPath).ConfigureAwait(false);
+            // Re-read the updated element to return it in the response. We rebuild the lookup path
+            // from the normalized segment range [startIndex, endIndex) so that any trailing ".value"
+            // (already excluded above) is not passed to GetElement: ResolveElement matches ElementId
+            // values in the DataElement tree and has no terminal "value" node to resolve. The leading
+            // "elements" prefix is intentionally omitted because GetElement re-applies the same
+            // optional-prefix handling internally.
+            string verificationPath = BuildElementPath(segments, startIndex, endIndex);
+
+            (ElementResult readResult, _, DataElement updated) = await GetElement(userId, dppId, verificationPath).ConfigureAwait(false);
             if (readResult != ElementResult.Success)
             {
                 return (UpdateDppResult.WriteFailed, "Write succeeded but updated element could not be re-read.", null);
             }
 
             return (UpdateDppResult.Success, null, updated);
+        }
+
+        // Reconstructs a JSONPath string from the normalized segment range [start, end). Name segments
+        // render as bracket selectors ('["name"]') so element ids containing dots or other delimiters
+        // round-trip unambiguously; index segments render as '[index]'. The result is rooted at '$'.
+        private static string BuildElementPath(IReadOnlyList<DppJsonPath.Segment> segments, int start, int end)
+        {
+            var builder = new System.Text.StringBuilder("$");
+            for (int i = start; i < end; i++)
+            {
+                DppJsonPath.Segment segment = segments[i];
+                if (segment.IsIndex)
+                {
+                    builder.Append('[').Append(segment.Index.Value).Append(']');
+                }
+                else
+                {
+                    builder.Append("[\"").Append(segment.Name).Append("\"]");
+                }
+            }
+
+            return builder.ToString();
         }
 
         // Walks a partial 'elements' JSON array against the live OPC UA Elements subtree,

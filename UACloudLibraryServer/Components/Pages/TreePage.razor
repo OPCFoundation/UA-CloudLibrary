@@ -114,7 +114,11 @@
                             <div class="card h-100">
                                 <div class="card-header">
                                     <b><span style="color: red;">Selected Node</span> Value</b>
-                                    <button type="button" class="btn btn-primary" style="float: right" @onclick="() => OpenEditDialog(NodeValue)">Edit</button>
+                                    <button type="button" class="btn btn-primary" style="float: right" @onclick="() => OpenEditDialog(NodeValue)">Edit</button><br/>
+                                    @if (!string.IsNullOrEmpty(WriteStatus))
+                                    {
+                                        <span style="color: red;">@WriteStatus</span>
+                                    }
                                 </div>
                                 <div class="card-body">
                                     @if (!string.IsNullOrEmpty(NodeValue))
@@ -190,6 +194,8 @@
 
     private string CopyStatus = string.Empty;
 
+    private string WriteStatus = string.Empty;
+
     private bool IsDownloading = false;
 
     private List<NodesetViewerNode> TreeNodes = new();
@@ -232,8 +238,16 @@
 
         if ((ModalTitle == "Edit") && save)
         {
-            await _client.VariableWrite(UserName, NodesetIdentifier, SelectedNode.Id, ModalValue).ConfigureAwait(false);
-            NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, SelectedNode.Id).ConfigureAwait(false);
+            bool writeSucceeded = await _client.VariableWrite(UserName, NodesetIdentifier, SelectedNode.Id, ModalValue).ConfigureAwait(false);
+            if (writeSucceeded)
+            {
+                NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, SelectedNode.Id).ConfigureAwait(false);
+                WriteStatus = string.Empty;
+            }
+            else
+            {
+                WriteStatus = "Failed to write variable value.";
+            }
         }
 
         if ((ModalTitle == "Copy") && save)
