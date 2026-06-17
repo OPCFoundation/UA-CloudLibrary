@@ -21,6 +21,7 @@
 	</ItemGroup>
     <ItemGroup>
         <InternalsVisibleTo Include="CloudLibClient.Tests" />
+        <InternalsVisibleTo Include="UACloudLibraryServer.UnitTests" />
     </ItemGroup>
 	<PropertyGroup Condition=" '$(RunConfiguration)' == 'UA_CloudLibrary' " />
 

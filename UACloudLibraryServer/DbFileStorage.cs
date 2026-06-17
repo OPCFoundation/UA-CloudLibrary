@@ -28,6 +28,7 @@
  * ======================================================================*/
 
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
@@ -87,7 +88,7 @@ namespace Opc.Ua.Cloud.Library
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex.Message);
+                _logger.LogError(ex, "FindFileAsync failed for {Name}.", name);
                 return null;
             }
         }
@@ -126,7 +127,7 @@ namespace Opc.Ua.Cloud.Library
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex.Message);
+                _logger.LogError(ex, "UploadFileAsync failed for {Name}.", name);
                 return null;
             }
         }
@@ -142,7 +143,7 @@ namespace Opc.Ua.Cloud.Library
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex.Message);
+                _logger.LogError(ex, "DownloadFileAsync failed for {Name}.", name);
                 return null;
             }
         }
@@ -161,8 +162,44 @@ namespace Opc.Ua.Cloud.Library
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex.Message);
+                _logger.LogError(ex, "DeleteFileAsync failed for {Name}.", name);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Lists the names of all files whose key starts with <paramref name="prefix"/>, sorted
+        /// ascending. Used by features that key multiple related rows by a shared prefix
+        /// (e.g. the DPP version archive stores one row per snapshot).
+        /// </summary>
+        public async Task<IReadOnlyList<string>> ListFileNamesAsync(string prefix, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrEmpty(prefix))
+            {
+                return Array.Empty<string>();
+            }
+
+            try
+            {
+                // Use the parameterless StartsWith so EF Core can translate the predicate to a
+                // SQL LIKE on the underlying provider; the StringComparison overload is not
+                // translatable on Npgsql and would throw at query time. Case sensitivity is
+                // governed by the column's database collation, which is ordinal/case-sensitive
+                // for our DbFiles.Name column.
+#pragma warning disable CA1310 // Specify StringComparison for correctness -- EF expression, see comment above
+                return await _dbContext.DBFiles
+                    .AsNoTracking()
+                    .Where(n => n.Name.StartsWith(prefix))
+                    .OrderBy(n => n.Name)
+                    .Select(n => n.Name)
+                    .ToListAsync(cancellationToken)
+                    .ConfigureAwait(false);
+#pragma warning restore CA1310
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ListFileNamesAsync failed for prefix {Prefix}.", prefix);
+                return Array.Empty<string>();
             }
         }
     }
