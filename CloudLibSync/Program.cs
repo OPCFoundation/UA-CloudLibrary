@@ -1,7 +1,4 @@
 using System.CommandLine;
-using System.CommandLine.Invocation;
-using System.CommandLine.NamingConventionBinder;
-using System.CommandLine.Parsing;
 using Microsoft.Extensions.Logging;
 using Opc.Ua.CloudLib.Sync;
 
