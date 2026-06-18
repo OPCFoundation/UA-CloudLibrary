@@ -1,6 +1,12 @@
 # UA Cloud Library
 
-The reference implementation of the UA Cloud Library. The UA Cloud Library enables the storage in and querying of OPC UA Information Models from anywhere in the world. 
+The reference implementation of the UA Cloud Library. The UA Cloud Library enables the storage and querying of OPC UA Information Models from anywhere in the world.
+
+## Build Status
+
+[![Docker Image CI](https://github.com/OPCFoundation/UA-CloudLibrary/actions/workflows/docker.yml/badge.svg)](https://github.com/OPCFoundation/UA-CloudLibrary/actions/workflows/docker.yml)
+
+[![.NET](https://github.com/OPCFoundation/UA-CloudLibrary/actions/workflows/dotnet.yml/badge.svg)](https://github.com/OPCFoundation/UA-CloudLibrary/actions/workflows/dotnet.yml)
 
 ## Table of Contents
 
@@ -31,7 +37,6 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
 - [Security &ndash; STRIDE Threat Analysis (UA-CloudLibrary server)](#security--stride-threat-analysis-ua-cloudlibrary-server)
   - [API Key Security Features](#api-key-security-features)
   - [Residual recommendations for operators](#residual-recommendations-for-operators)
-- [Build Status](#build-status)
 
 ## Features
 
@@ -515,8 +520,3 @@ For complete client library documentation and examples, see the [Client Library 
 * Forward console logs to a central SIEM (e.g. Azure Monitor / Log Analytics) to support audit and repudiation investigations.
 * Keep dependencies (ASP.NET Core, Npgsql, OPC UA stack, identity providers) on the latest patched versions via the existing GitHub Actions pipelines.
 
-## Build Status
-
-[![Docker Image CI](https://github.com/OPCFoundation/UA-CloudLibrary/actions/workflows/docker.yml/badge.svg)](https://github.com/OPCFoundation/UA-CloudLibrary/actions/workflows/docker.yml)
-
-[![.NET](https://github.com/OPCFoundation/UA-CloudLibrary/actions/workflows/dotnet.yml/badge.svg)](https://github.com/OPCFoundation/UA-CloudLibrary/actions/workflows/dotnet.yml)
