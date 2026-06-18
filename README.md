@@ -2,6 +2,37 @@
 
 The reference implementation of the UA Cloud Library. The UA Cloud Library enables the storage in and querying of OPC UA Information Models from anywhere in the world. 
 
+## Table of Contents
+
+- [Features](#features)
+- [Architecture](#architecture)
+- [Using the UA Cloud Library from a Client Application](#using-the-ua-cloud-library-from-a-client-application)
+  - [Client Library Installation](#client-library-installation)
+  - [Authentication Options](#authentication-options)
+- [Development Setup](#development-setup)
+- [Authentication and Authorization](#authentication-and-authorization)
+- [Digital Product Passport (DPP)](#digital-product-passport-dpp)
+  - [Conceptual model](#conceptual-model)
+  - [Serialization (EN 18223 Clause 5 / Annex A)](#serialization-en-18223-clause-5--annex-a)
+  - [Response envelope](#response-envelope)
+  - [Endpoints](#endpoints)
+  - [`elementIdPath` &mdash; JSONPath addressing](#elementidpath--jsonpath-addressing)
+  - [Write semantics, archival and persistence](#write-semantics-archival-and-persistence)
+  - [Durable version archive](#durable-version-archive)
+  - [Error responses](#error-responses)
+- [Database Configuration](#database-configuration)
+- [Cloud Hosting Setup](#cloud-hosting-setup)
+  - [Migrating from version 1.0 to version 1.1](#migrating-from-version-10-to-version-11)
+  - [Required Settings - PostgreSQL](#required-settings---postgresql)
+  - [Setting Password for Admin Account](#setting-password-for-admin-account)
+  - [Optional Settings](#optional-settings)
+  - [Optional Settings - Captcha](#optional-settings---captcha)
+- [Deployment](#deployment)
+- [Security &ndash; STRIDE Threat Analysis (UA-CloudLibrary server)](#security--stride-threat-analysis-ua-cloudlibrary-server)
+  - [API Key Security Features](#api-key-security-features)
+  - [Residual recommendations for operators](#residual-recommendations-for-operators)
+- [Build Status](#build-status)
+
 ## Features
 
 * REST interfaces
