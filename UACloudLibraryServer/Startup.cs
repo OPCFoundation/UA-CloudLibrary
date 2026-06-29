@@ -36,6 +36,7 @@ using System.Net.Sockets;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.RateLimiting;
 using System.Threading.Tasks;
 using AdminShell;
 using Microsoft.AspNetCore.Authentication;
@@ -47,6 +48,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -63,6 +65,10 @@ namespace Opc.Ua.Cloud.Library
 {
     public class Startup
     {
+        // Rate-limit policy applied to DPP services to prevent unauthorized mass data scraping
+        // (EN 18239 §5.2(11)/(15)).
+        public const string DppRateLimitPolicy = "DppRateLimit";
+
         public Startup(IConfiguration configuration, IWebHostEnvironment environment)
         {
             Configuration = configuration;
@@ -106,9 +112,9 @@ namespace Opc.Ua.Cloud.Library
             services.AddScoped<AssetAdministrationShellEnvironmentService>();
 
             services.AddScoped<DPPService>();
-
-            // EN 18221 Clause 4.2 archiving hook, satisfied with durable persistence
-            // via the existing DbFileStorage layer.
+            services.AddSingleton<IDppAccessPolicy, DppAccessPolicy>();
+            services.AddScoped<IDppAuditLog, DppAuditLog>();
+            services.AddSingleton<IEsdcService, RsaEsdcService>();
             services.AddScoped<IDppVersionArchive, DbFileVersionArchive>();
 
             services.AddScoped<CaptchaValidation>();
@@ -190,7 +196,7 @@ namespace Opc.Ua.Cloud.Library
             }
 
             services.AddAuthorization(options => {
-                options.AddPolicy("AdministrationPolicy", policy => policy.RequireRole("Administrator"));
+                options.AddPolicy("AdministrationPolicy", policy => policy.RequireRole(Roles.Administrator));
             });
 
             if (Configuration["APIKeyAuth"] != null)
@@ -269,6 +275,21 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddServerSideBlazor();
 
+            // Limit access to DPP services to prevent attacks or unauthorized
+            // mass data scraping. Partition the window per client IP so one caller cannot exhaust others.
+            int permitPerMinute = Configuration.GetValue<int?>("Dpp:RateLimit:PermitPerMinute") ?? 100;
+            services.AddRateLimiter(options => {
+                options.RejectionStatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status429TooManyRequests;
+                options.AddPolicy(DppRateLimitPolicy, httpContext =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+                        factory: _ => new FixedWindowRateLimiterOptions {
+                            PermitLimit = permitPerMinute,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0
+                        }));
+            });
+
             services.AddHostedService<CloudLibStartupTask>();
         }
 
@@ -292,6 +313,9 @@ namespace Opc.Ua.Cloud.Library
             app.UseStaticFiles();
 
             app.UseRouting();
+
+            // Enforce DPP service rate limits (must follow UseRouting so endpoint policies are resolved).
+            app.UseRateLimiter();
 
             app.UseAuthentication();
 

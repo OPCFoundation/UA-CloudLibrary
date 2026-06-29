@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Security.Claims;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Opc.Ua.Cloud.Library.Models;
 
 namespace Opc.Ua.Cloud.Library.Controllers
@@ -13,22 +16,46 @@ namespace Opc.Ua.Cloud.Library.Controllers
     // is applied at the controller level so it can be replaced for future versions.
     [Route("v1")]
     [Authorize(Policy = "ApiPolicy")]
+    [EnableRateLimiting(Startup.DppRateLimitPolicy)]
     [ApiController]
     public class DPPLifecycleApiController : ControllerBase
     {
         private readonly DPPService _dppService;
+        private readonly IDppAuditLog _auditLog;
+        private readonly IEsdcService _esdc;
 
-        public DPPLifecycleApiController(DPPService dppService)
+        public DPPLifecycleApiController(DPPService dppService, IDppAuditLog auditLog, IEsdcService esdc)
         {
             _dppService = dppService;
+            _auditLog = auditLog;
+            _esdc = esdc;
+        }
+
+        // Anonymous public-read callers have no identity; EN 18246 §5.1 requires public DPP data to be
+        // reachable without login, so we resolve a stable operator id ("anonymous") and an empty role
+        // set for them. Authenticated callers contribute their role claims for controlled-data access.
+        private string OperatorId => User?.Identity?.Name ?? "anonymous";
+
+        private IReadOnlyList<string> CallerRoles =>
+            User?.Claims?.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToArray()
+            ?? Array.Empty<string>();
+
+        // EN 18246 §4.5: issue an ESDC over the data the caller actually receives and expose it on the
+        // X-DPP-ESDC header so authenticity/integrity is verifiable independent of the transport channel.
+        private void AttachEsdc(DigitalProductPassport dpp)
+        {
+            ElectronicSignedDataConstruct esdc = _esdc.Issue(dpp);
+            string encoded = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(esdc)));
+            Response.Headers["X-DPP-ESDC"] = encoded;
         }
 
         public record ReadDppIdsRequest(List<string> productIds);
 
+        [AllowAnonymous]
         [HttpGet("dpps/{dppId}")]
         public async Task<ActionResult<ApiResponse<DigitalProductPassport>>> ReadDppById([FromRoute][Required] string dppId)
         {
-            var dpp = await _dppService.GetByDppId(User.Identity.Name, dppId).ConfigureAwait(false);
+            var dpp = await _dppService.GetByDppId(OperatorId, dppId).ConfigureAwait(false);
 
             if (dpp is null)
             {
@@ -39,13 +66,17 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 ));
             }
 
+            dpp = await _dppService.FilterForRolesAsync(dpp, CallerRoles).ConfigureAwait(false);
+            AttachEsdc(dpp);
+            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Read, dppId, null, "Success").ConfigureAwait(false);
             return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, dpp));
         }
 
+        [AllowAnonymous]
         [HttpGet("dppsByProductId/{productId}")]
         public async Task<ActionResult<ApiResponse<DigitalProductPassport>>> ReadDppByProductId([FromRoute][Required] string productId)
         {
-            var dpp = await _dppService.GetByProductId(User.Identity.Name, productId).ConfigureAwait(false);
+            var dpp = await _dppService.GetByProductId(OperatorId, productId).ConfigureAwait(false);
 
             if (dpp is null)
             {
@@ -56,9 +87,13 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 ));
             }
 
+            dpp = await _dppService.FilterForRolesAsync(dpp, CallerRoles).ConfigureAwait(false);
+            AttachEsdc(dpp);
+            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Read, dpp.DigitalProductPassportId, null, "Success").ConfigureAwait(false);
             return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, dpp));
         }
 
+        [AllowAnonymous]
         [HttpPost("dppsByProductIds")]
         public ActionResult<ApiResponse<List<string>>> ReadDppIdsByProductIds(
             [FromBody][Required] ReadDppIdsRequest request,
@@ -98,7 +133,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             // deduplication, ordinal sort and cursor parsing rules live in DppPagination so they
             // can be unit-tested without the HTTP pipeline; the controller only translates the
             // outcome into the spec-shaped ApiResponse envelope.
-            IEnumerable<string> rawIds = _dppService.GetDppIdsByProductIds(User.Identity.Name, request.productIds);
+            IEnumerable<string> rawIds = _dppService.GetDppIdsByProductIds(OperatorId, request.productIds);
             DppPagination.SliceOutcome outcome = DppPagination.TrySlice(
                 rawIds, limit, cursor,
                 out List<string> page,
@@ -117,15 +152,29 @@ namespace Opc.Ua.Cloud.Library.Controllers
             return Ok(new ApiResponse<List<string>>(DppApiStatusCodes.Success, page, result: null, pagination: pagination));
         }
 
+        [AllowAnonymous]
         [HttpGet("dpps/{dppId}/elements/{*elementIdPath}")]
         public async Task<ActionResult<ApiResponse<DataElement>>> ReadDataElement([FromRoute][Required] string dppId, [FromRoute][Required] string elementIdPath)
         {
             (DPPService.ElementResult result, string errorMessage, DataElement node) =
-                await _dppService.GetElement(User.Identity.Name, dppId, elementIdPath).ConfigureAwait(false);
+                await _dppService.GetElement(OperatorId, dppId, elementIdPath).ConfigureAwait(false);
 
             switch (result)
             {
                 case DPPService.ElementResult.Success:
+                    // Controlled elements must not be served (or even revealed) to callers lacking the
+                    // mapped role; report NotFound so a controlled element is indistinguishable from a
+                    // missing one for unauthorized/anonymous callers (EN 18239 §5.2).
+                    if (!await _dppService.CanReadElementAsync(dppId, node, CallerRoles).ConfigureAwait(false))
+                    {
+                        return NotFound(new ApiResponse<DataElement>(
+                            DppApiStatusCodes.ClientErrorResourceNotFound,
+                            payload: null,
+                            result: new ApiResult(new() { new ApiMessage("Error", "Resource or element not found") })
+                        ));
+                    }
+
+                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Read, dppId, elementIdPath, "Success").ConfigureAwait(false);
                     return Ok(new ApiResponse<DataElement>(DppApiStatusCodes.Success, node));
 
                 case DPPService.ElementResult.BadRequest:
@@ -161,6 +210,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             switch (result)
             {
                 case DPPService.UpdateDppResult.Success:
+                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, null, "Success").ConfigureAwait(false);
                     return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, updated));
 
                 case DPPService.UpdateDppResult.NotFound:
@@ -204,6 +254,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             switch (result)
             {
                 case DPPService.UpdateDppResult.Success:
+                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "Success").ConfigureAwait(false);
                     return Ok(new ApiResponse<DataElement>(DppApiStatusCodes.Success, updated));
 
                 case DPPService.UpdateDppResult.NotFound:
@@ -235,6 +286,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         // The accepted format set and the strict-vs-permissive parsing rule live in
         // DppDateParser so they can be unit-tested without the HTTP pipeline.
 
+        [AllowAnonymous]
         [HttpGet("dpps/{dppId}/versions/{date}")]
         public async Task<ActionResult<ApiResponse<DigitalProductPassport>>> ReadDppVersionByIdAndDate(
             [FromRoute][Required] string dppId,
@@ -249,7 +301,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 ));
             }
 
-            DigitalProductPassport dpp = await _dppService.GetDppVersionByIdAndDate(User.Identity.Name, dppId, asOf).ConfigureAwait(false);
+            DigitalProductPassport dpp = await _dppService.GetDppVersionByIdAndDate(OperatorId, dppId, asOf).ConfigureAwait(false);
             if (dpp is null)
             {
                 return NotFound(new ApiResponse<DigitalProductPassport>(
@@ -259,6 +311,9 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 ));
             }
 
+            dpp = await _dppService.FilterForRolesAsync(dpp, CallerRoles).ConfigureAwait(false);
+            AttachEsdc(dpp);
+            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Read, dppId, $"versions/{date}", "Success").ConfigureAwait(false);
             return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, dpp));
         }
     }

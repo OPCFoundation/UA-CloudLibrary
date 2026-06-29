@@ -109,6 +109,9 @@ namespace Opc.Ua.Cloud.Library
 
         public DbSet<DbFiles> DBFiles { get; set; }
 
+        // EN 18246 §4.7 tamper-evident, hash-chained audit trail for DPP create/read/modify/delete.
+        public DbSet<DppAuditEntry> DppAuditEntries { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -146,6 +149,10 @@ namespace Opc.Ua.Cloud.Library
                 .IsTsVectorExpressionIndex("english");
 
             builder.Entity<DbFiles>();
+
+            builder.Entity<DppAuditEntry>()
+                .Property(e => e.Operation)
+                .HasConversion<string>();
         }
 
         public void CreateNodeModel(ModelBuilder modelBuilder, bool cascadeDelete = false, bool methodArgs = false)

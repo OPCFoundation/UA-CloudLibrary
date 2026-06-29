@@ -4,7 +4,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using Opc.Ua.Cloud.Library;
 using Opc.Ua.Cloud.Library.Models;
 
@@ -16,6 +17,10 @@ namespace AdminShell
         private readonly UAClient _client;
         private readonly DbFileStorage _storage;
         private readonly CloudLibDataProvider _database;
+
+        // Node values may contain characters like <, >, & that System.Text.Json escapes to \uXXXX by
+        // default; relaxed escaping keeps the stored values blob readable and Newtonsoft-equivalent.
+        private static readonly JsonSerializerOptions s_jsonOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
         public BrowserController(UAClient client, DbFileStorage storage, CloudLibDataProvider database)
         {
@@ -39,7 +44,7 @@ namespace AdminShell
         {
             Dictionary<string, string> results = await _client.BrowseVariableNodesResursivelyAsync(User.Identity.Name, model.NodesetIdentifier, null).ConfigureAwait(false);
 
-            return File(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(results)), "text/json", "nodevalues.json");
+            return File(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(results, s_jsonOptions)), "text/json", "nodevalues.json");
         }
 
         [HttpPost]
@@ -52,7 +57,9 @@ namespace AdminShell
                 DbFiles nodesetXml = await _storage.DownloadFileAsync(model.NodesetIdentifier).ConfigureAwait(false);
 
                 Dictionary<string, string> results = await _client.BrowseVariableNodesResursivelyAsync(User.Identity.Name, model.NodesetIdentifier, null).ConfigureAwait(false);
-                nodesetXml.Values = JsonConvert.SerializeObject(results);
+                // Re-attach the per-DPP controlledElements access map: a browse only returns node values,
+                // so merge it back from the existing values blob to avoid dropping it on save.
+                nodesetXml.Values = DppControlledElements.Merge(JsonSerializer.Serialize(results, s_jsonOptions), nodesetXml.Values);
 
                 string name = await _storage.UploadFileAsync(model.NodesetIdentifier, nodesetXml.Blob, nodesetXml.Values).ConfigureAwait(false);
                 if (name == null)

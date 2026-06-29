@@ -32,7 +32,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using Newtonsoft.Json;
+using System.Text.Json;
 using Opc.Ua.Export;
 using Opc.Ua.Server;
 
@@ -152,22 +152,34 @@ namespace Opc.Ua.Cloud.Library
                     {
                         if (!string.IsNullOrEmpty(values))
                         {
-                            Dictionary<string, string> keyvalues = JsonConvert.DeserializeObject<Dictionary<string, string>>(values);
-                            foreach (KeyValuePair<string, string> pair in keyvalues)
+                            // Parse as a JSON document rather than a Dictionary<string,string>: the
+                            // values file may carry a reserved "controlledElements" object (the per-DPP
+                            // access map), which is not a node value and must be skipped here.
+                            using JsonDocument keyvalues = JsonDocument.Parse(values);
+                            if (keyvalues.RootElement.ValueKind == JsonValueKind.Object)
                             {
-                                NodeId nodeId;
-                                if (pair.Key.StartsWith("nsu=", StringComparison.Ordinal))
+                                foreach (JsonProperty pair in keyvalues.RootElement.EnumerateObject())
                                 {
-                                    nodeId = ExpandedNodeId.ToNodeId(new ExpandedNodeId(pair.Key), Server.NamespaceUris);
-                                }
-                                else
-                                {
-                                    nodeId = new NodeId(NodeId.Parse(pair.Key).Identifier, (ushort)Server.NamespaceUris.GetIndex(namespaceUri));
-                                }
+                                    if (string.Equals(pair.Name, DppControlledElements.PropertyName, StringComparison.OrdinalIgnoreCase)
+                                        || pair.Value.ValueKind != JsonValueKind.String)
+                                    {
+                                        continue;
+                                    }
 
-                                if (Find(nodeId) is BaseVariableState variable)
-                                {
-                                    variable.Value = new Variant(pair.Value);
+                                    NodeId nodeId;
+                                    if (pair.Name.StartsWith("nsu=", StringComparison.Ordinal))
+                                    {
+                                        nodeId = ExpandedNodeId.ToNodeId(new ExpandedNodeId(pair.Name), Server.NamespaceUris);
+                                    }
+                                    else
+                                    {
+                                        nodeId = new NodeId(NodeId.Parse(pair.Name).Identifier, (ushort)Server.NamespaceUris.GetIndex(namespaceUri));
+                                    }
+
+                                    if (Find(nodeId) is BaseVariableState variable)
+                                    {
+                                        variable.Value = new Variant(pair.Value.GetString());
+                                    }
                                 }
                             }
                         }

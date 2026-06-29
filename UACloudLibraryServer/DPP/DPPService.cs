@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using Opc.Ua.Cloud.Library.Models;
 
 namespace Opc.Ua.Cloud.Library
@@ -18,14 +19,127 @@ namespace Opc.Ua.Cloud.Library
         private readonly CloudLibDataProvider _dataProvider;
         private readonly DbFileStorage _storage;
         private readonly IDppVersionArchive _archive;
+        private readonly IDppAccessPolicy _accessPolicy;
 
-        public DPPService(UAClient client, CloudLibDataProvider dataProvider, DbFileStorage storage, IDppVersionArchive archive, ILoggerFactory loggerFactory)
+        // Node values may contain characters like <, >, & that System.Text.Json escapes to \uXXXX by
+        // default; relaxed escaping keeps the stored values blob readable and Newtonsoft-equivalent.
+        private static readonly JsonSerializerOptions s_valuesJsonOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
+        public DPPService(UAClient client, CloudLibDataProvider dataProvider, DbFileStorage storage, IDppVersionArchive archive, IDppAccessPolicy accessPolicy, ILoggerFactory loggerFactory)
         {
             _client = client;
             _dataProvider = dataProvider;
             _storage = storage;
             _archive = archive;
+            _accessPolicy = accessPolicy;
             _logger = loggerFactory.CreateLogger("DPPService");
+        }
+
+        /// <summary>
+        /// Loads the per-DPP <c>controlledElements</c> mapping (dictionaryReference -> permitted roles)
+        /// from the DPP's stored values blob. Returns an empty map when the DPP has no values or no
+        /// mapping, in which case every element is public.
+        /// </summary>
+        public async Task<IReadOnlyDictionary<string, string[]>> GetControlledElementsAsync(string dppId)
+        {
+            DbFiles file = await _storage.DownloadFileAsync(dppId).ConfigureAwait(false);
+            return DppControlledElements.Parse(file?.Values);
+        }
+
+        /// <summary>
+        /// True when a caller holding <paramref name="callerRoles"/> may read the given element, per the
+        /// DPP's own controlled-elements mapping (EN 18239 §5.2). Public elements are readable by anyone,
+        /// including anonymous callers (empty role set).
+        /// </summary>
+        public async Task<bool> CanReadElementAsync(string dppId, DataElement element, IEnumerable<string> callerRoles)
+        {
+            if (element is null)
+            {
+                return false;
+            }
+
+            IReadOnlyDictionary<string, string[]> controlled = await GetControlledElementsAsync(dppId).ConfigureAwait(false);
+            return _accessPolicy.CanRead(element.DictionaryReference, callerRoles, controlled);
+        }
+
+        /// <summary>
+        /// Returns a copy of <paramref name="dpp"/> with every controlled data element the caller is not
+        /// authorized to read removed, so unauthenticated/under-privileged callers only ever see public
+        /// elements. The controlled mapping is the DPP's own (carried in its values blob). Controlled
+        /// elements are pruned recursively from nested collections. Returns the same instance when
+        /// nothing is filtered to avoid needless allocation.
+        /// </summary>
+        public async Task<DigitalProductPassport> FilterForRolesAsync(DigitalProductPassport dpp, IEnumerable<string> callerRoles)
+        {
+            if (dpp is null)
+            {
+                return null;
+            }
+
+            IReadOnlyDictionary<string, string[]> controlled = await GetControlledElementsAsync(dpp.DigitalProductPassportId).ConfigureAwait(false);
+            if (controlled.Count == 0)
+            {
+                // No controlled elements for this DPP: everything is public, nothing to filter.
+                return dpp;
+            }
+
+            string[] roles = callerRoles?.ToArray() ?? Array.Empty<string>();
+            List<DataElement> filtered = FilterElements(dpp.Elements, roles, controlled);
+            if (ReferenceEquals(filtered, dpp.Elements))
+            {
+                return dpp;
+            }
+
+            return new DigitalProductPassport
+            {
+                DigitalProductPassportId = dpp.DigitalProductPassportId,
+                UniqueProductIdentifier = dpp.UniqueProductIdentifier,
+                Granularity = dpp.Granularity,
+                DppSchemaVersion = dpp.DppSchemaVersion,
+                DppStatus = dpp.DppStatus,
+                LastUpdate = dpp.LastUpdate,
+                EconomicOperatorId = dpp.EconomicOperatorId,
+                FacilityId = dpp.FacilityId,
+                ContentSpecificationIds = dpp.ContentSpecificationIds,
+                Elements = filtered
+            };
+        }
+
+        // Recursively drops elements the caller may not read; descends into collections. Returns the
+        // original list reference unchanged when nothing was pruned.
+        private List<DataElement> FilterElements(List<DataElement> elements, string[] roles, IReadOnlyDictionary<string, string[]> controlled)
+        {
+            if (elements is null || elements.Count == 0)
+            {
+                return elements;
+            }
+
+            var result = new List<DataElement>(elements.Count);
+            bool changed = false;
+
+            foreach (DataElement element in elements)
+            {
+                if (!_accessPolicy.CanRead(element.DictionaryReference, roles, controlled))
+                {
+                    changed = true;
+                    continue;
+                }
+
+                if (element is DataElementCollection coll)
+                {
+                    List<DataElement> childFiltered = FilterElements(coll.Elements, roles, controlled);
+                    if (!ReferenceEquals(childFiltered, coll.Elements))
+                    {
+                        changed = true;
+                        result.Add(new DataElementCollection { ElementId = coll.ElementId, DictionaryReference = coll.DictionaryReference, Elements = childFiltered });
+                        continue;
+                    }
+                }
+
+                result.Add(element);
+            }
+
+            return changed ? result : elements;
         }
 
         public async Task<DigitalProductPassport> GetByDppId(string userId, string dppId)
@@ -1017,8 +1131,11 @@ namespace Opc.Ua.Cloud.Library
                 }
 
                 string updatedXml = AdvancePublicationDate(file.Blob);
-                string serialized = JsonConvert.SerializeObject(values);
-                string stored = await _storage.UploadFileAsync(nodesetIdentifier, updatedXml, serialized).ConfigureAwait(false);
+                string serialized = JsonSerializer.Serialize(values, s_valuesJsonOptions);
+                // Re-attach the per-DPP controlledElements mapping: a browse only returns node values,
+                // so without this the access mapping carried in the values blob would be lost on update.
+                string merged = DppControlledElements.Merge(serialized, file.Values);
+                string stored = await _storage.UploadFileAsync(nodesetIdentifier, updatedXml, merged).ConfigureAwait(false);
                 return !string.IsNullOrEmpty(stored);
             }
             catch (Exception ex)

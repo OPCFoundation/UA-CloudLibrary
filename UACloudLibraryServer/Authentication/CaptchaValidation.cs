@@ -33,7 +33,8 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Opc.Ua.Cloud.Library.Authentication
 {
@@ -66,13 +67,15 @@ namespace Opc.Ua.Cloud.Library.Authentication
         public DateTime challengeTs { get; set; }
 
         public string hostname { get; set; }
-        [JsonProperty("error-codes")]
 
+        [JsonPropertyName("error-codes")]
         public List<string> errorCodes { get; set; }
     }
 
     public class CaptchaValidation
     {
+        private static readonly JsonSerializerOptions s_jsonOptions = new() { PropertyNameCaseInsensitive = true };
+
         private readonly ILogger<CaptchaValidation> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly CaptchaSettings _captchaSettings;
@@ -160,7 +163,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
 
                     //check the reCaptcha response
                     string data = await response.Content.ReadAsStringAsync().ConfigureAwait(false);  //Make sure to add a reference to System.Net.Http.Formatting.dll
-                    ReCaptchaResponse recaptchaResponse = JsonConvert.DeserializeObject<ReCaptchaResponse>(data);
+                    ReCaptchaResponse recaptchaResponse = JsonSerializer.Deserialize<ReCaptchaResponse>(data, s_jsonOptions);
                     if (recaptchaResponse == null)
                     {
                         _logger.LogCritical($"ValidateCaptcha|Expected Google reCaptcha response was null");

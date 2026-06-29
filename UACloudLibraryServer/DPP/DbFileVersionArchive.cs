@@ -62,7 +62,7 @@ namespace Opc.Ua.Cloud.Library
         // DigitalProductPassport. The model uses System.Text.Json polymorphism
         // ([JsonPolymorphic]/[JsonDerivedType] with discriminator "objectType") plus
         // [JsonPropertyName] overrides and [JsonStringEnumConverter] on Granularity, so the
-        // archive must (de)serialize with System.Text.Json - Newtonsoft.Json would ignore
+        // archive must (de)serialize with System.Text.Json
         // those attributes and fail to instantiate the abstract DataElement base type on read.
         // DefaultIgnoreCondition.WhenWritingNull keeps optional members (e.g. FacilityId,
         // ContentSpecificationIds, DictionaryReference, ValueDataType) out of the stored blob.

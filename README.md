@@ -25,6 +25,8 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
   - [`elementIdPath` &mdash; JSONPath addressing](#elementidpath--jsonpath-addressing)
   - [Write semantics, archival and persistence](#write-semantics-archival-and-persistence)
   - [Durable version archive](#durable-version-archive)
+  - [Access control, audit and signing (EN 18239 / EN 18246)](#access-control-audit-and-signing-en-18239--en-18246)
+  - [Standards conformance (EN 18239 / EN 18246)](#standards-conformance-en-18239--en-18246)
   - [Error responses](#error-responses)
 - [Database Configuration](#database-configuration)
 - [Cloud Hosting Setup](#cloud-hosting-setup)
@@ -137,19 +139,11 @@ Approval of freshly uploaded OPC UA Information Models for download by everyone 
 
 The UA Cloud Library hosts a Digital Product Passport (DPP) Lifecycle API that exposes selected OPC UA information models as DPPs. It is aligned with three European Norms:
 
-* **EN 18221** &mdash; *Digital product passport - data storage, archiving, and data persistence* &mdash; shapes the storage, archiving and version-retrieval behaviour (Clause 4.1 storage, Clause 4.2 archiving).
+* **EN 18221** &mdash; *Digital Product Passport - Data storage, archiving, and data persistence* &mdash; shapes the storage, archiving and version-retrieval behaviour (Clause 4.1 storage, Clause 4.2 archiving).
 * **EN 18222** &mdash; *Digital Product Passport - Application Programming Interfaces (APIs) for the product passport lifecycle management and searchability* &mdash; shapes the REST surface (`ReadDppById`, `ReadDppByProductId`, `ReadDppIdsByProductIds`, `ReadDataElement`, `UpdateDppById`, `UpdateDataElement`, `ReadDppVersionByIdAndDate`).
 * **EN 18223** &mdash; *Digital Product Passport - System interoperability* &mdash; shapes the semantic data model (Clause 4: `DigitalProductPassport` and its `DataElement` subclasses) and the JSON serialization (Clause 5 / Annex A).
-
-The DPP surface is implemented by:
-
-* [`Controllers/DPPLifecycleApiController.cs`](UACloudLibraryServer/Controllers/DPPLifecycleApiController.cs) &mdash; the HTTP boundary.
-* [`DPPService.cs`](UACloudLibraryServer/DPPService.cs) &mdash; the service-layer orchestration.
-* [`UAClientServer/UAClient.cs`](UACloudLibraryServer/UAClientServer/UAClient.cs) &mdash; live access to the embedded OPC UA server.
-* [`DbFileStorage.cs`](UACloudLibraryServer/DbFileStorage.cs) &mdash; durable persistence of nodeset XML and variable values.
-* [`IDppVersionArchive.cs`](UACloudLibraryServer/IDppVersionArchive.cs) and [`DbFileVersionArchive.cs`](UACloudLibraryServer/DbFileVersionArchive.cs) &mdash; durable archive of DPP version snapshots.
-* [`Models/DppModel.cs`](UACloudLibraryServer/Models/DppModel.cs), [`Models/DppApiResponse.cs`](UACloudLibraryServer/Models/DppApiResponse.cs), [`Models/Pagination.cs`](UACloudLibraryServer/Models/Pagination.cs) &mdash; request/response contracts.
-* [`DppJsonPath.cs`](UACloudLibraryServer/DppJsonPath.cs) &mdash; the JSONPath subset used for `elementIdPath` addressing.
+* **EN 18239** &mdash; *Digital Product Passport - Access rights, IT security and business confidentiality* &mdash; shapes the public/controlled access split, element-level role-based access control and operator identification (Clause 5.2).
+* **EN 18246** &mdash; *Digital Product Passport - Data authentication, reliability and integrity* &mdash; shapes the tamper-evident audit log (Clause 4.7), Electronic Signed Data Constructs (Clause 4.5) and unauthenticated public read (Clause 5.1).
 
 ### Conceptual model
 
@@ -276,11 +270,11 @@ The `statusCode` values are the symbolic constants from `DppApiStatusCodes` (`Su
 
 ### Endpoints
 
-All routes are versioned under `v1/` and require an authenticated principal satisfying the `ApiPolicy` (Basic auth, signed-in cookie, or `X-API-Key` &mdash; see [Authentication and Authorization](#authentication-and-authorization)).
+All routes are versioned under `v1/`. The **read** routes (`GET dpps/{dppId}`, `GET dppsByProductId/{productId}`, `POST dppsByProductIds`, `GET dpps/{dppId}/elements/{*elementIdPath}`, `GET dpps/{dppId}/versions/{date}`) are reachable **anonymously** so public DPP data can be read without login (EN 18246 Clause 5.1); authenticated callers additionally see any controlled elements their roles permit. The **write** routes (`PATCH`) still require an authenticated principal satisfying the `ApiPolicy` (Basic auth, signed-in cookie, or `X-API-Key` &mdash; see [Authentication and Authorization](#authentication-and-authorization)). See [Access control, audit and signing](#access-control-audit-and-signing-en-18239--en-18246) for how controlled elements are filtered.
 
 | Method | Route | DPP lifecycle operation |
 |---|---|---|
-| `GET`   | `v1/dpps/{dppId}` | Returns the full DPP rooted at the addressed nodeset. |
+| `GET`   | `v1/dpps/{dppId}` | Returns the full DPP rooted at the addressed nodeset. Public; controlled elements are filtered out for callers lacking the role. |
 | `GET`   | `v1/dppsByProductId/{productId}` | Returns the latest DPP whose `UniqueProductIdentifier` equals `productId` (resolved by browsing all nodesets visible to the caller and picking the newest `lastUpdate`). |
 | `POST`  | `v1/dppsByProductIds` | Returns the list of DPP identifiers matching the supplied `productIds`. Supports paging via `?limit=` and `?cursor=` query parameters; the response envelope carries a `pagination` block. |
 | `GET`   | `v1/dpps/{dppId}/elements/{*elementIdPath}` | Returns the `DataElement` addressed by the JSONPath subset described below. |
@@ -339,6 +333,65 @@ The archive implements the archiving rules of EN 18221 Clause 4.2 (point-in-time
 * Because the row name is probabilistically unique, the previous check-then-write loop has been removed. The underlying writer (`DbFileStorage.UploadFileAsync`) is an upsert keyed on `DbFiles.Name`, so an astronomically unlikely `(counter, randomHex)` collision within the same tick would silently overwrite the prior row rather than being rejected; the collision odds (~1 in 2^32 per same-tick same-counter pair) sit well below the practical concern threshold for an archive workload, and the archived tick value always reflects the snapshot's true capture time.
 
 `DbFileVersionArchive` is registered as a scoped service in `Startup.ConfigureServices`. Its dependency `DbFileStorage` (and the underlying `AppDbContext`) are registered as transient, so each archive instance gets a fresh storage layer scoped to the current HTTP request without sharing change-tracker state across requests.
+
+### Access control, audit and signing (EN 18239 / EN 18246)
+
+Three security capabilities sit across the read and write paths. Each is keyed off an injectable service so the policy can change without touching the data model.
+
+**Public vs. controlled access (EN 18239 Clause 5.2).** Read access is *public by default*. Whether a `DataElement` is controlled is decided from its `dictionaryReference` &mdash; not from a property on the DPP instance &mdash; so the public/controlled split lives in the dictionary/policy layer (EN 18223 Clause 4.3) and can be amended without changing the DPP template. The mapping is supplied **per DPP**: the values JSON uploaded alongside the nodeset (via `/infomodel/upload` or the upload UI) may carry a reserved `controlledElements` object at the end, mapping each `dictionaryReference` to the role (or roles) permitted to read the elements that carry it. The values file is otherwise the flat `{ nodeId: value }` map already used to seed variable values:
+
+```json
+{
+  "nsu=http://example/dpp;i=6001": "750.0",
+  "nsu=http://example/dpp;i=6002": "0.95",
+  "controlledElements": {
+    "https://eudict.example/textile/supplierFacilityId": [ "Recycler", "Repairer" ],
+    "https://eudict.example/textile/billOfMaterials": "Recycler"
+  }
+}
+```
+
+[`DppControlledElements`](UACloudLibraryServer/DppControlledElements.cs) parses this object out of the DPP's stored values blob ([`IDppAccessPolicy`](UACloudLibraryServer/DPP/IDppAccessPolicy.cs) / [`DppAccessPolicy`](UACloudLibraryServer/DPP/DppAccessPolicy.cs) then evaluates it). Node-value patching ([`NodesetFileNodeManager`](UACloudLibraryServer/UAClientServer/NodesetFileNodeManager.cs)) ignores the reserved key, and the value-rewriting save paths ([`DPPService.PersistNodesetValuesAsync`](UACloudLibraryServer/DPP/DPPService.cs), [`BrowserController.Save`](UACloudLibraryServer/Controllers/BrowserController.cs)) merge it back so it survives updates. A DPP with no `controlledElements` is fully public. `DPPService.FilterForRolesAsync` removes any controlled element the caller's roles do not cover (recursively, including nested collections); members of the `admin` role see everything. `GET dpps/{dppId}/elements/...` returns `404` for a controlled element the caller may not read, so its existence is not revealed.
+
+**Tamper-evident audit log (EN 18246 Clause 4.7, EN 18239 §5.2(16)).** Every read (`GET`) and modify (`PATCH`) on a DPP, and every role/rights change, is recorded by [`IDppAuditLog`](UACloudLibraryServer/DPP/IDppAuditLog.cs) / [`DppAuditLog`](UACloudLibraryServer/DPP/DppAuditLog.cs) and bound to the acting operator id. Entries are SHA-256 hash-chained (each row hashes its content plus the previous hash), so any retrospective insert, edit or delete breaks the chain; `VerifyChainAsync` re-walks the chain. Rows persist in the `DppAuditEntries` table (migration `AddDppAuditLog`); logging never throws into the request path.
+
+**Electronic Signed Data Constructs (EN 18246 Annex A / B.5, §4.7).** Full-DPP reads return an `X-DPP-ESDC` header carrying the ESDC as a **W3C Verifiable Credential** (VC Data Model 2.0) secured with an enveloped JWS (`application/vc+jwt`) per the W3C *Securing Verifiable Credentials using JOSE and COSE* recommendation. The DPP is the credential's `credentialSubject.digitalProductPassport`, the economic operator is the `issuer`, and the unique product identifier is the subject `id`. [`IEsdcService`](UACloudLibraryServer/DPP/IEsdcService.cs) / [`RsaEsdcService`](UACloudLibraryServer/DPP/RsaEsdcService.cs) sign with RS256; the key is loaded from `Dpp:Esdc:PrivateKeyPem` and an optional issuer certificate (`Dpp:Esdc:CertificatePem`) is embedded in the JWS header (`x5c`), otherwise an ephemeral process key is used. The VC-JWT is self-contained and independently verifiable by any VC-JWT verifier, free of charge and without contacting the issuer. Validating the issuer's certificate against an EU trusted list / governance framework (Annex A.3) is a deployment responsibility and is out of scope of this service.
+
+**Access-rights management & revocation (EN 18239 §5.2(16)/(17)/(19), §6.3).** Roles and their assignments are managed through [`AccessController`](UACloudLibraryServer/Controllers/AccessController.cs) (admin-only, `AdministrationPolicy`): `PUT`/`DELETE /access/roles/{roleName}` create/delete a role, and `PUT`/`DELETE /access/userRoles/{userId}/{roleName}` grant/revoke a role for an actor. The `DELETE` routes provide the documented access-revocation process and emergency revocation on breach or non-compliance. Every grant, revoke, create and delete is written to the tamper-evident audit log, bound to the acting administrator.
+
+**Abuse prevention / rate limiting (EN 18239 §5.2(11)/(15)).** The DPP endpoints are guarded by a built-in ASP.NET Core rate limiter (`DppRateLimitPolicy`, registered in [`Startup`](UACloudLibraryServer/Startup.cs)) that partitions a fixed window per client IP and returns `429 Too Many Requests` when exceeded. The per-minute permit count is configurable via `Dpp:RateLimit:PermitPerMinute` (default 100), letting an economic operator tighten limits where identified risk or legal requirements warrant.
+
+### Standards conformance (EN 18239 / EN 18246)
+
+The DPP service implements the access-rights, security and data-authentication requirements as summarised below. Items marked *Deployment* are organisational, identity-provider or infrastructure responsibilities outside this application's code.
+
+**EN 18239 — Access rights management, IT security, business confidentiality**
+
+| Clause | Requirement | Status |
+|---|---|---|
+| §5.2(2), §6.1/6.2 | Public data readable without authentication; unauthenticated public vs. authenticated controlled access schemes | Implemented |
+| §5.2(1)/(4)/(8) | Globally unique operator identifier available for identification/authorization/accounting | Implemented |
+| §5.2(5)/(16) | Non-repudiation; all access and role/rights changes logged and tamper-evident over time | Implemented |
+| §5.2(10)/(23) | Access rights enforceable at controlled data-element granularity per role | Implemented |
+| §5.2(11)/(15) | Limit access to prevent attacks / unauthorized mass data scraping (rate limiting) | Implemented |
+| §5.2(17)/(19), §6.3 | Granting/modifying/revoking access when roles change; emergency revocation; access-revocation policy | Implemented |
+| §5.2(22) | Controlled data authenticated and authorized before access; least privilege | Implemented |
+| §5.2(24) | Profiling of users avoided | Implemented |
+| §5.2(18)/(20) | Delegation of roles (authorization also considering the delegating entity's role) | Deployment |
+| §5.2(13), Annex A | Authentication per the relevant legal act; MFA, identity proofing, sole control, dynamic auth | Deployment |
+| §6.4 / §6.5 | Business continuity (ISO 22301), ISMS/PDCA (ISO 27001), incident response, DoS resilience, security-by-design | Deployment |
+
+**EN 18246 — Data authentication, reliability and integrity**
+
+| Clause | Requirement | Status |
+|---|---|---|
+| §4.3 / §5.1 | Public read without authentication and without collecting PII | Implemented |
+| §4.7 | Create/modify on DPP logged non-repudiably, tamper-proof, integrity preserved over time | Implemented |
+| §4.5, Annex A | ESDC issuance and verification (W3C Verifiable Credential, `application/vc+jwt`) | Implemented |
+| §4.7, Annex A.3 | Authenticity/integrity verifiable independently, free of charge, without contacting the issuer | Implemented |
+| Annex A.3 (4th bullet) | Validating the issuer's certificate against an EU trusted list / governance framework | Deployment |
+
+The *Deployment* rows are deliberately left to the operator/host because they depend on the chosen identity provider (e.g. eIDAS-compliant MFA and identity proofing), an EU trusted-list infrastructure, and organisational ISMS/BCM processes rather than application logic.
 
 ### Error responses
 
@@ -426,7 +479,7 @@ The following STRIDE-based threat model covers the `UACloudLibraryServer` projec
 | 12 | **D**enial of service | Public registration / login / password-reset endpoints | Bots flood self-registration, exhaust the email quota, or brute-force passwords. | Self-registration can be disabled entirely via `AllowSelfRegistration=false`. Google reCAPTCHA v3 is enforced through `CaptchaValidation` (configurable score via `CaptchaSettings__BotThreshold`) on registration. Identity's built-in lockout (`Lockout.cshtml`) blocks password brute-force. Email sending is delegated to Postmark or SendGrid (`PostmarkEmailSender`, `SendGridEmailSender`) which apply provider-side rate limits. |
 | 13 | **D**enial of service | Large or malicious uploads, expensive nodeset parsing | A caller uploads many huge nodesets to fill storage or pin CPU. | Upload endpoints require an authenticated identity (`ApiPolicy`) so anonymous flooding is not possible. Uploaded nodesets are streamed through `MemoryStream` and then handed to `CloudLibDataProvider.UploadNamespaceAndNodesetAsync` which deduplicates by deterministic hash (`DeterministicHash.cs`) and stores them in PostgreSQL via `DbFileStorage`. Operators should additionally configure Kestrel (`KestrelServerOptions`) request-body size limits and HTTP timeouts at the reverse proxy. |
 | 14 | **D**enial of service | Embedded OPC UA server (`UAClientServer/SimpleServer.cs`, `NodesetFileNodeManager.cs`) | A malicious OPC UA client opens excessive sessions/subscriptions or sends malformed messages. | The server is built on the OPC Foundation `Opc.Ua.Server` stack which enforces session limits, message size limits and security-policy validation through the configured `ApplicationInstance`. The OPC UA application certificate is created and validated automatically by `ApplicationInstance` so unsigned channels are rejected. |
-| 15 | **E**levation of privilege | Administrative endpoints (approval, user/role management) | A regular user escalates to administrator and approves or deletes arbitrary nodesets. | Administrative operations are protected by the `AdministrationPolicy` defined in `Startup.ConfigureServices` (`policy.RequireRole("Administrator")`). The `Administrator` role can only be assigned by an existing administrator via the management UI, and the bootstrap admin password is supplied out-of-band via the `ServicePassword` environment variable (the user name is fixed to `admin`). API-key principals only carry the claims of the user that minted them, so a compromised key cannot exceed that user's role set. |
+| 15 | **E**levation of privilege | Administrative endpoints (approval, user/role management) | A regular user escalates to administrator and approves or deletes arbitrary nodesets. | Administrative operations are protected by the `AdministrationPolicy` defined in `Startup.ConfigureServices` (`policy.RequireRole("admin")`). The `admin` role can only be assigned by an existing administrator via the management UI, and the bootstrap admin password is supplied out-of-band via the `ServicePassword` environment variable (the user name is fixed to `admin`). API-key principals only carry the claims of the user that minted them, so a compromised key cannot exceed that user's role set. |
 | 16 | **E**levation of privilege | Authentication-handler bypass | A bug in a custom authentication handler grants access without valid credentials. | The custom handlers (`BasicAuthenticationHandler`, `SignedInUserAuthenticationHandler`, `ApiKeyAuthenticationHandler`) all delegate credential verification to `UserService` which uses the Identity `UserManager`/`SignInManager` APIs (PBKDF2 password verification, normalised user lookup, time-constant comparisons). Authentication failures consistently return `AuthenticateResult.Fail/NoResult` and never short-circuit the pipeline as success. The combined `ApiPolicy` requires `RequireAuthenticatedUser()` so a `NoResult` from one scheme cannot be interpreted as success. |
 
 ### API Key Security Features
