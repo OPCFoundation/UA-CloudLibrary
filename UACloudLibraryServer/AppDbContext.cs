@@ -83,7 +83,11 @@ namespace Opc.Ua.Cloud.Library
 
             if (string.IsNullOrEmpty(connectionString))
             {
-                throw new InvalidOperationException("Connection string 'CloudLibraryPostgreSQL' is not configured.");
+                throw new InvalidOperationException(
+                    "Connection string 'CloudLibraryPostgreSQL' is not configured. " +
+                    "Set it via the configuration key 'ConnectionStrings:CloudLibraryPostgreSQL' " +
+                    "(e.g. in appsettings.json) or the environment variable 'ConnectionStrings__CloudLibraryPostgreSQL'. " +
+                    "Example value: 'Host=localhost;Port=5432;Database=uacloudlib;Username=uacloudlibrary-app;Password=<password>;Ssl Mode=Prefer;'.");
             }
 
             return connectionString;

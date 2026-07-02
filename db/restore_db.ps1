@@ -3,7 +3,8 @@ param(
     [string]$Database   = 'uacloudlib',
     [string]$BackupFile = '.\uacloudlib-backup.sql',
     [string]$AdminUser  = 'dbadmin',
-    [string]$AppUser    = 'uacloudlibrary-app'
+    [string]$AppUser    = 'uacloudlibrary-app',
+    [string]$PsqlPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -12,11 +13,24 @@ $ErrorActionPreference = 'Stop'
 # SQL file (produced by .\backup_db.ps1) into it.
 #
 # Defaults assume the production Azure server with a fresh staging DB; pass
-# -Server / -Database to point elsewhere. Admin user is fixed (dbadmin).
+# -Server / -Database / -AdminUser to point elsewhere.
 
-$psql      = 'C:\Program Files\PostgreSQL\18\bin\psql.exe'
-$adminUser = 'dbadmin'
-$port      = 5432
+# Locate psql: explicit -PsqlPath wins, else fall back to psql on PATH, else
+# the default Windows install location.
+if (-not $PsqlPath) {
+    $psqlCmd = Get-Command psql -ErrorAction SilentlyContinue
+    if ($psqlCmd) {
+        $PsqlPath = $psqlCmd.Source
+    } else {
+        $PsqlPath = 'C:\Program Files\PostgreSQL\18\bin\psql.exe'
+    }
+}
+if (-not (Get-Command $PsqlPath -ErrorAction SilentlyContinue)) {
+    Write-Host "psql not found at '$PsqlPath'. Install PostgreSQL client tools, add psql to PATH, or pass -PsqlPath." -ForegroundColor Red
+    exit 1
+}
+$psql = $PsqlPath
+$port = 5432
 
 if (-not $env:PGPASSWORD) {
     Write-Host 'No password set. Call: $env:PGPASSWORD = <password>' -ForegroundColor Yellow

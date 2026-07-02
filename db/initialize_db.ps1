@@ -6,13 +6,29 @@ param(
     # Drop and recreate the database before applying the EF Core schema. Use
     # this when DbContext column types changed (EF Core's EnsureCreated only
     # creates missing tables; it does not alter existing ones).
-    [switch]$Reset
+    [switch]$Reset,
+    [string]$PsqlPath
 )
 
 $ErrorActionPreference = 'Stop'
 
 $port = 5432
-$psql = 'C:\Program Files\PostgreSQL\18\bin\psql.exe'
+
+# Locate psql: explicit -PsqlPath wins, else fall back to psql on PATH, else
+# the default Windows install location.
+if (-not $PsqlPath) {
+    $psqlCmd = Get-Command psql -ErrorAction SilentlyContinue
+    if ($psqlCmd) {
+        $PsqlPath = $psqlCmd.Source
+    } else {
+        $PsqlPath = 'C:\Program Files\PostgreSQL\18\bin\psql.exe'
+    }
+}
+if (-not (Get-Command $PsqlPath -ErrorAction SilentlyContinue)) {
+    Write-Host "psql not found at '$PsqlPath'. Install PostgreSQL client tools, add psql to PATH, or pass -PsqlPath." -ForegroundColor Red
+    exit 1
+}
+$psql = $PsqlPath
 
 if (-not $env:PGPASSWORD) {
     Write-Host 'No password set. Call: $env:PGPASSWORD = <password>' -ForegroundColor Yellow

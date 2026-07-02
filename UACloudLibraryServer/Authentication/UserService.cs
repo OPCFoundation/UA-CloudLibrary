@@ -67,7 +67,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
                 adminUsername = "admin";
             }
 
-            if (username.Equals(adminUsername, StringComparison.OrdinalIgnoreCase))
+            if (username.Equals(adminUsername, StringComparison.Ordinal))
             {
                 string passwordFromEnvironment = Environment.GetEnvironmentVariable("ServicePassword");
                 if (string.IsNullOrEmpty(passwordFromEnvironment))
@@ -81,7 +81,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
                     return null;
                 }
 
-                if (!password.Equals(passwordFromEnvironment, StringComparison.OrdinalIgnoreCase))
+                if (!password.Equals(passwordFromEnvironment, StringComparison.Ordinal))
                 {
                     return null;
                 }

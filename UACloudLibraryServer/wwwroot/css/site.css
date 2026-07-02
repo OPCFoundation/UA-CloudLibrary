@@ -96,17 +96,24 @@ button.accept-policy {
 /* Sticky footer styles
 -------------------------------------------------- */
 html {
-  position: relative;
   min-height: 100%;
 }
 
+/* Flex-based sticky footer: the body fills at least the viewport height and
+   the content area grows to push the footer down. The footer stays in normal
+   flow, so it can wrap to multiple lines without overlapping the content. */
 body {
-  /* Margin bottom by footer height */
-  margin-bottom: 90px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
+
+body > .container {
+  flex: 1 0 auto;
+}
+
 .footer {
-  position: absolute;
-  bottom: 0;
+  flex-shrink: 0;
   width: 100%;
   line-height: 1.8rem;
   padding: .5rem 0;
