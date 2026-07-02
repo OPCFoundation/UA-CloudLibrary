@@ -2,19 +2,39 @@
 for details on configuring this project to bundle and minify static web assets. */
 
 /*-------------------------------------------*/
-/*Import same font as Profile Designer       */
+/*Import fonts (matches SpecificationServer)  */
 /*-------------------------------------------*/
-@import url(https://fonts.googleapis.com/css2?family=Bitter:wght@300;400;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Open%20Sans:wght@300;400;600;700&display=swap);
+@import url(https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap);
+
+/*-------------------------------------------*/
+/*OPC UA brand palette & fonts (matches       */
+/*SpecificationServer / other OPCF sites)     */
+/*-------------------------------------------*/
+:root {
+    --opc-mid:  #196096;
+    --opc-dark: #084A79;
+    --font-body: Roboto, Helvetica, Arial, sans-serif;
+    --font-ui:   Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: 'Consolas', 'Cascadia Code', monospace;
+}
+
+body {
+    font-family: var(--font-body);
+}
 
 /*-------------------------------------------*/
 /*Bootstrap overrides                        */
 /*-------------------------------------------*/
 .bg-primary {
-    background-color:#4084ef !important;
+    background-color:#196096 !important;
 }
-.bg-dark {
-    background-color: #2a3439 !important;
+
+/*-------------------------------------------*/
+/*Top accent bar                             */
+/*-------------------------------------------*/
+.top-bar {
+    height: 6px;
+    background-color: var(--opc-dark);
 }
 
 /*-------------------------------------------*/
@@ -36,14 +56,14 @@ a {
 
 .btn-primary {
   color: #fff;
-  background-color: #1b6ec2;
-  border-color: #1861ac;
+  background-color: var(--opc-mid);
+  border-color: var(--opc-mid);
 }
 
 .nav-pills .nav-link.active, .nav-pills .show > .nav-link {
   color: #fff;
-  background-color: #1b6ec2;
-  border-color: #1861ac;
+  background-color: var(--opc-mid);
+  border-color: var(--opc-mid);
 }
 
 /* Sticky footer styles
@@ -82,28 +102,28 @@ html {
 
 body {
   /* Margin bottom by footer height */
-  margin-bottom: 60px;
+  margin-bottom: 90px;
 }
 .footer {
   position: absolute;
   bottom: 0;
   width: 100%;
-  white-space: nowrap;
-  line-height: 60px; /* Vertically center the text there */
+  line-height: 1.8rem;
+  padding: .5rem 0;
 }
 
 /*-------------------------------------------*/
 /*Common CSS values used in Profile Designer */
 /*-------------------------------------------*/
 h1 {
-    font-family: "Bitter",sans-serif;
+    font-family: var(--font-body);
     font-size: 1.5rem;
     font-weight: 700;
     line-height: 1.7rem
 }
 
 h2, h3, h4 {
-    font-family: "Bitter",sans-serif;
+    font-family: var(--font-body);
     font-size: 1.05rem;
     font-weight: 700;
     line-height: 1.15rem
@@ -124,7 +144,7 @@ p {
 }
 
 .headline-1, .headline-2 {
-    font-family: "Bitter",sans-serif;
+    font-family: var(--font-body);
     font-weight: 700
 }
 
@@ -134,7 +154,7 @@ p {
 }
 
 .headline-3, .headline-4 {
-    font-family: "Bitter",sans-serif;
+    font-family: var(--font-body);
     font-weight: 700;
     font-size: 14px;
     line-height: 18px
@@ -145,7 +165,7 @@ p {
 }
 
 a {
-    font-family: "Open Sans",sans-serif;
+    font-family: var(--font-ui);
     font-style: normal;
     font-weight: 400;
     font-size: .9rem;
@@ -164,7 +184,7 @@ a {
 /*---------------------------------------------------*/
 header {
     height: auto;
-    background-color: #4084ef;
+    background: linear-gradient(100deg, var(--opc-mid) 0%, var(--opc-dark) 100%);
     border-bottom: 1px solid;
     align-items: center
 }
@@ -179,12 +199,16 @@ header {
         }
 
         header .navbar-brand img {
-            height: 50px
+            height: 50px;
+            border-top: 1px solid #fff;
+            border-left: 1px solid #fff;
+            border-bottom: 1px solid #000;
+            border-right: 1px solid #000;
         }
 
         header .nav-link {
-            font-family: "Open Sans",sans-serif;
-            color: #000 !important;
+            font-family: var(--font-ui);
+            color: #fff !important;
             opacity: .9
         }
 
@@ -242,34 +266,34 @@ a.btn.disabled, fieldset:disabled a.btn {
 
 .btn-primary {
     color: #fff;
-    background-color: #4084ef;
-    border-color: #4084ef
+    background-color: var(--opc-mid);
+    border-color: var(--opc-mid)
 }
 
     .btn-primary.focus, .btn-primary:focus, .btn-primary:hover {
         color: #fff;
-        background-color: #1d6dec;
-        border-color: #1366e9
+        background-color: var(--opc-dark);
+        border-color: var(--opc-dark)
     }
 
     .btn-primary.focus, .btn-primary:focus {
-        box-shadow: 0 0 0 .2rem rgba(93,150,241,.5)
+        box-shadow: 0 0 0 .2rem rgba(25,96,150,.5)
     }
 
     .btn-primary.disabled, .btn-primary:disabled {
         color: #fff;
-        background-color: #4084ef;
-        border-color: #4084ef
+        background-color: var(--opc-mid);
+        border-color: var(--opc-mid)
     }
 
     .btn-primary:not(:disabled):not(.disabled).active, .btn-primary:not(:disabled):not(.disabled):active, .show > .btn-primary.dropdown-toggle {
         color: #fff;
-        background-color: #1366e9;
-        border-color: #1261dd
+        background-color: var(--opc-dark);
+        border-color: var(--opc-dark)
     }
 
         .btn-primary:not(:disabled):not(.disabled).active:focus, .btn-primary:not(:disabled):not(.disabled):active:focus, .show > .btn-primary.dropdown-toggle:focus {
-            box-shadow: 0 0 0 .2rem rgba(93,150,241,.5)
+            box-shadow: 0 0 0 .2rem rgba(25,96,150,.5)
         }
 
 .btn-secondary {
@@ -349,8 +373,19 @@ a.btn.disabled, fieldset:disabled a.btn {
 /*Footer Settings                            */
 /*-------------------------------------------*/
 footer {
-    position:fixed;
+    background: linear-gradient(100deg, var(--opc-mid) 0%, var(--opc-dark) 100%);
+    color: #fff;
 }
 footer a {
     color: inherit;
+    opacity: .9;
+    margin-right: 1.25rem;
+    white-space: nowrap;
+}
+footer a:hover {
+    color: inherit;
+    opacity: .75;
+}
+footer .footer-version a {
+    margin-right: 0;
 }

@@ -83,24 +83,10 @@ namespace Opc.Ua.Cloud.Library
 
             if (string.IsNullOrEmpty(connectionString))
             {
-                connectionString = CreateConnectionStringFromEnvironment();
+                throw new InvalidOperationException("Connection string 'CloudLibraryPostgreSQL' is not configured.");
             }
 
             return connectionString;
-        }
-
-        private static string CreateConnectionStringFromEnvironment()
-        {
-            // Obtain connection string information from the environment
-            string Host = Environment.GetEnvironmentVariable("PostgreSQLEndpoint");
-            string User = Environment.GetEnvironmentVariable("PostgreSQLUsername");
-            string Password = Environment.GetEnvironmentVariable("PostgreSQLPassword");
-
-            string DBname = "uacloudlib";
-            string Port = "5432";
-
-            // Build connection string using parameters from portal
-            return $"Server={Host};Username={User};Database={DBname};Port={Port};Password={Password};SSLMode=Prefer";
         }
 
         public DbSet<NamespaceMetaDataModel> NamespaceMetaDataWithUnapproved { get; set; }
