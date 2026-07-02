@@ -56,7 +56,18 @@ namespace Opc.Ua.Cloud.Library.Authentication
         public async Task<IEnumerable<Claim>> ValidateCredentialsAsync(string username, string password)
         {
             // check for admin
-            if (username.Equals("admin", StringComparison.OrdinalIgnoreCase))
+            string adminUsername = Environment.GetEnvironmentVariable("ServiceUsername");
+            if (string.IsNullOrEmpty(adminUsername))
+            {
+                adminUsername = _config.GetValue<string>("ServiceUsername");
+            }
+
+            if (string.IsNullOrEmpty(adminUsername))
+            {
+                adminUsername = "admin";
+            }
+
+            if (username.Equals(adminUsername, StringComparison.Ordinal))
             {
                 string passwordFromEnvironment = Environment.GetEnvironmentVariable("ServicePassword");
                 if (string.IsNullOrEmpty(passwordFromEnvironment))
@@ -70,7 +81,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
                     return null;
                 }
 
-                if (!password.Equals(passwordFromEnvironment, StringComparison.OrdinalIgnoreCase))
+                if (!password.Equals(passwordFromEnvironment, StringComparison.Ordinal))
                 {
                     return null;
                 }

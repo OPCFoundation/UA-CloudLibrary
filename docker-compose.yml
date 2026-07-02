@@ -11,10 +11,8 @@ services:
       uanet:
         ipv4_address: 10.5.0.20
     environment:
-        PostgreSQLUsername: uacloudlib
-        PostgreSQLPassword: uacloudlib
+        ConnectionStrings__CloudLibraryPostgreSQL: "Server=db;Username=uacloudlib;Password=uacloudlib;Database=uacloudlib;Port=5432;Ssl Mode=Prefer"
         ServicePassword: uacloudlib
-        PostgreSQLEndpoint: db
   db:
     image: postgres
     restart: always
