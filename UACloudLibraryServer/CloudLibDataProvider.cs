@@ -662,11 +662,41 @@ namespace Opc.Ua.Cloud.Library
             if (typeKeywords.Length > 0)
             {
                 string typeRegex = $".*({string.Join('|', typeKeywords)}).*";
-                query = query.Where(md => md.ObjectTypes.Any(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase))
-                    || md.VariableTypes.Any(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase))
-                    || md.DataTypes.Any(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase))
-                    || md.ReferenceTypes.Any(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase))
-                    || md.Interfaces.Any(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase)));
+
+                // Pre-materialize matching nodeset keys from a single non-correlated UNION across
+                // the concrete type tables. Avoids both the abstract-TPT crash and 5 correlated EXISTS.
+                var matchingKeys = _dbContext.Set<ObjectTypeModel>()
+                    .Where(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase))
+                    .Select(t => new { t.NodeSet.ModelUri, t.NodeSet.PublicationDate })
+                    .Union(_dbContext.Set<InterfaceModel>()
+                        .Where(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase))
+                        .Select(t => new { t.NodeSet.ModelUri, t.NodeSet.PublicationDate }))
+                    .Union(_dbContext.Set<VariableTypeModel>()
+                        .Where(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase))
+                        .Select(t => new { t.NodeSet.ModelUri, t.NodeSet.PublicationDate }))
+                    .Union(_dbContext.Set<DataTypeModel>()
+                        .Where(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase))
+                        .Select(t => new { t.NodeSet.ModelUri, t.NodeSet.PublicationDate }))
+                    .Union(_dbContext.Set<ReferenceTypeModel>()
+                        .Where(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase))
+                        .Select(t => new { t.NodeSet.ModelUri, t.NodeSet.PublicationDate }))
+                    .ToList();
+
+                if (matchingKeys.Count > 0)
+                {
+                    var typePredicate = PredicateBuilder.New<NodeSetModel>(false);
+                    foreach (var key in matchingKeys)
+                    {
+                        var modelUri = key.ModelUri;
+                        var pubDate = key.PublicationDate;
+                        typePredicate = typePredicate.Or(md => md.ModelUri == modelUri && md.PublicationDate == pubDate);
+                    }
+                    query = query.Where(typePredicate);
+                }
+                else
+                {
+                    query = query.Where(md => false);
+                }
             }
 
             if (licenseKeywords.Length > 0)
