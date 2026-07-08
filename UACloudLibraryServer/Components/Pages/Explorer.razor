@@ -330,7 +330,9 @@
     {
         Loading = true;
 
-        IOrderedQueryable<NamespaceMetaDataModel> allOrderedNodesets = DataProvider.GetNodeSets(UserId.Identity.Name, keywords:SearchKeywords).Select(n => n.Metadata).OrderBy(md => md.Title);
+        IQueryable<NamespaceMetaDataModel> nodesetQuery = DataProvider.GetNodeSets(UserId.Identity.Name, keywords: SearchKeywords).Select(n => n.Metadata);
+        bool hasSortKeyword = SearchKeywords != null && SearchKeywords.Any(k => k.StartsWith("sort:", StringComparison.OrdinalIgnoreCase));
+        IQueryable<NamespaceMetaDataModel> allOrderedNodesets = hasSortKeyword ? nodesetQuery : nodesetQuery.OrderBy(md => md.Title);
 
         TotalCount = allOrderedNodesets.Count();
 
