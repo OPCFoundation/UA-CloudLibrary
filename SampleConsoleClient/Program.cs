@@ -94,7 +94,7 @@ namespace SampleConsoleClient
 
             // return everything (keywords=*, other keywords are simply appended with "&keywords=UriEscapedKeyword2&keywords=UriEscapedKeyword3", etc.)
             Uri address = new Uri(webClient.BaseAddress, "infomodel/find2?keywords=" + Uri.EscapeDataString("*"));
-            HttpResponseMessage response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
+            HttpResponseMessage response = await webClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, address)).ConfigureAwait(false);
             Console.WriteLine("Response: " + response.StatusCode.ToString());
             string responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             UANameSpace[] nodesets = null;
@@ -114,7 +114,7 @@ namespace SampleConsoleClient
                 // pick the first identifier returned previously
                 string identifier = nodesets[0].Nodeset.Identifier.ToString(CultureInfo.InvariantCulture);
                 address = new Uri(webClient.BaseAddress, "infomodel/download/" + Uri.EscapeDataString(identifier));
-                response = webClient.Send(new HttpRequestMessage(HttpMethod.Get, address));
+                response = await webClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, address)).ConfigureAwait(false);
 
                 Console.WriteLine("Response: " + response.StatusCode.ToString());
                 string responseStr = await response.Content.ReadAsStringAsync().ConfigureAwait(false);

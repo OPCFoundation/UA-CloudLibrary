@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace Opc.Ua.Cloud.Library.Models
 {
@@ -35,6 +36,8 @@ namespace Opc.Ua.Cloud.Library.Models
     public sealed record ApiResponse<T>(
         string statusCode,
         T payload = default,
-        ApiResult result = null
+        ApiResult result = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        Pagination pagination = null
     );
 }

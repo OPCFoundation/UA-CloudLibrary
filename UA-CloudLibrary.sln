@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.5.11801.241 oobstable
+VisualStudioVersion = 18.5.11801.241
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UA-CloudLibrary", "UACloudLibraryServer\UA-CloudLibrary.csproj", "{700D7FDD-EE63-4929-A70B-8CAD69FBED12}"
 EndProject
@@ -55,6 +55,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{02EA681E-C
 		Docs\architecture.png = Docs\architecture.png
 		Docs\Database Setup.md = Docs\Database Setup.md
 	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UACloudLibraryServer.UnitTests", "Tests\UACloudLibraryServer.UnitTests\UACloudLibraryServer.UnitTests.csproj", "{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "UACloudLibraryServer", "UACloudLibraryServer", "{0E5E2CB6-1971-8B53-CA5A-149BDFC2EEC3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -315,6 +319,36 @@ Global
 		{EFDB69DA-5981-213C-6004-C89DF47078B2}.Staging|x64.Build.0 = Release|Any CPU
 		{EFDB69DA-5981-213C-6004-C89DF47078B2}.Staging|x86.ActiveCfg = Release|Any CPU
 		{EFDB69DA-5981-213C-6004-C89DF47078B2}.Staging|x86.Build.0 = Release|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Debug|ARM.ActiveCfg = Debug|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Debug|ARM.Build.0 = Debug|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Debug|x64.Build.0 = Debug|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Debug|x86.Build.0 = Debug|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Release|ARM.ActiveCfg = Release|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Release|ARM.Build.0 = Release|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Release|ARM64.Build.0 = Release|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Release|x64.ActiveCfg = Release|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Release|x64.Build.0 = Release|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Release|x86.ActiveCfg = Release|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Release|x86.Build.0 = Release|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Staging|Any CPU.ActiveCfg = Debug|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Staging|Any CPU.Build.0 = Debug|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Staging|ARM.ActiveCfg = Debug|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Staging|ARM.Build.0 = Debug|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Staging|ARM64.ActiveCfg = Debug|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Staging|ARM64.Build.0 = Debug|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Staging|x64.ActiveCfg = Debug|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Staging|x64.Build.0 = Debug|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Staging|x86.ActiveCfg = Debug|Any CPU
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}.Staging|x86.Build.0 = Debug|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -322,6 +356,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{1AB4086F-0197-46C1-9C79-FCCAA05B90D6} = {3D43B49A-27D9-47EC-A824-263B43AA9C76}
 		{469D7E06-37C7-47B4-B88E-5973BB896EE5} = {61FA5300-FBB8-418B-8F10-B401001EC236}
+		{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3} = {61FA5300-FBB8-418B-8F10-B401001EC236}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {B18C4ECD-199D-4657-963A-AF276DBC2C76}
