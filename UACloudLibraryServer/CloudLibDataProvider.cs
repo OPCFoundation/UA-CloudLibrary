@@ -729,8 +729,7 @@ namespace Opc.Ua.Cloud.Library
                 .Select(k => k["sort:".Length..].Trim())
                 .FirstOrDefault(k => !string.IsNullOrEmpty(k));
 
-            query = sortKeyword?.ToLowerInvariant() switch
-            {
+            query = sortKeyword?.ToLowerInvariant() switch {
                 "date" => query.OrderByDescending(md => md.PublicationDate),
                 "publisher" => query.OrderBy(md => md.Metadata.UserId),
                 "downloads" => query.OrderByDescending(md => md.Metadata.NumberOfDownloads),
