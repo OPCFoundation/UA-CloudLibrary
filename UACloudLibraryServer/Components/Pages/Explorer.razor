@@ -356,7 +356,8 @@ await InvokeAsync(async () =>
             LastItemOnPage = 0;
         }
 
-        Loading = false;
+Loading = false;
+await InvokeAsync(StateHasChanged);
     }
 }
 
