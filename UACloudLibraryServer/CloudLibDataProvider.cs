@@ -110,9 +110,9 @@ namespace Opc.Ua.Cloud.Library
             {
                 nodeSets = _dbContext.NodeSetsWithUnapproved
                     .AsExpandable()
-                    .Where(GetNodesetUserFilter(userId))
                     .Where(nsm => nsm.ModelUri == modelUri)
-                    .Where(nsm => nsm.PublicationDate == publicationDate);
+                    .Where(nsm => nsm.PublicationDate == publicationDate)
+                    .Where(GetNodesetUserFilter(userId));
             }
             else if (keywords != null && keywords.Length > 0)
             {
@@ -634,27 +634,28 @@ namespace Opc.Ua.Cloud.Library
                          && !k.StartsWith("sort:", StringComparison.OrdinalIgnoreCase))
                 .ToArray();
 
-            if (plainKeywords.Length > 0)
+            // 1. exactKeywords: regex on ModelUri (PK component) — most selective, eliminates rows cheapest
+            if (exactKeywords.Length > 0)
             {
-                string keywordRegex = $".*({string.Join('|', plainKeywords)}).*";
-                query = query.Where(md => Regex.IsMatch(md.Metadata.Title, keywordRegex, RegexOptions.IgnoreCase)
-                    || Regex.IsMatch(md.Metadata.Description, keywordRegex, RegexOptions.IgnoreCase)
-                    || Regex.IsMatch(md.Metadata.NodeSet.ModelUri, keywordRegex, RegexOptions.IgnoreCase)
-                    || Regex.IsMatch(string.Join(",", md.Metadata.Keywords), keywordRegex, RegexOptions.IgnoreCase));
+                string exactRegex = $".*({string.Join('|', exactKeywords)}).*";
+                query = query.Where(md => Regex.IsMatch(md.ModelUri, exactRegex, RegexOptions.IgnoreCase));
             }
 
-            if (nameKeywords.Length > 0)
+            // 2. dateKeywords: range filter on PublicationDate (PK component) — indexed, very selective
+            List<DateTime> parsedDates = keywords
+                .Where(k => k.StartsWith("date:", StringComparison.OrdinalIgnoreCase))
+                .Select(k => ParseDateKeyword(k["date:".Length..]))
+                .Where(d => d.HasValue)
+                .Select(d => d!.Value)
+                .ToList();
+
+            if (parsedDates.Count > 0)
             {
-                string nameRegex = $".*({string.Join('|', nameKeywords)}).*";
-                query = query.Where(md => Regex.IsMatch(md.Metadata.Title, nameRegex, RegexOptions.IgnoreCase));
+                DateTime dateThreshold = parsedDates.Max();
+                query = query.Where(md => md.PublicationDate >= dateThreshold);
             }
 
-            if (publisherKeywords.Length > 0)
-            {
-                string publisherRegex = $".*({string.Join('|', publisherKeywords)}).*";
-                query = query.Where(md => Regex.IsMatch(md.Metadata.UserId, publisherRegex, RegexOptions.IgnoreCase));
-            }
-
+            // 3. typeKeywords: pre-materialized key list joined on indexed (ModelUri, PublicationDate)
             if (typeKeywords.Length > 0)
             {
                 string typeRegex = $".*({string.Join('|', typeKeywords)}).*";
@@ -695,29 +696,35 @@ namespace Opc.Ua.Cloud.Library
                 }
             }
 
+            // 4. licenseKeywords: single-column regex on Metadata.License
             if (licenseKeywords.Length > 0)
             {
                 string licenseRegex = $".*({string.Join('|', licenseKeywords)}).*";
                 query = query.Where(md => Regex.IsMatch(md.Metadata.License, licenseRegex, RegexOptions.IgnoreCase));
             }
 
-            if (exactKeywords.Length > 0)
+            // 5. nameKeywords: single-column regex on Metadata.Title
+            if (nameKeywords.Length > 0)
             {
-                string exactRegex = $".*({string.Join('|', exactKeywords)}).*";
-                query = query.Where(md => Regex.IsMatch(md.ModelUri, exactRegex, RegexOptions.IgnoreCase));
+                string nameRegex = $".*({string.Join('|', nameKeywords)}).*";
+                query = query.Where(md => Regex.IsMatch(md.Metadata.Title, nameRegex, RegexOptions.IgnoreCase));
             }
 
-            List<DateTime> parsedDates = keywords
-                .Where(k => k.StartsWith("date:", StringComparison.OrdinalIgnoreCase))
-                .Select(k => ParseDateKeyword(k["date:".Length..]))
-                .Where(d => d.HasValue)
-                .Select(d => d!.Value)
-                .ToList();
-
-            if (parsedDates.Count > 0)
+            // 6. publisherKeywords: single-column regex on Metadata.UserId
+            if (publisherKeywords.Length > 0)
             {
-                DateTime dateThreshold = parsedDates.Max();
-                query = query.Where(md => md.PublicationDate >= dateThreshold);
+                string publisherRegex = $".*({string.Join('|', publisherKeywords)}).*";
+                query = query.Where(md => Regex.IsMatch(md.Metadata.UserId, publisherRegex, RegexOptions.IgnoreCase));
+            }
+
+            // 7. plainKeywords: most expensive — regex across 4 columns; applied last on the narrowed set
+            if (plainKeywords.Length > 0)
+            {
+                string keywordRegex = $".*({string.Join('|', plainKeywords)}).*";
+                query = query.Where(md => Regex.IsMatch(md.Metadata.Title, keywordRegex, RegexOptions.IgnoreCase)
+                    || Regex.IsMatch(md.Metadata.Description, keywordRegex, RegexOptions.IgnoreCase)
+                    || Regex.IsMatch(md.Metadata.NodeSet.ModelUri, keywordRegex, RegexOptions.IgnoreCase)
+                    || Regex.IsMatch(string.Join(",", md.Metadata.Keywords), keywordRegex, RegexOptions.IgnoreCase));
             }
 
             string sortKeyword = keywords
