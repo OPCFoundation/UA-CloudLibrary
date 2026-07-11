@@ -327,10 +327,12 @@
 
     private async Task FetchData()
     {
-        Loading = true;
-        StateHasChanged();
-        await Task.Yield(); // allow Blazor to flush the render and show the overlay before DB work starts
-
+await InvokeAsync(async () =>
+{
+    Loading = true;
+    StateHasChanged();
+    await Task.Yield(); // allow Blazor to flush the render and show the overlay before DB work starts
+});
         IQueryable<NamespaceMetaDataModel> nodesetQuery = DataProvider.GetNodeSets(UserId.Identity.Name, keywords: SearchKeywords).Select(n => n.Metadata);
         bool hasSortKeyword = SearchKeywords != null && SearchKeywords.Any(k => k.StartsWith("sort:", StringComparison.OrdinalIgnoreCase));
         IQueryable<NamespaceMetaDataModel> allOrderedNodesets = hasSortKeyword ? nodesetQuery : nodesetQuery.OrderBy(md => md.Title);
