@@ -106,26 +106,22 @@ namespace Opc.Ua.Cloud.Library
                     .Where(nsm => nsm.ModelUri == modelUri)
                     .Where(GetNodesetUserFilter(userId));
             }
+            else if (!string.IsNullOrEmpty(modelUri) && (publicationDate != null))
+            {
+                nodeSets = _dbContext.NodeSetsWithUnapproved
+                    .AsExpandable()
+                    .Where(GetNodesetUserFilter(userId))
+                    .Where(nsm => nsm.ModelUri == modelUri)
+                    .Where(nsm => nsm.PublicationDate == publicationDate);
+            }
+            else if (keywords != null && keywords.Length > 0)
+            {
+                nodeSets = SearchNodesets(userId, keywords);
+            }
             else
             {
-                IQueryable<NodeSetModel> nodeSetQuery = SearchNodesets(userId, keywords);
-                if (!string.IsNullOrEmpty(modelUri) && (publicationDate != null))
-                {
-                    nodeSets = nodeSetQuery
-                        .AsExpandable()
-                        .Where(nsm => nsm.ModelUri == modelUri)
-                        .Where(nsm => nsm.PublicationDate == publicationDate);
-                }
-                else if (!string.IsNullOrEmpty(modelUri))
-                {
-                    nodeSets = nodeSetQuery
-                        .AsExpandable()
-                        .Where(nsm => nsm.ModelUri == modelUri);
-                }
-                else
-                {
-                    nodeSets = nodeSetQuery;
-                }
+                nodeSets = _dbContext.NodeSetsWithUnapproved
+                    .Where(GetNodesetUserFilter(userId));
             }
 
             return nodeSets;
