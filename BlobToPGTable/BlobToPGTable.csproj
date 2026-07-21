@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="AWSSDK.S3" Version="4.0.100.1" />
+    <PackageReference Include="AWSSDK.S3" Version="4.0.100.3" />
     <PackageReference Include="Azure.Storage.Blobs" Version="12.29.1" />
     <PackageReference Include="Google.Cloud.Storage.V1" Version="4.15.0" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
@@ -16,7 +16,7 @@
 
   <ItemGroup>
     <PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.300" />
-    <PackageReference Update="Nerdbank.GitVersioning" Version="3.10.85" />
+    <PackageReference Update="Nerdbank.GitVersioning" Version="3.10.91" />
   </ItemGroup>
 
 </Project>
