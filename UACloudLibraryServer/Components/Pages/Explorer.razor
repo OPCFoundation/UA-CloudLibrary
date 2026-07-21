@@ -66,8 +66,103 @@
                 <div class="input-group mb-3">
                     <div class="input-group-prepend">
                         <span class="input-group-text" id="inputGroup-sizing-default">Search</span>
+                        <button type="button" class="btn btn-outline-secondary" title="Search help" aria-label="Search help" @onclick="@(() => ShowSearchHelp = true)">
+                            <strong>?</strong>
+                        </button>
                     </div>
                     <input type="text" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default" value="@string.Join(",", SearchKeywords)" @onchange="@OnSearchTextChanged">
+                </div>
+
+                @if (ShowSearchHelp)
+                {
+                    <div class="modal-backdrop fade show" @onclick="@(() => ShowSearchHelp = false)"></div>
+                }
+                <div class="modal fade @(ShowSearchHelp ? "show" : string.Empty)" id="searchHelpModal" tabindex="-1" aria-labelledby="searchHelpModalLabel" aria-hidden="@(ShowSearchHelp ? "false" : "true")" style="display: @(ShowSearchHelp ? "block" : "none");" role="dialog">
+                    <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="searchHelpModalLabel">Search options</h5>
+                                <button type="button" class="btn-close" aria-label="Close" @onclick="@(() => ShowSearchHelp = false)">&times;</button>
+                            </div>
+                            <div class="modal-body">
+                                <p>
+                                    Enter one or more keywords separated by commas. Prefix a keyword with one of the
+                                    filters below to narrow the search. Filters and plain keywords can be combined.
+                                </p>
+                                <table class="table table-sm table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 130px;">Filter</th>
+                                            <th>Description</th>
+                                            <th style="width: 220px;">Example</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><code>name:</code></td>
+                                            <td>Matches the nodeset <em>Title</em> (case-insensitive substring / regex).</td>
+                                            <td><code>name:robotics</code></td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>publisher:</code></td>
+                                            <td>Matches the publisher / user that owns the nodeset.</td>
+                                            <td><code>publisher:opc</code></td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>type:</code></td>
+                                            <td>
+                                                Matches the <em>BrowseName</em> of a contained ObjectType, InterfaceType,
+                                                VariableType, DataType or ReferenceType.
+                                            </td>
+                                            <td><code>type:MotorType</code></td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>license:</code></td>
+                                            <td>Matches the license expression of the nodeset (e.g. MIT, Apache-2.0).</td>
+                                            <td><code>license:MIT</code></td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>exact:</code></td>
+                                            <td>Matches the <em>ModelUri</em> of the nodeset.</td>
+                                            <td><code>exact:http://opcfoundation.org/UA/DI/</code></td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>date:</code></td>
+                                            <td>
+                                                Only include nodesets whose <em>PublicationDate</em> is on or after the given date.
+                                                Accepted formats: <code>yyyy</code> or <code>yyyy-MM</code>. When multiple
+                                                <code>date:</code> values are supplied the latest one is used.
+                                            </td>
+                                            <td><code>date:2023-01</code></td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>sort:</code></td>
+                                            <td>
+                                                Sorts the results. Supported values: <code>date</code> (newest first),
+                                                <code>publisher</code> (A-Z), <code>downloads</code> (most downloaded first).
+                                            </td>
+                                            <td><code>sort:downloads</code></td>
+                                        </tr>
+                                        <tr>
+                                            <td><em>(no prefix)</em></td>
+                                            <td>
+                                                Plain keyword: matches against <em>Title</em>, <em>Description</em>,
+                                                <em>ModelUri</em> and <em>Keywords</em> of the nodeset.
+                                            </td>
+                                            <td><code>temperature</code></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <p class="mb-0">
+                                    <strong>Tip:</strong> Combine filters with commas, for example
+                                    <code>name:robot, license:MIT, date:2022, sort:downloads</code>.
+                                </p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" @onclick="@(() => ShowSearchHelp = false)">Close</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 @for (int row = 0; row < Math.Ceiling(Result.Count / (double)COL_SIZE); ++row)
                     {
@@ -263,6 +358,8 @@
     private int AllPages = 0;
 
     private string[] SearchKeywords { get; set; } = new[] { "" };
+
+    private bool ShowSearchHelp { get; set; }
 
     private ClaimsPrincipal UserId;
 
