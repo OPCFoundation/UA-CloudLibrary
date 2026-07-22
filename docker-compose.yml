@@ -9,12 +9,12 @@ services:
       dockerfile: UACloudLibraryServer/Dockerfile
     networks:
       uanet:
-        ipv4_address: 10.5.0.20
+        ipv4_address: 10.6.0.20
     environment:
-        PostgreSQLUsername: uacloudlib
-        PostgreSQLPassword: uacloudlib
+        ConnectionStrings__CloudLibraryPostgreSQL: "Server=db;Username=uacloudlib;Password=uacloudlib;Database=uacloudlib;Port=5432;Ssl Mode=Prefer"
         ServicePassword: uacloudlib
         PostgreSQLEndpoint: db
+        APIKeyAuth: "true"
   db:
     image: postgres
     restart: always
@@ -23,7 +23,7 @@ services:
       - 5433:5432
     networks:
       uanet:
-        ipv4_address: 10.5.0.21
+        ipv4_address: 10.6.0.21
     environment:
       POSTGRES_PASSWORD: uacloudlib
       POSTGRES_USER: uacloudlib
@@ -35,7 +35,7 @@ services:
       - 8088:80
     networks:
       uanet:
-        ipv4_address: 10.5.0.22
+        ipv4_address: 10.6.0.22
     environment:
       PGADMIN_DEFAULT_EMAIL: no-reply@opcfoundation.org
       PGADMIN_DEFAULT_PASSWORD: uacloudlib
@@ -54,5 +54,5 @@ networks:
     driver: bridge
     ipam:
      config:
-       - subnet: 10.5.0.0/16
-         gateway: 10.5.0.1
+       - subnet: 10.6.0.0/16
+         gateway: 10.6.0.1

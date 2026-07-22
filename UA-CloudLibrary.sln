@@ -8,6 +8,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{3D43B49A-27D9-47EC-A824-263B43AA9C76}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
+		.gitignore = .gitignore
 		docs\architecture.png = docs\architecture.png
 		common.props = common.props
 		Directory.Build.props = Directory.Build.props
@@ -59,6 +60,13 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UACloudLibraryServer.UnitTests", "Tests\UACloudLibraryServer.UnitTests\UACloudLibraryServer.UnitTests.csproj", "{CD32FE8B-CAB1-410D-AF99-7DAFEE3761A3}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "UACloudLibraryServer", "UACloudLibraryServer", "{0E5E2CB6-1971-8B53-CA5A-149BDFC2EEC3}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "db", "db", "{E88ED691-1F3F-46F6-9592-F910CE4D7325}"
+	ProjectSection(SolutionItems) = preProject
+		db\backup_db.ps1 = db\backup_db.ps1
+		db\initialize_db.ps1 = db\initialize_db.ps1
+		db\restore_db.ps1 = db\restore_db.ps1
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -106,29 +106,22 @@ namespace Opc.Ua.Cloud.Library
                     .Where(nsm => nsm.ModelUri == modelUri)
                     .Where(GetNodesetUserFilter(userId));
             }
+            else if (!string.IsNullOrEmpty(modelUri) && (publicationDate != null))
+            {
+                nodeSets = _dbContext.NodeSetsWithUnapproved
+                    .AsExpandable()
+                    .Where(nsm => nsm.ModelUri == modelUri)
+                    .Where(nsm => nsm.PublicationDate == publicationDate)
+                    .Where(GetNodesetUserFilter(userId));
+            }
+            else if (keywords != null && keywords.Length > 0)
+            {
+                nodeSets = SearchNodesets(userId, keywords);
+            }
             else
             {
-                IQueryable<NodeSetModel> nodeSetQuery = SearchNodesets(userId, keywords);
-                if (!string.IsNullOrEmpty(modelUri) && (publicationDate != null))
-                {
-                    nodeSets = nodeSetQuery
-                        .AsExpandable()
-                        .Where(nsm => nsm.ModelUri == modelUri)
-                        .Where(nsm => nsm.PublicationDate == publicationDate)
-                        .Where(GetNodesetUserFilter(userId));
-                }
-                else if (!string.IsNullOrEmpty(modelUri))
-                {
-                    nodeSets = nodeSetQuery
-                        .AsExpandable()
-                        .Where(nsm => nsm.ModelUri == modelUri)
-                        .Where(GetNodesetUserFilter(userId));
-                }
-                else
-                {
-                    nodeSets = nodeSetQuery
-                        .Where(GetNodesetUserFilter(userId));
-                }
+                nodeSets = _dbContext.NodeSetsWithUnapproved
+                    .Where(GetNodesetUserFilter(userId));
             }
 
             return nodeSets;
@@ -592,29 +585,176 @@ namespace Opc.Ua.Cloud.Library
 
         internal IQueryable<NodeSetModel> SearchNodesets(string userId, string[] keywords)
         {
-            IQueryable<NodeSetModel> matchingNodeSets;
+            IQueryable<NodeSetModel> query = _dbContext.NodeSetsWithUnapproved
+                .AsExpandable()
+                .Where(GetNodesetUserFilter(userId));
 
-            if ((keywords != null) && (keywords.Length != 0) && (keywords[0] != "*"))
+            if ((keywords != null) && (keywords.Length != 0) && (keywords[0] != "*") && (keywords[0] != ""))
             {
-                string keywordRegex = $".*({string.Join('|', keywords)}).*";
-
-                matchingNodeSets = _dbContext.NodeSetsWithUnapproved
-                    .AsExpandable()
-                    .Where(GetNodesetUserFilter(userId))
-                    .Where(md => (Regex.IsMatch(md.Metadata.Title, keywordRegex, RegexOptions.IgnoreCase)
-                        || Regex.IsMatch(md.Metadata.Description, keywordRegex, RegexOptions.IgnoreCase)
-                        || Regex.IsMatch(md.Metadata.NodeSet.ModelUri, keywordRegex, RegexOptions.IgnoreCase)
-                        || Regex.IsMatch(string.Join(",", md.Metadata.Keywords), keywordRegex, RegexOptions.IgnoreCase)
-                    )
-                );
-            }
-            else
-            {
-                matchingNodeSets = _dbContext.NodeSetsWithUnapproved
-                    .Where(GetNodesetUserFilter(userId));
+                query = ApplyKeywordFilters(query, keywords);
             }
 
-            return matchingNodeSets;
+            return query;
+        }
+
+        private IQueryable<NodeSetModel> ApplyKeywordFilters(IQueryable<NodeSetModel> query, string[] keywords)
+        {
+            string[] nameKeywords = keywords
+                .Where(k => k.StartsWith("name:", StringComparison.OrdinalIgnoreCase))
+                .Select(k => k["name:".Length..])
+                .Where(k => !string.IsNullOrEmpty(k))
+                .ToArray();
+            string[] publisherKeywords = keywords
+                .Where(k => k.StartsWith("publisher:", StringComparison.OrdinalIgnoreCase))
+                .Select(k => k["publisher:".Length..])
+                .Where(k => !string.IsNullOrEmpty(k))
+                .ToArray();
+            string[] typeKeywords = keywords
+                .Where(k => k.StartsWith("type:", StringComparison.OrdinalIgnoreCase))
+                .Select(k => k["type:".Length..])
+                .Where(k => !string.IsNullOrEmpty(k))
+                .ToArray();
+            string[] licenseKeywords = keywords
+                .Where(k => k.StartsWith("license:", StringComparison.OrdinalIgnoreCase))
+                .Select(k => k["license:".Length..])
+                .Where(k => !string.IsNullOrEmpty(k))
+                .ToArray();
+            string[] exactKeywords = keywords
+                .Where(k => k.StartsWith("exact:", StringComparison.OrdinalIgnoreCase))
+                .Select(k => k["exact:".Length..])
+                .Where(k => !string.IsNullOrEmpty(k))
+                .ToArray();
+            string[] plainKeywords = keywords
+                .Where(k => !k.StartsWith("name:", StringComparison.OrdinalIgnoreCase)
+                         && !k.StartsWith("publisher:", StringComparison.OrdinalIgnoreCase)
+                         && !k.StartsWith("type:", StringComparison.OrdinalIgnoreCase)
+                         && !k.StartsWith("license:", StringComparison.OrdinalIgnoreCase)
+                         && !k.StartsWith("date:", StringComparison.OrdinalIgnoreCase)
+                         && !k.StartsWith("exact:", StringComparison.OrdinalIgnoreCase)
+                         && !k.StartsWith("sort:", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+            // 1. exactKeywords: regex on ModelUri (PK component) — most selective, eliminates rows cheapest
+            if (exactKeywords.Length > 0)
+            {
+                string exactRegex = $".*({string.Join('|', exactKeywords)}).*";
+                query = query.Where(md => Regex.IsMatch(md.ModelUri, exactRegex, RegexOptions.IgnoreCase));
+            }
+
+            // 2. dateKeywords: range filter on PublicationDate (PK component) — indexed, very selective
+            List<DateTime> parsedDates = keywords
+                .Where(k => k.StartsWith("date:", StringComparison.OrdinalIgnoreCase))
+                .Select(k => ParseDateKeyword(k["date:".Length..]))
+                .Where(d => d.HasValue)
+                .Select(d => d!.Value)
+                .ToList();
+
+            if (parsedDates.Count > 0)
+            {
+                DateTime dateThreshold = parsedDates.Max();
+                query = query.Where(md => md.PublicationDate >= dateThreshold);
+            }
+
+            // 3. typeKeywords: pre-materialized key list joined on indexed (ModelUri, PublicationDate)
+            if (typeKeywords.Length > 0)
+            {
+                string typeRegex = $".*({string.Join('|', typeKeywords)}).*";
+
+                // Pre-materialize matching nodeset keys from a single non-correlated UNION across
+                // the concrete type tables. Avoids both the abstract-TPT crash and 5 correlated EXISTS.
+                var matchingKeys = _dbContext.Set<ObjectTypeModel>()
+                    .Where(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase))
+                    .Select(t => new { t.NodeSet.ModelUri, t.NodeSet.PublicationDate })
+                    .Union(_dbContext.Set<InterfaceModel>()
+                        .Where(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase))
+                        .Select(t => new { t.NodeSet.ModelUri, t.NodeSet.PublicationDate }))
+                    .Union(_dbContext.Set<VariableTypeModel>()
+                        .Where(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase))
+                        .Select(t => new { t.NodeSet.ModelUri, t.NodeSet.PublicationDate }))
+                    .Union(_dbContext.Set<DataTypeModel>()
+                        .Where(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase))
+                        .Select(t => new { t.NodeSet.ModelUri, t.NodeSet.PublicationDate }))
+                    .Union(_dbContext.Set<ReferenceTypeModel>()
+                        .Where(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase))
+                        .Select(t => new { t.NodeSet.ModelUri, t.NodeSet.PublicationDate }))
+                    .ToList();
+
+                if (matchingKeys.Count > 0)
+                {
+                    var typePredicate = PredicateBuilder.New<NodeSetModel>(false);
+                    foreach (var key in matchingKeys)
+                    {
+                        var modelUri = key.ModelUri;
+                        var pubDate = key.PublicationDate;
+                        typePredicate = typePredicate.Or(md => md.ModelUri == modelUri && md.PublicationDate == pubDate);
+                    }
+                    query = query.Where(typePredicate);
+                }
+                else
+                {
+                    query = query.Where(md => false);
+                }
+            }
+
+            // 4. licenseKeywords: single-column regex on Metadata.License
+            if (licenseKeywords.Length > 0)
+            {
+                string licenseRegex = $".*({string.Join('|', licenseKeywords)}).*";
+                query = query.Where(md => Regex.IsMatch(md.Metadata.License, licenseRegex, RegexOptions.IgnoreCase));
+            }
+
+            // 5. nameKeywords: single-column regex on Metadata.Title
+            if (nameKeywords.Length > 0)
+            {
+                string nameRegex = $".*({string.Join('|', nameKeywords)}).*";
+                query = query.Where(md => Regex.IsMatch(md.Metadata.Title, nameRegex, RegexOptions.IgnoreCase));
+            }
+
+            // 6. publisherKeywords: single-column regex on Metadata.UserId
+            if (publisherKeywords.Length > 0)
+            {
+                string publisherRegex = $".*({string.Join('|', publisherKeywords)}).*";
+                query = query.Where(md => Regex.IsMatch(md.Metadata.UserId, publisherRegex, RegexOptions.IgnoreCase));
+            }
+
+            // 7. plainKeywords: most expensive — regex across 4 columns; applied last on the narrowed set
+            if (plainKeywords.Length > 0)
+            {
+                string keywordRegex = $".*({string.Join('|', plainKeywords)}).*";
+                query = query.Where(md => Regex.IsMatch(md.Metadata.Title, keywordRegex, RegexOptions.IgnoreCase)
+                    || Regex.IsMatch(md.Metadata.Description, keywordRegex, RegexOptions.IgnoreCase)
+                    || Regex.IsMatch(md.Metadata.NodeSet.ModelUri, keywordRegex, RegexOptions.IgnoreCase)
+                    || Regex.IsMatch(string.Join(",", md.Metadata.Keywords), keywordRegex, RegexOptions.IgnoreCase));
+            }
+
+            string sortKeyword = keywords
+                .Where(k => k.StartsWith("sort:", StringComparison.OrdinalIgnoreCase))
+                .Select(k => k["sort:".Length..].Trim())
+                .FirstOrDefault(k => !string.IsNullOrEmpty(k));
+
+            query = sortKeyword?.ToLowerInvariant() switch {
+                "date" => query.OrderByDescending(md => md.PublicationDate),
+                "publisher" => query.OrderBy(md => md.Metadata.UserId),
+                "downloads" => query.OrderByDescending(md => md.Metadata.NumberOfDownloads),
+                _ => query,
+            };
+
+            return query;
+        }
+
+        private static DateTime? ParseDateKeyword(string value)
+        {
+            if (DateTime.TryParseExact(value, "yyyy-MM", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime yearMonth))
+            {
+                return DateTime.SpecifyKind(yearMonth, DateTimeKind.Utc);
+            }
+
+            if (DateTime.TryParseExact(value, "yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime year))
+            {
+                return DateTime.SpecifyKind(year, DateTimeKind.Utc);
+            }
+
+            return null;
         }
 
         public UANameSpace[] FindNodesets(string userId, string[] keywords, string namespaceUri, int? offset, int? limit)
