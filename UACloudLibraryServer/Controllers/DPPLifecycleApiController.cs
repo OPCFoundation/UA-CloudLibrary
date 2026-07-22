@@ -165,7 +165,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     // Controlled elements must not be served (or even revealed) to callers lacking the
                     // mapped role; report NotFound so a controlled element is indistinguishable from a
                     // missing one for unauthorized/anonymous callers (EN 18239 §5.2).
-                    if (!await _dppService.CanReadElementAsync(dppId, node, CallerRoles).ConfigureAwait(false))
+                    if (!await _dppService.CanReadElementAsync(dppId, elementIdPath, CallerRoles).ConfigureAwait(false))
                     {
                         return NotFound(new ApiResponse<DataElement>(
                             DppApiStatusCodes.ClientErrorResourceNotFound,

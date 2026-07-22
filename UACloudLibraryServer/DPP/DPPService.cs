@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -36,9 +37,9 @@ namespace Opc.Ua.Cloud.Library
         }
 
         /// <summary>
-        /// Loads the per-DPP <c>controlledElements</c> mapping (dictionaryReference -> permitted roles)
-        /// from the DPP's stored values blob. Returns an empty map when the DPP has no values or no
-        /// mapping, in which case every element is public.
+        /// Loads the per-DPP <c>controlledElements</c> mapping (element path -> permitted roles) from the
+        /// DPP's stored values blob. Returns an empty map when the DPP has no values or no mapping, in
+        /// which case every element is public.
         /// </summary>
         public async Task<IReadOnlyDictionary<string, string[]>> GetControlledElementsAsync(string dppId)
         {
@@ -47,19 +48,46 @@ namespace Opc.Ua.Cloud.Library
         }
 
         /// <summary>
-        /// True when a caller holding <paramref name="callerRoles"/> may read the given element, per the
-        /// DPP's own controlled-elements mapping (EN 18239 §5.2). Public elements are readable by anyone,
-        /// including anonymous callers (empty role set).
+        /// True when a caller holding <paramref name="callerRoles"/> may read the element addressed by
+        /// <paramref name="elementIdPath"/>, per the DPP's own controlled-elements mapping (EN 18239 §5.2).
+        /// The access key is the element's path (dotted <c>elementId</c> chain), matching how the API
+        /// addresses elements. Public elements are readable by anyone, including anonymous callers.
         /// </summary>
-        public async Task<bool> CanReadElementAsync(string dppId, DataElement element, IEnumerable<string> callerRoles)
+        public async Task<bool> CanReadElementAsync(string dppId, string elementIdPath, IEnumerable<string> callerRoles)
         {
-            if (element is null)
+            IReadOnlyDictionary<string, string[]> controlled = await GetControlledElementsAsync(dppId).ConfigureAwait(false);
+            if (controlled.Count == 0)
+            {
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(elementIdPath) || !DppJsonPath.TryParse(elementIdPath, out IReadOnlyList<DppJsonPath.Segment> segments, out _))
             {
                 return false;
             }
 
-            IReadOnlyDictionary<string, string[]> controlled = await GetControlledElementsAsync(dppId).ConfigureAwait(false);
-            return _accessPolicy.CanRead(element.DictionaryReference, callerRoles, controlled);
+            return _accessPolicy.CanRead(BuildElementPath(segments), callerRoles, controlled);
+        }
+
+        // Builds the dotted element-id path used as the access key from parsed JSONPath segments,
+        // ignoring array-index segments (access rights apply uniformly to all items of a collection).
+        private static string BuildElementPath(IReadOnlyList<DppJsonPath.Segment> segments)
+        {
+            var builder = new StringBuilder();
+            foreach (DppJsonPath.Segment segment in segments)
+            {
+                if (segment.IsName)
+                {
+                    if (builder.Length > 0)
+                    {
+                        builder.Append('.');
+                    }
+
+                    builder.Append(segment.Name);
+                }
+            }
+
+            return builder.ToString();
         }
 
         /// <summary>
@@ -84,7 +112,7 @@ namespace Opc.Ua.Cloud.Library
             }
 
             string[] roles = callerRoles?.ToArray() ?? Array.Empty<string>();
-            List<DataElement> filtered = FilterElements(dpp.Elements, roles, controlled);
+            List<DataElement> filtered = FilterElements(dpp.Elements, roles, controlled, null);
             if (ReferenceEquals(filtered, dpp.Elements))
             {
                 return dpp;
@@ -105,9 +133,10 @@ namespace Opc.Ua.Cloud.Library
             };
         }
 
-        // Recursively drops elements the caller may not read; descends into collections. Returns the
-        // original list reference unchanged when nothing was pruned.
-        private List<DataElement> FilterElements(List<DataElement> elements, string[] roles, IReadOnlyDictionary<string, string[]> controlled)
+        // Recursively drops elements the caller may not read; descends into collections, tracking each
+        // element's dotted path so access is keyed by element address (not dictionaryReference). Returns
+        // the original list reference unchanged when nothing was pruned.
+        private List<DataElement> FilterElements(List<DataElement> elements, string[] roles, IReadOnlyDictionary<string, string[]> controlled, string parentPath)
         {
             if (elements is null || elements.Count == 0)
             {
@@ -119,7 +148,9 @@ namespace Opc.Ua.Cloud.Library
 
             foreach (DataElement element in elements)
             {
-                if (!_accessPolicy.CanRead(element.DictionaryReference, roles, controlled))
+                string path = string.IsNullOrEmpty(parentPath) ? element.ElementId : parentPath + "." + element.ElementId;
+
+                if (!_accessPolicy.CanRead(path, roles, controlled))
                 {
                     changed = true;
                     continue;
@@ -127,7 +158,7 @@ namespace Opc.Ua.Cloud.Library
 
                 if (element is DataElementCollection coll)
                 {
-                    List<DataElement> childFiltered = FilterElements(coll.Elements, roles, controlled);
+                    List<DataElement> childFiltered = FilterElements(coll.Elements, roles, controlled, path);
                     if (!ReferenceEquals(childFiltered, coll.Elements))
                     {
                         changed = true;
@@ -1354,7 +1385,7 @@ namespace Opc.Ua.Cloud.Library
                 if (grandChildren.Count > 0)
                 {
                     output.Add(new DataElementCollection {
-                        ElementId = childNode.Text,
+                        ElementId = BuildElementId(childNode.Id),
                         Elements = grandChildren
                     });
                 }
@@ -1362,13 +1393,24 @@ namespace Opc.Ua.Cloud.Library
                 {
                     string value = await _client.VariableRead(userId, nodesetIdentifier, childNode.Id).ConfigureAwait(false);
                     output.Add(new SingleValuedDataElement {
-                        ElementId = childNode.Text,
+                        ElementId = BuildElementId(childNode.Id),
                         Value = ParseLeafValue(value)
                     });
                 }
             }
 
             return output;
+        }
+
+        // Produces a stable, globally-unique element id (as a GUID string) for a DPP data element from
+        // the node's ExpandedNodeId. The ExpandedNodeId embeds the namespace URI plus the node
+        // identifier, so the id is unique even when BrowseNames/DisplayNames collide across namespaces,
+        // and is deterministic across reads (unlike a random GUID) so element addressing and the
+        // per-DPP access mapping stay stable.
+        private static string BuildElementId(string expandedNodeId)
+        {
+            byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(expandedNodeId ?? string.Empty));
+            return new Guid(hash.AsSpan(0, 16)).ToString();
         }
 
         // Leaf variables are persisted as strings by the OPC UA layer, but writes accept typed JSON

@@ -5,41 +5,79 @@ using System.Linq;
 namespace Opc.Ua.Cloud.Library
 {
     /// <summary>
-    /// Stateless evaluator for the per-DPP <c>controlledElements</c> mapping. An element is public when
-    /// its <c>dictionaryReference</c> is null/empty or absent from the mapping; otherwise it is
-    /// controlled and the caller must hold one of the mapped roles (or be an administrator). The mapping
-    /// is supplied per call because it travels with each DPP's values JSON
-    /// (see <see cref="DppControlledElements"/>), so the access rule stays in the data/dictionary layer
-    /// (EN 18223 §4.3, EN 18239 §5.2) rather than being baked into the DPP payload schema.
+    /// Stateless evaluator for the per-DPP <c>controlledElements</c> mapping. The mapping is keyed by
+    /// element <b>path</b> (the dotted <c>elementId</c> chain, e.g. <c>materials.supplierFacilityId</c>),
+    /// i.e. the element's address — not its <c>dictionaryReference</c> (which is reserved for semantic
+    /// dictionary references such as IEC CDD per EN 18223 §4.3). An element is public unless one of its
+    /// ancestor-or-self path prefixes appears in the mapping; controlling a container path therefore
+    /// controls its entire subtree. Controlled elements require one of the mapped roles (or an
+    /// administrator). The mapping is supplied per call because it travels with each DPP's values JSON
+    /// (see <see cref="DppControlledElements"/>).
     /// </summary>
     public class DppAccessPolicy : IDppAccessPolicy
     {
-        public bool IsPublic(string dictionaryReference, IReadOnlyDictionary<string, string[]> controlled)
+        public bool IsPublic(string elementPath, IReadOnlyDictionary<string, string[]> controlled)
         {
-            if (string.IsNullOrWhiteSpace(dictionaryReference) || controlled is null)
+            if (string.IsNullOrWhiteSpace(elementPath) || controlled is null || controlled.Count == 0)
             {
                 return true;
             }
 
-            return !controlled.ContainsKey(dictionaryReference);
+            foreach (string prefix in Prefixes(elementPath))
+            {
+                if (controlled.ContainsKey(prefix))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
-        public bool CanRead(string dictionaryReference, IEnumerable<string> callerRoles, IReadOnlyDictionary<string, string[]> controlled)
+        public bool CanRead(string elementPath, IEnumerable<string> callerRoles, IReadOnlyDictionary<string, string[]> controlled)
         {
-            if (IsPublic(dictionaryReference, controlled))
+            if (string.IsNullOrWhiteSpace(elementPath) || controlled is null || controlled.Count == 0)
             {
                 return true;
             }
 
-            if (callerRoles is null)
+            string[] roles = callerRoles as string[] ?? callerRoles?.ToArray() ?? Array.Empty<string>();
+
+            // Every controlled prefix on the path (the element itself and any controlled ancestor
+            // container) must be satisfied by one of the caller's roles.
+            foreach (string prefix in Prefixes(elementPath))
             {
-                return false;
+                if (controlled.TryGetValue(prefix, out string[] allowed))
+                {
+                    bool satisfied = roles.Any(r =>
+                        string.Equals(r, Roles.Administrator, StringComparison.OrdinalIgnoreCase) ||
+                        allowed.Any(a => string.Equals(r, a, StringComparison.OrdinalIgnoreCase)));
+                    if (!satisfied)
+                    {
+                        return false;
+                    }
+                }
             }
 
-            string[] allowed = controlled[dictionaryReference];
-            return callerRoles.Any(r =>
-                string.Equals(r, Roles.Administrator, StringComparison.OrdinalIgnoreCase) ||
-                allowed.Any(a => string.Equals(r, a, StringComparison.OrdinalIgnoreCase)));
+            return true;
+        }
+
+        // Yields each ancestor-or-self prefix of a dotted element path: "a", "a.b", "a.b.c".
+        private static IEnumerable<string> Prefixes(string path)
+        {
+            int start = 0;
+            while (true)
+            {
+                int dot = path.IndexOf('.', start);
+                if (dot < 0)
+                {
+                    yield return path;
+                    yield break;
+                }
+
+                yield return path.Substring(0, dot);
+                start = dot + 1;
+            }
         }
     }
 }

@@ -24,8 +24,8 @@ namespace UACloudLibraryServer.UnitTests
             {
               "ns=1;i=1": "42",
               "controlledElements": {
-                "urn:ref:bom": [ "Recycler", "Repairer" ],
-                "urn:ref:supplier": "Customs"
+                "materials.billOfMaterials": [ "Recycler", "Repairer" ],
+                "supplierInfo": "Customs"
               }
             }
             """;
@@ -33,8 +33,8 @@ namespace UACloudLibraryServer.UnitTests
             IReadOnlyDictionary<string, string[]> map = DppControlledElements.Parse(values);
 
             Assert.Equal(2, map.Count);
-            Assert.Equal(s_recyclerRepairer, map["urn:ref:bom"]);
-            Assert.Equal(s_customs, map["urn:ref:supplier"]);
+            Assert.Equal(s_recyclerRepairer, map["materials.billOfMaterials"]);
+            Assert.Equal(s_customs, map["supplierInfo"]);
         }
 
         [Fact]
@@ -49,7 +49,7 @@ namespace UACloudLibraryServer.UnitTests
         public void Merge_PreservesControlledElementsFromExistingBlob()
         {
             const string existing = """
-            { "ns=1;i=1": "old", "controlledElements": { "urn:ref:bom": "Recycler" } }
+            { "ns=1;i=1": "old", "controlledElements": { "materials.billOfMaterials": "Recycler" } }
             """;
             const string freshNodeValues = """
             { "ns=1;i=1": "new" }
@@ -59,7 +59,7 @@ namespace UACloudLibraryServer.UnitTests
 
             IReadOnlyDictionary<string, string[]> map = DppControlledElements.Parse(merged);
             Assert.Single(map);
-            Assert.Equal(s_recycler, map["urn:ref:bom"]);
+            Assert.Equal(s_recycler, map["materials.billOfMaterials"]);
             Assert.Contains("\"new\"", merged);
         }
     }

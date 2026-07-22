@@ -9,9 +9,13 @@ namespace Opc.Ua.Cloud.Library
     /// <summary>
     /// Helpers for the per-DPP <c>controlledElements</c> mapping that travels inside a DPP's values
     /// JSON. The values file is otherwise a flat <c>{ nodeId: value }</c> dictionary; an optional
-    /// reserved <c>controlledElements</c> object maps each <c>dictionaryReference</c> to the role (or
-    /// roles) permitted to read the elements that carry it (EN 18239 §5.2). Keeping the mapping with the
-    /// DPP values means roles are assigned per DPP at upload time rather than server-wide.
+    /// reserved <c>controlledElements</c> object maps each element <b>path</b> (the dotted
+    /// <c>elementId</c> chain that also addresses the element in the API, e.g.
+    /// <c>materials.supplierFacilityId</c>) to the role (or roles) permitted to read that element and
+    /// its subtree (EN 18239 §5.2). Note this is the element's address, not its
+    /// <c>dictionaryReference</c> (reserved for semantic dictionary references such as IEC CDD per
+    /// EN 18223 §4.3). Keeping the mapping with the DPP values means roles are assigned per DPP at
+    /// upload time rather than server-wide.
     /// </summary>
     public static class DppControlledElements
     {
@@ -20,9 +24,9 @@ namespace Opc.Ua.Cloud.Library
 
         /// <summary>
         /// Parses the <c>controlledElements</c> object out of a DPP values JSON string into a
-        /// case-insensitive map of <c>dictionaryReference</c> to its permitted roles. Returns an empty
-        /// map when the values JSON is absent, malformed, or carries no mapping (⇒ all elements public).
-        /// Each entry's value may be a single role string or an array of role strings.
+        /// case-insensitive map of element path to its permitted roles. Returns an empty map when the
+        /// values JSON is absent, malformed, or carries no mapping (⇒ all elements public). Each entry's
+        /// value may be a single role string or an array of role strings.
         /// </summary>
         public static IReadOnlyDictionary<string, string[]> Parse(string valuesJson)
         {

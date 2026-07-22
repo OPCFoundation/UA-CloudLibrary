@@ -174,6 +174,8 @@ The DPP header follows EN 18223 Clause 4.1.2.1 Table 1:
 | `RelatedResource` | `RelatedResource` | A reference to an external resource (document, certificate) with `contentType`, `url`, optional `language` and `resourceTitle`. |
 | `MultiLanguageDataElement` | `MultiLanguageDataElement` | A language-dependent value with one or more `{ value, language }` entries under `value`. |
 
+> **`elementId` is a server-generated GUID.** When a DPP is materialised from its OPC UA nodeset, each element's `elementId` is a stable GUID derived (via SHA-256) from the node's `ExpandedNodeId`. Because the `ExpandedNodeId` embeds the namespace URI plus the node identifier, the id is globally unique even when BrowseNames/DisplayNames collide across namespaces, and it is deterministic across reads (the same element always gets the same id), so element addressing (`elementIdPath`) and the per-DPP access mapping stay stable. The illustrative payloads below use readable ids (e.g. `maxPressure`) for legibility, matching the EN 18223 Annex A examples; a live response carries GUID `elementId`s. The element's human/semantic meaning is conveyed by its `dictionaryReference` (e.g. IEC CDD), not by the id.
+
 ### Serialization (EN 18223 Clause 5 / Annex A)
 
 EN 18223 defines two equivalent JSON serializations:
@@ -290,7 +292,7 @@ The request body for `POST v1/dppsByProductIds` is:
 
 ### `elementIdPath` &mdash; JSONPath addressing
 
-`elementIdPath` is a JSONPath expression rooted at the `DigitalProductPassport.elements` collection. The parser ([`DppJsonPath`](UACloudLibraryServer/DppJsonPath.cs)) accepts the subset of RFC 9535 actually used by the DPP data model:
+`elementIdPath` is a JSONPath expression rooted at the `DigitalProductPassport.elements` collection. The parser ([`DppJsonPath`](UACloudLibraryServer/DPP/DppJsonPath.cs)) accepts the subset of RFC 9535 actually used by the DPP data model:
 
 * Optional root identifier `$` or `$.`.
 * Dot child selector: `.name`.
@@ -338,20 +340,20 @@ The archive implements the archiving rules of EN 18221 Clause 4.2 (point-in-time
 
 Three security capabilities sit across the read and write paths. Each is keyed off an injectable service so the policy can change without touching the data model.
 
-**Public vs. controlled access (EN 18239 Clause 5.2).** Read access is *public by default*. Whether a `DataElement` is controlled is decided from its `dictionaryReference` &mdash; not from a property on the DPP instance &mdash; so the public/controlled split lives in the dictionary/policy layer (EN 18223 Clause 4.3) and can be amended without changing the DPP template. The mapping is supplied **per DPP**: the values JSON uploaded alongside the nodeset (via `/infomodel/upload` or the upload UI) may carry a reserved `controlledElements` object at the end, mapping each `dictionaryReference` to the role (or roles) permitted to read the elements that carry it. The values file is otherwise the flat `{ nodeId: value }` map already used to seed variable values:
+**Public vs. controlled access (EN 18239 Clause 5.2).** Read access is *public by default*. Whether a `DataElement` is controlled is decided from its **path** (its dotted `elementId` address, the same one the `elementIdPath` API uses) &mdash; deliberately *not* from its `dictionaryReference`, which EN 18223 §4.3 reserves for semantic dictionary references (IEC CDD, ECLASS, EU Vocabularies) and is unsuitable as an access key. Since each `elementId` is a server-generated stable GUID (see the note above), a path is a chain of GUIDs that you obtain by reading the DPP once and then reference in the mapping. The mapping is supplied **per DPP**: the values JSON uploaded alongside the nodeset (via `/infomodel/upload` or the upload UI) may carry a reserved `controlledElements` object at the end, mapping each element path to the role (or roles) permitted to read that element and its subtree (a controlled container path controls everything beneath it). The values file is otherwise the flat `{ nodeId: value }` map already used to seed variable values:
 
 ```json
 {
   "nsu=http://example/dpp;i=6001": "750.0",
   "nsu=http://example/dpp;i=6002": "0.95",
   "controlledElements": {
-    "https://eudict.example/textile/supplierFacilityId": [ "Recycler", "Repairer" ],
-    "https://eudict.example/textile/billOfMaterials": "Recycler"
+    "7d3a2b18-2b7c-5e41-9f0a-1c2d3e4f5a6b.2c1f9e8d-4a5b-5c6d-8e7f-0a1b2c3d4e5f": [ "Recycler", "Repairer" ],
+    "9b8c7d6e-1a2b-5c3d-8e4f-5a6b7c8d9e0f": "Recycler"
   }
 }
 ```
 
-[`DppControlledElements`](UACloudLibraryServer/DppControlledElements.cs) parses this object out of the DPP's stored values blob ([`IDppAccessPolicy`](UACloudLibraryServer/DPP/IDppAccessPolicy.cs) / [`DppAccessPolicy`](UACloudLibraryServer/DPP/DppAccessPolicy.cs) then evaluates it). Node-value patching ([`NodesetFileNodeManager`](UACloudLibraryServer/UAClientServer/NodesetFileNodeManager.cs)) ignores the reserved key, and the value-rewriting save paths ([`DPPService.PersistNodesetValuesAsync`](UACloudLibraryServer/DPP/DPPService.cs), [`BrowserController.Save`](UACloudLibraryServer/Controllers/BrowserController.cs)) merge it back so it survives updates. A DPP with no `controlledElements` is fully public. `DPPService.FilterForRolesAsync` removes any controlled element the caller's roles do not cover (recursively, including nested collections); members of the `admin` role see everything. `GET dpps/{dppId}/elements/...` returns `404` for a controlled element the caller may not read, so its existence is not revealed.
+[`DppControlledElements`](UACloudLibraryServer/DPP/DppControlledElements.cs) parses this object out of the DPP's stored values blob ([`IDppAccessPolicy`](UACloudLibraryServer/DPP/IDppAccessPolicy.cs) / [`DppAccessPolicy`](UACloudLibraryServer/DPP/DppAccessPolicy.cs) then evaluates it by element path, applying prefix/subtree semantics).
 
 **Tamper-evident audit log (EN 18246 Clause 4.7, EN 18239 §5.2(16)).** Every read (`GET`) and modify (`PATCH`) on a DPP, and every role/rights change, is recorded by [`IDppAuditLog`](UACloudLibraryServer/DPP/IDppAuditLog.cs) / [`DppAuditLog`](UACloudLibraryServer/DPP/DppAuditLog.cs) and bound to the acting operator id. Entries are SHA-256 hash-chained (each row hashes its content plus the previous hash), so any retrospective insert, edit or delete breaks the chain; `VerifyChainAsync` re-walks the chain. Rows persist in the `DppAuditEntries` table (migration `AddDppAuditLog`); logging never throws into the request path.
 
