@@ -358,3 +358,6 @@ launchSettings.json
 
 /UACloudLibraryServer/key-*.xml
 /UACloudLibraryServer/pki
+
+# Local docker compose environment file with credentials (never commit)
+.env

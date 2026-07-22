@@ -11,8 +11,8 @@ services:
       uanet:
         ipv4_address: 10.6.0.20
     environment:
-        ConnectionStrings__CloudLibraryPostgreSQL: "Server=db;Username=uacloudlib;Password=uacloudlib;Database=uacloudlib;Port=5432;Ssl Mode=Prefer"
-        ServicePassword: uacloudlib
+        ConnectionStrings__CloudLibraryPostgreSQL: "Server=db;Username=${POSTGRESQL_USERNAME};Password=${POSTGRESQL_PASSWORD};Database=${POSTGRESQL_DATABASE};Port=5432;Ssl Mode=Prefer"
+        ServicePassword: ${SERVICE_PASSWORD}
         PostgreSQLEndpoint: db
         APIKeyAuth: "true"
   db:
@@ -25,9 +25,9 @@ services:
       uanet:
         ipv4_address: 10.6.0.21
     environment:
-      POSTGRES_PASSWORD: uacloudlib
-      POSTGRES_USER: uacloudlib
-      POSTGRES_DB: uacloudlib
+      POSTGRES_PASSWORD: ${POSTGRESQL_PASSWORD}
+      POSTGRES_USER: ${POSTGRESQL_USERNAME}
+      POSTGRES_DB: ${POSTGRESQL_DATABASE}
   pgadmin:
     image: "dpage/pgadmin4"
     container_name: pgadmin
@@ -37,8 +37,8 @@ services:
       uanet:
         ipv4_address: 10.6.0.22
     environment:
-      PGADMIN_DEFAULT_EMAIL: no-reply@opcfoundation.org
-      PGADMIN_DEFAULT_PASSWORD: uacloudlib
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
       PGADMIN_CONFIG_SERVER_MODE: "False"
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
     volumes:
@@ -46,7 +46,7 @@ services:
     entrypoint:
       - "/bin/sh"
       - "-c"
-      - "/bin/echo 'db:5432:*:uacloudlib:uacloudlib' > /tmp/pgpassfile && chmod 600 /tmp/pgpassfile && /entrypoint.sh"
+      - "/bin/echo 'db:5432:*:${POSTGRESQL_USERNAME}:${POSTGRESQL_PASSWORD}' > /tmp/pgpassfile && chmod 600 /tmp/pgpassfile && /entrypoint.sh"
     restart: unless-stopped
 
 networks:
