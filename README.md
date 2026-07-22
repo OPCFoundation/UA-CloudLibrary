@@ -103,11 +103,12 @@ For complete documentation and examples, see the [Client Library README](Opc.Ua.
 
 ## Development Setup
 
-Start development in three simple steps:
+Start development in a few simple steps:
 
 1. Checkout ``git clone https://github.com/OPCFoundation/UA-CloudLibrary.git``
-2. Open with Visual Studio 2019+
-3. Select ``docker-compose`` as startup project and hit F5 or the "play button"
+2. Copy ``.env.example`` to ``.env`` and set your own credentials. ``docker compose`` reads this file and injects the values into ``docker-compose.yml``. The ``.env`` file is git-ignored so credentials are never committed.
+3. Open with Visual Studio 2019+
+4. Select ``docker-compose`` as startup project and hit F5 or the "play button"
 
 The OPC UA CloudLib Website opens in the browser.
 
