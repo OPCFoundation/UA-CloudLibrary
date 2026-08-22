@@ -9,15 +9,18 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - UA Cloud Library</title>
+    <link rel="icon" href="~/favicon.ico" sizes="any" />
+    <link rel="icon" href="~/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="~/css/bootstrap/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" />
     <link rel="stylesheet" href="~/css/all.css" />
     <link rel="stylesheet" href="~/css/treeStyles.css" />
 </head>
 <body>
-    <header class="bg-transparent">
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light text-dark bg-white border-bottom mb-3">
-            <div class="container">
+    <div class="top-bar"></div>
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-dark">
+            <div class="container-fluid">
                 <div class="d-flex align-items-center">
                     <a class="navbar-brand headline-2 text-nowrap" asp-area="" asp-controller="Home" asp-action="Index">
                         <img class="logo mr-3 mb-2" src="~/logo.jpg" alt="OPCF Logo" />
@@ -27,7 +30,7 @@
                 <button class="navbar-toggler" type="button" data-toggle="collapse" data-target=".navbar-collapse" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse text-dark collapse d-sm-inline-flex flex-sm-row-reverse">
+                <div class="navbar-collapse collapse d-sm-inline-flex flex-sm-row-reverse">
                     <partial name="_LoginPartial" />
                     <ul class="navbar-nav flex-grow-1">
                     </ul>
@@ -36,14 +39,23 @@
         </nav>
     </header>
     <div class="container">
-        <main role="main" class="pb-3 mb-4">
+        <main role="main" class="pt-2 pb-3 mb-4">
             @RenderBody()
         </main>
     </div>
 
-    <footer class="border-top footer text-light bg-dark">
-        <div class="container">
-            &copy; 2022 - 2025 OPC Foundation - <a href="https://github.com/OPCFoundation/UA-CloudLibrary/tree/@ThisAssembly.GitCommitId" target="_blank">@ThisAssembly.AssemblyInformationalVersion</a> - <a href="https://opcfoundation.org/privacy-policy" target="_blank">Privacy</a>
+    <footer class="border-top footer">
+        <div class="container-fluid d-flex flex-wrap justify-content-between align-items-center">
+            <div class="footer-links">
+                <a href="https://opcfoundation.org/about/what-is-opc/" target="_blank" rel="noopener noreferrer">&copy; @DateTime.UtcNow.Year OPC Federation AISBL</a>
+                <a href="https://opcfoundation.org/about/contact-us/" target="_blank" rel="noopener noreferrer">Contact Us</a>
+                <a href="https://opcfoundation.org/membership/become-a-member/step1" target="_blank" rel="noopener noreferrer">Become a Member</a>
+                <a href="https://opcfoundation.org/privacy-policy/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+                <a href="https://opcfoundation.org/license/services/1.0/" target="_blank" rel="noopener noreferrer">Terms of Use</a>
+            </div>
+            <div class="footer-version">
+                <a href="https://github.com/OPCFoundation/UA-CloudLibrary/tree/@ThisAssembly.GitCommitId" target="_blank" rel="noopener noreferrer">@ThisAssembly.AssemblyInformationalVersion</a>
+            </div>
         </div>
     </footer>
     <script src="_framework/blazor.server.js"></script>
