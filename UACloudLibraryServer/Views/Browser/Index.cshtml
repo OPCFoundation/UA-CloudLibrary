@@ -11,7 +11,8 @@
 @(await Html.RenderComponentAsync<TreePage>(RenderMode.ServerPrerendered, new {
     NodesetIdentifier = Model.NodesetIdentifier,
     NodesetName = Model.NodesetName,
-    UserName = Model.UserName
+    UserName = Model.UserName,
+    Search = Model.Search
 }).ConfigureAwait(false))
 
 <div style="height:100%">
