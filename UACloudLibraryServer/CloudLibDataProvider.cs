@@ -63,18 +63,29 @@ namespace Opc.Ua.Cloud.Library
 
         private Expression<Func<NamespaceMetaDataModel, bool>> GetMetadataUserFilter(string userId)
         {
+            // Anonymous fast path: only published rows. Enables index-only scans on
+            // the IX_NamespaceMeta_Published_Nodeset partial index.
+            if (string.IsNullOrEmpty(userId))
+            {
+                return nsm => nsm.IsPublished;
+            }
+
             return nsm =>
-                (userId == "admin") ||
-                (nsm.UserId == "admin") ||
+                nsm.IsPublished ||
                 (nsm.UserId == userId) ||
                 string.IsNullOrEmpty(nsm.UserId);
         }
 
         private Expression<Func<NodeSetModel, bool>> GetNodesetUserFilter(string userId)
         {
+            // Anonymous fast path: only nodesets whose metadata is published.
+            if (string.IsNullOrEmpty(userId))
+            {
+                return nsm => nsm.Metadata.IsPublished;
+            }
+
             return nsm =>
-                (userId == "admin") ||
-                (nsm.Metadata.UserId == "admin") ||
+                nsm.Metadata.IsPublished ||
                 (nsm.Metadata.UserId == userId) ||
                 string.IsNullOrEmpty(nsm.Metadata.UserId);
         }
@@ -95,6 +106,7 @@ namespace Opc.Ua.Cloud.Library
                 }
 
                 nodeSets = _dbContext.NodeSetsWithUnapproved
+                    .AsNoTracking()
                     .AsExpandable()
                     .Where(nsm => nsm.Identifier == identifier)
                     .Where(GetNodesetUserFilter(userId));
@@ -102,6 +114,7 @@ namespace Opc.Ua.Cloud.Library
             else if (!string.IsNullOrEmpty(modelUri) && (publicationDate == null) && (keywords == null))
             {
                 nodeSets = _dbContext.NodeSetsWithUnapproved
+                    .AsNoTracking()
                     .AsExpandable()
                     .Where(nsm => nsm.ModelUri == modelUri)
                     .Where(GetNodesetUserFilter(userId));
@@ -109,6 +122,7 @@ namespace Opc.Ua.Cloud.Library
             else if (!string.IsNullOrEmpty(modelUri) && (publicationDate != null))
             {
                 nodeSets = _dbContext.NodeSetsWithUnapproved
+                    .AsNoTracking()
                     .AsExpandable()
                     .Where(nsm => nsm.ModelUri == modelUri)
                     .Where(nsm => nsm.PublicationDate == publicationDate)
@@ -121,6 +135,7 @@ namespace Opc.Ua.Cloud.Library
             else
             {
                 nodeSets = _dbContext.NodeSetsWithUnapproved
+                    .AsNoTracking()
                     .Where(GetNodesetUserFilter(userId));
             }
 
@@ -143,6 +158,7 @@ namespace Opc.Ua.Cloud.Library
             if (modelUri != null && publicationDate != null)
             {
                 nodeSets = _dbContext.NodeSetsWithUnapproved
+                    .AsNoTracking()
                     .AsExpandable()
                     .Where(nsm => nsm.ModelUri == modelUri)
                     .Where(nsm => nsm.PublicationDate == publicationDate)
@@ -151,6 +167,7 @@ namespace Opc.Ua.Cloud.Library
             else if (modelUri != null)
             {
                 nodeSets = _dbContext.NodeSetsWithUnapproved
+                    .AsNoTracking()
                     .AsExpandable()
                     .Where(nsm => nsm.ModelUri == modelUri)
                     .Where(GetNodesetUserFilter(userId));
@@ -158,6 +175,7 @@ namespace Opc.Ua.Cloud.Library
             else
             {
                 nodeSets = _dbContext.NodeSetsWithUnapproved
+                    .AsNoTracking()
                     .Where(GetNodesetUserFilter(userId));
             }
 
@@ -249,14 +267,14 @@ namespace Opc.Ua.Cloud.Library
 
                         // check userId matches if nodeset already exists
                         NamespaceMetaDataModel existingLegacyNamespaces = _dbContext.NamespaceMetaDataWithUnapproved
-                            .Where(n => (n.NodesetId == legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)) && ((userId == "admin") || (n.UserId == "admin") || (n.UserId == userId) || string.IsNullOrEmpty(n.UserId)))
+                            .Where(n => (n.NodesetId == legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)) && (n.IsPublished || (n.UserId == userId) || string.IsNullOrEmpty(n.UserId)))
                             .Include(n => n.NodeSet)
                             .FirstOrDefault();
 
                         if (existingLegacyNamespaces != null)
                         {
                             // we treat no user in the database like an admin user
-                            if ((string.IsNullOrEmpty(existingLegacyNamespaces.UserId) || (existingLegacyNamespaces.UserId == "admin")) && (userId != "admin"))
+                            if (string.IsNullOrEmpty(existingLegacyNamespaces.UserId) || existingLegacyNamespaces.IsPublished)
                             {
                                 return $"Nodeset already exists for admin user. Cannot overwrite with user {userId}";
                             }
@@ -284,14 +302,14 @@ namespace Opc.Ua.Cloud.Library
 
             // check userId matches if nodeset already exists
             NamespaceMetaDataModel existingNamespaces = _dbContext.NamespaceMetaDataWithUnapproved
-                .Where(n => (n.NodesetId == uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)) && ((userId == "admin") || (n.UserId == "admin") || (n.UserId == userId) || string.IsNullOrEmpty(n.UserId)))
+                .Where(n => (n.NodesetId == uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)) && (n.IsPublished || (n.UserId == userId) || string.IsNullOrEmpty(n.UserId)))
                 .Include(n => n.NodeSet)
                 .FirstOrDefault();
 
             if (existingNamespaces != null)
             {
                 // we treat no user in the database like an admin user
-                if ((string.IsNullOrEmpty(existingNamespaces.UserId) || (existingNamespaces.UserId == "admin")) && (userId != "admin"))
+                if (string.IsNullOrEmpty(existingNamespaces.UserId) || existingNamespaces.IsPublished)
                 {
                     return $"Nodeset already exists for admin user. Cannot overwrite with user {userId}";
                 }

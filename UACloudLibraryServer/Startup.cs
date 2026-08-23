@@ -270,6 +270,7 @@ namespace Opc.Ua.Cloud.Library
             services.AddServerSideBlazor();
 
             services.AddHostedService<CloudLibStartupTask>();
+            services.AddHostedService<PublicMaterializedViewRefreshTask>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -330,6 +331,8 @@ namespace Opc.Ua.Cloud.Library
                     try
                     {
                         await dbContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+                        await EnsureIsPublishedColumnAsync(dbContext, cancellationToken).ConfigureAwait(false);
+                        await EnsurePublicMaterializedViewAsync(scope.ServiceProvider, dbContext, cancellationToken).ConfigureAwait(false);
                         break;
                     }
                     catch (SocketException)
@@ -347,6 +350,92 @@ namespace Opc.Ua.Cloud.Library
                 }
 
                 await InitOPCUAClientServerAsync(uaApp).ConfigureAwait(false);
+            }
+
+            private static async Task EnsureIsPublishedColumnAsync(AppDbContext dbContext, CancellationToken cancellationToken)
+            {
+                // Gate on the presence of the new partial index so that existing databases
+                // (which may already have the column but not the new indexes) get upgraded.
+                const string checkSql =
+                    "SELECT COUNT(1) FROM pg_indexes " +
+                    "WHERE schemaname = current_schema() " +
+                    "  AND tablename = 'NamespaceMeta' " +
+                    "  AND indexname = 'IX_NamespaceMeta_Published_Nodeset';";
+
+                await using var connection = dbContext.Database.GetDbConnection();
+                if (connection.State != System.Data.ConnectionState.Open)
+                {
+                    await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                await using (var checkCmd = connection.CreateCommand())
+                {
+                    checkCmd.CommandText = checkSql;
+                    var result = await checkCmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+                    if (result != null && Convert.ToInt64(result, CultureInfo.InvariantCulture) > 0)
+                    {
+                        return;
+                    }
+                }
+
+                var assembly = typeof(CloudLibStartupTask).Assembly;
+                var resourceName = "Opc.Ua.Cloud.Library.Migrations.Scripts.AddIsPublishedToNamespaceMeta.sql";
+                using var stream = assembly.GetManifestResourceStream(resourceName)
+                    ?? throw new InvalidOperationException($"Embedded SQL script '{resourceName}' not found.");
+                using var reader = new StreamReader(stream);
+                var script = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+
+                Console.WriteLine("Applying IsPublished column/index migration to NamespaceMeta...");
+                await using var scriptCmd = connection.CreateCommand();
+                scriptCmd.CommandText = script;
+                await scriptCmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            private static async Task EnsurePublicMaterializedViewAsync(IServiceProvider services, AppDbContext dbContext, CancellationToken cancellationToken)
+            {
+                // Feature-flagged via the "EnableMatView" configuration entry (env var / .env file).
+                // Any non-empty value enables the materialized view; missing/empty disables (and cleans up).
+                var configuration = services.GetRequiredService<IConfiguration>();
+                bool enabled = !string.IsNullOrEmpty(configuration["EnableMatView"]);
+
+                await using var connection = dbContext.Database.GetDbConnection();
+                if (connection.State != System.Data.ConnectionState.Open)
+                {
+                    await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                if (!enabled)
+                {
+                    var dropScript = LoadEmbeddedSql("Opc.Ua.Cloud.Library.Migrations.Scripts.DropNamespaceMetaPublicView.sql");
+                    await using var dropCmd = connection.CreateCommand();
+                    dropCmd.CommandText = dropScript;
+                    await dropCmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                    return;
+                }
+
+                Console.WriteLine("EnableMatView is set: ensuring NamespaceMetaPublic materialized view...");
+                var createScript = LoadEmbeddedSql("Opc.Ua.Cloud.Library.Migrations.Scripts.CreateNamespaceMetaPublicView.sql");
+                await using (var createCmd = connection.CreateCommand())
+                {
+                    createCmd.CommandText = createScript;
+                    await createCmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                // Initial population (non-concurrent because the view was created WITH NO DATA).
+                await using (var refreshCmd = connection.CreateCommand())
+                {
+                    refreshCmd.CommandText = "REFRESH MATERIALIZED VIEW \"NamespaceMetaPublic\";";
+                    await refreshCmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            private static string LoadEmbeddedSql(string resourceName)
+            {
+                var assembly = typeof(CloudLibStartupTask).Assembly;
+                using var stream = assembly.GetManifestResourceStream(resourceName)
+                    ?? throw new InvalidOperationException($"Embedded SQL script '{resourceName}' not found.");
+                using var reader = new StreamReader(stream);
+                return reader.ReadToEnd();
             }
 
             private async Task InitOPCUAClientServerAsync(ApplicationInstance uaApp)
@@ -396,6 +485,72 @@ namespace Opc.Ua.Cloud.Library
             {
                 // nothing to do
                 return Task.CompletedTask;
+            }
+        }
+
+        public class PublicMaterializedViewRefreshTask : BackgroundService
+        {
+            private static readonly TimeSpan DefaultInterval = TimeSpan.FromSeconds(60);
+
+            private readonly IServiceProvider _serviceProvider;
+            private readonly IConfiguration _configuration;
+            private readonly ILogger<PublicMaterializedViewRefreshTask> _logger;
+
+            public PublicMaterializedViewRefreshTask(
+                IServiceProvider serviceProvider,
+                IConfiguration configuration,
+                ILogger<PublicMaterializedViewRefreshTask> logger)
+            {
+                _serviceProvider = serviceProvider;
+                _configuration = configuration;
+                _logger = logger;
+            }
+
+            protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+            {
+                if (string.IsNullOrEmpty(_configuration["EnableMatView"]))
+                {
+                    // Feature disabled — no periodic refresh needed.
+                    return;
+                }
+
+                var interval = DefaultInterval;
+                if (int.TryParse(_configuration["MatViewRefreshSeconds"], NumberStyles.Integer, CultureInfo.InvariantCulture, out int seconds) && seconds > 0)
+                {
+                    interval = TimeSpan.FromSeconds(seconds);
+                }
+
+                // Give the startup task a chance to create the view first.
+                try { await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken).ConfigureAwait(false); }
+                catch (OperationCanceledException) { return; }
+
+                while (!stoppingToken.IsCancellationRequested)
+                {
+                    try
+                    {
+                        using var scope = _serviceProvider.CreateScope();
+                        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                        await using var connection = dbContext.Database.GetDbConnection();
+                        if (connection.State != System.Data.ConnectionState.Open)
+                        {
+                            await connection.OpenAsync(stoppingToken).ConfigureAwait(false);
+                        }
+                        await using var cmd = connection.CreateCommand();
+                        cmd.CommandText = "REFRESH MATERIALIZED VIEW CONCURRENTLY \"NamespaceMetaPublic\";";
+                        await cmd.ExecuteNonQueryAsync(stoppingToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        return;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to refresh NamespaceMetaPublic materialized view.");
+                    }
+
+                    try { await Task.Delay(interval, stoppingToken).ConfigureAwait(false); }
+                    catch (OperationCanceledException) { return; }
+                }
             }
         }
     }
