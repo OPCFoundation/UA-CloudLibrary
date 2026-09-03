@@ -48,6 +48,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
@@ -55,6 +56,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Identity.Web;
 using Microsoft.OpenApi;
 using Opc.Ua.Cloud.Library.Authentication;
@@ -95,6 +97,12 @@ namespace Opc.Ua.Cloud.Library
                 .AddRoles<IdentityRole>()
                 .AddEntityFrameworkStores<AppDbContext>()
                 .AddTokenProvider<ApiKeyTokenProvider>(ApiKeyTokenProvider.ApiKeyProviderName);
+
+            // Label the account identifier field (and its validation messages) "Username" rather than
+            // "Email" while e-mail verification is disabled, matching the conditional syntax check in
+            // EmailAddressWhenVerificationEnabledAttribute. Appended last so it wins over [Display].
+            services.AddOptions<MvcOptions>().Configure<IOptions<IdentityOptions>>((mvcOptions, identityOptions) =>
+                mvcOptions.ModelMetadataDetailsProviders.Add(new UserIdentifierDisplayMetadataProvider(identityOptions)));
 
             services.AddScoped<UserService>();
 
