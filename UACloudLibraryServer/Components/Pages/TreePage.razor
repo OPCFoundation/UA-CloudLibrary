@@ -78,40 +78,210 @@
                             <div class="card h-100">
                                 <div class="card-header">
                                     <b>Nodeset Browser</b>
+                                    <div class="input-group input-group-sm mt-2">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">Nodeset scope</span>
+                                        </div>
+                                        <select class="form-control" @bind="SearchScope" disabled="@IsSearching">
+                                            <option value="">All</option>
+                                            @if (_client?.LoadedNamespaces != null)
+                                            {
+                                                @foreach (var ns in _client.LoadedNamespaces.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase))
+                                                {
+                                                    <option value="@ns">@ns</option>
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="input-group input-group-sm mt-2">
+                                        <div class="input-group-prepend">
+                                            <button type="button" class="btn btn-outline-secondary" title="Search help" aria-label="Search help" @onclick="@(() => ShowSearchHelp = true)" disabled="@IsSearching">
+                                                <strong>?</strong>
+                                            </button>
+                                        </div>
+                                        <input type="text" class="form-control" placeholder="Search (name:, type:, id: or plain text)..."
+                                               @bind="SearchQuery" @bind:event="oninput"
+                                               @onkeydown="OnSearchKeyDown" disabled="@IsSearching" />
+                                        <div class="input-group-append">
+                                            @if (!string.IsNullOrEmpty(SearchQuery))
+                                            {
+                                                <button type="button" class="btn btn-outline-secondary" title="Clear" @onclick="ClearSearch" disabled="@IsSearching">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            }
+                                            <button type="button" class="btn btn-primary" aria-label="Search tree" @onclick="SearchTree" disabled="@(IsSearching || string.IsNullOrWhiteSpace(SearchQuery))">
+                                                @if (IsSearching)
+                                                {
+                                                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                                }
+                                                else
+                                                {
+                                                    <i class="fas fa-search"></i>
+                                                }
+                                            </button>
+                                        </div>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(SearchStatus))
+                                    {
+                                        <small class="text-muted d-block mt-1">@SearchStatus</small>
+                                    }
+
+                                    <div class="d-flex align-items-center mt-2">
+                                        <div class="custom-control custom-checkbox mr-3">
+                                            <input type="checkbox" class="custom-control-input" id="findAllCheckbox"
+                                                   @bind="FindAll" disabled="@IsSearching" />
+                                            <label class="custom-control-label" for="findAllCheckbox">Find all</label>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                                @onclick="FindNext"
+                                                disabled="@(IsSearching || SearchMatchIds.Count == 0)">
+                                            <i class="fas fa-arrow-down mr-1"></i>Find next
+                                        </button>
+                                    </div>
+
+                                    @if (ShowSearchHelp)
+                                    {
+                                        <div class="modal-backdrop fade show" @onclick="@(() => ShowSearchHelp = false)"></div>
+                                    }
+                                    <div class="modal fade @(ShowSearchHelp ? "show" : string.Empty)" tabindex="-1" aria-labelledby="treeSearchHelpModalLabel" aria-hidden="@(ShowSearchHelp ? "false" : "true")" style="@(ShowSearchHelp ? "display: block;" : "display: none;")" role="dialog">
+                                        <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title" id="treeSearchHelpModalLabel">Search options</h5>
+                                                    <button type="button" class="btn-close" aria-label="Close" @onclick="@(() => ShowSearchHelp = false)">&times;</button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <p>
+                                                        Enter a keyword to locate a node in the tree. Use a filter prefix to change
+                                                        what the term is matched against.
+                                                    </p>
+                                                    <table class="table table-sm table-striped">
+                                                        <thead>
+                                                            <tr>
+                                                                <th style="width: 130px;">Filter</th>
+                                                                <th>Description</th>
+                                                                <th style="width: 260px;">Example</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <tr>
+                                                                <td><em>(no prefix)</em></td>
+                                                                <td>Matches any part of the node's <em>BrowseName</em> or <em>DisplayName</em> (case-insensitive, accent-insensitive).</td>
+                                                                <td><code>temperature</code></td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td><code>name:</code></td>
+                                                                <td>Matches only the node's <em>DisplayName</em> (case-insensitive substring).</td>
+                                                                <td><code>name:Temperature</code></td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td><code>type:</code></td>
+                                                                <td>Matches only the node's <em>BrowseName</em> (case-insensitive substring).</td>
+                                                                <td><code>type:MotorType</code></td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td><code>id:</code></td>
+                                                                <td>Matches a node whose identifier (the value after the last <code>=</code> in the NodeId, e.g. <code>2258</code> from <code>nsu=...;i=2258</code>) is exactly the given value.</td>
+                                                                <td><code>id:2258</code></td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                    <p class="mb-0">
+                                                        <strong>Tip:</strong> The search expands ancestor branches and selects the first match it finds.
+                                                    </p>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" @onclick="@(() => ShowSearchHelp = false)">Close</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="card-body">
-                                    <Tree Nodes="TreeNodes" TNode="NodesetViewerNode" ChildSelector="node => node.Children" SelectedNodeChanged="SelectedNodeChanged" OnNodeExpand="OnNodeExpand" HasChildNodes="HasChildNodes">
+                                    <Tree Nodes="TreeNodes" TNode="NodesetViewerNode" ChildSelector="node => node.Children" SelectedNodeChanged="SelectedNodeChanged" OnNodeExpand="OnNodeExpand" HasChildNodes="HasChildNodes" ExpandedNodes="ExpandedNodes">
                                         <TitleTemplate>
-                                            @if (context.Id == SelectedNode.Id)
-                                            {
-                                                if (context.Id.StartsWith("nsu="))
+                                            @{
+                                                bool isSelected = context.Id == SelectedNode.Id;
+                                                bool isMatch = SearchMatchIds != null && SearchMatchIds.Contains(context.Id);
+                                                string color = isSelected ? "red" : (isMatch ? "#0d6efd" : null);
+                                                bool bold = context.Id != null
+                                                    && context.Id.StartsWith("nsu=")
+                                                    && IsNodeInScope(context, SearchScope);
+                                                string style = (color != null ? "color:" + color + ";" : string.Empty)
+                                                    + (isMatch && !isSelected ? "background-color:#fff3cd;" : string.Empty);
+                                            }
+                                            <span style="@style">
+                                                @if (bold)
                                                 {
-                                                    <span style="color: red;"><b>@context.Text</b></span>
+                                                    <b>@context.Text</b>
                                                 }
                                                 else
                                                 {
-                                                    <span style="color: red;">@context.Text</span>
+                                                    @context.Text
                                                 }
-                                            }
-                                            else
-                                            {
-                                                if (context.Id.StartsWith("nsu="))
-                                                {
-                                                    <span><b>@context.Text</b></span>
-                                                }
-                                                else
-                                                {
-                                                    <span>@context.Text</span>
-                                                }
-                                            }
-
+                                            </span>
                                         </TitleTemplate>
                                     </Tree>
                                 </div>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="card h-100">
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <b><i class="fas fa-info-circle mr-2"></i>Selected Node Information</b>
+                                </div>
+                                <div class="card-body">
+                                    @if (SelectedNode != null && !string.IsNullOrEmpty(SelectedNode.Id))
+                                    {
+                                        <dl class="row mb-0">
+                                            <dt class="col-sm-4 text-truncate">Display Name</dt>
+                                            <dd class="col-sm-8">@(string.IsNullOrEmpty(SelectedNode.Text) ? "(none)" : SelectedNode.Text)</dd>
+
+                                            <dt class="col-sm-4 text-truncate">Browse Name</dt>
+                                            <dd class="col-sm-8">@(string.IsNullOrEmpty(SelectedNode.BrowseName) ? "(none)" : SelectedNode.BrowseName)</dd>
+
+                                            <dt class="col-sm-4 text-truncate">Node Class</dt>
+                                            <dd class="col-sm-8">@(string.IsNullOrEmpty(SelectedNode.NodeClass) ? "(unknown)" : SelectedNode.NodeClass)</dd>
+
+                                            <dt class="col-sm-4 text-truncate">Node Id</dt>
+                                            <dd class="col-sm-8"><code style="word-break: break-all;">@SelectedNode.Id</code></dd>
+
+                                            <dt class="col-sm-4 text-truncate">Value</dt>
+                                            <dd class="col-sm-8">
+                                                @if (!string.IsNullOrEmpty(NodeValue))
+                                                {
+                                                    <span>@NodeValue</span>
+                                                }
+                                                else if (!string.IsNullOrEmpty(SelectedNode.Value))
+                                                {
+                                                    <span>@SelectedNode.Value</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">(none)</span>
+                                                }
+                                            </dd>
+
+                                            <dt class="col-sm-4 text-truncate">Child Nodes</dt>
+                                            <dd class="col-sm-8">
+                                                @if (SelectedNode.Children != null)
+                                                {
+                                                    <span>@SelectedNode.Children.Count</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">(not loaded)</span>
+                                                }
+                                            </dd>
+                                        </dl>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">Select a node in the tree to see its details.</span>
+                                    }
+                                </div>
+                            </div>
+                            <div class="card">
                                 <div class="card-header">
                                     <b><span style="color: red;">Selected Node</span> Value</b>
                                     <button type="button" class="btn btn-primary" style="float: right" @onclick="() => OpenEditDialog(NodeValue)">Edit</button><br/>
@@ -184,6 +354,8 @@
 
     [Parameter] public string UserName { get; set; }
 
+    [Parameter] public string Search { get; set; }
+
     private string ModalClass = string.Empty;
     private string ModalDisplay = "display:none";
     private bool ShowBackDrop = false;
@@ -197,6 +369,20 @@
     private string WriteStatus = string.Empty;
 
     private bool IsDownloading = false;
+
+    private string SearchQuery { get; set; } = string.Empty;
+    private string SearchScope { get; set; } = string.Empty;
+    private HashSet<string> SearchMatchIds { get; set; } = new HashSet<string>(StringComparer.Ordinal);
+    private List<NodesetViewerNode> SearchMatches { get; set; } = new List<NodesetViewerNode>();
+    private List<List<NodesetViewerNode>> SearchMatchAncestors { get; set; } = new List<List<NodesetViewerNode>>();
+    private int SearchCursor { get; set; } = -1;
+    private bool FindAll { get; set; } = false;
+    private string SearchStatus { get; set; } = string.Empty;
+    private bool IsSearching { get; set; } = false;
+    private bool ShowSearchHelp { get; set; } = false;
+    private IList<NodesetViewerNode> ExpandedNodes { get; set; } = new List<NodesetViewerNode>();
+
+    private const int SearchMaxNodes = 50000;
 
     private List<NodesetViewerNode> TreeNodes = new();
 
@@ -273,18 +459,51 @@
         SelectedNode = root;
 
         await OnNodeExpand(root).ConfigureAwait(false);
+
+        if (!string.IsNullOrWhiteSpace(Search))
+        {
+            SearchQuery = Search;
+            await SearchTree().ConfigureAwait(false);
+        }
     }
 
     private async Task OnNodeExpand(NodesetViewerNode node)
     {
-        if (node.Children.Count == 0)
+        if (node == null)
         {
-            node.Children = await _client.GetChildren(UserName, NodesetIdentifier, node.Id, true).ConfigureAwait(false);
+            return;
+        }
 
-            if (node.Children != null)
+        if (node.Children == null || node.Children.Count == 0)
+        {
+            List<NodesetViewerNode> children = null;
+            try
             {
-                node.Children.Sort();
+                children = await _client.GetChildren(UserName, NodesetIdentifier, node.Id, true).ConfigureAwait(false);
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"OnNodeExpand failed for node '{node.Id}': {ex}");
+            }
+
+            // Filter out any null entries and drop nulls in place so downstream
+            // Contains/GetHashCode/CompareTo can't NRE.
+            var safeChildren = new List<NodesetViewerNode>();
+            if (children != null)
+            {
+                foreach (var c in children)
+                {
+                    if (c != null)
+                    {
+                        c.Id ??= string.Empty;
+                        c.Text ??= string.Empty;
+                        safeChildren.Add(c);
+                    }
+                }
+            }
+
+            node.Children = safeChildren;
+            node.Children.Sort();
         }
     }
 
@@ -298,6 +517,320 @@
     private bool HasChildNodes(NodesetViewerNode node)
     {
         return (node.Children != null);
+    }
+
+    private static string ExtractNodeIdSuffix(string nodeId)
+    {
+        if (string.IsNullOrEmpty(nodeId))
+        {
+            return string.Empty;
+        }
+
+        // NodeIds look like "nsu=...;i=2258", "ns=1;s=Foo", "i=2258", etc.
+        // The identifier is always the segment after the last '='.
+        var idx = nodeId.LastIndexOf('=');
+        return (idx >= 0 && idx < nodeId.Length - 1)
+            ? nodeId.Substring(idx + 1).Trim()
+            : nodeId.Trim();
+    }
+
+    private static bool IsNodeInScope(NodesetViewerNode node, string scope)
+    {
+        if (string.IsNullOrEmpty(scope))
+        {
+            return true;
+        }
+
+        var id = node?.Id;
+        if (string.IsNullOrEmpty(id))
+        {
+            return false;
+        }
+
+        // NodeIds from loaded nodesets are formatted as "nsu=<namespaceUri>;...".
+        const string prefix = "nsu=";
+        if (!id.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var end = id.IndexOf(';', prefix.Length);
+        var nsu = end < 0 ? id.Substring(prefix.Length) : id.Substring(prefix.Length, end - prefix.Length);
+        return nsu.StartsWith(scope, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task OnSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SearchTree();
+        }
+    }
+
+    private void ClearSearch()
+    {
+        SearchQuery = string.Empty;
+        SearchStatus = string.Empty;
+        SearchMatchIds.Clear();
+        SearchMatches.Clear();
+        SearchMatchAncestors.Clear();
+        SearchExcludeIds.Clear();
+        SearchCursor = -1;
+    }
+
+    private HashSet<string> SearchExcludeIds { get; set; } = new HashSet<string>(StringComparer.Ordinal);
+
+    private async Task FindNext()
+    {
+        // If we already collected all matches (Find all mode), cycle the cursor.
+        if (SearchMatches.Count > 1)
+        {
+            SearchCursor = (SearchCursor + 1) % SearchMatches.Count;
+            var next = SearchMatches[SearchCursor];
+            var nextAncestors = SearchMatchAncestors[SearchCursor];
+            foreach (var a in nextAncestors)
+            {
+                if (!ExpandedNodes.Contains(a))
+                {
+                    ExpandedNodes.Add(a);
+                }
+            }
+            await SelectedNodeChanged(next).ConfigureAwait(false);
+            SearchStatus = $"Match {SearchCursor + 1} of {SearchMatches.Count} ({next.Text})";
+            return;
+        }
+
+        // Otherwise re-run a single-hit search but skip already-shown matches.
+        if (SelectedNode != null && !string.IsNullOrEmpty(SelectedNode.Id))
+        {
+            SearchExcludeIds.Add(SelectedNode.Id);
+        }
+        await SearchTree(preserveExcludes: true).ConfigureAwait(false);
+    }
+
+    private async Task SearchTree()
+    {
+        await SearchTree(preserveExcludes: false).ConfigureAwait(false);
+    }
+
+    private async Task SearchTree(bool preserveExcludes)
+    {
+        var term = SearchQuery?.Trim();
+        if (string.IsNullOrEmpty(term) || TreeNodes.Count == 0)
+        {
+            return;
+        }
+
+        bool searchById = false;
+        bool searchByType = false;
+        bool searchByName = false;
+        if (term.StartsWith("id:", StringComparison.OrdinalIgnoreCase))
+        {
+            searchById = true;
+            term = term.Substring(3).Trim();
+        }
+        else if (term.StartsWith("type:", StringComparison.OrdinalIgnoreCase))
+        {
+            searchByType = true;
+            term = term.Substring(5).Trim();
+        }
+        else if (term.StartsWith("name:", StringComparison.OrdinalIgnoreCase))
+        {
+            searchByName = true;
+            term = term.Substring(5).Trim();
+        }
+
+        if (string.IsNullOrEmpty(term))
+        {
+            return;
+        }
+
+        IsSearching = true;
+        SearchStatus = "Searching...";
+
+        // Clear previous selection so the highlight from an earlier search
+        // does not persist while (or after) a new search runs.
+        SelectedNode = new NodesetViewerNode();
+        NodeValue = string.Empty;
+        SearchMatchIds.Clear();
+        SearchMatches.Clear();
+        SearchMatchAncestors.Clear();
+        SearchCursor = -1;
+        if (!preserveExcludes)
+        {
+            SearchExcludeIds.Clear();
+        }
+
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+
+        try
+        {
+            // Culture-aware, case-insensitive substring match.
+            // Also ignores accent differences (e.g. "u" matches "ü") so users can
+            // freely type any fragment of a node name (e.g. "pera" -> "Temperature").
+            var compareInfo = System.Globalization.CultureInfo.CurrentCulture.CompareInfo;
+            const System.Globalization.CompareOptions compareOptions =
+                System.Globalization.CompareOptions.IgnoreCase |
+                System.Globalization.CompareOptions.IgnoreNonSpace |
+                System.Globalization.CompareOptions.IgnoreSymbols;
+
+            // Breadth-first traversal so shallow matches are found first and no
+            // single subtree can starve the search budget. We use a LinkedList
+            // as a deque so that "Types"-related branches can be prioritized
+            // (prepended) over the typically massive "Objects" subtree.
+            var queue = new LinkedList<(NodesetViewerNode Node, List<NodesetViewerNode> Ancestors)>();
+            foreach (var root in TreeNodes)
+            {
+                queue.AddLast((root, new List<NodesetViewerNode>()));
+            }
+
+            NodesetViewerNode match = null;
+            List<NodesetViewerNode> matchAncestors = null;
+            int visited = 0;
+            var visitedNodeIds = new HashSet<string>(StringComparer.Ordinal);
+
+
+            while (queue.Count > 0 && visited < SearchMaxNodes)
+            {
+                var (current, ancestors) = queue.First.Value;
+                queue.RemoveFirst();
+                if (!string.IsNullOrEmpty(current.Id) && !visitedNodeIds.Add(current.Id))
+
+                {
+
+                    continue;
+
+                }
+
+                visited++;
+
+                bool inScope = IsNodeInScope(current, SearchScope);
+                bool isMatch = false;
+
+                if (inScope && !string.IsNullOrEmpty(current.Id) && SearchExcludeIds.Contains(current.Id))
+                {
+                    inScope = false;
+                }
+
+                if (inScope && searchById)
+                {
+                    // Only compare the numeric/identifier part at the very end of the NodeId,
+                    // e.g. "nsu=http://.../;i=2258" -> "2258", "ns=1;s=Foo" -> "Foo".
+                    var currentIdSuffix = ExtractNodeIdSuffix(current.Id);
+                    if (!string.IsNullOrEmpty(currentIdSuffix)
+                        && string.Equals(currentIdSuffix, term, StringComparison.OrdinalIgnoreCase))
+                    {
+                        isMatch = true;
+                    }
+                }
+                else if (inScope && searchByType)
+                {
+                    if (!string.IsNullOrEmpty(current.BrowseName)
+                        && compareInfo.IndexOf(current.BrowseName, term, compareOptions) >= 0)
+                    {
+                        isMatch = true;
+                    }
+                }
+                else if (inScope && searchByName)
+                {
+                    if (!string.IsNullOrEmpty(current.Text)
+                        && compareInfo.IndexOf(current.Text, term, compareOptions) >= 0)
+                    {
+                        isMatch = true;
+                    }
+                }
+                else if (inScope)
+                {
+                    // No prefix: match BrowseName OR Display Name (case-insensitive substring).
+                    if ((!string.IsNullOrEmpty(current.Text)
+                            && compareInfo.IndexOf(current.Text, term, compareOptions) >= 0)
+                        || (!string.IsNullOrEmpty(current.BrowseName)
+                            && compareInfo.IndexOf(current.BrowseName, term, compareOptions) >= 0))
+                    {
+                        isMatch = true;
+                    }
+                }
+
+                if (isMatch)
+                {
+                    if (!string.IsNullOrEmpty(current.Id))
+                    {
+                        SearchMatchIds.Add(current.Id);
+                    }
+
+                    SearchMatches.Add(current);
+                    SearchMatchAncestors.Add(ancestors);
+
+                    if (match == null)
+                    {
+                        match = current;
+                        matchAncestors = ancestors;
+                    }
+
+                    if (!FindAll)
+                    {
+                        break;
+                    }
+                }
+
+                await OnNodeExpand(current).ConfigureAwait(false);
+
+                if (current.Children != null)
+                {
+                    var childAncestors = new List<NodesetViewerNode>(ancestors) { current };
+                    foreach (var child in current.Children)
+                    {
+                        // Prioritize the Types subtree (and everything inside it) so
+                        // matches inside object/variable/data types are reached before
+                        // the traversal budget is exhausted by the Objects subtree.
+                        bool isTypesBranch =
+                            (child.Text != null && child.Text.EndsWith("Types", StringComparison.OrdinalIgnoreCase))
+                            || (child.BrowseName != null && child.BrowseName.EndsWith("Types", StringComparison.OrdinalIgnoreCase));
+
+                        if (isTypesBranch)
+                        {
+                            queue.AddFirst((child, childAncestors));
+                        }
+                        else
+                        {
+                            queue.AddLast((child, childAncestors));
+                        }
+                    }
+                }
+            }
+
+            if (match != null)
+            {
+                foreach (var ancestor in matchAncestors)
+                {
+                    if (!ExpandedNodes.Contains(ancestor))
+                    {
+                        ExpandedNodes.Add(ancestor);
+                    }
+                }
+
+                await SelectedNodeChanged(match).ConfigureAwait(false);
+                SearchCursor = 0;
+                SearchStatus = SearchMatches.Count > 1
+                    ? $"Match 1 of {SearchMatches.Count} (first: {match.Text})"
+                    : $"Found: {match.Text}";
+            }
+            else
+            {
+                SearchStatus = visited >= SearchMaxNodes
+                    ? $"No match in first {SearchMaxNodes} nodes. Try a more specific term."
+                    : $"No node matching '{term}' found.";
+            }
+        }
+        catch (Exception ex)
+        {
+            SearchStatus = $"Search failed: {ex.Message}";
+        }
+        finally
+        {
+            IsSearching = false;
+            await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+        }
     }
 
     private async Task DownloadAllDependencyNodesets()
@@ -322,11 +855,16 @@
             {
                 foreach (var kvp in nodesetFiles)
                 {
-// Sanitize the filename (replace invalid characters)
-var url = new Uri(kvp.Key);
-var invalidChars = new[] { '<', '>', ':', '"', '/', '\\', '|', '?', '*', '\0' };
-string sanitizedKey = string.Join("_", (url.Host + url.PathAndQuery).Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
-string fileName = $"{sanitizedKey}.xml";
+// Sanitize the filename (replace invalid characters)
+
+var url = new Uri(kvp.Key);
+
+var invalidChars = new[] { '<', '>', ':', '"', '/', '\\', '|', '?', '*', '\0' };
+
+string sanitizedKey = string.Join("_", (url.Host + url.PathAndQuery).Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
+
+string fileName = $"{sanitizedKey}.xml";
+
 
                     // Create an entry in the zip file
                     var zipEntry = archive.CreateEntry(fileName, CompressionLevel.Optimal);

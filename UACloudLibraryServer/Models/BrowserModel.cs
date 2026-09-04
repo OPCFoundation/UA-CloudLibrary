@@ -10,5 +10,7 @@ namespace Opc.Ua.Cloud.Library.Models
         public string UserName { get; set; }
 
         public string StatusMessage { get; set; }
+
+        public string Search { get; set; }
     }
 }

@@ -24,13 +24,14 @@ namespace AdminShell
             _database = database;
         }
 
-        public ActionResult Index(string nodesetIdentifier, string nodesetName, string userName, string statusMessage)
+        public ActionResult Index(string nodesetIdentifier, string nodesetName, string userName, string statusMessage, string search)
         {
             return View("Index", new BrowserModel() {
                 NodesetIdentifier = nodesetIdentifier,
                 NodesetName = nodesetName,
                 UserName = userName,
-                StatusMessage = statusMessage
+                StatusMessage = statusMessage,
+                Search = search
             });
         }
 

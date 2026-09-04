@@ -38,13 +38,22 @@ namespace Opc.Ua.Cloud.Library
 
         public string Text { get; set; } = string.Empty;
 
+        public string BrowseName { get; set; } = string.Empty;
+
+        public string NodeClass { get; set; } = string.Empty;
+
         public List<NodesetViewerNode> Children { get; set; }
 
         public string Value { get; set; } = string.Empty;
 
         public int CompareTo(NodesetViewerNode other)
         {
-            return string.Compare(Id, other.Id, StringComparison.Ordinal);
+            if (ReferenceEquals(other, null))
+            {
+                return 1;
+            }
+
+            return string.Compare(Id ?? string.Empty, other.Id ?? string.Empty, StringComparison.Ordinal);
         }
 
         public override bool Equals(object obj)
@@ -64,7 +73,7 @@ namespace Opc.Ua.Cloud.Library
 
         public override int GetHashCode()
         {
-            return Id.GetHashCode(StringComparison.Ordinal);
+            return (Id ?? string.Empty).GetHashCode(StringComparison.Ordinal);
         }
 
         public static bool operator ==(NodesetViewerNode left, NodesetViewerNode right)
