@@ -687,11 +687,16 @@
             NodesetViewerNode match = null;
             List<NodesetViewerNode> matchAncestors = null;
             int visited = 0;
+            var visitedNodeIds = new HashSet<string>(StringComparer.Ordinal);
 
             while (queue.Count > 0 && visited < SearchMaxNodes)
             {
                 var (current, ancestors) = queue.First.Value;
                 queue.RemoveFirst();
+                if (!string.IsNullOrEmpty(current.Id) && !visitedNodeIds.Add(current.Id))
+                {
+                    continue;
+                }
                 visited++;
 
                 bool inScope = IsNodeInScope(current, SearchScope);
@@ -845,11 +850,16 @@
             {
                 foreach (var kvp in nodesetFiles)
                 {
-// Sanitize the filename (replace invalid characters)
-var url = new Uri(kvp.Key);
-var invalidChars = new[] { '<', '>', ':', '"', '/', '\\', '|', '?', '*', '\0' };
-string sanitizedKey = string.Join("_", (url.Host + url.PathAndQuery).Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
-string fileName = $"{sanitizedKey}.xml";
+// Sanitize the filename (replace invalid characters)
+
+var url = new Uri(kvp.Key);
+
+var invalidChars = new[] { '<', '>', ':', '"', '/', '\\', '|', '?', '*', '\0' };
+
+string sanitizedKey = string.Join("_", (url.Host + url.PathAndQuery).Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
+
+string fileName = $"{sanitizedKey}.xml";
+
 
                     // Create an entry in the zip file
                     var zipEntry = archive.CreateEntry(fileName, CompressionLevel.Optimal);
