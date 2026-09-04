@@ -73,7 +73,7 @@
                     <input type="text" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default" value="@string.Join(",", SearchKeywords)" @onchange="@OnSearchTextChanged">
                     <div class="input-group-append">
                         <span class="input-group-text">Items per page</span>
-                        <input type="number" min="1" max="99" class="form-control" style="max-width: 4.5rem; flex: 0 0 auto;" aria-label="Items per page" value="@PAGE_SIZE" @onchange="@OnPageSizeChanged">
+                        <input type="number" min="2" max="99" class="form-control" style="max-width: 4.5rem; flex: 0 0 auto;" aria-label="Items per page" value="@PAGE_SIZE" @onchange="@OnPageSizeChanged">
                     </div>
                 </div>
 

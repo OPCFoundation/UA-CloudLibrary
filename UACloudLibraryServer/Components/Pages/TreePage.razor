@@ -111,7 +111,7 @@
                                                     <i class="fas fa-times"></i>
                                                 </button>
                                             }
-                                            <button type="button" class="btn btn-primary" @onclick="SearchTree" disabled="@(IsSearching || string.IsNullOrWhiteSpace(SearchQuery))">
+                                            <button type="button" class="btn btn-primary" aria-label="Search tree" @onclick="SearchTree" disabled="@(IsSearching || string.IsNullOrWhiteSpace(SearchQuery))">
                                                 @if (IsSearching)
                                                 {
                                                     <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -743,6 +743,7 @@
             NodesetViewerNode match = null;
             List<NodesetViewerNode> matchAncestors = null;
             int visited = 0;
+            var visitedNodeIds = new HashSet<string>(StringComparer.Ordinal);
 
             bool stop = false;
 
