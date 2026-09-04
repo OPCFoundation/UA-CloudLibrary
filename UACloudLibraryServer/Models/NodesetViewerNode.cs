@@ -44,6 +44,12 @@ namespace Opc.Ua.Cloud.Library
 
         public List<NodesetViewerNode> Children { get; set; }
 
+        /// <summary>
+        /// True once the children of this node have been browsed from the server.
+        /// Distinguishes a loaded leaf (empty Children) from a node that has not been browsed yet.
+        /// </summary>
+        public bool ChildrenLoaded { get; set; }
+
         public string Value { get; set; } = string.Empty;
 
         public int CompareTo(NodesetViewerNode other)

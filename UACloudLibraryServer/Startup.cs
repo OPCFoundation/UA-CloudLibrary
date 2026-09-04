@@ -393,40 +393,8 @@ namespace Opc.Ua.Cloud.Library
 
             private static async Task EnsurePublicMaterializedViewAsync(IServiceProvider services, AppDbContext dbContext, CancellationToken cancellationToken)
             {
-                // Feature-flagged via the "EnableMatView" configuration entry (env var / .env file).
-                // Any non-empty value enables the materialized view; missing/empty disables (and cleans up).
-                var configuration = services.GetRequiredService<IConfiguration>();
-                bool enabled = !string.IsNullOrEmpty(configuration["EnableMatView"]);
+                //Coming soon!
 
-                await using var connection = dbContext.Database.GetDbConnection();
-                if (connection.State != System.Data.ConnectionState.Open)
-                {
-                    await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-                }
-
-                if (!enabled)
-                {
-                    var dropScript = LoadEmbeddedSql("Opc.Ua.Cloud.Library.Migrations.Scripts.DropNamespaceMetaPublicView.sql");
-                    await using var dropCmd = connection.CreateCommand();
-                    dropCmd.CommandText = dropScript;
-                    await dropCmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-                    return;
-                }
-
-                Console.WriteLine("EnableMatView is set: ensuring NamespaceMetaPublic materialized view...");
-                var createScript = LoadEmbeddedSql("Opc.Ua.Cloud.Library.Migrations.Scripts.CreateNamespaceMetaPublicView.sql");
-                await using (var createCmd = connection.CreateCommand())
-                {
-                    createCmd.CommandText = createScript;
-                    await createCmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-                }
-
-                // Initial population (non-concurrent because the view was created WITH NO DATA).
-                await using (var refreshCmd = connection.CreateCommand())
-                {
-                    refreshCmd.CommandText = "REFRESH MATERIALIZED VIEW \"NamespaceMetaPublic\";";
-                    await refreshCmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-                }
             }
 
             private static string LoadEmbeddedSql(string resourceName)
