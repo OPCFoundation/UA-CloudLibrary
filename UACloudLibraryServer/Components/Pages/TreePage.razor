@@ -7,6 +7,7 @@
 @using System.Web
 @using System.IO
 @using System.IO.Compression
+@using System.Threading
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Web;
@@ -17,6 +18,7 @@
 
 @inject UAClient _client
 @inject IJSRuntime JSRuntime
+@implements IDisposable
 
 <h1>@NodesetName</h1>
 <div style="height:100%">
@@ -264,7 +266,7 @@
 
                                             <dt class="col-sm-4 text-truncate">Child Nodes</dt>
                                             <dd class="col-sm-8">
-                                                @if (SelectedNode.Children != null)
+                                                @if (SelectedNode.ChildrenLoaded && SelectedNode.Children != null)
                                                 {
                                                     <span>@SelectedNode.Children.Count</span>
                                                 }
@@ -383,6 +385,10 @@
     private IList<NodesetViewerNode> ExpandedNodes { get; set; } = new List<NodesetViewerNode>();
 
     private const int SearchMaxNodes = 50000;
+    private const int SearchBatchSize = 32;
+    private const int SearchMaxConcurrentBrowses = 8;
+
+    private CancellationTokenSource _searchCts;
 
     private List<NodesetViewerNode> TreeNodes = new();
 
@@ -469,42 +475,80 @@
 
     private async Task OnNodeExpand(NodesetViewerNode node)
     {
-        if (node == null)
+        await LoadChildrenAsync(node).ConfigureAwait(false);
+    }
+
+    private async Task LoadChildrenAsync(NodesetViewerNode node)
+    {
+        if (node == null || node.ChildrenLoaded)
         {
             return;
         }
 
-        if (node.Children == null || node.Children.Count == 0)
+        List<NodesetViewerNode> children = null;
+        bool browseSucceeded = true;
+        try
         {
-            List<NodesetViewerNode> children = null;
-            try
-            {
-                children = await _client.GetChildren(UserName, NodesetIdentifier, node.Id, true).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"OnNodeExpand failed for node '{node.Id}': {ex}");
-            }
+            children = await _client.GetChildren(UserName, NodesetIdentifier, node.Id, true).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            browseSucceeded = false;
+            Console.WriteLine($"OnNodeExpand failed for node '{node.Id}': {ex}");
+        }
 
-            // Filter out any null entries and drop nulls in place so downstream
-            // Contains/GetHashCode/CompareTo can't NRE.
-            var safeChildren = new List<NodesetViewerNode>();
-            if (children != null)
+        // Filter out any null entries and drop nulls in place so downstream
+        // Contains/GetHashCode/CompareTo can't NRE.
+        var safeChildren = new List<NodesetViewerNode>();
+        if (children != null)
+        {
+            foreach (var c in children)
             {
-                foreach (var c in children)
+                if (c != null)
                 {
-                    if (c != null)
-                    {
-                        c.Id ??= string.Empty;
-                        c.Text ??= string.Empty;
-                        safeChildren.Add(c);
-                    }
+                    c.Id ??= string.Empty;
+                    c.Text ??= string.Empty;
+                    safeChildren.Add(c);
                 }
             }
-
-            node.Children = safeChildren;
-            node.Children.Sort();
         }
+
+        safeChildren.Sort();
+        node.Children = safeChildren;
+
+        // Only cache the result when the browse itself did not throw, so that a
+        // transient failure can be retried on the next expand/search.
+        node.ChildrenLoaded = browseSucceeded;
+    }
+
+    private async Task LoadChildrenBatchAsync(List<NodesetViewerNode> nodes, CancellationToken ct)
+    {
+        var pending = nodes.Where(n => n != null && !n.ChildrenLoaded).ToList();
+        if (pending.Count == 0)
+        {
+            return;
+        }
+
+        using var throttle = new SemaphoreSlim(SearchMaxConcurrentBrowses, SearchMaxConcurrentBrowses);
+        var tasks = new List<Task>(pending.Count);
+        foreach (var node in pending)
+        {
+            ct.ThrowIfCancellationRequested();
+            await throttle.WaitAsync(ct).ConfigureAwait(false);
+            tasks.Add(Task.Run(async () =>
+            {
+                try
+                {
+                    await LoadChildrenAsync(node).ConfigureAwait(false);
+                }
+                finally
+                {
+                    throttle.Release();
+                }
+            }, ct));
+        }
+
+        await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
     private async Task SelectedNodeChanged(NodesetViewerNode node)
@@ -516,7 +560,13 @@
 
     private bool HasChildNodes(NodesetViewerNode node)
     {
-        return (node.Children != null);
+        if (node.Children == null)
+        {
+            return false;
+        }
+
+        // Unknown until browsed; once loaded, an empty list is a real leaf.
+        return !node.ChildrenLoaded || node.Children.Count > 0;
     }
 
     private static string ExtractNodeIdSuffix(string nodeId)
@@ -645,10 +695,16 @@
             return;
         }
 
+        // Cancel any traversal still running from a previous search.
+        _searchCts?.Cancel();
+        _searchCts?.Dispose();
+        _searchCts = new CancellationTokenSource();
+        var ct = _searchCts.Token;
+
         IsSearching = true;
         SearchStatus = "Searching...";
 
-        // Clear previous selection so the highlight from an earlier search
+        // Clear previous selection
         // does not persist while (or after) a new search runs.
         SelectedNode = new NodesetViewerNode();
         NodeValue = string.Empty;
@@ -689,95 +745,120 @@
             int visited = 0;
             var visitedNodeIds = new HashSet<string>(StringComparer.Ordinal);
 
+            bool stop = false;
 
-            while (queue.Count > 0 && visited < SearchMaxNodes)
+            while (!stop && queue.Count > 0 && visited < SearchMaxNodes)
             {
-                var (current, ancestors) = queue.First.Value;
-                queue.RemoveFirst();
-                if (!string.IsNullOrEmpty(current.Id) && !visitedNodeIds.Add(current.Id))
+                ct.ThrowIfCancellationRequested();
 
+                // Dequeue a batch so that the browses for all its nodes can be
+                // issued concurrently instead of one awaited call per node.
+                var batch = new List<(NodesetViewerNode Node, List<NodesetViewerNode> Ancestors)>(SearchBatchSize);
+                while (batch.Count < SearchBatchSize && queue.Count > 0 && visited < SearchMaxNodes)
                 {
-
-                    continue;
-
+                    batch.Add(queue.First.Value);
+                    queue.RemoveFirst();
+                    visited++;
                 }
 
-                visited++;
+                var toExpand = new List<(NodesetViewerNode Node, List<NodesetViewerNode> Ancestors)>(batch.Count);
 
-                bool inScope = IsNodeInScope(current, SearchScope);
-                bool isMatch = false;
-
-                if (inScope && !string.IsNullOrEmpty(current.Id) && SearchExcludeIds.Contains(current.Id))
+                foreach (var (current, ancestors) in batch)
                 {
-                    inScope = false;
-                }
+                    bool inScope = IsNodeInScope(current, SearchScope);
+                    bool isMatch = false;
 
-                if (inScope && searchById)
-                {
-                    // Only compare the numeric/identifier part at the very end of the NodeId,
-                    // e.g. "nsu=http://.../;i=2258" -> "2258", "ns=1;s=Foo" -> "Foo".
-                    var currentIdSuffix = ExtractNodeIdSuffix(current.Id);
-                    if (!string.IsNullOrEmpty(currentIdSuffix)
-                        && string.Equals(currentIdSuffix, term, StringComparison.OrdinalIgnoreCase))
+                    if (inScope && !string.IsNullOrEmpty(current.Id) && SearchExcludeIds.Contains(current.Id))
                     {
-                        isMatch = true;
+                        inScope = false;
                     }
-                }
-                else if (inScope && searchByType)
-                {
-                    if (!string.IsNullOrEmpty(current.BrowseName)
-                        && compareInfo.IndexOf(current.BrowseName, term, compareOptions) >= 0)
+
+                    if (inScope && searchById)
                     {
-                        isMatch = true;
+                        // Only compare the numeric/identifier part at the very end of the NodeId,
+                        // e.g. "nsu=http://.../;i=2258" -> "2258", "ns=1;s=Foo" -> "Foo".
+                        var currentIdSuffix = ExtractNodeIdSuffix(current.Id);
+                        if (!string.IsNullOrEmpty(currentIdSuffix)
+                            && string.Equals(currentIdSuffix, term, StringComparison.OrdinalIgnoreCase))
+                        {
+                            isMatch = true;
+                        }
                     }
-                }
-                else if (inScope && searchByName)
-                {
-                    if (!string.IsNullOrEmpty(current.Text)
-                        && compareInfo.IndexOf(current.Text, term, compareOptions) >= 0)
+                    else if (inScope && searchByType)
                     {
-                        isMatch = true;
+                        if (!string.IsNullOrEmpty(current.BrowseName)
+                            && compareInfo.IndexOf(current.BrowseName, term, compareOptions) >= 0)
+                        {
+                            isMatch = true;
+                        }
                     }
-                }
-                else if (inScope)
-                {
-                    // No prefix: match BrowseName OR Display Name (case-insensitive substring).
-                    if ((!string.IsNullOrEmpty(current.Text)
+                    else if (inScope && searchByName)
+                    {
+                        if (!string.IsNullOrEmpty(current.Text)
                             && compareInfo.IndexOf(current.Text, term, compareOptions) >= 0)
-                        || (!string.IsNullOrEmpty(current.BrowseName)
-                            && compareInfo.IndexOf(current.BrowseName, term, compareOptions) >= 0))
-                    {
-                        isMatch = true;
+                        {
+                            isMatch = true;
+                        }
                     }
+                    else if (inScope)
+                    {
+                        // No prefix: match BrowseName OR Display Name (case-insensitive substring).
+                        if ((!string.IsNullOrEmpty(current.Text)
+                                && compareInfo.IndexOf(current.Text, term, compareOptions) >= 0)
+                            || (!string.IsNullOrEmpty(current.BrowseName)
+                                && compareInfo.IndexOf(current.BrowseName, term, compareOptions) >= 0))
+                        {
+                            isMatch = true;
+                        }
+                    }
+
+                    if (isMatch)
+                    {
+                        if (!string.IsNullOrEmpty(current.Id))
+                        {
+                            SearchMatchIds.Add(current.Id);
+                        }
+
+                        SearchMatches.Add(current);
+                        SearchMatchAncestors.Add(ancestors);
+
+                        if (match == null)
+                        {
+                            match = current;
+                            matchAncestors = ancestors;
+                        }
+
+                        if (!FindAll)
+                        {
+                            stop = true;
+                            break;
+                        }
+                    }
+
+                    toExpand.Add((current, ancestors));
                 }
 
-                if (isMatch)
+                if (stop)
                 {
-                    if (!string.IsNullOrEmpty(current.Id))
-                    {
-                        SearchMatchIds.Add(current.Id);
-                    }
-
-                    SearchMatches.Add(current);
-                    SearchMatchAncestors.Add(ancestors);
-
-                    if (match == null)
-                    {
-                        match = current;
-                        matchAncestors = ancestors;
-                    }
-
-                    if (!FindAll)
-                    {
-                        break;
-                    }
+                    break;
                 }
 
-                await OnNodeExpand(current).ConfigureAwait(false);
+                // Browse all not-yet-loaded nodes of this batch concurrently. Nodes
+                // already browsed (including leaves) are served from the cache.
+                await LoadChildrenBatchAsync(toExpand.Select(t => t.Node).ToList(), ct).ConfigureAwait(false);
 
-                if (current.Children != null)
+                // Enqueue children in reverse batch order so that AddFirst keeps the
+                // original relative ordering of prioritized "Types" branches.
+                for (int i = toExpand.Count - 1; i >= 0; i--)
                 {
+                    var (current, ancestors) = toExpand[i];
+                    if (current.Children == null || current.Children.Count == 0)
+                    {
+                        continue;
+                    }
+
                     var childAncestors = new List<NodesetViewerNode>(ancestors) { current };
+                    var typesChildren = new List<NodesetViewerNode>();
                     foreach (var child in current.Children)
                     {
                         // Prioritize the Types subtree (and everything inside it) so
@@ -789,12 +870,17 @@
 
                         if (isTypesBranch)
                         {
-                            queue.AddFirst((child, childAncestors));
+                            typesChildren.Add(child);
                         }
                         else
                         {
                             queue.AddLast((child, childAncestors));
                         }
+                    }
+
+                    for (int j = typesChildren.Count - 1; j >= 0; j--)
+                    {
+                        queue.AddFirst((typesChildren[j], childAncestors));
                     }
                 }
             }
@@ -822,15 +908,30 @@
                     : $"No node matching '{term}' found.";
             }
         }
+        catch (OperationCanceledException)
+        {
+            // Superseded by a newer search or the page was disposed; nothing to report.
+            return;
+        }
         catch (Exception ex)
         {
             SearchStatus = $"Search failed: {ex.Message}";
         }
         finally
         {
-            IsSearching = false;
-            await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+            if (!ct.IsCancellationRequested)
+            {
+                IsSearching = false;
+                await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+            }
         }
+    }
+
+    public void Dispose()
+    {
+        _searchCts?.Cancel();
+        _searchCts?.Dispose();
+        _searchCts = null;
     }
 
     private async Task DownloadAllDependencyNodesets()
@@ -855,16 +956,11 @@
             {
                 foreach (var kvp in nodesetFiles)
                 {
-// Sanitize the filename (replace invalid characters)
-
-var url = new Uri(kvp.Key);
-
-var invalidChars = new[] { '<', '>', ':', '"', '/', '\\', '|', '?', '*', '\0' };
-
-string sanitizedKey = string.Join("_", (url.Host + url.PathAndQuery).Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
-
-string fileName = $"{sanitizedKey}.xml";
-
+// Sanitize the filename (replace invalid characters)
+var url = new Uri(kvp.Key);
+var invalidChars = new[] { '<', '>', ':', '"', '/', '\\', '|', '?', '*', '\0' };
+string sanitizedKey = string.Join("_", (url.Host + url.PathAndQuery).Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
+string fileName = $"{sanitizedKey}.xml";
 
                     // Create an entry in the zip file
                     var zipEntry = archive.CreateEntry(fileName, CompressionLevel.Optimal);

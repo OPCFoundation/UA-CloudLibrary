@@ -5,65 +5,124 @@
     ViewData["Title"] = "Log in";
 }
 
-<h1>@ViewData["Title"]</h1>
-<div class="row">
-    <div class="col-md-4">
-        <section>
+<div class="uacl-login-wrapper d-flex justify-content-center align-items-start py-5">
+    <div class="uacl-login-card card shadow-sm border-0">
+        <div class="card-body p-4 p-md-5">
+            <div class="text-center mb-4">
+                <div class="uacl-login-icon mb-3">
+                    <i class="fas fa-user-lock fa-2x text-primary"></i>
+                </div>
+                <h3 class="mb-1">Welcome back</h3>
+                <p class="text-muted mb-0">Sign in to your UA Cloud Library account.</p>
+            </div>
+
             <form id="account" method="post">
-                <h4>Use a local account to log in:</h4>
-                <hr />
-                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-                <div class="form-floating">
-                    <label asp-for="Input.Email" class="form-label"></label>
-                    <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" />
-                    <span asp-validation-for="Input.Email" class="text-danger"></span>
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 mb-3" role="alert" style="display:@(ViewData.ModelState.ErrorCount > 0 ? "block" : "none")"></div>
+
+                <div class="form-group">
+                    <label asp-for="Input.Email" class="form-label small text-uppercase text-muted">Email</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text bg-white"><i class="fas fa-envelope text-muted"></i></span>
+                        </div>
+                        <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
+                    </div>
+                    <span asp-validation-for="Input.Email" class="text-danger small"></span>
                 </div>
-                <div class="form-floating">
-                    <label asp-for="Input.Password" class="form-label"></label>
-                    <input asp-for="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" />
-                    <span asp-validation-for="Input.Password" class="text-danger"></span>
+
+                <div class="form-group">
+                    <div class="d-flex justify-content-between align-items-baseline">
+                        <label asp-for="Input.Password" class="form-label small text-uppercase text-muted mb-1">Password</label>
+                        <a id="forgot-password" asp-page="./ForgotPassword" class="small">Forgot?</a>
+                    </div>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text bg-white"><i class="fas fa-lock text-muted"></i></span>
+                        </div>
+                        <input asp-for="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="Your password" />
+                    </div>
+                    <span asp-validation-for="Input.Password" class="text-danger small"></span>
                 </div>
-                <div class="checkbox">
-                    <label asp-for="Input.RememberMe" class="form-label">
-                        <input class="form-check-input" asp-for="Input.RememberMe" />
+
+                <div class="custom-control custom-checkbox mb-3">
+                    <input class="custom-control-input" asp-for="Input.RememberMe" />
+                    <label class="custom-control-label" asp-for="Input.RememberMe">
                         @Html.DisplayNameFor(m => m.Input.RememberMe)
                     </label>
                 </div>
-                <div>
-                    <button id="login-submit" type="submit" class="w-100 btn btn-lg btn-primary">Log in</button>
-                </div>
-                <div>
-                    <br />
-                    <p>
-                        <a id="forgot-password" asp-page="./ForgotPassword">Forgot your password?</a>
-                    </p>
-                    <p>
-                        <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl">Register as a new user</a>
-                    </p>
-                </div>
+
+                <button id="login-submit" type="submit" class="btn btn-primary btn-block btn-lg">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Log in
+                </button>
+
+                <p class="text-center text-muted mt-4 mb-0">
+                    Don't have an account?
+                    <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl">Register</a>
+                </p>
             </form>
-        </section>
-    </div>
-@if ((Model.ExternalLogins?.Count ?? 0) > 0)
-{
-    <div class="col-md-6 col-md-offset-2">
-        <section>
-            <h4>Use another account to log in:</h4>
-            <hr />
-            <form id="external-account" asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="form-horizontal">
-                <div>
-                    <p>
+
+            @if ((Model.ExternalLogins?.Count ?? 0) > 0)
+            {
+                <div class="uacl-login-divider text-center text-muted small my-4">
+                    <span>OR CONTINUE WITH</span>
+                </div>
+                <form id="external-account" asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post">
+                    <div class="d-flex flex-wrap justify-content-center">
                         @foreach (var provider in Model.ExternalLogins!)
                         {
-                            <button type="submit" class="btn btn-primary" name="provider" value="@provider.Name" title="Log in using your @provider.DisplayName account">@provider.DisplayName</button>
+                            <button type="submit" class="btn btn-outline-secondary m-1"
+                                    name="provider" value="@provider.Name"
+                                    title="Log in using your @provider.DisplayName account">
+                                <i class="fab fa-@(provider.Name.ToLowerInvariant()) mr-2"></i>@provider.DisplayName
+                            </button>
                         }
-                    </p>
-                </div>
-            </form>
-        </section>
+                    </div>
+                </form>
+            }
+        </div>
     </div>
-}
 </div>
+
+<style>
+    .uacl-login-wrapper {
+        min-height: calc(100vh - 200px);
+        background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
+    }
+
+    .uacl-login-card {
+        width: 100%;
+        max-width: 440px;
+        border-radius: 12px;
+    }
+
+    .uacl-login-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: #eef4ff;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .uacl-login-divider {
+        position: relative;
+    }
+
+    .uacl-login-divider::before,
+    .uacl-login-divider::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        width: 40%;
+        height: 1px;
+        background: #dee2e6;
+    }
+
+    .uacl-login-divider::before { left: 0; }
+    .uacl-login-divider::after { right: 0; }
+</style>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />

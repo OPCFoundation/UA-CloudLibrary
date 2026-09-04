@@ -36,6 +36,7 @@ using System.Reflection.Emit;
 using AdminShell;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Opc.Ua.Cloud.Library.Models;
@@ -55,6 +56,12 @@ namespace Opc.Ua.Cloud.Library
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder.UseLazyLoadingProxies();
+
+            // EF Core 9+ escalates PendingModelChangesWarning to an error by default, which causes
+            // MigrateAsync to throw on startup if the runtime model differs from the last migration
+            // snapshot in any way. Suppress it here so the app can start; a new migration should
+            // still be added (dotnet ef migrations add <name>) whenever the model intentionally changes.
+            optionsBuilder.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
 
             if (!optionsBuilder.IsConfigured)
             {

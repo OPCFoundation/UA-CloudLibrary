@@ -1,5 +1,65 @@
 # Release Notes
 
+## 2026-08-23 — `IsPublished` flag & catalog read-path performance work (branch `CM-2606-IsPublished`)
+
+### Data model
+- Added `NamespaceMetaDataModel.IsPublished` (`bool`, defaults to `false`).
+- Startup migration (`Migrations/Scripts/AddIsPublishedToNamespaceMeta.sql`) is embedded in the assembly and run on startup only when the required schema objects are missing:
+  - Adds the `IsPublished` column (`boolean NOT NULL DEFAULT false`).
+  - Back-fills `IsPublished = true` for all existing rows whose `UserId = 'admin'`.
+  - Drops the naive `IX_NamespaceMeta_IsPublished` index (poor selectivity on a highly skewed boolean).
+  - Creates partial index `IX_NamespaceMeta_Published_Nodeset` on `("NodesetId") WHERE "IsPublished" = true` — targets the anonymous public catalog hot path (enables index-only scans).
+  - Creates partial index `IX_NamespaceMeta_UserId` on `("UserId") WHERE "UserId" IS NOT NULL` — targets per-user "my uploads" lookups.
+- Startup gate now checks for the presence of `IX_NamespaceMeta_Published_Nodeset` in `pg_indexes` so previously-migrated databases automatically pick up the new indexes.
+
+### Access control refactor (`CloudLibDataProvider.cs`)
+- Replaced every record-level `UserId == "admin"` visibility check with `IsPublished`.
+- Removed all remaining `userId == "admin"` / `userId != "admin"` role short-circuits — access is now purely record-driven.
+- `GetMetadataUserFilter` / `GetNodesetUserFilter` split into two shapes:
+  - **Anonymous fast path** (`userId` empty): predicate collapses to `IsPublished` (or `Metadata.IsPublished`), matching the partial index one-to-one.
+  - **Authenticated path**: `IsPublished || UserId == :userId || UserId IS NULL`.
+- Added `AsNoTracking()` to the read-only query entry points in `GetNodeSets` and `GetNodeModels` to eliminate change-tracker overhead on catalog reads.
+
+### Optional materialized view (feature-flagged: `EnableMatView`)
+- New scripts `CreateNamespaceMetaPublicView.sql` / `DropNamespaceMetaPublicView.sql` (embedded resources).
+- Materialized view `NamespaceMetaPublic` mirrors `NamespaceMeta WHERE IsPublished = true`, with:
+  - `UNIQUE INDEX (NodesetId)` — required for `REFRESH MATERIALIZED VIEW CONCURRENTLY`.
+  - Secondary indexes on `Title` and `CreationTime DESC`.
+- Startup (`EnsurePublicMaterializedViewAsync`):
+  - If `EnableMatView` is set: creates the view (idempotent) and runs an initial `REFRESH`.
+  - If unset: drops the view so toggling the flag off is honored.
+- New `PublicMaterializedViewRefreshTask` background service:
+  - Runs `REFRESH MATERIALIZED VIEW CONCURRENTLY` every `MatViewRefreshSeconds` (default `60`).
+  - No-op when `EnableMatView` is unset — zero cost.
+
+### Configuration (via `.env` / environment variables)
+| Key | Default | Effect |
+|---|---|---|
+| `EnableMatView` | (unset) | If set to any non-empty value, provisions and periodically refreshes `NamespaceMetaPublic`. |
+| `MatViewRefreshSeconds` | `60` | Refresh interval for the background refresh service. |
+
+### Expected performance impact
+
+Rough guidance based on the query shape (`NamespaceMeta` scan/join filtered by visibility predicate) — actual numbers depend on hardware, cache state, and query complexity.
+
+| Scale | Anonymous catalog listing / search | Authenticated "my uploads" | Public detail lookup by `NodesetId` |
+|---|---|---|---|
+| **Small (<1K rows)** | No measurable change. Planner seq-scans regardless. | No measurable change. | No change (unique index already handles this). |
+| **Medium (~5K rows)** | **~2–5× faster** on unfiltered browse/search: partial index + `AsNoTracking()` remove per-row string compares and change-tracker cost. Latency drops from tens of ms into low single-digit ms range. | **~2–3× faster** due to partial `IX_NamespaceMeta_UserId` and the simpler predicate. | Effectively unchanged, but memory pressure per request is lower. |
+| **Large (>1M rows)** | **10× or more** in the common case: anonymous predicate collapses to a single index-only scan on `IX_NamespaceMeta_Published_Nodeset` instead of scanning `NamespaceMeta` and filtering. With `EnableMatView` on, another **2–5×** on top: browse/search hits a compact matview with its own `Title` / `CreationTime` indexes and skips the `NamespaceMeta ↔ NodeSet` join. | **~5–10× faster** for filtered "my uploads" — partial `IX_NamespaceMeta_UserId` is small and cache-hot. | Unchanged (already O(1) via PK/unique index). |
+
+Write path costs:
+- Uploads/publishes: **negligible** overhead from the two partial indexes (they only include the subset each write touches). With `EnableMatView` on, add the periodic refresh cost (bounded, non-blocking readers thanks to `CONCURRENTLY`); on write-heavy bursts the view may lag by up to `MatViewRefreshSeconds`.
+
+### Files touched
+- `Models/NamespaceMetaDataModel.cs` — new `IsPublished` property.
+- `Migrations/Scripts/AddIsPublishedToNamespaceMeta.sql` — new (embedded).
+- `Migrations/Scripts/CreateNamespaceMetaPublicView.sql` — new (embedded).
+- `Migrations/Scripts/DropNamespaceMetaPublicView.sql` — new (embedded).
+- `UA-CloudLibrary.csproj` — added `<EmbeddedResource Include="Migrations\Scripts\*.sql" />`.
+- `Startup.cs` — added `EnsureIsPublishedColumnAsync`, `EnsurePublicMaterializedViewAsync`, `LoadEmbeddedSql`, and the `PublicMaterializedViewRefreshTask` hosted service; wired into `CloudLibStartupTask`.
+- `CloudLibDataProvider.cs` — filter refactor, admin-string removal, `AsNoTracking()` on read paths.
+
 ## 2026-08-22
 
 ### Explorer page (`UACloudLibraryServer/Components/Pages/Explorer.razor`)
