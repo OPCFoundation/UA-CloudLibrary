@@ -445,6 +445,12 @@
                 <a href="@ModalDocumentationUrl" target="_blank" rel="noopener noreferrer">@ModalDocumentationUrl</a>
             </div>
             <div class="modal-footer">
+                @if (IsOwnedByCurrentUser(CurrentItem))
+                {
+                    <button type="button" class="btn btn-outline-danger mr-auto" @onclick="() => OpenDeleteConfirmation(CurrentItem)">
+                        <i class="fas fa-trash-alt mr-2"></i>Delete
+                    </button>
+                }
                 <button class="btn btn-primary" style="margin-right: 1rem;" @onclick="() => DownloadFileFromURL(CurrentItem)">Download</button>
                 <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => Close()">Close</button>
             </div>
@@ -452,7 +458,36 @@
     </div>
 </div>
 
-@if (ShowBackDrop)
+<div class="modal @(ShowDeleteConfirmation ? "show" : string.Empty)" tabindex="-1" role="dialog" aria-hidden="@(ShowDeleteConfirmation ? "false" : "true")" style="display: @(ShowDeleteConfirmation ? "block" : "none");">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Delete nodeset</h5>
+                <button type="button" class="btn-close" aria-label="Close" @onclick="CloseDeleteConfirmation" disabled="@Deleting">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to permanently delete the nodeset <strong>@ItemToDelete?.Title</strong> (@ItemToDelete?.NodeSet?.ModelUri)?</p>
+                <p class="mb-0 text-danger">This action cannot be undone.</p>
+                @if (!string.IsNullOrEmpty(DeleteError))
+                {
+                    <div class="alert alert-danger mt-3 mb-0" role="alert">@DeleteError</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseDeleteConfirmation" disabled="@Deleting">Cancel</button>
+                <button type="button" class="btn btn-danger" @onclick="ConfirmDelete" disabled="@Deleting">
+                    @if (Deleting)
+                    {
+                        <span class="spinner-border spinner-border-sm mr-2" role="status" aria-hidden="true"></span>
+                    }
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (ShowBackDrop || ShowDeleteConfirmation)
 {
     <div class="modal-backdrop fade show"></div>
 }
@@ -627,6 +662,102 @@
         ShowBackDrop = false;
 
         StateHasChanged();
+    }
+
+    private bool ShowDeleteConfirmation;
+    private bool Deleting;
+    private string DeleteError;
+    private NamespaceMetaDataModel ItemToDelete;
+
+    private bool IsOwnedByCurrentUser(NamespaceMetaDataModel item)
+    {
+        var userName = UserId?.Identity?.Name;
+        return item != null
+            && !string.IsNullOrEmpty(userName)
+            && !string.IsNullOrEmpty(item.UserId)
+            && string.Equals(item.UserId, userName, StringComparison.Ordinal);
+    }
+
+    private void OpenDeleteConfirmation(NamespaceMetaDataModel item)
+    {
+        if (!IsOwnedByCurrentUser(item))
+        {
+            return;
+        }
+
+        Close();
+
+        ItemToDelete = item;
+        DeleteError = null;
+        ShowDeleteConfirmation = true;
+    }
+
+    private void CloseDeleteConfirmation()
+    {
+        if (Deleting)
+        {
+            return;
+        }
+
+        ShowDeleteConfirmation = false;
+        ItemToDelete = null;
+        DeleteError = null;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (ItemToDelete == null || !IsOwnedByCurrentUser(ItemToDelete))
+        {
+            CloseDeleteConfirmation();
+            return;
+        }
+
+        if (!uint.TryParse(ItemToDelete.NodesetId, out var nodesetId))
+        {
+            DeleteError = "The nodeset identifier could not be parsed.";
+            return;
+        }
+
+        Deleting = true;
+        DeleteError = null;
+
+        try
+        {
+            var deleted = await DataProvider.DeleteNodeSetOwnedByUserAsync(UserId.Identity.Name, nodesetId);
+            if (!deleted)
+            {
+                DeleteError = "The nodeset could not be deleted. It may no longer exist or you are not its owner.";
+                return;
+            }
+
+            if (ReferenceEquals(SelectedItem, ItemToDelete))
+            {
+                SelectedItem = null;
+            }
+            if (ReferenceEquals(CurrentItem, ItemToDelete))
+            {
+                CurrentItem = null;
+            }
+
+            Deleting = false;
+            CloseDeleteConfirmation();
+
+            if (Result.Count == 1 && CurrentPage > 1)
+            {
+                CurrentPage--;
+                UpdateUrl();
+            }
+
+            await FetchData();
+        }
+        catch (Exception ex)
+        {
+            DeleteError = $"Failed to delete the nodeset: {ex.Message}";
+        }
+        finally
+        {
+            Deleting = false;
+        }
     }
 
     private async Task ChangePageAbsolute(int requestedPage)

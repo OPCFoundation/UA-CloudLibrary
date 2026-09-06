@@ -576,6 +576,34 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
+        /// <summary>
+        /// Deletes a nodeset (metadata, nodeset records and the stored XML file) if, and only if, it is owned by the given user.
+        /// </summary>
+        /// <returns>true if the nodeset was deleted, false if it was not found or is not owned by the user.</returns>
+        public async Task<bool> DeleteNodeSetOwnedByUserAsync(string userId, uint nodesetId)
+        {
+            if (string.IsNullOrEmpty(userId))
+            {
+                return false;
+            }
+
+            string nodesetIdStr = nodesetId.ToString(CultureInfo.InvariantCulture);
+            NamespaceMetaDataModel namespaceModel = await _dbContext.NamespaceMetaDataWithUnapproved
+                .AsNoTracking()
+                .FirstOrDefaultAsync(n => n.NodesetId == nodesetIdStr && n.UserId == userId)
+                .ConfigureAwait(false);
+            if (namespaceModel == null)
+            {
+                return false;
+            }
+
+            await DeleteAllRecordsForNodesetAsync(nodesetId).ConfigureAwait(false);
+
+            await _storage.DeleteFileAsync(nodesetIdStr).ConfigureAwait(false);
+
+            return true;
+        }
+
         public async Task<UANameSpace> RetrieveAllMetadataAsync(string userId, uint nodesetId)
         {
             try
