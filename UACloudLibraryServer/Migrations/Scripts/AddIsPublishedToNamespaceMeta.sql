@@ -1,13 +1,15 @@
 -- Adds the IsPublished column to the NamespaceMeta table and provisions
 -- indexes optimized for large tables (millions of rows).
--- IsPublished is set to true for rows where UserId is 'admin', false otherwise.
+-- IsPublished is set to true for rows owned by the service user, false otherwise.
+-- The {{ServiceUsername}} token is replaced at runtime from the ServiceUsername
+-- environment variable, falling back to 'admin' when it is not set.
 
 ALTER TABLE "NamespaceMeta"
     ADD COLUMN IF NOT EXISTS "IsPublished" boolean NOT NULL DEFAULT false;
 
 UPDATE "NamespaceMeta"
    SET "IsPublished" = true
- WHERE "UserId" = 'admin';
+ WHERE "UserId" = '{{ServiceUsername}}';
 
 -- The naive boolean index is not selective enough on a highly skewed column.
 DROP INDEX IF EXISTS "IX_NamespaceMeta_IsPublished";

@@ -391,7 +391,16 @@ namespace Opc.Ua.Cloud.Library
                 using var reader = new StreamReader(stream);
                 var script = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
 
-                Console.WriteLine("Applying IsPublished column/index migration to NamespaceMeta...");
+                string serviceUsername = System.Environment.GetEnvironmentVariable("ServiceUsername");
+                if (string.IsNullOrWhiteSpace(serviceUsername))
+                {
+                    serviceUsername = "admin";
+                }
+
+                // Escape single quotes for safe inlining into the SQL literal.
+                script = script.Replace("{{ServiceUsername}}", serviceUsername.Replace("'", "''", StringComparison.Ordinal), StringComparison.Ordinal);
+
+                Console.WriteLine($"Applying IsPublished column/index migration to NamespaceMeta (service user: '{serviceUsername}')...");
                 await using var scriptCmd = connection.CreateCommand();
                 scriptCmd.CommandText = script;
                 await scriptCmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
