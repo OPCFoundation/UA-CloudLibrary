@@ -338,6 +338,7 @@ namespace Opc.Ua.Cloud.Library
                     try
                     {
                         await dbContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+                        await EnsureIsPublishedColumnAsync(dbContext, cancellationToken).ConfigureAwait(false);
                         break;
                     }
                     catch (SocketException)
@@ -355,6 +356,54 @@ namespace Opc.Ua.Cloud.Library
                 }
 
                 await InitOPCUAClientServerAsync(uaApp).ConfigureAwait(false);
+            }
+
+            private static async Task EnsureIsPublishedColumnAsync(AppDbContext dbContext, CancellationToken cancellationToken)
+            {
+                // Gate on the presence of the new partial index so that existing databases
+                // (which may already have the column but not the new indexes) get upgraded.
+                const string checkSql =
+                    "SELECT COUNT(1) FROM pg_indexes " +
+                    "WHERE schemaname = current_schema() " +
+                    "  AND tablename = 'NamespaceMeta' " +
+                    "  AND indexname = 'IX_NamespaceMeta_Published_Nodeset';";
+
+                await using var connection = dbContext.Database.GetDbConnection();
+                if (connection.State != System.Data.ConnectionState.Open)
+                {
+                    await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                await using (var checkCmd = connection.CreateCommand())
+                {
+                    checkCmd.CommandText = checkSql;
+                    var result = await checkCmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+                    if (result != null && Convert.ToInt64(result, CultureInfo.InvariantCulture) > 0)
+                    {
+                        return;
+                    }
+                }
+
+                var assembly = typeof(CloudLibStartupTask).Assembly;
+                var resourceName = "Opc.Ua.Cloud.Library.Migrations.Scripts.AddIsPublishedToNamespaceMeta.sql";
+                using var stream = assembly.GetManifestResourceStream(resourceName)
+                    ?? throw new InvalidOperationException($"Embedded SQL script '{resourceName}' not found.");
+                using var reader = new StreamReader(stream);
+                var script = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+
+                string serviceUsername = System.Environment.GetEnvironmentVariable("ServiceUsername");
+                if (string.IsNullOrWhiteSpace(serviceUsername))
+                {
+                    serviceUsername = "admin";
+                }
+
+                // Escape single quotes for safe inlining into the SQL literal.
+                script = script.Replace("{{ServiceUsername}}", serviceUsername.Replace("'", "''", StringComparison.Ordinal), StringComparison.Ordinal);
+
+                Console.WriteLine($"Applying IsPublished column/index migration to NamespaceMeta (service user: '{serviceUsername}')...");
+                await using var scriptCmd = connection.CreateCommand();
+                scriptCmd.CommandText = script;
+                await scriptCmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
 
             private async Task InitOPCUAClientServerAsync(ApplicationInstance uaApp)
