@@ -82,5 +82,7 @@ namespace Opc.Ua.Cloud.Library.Models
         public string ApprovalInformation { get; set; }
 
         public string UserId { get; set; }
+
+        public bool IsPublished { get; set; }
     }
 }

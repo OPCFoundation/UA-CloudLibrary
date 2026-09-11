@@ -121,6 +121,8 @@ namespace Opc.Ua.Cloud.Library
                     nodes.Add(new NodesetViewerNode() {
                         Id = NodeId.ToExpandedNodeId(id, _session.NamespaceUris).ToString(),
                         Text = description.DisplayName.ToString(),
+                        BrowseName = description.BrowseName?.Name ?? string.Empty,
+                        NodeClass = description.NodeClass.ToString(),
                         Children = new List<NodesetViewerNode>()
                     });
                 }

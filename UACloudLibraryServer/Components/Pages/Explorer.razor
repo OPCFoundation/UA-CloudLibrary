@@ -71,6 +71,10 @@
                         </button>
                     </div>
                     <input type="text" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default" value="@string.Join(",", SearchKeywords)" @onchange="@OnSearchTextChanged">
+                    <div class="input-group-append">
+                        <span class="input-group-text">Items per page</span>
+                        <input type="number" min="2" max="99" class="form-control" style="max-width: 4.5rem; flex: 0 0 auto;" aria-label="Items per page" value="@PAGE_SIZE" @onchange="@OnPageSizeChanged">
+                    </div>
                 </div>
 
                 @if (ShowSearchHelp)
@@ -164,61 +168,210 @@
                         </div>
                     </div>
                 </div>
-                @for (int row = 0; row < Math.Ceiling(Result.Count / (double)COL_SIZE); ++row)
-                    {
-                        <div class="row">
-                            @for (int i = row * COL_SIZE; i < (row + 1) * COL_SIZE; ++i)
+                <div class="uacl-result-wrapper">
+                    <table class="table align-middle uacl-result-table">
+                        <thead>
+                            <tr>
+                                <th>Nodeset</th>
+                                <th>License</th>
+                                <th>Published</th>
+                                <th class="text-end">Downloads</th>
+                                <th class="text-center" style="width: 150px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Result)
                             {
-                                <div class="col-lg pt-3">
-                                    @if (i < Result.Count)
-                                    {
-                                        var item = Result[i];
-                                        <div class="card h-100">
-                                            <div class="card-header">
-                                               <h5 class="card-title">@item.Title</h5>
-                                            </div>
-                                            <div class="card-body">
-                                                <p class="card-text">
-                                                    @item.Description
-                                                </p>
-                                                <div class="card-text-footer">
-                                                    <div>
-                                                        Owner: @if (string.IsNullOrEmpty(item.UserId))
-                                                        {
-                                                            <span>Administrator</span>
-                                                        }
-                                                        else
-                                                        {
-                                                            <span>@item.UserId</span>
-                                                        }
-                                                    </div>
-                                                    <div>
-                                                        License: @item.License
-                                                    </div>
-                                                    <div>
-                                                        Version: @item.NodeSet?.Version
-                                                    </div>
-                                                    <div>
-                                                        Published: @item.NodeSet?.PublicationDate
-                                                    </div>
-                                                    <div>
-                                                        Downloads: @item.NumberOfDownloads
-                                                    </div>
+                                var rowItem = item;
+                                var isSelected = SelectedItem != null && ReferenceEquals(SelectedItem, rowItem);
+                                <tr class="uacl-result-row @(isSelected ? "is-selected" : null)" @onclick="() => SelectItem(rowItem)">
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            @if (!string.IsNullOrWhiteSpace(rowItem.IconUrl))
+                                            {
+                                                <img src="@rowItem.IconUrl" alt="" class="uacl-row-icon mr-3" />
+                                            }
+                                            else
+                                            {
+                                                <div class="uacl-row-icon uacl-row-icon-placeholder mr-3">
+                                                    <i class="fas fa-cube"></i>
                                                 </div>
-                                            </div>
-                                            <div class="card-footer text-right">
-                                                <button type="button" class="btn btn-primary" style="float: right" @onclick="() => Open(item)">More...</button>
-                                                <button type="button" class="btn btn-primary" style="float: right; margin-right: 1rem;" @onclick="() => DownloadFileFromURL(item)">Download</button>
-                                                <button type="button" class="btn btn-primary" style="float: right; margin-right: 1rem;" @onclick="() => ViewFileFromURL(item)">View</button>
+                                            }
+                                            <div class="min-w-0">
+                                                <div class="fw-semibold text-truncate">@rowItem.Title</div>
+                                                <small class="text-muted text-truncate d-block">@rowItem.NodeSet?.ModelUri</small>
                                             </div>
                                         </div>
+                                    </td>
+                                    <td class="text-nowrap">
+                                        @if (string.IsNullOrWhiteSpace(rowItem.License))
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge rounded-pill uacl-badge-license">@rowItem.License
+                                            <small class="text-muted ml-1">v@(string.IsNullOrWhiteSpace(rowItem.NodeSet?.Version) ? "-" : rowItem.NodeSet.Version)</small>
+                                            </span>
+                                        }
+                                    </td>
+                                    <td class="text-nowrap">@rowItem.NodeSet?.PublicationDate?.ToString("yyyy-MM-dd")</td>
+                                    <td class="text-end fw-semibold">@rowItem.NumberOfDownloads</td>
+                                    <td class="text-center text-nowrap" @onclick:stopPropagation="true">
+                                        <button type="button" class="btn btn-sm uacl-icon-btn" title="View" aria-label="View" @onclick="() => ViewFileFromURL(rowItem)">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm uacl-icon-btn" title="Download" aria-label="Download" @onclick="() => DownloadFileFromURL(rowItem)">
+                                            <i class="fas fa-download"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm uacl-icon-btn" title="More" aria-label="More" @onclick="() => Open(rowItem)">
+                                            <i class="fas fa-ellipsis-h"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (SelectedItem != null)
+                {
+                    <div class="uacl-details card shadow-sm mt-3 mb-3">
+                        <div class="card-header d-flex align-items-center justify-content-between bg-light">
+                            <div class="d-flex align-items-center">
+                                @if (!string.IsNullOrWhiteSpace(SelectedItem.IconUrl))
+                                {
+                                    <img src="@SelectedItem.IconUrl" alt="" class="uacl-details-icon mr-3" />
+                                }
+                                else
+                                {
+                                    <div class="uacl-details-icon-placeholder mr-3">
+                                        <i class="fas fa-cube"></i>
+                                    </div>
+                                }
+                                <div>
+                                    <h5 class="mb-0">@SelectedItem.Title</h5>
+                                    <small class="text-muted">@SelectedItem.NodeSet?.ModelUri</small>
+                                </div>
+                            </div>
+                            <button type="button" class="btn-close" aria-label="Close details" @onclick="() => SelectedItem = null"></button>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    <h6 class="text-uppercase text-muted small">Description</h6>
+                                    <p class="mb-3">@(string.IsNullOrWhiteSpace(SelectedItem.Description) ? "No description available." : SelectedItem.Description)</p>
+
+                                    @if (!string.IsNullOrWhiteSpace(SelectedItem.CopyrightText))
+                                    {
+                                        <h6 class="text-uppercase text-muted small">Copyright</h6>
+                                        <p class="mb-3">@SelectedItem.CopyrightText</p>
+                                    }
+
+                                    @if (SelectedItem.Keywords != null && SelectedItem.Keywords.Length > 0)
+                                    {
+                                        <h6 class="text-uppercase text-muted small">Keywords</h6>
+                                        <div class="mb-3">
+                                            @foreach (var kw in SelectedItem.Keywords)
+                                            {
+                                                <span class="uacl-chip mr-1 mb-1">@kw</span>
+                                            }
+                                        </div>
+                                    }
+
+                                    @if (SelectedItem.SupportedLocales != null && SelectedItem.SupportedLocales.Length > 0)
+                                    {
+                                        <h6 class="text-uppercase text-muted small">Supported locales</h6>
+                                        <div class="mb-3">
+                                            @foreach (var loc in SelectedItem.SupportedLocales)
+                                            {
+                                                <span class="uacl-chip uacl-chip-info mr-1 mb-1">@loc</span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                                <div class="col-md-4">
+                                    <dl class="row small mb-0">
+                                        <dt class="col-5 text-muted">Owner</dt>
+                                        <dd class="col-7">@(string.IsNullOrEmpty(SelectedItem.UserId) ? "Administrator" : SelectedItem.UserId)</dd>
+
+                                        <dt class="col-5 text-muted">License</dt>
+                                        <dd class="col-7">@(string.IsNullOrWhiteSpace(SelectedItem.License) ? "-" : SelectedItem.License)</dd>
+
+                                        <dt class="col-5 text-muted">Version</dt>
+                                        <dd class="col-7">@(string.IsNullOrWhiteSpace(SelectedItem.NodeSet?.Version) ? "-" : SelectedItem.NodeSet.Version)</dd>
+
+                                        <dt class="col-5 text-muted">Published</dt>
+                                        <dd class="col-7">@SelectedItem.NodeSet?.PublicationDate?.ToString("yyyy-MM-dd")</dd>
+
+                                        <dt class="col-5 text-muted">Last modified</dt>
+                                        <dd class="col-7">@SelectedItem.NodeSet?.LastModifiedDate?.ToString("yyyy-MM-dd")</dd>
+
+                                        <dt class="col-5 text-muted">Downloads</dt>
+                                        <dd class="col-7">@SelectedItem.NumberOfDownloads</dd>
+
+                                        <dt class="col-5 text-muted">Nodeset ID</dt>
+                                        <dd class="col-7 text-break">@SelectedItem.NodesetId</dd>
+
+                                        <dt class="col-5 text-muted">Created</dt>
+                                        <dd class="col-7">@SelectedItem.CreationTime.ToString("yyyy-MM-dd")</dd>
+                                    </dl>
+                                </div>
+                            </div>
+
+                            @{
+                                var links = new (string Label, string Url, string Icon)[]
+                                {
+                                    ("Documentation", SelectedItem.DocumentationUrl, "fa-book"),
+                                    ("License", SelectedItem.LicenseUrl, "fa-file-contract"),
+                                    ("Release notes", SelectedItem.ReleaseNotesUrl, "fa-clipboard-list"),
+                                    ("Test specification", SelectedItem.TestSpecificationUrl, "fa-vial"),
+                                    ("Purchasing information", SelectedItem.PurchasingInformationUrl, "fa-shopping-cart"),
+                                };
+                                var visibleLinks = links.Where(l => !string.IsNullOrWhiteSpace(l.Url)).ToArray();
+
+                                string referenceSearchUrl = null;
+                                var typeTerm = SearchKeywords?
+                                    .Where(k => !string.IsNullOrWhiteSpace(k) && k.StartsWith("type:", StringComparison.OrdinalIgnoreCase))
+                                    .Select(k => k.Substring("type:".Length).Trim())
+                                    .FirstOrDefault(t => !string.IsNullOrWhiteSpace(t));
+                                if (!string.IsNullOrWhiteSpace(typeTerm)
+                                    && !string.IsNullOrWhiteSpace(SelectedItem.DocumentationUrl)
+                                    && SelectedItem.DocumentationUrl.StartsWith("https://reference.opcfoundation.org/", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    referenceSearchUrl = $"https://reference.opcfoundation.org/search?q={Uri.EscapeDataString(typeTerm)}&tab=node";
+                                }
+                            }
+                            @if (visibleLinks.Length > 0 || referenceSearchUrl != null)
+                            {
+                                <hr />
+                                <h6 class="text-uppercase text-muted small">Links</h6>
+                                <div class="d-flex flex-wrap uacl-link-list">
+                                    @foreach (var link in visibleLinks)
+                                    {
+                                        <a href="@link.Url" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary mr-2 mb-2">
+                                            <i class="fas @link.Icon mr-2"></i>@link.Label
+                                        </a>
+                                    }
+                                    @if (referenceSearchUrl != null)
+                                    {
+                                        <a href="@referenceSearchUrl" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary mr-2 mb-2" title="Search this type on reference.opcfoundation.org">
+                                            <i class="fas fa-external-link-alt mr-2"></i>Reference: @typeTerm
+                                        </a>
                                     }
                                 </div>
                             }
                         </div>
-                            }
+                        <div class="card-footer bg-white d-flex justify-content-end">
+                            <button type="button" class="btn btn-outline-primary mr-2" @onclick="() => ViewFileFromURL(SelectedItem)">
+                                <i class="fas fa-eye mr-2"></i>View
+                            </button>
+                            <button type="button" class="btn btn-primary" @onclick="() => DownloadFileFromURL(SelectedItem)">
+                                <i class="fas fa-download mr-2"></i>Download
+                            </button>
                         </div>
                     </div>
+                }
+            </div>
         <div class="uacl-pagination pt-2">
             <nav aria-label="Page navigation example">
                 <ul class="pagination justify-content-center">
@@ -274,13 +427,8 @@
                     <li class="page-item">Nodeset count: @TotalCount</li>
                 </ul>
             </nav>
-            <div class="input-group mb-3">
-                <div class="input-group-prepend">
-                    <span class="input-group-text" id="inputGroup-sizing-default">Items per page</span>
-                </div>
-                <input type="text" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default" value="@PAGE_SIZE" @onchange="@OnPageSizeChanged">
-            </div>
         </div>
+    </div>
     </div>
 </div>
 
@@ -322,6 +470,7 @@
             SearchKeywords = keywords;
             CurrentPage = 1;
 
+            UpdateUrl();
             await FetchData();
         }
     }
@@ -332,6 +481,7 @@
             PAGE_SIZE = pageSize;
             CurrentPage = 1;
 
+            UpdateUrl();
             await FetchData();
         }
     }
@@ -341,6 +491,13 @@
     private bool ShowBackDrop = false;
 
     private NamespaceMetaDataModel CurrentItem;
+
+    private NamespaceMetaDataModel SelectedItem;
+
+    private void SelectItem(NamespaceMetaDataModel item)
+    {
+        SelectedItem = ReferenceEquals(SelectedItem, item) ? null : item;
+    }
 
     private string ModalTitle = "";
     private string ModalDescription = "";
@@ -369,7 +526,62 @@
 
         UserId = state.User;
 
+        RestoreStateFromUrl();
+
         await FetchData().ConfigureAwait(false);
+    }
+
+    private void RestoreStateFromUrl()
+    {
+        var uri = new Uri(NavigationManager.Uri);
+        var qs = System.Web.HttpUtility.ParseQueryString(uri.Query);
+
+        var q = qs["q"];
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var keywords = q.Split(',').Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).ToArray();
+            if (keywords.Length > 0)
+            {
+                SearchKeywords = keywords;
+            }
+        }
+
+        if (int.TryParse(qs["page"], out var page) && page > 0)
+        {
+            CurrentPage = page;
+        }
+
+        if (int.TryParse(qs["size"], out var size) && size > 1 && size <= 100)
+        {
+            PAGE_SIZE = size;
+        }
+    }
+
+    private void UpdateUrl()
+    {
+        var parts = new List<string>();
+
+        var kw = SearchKeywords != null ? string.Join(",", SearchKeywords.Where(k => !string.IsNullOrWhiteSpace(k) && k != "*")) : string.Empty;
+        if (!string.IsNullOrWhiteSpace(kw))
+        {
+            parts.Add($"q={Uri.EscapeDataString(kw)}");
+        }
+        if (CurrentPage > 1)
+        {
+            parts.Add($"page={CurrentPage}");
+        }
+        if (PAGE_SIZE != 6)
+        {
+            parts.Add($"size={PAGE_SIZE}");
+        }
+
+        var uri = new Uri(NavigationManager.Uri);
+        var newUrl = uri.GetLeftPart(UriPartial.Path) + (parts.Count > 0 ? "?" + string.Join("&", parts) : string.Empty);
+
+        if (!string.Equals(newUrl, NavigationManager.Uri, StringComparison.Ordinal))
+        {
+            NavigationManager.NavigateTo(newUrl, forceLoad: false, replace: true);
+        }
     }
 
     private async Task DownloadFileFromURL(NamespaceMetaDataModel item)
@@ -381,7 +593,18 @@
 
     private void ViewFileFromURL(NamespaceMetaDataModel item)
     {
-        NavigationManager.NavigateTo($"/browser?NodesetIdentifier={item.NodeSet.Identifier}&NodesetName={item.Title}&UserName={UserId.Identity.Name}", true);
+        var typeTerm = SearchKeywords?
+            .Where(k => !string.IsNullOrWhiteSpace(k) && k.StartsWith("type:", StringComparison.OrdinalIgnoreCase))
+            .Select(k => k.Substring("type:".Length).Trim())
+            .FirstOrDefault(t => !string.IsNullOrWhiteSpace(t));
+
+        var url = $"/browser?NodesetIdentifier={item.NodeSet.Identifier}&NodesetName={Uri.EscapeDataString(item.Title ?? string.Empty)}&UserName={UserId.Identity.Name}";
+        if (!string.IsNullOrWhiteSpace(typeTerm))
+        {
+            url += $"&search={Uri.EscapeDataString("type:" + typeTerm)}";
+        }
+
+        NavigationManager.NavigateTo(url, true);
     }
 
     private void Open(NamespaceMetaDataModel item)
@@ -413,6 +636,7 @@
         {
             CurrentPage = newPage;
 
+            UpdateUrl();
             await FetchData();
         }
     }
@@ -451,6 +675,7 @@ await InvokeAsync(async () =>
         {
             FirstItemOnPage = 0;
             LastItemOnPage = 0;
+            SelectedItem = null;
         }
 
 Loading = false;
@@ -485,5 +710,157 @@ await InvokeAsync(StateHasChanged);
 
     .page-item {
         cursor: pointer;
+    }
+
+    .uacl-result-wrapper {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+
+    .uacl-result-table {
+        min-width: 900px;
+    }
+
+    .uacl-result-table {
+        margin-bottom: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .uacl-result-table thead th {
+        background: #f8fafc;
+        color: #64748b;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        border-bottom: 1px solid #e2e8f0;
+        border-top: 0;
+        padding: 0.75rem 1rem;
+        white-space: nowrap;
+    }
+
+    .uacl-result-table tbody td {
+        padding: 0.9rem 1rem;
+        border-top: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+
+    .uacl-result-table tbody tr:first-child td {
+        border-top: 0;
+    }
+
+    .uacl-result-row {
+        cursor: pointer;
+        transition: background-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .uacl-result-row:hover {
+        background-color: #f8fafc;
+    }
+
+    .uacl-result-row.is-selected {
+        background-color: #eef4ff;
+        box-shadow: inset 3px 0 0 #3b82f6;
+    }
+
+    .uacl-cell-description {
+        max-width: 340px;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        line-clamp: 2;
+        word-break: break-word;
+    }
+
+    .uacl-row-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        object-fit: contain;
+        background: #fff;
+        flex-shrink: 0;
+    }
+
+    .uacl-row-icon-placeholder {
+        background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+        color: #6366f1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .uacl-badge-license {
+        background: #eef2ff;
+        color: #4338ca;
+        font-weight: 500;
+        padding: 0.35rem 0.7rem;
+    }
+
+    .uacl-icon-btn {
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border-radius: 50%;
+        color: #475569;
+        background: transparent;
+        border: 1px solid transparent;
+        margin: 0 2px;
+        transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .uacl-icon-btn:hover {
+        background: #eef2ff;
+        color: #4338ca;
+        border-color: #c7d2fe;
+    }
+
+    .min-w-0 {
+        min-width: 0;
+    }
+
+    .uacl-chip {
+        display: inline-block;
+        padding: 0.3rem 0.7rem;
+        border-radius: 999px;
+        background: #eef2ff;
+        color: #3730a3;
+        font-size: 0.8rem;
+        font-weight: 500;
+        border: 1px solid #c7d2fe;
+        line-height: 1;
+    }
+
+    .uacl-chip-info {
+        background: #ecfeff;
+        color: #155e75;
+        border-color: #a5f3fc;
+    }
+
+    .uacl-details-icon {
+        width: 48px;
+        height: 48px;
+        object-fit: contain;
+        border-radius: 6px;
+        background: #fff;
+    }
+
+    .uacl-details-icon-placeholder {
+        width: 48px;
+        height: 48px;
+        border-radius: 6px;
+        background: #e9ecef;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
     }
 </style>
