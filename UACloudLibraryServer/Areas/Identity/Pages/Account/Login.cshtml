@@ -6,17 +6,17 @@
     var hasExternalLogins = (Model.ExternalLogins?.Count ?? 0) > 0;
 }
 
-<div class="auth-page">
-    <div class="auth-card">
-        <div class="auth-card-header">
+<div class="auth-page d-flex justify-content-center py-5">
+    <div class="auth-card card shadow border-0 mx-auto" style="width: 100%; max-width: 440px;">
+        <div class="auth-card-header card-body text-center pb-0">
             <div class="auth-icon">
                 <i class="fas fa-user-lock" aria-hidden="true"></i>
             </div>
-            <h1 class="auth-title">@ViewData["Title"]</h1>
-            <p class="auth-subtitle">Sign in to your UA Cloud Library account</p>
+            <h1 class="auth-title h3">@ViewData["Title"]</h1>
+            <p class="auth-subtitle text-muted">Sign in to your UA Cloud Library account</p>
         </div>
 
-        <div class="auth-card-body">
+        <div class="auth-card-body card-body pt-2">
             <form id="account" method="post" novalidate>
                 <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2" role="alert"></div>
 
@@ -77,7 +77,7 @@
             }
         </div>
 
-        <div class="auth-card-footer">
+        <div class="auth-card-footer card-footer text-center text-muted">
             Don't have an account?
             <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl">Register as a new user</a>
         </div>
