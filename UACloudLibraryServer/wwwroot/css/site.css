@@ -511,3 +511,87 @@ footer .footer-version a {
 .auth-card-footer a {
     font-weight: 500;
 }
+
+/*-------------------------------------------*/
+/*Upload page                                */
+/*-------------------------------------------*/
+.upload-card .auth-subtitle {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.upload-section-title {
+    font-family: var(--font-ui);
+    font-size: 1.05rem;
+    font-weight: 500;
+    color: var(--opc-dark);
+    margin: 1.5rem 0 1rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.upload-section-title:first-of-type {
+    margin-top: .5rem;
+}
+
+.dropzone {
+    position: relative;
+    padding: 1.5rem 1rem 1.25rem;
+    text-align: center;
+    border: 2px dashed #c5d3e0;
+    border-radius: .75rem;
+    background-color: #f8fafc;
+    transition: border-color .15s ease-in-out, background-color .15s ease-in-out, box-shadow .15s ease-in-out;
+}
+
+.dropzone:focus {
+    outline: none;
+    border-color: var(--opc-mid);
+    box-shadow: 0 0 0 .2rem rgba(25, 96, 150, .2);
+}
+
+.dropzone.is-dragover {
+    border-color: var(--opc-mid);
+    border-style: solid;
+    background-color: rgba(25, 96, 150, .06);
+}
+
+.dropzone.has-file {
+    border-color: #28a745;
+    background-color: rgba(40, 167, 69, .05);
+}
+
+.dropzone-icon {
+    display: block;
+    font-size: 2rem;
+    color: var(--opc-mid);
+    margin-bottom: .5rem;
+}
+
+.dropzone.has-file .dropzone-icon {
+    color: #28a745;
+}
+
+.dropzone-text {
+    color: #495057;
+}
+
+.dropzone .custom-file {
+    max-width: 320px;
+    margin: 0 auto;
+    text-align: left;
+}
+
+.dropzone .custom-file-label {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    padding-right: 5.5rem;
+}
+
+.dropzone .custom-file-label::after {
+    content: "Browse";
+    color: #fff;
+    background-color: var(--opc-mid);
+    border-color: var(--opc-mid);
+}
