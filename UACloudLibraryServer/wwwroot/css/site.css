@@ -396,3 +396,116 @@ footer a:hover {
 footer .footer-version a {
     margin-right: 0;
 }
+
+/*-------------------------------------------*/
+/*Authentication pages (Login etc.)          */
+/*-------------------------------------------*/
+.auth-page {
+    display: flex;
+    justify-content: center;
+    padding: 2.5rem 1rem;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 440px;
+    background: #fff;
+    border-radius: .75rem;
+    border: 1px solid rgba(0, 0, 0, .075);
+    box-shadow: 0 .75rem 2rem rgba(8, 74, 121, .12);
+    overflow: hidden;
+}
+
+.auth-card-header {
+    padding: 2rem 2rem 1rem;
+    text-align: center;
+}
+
+.auth-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 1.6rem;
+    background: linear-gradient(135deg, var(--opc-mid) 0%, var(--opc-dark) 100%);
+}
+
+.auth-title {
+    font-family: var(--font-ui);
+    font-weight: 500;
+    font-size: 1.6rem;
+    color: var(--opc-dark);
+    margin-bottom: .25rem;
+}
+
+.auth-subtitle {
+    color: #6c757d;
+    margin-bottom: 0;
+}
+
+.auth-card-body {
+    padding: 1rem 2rem 1.5rem;
+}
+
+.auth-card-body label {
+    font-weight: 500;
+    color: #343a40;
+}
+
+.auth-card-body .input-group-text {
+    background-color: #f8f9fa;
+    color: var(--opc-mid);
+    min-width: 2.75rem;
+    justify-content: center;
+}
+
+.auth-card-body .form-control {
+    height: calc(1.5em + 1rem + 2px);
+}
+
+.auth-card-body .form-control:focus {
+    border-color: var(--opc-mid);
+    box-shadow: 0 0 0 .2rem rgba(25, 96, 150, .2);
+}
+
+.auth-card-body .custom-control-input:checked ~ .custom-control-label::before {
+    background-color: var(--opc-mid);
+    border-color: var(--opc-mid);
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    margin: 1.5rem 0 1rem;
+    color: #6c757d;
+    font-size: .875rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid #dee2e6;
+}
+
+.auth-divider span {
+    padding: 0 .75rem;
+}
+
+.auth-card-footer {
+    padding: 1rem 2rem;
+    text-align: center;
+    background-color: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+    color: #6c757d;
+}
+
+.auth-card-footer a {
+    font-weight: 500;
+}
