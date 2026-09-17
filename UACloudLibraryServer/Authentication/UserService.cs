@@ -62,10 +62,11 @@ namespace Opc.Ua.Cloud.Library.Authentication
                 adminUsername = _config.GetValue<string>("ServiceUsername");
             }
 
-            ///TODO: Discuss if we want to allow to fallback to this. Security wise it is not a good idea to have a default admin user. But for testing and development it is very convenient. Better would be to failed out of startup completely
+            ///Security wise it is not a good idea to have a default admin user. But for testing and development it is very convenient. Failed out of startup completely
             if (string.IsNullOrEmpty(adminUsername))
             {
-                adminUsername = "admin";
+                _logger.LogError("ServiceUsername env variable not set, please set it before trying to log in with admin credentials!");
+                return null;
             }
 
             if (username.Equals(adminUsername, StringComparison.Ordinal))

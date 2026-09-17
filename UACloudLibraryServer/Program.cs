@@ -27,6 +27,8 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 
@@ -36,6 +38,15 @@ namespace Opc.Ua.Cloud.Library
     {
         public static void Main(string[] args)
         {
+            if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ServiceUsername")))
+            {
+                const string message = "The 'ServiceUsername' environment variable is not set. Please set it before starting the UA Cloud Library.";
+                Console.WriteLine(message);
+                Trace.TraceError(message);
+                Trace.Flush();
+                Environment.Exit(1);
+            }
+
             CreateHostBuilder(args).Build().Run();
         }
 
