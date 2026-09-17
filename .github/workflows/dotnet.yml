@@ -82,6 +82,8 @@ jobs:
     - name: Build
       run: dotnet build UA-CloudLibrary.sln --configuration Release --no-restore
     - name: Test
+      env:
+        ServiceUsername: "admin"
       run: dotnet test UA-CloudLibrary.sln --no-build --configuration Release --verbosity normal  -l:"console;verbosity=normal"
     - name: List databases after test run
       run: |
