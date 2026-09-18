@@ -56,6 +56,14 @@ namespace Opc.Ua.Cloud.Library.Authentication
         {
             try
             {
+                // The signed-in (cookie) user is only a fallback. When the caller supplies explicit
+                // credentials (Basic auth or an API key), those must determine the identity; otherwise
+                // the cookie identity would silently override them when the principals are merged.
+                if (HasExplicitCredentials())
+                {
+                    return Task.FromResult(AuthenticateResult.NoResult());
+                }
+
                 if (!_signInManager.IsSignedIn(Request.HttpContext.User))
                 {
                     return Task.FromResult(AuthenticateResult.NoResult());
@@ -70,6 +78,12 @@ namespace Opc.Ua.Cloud.Library.Authentication
             {
                 return Task.FromResult(AuthenticateResult.Fail($"Error during Authentication: {ex.Message}"));
             }
+        }
+
+        private bool HasExplicitCredentials()
+        {
+            return !string.IsNullOrEmpty(Request.Headers.Authorization.ToString())
+                || !string.IsNullOrEmpty(Request.Headers["x-api-key"].ToString());
         }
     }
 }

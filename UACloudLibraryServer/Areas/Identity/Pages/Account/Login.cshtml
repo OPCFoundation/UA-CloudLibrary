@@ -3,68 +3,103 @@
 
 @{
     ViewData["Title"] = "Log in";
+    var hasExternalLogins = (Model.ExternalLogins?.Count ?? 0) > 0;
 }
 
-<h1>@ViewData["Title"]</h1>
-<div class="row">
-    <div class="col-md-4">
-        <section>
-            <form id="account" method="post">
-                <h4>Use a local account to log in:</h4>
-                <hr />
-                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-                <div class="form-floating">
-                    <label asp-for="Input.Email" class="form-label"></label>
-                    <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" />
-                    <span asp-validation-for="Input.Email" class="text-danger"></span>
-                </div>
-                <div class="form-floating">
-                    <label asp-for="Input.Password" class="form-label"></label>
-                    <input asp-for="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" />
-                    <span asp-validation-for="Input.Password" class="text-danger"></span>
-                </div>
-                <div class="checkbox">
-                    <label asp-for="Input.RememberMe" class="form-label">
-                        <input class="form-check-input" asp-for="Input.RememberMe" />
-                        @Html.DisplayNameFor(m => m.Input.RememberMe)
-                    </label>
-                </div>
-                <div>
-                    <button id="login-submit" type="submit" class="w-100 btn btn-lg btn-primary">Log in</button>
-                </div>
-                <div>
-                    <br />
-                    <p>
-                        <a id="forgot-password" asp-page="./ForgotPassword">Forgot your password?</a>
-                    </p>
-                    <p>
-                        <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl">Register as a new user</a>
-                    </p>
-                </div>
-            </form>
-        </section>
-    </div>
-    @if ((Model.ExternalLogins?.Count ?? 0) > 0)
-    {
-        <div class="col-md-6 col-md-offset-2">
-            <section>
-                <h4>Use another account to log in:</h4>
-                <hr />
-                <form id="external-account" asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="form-horizontal">
-                    <div>
-                        <p>
-                            @foreach (var provider in Model.ExternalLogins!)
-                            {
-                                <button type="submit" class="btn btn-primary" name="provider" value="@provider.Name" title="Log in using your @provider.DisplayName account">@provider.DisplayName</button>
-                            }
-                        </p>
-                    </div>
-                </form>
-            </section>
+<div class="auth-page d-flex justify-content-center py-5">
+    <div class="auth-card card shadow border-0 mx-auto" style="width: 100%; max-width: 440px;">
+        <div class="auth-card-header card-body text-center pb-0">
+            <div class="auth-icon">
+                <i class="fas fa-user-lock" aria-hidden="true"></i>
+            </div>
+            <h1 class="auth-title h3">@ViewData["Title"]</h1>
+            <p class="auth-subtitle text-muted">Sign in to your UA Cloud Library account</p>
         </div>
-    }
+
+        <div class="auth-card-body card-body pt-2">
+            <form id="account" method="post" novalidate>
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2" role="alert"></div>
+
+                <div class="form-group">
+                    <label asp-for="Input.Email"></label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fas fa-user" aria-hidden="true"></i></span>
+                        </div>
+                        <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" autofocus />
+                    </div>
+                    <span asp-validation-for="Input.Email" class="text-danger small"></span>
+                </div>
+
+                <div class="form-group">
+                    <div class="d-flex justify-content-between align-items-baseline">
+                        <label asp-for="Input.Password"></label>
+                        <a id="forgot-password" asp-page="./ForgotPassword" class="small">Forgot your password?</a>
+                    </div>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fas fa-lock" aria-hidden="true"></i></span>
+                        </div>
+                        <input asp-for="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" />
+                        <div class="input-group-append">
+                            <button type="button" class="btn btn-outline-secondary" id="toggle-password" aria-label="Show password" aria-pressed="false" title="Show password">
+                                <i class="fas fa-eye" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <span asp-validation-for="Input.Password" class="text-danger small"></span>
+                </div>
+
+                <div class="form-group">
+                    <div class="custom-control custom-checkbox">
+                        <input asp-for="Input.RememberMe" class="custom-control-input" />
+                        <label asp-for="Input.RememberMe" class="custom-control-label">@Html.DisplayNameFor(m => m.Input.RememberMe)</label>
+                    </div>
+                </div>
+
+                <button id="login-submit" type="submit" class="btn btn-primary btn-block btn-lg">
+                    <i class="fas fa-sign-in-alt mr-2" aria-hidden="true"></i>Log in
+                </button>
+            </form>
+
+            @if (hasExternalLogins)
+            {
+                <div class="auth-divider"><span>or continue with</span></div>
+
+                <form id="external-account" asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post">
+                    @foreach (var provider in Model.ExternalLogins!)
+                    {
+                        <button type="submit" class="btn btn-outline-primary btn-block" name="provider" value="@provider.Name" title="Log in using your @provider.DisplayName account">
+                            <i class="fas fa-external-link-alt mr-2" aria-hidden="true"></i>@provider.DisplayName
+                        </button>
+                    }
+                </form>
+            }
+        </div>
+
+        <div class="auth-card-footer card-footer text-center text-muted">
+            Don't have an account?
+            <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl">Register as a new user</a>
+        </div>
+    </div>
 </div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            var toggle = document.getElementById('toggle-password');
+            var password = document.getElementById('Input_Password');
+            if (!toggle || !password) { return; }
+
+            toggle.addEventListener('click', function () {
+                var show = password.type === 'password';
+                password.type = show ? 'text' : 'password';
+                toggle.setAttribute('aria-pressed', show ? 'true' : 'false');
+                toggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+                toggle.title = show ? 'Hide password' : 'Show password';
+                toggle.querySelector('i').className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
+            });
+        })();
+    </script>
 }

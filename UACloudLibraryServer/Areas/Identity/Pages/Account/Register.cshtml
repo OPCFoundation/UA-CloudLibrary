@@ -1,110 +1,155 @@
 ﻿@page
 @model RegisterModel
 @{
-    ViewData["Title"] = "Register";
-    var _reCaptchaUrl = $"{@Model.CaptchaSettings.ClientApiUrl}{@Model.CaptchaSettings.SiteKey}";
+	ViewData["Title"] = "Register";
+	var _reCaptchaUrl = $"{@Model.CaptchaSettings.ClientApiUrl}{@Model.CaptchaSettings.SiteKey}";
+	var hasExternalLogins = (Model.ExternalLogins?.Count ?? 0) > 0;
 }
 
-<h1>@ViewData["Title"]</h1>
+<div class="auth-page d-flex justify-content-center py-5">
+	<div class="auth-card card shadow border-0 mx-auto" style="width: 100%; max-width: 440px;">
+		<div class="auth-card-header card-body text-center pb-0">
+			<div class="auth-icon">
+				<i class="fas fa-user-plus" aria-hidden="true"></i>
+			</div>
+			<h1 class="auth-title h3">@ViewData["Title"]</h1>
+			<p class="auth-subtitle text-muted">Create your UA Cloud Library account</p>
+		</div>
 
-<div class="row">
-    @if (Model.AllowSelfRegistration)
-    {
-        <div class="col-md-4">
-	    <form id="registerForm" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="mb-2">
-	        <h2>Create a new account.</h2>
-	        <hr />
-	        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-	        <span asp-validation-for="CaptchaResponseToken" class="text-danger"></span>
-	        <div class="form-floating">
-	            <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" />
-	            <label asp-for="Input.Email"></label>
-	            <span asp-validation-for="Input.Email" class="text-danger"></span>
-	        </div>
-	        <div class="form-floating">
-	            <input asp-for="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" />
-	            <label asp-for="Input.Password"></label>
-	            <span asp-validation-for="Input.Password" class="text-danger"></span>
-	        </div>
-	        <div class="form-floating">
-	            <input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" />
-	            <label asp-for="Input.ConfirmPassword"></label>
-	            <span asp-validation-for="Input.ConfirmPassword" class="text-danger"></span>
-	        </div>
-	        <input type="hidden" asp-for="CaptchaResponseToken" id="CaptchaResponseToken" />
-	        @if (!Model.CaptchaSettings.Enabled)
-            {
-                <button id="registerSubmit" type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
-            }
-            else
-            {
-	            <button id="registerSubmit" type="button" class="w-100 btn btn-lg btn-primary">Register</button>
-            }
-	    </form>
-        </div>
-    }
-    else
-    {
-        <div class="col-md-4 col-md-offset-2">
-            <section>
-	            <h2>Create a new account.</h2>
-                <hr/>
-                <span class="text-danger">Creation of local accounts is currently unavailable.</span>
-            </section>
-        </div>
-    }
-    <div class="col-md-6 col-md-offset-2">
-        <section>
-            <h3>Use another service to register.</h3>
-            <hr />
-            @{
-                if ((Model.ExternalLogins?.Count ?? 0) == 0)
-                {
-                    <div>
-                        <p>
-                            There are no external authentication services configured. See this <a href="https://go.microsoft.com/fwlink/?LinkID=532715">article
-                            about setting up this ASP.NET application to support logging in via external services</a>.
-                        </p>
-                    </div>
-                }
-                else
-                {
-                    <form id="external-account" asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="form-horizontal">
-                        <div>
-                            <p>
-                                @foreach (var provider in Model.ExternalLogins!)
-                                {
-                                    <button type="submit" class="btn btn-primary" name="provider" value="@provider.Name" title="Log in using your @provider.DisplayName account">@provider.DisplayName</button>
-                                }
-                            </p>
-                        </div>
-                    </form>
-                }
-            }
-        </section>
-    </div>
+		<div class="auth-card-body card-body pt-2">
+			@if (Model.AllowSelfRegistration)
+			{
+				<form id="registerForm" asp-route-returnUrl="@Model.ReturnUrl" method="post" novalidate>
+					<div asp-validation-summary="ModelOnly" class="alert alert-danger py-2" role="alert"></div>
+					<span asp-validation-for="CaptchaResponseToken" class="text-danger small d-block mb-2"></span>
+
+					<div class="form-group">
+						<label asp-for="Input.Email"></label>
+						<div class="input-group">
+							<div class="input-group-prepend">
+								<span class="input-group-text"><i class="fas fa-user" aria-hidden="true"></i></span>
+							</div>
+							<input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" autofocus />
+						</div>
+						<span asp-validation-for="Input.Email" class="text-danger small"></span>
+					</div>
+
+					<div class="form-group">
+						<label asp-for="Input.Password"></label>
+						<div class="input-group">
+							<div class="input-group-prepend">
+								<span class="input-group-text"><i class="fas fa-lock" aria-hidden="true"></i></span>
+							</div>
+							<input asp-for="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" />
+							<div class="input-group-append">
+								<button type="button" class="btn btn-outline-secondary toggle-password" data-target="Input_Password" aria-label="Show password" aria-pressed="false" title="Show password">
+									<i class="fas fa-eye" aria-hidden="true"></i>
+								</button>
+							</div>
+						</div>
+						<span asp-validation-for="Input.Password" class="text-danger small"></span>
+					</div>
+
+					<div class="form-group">
+						<label asp-for="Input.ConfirmPassword"></label>
+						<div class="input-group">
+							<div class="input-group-prepend">
+								<span class="input-group-text"><i class="fas fa-lock" aria-hidden="true"></i></span>
+							</div>
+							<input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" />
+							<div class="input-group-append">
+								<button type="button" class="btn btn-outline-secondary toggle-password" data-target="Input_ConfirmPassword" aria-label="Show password" aria-pressed="false" title="Show password">
+									<i class="fas fa-eye" aria-hidden="true"></i>
+								</button>
+							</div>
+						</div>
+						<span asp-validation-for="Input.ConfirmPassword" class="text-danger small"></span>
+					</div>
+
+					<input type="hidden" asp-for="CaptchaResponseToken" id="CaptchaResponseToken" />
+
+					@if (!Model.CaptchaSettings.Enabled)
+					{
+						<button id="registerSubmit" type="submit" class="btn btn-primary btn-block btn-lg">
+							<i class="fas fa-user-plus mr-2" aria-hidden="true"></i>Register
+						</button>
+					}
+					else
+					{
+						<button id="registerSubmit" type="button" class="btn btn-primary btn-block btn-lg">
+							<i class="fas fa-user-plus mr-2" aria-hidden="true"></i>Register
+						</button>
+					}
+				</form>
+			}
+			else
+			{
+				<div class="alert alert-warning mb-0" role="alert">
+					<i class="fas fa-exclamation-triangle mr-2" aria-hidden="true"></i>Creation of local accounts is currently unavailable.
+				</div>
+			}
+
+			@if (hasExternalLogins)
+			{
+				<div class="auth-divider"><span>or register with</span></div>
+
+				<form id="external-account" asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post">
+					@foreach (var provider in Model.ExternalLogins!)
+					{
+						<button type="submit" class="btn btn-outline-primary btn-block" name="provider" value="@provider.Name" title="Register using your @provider.DisplayName account">
+							<i class="fas fa-external-link-alt mr-2" aria-hidden="true"></i>@provider.DisplayName
+						</button>
+					}
+				</form>
+			}
+		</div>
+
+		<div class="auth-card-footer card-footer text-center text-muted">
+			Already have an account?
+			<a asp-page="./Login" asp-route-returnUrl="@Model.ReturnUrl">Log in</a>
+		</div>
+	</div>
 </div>
 
 @section Scripts {
-    <partial name="_ValidationScriptsPartial" />
+	<partial name="_ValidationScriptsPartial" />
+	<script>
+		(function () {
+			document.querySelectorAll('.toggle-password').forEach(function (toggle) {
+				var password = document.getElementById(toggle.getAttribute('data-target'));
+				if (!password) { return; }
 
-    @if (Model.CaptchaSettings.Enabled) {
-        <script src='@_reCaptchaUrl' ></script>
-        <script>
-            
-            function reCaptchaExecute() {
-                grecaptcha.execute('@Model.CaptchaSettings.SiteKey', { action: 'register' }).then(function (token) {
-                    //populate token value in hidden field
-                    document.getElementById("CaptchaResponseToken").value = token;
-                    //submit form
-                    $('#registerForm').submit();
-                });
-            }
-            
-            //wire up register button to execute reCaptcha before submitting
-            const btnRegisterSubmit = document.getElementById("registerSubmit");
-            btnRegisterSubmit.addEventListener('click', reCaptchaExecute, false);
-            //Note - if run on load, the token expires after 2 mins
-        </script>
-    }
+				toggle.addEventListener('click', function () {
+					var show = password.type === 'password';
+					password.type = show ? 'text' : 'password';
+					toggle.setAttribute('aria-pressed', show ? 'true' : 'false');
+					toggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+					toggle.title = show ? 'Hide password' : 'Show password';
+					toggle.querySelector('i').className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
+				});
+			});
+		})();
+	</script>
+
+	@if (Model.CaptchaSettings.Enabled) {
+		<script src='@_reCaptchaUrl' ></script>
+		<script>
+
+			function reCaptchaExecute() {
+				grecaptcha.execute('@Model.CaptchaSettings.SiteKey', { action: 'register' }).then(function (token) {
+					//populate token value in hidden field
+					document.getElementById("CaptchaResponseToken").value = token;
+					//submit form
+					$('#registerForm').submit();
+				});
+			}
+
+			//wire up register button to execute reCaptcha before submitting
+			const btnRegisterSubmit = document.getElementById("registerSubmit");
+			if (btnRegisterSubmit) {
+				btnRegisterSubmit.addEventListener('click', reCaptchaExecute, false);
+			}
+			//Note - if run on load, the token expires after 2 mins
+		</script>
+	}
 }

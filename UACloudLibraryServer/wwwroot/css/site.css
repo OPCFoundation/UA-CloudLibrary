@@ -396,3 +396,202 @@ footer a:hover {
 footer .footer-version a {
     margin-right: 0;
 }
+
+/*-------------------------------------------*/
+/*Authentication pages (Login etc.)          */
+/*-------------------------------------------*/
+.auth-page {
+    align-items: flex-start;
+    min-height: 60vh;
+}
+
+.auth-card {
+    position: relative;
+    border-radius: .75rem;
+    box-shadow: 0 1px 2px rgba(8, 74, 121, .06), 0 1rem 2.5rem rgba(8, 74, 121, .16) !important;
+    overflow: hidden;
+}
+
+.auth-card::before {
+    content: "";
+    display: block;
+    height: 6px;
+    background: linear-gradient(90deg, var(--opc-mid) 0%, var(--opc-dark) 100%);
+}
+
+.auth-card-header {
+    padding: 2rem 2rem 0;
+}
+
+.auth-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 1.6rem;
+    background: linear-gradient(135deg, var(--opc-mid) 0%, var(--opc-dark) 100%);
+}
+
+.auth-title {
+    font-family: var(--font-ui);
+    font-weight: 500;
+    font-size: 1.6rem;
+    color: var(--opc-dark);
+    margin-bottom: .25rem;
+}
+
+.auth-subtitle {
+    color: #6c757d;
+    margin-bottom: 0;
+}
+
+.auth-card-body {
+    padding: .5rem 2rem 1.5rem;
+}
+
+.auth-card-body label {
+    font-weight: 500;
+    color: #343a40;
+}
+
+.auth-card-body .input-group-text {
+    background-color: #f8f9fa;
+    color: var(--opc-mid);
+    min-width: 2.75rem;
+    justify-content: center;
+}
+
+.auth-card-body .form-control {
+    height: calc(1.5em + 1rem + 2px);
+}
+
+.auth-card-body .form-control:focus {
+    border-color: var(--opc-mid);
+    box-shadow: 0 0 0 .2rem rgba(25, 96, 150, .2);
+}
+
+.auth-card-body .custom-control-input:checked ~ .custom-control-label::before {
+    background-color: var(--opc-mid);
+    border-color: var(--opc-mid);
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    margin: 1.5rem 0 1rem;
+    color: #6c757d;
+    font-size: .875rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid #dee2e6;
+}
+
+.auth-divider span {
+    padding: 0 .75rem;
+}
+
+.auth-card-footer {
+    padding: 1rem 2rem;
+    text-align: center;
+    background-color: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+    color: #6c757d;
+}
+
+.auth-card-footer a {
+    font-weight: 500;
+}
+
+/*-------------------------------------------*/
+/*Upload page                                */
+/*-------------------------------------------*/
+.upload-card .auth-subtitle {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.upload-section-title {
+    font-family: var(--font-ui);
+    font-size: 1.05rem;
+    font-weight: 500;
+    color: var(--opc-dark);
+    margin: 1.5rem 0 1rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.upload-section-title:first-of-type {
+    margin-top: .5rem;
+}
+
+.dropzone {
+    position: relative;
+    padding: 1.5rem 1rem 1.25rem;
+    text-align: center;
+    border: 2px dashed #c5d3e0;
+    border-radius: .75rem;
+    background-color: #f8fafc;
+    transition: border-color .15s ease-in-out, background-color .15s ease-in-out, box-shadow .15s ease-in-out;
+}
+
+.dropzone:focus {
+    outline: none;
+    border-color: var(--opc-mid);
+    box-shadow: 0 0 0 .2rem rgba(25, 96, 150, .2);
+}
+
+.dropzone.is-dragover {
+    border-color: var(--opc-mid);
+    border-style: solid;
+    background-color: rgba(25, 96, 150, .06);
+}
+
+.dropzone.has-file {
+    border-color: #28a745;
+    background-color: rgba(40, 167, 69, .05);
+}
+
+.dropzone-icon {
+    display: block;
+    font-size: 2rem;
+    color: var(--opc-mid);
+    margin-bottom: .5rem;
+}
+
+.dropzone.has-file .dropzone-icon {
+    color: #28a745;
+}
+
+.dropzone-text {
+    color: #495057;
+}
+
+.dropzone .custom-file {
+    max-width: 320px;
+    margin: 0 auto;
+    text-align: left;
+}
+
+.dropzone .custom-file-label {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    padding-right: 5.5rem;
+}
+
+.dropzone .custom-file-label::after {
+    content: "Browse";
+    color: #fff;
+    background-color: var(--opc-mid);
+    border-color: var(--opc-mid);
+}
