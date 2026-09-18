@@ -3,78 +3,244 @@
 
 @model string
 
-<div class="row browser_top_container">
-    <form method="post" enctype="multipart/form-data" asp-controller="Upload" asp-action="UploadNodeset">
-        <p>
-            <b>Upload an OPC UA nodeset file, an accompanying node values file and additional metadata to the UA Cloud Library</b><br />
-        </p>
-        <p>
-            <b>Upload status: @Model</b><br />
-        </p>
-        <p>
-            OPC UA Nodeset file (<b>required</b>)<br />
-            <input class="btn btn-primary" type="file" name="nodesetFile">
-        </p>
-        <p>
-            Node values file<br />
-            <input class="btn btn-primary" type="file" name="values">
-        </p>
-        <p>
-            Overwrite any existing nodeset file?<br />
-            @Html.CheckBox("overwrite", false)<br />
-        <p>
-        <p>
-            Title (<b>required</b>)<br />
-            @Html.TextBox("nodesettitle", null, new { style = "width:100%;" })<br />
-        </p>
-        <p>
-            License (<b>required</b>)<br />
-            @Html.DropDownList("license", new SelectList(Enum.GetValues(typeof(License))), null, new { @class = "form-control" })
-        </p>
-        <p>
-            Copyright Text (<b>required</b>)<br />
-            @Html.TextBox("copyright", null, new { style = "width:100%;" })<br />
-        </p>
-        <p>
-            Description (<b>required</b>)<br />
-            @Html.TextBox("description", null, new { style = "width:100%;" })<br />
-        </p>
-        <p>
-            Documentation Url<br />
-            @Html.TextBox("documentationurl", null, new { style = "width:100%;" })<br />
-        </p>
-        <p>
-            Icon Url<br />
-            @Html.TextBox("iconurl", null, new { style = "width:100%;" })<br />
-        </p>
-        <p>
-            License Url<br />
-            @Html.TextBox("licenseurl", null, new { style = "width:100%;" })<br />
-        </p>
-        <p>
-            Keywords (comma delimited, i.e. keyword1,keyword2,keyword3 etc.)<br />
-            @Html.TextBox("keywords", null, new { style = "width:100%;" })<br />
-        </p>
-        <p>
-            Purchasing Information Url<br />
-            @Html.TextBox("purchasinginfo", null, new { style = "width:100%;" })<br />
-        </p>
-        <p>
-            Release Notes Url<br />
-            @Html.TextBox("releasenotes", null, new { style = "width:100%;" })<br />
-        </p>
-        <p>
-            Test Specification Url<br />
-            @Html.TextBox("testspecification", null, new { style = "width:100%;" })<br />
-        </p>
-        <p>
-            Supported Locales (ISO notation, comma delimited, e.g. en-us,de-de)<br />
-            @Html.TextBox("locales", null, new { style = "width:100%;" })<br />
-        </p>
-            Upload the loaded nodeset file to the OPC UA Cloud Library (please note: only the loaded nodeset file is uploaded, not its dependent nodesets!)<br />
-        </p>
-        <p>
-            <input id="uploadButton" class="btn btn-primary btn_browser" type="submit" value="Upload">
-        </p>
-    </form>
- </div>
+@{
+    ViewData["Title"] = "Upload";
+    var hasStatus = !string.IsNullOrWhiteSpace(Model);
+}
+
+<div class="auth-page d-flex justify-content-center py-4">
+    <div class="auth-card upload-card card shadow border-0 mx-auto" style="width: 100%; max-width: 900px;">
+        <div class="auth-card-header card-body text-center pb-0">
+            <div class="auth-icon">
+                <i class="fas fa-cloud-upload-alt" aria-hidden="true"></i>
+            </div>
+            <h1 class="auth-title h3">Upload a nodeset</h1>
+            <p class="auth-subtitle text-muted">Upload an OPC UA nodeset file, an optional node values file and metadata to the UA Cloud Library</p>
+        </div>
+
+        <div class="auth-card-body card-body pt-2">
+            @if (hasStatus)
+            {
+                <div class="alert alert-info d-flex align-items-start" role="alert">
+                    <i class="fas fa-info-circle mt-1 mr-2" aria-hidden="true"></i>
+                    <div><strong>Upload status:</strong> @Model</div>
+                </div>
+            }
+
+            <form id="uploadForm" method="post" enctype="multipart/form-data" asp-controller="Upload" asp-action="UploadNodeset" novalidate>
+
+                <h2 class="upload-section-title"><i class="fas fa-file-code mr-2" aria-hidden="true"></i>Files</h2>
+                <div class="form-row">
+                    <div class="col-md-6 form-group">
+                        <label for="nodesetFile">OPC UA Nodeset file <span class="text-danger">*</span></label>
+                        <div class="dropzone" data-input="nodesetFile" tabindex="0" role="button" aria-label="Drop a nodeset XML file here or choose one">
+                            <i class="fas fa-file-code dropzone-icon" aria-hidden="true"></i>
+                            <p class="dropzone-text mb-1">Drag &amp; drop your <strong>.xml</strong> nodeset here</p>
+                            <p class="text-muted small mb-2">or</p>
+                            <div class="custom-file">
+                                <input type="file" class="custom-file-input" id="nodesetFile" name="nodesetFile" accept=".xml,text/xml" required>
+                                <label class="custom-file-label" for="nodesetFile" data-default="Choose file...">Choose file...</label>
+                            </div>
+                            <div class="dropzone-file text-success small mt-2 d-none">
+                                <i class="fas fa-check-circle mr-1" aria-hidden="true"></i><span class="dropzone-filename"></span>
+                                <button type="button" class="btn btn-link btn-sm p-0 ml-2 dropzone-clear" aria-label="Remove selected file">Remove</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label for="values">Node values file <span class="text-muted font-weight-normal">(optional)</span></label>
+                        <div class="dropzone" data-input="values" tabindex="0" role="button" aria-label="Drop a node values JSON file here or choose one">
+                            <i class="fas fa-database dropzone-icon" aria-hidden="true"></i>
+                            <p class="dropzone-text mb-1">Drag &amp; drop your <strong>.json</strong> values file here</p>
+                            <p class="text-muted small mb-2">or</p>
+                            <div class="custom-file">
+                                <input type="file" class="custom-file-input" id="values" name="values" accept=".json,application/json,text/json">
+                                <label class="custom-file-label" for="values" data-default="Choose file...">Choose file...</label>
+                            </div>
+                            <div class="dropzone-file text-success small mt-2 d-none">
+                                <i class="fas fa-check-circle mr-1" aria-hidden="true"></i><span class="dropzone-filename"></span>
+                                <button type="button" class="btn btn-link btn-sm p-0 ml-2 dropzone-clear" aria-label="Remove selected file">Remove</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="custom-control custom-checkbox">
+                        <input type="checkbox" class="custom-control-input" id="overwrite" name="overwrite" value="true">
+                        <input type="hidden" name="overwrite" value="false">
+                        <label class="custom-control-label" for="overwrite">Overwrite any existing nodeset file</label>
+                    </div>
+                </div>
+
+                <h2 class="upload-section-title"><i class="fas fa-info-circle mr-2" aria-hidden="true"></i>Metadata</h2>
+                <div class="form-row">
+                    <div class="col-md-8 form-group">
+                        <label for="nodesettitle">Title <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="nodesettitle" name="nodesettitle" required>
+                    </div>
+                    <div class="col-md-4 form-group">
+                        <label for="license">License <span class="text-danger">*</span></label>
+                        @Html.DropDownList("license", new SelectList(Enum.GetValues(typeof(License))), null, new { @class = "form-control custom-select", id = "license", required = "required" })
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="copyright">Copyright text <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="copyright" name="copyright" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description <span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="description" name="description" rows="3" required></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="col-md-6 form-group">
+                        <label for="keywords">Keywords</label>
+                        <input type="text" class="form-control" id="keywords" name="keywords" placeholder="keyword1,keyword2,keyword3">
+                        <small class="form-text text-muted">Comma delimited.</small>
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label for="locales">Supported locales</label>
+                        <input type="text" class="form-control" id="locales" name="locales" placeholder="en-us,de-de">
+                        <small class="form-text text-muted">ISO notation, comma delimited.</small>
+                    </div>
+                </div>
+
+                <h2 class="upload-section-title"><i class="fas fa-link mr-2" aria-hidden="true"></i>Links <span class="text-muted font-weight-normal small">(optional)</span></h2>
+                <div class="form-row">
+                    <div class="col-md-6 form-group">
+                        <label for="documentationurl">Documentation URL</label>
+                        <div class="input-group">
+                            <div class="input-group-prepend"><span class="input-group-text"><i class="fas fa-book" aria-hidden="true"></i></span></div>
+                            <input type="url" class="form-control" id="documentationurl" name="documentationurl" placeholder="https://">
+                        </div>
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label for="iconurl">Icon URL</label>
+                        <div class="input-group">
+                            <div class="input-group-prepend"><span class="input-group-text"><i class="fas fa-image" aria-hidden="true"></i></span></div>
+                            <input type="url" class="form-control" id="iconurl" name="iconurl" placeholder="https://">
+                        </div>
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label for="licenseurl">License URL</label>
+                        <div class="input-group">
+                            <div class="input-group-prepend"><span class="input-group-text"><i class="fas fa-balance-scale" aria-hidden="true"></i></span></div>
+                            <input type="url" class="form-control" id="licenseurl" name="licenseurl" placeholder="https://">
+                        </div>
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label for="purchasinginfo">Purchasing information URL</label>
+                        <div class="input-group">
+                            <div class="input-group-prepend"><span class="input-group-text"><i class="fas fa-shopping-cart" aria-hidden="true"></i></span></div>
+                            <input type="url" class="form-control" id="purchasinginfo" name="purchasinginfo" placeholder="https://">
+                        </div>
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label for="releasenotes">Release notes URL</label>
+                        <div class="input-group">
+                            <div class="input-group-prepend"><span class="input-group-text"><i class="fas fa-clipboard-list" aria-hidden="true"></i></span></div>
+                            <input type="url" class="form-control" id="releasenotes" name="releasenotes" placeholder="https://">
+                        </div>
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label for="testspecification">Test specification URL</label>
+                        <div class="input-group">
+                            <div class="input-group-prepend"><span class="input-group-text"><i class="fas fa-vial" aria-hidden="true"></i></span></div>
+                            <input type="url" class="form-control" id="testspecification" name="testspecification" placeholder="https://">
+                        </div>
+                    </div>
+                </div>
+
+                <p class="text-muted small">
+                    <i class="fas fa-exclamation-circle mr-1" aria-hidden="true"></i>
+                    Only the selected nodeset file is uploaded, not its dependent nodesets. Fields marked <span class="text-danger">*</span> are required.
+                </p>
+
+                <button id="uploadButton" type="submit" class="btn btn-primary btn-block btn-lg">
+                    <i class="fas fa-cloud-upload-alt mr-2" aria-hidden="true"></i>Upload
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            function updateZone(zone, input) {
+                var label = zone.querySelector('.custom-file-label');
+                var info = zone.querySelector('.dropzone-file');
+                var name = zone.querySelector('.dropzone-filename');
+                var file = input.files && input.files[0];
+
+                if (file) {
+                    label.textContent = file.name;
+                    name.textContent = file.name + ' (' + Math.max(1, Math.round(file.size / 1024)) + ' KB)';
+                    info.classList.remove('d-none');
+                    zone.classList.add('has-file');
+                } else {
+                    label.textContent = label.getAttribute('data-default');
+                    name.textContent = '';
+                    info.classList.add('d-none');
+                    zone.classList.remove('has-file');
+                }
+            }
+
+            document.querySelectorAll('.dropzone').forEach(function (zone) {
+                var input = document.getElementById(zone.getAttribute('data-input'));
+                if (!input) { return; }
+
+                ['dragenter', 'dragover'].forEach(function (evt) {
+                    zone.addEventListener(evt, function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        zone.classList.add('is-dragover');
+                    });
+                });
+
+                ['dragleave', 'dragend', 'drop'].forEach(function (evt) {
+                    zone.addEventListener(evt, function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        zone.classList.remove('is-dragover');
+                    });
+                });
+
+                zone.addEventListener('drop', function (e) {
+                    var files = e.dataTransfer && e.dataTransfer.files;
+                    if (!files || files.length === 0) { return; }
+
+                    var dt = new DataTransfer();
+                    dt.items.add(files[0]);
+                    input.files = dt.files;
+                    updateZone(zone, input);
+                });
+
+                zone.addEventListener('keydown', function (e) {
+                    if ((e.key === 'Enter' || e.key === ' ') && e.target === zone) {
+                        e.preventDefault();
+                        input.click();
+                    }
+                });
+
+                input.addEventListener('change', function () { updateZone(zone, input); });
+
+                var clear = zone.querySelector('.dropzone-clear');
+                if (clear) {
+                    clear.addEventListener('click', function (e) {
+                        e.stopPropagation();
+                        input.value = '';
+                        updateZone(zone, input);
+                    });
+                }
+
+                updateZone(zone, input);
+            });
+
+            // Prevent the browser from navigating away when a file is dropped outside a zone.
+            ['dragover', 'drop'].forEach(function (evt) {
+                window.addEventListener(evt, function (e) { e.preventDefault(); });
+            });
+        })();
+    </script>
+}
