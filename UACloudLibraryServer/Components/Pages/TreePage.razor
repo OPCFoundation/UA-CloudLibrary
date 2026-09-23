@@ -17,6 +17,7 @@
 @using Opc.Ua
 
 @inject UAClient _client
+@inject CloudLibDataProvider DataProvider
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
@@ -111,7 +112,8 @@
                                                     <i class="fas fa-times"></i>
                                                 </button>
                                             }
-                                            <button type="button" class="btn btn-primary" aria-label="Search tree" @onclick="SearchTree" disabled="@(IsSearching || string.IsNullOrWhiteSpace(SearchQuery))">
+                                            <button type="button" class="btn btn-primary" aria-label="Search tree" @onclick="SearchTree" disabled="@(IsSearching || string.IsNullOrWhiteSpace(SearchQuery))">
+
                                                 @if (IsSearching)
                                                 {
                                                     <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -247,6 +249,16 @@
 
                                             <dt class="col-sm-4 text-truncate">Node Id</dt>
                                             <dd class="col-sm-8"><code style="word-break: break-all;">@SelectedNode.Id</code></dd>
+
+                                            @if (!string.IsNullOrEmpty(SelectedNodeDocumentationUrl))
+                                            {
+                                                <dt class="col-sm-4 text-truncate">Documentation</dt>
+                                                <dd class="col-sm-8">
+                                                    <a href="@SelectedNodeDocumentationUrl" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary" title="Open the reference documentation for this type">
+                                                        <i class="fas fa-external-link-alt mr-2"></i>Reference: @SelectedNode.BrowseName
+                                                    </a>
+                                                </dd>
+                                            }
 
                                             <dt class="col-sm-4 text-truncate">Value</dt>
                                             <dd class="col-sm-8">
@@ -551,11 +563,27 @@
         await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
+    private string SelectedNodeDocumentationUrl;
+
     private async Task SelectedNodeChanged(NodesetViewerNode node)
     {
         SelectedNode = node;
+        SelectedNodeDocumentationUrl = null;
 
         NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, node.Id).ConfigureAwait(false);
+
+        try
+        {
+            var url = await DataProvider.GetNodeDocumentationUrlAsync(UserName, node.Id).ConfigureAwait(false);
+            if (ReferenceEquals(SelectedNode, node))
+            {
+                SelectedNodeDocumentationUrl = url;
+            }
+        }
+        catch (Exception)
+        {
+            SelectedNodeDocumentationUrl = null;
+        }
     }
 
     private bool HasChildNodes(NodesetViewerNode node)
@@ -956,11 +984,16 @@
             {
                 foreach (var kvp in nodesetFiles)
                 {
-// Sanitize the filename (replace invalid characters)
-var url = new Uri(kvp.Key);
-var invalidChars = new[] { '<', '>', ':', '"', '/', '\\', '|', '?', '*', '\0' };
-string sanitizedKey = string.Join("_", (url.Host + url.PathAndQuery).Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
-string fileName = $"{sanitizedKey}.xml";
+// Sanitize the filename (replace invalid characters)
+
+var url = new Uri(kvp.Key);
+
+var invalidChars = new[] { '<', '>', ':', '"', '/', '\\', '|', '?', '*', '\0' };
+
+string sanitizedKey = string.Join("_", (url.Host + url.PathAndQuery).Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
+
+string fileName = $"{sanitizedKey}.xml";
+
 
                     // Create an entry in the zip file
                     var zipEntry = archive.CreateEntry(fileName, CompressionLevel.Optimal);

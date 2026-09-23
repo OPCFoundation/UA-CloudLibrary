@@ -334,7 +334,11 @@
                                     .Where(k => !string.IsNullOrWhiteSpace(k) && k.StartsWith("type:", StringComparison.OrdinalIgnoreCase))
                                     .Select(k => k.Substring("type:".Length).Trim())
                                     .FirstOrDefault(t => !string.IsNullOrWhiteSpace(t));
-                                if (!string.IsNullOrWhiteSpace(typeTerm)
+                                if (!string.IsNullOrWhiteSpace(typeTerm) && !string.IsNullOrWhiteSpace(SelectedTypeDocumentationUrl))
+                                {
+                                    referenceSearchUrl = SelectedTypeDocumentationUrl;
+                                }
+                                else if (!string.IsNullOrWhiteSpace(typeTerm)
                                     && !string.IsNullOrWhiteSpace(SelectedItem.DocumentationUrl)
                                     && SelectedItem.DocumentationUrl.StartsWith("https://reference.opcfoundation.org/", StringComparison.OrdinalIgnoreCase))
                                 {
@@ -354,7 +358,7 @@
                                     }
                                     @if (referenceSearchUrl != null)
                                     {
-                                        <a href="@referenceSearchUrl" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary mr-2 mb-2" title="Search this type on reference.opcfoundation.org">
+                                        <a href="@referenceSearchUrl" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary mr-2 mb-2" title="@(string.IsNullOrWhiteSpace(SelectedTypeDocumentationUrl) ? "Search this type on reference.opcfoundation.org" : "Open the reference documentation for this type")">
                                             <i class="fas fa-external-link-alt mr-2"></i>Reference: @typeTerm
                                         </a>
                                     }
@@ -529,9 +533,39 @@
 
     private NamespaceMetaDataModel SelectedItem;
 
-    private void SelectItem(NamespaceMetaDataModel item)
+    private string SelectedTypeDocumentationUrl;
+
+    private async Task SelectItem(NamespaceMetaDataModel item)
     {
         SelectedItem = ReferenceEquals(SelectedItem, item) ? null : item;
+        SelectedTypeDocumentationUrl = null;
+
+        if (SelectedItem?.NodeSet == null)
+        {
+            return;
+        }
+
+        var typeTerm = SearchKeywords?
+            .Where(k => !string.IsNullOrWhiteSpace(k) && k.StartsWith("type:", StringComparison.OrdinalIgnoreCase))
+            .Select(k => k.Substring("type:".Length).Trim())
+            .FirstOrDefault(t => !string.IsNullOrWhiteSpace(t));
+        if (string.IsNullOrWhiteSpace(typeTerm))
+        {
+            return;
+        }
+
+        try
+        {
+            var url = await DataProvider.GetTypeDocumentationUrlAsync(UserId?.Identity?.Name, SelectedItem.NodeSet.ModelUri, SelectedItem.NodeSet.PublicationDate, typeTerm).ConfigureAwait(false);
+            if (ReferenceEquals(SelectedItem, item))
+            {
+                SelectedTypeDocumentationUrl = url;
+            }
+        }
+        catch (Exception)
+        {
+            SelectedTypeDocumentationUrl = null;
+        }
     }
 
     private string ModalTitle = "";
