@@ -58,7 +58,7 @@ A materialized view for the anonymous public catalog was evaluated and deferred 
 - Details card auto-closes when a search returns zero results.
 
 **"Reference:" quick link**
-- When the user searches with a `type:<term>` filter and the selected nodeset's Documentation URL starts with `https://reference.opcfoundation.org/`, an additional **Reference: `<term>`** link button is shown pointing to `https://reference.opcfoundation.org/search?q=<term>&tab=node`.
+- When the user searches with a `type:<term>` filter and the selected nodeset's Documentation URL starts with `https://rereference.opcfoundation.org/`, an additional **Reference: `<term>`** link button is shown pointing to `https://reference.opcfoundation.org/search?q=<term>&tab=node`.
 
 **Search & pagination state**
 - Search keywords, current page, and page size are persisted in the URL (`q`, `page`, `size`) via `RestoreStateFromUrl()` / `UpdateUrl()` so the browser Back button restores the previous search.
