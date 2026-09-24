@@ -85,6 +85,30 @@ namespace Opc.Ua.Cloud.Library
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            // When this server runs behind a TLS-terminating reverse proxy (an
+            // ingress controller, for example), the proxy forwards the request over
+            // plain HTTP and records the original scheme and client IP in the
+            // X-Forwarded-Proto and X-Forwarded-For headers. Without honouring them
+            // the server believes the request arrived over HTTP, and anything it
+            // derives from the scheme is then wrong:
+            //
+            //   - ASP.NET Identity builds its login redirect from the scheme it sees,
+            //     so it would send browsers an absolute http:// URL and silently
+            //     downgrade the connection, putting credentials on the wire in clear.
+            //   - Blazor Server derives its websocket URI the same way, so the client
+            //     would be told to open ws:// from an https:// page and the browser
+            //     would block it as mixed content.
+            //
+            // KnownIPNetworks/KnownProxies are cleared because the proxy's address is
+            // not known ahead of time and is not in the default loopback allow-list.
+            // That is safe only where this server is reachable exclusively through
+            // the proxy; expose it directly and a caller could spoof these headers.
+            services.Configure<ForwardedHeadersOptions>(options => {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+                options.KnownIPNetworks.Clear();
+                options.KnownProxies.Clear();
+            });
+
             services.AddControllersWithViews();
 
             services.AddRazorComponents().AddInteractiveServerComponents();
