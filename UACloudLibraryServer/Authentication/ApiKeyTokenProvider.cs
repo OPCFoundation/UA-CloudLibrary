@@ -36,21 +36,26 @@ using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Opc.Ua.Cloud.Library.Authentication
 {
     public class ApiKeyTokenProvider : IUserTwoFactorTokenProvider<IdentityUser>
     {
-        public ApiKeyTokenProvider(AppDbContext appDbContext, ILogger<ApiKeyTokenProvider> logger)
+        public ApiKeyTokenProvider(AppDbContext appDbContext, ILogger<ApiKeyTokenProvider> logger, IConfiguration configuration)
         {
             _appDbContext = appDbContext;
             _logger = logger;
+            _invalidApiKeyDelayMs = configuration.GetValue(InvalidApiKeyDelayMsConfigKey, DefaultInvalidApiKeyDelayMs);
         }
         public const string ApiKeyProviderName = nameof(ApiKeyTokenProvider);
+        public const string InvalidApiKeyDelayMsConfigKey = "ApiKey:InvalidKeyDelayMs";
+        public const int DefaultInvalidApiKeyDelayMs = 150;
 
         private readonly AppDbContext _appDbContext;
         private readonly ILogger<ApiKeyTokenProvider> _logger;
+        private readonly int _invalidApiKeyDelayMs;
 
         public Task<bool> CanGenerateTwoFactorTokenAsync(UserManager<IdentityUser> manager, IdentityUser user)
         {
@@ -138,11 +143,9 @@ namespace Opc.Ua.Cloud.Library.Authentication
 
         public async Task<(string UserId, string ApiKeyName)> FindUserForApiKey(string apiKey, UserManager<IdentityUser> manager)
         {
-            // Delay validation by 150ms to mitigate DOS/brute-force attacks
-            await Task.Delay(150).ConfigureAwait(false);
-
             if (apiKey.Length < 4)
             {
+                await DelayOnInvalidApiKey().ConfigureAwait(false);
                 throw new ArgumentException($"Invalid API key format");
             }
             // Don't keep the full API key in memory
@@ -173,6 +176,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
                         if (IsApiKeyExpired(metadata))
                         {
                             _logger.LogWarning($"API key '{candidateToken.Name}' for user '{user.UserName}' has expired.");
+                            await DelayOnInvalidApiKey().ConfigureAwait(false);
                             throw new ArgumentException($"API key has expired");
                         }
                     }
@@ -188,7 +192,18 @@ namespace Opc.Ua.Cloud.Library.Authentication
                     return newUserAndKeyName;
                 }
             }
+            await DelayOnInvalidApiKey().ConfigureAwait(false);
             throw new ArgumentException($"Key not found");
+        }
+
+        /// <summary>
+        /// Delays the response when an invalid API key was presented to mitigate DOS/brute-force attacks.
+        /// The delay is configurable via "ApiKey:InvalidKeyDelayMs" (default 150ms).
+        /// Valid API keys are not delayed so that bulk API access stays fast.
+        /// </summary>
+        private Task DelayOnInvalidApiKey()
+        {
+            return _invalidApiKeyDelayMs > 0 ? Task.Delay(_invalidApiKeyDelayMs) : Task.CompletedTask;
         }
 
         /// <summary>

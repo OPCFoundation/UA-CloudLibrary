@@ -1000,6 +1000,67 @@ namespace Opc.Ua.Cloud.Library
             return Array.Empty<string>();
         }
 
+        public async Task<string> GetTypeDocumentationUrlAsync(string userId, string modelUri, DateTime? publicationDate, string typeName)
+        {
+            if (string.IsNullOrWhiteSpace(modelUri) || string.IsNullOrWhiteSpace(typeName))
+            {
+                return null;
+            }
+
+            string typeRegex = $".*{Regex.Escape(typeName)}.*";
+
+            List<string> documentations =
+            [
+                .. await GetNodeModels(nsm => nsm.ObjectTypes, userId, modelUri, publicationDate)
+                    .Where(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase) && t.Documentation != null)
+                    .Select(t => t.Documentation).ToListAsync().ConfigureAwait(false),
+                .. await GetNodeModels(nsm => nsm.Interfaces, userId, modelUri, publicationDate)
+                    .Where(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase) && t.Documentation != null)
+                    .Select(t => t.Documentation).ToListAsync().ConfigureAwait(false),
+                .. await GetNodeModels(nsm => nsm.VariableTypes, userId, modelUri, publicationDate)
+                    .Where(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase) && t.Documentation != null)
+                    .Select(t => t.Documentation).ToListAsync().ConfigureAwait(false),
+                .. await GetNodeModels(nsm => nsm.DataTypes, userId, modelUri, publicationDate)
+                    .Where(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase) && t.Documentation != null)
+                    .Select(t => t.Documentation).ToListAsync().ConfigureAwait(false),
+                .. await GetNodeModels(nsm => nsm.ReferenceTypes, userId, modelUri, publicationDate)
+                    .Where(t => Regex.IsMatch(t.BrowseName, typeRegex, RegexOptions.IgnoreCase) && t.Documentation != null)
+                    .Select(t => t.Documentation).ToListAsync().ConfigureAwait(false),
+            ];
+
+            return documentations
+                .Select(d => d?.Trim())
+                .FirstOrDefault(d => Uri.TryCreate(d, UriKind.Absolute, out Uri uri)
+                    && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp));
+        }
+
+        public async Task<string> GetNodeDocumentationUrlAsync(string userId, string nodeId)
+        {
+            if (string.IsNullOrWhiteSpace(nodeId))
+            {
+                return null;
+            }
+
+            List<string> documentations =
+            [
+                .. await GetNodeModels(nsm => nsm.ObjectTypes, userId, nodeId: nodeId)
+                    .Where(t => t.Documentation != null).Select(t => t.Documentation).ToListAsync().ConfigureAwait(false),
+                .. await GetNodeModels(nsm => nsm.Interfaces, userId, nodeId: nodeId)
+                    .Where(t => t.Documentation != null).Select(t => t.Documentation).ToListAsync().ConfigureAwait(false),
+                .. await GetNodeModels(nsm => nsm.VariableTypes, userId, nodeId: nodeId)
+                    .Where(t => t.Documentation != null).Select(t => t.Documentation).ToListAsync().ConfigureAwait(false),
+                .. await GetNodeModels(nsm => nsm.DataTypes, userId, nodeId: nodeId)
+                    .Where(t => t.Documentation != null).Select(t => t.Documentation).ToListAsync().ConfigureAwait(false),
+                .. await GetNodeModels(nsm => nsm.ReferenceTypes, userId, nodeId: nodeId)
+                    .Where(t => t.Documentation != null).Select(t => t.Documentation).ToListAsync().ConfigureAwait(false),
+            ];
+
+            return documentations
+                .Select(d => d?.Trim())
+                .FirstOrDefault(d => Uri.TryCreate(d, UriKind.Absolute, out Uri uri)
+                    && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp));
+        }
+
         public async Task<string[]> GetAllInstances(string userId, string nodeSetID)
         {
             NodeSetModel nodeSetMeta = await GetNodeSets(userId, nodeSetID).FirstOrDefaultAsync().ConfigureAwait(false);
