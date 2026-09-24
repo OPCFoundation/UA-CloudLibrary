@@ -33,11 +33,24 @@ namespace Opc.Ua.Cloud.Library.Models
 
     public sealed record ApiResult(List<ApiMessage> message = null);
 
+    /// <summary>
+    /// The EN 18222 response envelope.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="esdc"/> is a sibling of <paramref name="payload"/> rather than part of it: the
+    /// ESDC signs the payload, so nesting it inside what it signs would be self-referential. It is
+    /// carried in the body rather than a response header because the signed artifact embeds the whole
+    /// DPP, which readily exceeds common server and proxy header size limits; a compact
+    /// <c>X-DPP-ESDC-KeyId</c> header is still returned so a verifier can select its trust anchor
+    /// without parsing the body. Omitted entirely when null, so non-DPP responses are unchanged.
+    /// </remarks>
     public sealed record ApiResponse<T>(
         string statusCode,
         T payload = default,
         ApiResult result = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        Pagination pagination = null
+        Pagination pagination = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        ElectronicSignedDataConstruct esdc = null
     );
 }

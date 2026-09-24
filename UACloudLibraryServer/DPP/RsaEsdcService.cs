@@ -100,6 +100,15 @@ namespace Opc.Ua.Cloud.Library
             if (!string.IsNullOrWhiteSpace(certificatePem))
             {
                 _certificate = X509Certificate2.CreateFromPem(certificatePem);
+
+                // The certificate is published as x5c and its thumbprint becomes kid, so verifiers
+                // are told "this certificate's key signed this credential". If it belongs to a
+                // different key that claim is false: the advertised certificate cannot verify the
+                // signature, which defeats the certificate-backed independent verification the
+                // certificate exists to provide. Refuse to start rather than issue credentials that
+                // misrepresent their own signer.
+                EnsureCertificateMatchesSigningKey(_certificate, _rsa);
+
                 _certificateBase64 = Convert.ToBase64String(_certificate.RawData);
                 _keyId = _certificate.Thumbprint;
             }
@@ -139,6 +148,32 @@ namespace Opc.Ua.Cloud.Library
                             $"Configured ESDC trust anchor '{child.Path}' is not a valid public key PEM.");
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Throws unless <paramref name="certificate"/> carries the public half of
+        /// <paramref name="signingKey"/>. Compares the exported SubjectPublicKeyInfo, which covers
+        /// the algorithm and all parameters, rather than the modulus alone.
+        /// </summary>
+        private static void EnsureCertificateMatchesSigningKey(X509Certificate2 certificate, RSA signingKey)
+        {
+            using RSA certificateKey = certificate.GetRSAPublicKey();
+            if (certificateKey is null)
+            {
+                throw new InvalidOperationException(
+                    "Dpp:Esdc:CertificatePem does not contain an RSA public key, so it cannot correspond to the ESDC signing key.");
+            }
+
+            byte[] fromCertificate = certificateKey.ExportSubjectPublicKeyInfo();
+            byte[] fromSigningKey = signingKey.ExportSubjectPublicKeyInfo();
+
+            if (!CryptographicOperations.FixedTimeEquals(fromCertificate, fromSigningKey))
+            {
+                throw new InvalidOperationException(
+                    "Dpp:Esdc:CertificatePem does not match the ESDC signing key. The certificate is published as 'x5c' and its thumbprint as 'kid', " +
+                    "so a mismatched certificate would tell verifiers that a key which cannot verify the signature produced it. " +
+                    "Supply the certificate issued for Dpp:Esdc:PrivateKeyPem, or remove the certificate setting.");
             }
         }
 

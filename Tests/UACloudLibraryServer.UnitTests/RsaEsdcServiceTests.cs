@@ -2,6 +2,7 @@ using System;
 using System.Buffers.Text;
 using System.Collections.Generic;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 
@@ -196,5 +197,61 @@ namespace UACloudLibraryServer.UnitTests
                 // production constructor fails loudly instead.
                 Assert.Throws<InvalidOperationException>(() => new RsaEsdcService(null, null));
             }
+
+            [Fact]
+            public void MismatchedCertificate_FailsFast()
+            {
+                // The certificate is published as x5c and its thumbprint as kid, so a certificate for a
+                // different key would tell verifiers that a key which cannot verify the signature
+                // produced the credential - silently defeating certificate-backed verification.
+                using RSA signingKey = RSA.Create(2048);
+                using RSA otherKey = RSA.Create(2048);
+
+                var request = new CertificateRequest("CN=other", otherKey, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                using X509Certificate2 unrelatedCert = request.CreateSelfSigned(
+                    DateTimeOffset.UtcNow.AddDays(-1),
+                    DateTimeOffset.UtcNow.AddDays(1));
+
+                IConfiguration configuration = new ConfigurationBuilder()
+                    .AddInMemoryCollection(new Dictionary<string, string> {
+                        ["Dpp:Esdc:PrivateKeyPem"] = signingKey.ExportPkcs8PrivateKeyPem(),
+                        ["Dpp:Esdc:CertificatePem"] = ExportCertificatePem(unrelatedCert)
+                    })
+                    .Build();
+
+                InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+                    () => new RsaEsdcService(configuration));
+
+                Assert.Contains("does not match the ESDC signing key", ex.Message, StringComparison.Ordinal);
+            }
+
+            [Fact]
+            public void MatchingCertificate_IsAccepted()
+            {
+                // The supported configuration: a certificate issued for the signing key itself.
+                using RSA signingKey = RSA.Create(2048);
+
+                var request = new CertificateRequest("CN=issuer", signingKey, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                using X509Certificate2 matchingCert = request.CreateSelfSigned(
+                    DateTimeOffset.UtcNow.AddDays(-1),
+                    DateTimeOffset.UtcNow.AddDays(1));
+
+                IConfiguration configuration = new ConfigurationBuilder()
+                    .AddInMemoryCollection(new Dictionary<string, string> {
+                        ["Dpp:Esdc:PrivateKeyPem"] = signingKey.ExportPkcs8PrivateKeyPem(),
+                        ["Dpp:Esdc:CertificatePem"] = ExportCertificatePem(matchingCert)
+                    })
+                    .Build();
+
+                using var service = new RsaEsdcService(configuration);
+                ElectronicSignedDataConstruct esdc = service.Issue(SampleDpp());
+
+                // The advertised certificate must actually verify what it claims to have signed.
+                Assert.NotNull(esdc.Certificate);
+                Assert.True(service.Verify(esdc));
+            }
+
+            private static string ExportCertificatePem(X509Certificate2 certificate) =>
+                new string(PemEncoding.Write("CERTIFICATE", certificate.RawData));
         }
     }

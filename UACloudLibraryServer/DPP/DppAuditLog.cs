@@ -115,7 +115,12 @@ namespace Opc.Ua.Cloud.Library
             string previousHash = tail?.EntryHash ?? GenesisHash;
 
             var entry = new DppAuditEntry {
-                Timestamp = DateTimeOffset.UtcNow,
+                // PostgreSQL's "timestamp with time zone" stores microseconds, but DateTimeOffset.UtcNow
+                // carries 100-nanosecond ticks. Hashing the untruncated value would produce a hash the
+                // database can never reproduce: on reload the timestamp comes back rounded, so
+                // VerifyChainAsync would recompute a different hash and report tampering for entries
+                // that were never touched. Truncate first so the hashed value is the value stored.
+                Timestamp = TruncateToMicroseconds(DateTimeOffset.UtcNow),
                 OperatorId = string.IsNullOrEmpty(operatorId) ? "anonymous" : operatorId,
                 Operation = operation,
                 DppId = dppId,
@@ -219,6 +224,17 @@ namespace Opc.Ua.Cloud.Library
         /// altered while keeping its hash and still passing chain verification. Prefixing each field
         /// with its byte length makes the encoding injective, so distinct field sets cannot collide.
         /// </summary>
+        /// <summary>
+        /// Drops sub-microsecond ticks so the value hashed here is byte-identical to the value
+        /// PostgreSQL stores and returns. Without this the audit chain verifies only until the first
+        /// reload, because the recomputed hash would cover a timestamp the database rounded away.
+        /// </summary>
+        internal static DateTimeOffset TruncateToMicroseconds(DateTimeOffset value)
+        {
+            long ticksPerMicrosecond = TimeSpan.TicksPerMillisecond / 1000;
+            return new DateTimeOffset(value.Ticks - (value.Ticks % ticksPerMicrosecond), value.Offset);
+        }
+
         internal static string ComputeHash(DppAuditEntry entry, string previousHash)
         {
             using var buffer = new MemoryStream();

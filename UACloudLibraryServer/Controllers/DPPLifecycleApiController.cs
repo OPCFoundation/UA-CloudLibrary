@@ -47,13 +47,27 @@ namespace Opc.Ua.Cloud.Library.Controllers
             User?.Claims?.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToArray()
             ?? Array.Empty<string>();
 
-        // EN 18246 §4.5: issue an ESDC over the data the caller actually receives and expose it on the
-        // X-DPP-ESDC header so authenticity/integrity is verifiable independent of the transport channel.
-        private void AttachEsdc(DigitalProductPassport dpp)
+        // EN 18246 §4.5: issue an ESDC over the data the caller actually receives so authenticity and
+        // integrity are verifiable independent of the transport channel.
+        //
+        // The signed artifact is returned in the response body rather than a header: it embeds the
+        // whole DPP, and base64-encoding that into one header readily exceeds common server and proxy
+        // header limits, which would make otherwise valid reads fail operationally. Only the compact
+        // key id goes in a header, so a verifier can select its trust anchor without parsing the body.
+        //
+        // Callers must append the audit record *before* calling this. The ESDC carries the full DPP,
+        // so producing it before the read is durably logged would let a refused (503) unaudited read
+        // still hand over the data.
+        private ElectronicSignedDataConstruct IssueEsdc(DigitalProductPassport dpp)
         {
             ElectronicSignedDataConstruct esdc = _esdc.Issue(dpp);
-            string encoded = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(esdc)));
-            Response.Headers["X-DPP-ESDC"] = encoded;
+
+            if (!string.IsNullOrEmpty(esdc.KeyId))
+            {
+                Response.Headers["X-DPP-ESDC-KeyId"] = esdc.KeyId;
+            }
+
+            return esdc;
         }
 
         public record ReadDppIdsRequest(List<string> productIds);
@@ -74,9 +88,11 @@ namespace Opc.Ua.Cloud.Library.Controllers
             }
 
             dpp = await _dppService.FilterForRolesAsync(dpp, CallerRoles).ConfigureAwait(false);
-            AttachEsdc(dpp);
+
+            // Audit before the ESDC exists: the ESDC embeds the full DPP, so issuing it first would
+            // leave the data on a response that the audit filter then turns into a 503.
             await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Read, dppId, null, "Success").ConfigureAwait(false);
-            return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, dpp));
+            return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, dpp, esdc: IssueEsdc(dpp)));
         }
 
         [AllowAnonymous]
@@ -95,9 +111,10 @@ namespace Opc.Ua.Cloud.Library.Controllers
             }
 
             dpp = await _dppService.FilterForRolesAsync(dpp, CallerRoles).ConfigureAwait(false);
-            AttachEsdc(dpp);
+
+            // Audit before issuing the ESDC; see ReadDppById.
             await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Read, dpp.DigitalProductPassportId, null, "Success").ConfigureAwait(false);
-            return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, dpp));
+            return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, dpp, esdc: IssueEsdc(dpp)));
         }
 
         [AllowAnonymous]
@@ -376,9 +393,10 @@ namespace Opc.Ua.Cloud.Library.Controllers
             }
 
             dpp = await _dppService.FilterForRolesAsync(dpp, CallerRoles).ConfigureAwait(false);
-            AttachEsdc(dpp);
+
+            // Audit before issuing the ESDC; see ReadDppById.
             await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Read, dppId, $"versions/{date}", "Success").ConfigureAwait(false);
-            return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, dpp));
+            return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, dpp, esdc: IssueEsdc(dpp)));
         }
     }
 }

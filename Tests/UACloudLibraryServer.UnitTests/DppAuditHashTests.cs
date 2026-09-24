@@ -73,5 +73,54 @@ namespace UACloudLibraryServer.UnitTests
 
             Assert.NotEqual(atGenesis, afterOther);
         }
+            [Fact]
+            public void Timestamp_IsTruncatedToMicroseconds()
+            {
+                // PostgreSQL's timestamptz stores microseconds. A value carrying sub-microsecond ticks
+                // would hash differently before and after a round-trip, so truncation must happen before
+                // hashing rather than being left to the database.
+                var withSubMicrosecondTicks = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero).AddTicks(12345);
+
+                DateTimeOffset truncated = DppAuditLog.TruncateToMicroseconds(withSubMicrosecondTicks);
+
+                Assert.Equal(0, truncated.Ticks % (TimeSpan.TicksPerMillisecond / 1000));
+                Assert.True(truncated <= withSubMicrosecondTicks);
+                Assert.True(withSubMicrosecondTicks - truncated < TimeSpan.FromMilliseconds(0.001));
+            }
+
+            [Fact]
+            public void TruncatedTimestamp_SurvivesDatabaseRoundTripUnchanged()
+            {
+                // Simulates what PostgreSQL does on reload: a truncated value must be a fixed point, so
+                // the hash recomputed during verification matches the hash stored at append time.
+                var original = DppAuditLog.TruncateToMicroseconds(DateTimeOffset.UtcNow);
+                DateTimeOffset afterReload = DppAuditLog.TruncateToMicroseconds(original);
+
+                Assert.Equal(original, afterReload);
+
+                DppAuditEntry entry = Entry("dpp-1", "materials", original);
+                string atAppend = DppAuditLog.ComputeHash(entry, DppAuditLog.GenesisHash);
+
+                entry.Timestamp = afterReload;
+                string atVerify = DppAuditLog.ComputeHash(entry, DppAuditLog.GenesisHash);
+
+                Assert.Equal(atAppend, atVerify);
+            }
+
+            [Fact]
+            public void UntruncatedTimestamp_WouldBreakVerification()
+            {
+                // Guards the regression itself: hashing an untruncated value and verifying against the
+                // rounded value the database returns produces a mismatch, which is what this fix prevents.
+                var untruncated = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero).AddTicks(12345);
+
+                DppAuditEntry entry = Entry("dpp-1", "materials", untruncated);
+                string hashedBeforeStore = DppAuditLog.ComputeHash(entry, DppAuditLog.GenesisHash);
+
+                entry.Timestamp = DppAuditLog.TruncateToMicroseconds(untruncated);
+                string hashedAfterReload = DppAuditLog.ComputeHash(entry, DppAuditLog.GenesisHash);
+
+                Assert.NotEqual(hashedBeforeStore, hashedAfterReload);
+            }
+        }
     }
-}
