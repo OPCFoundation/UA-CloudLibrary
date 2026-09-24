@@ -118,8 +118,7 @@ namespace Opc.Ua.Cloud.Library
                 return dpp;
             }
 
-            return new DigitalProductPassport
-            {
+            return new DigitalProductPassport {
                 DigitalProductPassportId = dpp.DigitalProductPassportId,
                 UniqueProductIdentifier = dpp.UniqueProductIdentifier,
                 Granularity = dpp.Granularity,

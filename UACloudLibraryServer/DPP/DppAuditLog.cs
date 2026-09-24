@@ -37,8 +37,7 @@ namespace Opc.Ua.Cloud.Library
                 DppAuditEntry tail = await _db.DppAuditEntries.OrderByDescending(e => e.Sequence).FirstOrDefaultAsync().ConfigureAwait(false);
                 string previousHash = tail?.EntryHash ?? GenesisHash;
 
-                var entry = new DppAuditEntry
-                {
+                var entry = new DppAuditEntry {
                     Timestamp = DateTimeOffset.UtcNow,
                     OperatorId = string.IsNullOrEmpty(operatorId) ? "anonymous" : operatorId,
                     Operation = operation,

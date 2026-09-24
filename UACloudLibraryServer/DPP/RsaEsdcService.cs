@@ -35,8 +35,7 @@ namespace Opc.Ua.Cloud.Library
         private const string JwsType = "vc+jwt";
         private const string CredentialType = "DigitalProductPassportCredential";
 
-        private static readonly JsonSerializerOptions s_jsonOptions = new()
-        {
+        private static readonly JsonSerializerOptions s_jsonOptions = new() {
             Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
@@ -77,21 +76,18 @@ namespace Opc.Ua.Cloud.Library
         {
             ArgumentNullException.ThrowIfNull(dpp);
 
-            var credential = new VerifiableCredential
-            {
+            var credential = new VerifiableCredential {
                 Id = $"urn:uuid:{Guid.NewGuid()}",
                 Type = new() { "VerifiableCredential", CredentialType },
                 Issuer = dpp.EconomicOperatorId,
                 ValidFrom = DateTimeOffset.UtcNow,
-                CredentialSubject = new DppCredentialSubject
-                {
+                CredentialSubject = new DppCredentialSubject {
                     Id = dpp.UniqueProductIdentifier,
                     DigitalProductPassport = dpp
                 }
             };
 
-            var header = new JwsHeader
-            {
+            var header = new JwsHeader {
                 Algorithm = Algorithm,
                 Type = JwsType,
                 KeyId = _keyId,
@@ -104,8 +100,7 @@ namespace Opc.Ua.Cloud.Library
             byte[] signature = _rsa.SignData(Encoding.UTF8.GetBytes(signingInput), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
             string jwt = signingInput + "." + Base64Url.EncodeToString(signature);
 
-            return new ElectronicSignedDataConstruct
-            {
+            return new ElectronicSignedDataConstruct {
                 Issuer = credential.Issuer,
                 Subject = credential.CredentialSubject.Id,
                 IssuedAt = credential.ValidFrom,

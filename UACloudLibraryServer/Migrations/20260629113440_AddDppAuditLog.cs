@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -14,8 +14,7 @@ namespace Opc.Ua.Cloud.Library
         {
             migrationBuilder.CreateTable(
                 name: "DppAuditEntries",
-                columns: table => new
-                {
+                columns: table => new {
                     Sequence = table.Column<long>(type: "bigint", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Timestamp = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
@@ -27,8 +26,7 @@ namespace Opc.Ua.Cloud.Library
                     PreviousHash = table.Column<string>(type: "text", nullable: true),
                     EntryHash = table.Column<string>(type: "text", nullable: true)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_DppAuditEntries", x => x.Sequence);
                 });
         }
