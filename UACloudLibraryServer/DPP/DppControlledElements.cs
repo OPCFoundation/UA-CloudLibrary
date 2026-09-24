@@ -95,14 +95,18 @@ namespace Opc.Ua.Cloud.Library
                 return new MappingResult(MappingState.Invalid, map);
             }
 
-            JsonNode controlledNode = FindProperty(obj, PropertyName);
-            if (controlledNode is null)
+            // Distinguish a missing property from one explicitly set to JSON null. JsonNode.Parse
+            // represents a null value as a null reference, so a single null check would treat
+            // { "controlledElements": null } as "no mapping" - i.e. public-by-default - turning a
+            // malformed policy into a fail-open one.
+            if (!TryFindProperty(obj, PropertyName, out JsonNode controlledNode))
             {
                 return new MappingResult(MappingState.Absent, map);
             }
 
             if (controlledNode is not JsonObject controlled)
             {
+                // Covers an explicit null as well as a non-object value.
                 return new MappingResult(MappingState.Invalid, map);
             }
 
@@ -143,9 +147,16 @@ namespace Opc.Ua.Cloud.Library
             }
 
             JsonObject existing = ParseObject(existingValuesJson);
-            JsonNode controlled = FindProperty(existing, PropertyName);
-            if (controlled is not null)
+            if (TryFindProperty(existing, PropertyName, out JsonNode controlled))
             {
+                if (controlled is null)
+                {
+                    // An explicit null is an unreadable mapping, which Read reports as Invalid
+                    // (deny-all). Rewriting it away would silently downgrade the DPP to public.
+                    throw new InvalidOperationException(
+                        $"Existing DPP values JSON sets '{PropertyName}' to null, which is not a valid access mapping; refusing to rewrite it because that would turn controlled elements public.");
+                }
+
                 // DeepClone detaches the node from its current parent so it can be re-parented.
                 result[PropertyName] = controlled.DeepClone();
             }
@@ -182,18 +193,24 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
-        // Case-insensitive property lookup (System.Text.Json object access is ordinal by default).
-        private static JsonNode FindProperty(JsonObject obj, string name)
+        /// <summary>
+        /// Case-insensitive property lookup that reports presence separately from the value, so an
+        /// explicit JSON null (which surfaces as a null <see cref="JsonNode"/>) is not mistaken for
+        /// an absent property.
+        /// </summary>
+        private static bool TryFindProperty(JsonObject obj, string name, out JsonNode value)
         {
             foreach (KeyValuePair<string, JsonNode> entry in obj)
             {
                 if (string.Equals(entry.Key, name, StringComparison.OrdinalIgnoreCase))
                 {
-                    return entry.Value;
+                    value = entry.Value;
+                    return true;
                 }
             }
 
-            return null;
+            value = null;
+            return false;
         }
 
         private static void RemoveProperty(JsonObject obj, string name)

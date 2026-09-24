@@ -39,6 +39,7 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace Opc.Ua.Cloud.Library.Controllers
 {
     [Authorize(Policy = "ApiPolicy")]
+    [ServiceFilter(typeof(DppAuditFailureFilter))]
     [ApiController]
     public class AccessController : Controller
     {
@@ -62,6 +63,12 @@ namespace Opc.Ua.Cloud.Library.Controllers
             [FromServices] RoleManager<IdentityRole> roleManager
             )
         {
+            // Write-ahead audit: Identity commits the role change in its own transaction, which the
+            // audit append cannot join. Recording the intent first means a failed append refuses the
+            // request before anything changes, and an "Attempted" entry with no matching outcome
+            // flags a change that completed without being logged. See DPPLifecycleApiController.
+            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Create, "access-rights", $"role={roleName}", "Attempted").ConfigureAwait(false);
+
             IdentityResult result = await roleManager.CreateAsync(new IdentityRole { Name = roleName }).ConfigureAwait(false);
             if (!result.Succeeded)
             {
@@ -86,6 +93,9 @@ namespace Opc.Ua.Cloud.Library.Controllers
             {
                 return NotFound();
             }
+
+            // Write-ahead audit intent; see AddRoleAsync.
+            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"role={roleName}", "Attempted").ConfigureAwait(false);
 
             IdentityResult result = await roleManager.DeleteAsync(role).ConfigureAwait(false);
             if (!result.Succeeded)
@@ -112,6 +122,9 @@ namespace Opc.Ua.Cloud.Library.Controllers
             {
                 return NotFound();
             }
+            // Write-ahead audit intent; see AddRoleAsync.
+            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, "access-rights", $"grant role={roleName} to user={userId}", "Attempted").ConfigureAwait(false);
+
             IdentityResult result = await userManager.AddToRoleAsync(user, roleName).ConfigureAwait(false);
             if (!result.Succeeded)
             {
@@ -139,6 +152,11 @@ namespace Opc.Ua.Cloud.Library.Controllers
             {
                 return NotFound();
             }
+
+            // Write-ahead audit intent; see AddRoleAsync. This matters most on the revocation path:
+            // an emergency revocation that completed without a record would be indistinguishable
+            // from one that never happened.
+            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Attempted").ConfigureAwait(false);
 
             IdentityResult result = await userManager.RemoveFromRoleAsync(user, roleName).ConfigureAwait(false);
             if (!result.Succeeded)

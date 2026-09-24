@@ -309,14 +309,65 @@ namespace Opc.Ua.Cloud.Library
             //     which would be the proxy's address for every caller - collapsing a
             //     per-client limit into one shared bucket.
             //
-            // KnownIPNetworks/KnownProxies are cleared because the proxy's address is
-            // not known ahead of time and is not in the default loopback allow-list.
-            // That is safe only where this server is reachable exclusively through
-            // the proxy; expose it directly and a caller could spoof these headers.
+            // KnownIPNetworks/KnownProxies are NOT cleared by default. Clearing them makes the
+            // middleware accept X-Forwarded-For/-Proto from any caller, so anyone able to reach this
+            // server directly could spoof their client IP (evading the per-IP rate limit below) and
+            // spoof the scheme used to build redirects. That is only acceptable where the server is
+            // genuinely unreachable except through the proxy, which is a deployment property this
+            // code cannot verify - so it must be stated explicitly by the operator.
+            //
+            // Configure whichever matches the deployment:
+            //   Dpp:ForwardedHeaders:KnownProxies:0    - specific proxy IP addresses
+            //   Dpp:ForwardedHeaders:KnownNetworks:0   - CIDR ranges, e.g. "10.0.0.0/8"
+            //   Dpp:ForwardedHeaders:TrustAllProxies   - true only when network-isolated behind a proxy
             services.Configure<ForwardedHeadersOptions>(options => {
                 options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-                options.KnownIPNetworks.Clear();
-                options.KnownProxies.Clear();
+
+                string[] knownProxies = Configuration.GetSection("Dpp:ForwardedHeaders:KnownProxies").Get<string[]>() ?? [];
+                string[] knownNetworks = Configuration.GetSection("Dpp:ForwardedHeaders:KnownNetworks").Get<string[]>() ?? [];
+                bool trustAllProxies = Configuration.GetValue<bool>("Dpp:ForwardedHeaders:TrustAllProxies");
+
+                if (trustAllProxies)
+                {
+                    // Explicit operator opt-in: the server is stated to be reachable only via the proxy.
+                    options.KnownIPNetworks.Clear();
+                    options.KnownProxies.Clear();
+                }
+                else if (knownProxies.Length > 0 || knownNetworks.Length > 0)
+                {
+                    // Replace the loopback defaults with exactly the configured trust anchors.
+                    options.KnownIPNetworks.Clear();
+                    options.KnownProxies.Clear();
+
+                    foreach (string proxy in knownProxies)
+                    {
+                        if (System.Net.IPAddress.TryParse(proxy, out System.Net.IPAddress address))
+                        {
+                            options.KnownProxies.Add(address);
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException(
+                                $"Dpp:ForwardedHeaders:KnownProxies contains '{proxy}', which is not a valid IP address.");
+                        }
+                    }
+
+                    foreach (string network in knownNetworks)
+                    {
+                        if (System.Net.IPNetwork.TryParse(network, out System.Net.IPNetwork parsed))
+                        {
+                            options.KnownIPNetworks.Add(parsed);
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException(
+                                $"Dpp:ForwardedHeaders:KnownNetworks contains '{network}', which is not a valid CIDR network.");
+                        }
+                    }
+                }
+
+                // Otherwise the framework defaults apply (loopback only), which is the safe choice
+                // for a server that may be directly reachable.
             });
 
             // Limit access to DPP services to prevent attacks or unauthorized

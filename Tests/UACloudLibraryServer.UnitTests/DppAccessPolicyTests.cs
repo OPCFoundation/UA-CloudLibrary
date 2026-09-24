@@ -19,7 +19,9 @@ namespace UACloudLibraryServer.UnitTests
         private static readonly string[] s_recycler = { "Recycler" };
         private static readonly string[] s_repairer = { "Repairer" };
         private static readonly string[] s_customs = { "Customs" };
-        private static readonly string[] s_admin = { "admin" };
+        // Reference the constant rather than a literal, so the admin-override test follows the
+        // authorization contract instead of silently diverging from it.
+        private static readonly string[] s_admin = { Roles.Administrator };
 
         private static readonly IReadOnlyDictionary<string, string[]> s_controlled =
             new Dictionary<string, string[]> { [Path] = new[] { "Recycler", "Repairer" } };

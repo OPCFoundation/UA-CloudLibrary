@@ -229,6 +229,16 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 ));
             }
 
+            // Write-ahead audit: the OPC UA address-space write, the archive row and the audit table
+            // are three separate stores with no shared transaction, so a completion-only record can
+            // be lost after the mutation has already committed - leaving a change with no trace.
+            // Recording the intent first inverts that failure mode: if this append fails the request
+            // is refused before anything is mutated, and if the mutation or its completion record
+            // fails afterwards the "Attempted" entry remains as evidence that a change was started.
+            // An Attempted entry with no matching outcome is the signal to investigate.
+            // This is not atomicity; closing that gap properly needs a transactional outbox.
+            await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, null, "Attempted").ConfigureAwait(false);
+
             (DPPService.UpdateDppResult result, string errorMessage, DigitalProductPassport updated) =
                 await _dppService.UpdateDppById(User.Identity.Name, dppId, partialDPP).ConfigureAwait(false);
 
@@ -290,6 +300,10 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     result: new ApiResult(new() { new ApiMessage("Error", "Caller is not authorized to modify this element") })
                 ));
             }
+
+            // Write-ahead audit intent; see the note in UpdateDppById for why the record precedes
+            // the mutation rather than following it.
+            await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "Attempted").ConfigureAwait(false);
 
             (DPPService.UpdateDppResult result, string errorMessage, DataElement updated) =
                 await _dppService.UpdateDataElement(User.Identity.Name, dppId, elementIdPath, body).ConfigureAwait(false);

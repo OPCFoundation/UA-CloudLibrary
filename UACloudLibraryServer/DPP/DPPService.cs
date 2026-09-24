@@ -353,6 +353,23 @@ namespace Opc.Ua.Cloud.Library
         {
             DateTimeOffset target = asOfUtc.ToUniversalTime();
 
+            // Authorize against the nodeset before touching either the live DPP or the archive.
+            // BrowseDppFromRootAsync applies this guard for live reads, but the archive lookup below
+            // is a separate store keyed only by dppId: without this check an unpublished, private or
+            // deleted DPP would still surrender its historical snapshots to an anonymous caller,
+            // because GetByDppId returning null is indistinguishable from "not authorized" here.
+            if (!await IsNodesetAccessibleAsync(userId, dppId).ConfigureAwait(false))
+            {
+                if (_logger.IsEnabled(LogLevel.Information))
+                {
+                    _logger.LogInformation(
+                        "Denied DPP version read of nodeset {NodesetIdentifier}: not published and not owned by the caller.",
+                        dppId);
+                }
+
+                return null;
+            }
+
             // Resolve the live DPP first: it is the active version for any target at or after its
             // own LastUpdate, which is the common case (most ReadDPPVersionByIdAndDate calls ask
             // for a timestamp that is in the past relative to "now" but still after the most

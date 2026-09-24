@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -209,19 +211,45 @@ namespace Opc.Ua.Cloud.Library
             return true;
         }
 
-        private static string ComputeHash(DppAuditEntry entry, string previousHash)
+        /// <summary>
+        /// Builds the canonical byte sequence an entry's hash covers. Fields are length-prefixed
+        /// rather than delimiter-joined: a plain separator is ambiguous, because a caller-controlled
+        /// field may contain the separator itself. With <c>|</c> joining, DppId "a|b" + ElementPath
+        /// "c" and DppId "a" + ElementPath "b|c" produce the identical string, so an entry could be
+        /// altered while keeping its hash and still passing chain verification. Prefixing each field
+        /// with its byte length makes the encoding injective, so distinct field sets cannot collide.
+        /// </summary>
+        internal static string ComputeHash(DppAuditEntry entry, string previousHash)
         {
-            string canonical = string.Join('|',
-                previousHash,
-                entry.Timestamp.ToUniversalTime().ToString("O"),
-                entry.OperatorId,
-                entry.Operation,
-                entry.DppId,
-                entry.ElementPath,
-                entry.Outcome);
+            using var buffer = new MemoryStream();
 
-            byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(canonical));
+            AppendField(buffer, previousHash);
+            AppendField(buffer, entry.Timestamp.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
+            AppendField(buffer, entry.OperatorId);
+            AppendField(buffer, entry.Operation.ToString());
+            AppendField(buffer, entry.DppId);
+            AppendField(buffer, entry.ElementPath);
+            AppendField(buffer, entry.Outcome);
+
+            byte[] hash = SHA256.HashData(buffer.ToArray());
             return Convert.ToHexString(hash);
+        }
+
+        // Writes "<byte length>:<utf8 bytes>" so the field boundaries are recoverable from the
+        // encoding alone. A null field is distinguished from an empty one by a length of -1.
+        private static void AppendField(MemoryStream destination, string value)
+        {
+            if (value is null)
+            {
+                byte[] nullMarker = Encoding.UTF8.GetBytes("-1:");
+                destination.Write(nullMarker, 0, nullMarker.Length);
+                return;
+            }
+
+            byte[] payload = Encoding.UTF8.GetBytes(value);
+            byte[] prefix = Encoding.UTF8.GetBytes(payload.Length.ToString(CultureInfo.InvariantCulture) + ":");
+            destination.Write(prefix, 0, prefix.Length);
+            destination.Write(payload, 0, payload.Length);
         }
     }
 }

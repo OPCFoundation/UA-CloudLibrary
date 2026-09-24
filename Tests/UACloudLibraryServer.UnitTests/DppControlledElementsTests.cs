@@ -71,6 +71,26 @@ namespace UACloudLibraryServer.UnitTests
         }
 
         [Fact]
+        public void Read_ExplicitNullMapping_IsInvalidNotAbsent()
+        {
+            // JsonNode.Parse represents an explicit null as a null reference, so a naive presence
+            // check reports this as Absent - which callers treat as public-by-default, turning a
+            // malformed access policy into a fail-open one.
+            DppControlledElements.MappingResult result = DppControlledElements.Read("{ \"controlledElements\": null }");
+
+            Assert.Equal(DppControlledElements.MappingState.Invalid, result.State);
+            Assert.True(result.IsInvalid);
+        }
+
+        [Fact]
+        public void Merge_ExplicitNullMapping_Throws()
+        {
+            // Rewriting an explicitly-null mapping to absent would downgrade a deny-all DPP to public.
+            Assert.Throws<InvalidOperationException>(
+                () => DppControlledElements.Merge("{ \"ns=1;i=1\": \"new\" }", "{ \"controlledElements\": null }"));
+        }
+
+        [Fact]
         public void Merge_MalformedExistingBlob_Throws()
         {
             // Rewriting an unreadable blob would discard a mapping we cannot see, silently turning
