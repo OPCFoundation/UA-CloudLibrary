@@ -46,6 +46,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -122,7 +123,20 @@ namespace Opc.Ua.Cloud.Library
             services.AddScoped<DPPService>();
             services.AddSingleton<IDppAccessPolicy, DppAccessPolicy>();
             services.AddScoped<IDppAuditLog, DppAuditLog>();
-            services.AddSingleton<IEsdcService, RsaEsdcService>();
+            services.AddScoped<Controllers.DppAuditFailureFilter>();
+            services.AddScoped<IEsdcSigningKeyProvider, EsdcSigningKeyProvider>();
+
+            // The signing key must be identical for every request and every instance, so the ESDC
+            // service stays a singleton. Its key is resolved once, lazily, through a temporary scope:
+            // resolution needs the scoped DbContext, and it must happen after migrations have created
+            // the table, which rules out resolving it here during ConfigureServices.
+            services.AddSingleton<IEsdcService>(sp => {
+                using IServiceScope scope = sp.GetRequiredService<IServiceScopeFactory>().CreateScope();
+                var keyProvider = scope.ServiceProvider.GetRequiredService<IEsdcSigningKeyProvider>();
+                string privateKeyPem = keyProvider.GetOrCreatePrivateKeyPemAsync().GetAwaiter().GetResult();
+
+                return new RsaEsdcService(sp.GetRequiredService<IConfiguration>(), privateKeyPem);
+            });
             services.AddScoped<IDppVersionArchive, DbFileVersionArchive>();
 
             services.AddScoped<CaptchaValidation>();
@@ -283,6 +297,28 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddServerSideBlazor();
 
+            // When this server runs behind a TLS-terminating reverse proxy (an
+            // ingress controller, for example), the proxy forwards the request over
+            // plain HTTP and records the original scheme and client IP in the
+            // X-Forwarded-Proto and X-Forwarded-For headers. Without honouring them:
+            //
+            //   - ASP.NET Identity builds its login redirect from the scheme it sees,
+            //     so it would send browsers an absolute http:// URL and silently
+            //     downgrade the connection, putting credentials on the wire in clear.
+            //   - The rate limiter below partitions on the connection's remote IP,
+            //     which would be the proxy's address for every caller - collapsing a
+            //     per-client limit into one shared bucket.
+            //
+            // KnownIPNetworks/KnownProxies are cleared because the proxy's address is
+            // not known ahead of time and is not in the default loopback allow-list.
+            // That is safe only where this server is reachable exclusively through
+            // the proxy; expose it directly and a caller could spoof these headers.
+            services.Configure<ForwardedHeadersOptions>(options => {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+                options.KnownIPNetworks.Clear();
+                options.KnownProxies.Clear();
+            });
+
             // Limit access to DPP services to prevent attacks or unauthorized
             // mass data scraping. Partition the window per client IP so one caller cannot exhaust others.
             int permitPerMinute = Configuration.GetValue<int?>("Dpp:RateLimit:PermitPerMinute") ?? 100;
@@ -304,6 +340,11 @@ namespace Opc.Ua.Cloud.Library
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, AppDbContext appDbContext, ApplicationInstance uaApp)
         {
+            // Must run before anything that reads the request scheme or client IP -
+            // UseHttpsRedirection, the authentication middleware and the rate limiter
+            // all do. See the ForwardedHeadersOptions note in ConfigureServices.
+            app.UseForwardedHeaders();
+
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
@@ -379,7 +420,46 @@ namespace Opc.Ua.Cloud.Library
                     throw new InvalidOperationException("Database not available, exiting!");
                 }
 
+                await EnsureEsdcSigningKeyAsync(scope.ServiceProvider).ConfigureAwait(false);
+
                 await InitOPCUAClientServerAsync(uaApp).ConfigureAwait(false);
+            }
+
+            // Resolving the ESDC service here forces the signing key to be resolved (and, if permitted,
+            // generated and persisted) during startup. Failing at boot is deliberate: the alternative is
+            // a server that starts cleanly and only reveals it cannot sign when the first DPP is read.
+            private static async Task EnsureEsdcSigningKeyAsync(IServiceProvider services)
+            {
+                var configuration = services.GetRequiredService<IConfiguration>();
+                var environment = services.GetRequiredService<IWebHostEnvironment>();
+                var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+
+                try
+                {
+                    // Touch the singleton so key resolution happens now.
+                    services.GetRequiredService<IEsdcService>();
+                }
+                catch (InvalidOperationException ex)
+                {
+                    logger.LogError(ex, "Failed to resolve the ESDC signing key during startup.");
+                    throw;
+                }
+
+                if (!string.IsNullOrWhiteSpace(configuration[EsdcSigningKeyProvider.PrivateKeyConfigurationPath]))
+                {
+                    return;
+                }
+
+                // Reached only where the generated key is permitted: Development, or an explicit opt-in.
+                logger.LogWarning(
+                    "{ConfigPath} is not configured, so ESDCs are signed with a key generated by the server and stored in the database. " +
+                    "That key is included in database backups and readable by anything with database access. " +
+                    "For production, provide the key from a managed secret store - see the ESDC signing key management section of the README. " +
+                    "Environment: {EnvironmentName}.",
+                    EsdcSigningKeyProvider.PrivateKeyConfigurationPath,
+                    environment.EnvironmentName);
+
+                await Task.CompletedTask.ConfigureAwait(false);
             }
 
             private static async Task EnsureIsPublishedColumnAsync(AppDbContext dbContext, CancellationToken cancellationToken)

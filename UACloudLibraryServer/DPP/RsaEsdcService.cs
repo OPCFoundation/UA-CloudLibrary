@@ -1,5 +1,7 @@
 using System;
 using System.Buffers.Text;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
@@ -46,13 +48,50 @@ namespace Opc.Ua.Cloud.Library
         private readonly string _certificateBase64;
         private readonly string _keyId;
 
+        // Keys accepted by Verify. Contains this instance's own signing key plus any additional
+        // trust anchors from configuration. Never populated from a submitted ESDC.
+        private readonly List<RSA> _trustedKeys = new();
+
+        /// <summary>
+        /// Creates the service using an explicitly resolved signing key. This is the production path:
+        /// <see cref="IEsdcSigningKeyProvider"/> has already decided whether the key came from
+        /// configuration, from the database, or had to be generated, so the key is stable across
+        /// restarts and identical on every instance.
+        /// </summary>
+        public RsaEsdcService(IConfiguration configuration, string privateKeyPem)
+            : this(configuration, privateKeyPem, requireResolvedKey: true)
+        {
+        }
+
+        /// <summary>
+        /// Creates the service from configuration alone, generating an ephemeral key when none is
+        /// configured. The ephemeral key lives only as long as this instance, so ESDCs it signs stop
+        /// verifying once the process exits; use the <see cref="IEsdcSigningKeyProvider"/> overload
+        /// outside of tests.
+        /// </summary>
         public RsaEsdcService(IConfiguration configuration)
+            : this(configuration, null, requireResolvedKey: false)
+        {
+        }
+
+        private RsaEsdcService(IConfiguration configuration, string privateKeyPem, bool requireResolvedKey)
         {
             _rsa = RSA.Create(2048);
-            string privateKeyPem = configuration?["Dpp:Esdc:PrivateKeyPem"];
-            if (!string.IsNullOrWhiteSpace(privateKeyPem))
+
+            // Prefer the resolved key; fall back to configuration so the config-only constructor and
+            // any direct configuration binding keep working.
+            string keyPem = !string.IsNullOrWhiteSpace(privateKeyPem)
+                ? privateKeyPem
+                : configuration?["Dpp:Esdc:PrivateKeyPem"];
+
+            if (!string.IsNullOrWhiteSpace(keyPem))
             {
-                _rsa.ImportFromPem(privateKeyPem);
+                _rsa.ImportFromPem(keyPem);
+            }
+            else if (requireResolvedKey)
+            {
+                throw new InvalidOperationException(
+                    "No ESDC signing key was resolved. The signing key must be stable, so the service refuses to fall back to an ephemeral key here.");
             }
 
             _publicKeyPem = _rsa.ExportSubjectPublicKeyInfoPem();
@@ -69,6 +108,37 @@ namespace Opc.Ua.Cloud.Library
                 // No certificate: derive a stable key id from the public key so verifiers can still
                 // select the matching trust anchor.
                 _keyId = Convert.ToHexString(SHA256.HashData(_rsa.ExportSubjectPublicKeyInfo()));
+            }
+
+            // Our own key always verifies what we issue.
+            _trustedKeys.Add(_rsa);
+
+            // Additional trust anchors let this instance verify ESDCs issued by peer operators.
+            // Configured as Dpp:Esdc:TrustedPublicKeysPem:0, :1, ... (SubjectPublicKeyInfo PEM).
+            IConfigurationSection trusted = configuration?.GetSection("Dpp:Esdc:TrustedPublicKeysPem");
+            if (trusted is not null)
+            {
+                foreach (IConfigurationSection child in trusted.GetChildren())
+                {
+                    if (string.IsNullOrWhiteSpace(child.Value))
+                    {
+                        continue;
+                    }
+
+                    var anchor = RSA.Create();
+                    try
+                    {
+                        anchor.ImportFromPem(child.Value);
+                        _trustedKeys.Add(anchor);
+                    }
+                    catch (ArgumentException)
+                    {
+                        // A malformed trust anchor must not silently widen or narrow trust.
+                        anchor.Dispose();
+                        throw new InvalidOperationException(
+                            $"Configured ESDC trust anchor '{child.Path}' is not a valid public key PEM.");
+                    }
+                }
             }
         }
 
@@ -113,6 +183,12 @@ namespace Opc.Ua.Cloud.Library
             };
         }
 
+        /// <summary>
+        /// Verifies that the ESDC was signed by a trusted key and that its envelope metadata matches
+        /// the signed credential. The verification key is taken from configuration (or this instance's
+        /// own key), never from the ESDC itself: trusting an embedded key would only prove the
+        /// document is internally consistent, which any attacker can arrange with a fresh key pair.
+        /// </summary>
         public bool Verify(ElectronicSignedDataConstruct esdc)
         {
             if (esdc?.VerifiableCredentialJwt is null)
@@ -128,7 +204,75 @@ namespace Opc.Ua.Cloud.Library
 
             try
             {
-                using RSA verifier = ResolveVerificationKey(esdc, parts[0]);
+                byte[] signature = Base64Url.DecodeFromChars(parts[2]);
+                byte[] signingInput = Encoding.UTF8.GetBytes(parts[0] + "." + parts[1]);
+
+                // Only trusted keys may satisfy verification.
+                bool signatureValid = false;
+                foreach (RSA trusted in _trustedKeys)
+                {
+                    if (trusted.VerifyData(signingInput, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1))
+                    {
+                        signatureValid = true;
+                        break;
+                    }
+                }
+
+                if (!signatureValid)
+                {
+                    return false;
+                }
+
+                using var header = JsonDocument.Parse(Base64Url.DecodeFromChars(parts[0]));
+                using var payload = JsonDocument.Parse(Base64Url.DecodeFromChars(parts[1]));
+
+                // Confirm the payload is actually a Verifiable Credential.
+                if (!IsVerifiableCredential(payload.RootElement))
+                {
+                    return false;
+                }
+
+                // The envelope duplicates metadata that is also inside the signed credential. Only the
+                // signed copy is authenticated, so the unsigned copy must be proven to agree with it -
+                // otherwise a caller could relabel the issuer or product and still verify.
+                return EnvelopeMatchesSignedContent(esdc, header.RootElement, payload.RootElement);
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
+            catch (CryptographicException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Checks only that the JWS is internally consistent with a key carried inside it. This proves
+        /// the document was not altered after signing, but says nothing about who signed it, so it must
+        /// not be used to decide whether an ESDC is authentic. Provided separately because independent
+        /// verifiers without access to the issuer's trust anchors may still want an integrity check.
+        /// </summary>
+        public static bool VerifyIntegrityOnly(ElectronicSignedDataConstruct esdc)
+        {
+            if (esdc?.VerifiableCredentialJwt is null)
+            {
+                return false;
+            }
+
+            string[] parts = esdc.VerifiableCredentialJwt.Split('.');
+            if (parts.Length != 3)
+            {
+                return false;
+            }
+
+            try
+            {
+                using RSA verifier = ResolveEmbeddedKey(esdc, parts[0]);
                 if (verifier is null)
                 {
                     return false;
@@ -141,7 +285,6 @@ namespace Opc.Ua.Cloud.Library
                     return false;
                 }
 
-                // Confirm the payload is actually a Verifiable Credential.
                 using var payload = JsonDocument.Parse(Base64Url.DecodeFromChars(parts[1]));
                 return IsVerifiableCredential(payload.RootElement);
             }
@@ -159,9 +302,72 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
-        // Resolves the public key to verify the JWS with: prefer the certificate chain embedded in the
-        // JWS header (x5c), then the certificate or public key carried by the ESDC envelope.
-        private static RSA ResolveVerificationKey(ElectronicSignedDataConstruct esdc, string encodedHeader)
+        // Requires every envelope field that is also covered by the signature to match its signed value.
+        private static bool EnvelopeMatchesSignedContent(ElectronicSignedDataConstruct esdc, JsonElement header, JsonElement credential)
+        {
+            if (!string.IsNullOrEmpty(esdc.Format) && !string.Equals(esdc.Format, MediaType, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrEmpty(esdc.SignatureAlgorithm) && !string.Equals(esdc.SignatureAlgorithm, Algorithm, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (!MatchesHeaderString(header, "alg", Algorithm) || !MatchesHeaderString(header, "typ", JwsType))
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrEmpty(esdc.KeyId) && !MatchesHeaderString(header, "kid", esdc.KeyId))
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrEmpty(esdc.Issuer) && !MatchesCredentialString(credential, "issuer", esdc.Issuer))
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrEmpty(esdc.Subject)
+                && (!credential.TryGetProperty("credentialSubject", out JsonElement subject)
+                    || !MatchesCredentialString(subject, "id", esdc.Subject)))
+            {
+                return false;
+            }
+
+            if (esdc.IssuedAt != default
+                && credential.TryGetProperty("validFrom", out JsonElement validFrom)
+                && validFrom.ValueKind == JsonValueKind.String)
+            {
+                if (!DateTimeOffset.TryParse(
+                        validFrom.GetString(),
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.RoundtripKind,
+                        out DateTimeOffset signedIssuedAt)
+                    || signedIssuedAt.ToUniversalTime() != esdc.IssuedAt.ToUniversalTime())
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool MatchesHeaderString(JsonElement header, string property, string expected) =>
+            header.TryGetProperty(property, out JsonElement value)
+            && value.ValueKind == JsonValueKind.String
+            && string.Equals(value.GetString(), expected, StringComparison.Ordinal);
+
+        private static bool MatchesCredentialString(JsonElement element, string property, string expected) =>
+            element.TryGetProperty(property, out JsonElement value)
+            && value.ValueKind == JsonValueKind.String
+            && string.Equals(value.GetString(), expected, StringComparison.Ordinal);
+
+        // Reads the key embedded in the document. Only ever used for the explicitly integrity-only
+        // check; never for deciding authenticity.
+        private static RSA ResolveEmbeddedKey(ElectronicSignedDataConstruct esdc, string encodedHeader)
         {
             using (var header = JsonDocument.Parse(Base64Url.DecodeFromChars(encodedHeader)))
             {
@@ -223,7 +429,13 @@ namespace Opc.Ua.Cloud.Library
 
         public void Dispose()
         {
-            _rsa.Dispose();
+            foreach (RSA trusted in _trustedKeys)
+            {
+                // _rsa is in this list; disposing it here covers it once.
+                trusted.Dispose();
+            }
+
+            _trustedKeys.Clear();
             _certificate?.Dispose();
         }
 

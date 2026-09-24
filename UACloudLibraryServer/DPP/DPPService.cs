@@ -8,6 +8,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Opc.Ua.Cloud.Library.Models;
 
@@ -38,13 +39,22 @@ namespace Opc.Ua.Cloud.Library
 
         /// <summary>
         /// Loads the per-DPP <c>controlledElements</c> mapping (element path -> permitted roles) from the
-        /// DPP's stored values blob. Returns an empty map when the DPP has no values or no mapping, in
-        /// which case every element is public.
+        /// DPP's stored values blob, together with whether that mapping was absent, valid, or malformed.
+        /// Callers must fail closed on <see cref="DppControlledElements.MappingState.Invalid"/>: an
+        /// unreadable policy is a failure to determine access, not proof that access is unrestricted.
         /// </summary>
-        public async Task<IReadOnlyDictionary<string, string[]>> GetControlledElementsAsync(string dppId)
+        public async Task<DppControlledElements.MappingResult> GetControlledElementsAsync(string dppId)
         {
             DbFiles file = await _storage.DownloadFileAsync(dppId).ConfigureAwait(false);
-            return DppControlledElements.Parse(file?.Values);
+            DppControlledElements.MappingResult mapping = DppControlledElements.Read(file?.Values);
+            if (mapping.IsInvalid)
+            {
+                _logger.LogError(
+                    "Controlled-elements mapping for DPP {DppId} is malformed; denying access to all elements until it is repaired.",
+                    dppId);
+            }
+
+            return mapping;
         }
 
         /// <summary>
@@ -55,8 +65,13 @@ namespace Opc.Ua.Cloud.Library
         /// </summary>
         public async Task<bool> CanReadElementAsync(string dppId, string elementIdPath, IEnumerable<string> callerRoles)
         {
-            IReadOnlyDictionary<string, string[]> controlled = await GetControlledElementsAsync(dppId).ConfigureAwait(false);
-            if (controlled.Count == 0)
+            DppControlledElements.MappingResult mapping = await GetControlledElementsAsync(dppId).ConfigureAwait(false);
+            if (mapping.IsInvalid)
+            {
+                return false;
+            }
+
+            if (mapping.Entries.Count == 0)
             {
                 return true;
             }
@@ -66,7 +81,113 @@ namespace Opc.Ua.Cloud.Library
                 return false;
             }
 
-            return _accessPolicy.CanRead(BuildElementPath(segments), callerRoles, controlled);
+            return _accessPolicy.CanRead(BuildElementPath(segments), callerRoles, mapping.Entries);
+        }
+
+        /// <summary>
+        /// True when a caller holding <paramref name="callerRoles"/> may modify the element addressed by
+        /// <paramref name="elementIdPath"/>. Write rights mirror read rights: an element controlled for
+        /// reading is equally controlled for writing, so a caller that may not see an element may not
+        /// change it either. Elements outside the mapping stay writable by any authorized API principal,
+        /// preserving the existing contract for public data.
+        /// </summary>
+        public async Task<bool> CanWriteElementAsync(string dppId, string elementIdPath, IEnumerable<string> callerRoles)
+        {
+            DppControlledElements.MappingResult mapping = await GetControlledElementsAsync(dppId).ConfigureAwait(false);
+            if (mapping.IsInvalid)
+            {
+                return false;
+            }
+
+            if (mapping.Entries.Count == 0)
+            {
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(elementIdPath) || !DppJsonPath.TryParse(elementIdPath, out IReadOnlyList<DppJsonPath.Segment> segments, out _))
+            {
+                return false;
+            }
+
+            return _accessPolicy.CanRead(BuildElementPath(segments), callerRoles, mapping.Entries);
+        }
+
+        /// <summary>
+        /// True when a caller holding <paramref name="callerRoles"/> may submit a whole-DPP patch.
+        /// Because such a patch can address any element, the caller must satisfy every controlled
+        /// element's role requirement; otherwise a partially-authorized writer could modify data it
+        /// cannot read. DPPs with no controlled elements stay writable by any authorized principal.
+        /// </summary>
+        public async Task<bool> CanWriteDppAsync(string dppId, IEnumerable<string> callerRoles)
+        {
+            DppControlledElements.MappingResult mapping = await GetControlledElementsAsync(dppId).ConfigureAwait(false);
+            if (mapping.IsInvalid)
+            {
+                return false;
+            }
+
+            if (mapping.Entries.Count == 0)
+            {
+                return true;
+            }
+
+            string[] roles = callerRoles?.ToArray() ?? Array.Empty<string>();
+            return mapping.Entries.Keys.All(path => _accessPolicy.CanRead(path, roles, mapping.Entries));
+        }
+
+        /// <summary>
+        /// Prunes a single element's subtree so that a readable ancestor never leaks controlled
+        /// descendants. Returns null when the element itself is not readable.
+        /// </summary>
+        public async Task<DataElement> FilterElementForRolesAsync(string dppId, string elementIdPath, DataElement element, IEnumerable<string> callerRoles)
+        {
+            if (element is null)
+            {
+                return null;
+            }
+
+            DppControlledElements.MappingResult mapping = await GetControlledElementsAsync(dppId).ConfigureAwait(false);
+            if (mapping.IsInvalid)
+            {
+                return null;
+            }
+
+            if (mapping.Entries.Count == 0)
+            {
+                return element;
+            }
+
+            string[] roles = callerRoles?.ToArray() ?? Array.Empty<string>();
+
+            // The addressed element's own path is the access key for its subtree. Strip the trailing
+            // element id so children are keyed by the same dotted path the mapping uses.
+            string basePath = null;
+            if (!string.IsNullOrWhiteSpace(elementIdPath) &&
+                DppJsonPath.TryParse(elementIdPath, out IReadOnlyList<DppJsonPath.Segment> segments, out _))
+            {
+                basePath = BuildElementPath(segments);
+            }
+
+            if (basePath is not null && !_accessPolicy.CanRead(basePath, roles, mapping.Entries))
+            {
+                return null;
+            }
+
+            string parentPath = TrimLastSegment(basePath);
+            List<DataElement> filtered = FilterElements(new List<DataElement> { element }, roles, mapping.Entries, parentPath);
+            return filtered.Count == 0 ? null : filtered[0];
+        }
+
+        // Drops the final dotted segment so a child's key is built as "<parent>.<elementId>".
+        private static string TrimLastSegment(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return null;
+            }
+
+            int index = path.LastIndexOf('.');
+            return index < 0 ? null : path.Substring(0, index);
         }
 
         // Builds the dotted element-id path used as the access key from parsed JSONPath segments,
@@ -104,7 +225,26 @@ namespace Opc.Ua.Cloud.Library
                 return null;
             }
 
-            IReadOnlyDictionary<string, string[]> controlled = await GetControlledElementsAsync(dpp.DigitalProductPassportId).ConfigureAwait(false);
+            IReadOnlyDictionary<string, string[]> controlled;
+            DppControlledElements.MappingResult mapping = await GetControlledElementsAsync(dpp.DigitalProductPassportId).ConfigureAwait(false);
+            if (mapping.IsInvalid)
+            {
+                // Fail closed: we cannot tell which elements are controlled, so expose none of them.
+                return new DigitalProductPassport {
+                    DigitalProductPassportId = dpp.DigitalProductPassportId,
+                    UniqueProductIdentifier = dpp.UniqueProductIdentifier,
+                    Granularity = dpp.Granularity,
+                    DppSchemaVersion = dpp.DppSchemaVersion,
+                    DppStatus = dpp.DppStatus,
+                    LastUpdate = dpp.LastUpdate,
+                    EconomicOperatorId = dpp.EconomicOperatorId,
+                    FacilityId = dpp.FacilityId,
+                    ContentSpecificationIds = dpp.ContentSpecificationIds,
+                    Elements = new List<DataElement>()
+                };
+            }
+
+            controlled = mapping.Entries;
             if (controlled.Count == 0)
             {
                 // No controlled elements for this DPP: everything is public, nothing to filter.
@@ -170,6 +310,23 @@ namespace Opc.Ua.Cloud.Library
             }
 
             return changed ? result : elements;
+        }
+
+        /// <summary>
+        /// True when <paramref name="userId"/> is allowed to see the nodeset backing a DPP, i.e. the
+        /// nodeset is published, ownerless, or owned by that user. A null/empty user id means an
+        /// anonymous caller and restricts the result to published nodesets.
+        /// </summary>
+        private async Task<bool> IsNodesetAccessibleAsync(string userId, string nodesetIdentifier)
+        {
+            if (string.IsNullOrWhiteSpace(nodesetIdentifier))
+            {
+                return false;
+            }
+
+            return await _dataProvider.GetNodeSets(userId, nodesetIdentifier)
+                .AnyAsync()
+                .ConfigureAwait(false);
         }
 
         public async Task<DigitalProductPassport> GetByDppId(string userId, string dppId)
@@ -1216,6 +1373,24 @@ namespace Opc.Ua.Cloud.Library
         // Browses the OPC UA address space to construct a DPP for the given nodeset identifier.
         private async Task<DigitalProductPassport> BrowseDppFromRootAsync(string userId, string nodesetIdentifier)
         {
+            // Authorization chokepoint for every DPP read path (direct id, product id, and versions).
+            // The browse below ultimately loads the nodeset blob via DbFileStorage.DownloadFileAsync,
+            // which applies no publication/ownership filter of its own, so an unguarded browse would
+            // let anyone who guesses an identifier read an unpublished or privately-owned DPP.
+            if (!await IsNodesetAccessibleAsync(userId, nodesetIdentifier).ConfigureAwait(false))
+            {
+                // Deliberately indistinguishable from "not found" so the endpoint does not confirm the
+                // existence of unpublished identifiers to unauthorized callers.
+                if (_logger.IsEnabled(LogLevel.Information))
+                {
+                    _logger.LogInformation(
+                        "Denied DPP browse of nodeset {NodesetIdentifier}: not published and not owned by the caller.",
+                        nodesetIdentifier);
+                }
+
+                return null;
+            }
+
             List<NodesetViewerNode> nodeList = await _client.GetChildren(userId, nodesetIdentifier, ObjectIds.ObjectsFolder.ToString()).ConfigureAwait(false);
             if (nodeList == null)
             {

@@ -1,7 +1,11 @@
 using System;
 using System.Buffers.Text;
+using System.Collections.Generic;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+
+using Microsoft.Extensions.Configuration;
 
 using Opc.Ua.Cloud.Library;
 using Opc.Ua.Cloud.Library.Models;
@@ -87,15 +91,110 @@ namespace UACloudLibraryServer.UnitTests
         }
 
         [Fact]
-        public void Credential_IsIndependentlyVerifiableByAnotherInstance()
+        public void Verify_RejectsCredentialFromUntrustedIssuer()
         {
             using var issuer = new RsaEsdcService(null);
             ElectronicSignedDataConstruct esdc = issuer.Issue(SampleDpp());
 
-            // A different service instance (with its own ephemeral key) must still verify the VC, because
-            // verification uses the public key embedded in the credential/envelope.
+            // A different instance has its own ephemeral key and no configured trust anchors, so it
+            // must NOT accept this credential. Accepting it would mean trusting the key the document
+            // carries, which proves only self-consistency - any forger can supply a matching key.
             using var independentVerifier = new RsaEsdcService(null);
-            Assert.True(independentVerifier.Verify(esdc));
+            Assert.False(independentVerifier.Verify(esdc));
+
+            // The signature itself is intact, which the integrity-only check confirms. That check is
+            // deliberately separate so it cannot be mistaken for proof of authenticity.
+            Assert.True(RsaEsdcService.VerifyIntegrityOnly(esdc));
+        }
+
+        [Fact]
+        public void Verify_RejectsSelfSignedForgery()
+        {
+            // A forger mints their own key pair, signs a credential of their choosing, and embeds the
+            // matching public key in the envelope. This is the attack the trusted-key check prevents.
+            using var forger = new RsaEsdcService(null);
+            ElectronicSignedDataConstruct forged = forger.Issue(SampleDpp());
+
+            using var legitimate = new RsaEsdcService(null);
+            Assert.False(legitimate.Verify(forged));
+        }
+
+        [Fact]
+        public void Verify_AcceptsCredentialFromConfiguredTrustAnchor()
+        {
+            using var issuer = new RsaEsdcService(null);
+            ElectronicSignedDataConstruct esdc = issuer.Issue(SampleDpp());
+
+            // Configuring the issuer's public key as a trust anchor is the supported way for a peer to
+            // verify another operator's ESDC.
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string> {
+                    ["Dpp:Esdc:TrustedPublicKeysPem:0"] = esdc.PublicKey
+                })
+                .Build();
+
+            using var verifier = new RsaEsdcService(configuration);
+            Assert.True(verifier.Verify(esdc));
+        }
+
+        [Fact]
+        public void Verify_RejectsEnvelopeMetadataThatContradictsSignedCredential()
+        {
+            using var service = new RsaEsdcService(null);
+            ElectronicSignedDataConstruct esdc = service.Issue(SampleDpp());
+
+            // Envelope fields are not covered by the signature, so a caller can rewrite them. Consumers
+            // that trust the envelope would be misled unless verification binds it to the signed copy.
+            var relabelled = new ElectronicSignedDataConstruct {
+                Issuer = "EO-IMPOSTER",
+                Subject = esdc.Subject,
+                IssuedAt = esdc.IssuedAt,
+                KeyId = esdc.KeyId,
+                Format = esdc.Format,
+                SignatureAlgorithm = esdc.SignatureAlgorithm,
+                VerifiableCredentialJwt = esdc.VerifiableCredentialJwt,
+                PublicKey = esdc.PublicKey,
+                Certificate = esdc.Certificate
+            };
+
+            Assert.False(service.Verify(relabelled));
+
+            var reSubjected = new ElectronicSignedDataConstruct {
+                Issuer = esdc.Issuer,
+                Subject = "prod-other",
+                IssuedAt = esdc.IssuedAt,
+                KeyId = esdc.KeyId,
+                Format = esdc.Format,
+                SignatureAlgorithm = esdc.SignatureAlgorithm,
+                VerifiableCredentialJwt = esdc.VerifiableCredentialJwt,
+                PublicKey = esdc.PublicKey,
+                Certificate = esdc.Certificate
+            };
+
+            Assert.False(service.Verify(reSubjected));
+        }
+            [Fact]
+            public void SharedSigningKey_KeepsCredentialsVerifiableAcrossInstances()
+            {
+                // The scenario a persisted key exists to protect: a restart (or a second replica) must be
+                // able to verify ESDCs issued earlier. Both instances get the same resolved key, standing
+                // in for one loaded from the database or a secret store.
+                using RSA key = RSA.Create(2048);
+                string privateKeyPem = key.ExportPkcs8PrivateKeyPem();
+
+                using var before = new RsaEsdcService(null, privateKeyPem);
+                ElectronicSignedDataConstruct esdc = before.Issue(SampleDpp());
+
+                using var afterRestart = new RsaEsdcService(null, privateKeyPem);
+                Assert.True(afterRestart.Verify(esdc));
+            }
+
+            [Fact]
+            public void ResolvedKeyConstructor_RefusesToRunWithoutAKey()
+            {
+                // Silently falling back to an ephemeral key here is exactly the defect being fixed, so the
+                // production constructor fails loudly instead.
+                Assert.Throws<InvalidOperationException>(() => new RsaEsdcService(null, null));
+            }
         }
     }
-}

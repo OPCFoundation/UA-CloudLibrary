@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+using System;
 
 using Opc.Ua.Cloud.Library;
 
@@ -30,19 +30,53 @@ namespace UACloudLibraryServer.UnitTests
             }
             """;
 
-            IReadOnlyDictionary<string, string[]> map = DppControlledElements.Parse(values);
+            DppControlledElements.MappingResult map = DppControlledElements.Read(values);
 
-            Assert.Equal(2, map.Count);
-            Assert.Equal(s_recyclerRepairer, map["materials.billOfMaterials"]);
-            Assert.Equal(s_customs, map["supplierInfo"]);
+            Assert.Equal(DppControlledElements.MappingState.Valid, map.State);
+            Assert.Equal(2, map.Entries.Count);
+            Assert.Equal(s_recyclerRepairer, map.Entries["materials.billOfMaterials"]);
+            Assert.Equal(s_customs, map.Entries["supplierInfo"]);
         }
 
         [Fact]
-        public void Parse_NoControlledElements_ReturnsEmpty()
+        public void Read_NoControlledElements_IsAbsentAndPublic()
         {
-            Assert.Empty(DppControlledElements.Parse("{ \"ns=1;i=1\": \"42\" }"));
-            Assert.Empty(DppControlledElements.Parse(null));
-            Assert.Empty(DppControlledElements.Parse("not json"));
+            Assert.Equal(DppControlledElements.MappingState.Absent, DppControlledElements.Read("{ \"ns=1;i=1\": \"42\" }").State);
+            Assert.Equal(DppControlledElements.MappingState.Absent, DppControlledElements.Read(null).State);
+        }
+
+        [Fact]
+        public void Read_MalformedValuesJson_IsInvalidRatherThanPublic()
+        {
+            // A parse failure must not be reported as "no controlled elements": callers treat an empty
+            // mapping as "everything is public", which would expose controlled data on corruption.
+            DppControlledElements.MappingResult result = DppControlledElements.Read("not json");
+
+            Assert.Equal(DppControlledElements.MappingState.Invalid, result.State);
+            Assert.True(result.IsInvalid);
+        }
+
+        [Fact]
+        public void Read_MalformedMappingShapes_AreInvalid()
+        {
+            // controlledElements present but not an object.
+            Assert.True(DppControlledElements.Read("{ \"controlledElements\": \"Recycler\" }").IsInvalid);
+
+            // An entry naming no usable role would otherwise be silently dropped, publishing it.
+            Assert.True(DppControlledElements.Read("{ \"controlledElements\": { \"materials\": [] } }").IsInvalid);
+            Assert.True(DppControlledElements.Read("{ \"controlledElements\": { \"materials\": null } }").IsInvalid);
+
+            // Root that is not a JSON object.
+            Assert.True(DppControlledElements.Read("[1,2,3]").IsInvalid);
+        }
+
+        [Fact]
+        public void Merge_MalformedExistingBlob_Throws()
+        {
+            // Rewriting an unreadable blob would discard a mapping we cannot see, silently turning
+            // controlled elements public.
+            Assert.Throws<InvalidOperationException>(
+                () => DppControlledElements.Merge("{ \"ns=1;i=1\": \"new\" }", "not json"));
         }
 
         [Fact]
@@ -57,9 +91,10 @@ namespace UACloudLibraryServer.UnitTests
 
             string merged = DppControlledElements.Merge(freshNodeValues, existing);
 
-            IReadOnlyDictionary<string, string[]> map = DppControlledElements.Parse(merged);
-            Assert.Single(map);
-            Assert.Equal(s_recycler, map["materials.billOfMaterials"]);
+            DppControlledElements.MappingResult map = DppControlledElements.Read(merged);
+            Assert.Equal(DppControlledElements.MappingState.Valid, map.State);
+            Assert.Single(map.Entries);
+            Assert.Equal(s_recycler, map.Entries["materials.billOfMaterials"]);
             Assert.Contains("\"new\"", merged);
         }
     }

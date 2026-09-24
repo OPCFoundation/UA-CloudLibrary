@@ -15,9 +15,16 @@ namespace Opc.Ua.Cloud.Library
         ElectronicSignedDataConstruct Issue(DigitalProductPassport dpp);
 
         /// <summary>
-        /// Verifies that the ESDC's signature matches its data and was produced by the configured
-        /// signing key. Returns false for any tampering or signature mismatch.
+        /// Verifies that the ESDC's signature matches its data, that it was produced by a trusted
+        /// signing key (this instance's own key or a configured trust anchor), and that the envelope
+        /// metadata agrees with the signed credential. Returns false for any tampering, signature
+        /// mismatch, or untrusted signer.
         /// </summary>
+        /// <remarks>
+        /// A key carried inside the ESDC is never trusted for this decision: anyone can mint a key
+        /// pair, sign their own credential, and embed the matching public key, so honouring it would
+        /// verify self-consistency rather than authenticity.
+        /// </remarks>
         bool Verify(ElectronicSignedDataConstruct esdc);
     }
 }

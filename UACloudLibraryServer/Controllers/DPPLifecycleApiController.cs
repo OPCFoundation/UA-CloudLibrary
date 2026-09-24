@@ -17,6 +17,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
     [Route("v1")]
     [Authorize(Policy = "ApiPolicy")]
     [EnableRateLimiting(Startup.DppRateLimitPolicy)]
+    [ServiceFilter(typeof(DppAuditFailureFilter))]
     [ApiController]
     public class DPPLifecycleApiController : ControllerBase
     {
@@ -32,9 +33,15 @@ namespace Opc.Ua.Cloud.Library.Controllers
         }
 
         // Anonymous public-read callers have no identity; EN 18246 §5.1 requires public DPP data to be
-        // reachable without login, so we resolve a stable operator id ("anonymous") and an empty role
-        // set for them. Authenticated callers contribute their role claims for controlled-data access.
+        // reachable without login, so we resolve a stable operator id ("anonymous") for the audit trail.
+        // Authenticated callers contribute their role claims for controlled-data access.
         private string OperatorId => User?.Identity?.Name ?? "anonymous";
+
+        // The identity used for *data access* decisions. This must stay null for anonymous callers:
+        // CloudLibDataProvider.GetNodesetUserFilter only applies its published-only fast path when the
+        // user id is null/empty, and would otherwise treat the literal "anonymous" as a signed-in user
+        // and expose ownerless (null UserId) nodesets. Never substitute OperatorId here.
+        private string AccessUserId => User?.Identity?.IsAuthenticated == true ? User.Identity.Name : null;
 
         private IReadOnlyList<string> CallerRoles =>
             User?.Claims?.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToArray()
@@ -55,7 +62,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [HttpGet("dpps/{dppId}")]
         public async Task<ActionResult<ApiResponse<DigitalProductPassport>>> ReadDppById([FromRoute][Required] string dppId)
         {
-            var dpp = await _dppService.GetByDppId(OperatorId, dppId).ConfigureAwait(false);
+            var dpp = await _dppService.GetByDppId(AccessUserId, dppId).ConfigureAwait(false);
 
             if (dpp is null)
             {
@@ -76,7 +83,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [HttpGet("dppsByProductId/{productId}")]
         public async Task<ActionResult<ApiResponse<DigitalProductPassport>>> ReadDppByProductId([FromRoute][Required] string productId)
         {
-            var dpp = await _dppService.GetByProductId(OperatorId, productId).ConfigureAwait(false);
+            var dpp = await _dppService.GetByProductId(AccessUserId, productId).ConfigureAwait(false);
 
             if (dpp is null)
             {
@@ -133,7 +140,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             // deduplication, ordinal sort and cursor parsing rules live in DppPagination so they
             // can be unit-tested without the HTTP pipeline; the controller only translates the
             // outcome into the spec-shaped ApiResponse envelope.
-            IEnumerable<string> rawIds = _dppService.GetDppIdsByProductIds(OperatorId, request.productIds);
+            IEnumerable<string> rawIds = _dppService.GetDppIdsByProductIds(AccessUserId, request.productIds);
             DppPagination.SliceOutcome outcome = DppPagination.TrySlice(
                 rawIds, limit, cursor,
                 out List<string> page,
@@ -157,15 +164,21 @@ namespace Opc.Ua.Cloud.Library.Controllers
         public async Task<ActionResult<ApiResponse<DataElement>>> ReadDataElement([FromRoute][Required] string dppId, [FromRoute][Required] string elementIdPath)
         {
             (DPPService.ElementResult result, string errorMessage, DataElement node) =
-                await _dppService.GetElement(OperatorId, dppId, elementIdPath).ConfigureAwait(false);
+                await _dppService.GetElement(AccessUserId, dppId, elementIdPath).ConfigureAwait(false);
 
             switch (result)
             {
                 case DPPService.ElementResult.Success:
                     // Controlled elements must not be served (or even revealed) to callers lacking the
                     // mapped role; report NotFound so a controlled element is indistinguishable from a
-                    // missing one for unauthorized/anonymous callers (EN 18239 §5.2).
-                    if (!await _dppService.CanReadElementAsync(dppId, elementIdPath, CallerRoles).ConfigureAwait(false))
+                    // missing one for unauthorized/anonymous callers (EN 18239 §5.2). Filtering the
+                    // subtree (rather than only checking the requested path) keeps a public collection
+                    // from leaking a controlled descendant when the collection itself is requested.
+                    DataElement visible = await _dppService
+                        .FilterElementForRolesAsync(dppId, elementIdPath, node, CallerRoles)
+                        .ConfigureAwait(false);
+
+                    if (visible is null)
                     {
                         return NotFound(new ApiResponse<DataElement>(
                             DppApiStatusCodes.ClientErrorResourceNotFound,
@@ -175,7 +188,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     }
 
                     await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Read, dppId, elementIdPath, "Success").ConfigureAwait(false);
-                    return Ok(new ApiResponse<DataElement>(DppApiStatusCodes.Success, node));
+                    return Ok(new ApiResponse<DataElement>(DppApiStatusCodes.Success, visible));
 
                 case DPPService.ElementResult.BadRequest:
                     return BadRequest(new ApiResponse<DataElement>(
@@ -204,6 +217,18 @@ namespace Opc.Ua.Cloud.Library.Controllers
             [FromRoute][Required] string dppId,
             [FromBody][Required] JsonObject partialDPP)
         {
+            // A whole-DPP patch may touch any element, so the caller must be entitled to every
+            // controlled element in this DPP before any write is resolved or applied.
+            if (!await _dppService.CanWriteDppAsync(dppId, CallerRoles).ConfigureAwait(false))
+            {
+                await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, null, "Denied").ConfigureAwait(false);
+                return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status403Forbidden, new ApiResponse<DigitalProductPassport>(
+                    DppApiStatusCodes.ClientForbidden,
+                    payload: null,
+                    result: new ApiResult(new() { new ApiMessage("Error", "Caller is not authorized to modify controlled elements of this DPP") })
+                ));
+            }
+
             (DPPService.UpdateDppResult result, string errorMessage, DigitalProductPassport updated) =
                 await _dppService.UpdateDppById(User.Identity.Name, dppId, partialDPP).ConfigureAwait(false);
 
@@ -211,7 +236,12 @@ namespace Opc.Ua.Cloud.Library.Controllers
             {
                 case DPPService.UpdateDppResult.Success:
                     await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, null, "Success").ConfigureAwait(false);
-                    return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, updated));
+
+                    // The updated DPP is returned verbatim from the write path, so apply the same role
+                    // filter used on reads; otherwise a writer without read rights would receive
+                    // controlled elements back in the response.
+                    DigitalProductPassport visible = await _dppService.FilterForRolesAsync(updated, CallerRoles).ConfigureAwait(false);
+                    return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, visible));
 
                 case DPPService.UpdateDppResult.NotFound:
                     return NotFound(new ApiResponse<DigitalProductPassport>(
@@ -248,6 +278,19 @@ namespace Opc.Ua.Cloud.Library.Controllers
             [FromRoute][Required] string elementIdPath,
             [FromBody][Required] JsonNode body)
         {
+            // Write rights mirror read rights: a caller who may not see a controlled element may not
+            // change it either. Checked before the update is resolved so an unauthorized write never
+            // reaches the address space.
+            if (!await _dppService.CanWriteElementAsync(dppId, elementIdPath, CallerRoles).ConfigureAwait(false))
+            {
+                await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "Denied").ConfigureAwait(false);
+                return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status403Forbidden, new ApiResponse<DataElement>(
+                    DppApiStatusCodes.ClientForbidden,
+                    payload: null,
+                    result: new ApiResult(new() { new ApiMessage("Error", "Caller is not authorized to modify this element") })
+                ));
+            }
+
             (DPPService.UpdateDppResult result, string errorMessage, DataElement updated) =
                 await _dppService.UpdateDataElement(User.Identity.Name, dppId, elementIdPath, body).ConfigureAwait(false);
 
@@ -255,7 +298,14 @@ namespace Opc.Ua.Cloud.Library.Controllers
             {
                 case DPPService.UpdateDppResult.Success:
                     await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "Success").ConfigureAwait(false);
-                    return Ok(new ApiResponse<DataElement>(DppApiStatusCodes.Success, updated));
+
+                    // Filter the echoed element so a controlled descendant is not returned to a caller
+                    // who may write the parent but not read the child.
+                    DataElement visible = await _dppService
+                        .FilterElementForRolesAsync(dppId, elementIdPath, updated, CallerRoles)
+                        .ConfigureAwait(false);
+
+                    return Ok(new ApiResponse<DataElement>(DppApiStatusCodes.Success, visible));
 
                 case DPPService.UpdateDppResult.NotFound:
                     return NotFound(new ApiResponse<DataElement>(
@@ -301,7 +351,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 ));
             }
 
-            DigitalProductPassport dpp = await _dppService.GetDppVersionByIdAndDate(OperatorId, dppId, asOf).ConfigureAwait(false);
+            DigitalProductPassport dpp = await _dppService.GetDppVersionByIdAndDate(AccessUserId, dppId, asOf).ConfigureAwait(false);
             if (dpp is null)
             {
                 return NotFound(new ApiResponse<DigitalProductPassport>(

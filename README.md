@@ -26,6 +26,7 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
   - [Write semantics, archival and persistence](#write-semantics-archival-and-persistence)
   - [Durable version archive](#durable-version-archive)
   - [Access control, audit and signing (EN 18239 / EN 18246)](#access-control-audit-and-signing-en-18239--en-18246)
+  - [ESDC signing key management](#esdc-signing-key-management)
   - [Standards conformance (EN 18239 / EN 18246)](#standards-conformance-en-18239--en-18246)
   - [Error responses](#error-responses)
 - [Database Configuration](#database-configuration)
@@ -356,9 +357,60 @@ Three security capabilities sit across the read and write paths. Each is keyed o
 
 [`DppControlledElements`](UACloudLibraryServer/DPP/DppControlledElements.cs) parses this object out of the DPP's stored values blob ([`IDppAccessPolicy`](UACloudLibraryServer/DPP/IDppAccessPolicy.cs) / [`DppAccessPolicy`](UACloudLibraryServer/DPP/DppAccessPolicy.cs) then evaluates it by element path, applying prefix/subtree semantics).
 
-**Tamper-evident audit log (EN 18246 Clause 4.7, EN 18239 §5.2(16)).** Every read (`GET`) and modify (`PATCH`) on a DPP, and every role/rights change, is recorded by [`IDppAuditLog`](UACloudLibraryServer/DPP/IDppAuditLog.cs) / [`DppAuditLog`](UACloudLibraryServer/DPP/DppAuditLog.cs) and bound to the acting operator id. Entries are SHA-256 hash-chained (each row hashes its content plus the previous hash), so any retrospective insert, edit or delete breaks the chain; `VerifyChainAsync` re-walks the chain. Rows persist in the `DppAuditEntries` table (migration `AddDppAuditLog`); logging never throws into the request path.
+Entries are SHA-256 hash-chained (each row hashes its content plus the previous hash), so any retrospective insert, edit or delete breaks the chain; `VerifyChainAsync` re-walks the chain and additionally compares it against a persisted checkpoint (`DppAuditCheckpoints`, migration `AddDppAuditCheckpoint`) so that deleting the most recent entries &mdash; which would otherwise leave a still-valid prefix &mdash; is also detected. Rows persist in the `DppAuditEntries` table (migration `AddDppAuditLog`). Appends run in a serializable transaction so concurrent writers, including separate instances, cannot branch the chain. If an entry cannot be durably committed the request fails with `503` rather than completing unlogged, because returning success for an access that was never recorded would forfeit the non-repudiation guarantee the log exists to provide.
 
-**Electronic Signed Data Constructs (EN 18246 Annex A / B.5, §4.7).** Full-DPP reads return an `X-DPP-ESDC` header carrying the ESDC as a **W3C Verifiable Credential** (VC Data Model 2.0) secured with an enveloped JWS (`application/vc+jwt`) per the W3C *Securing Verifiable Credentials using JOSE and COSE* recommendation. The DPP is the credential's `credentialSubject.digitalProductPassport`, the economic operator is the `issuer`, and the unique product identifier is the subject `id`. [`IEsdcService`](UACloudLibraryServer/DPP/IEsdcService.cs) / [`RsaEsdcService`](UACloudLibraryServer/DPP/RsaEsdcService.cs) sign with RS256; the key is loaded from `Dpp:Esdc:PrivateKeyPem` and an optional issuer certificate (`Dpp:Esdc:CertificatePem`) is embedded in the JWS header (`x5c`), otherwise an ephemeral process key is used. The VC-JWT is self-contained and independently verifiable by any VC-JWT verifier, free of charge and without contacting the issuer. Validating the issuer's certificate against an EU trusted list / governance framework (Annex A.3) is a deployment responsibility and is out of scope of this service.
+**Electronic Signed Data Constructs (EN 18246 Annex A / B.5, §4.7).** Full-DPP reads return an `X-DPP-ESDC` header carrying the ESDC as a **W3C Verifiable Credential** (VC Data Model 2.0) secured with an enveloped JWS (`application/vc+jwt`) per the W3C *Securing Verifiable Credentials using JOSE and COSE* recommendation. The DPP is the credential's `credentialSubject.digitalProductPassport`, the economic operator is the `issuer`, and the unique product identifier is the subject `id`. [`IEsdcService`](UACloudLibraryServer/DPP/IEsdcService.cs) / [`RsaEsdcService`](UACloudLibraryServer/DPP/RsaEsdcService.cs) sign with RS256, using the key resolved by [`IEsdcSigningKeyProvider`](UACloudLibraryServer/DPP/IEsdcSigningKeyProvider.cs) (see [ESDC signing key management](#esdc-signing-key-management)); an optional issuer certificate (`Dpp:Esdc:CertificatePem`) is embedded in the JWS header (`x5c`). The VC-JWT is self-contained and independently verifiable by any VC-JWT verifier, free of charge and without contacting the issuer. `Verify` accepts only signatures made by a **trusted** key &mdash; this server's own key or one listed in `Dpp:Esdc:TrustedPublicKeysPem` &mdash; and additionally requires the unsigned envelope fields to match the signed credential; a key embedded in a submitted ESDC is never trusted, since that would prove only self-consistency. Validating the issuer's certificate against an EU trusted list / governance framework (Annex A.3) is a deployment responsibility and is out of scope of this service.
+
+### ESDC signing key management
+
+The signing key is the sole basis on which a verifier decides an ESDC is authentic, so it **must be stable**. A key that changes between restarts, or differs between instances behind a load balancer, silently invalidates every ESDC issued under the previous key.
+
+[`EsdcSigningKeyProvider`](UACloudLibraryServer/DPP/EsdcSigningKeyProvider.cs) resolves the key in this order:
+
+| Order | Source | When to use |
+| --- | --- | --- |
+| 1 | `Dpp:Esdc:PrivateKeyPem` | **Required in production.** Supplied from a managed secret store; never stored in application data. |
+| 2 | `EsdcSigningKeys` table | Reused automatically once generated, so the key survives restarts and is shared by all instances. |
+| 3 | Newly generated RSA-2048 | Only when neither of the above exists, **and** only in Development or with `Dpp:Esdc:AllowGeneratedSigningKey=true`. |
+
+> **The server fails to start** outside the Development environment if no key is configured and `Dpp:Esdc:AllowGeneratedSigningKey` is not set to `true`. Signing production ESDCs with a key held in application data is a deliberate downgrade, so it has to be a decision you made on purpose &mdash; not one the server made quietly on your behalf. Starting cleanly and only revealing the problem when the first DPP is read would be worse: by then the weak key is already in use and in your backups.
+
+#### Generating a key
+
+```bash
+# Private key (PKCS#8 PEM) - keep secret
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out esdc-signing-key.pem
+
+# Public key - safe to publish; this is what verifiers configure as a trust anchor
+openssl rsa -pubout -in esdc-signing-key.pem -out esdc-public-key.pem
+```
+
+Optionally issue a certificate over the same key and supply it as `Dpp:Esdc:CertificatePem`; it is embedded as `x5c` so verifiers can chain the key to an accredited economic operator.
+
+#### Storing it securely
+
+Provide the PEM through configuration &mdash; never commit it to source control or bake it into a container image:
+
+- **Azure Key Vault** (recommended for the hosted deployment): store as secret `Dpp--Esdc--PrivateKeyPem` and reference it from App Service/Container Apps, or load it with the Key Vault configuration provider.
+- **Environment variable**: `Dpp__Esdc__PrivateKeyPem` (double underscores map to the `:` hierarchy).
+- **Kubernetes**: mount a `Secret` and project it into that environment variable.
+- **Local development**: `dotnet user-secrets set "Dpp:Esdc:PrivateKeyPem" "$(cat esdc-signing-key.pem)"` &mdash; keeps it out of `appsettings.json`.
+
+Restrict read access to the secret to the application identity, and rely on the secret store's own audit log to record access.
+
+> **On the generated fallback key.** If no key is configured, the server generates one and stores it in the `EsdcSigningKeys` table (migration `AddEsdcSigningKey`). This keeps ESDCs verifiable across restarts and replicas, which an in-memory key cannot do &mdash; but the private key is then present in every database backup and readable by anything with database access. It is intended for development and evaluation. Outside Development it is refused unless you set `Dpp:Esdc:AllowGeneratedSigningKey=true`, and even then the server logs a warning at startup naming the environment it is running in.
+
+#### Rotation
+
+Rotating the key changes `KeyId` and invalidates ESDCs signed with the old key, so treat it as a coordinated change:
+
+1. Generate a new key pair and distribute the **new public key** to verifiers as an additional trust anchor.
+2. Keep the old public key in their `Dpp:Esdc:TrustedPublicKeysPem` list until previously issued ESDCs are no longer relied upon &mdash; both keys can be trusted simultaneously.
+3. Update `Dpp:Esdc:PrivateKeyPem` and restart. A configured key always takes precedence, so this also cleanly supersedes a previously generated fallback key.
+4. Once the old key is retired, remove it from the verifiers' trust anchors.
+
+To verify ESDCs issued by *other* economic operators, add their public key PEMs as `Dpp:Esdc:TrustedPublicKeysPem:0`, `:1`, and so on. A malformed entry fails startup rather than silently narrowing trust.
+
 
 **Access-rights management & revocation (EN 18239 §5.2(16)/(17)/(19), §6.3).** Roles and their assignments are managed through [`AccessController`](UACloudLibraryServer/Controllers/AccessController.cs) (admin-only, `AdministrationPolicy`): `PUT`/`DELETE /access/roles/{roleName}` create/delete a role, and `PUT`/`DELETE /access/userRoles/{userId}/{roleName}` grant/revoke a role for an actor. The `DELETE` routes provide the documented access-revocation process and emergency revocation on breach or non-compliance. Every grant, revoke, create and delete is written to the tamper-evident audit log, bound to the acting administrator.
 
@@ -448,6 +500,11 @@ Curtail bot access using the Google reCAPTCHA.
 * `CaptchaSettings__SecretKey`: Private key. Obtain from reCAPTCHA admin console.
 * `CaptchaSettings__SiteKey`: Public key. Obtain from reCAPTCHA admin console.
 * `CaptchaSettings__BotThreshold`: Minimum score between 0.0 (bot likely) and 1.0 (human likely). (default: `0.5`)
+* `Dpp__Esdc__PrivateKeyPem`: PKCS#8 PEM private key used to sign ESDCs. **Required in production** &mdash; the server refuses to start without it unless `Dpp__Esdc__AllowGeneratedSigningKey` is `true`. See [ESDC signing key management](#esdc-signing-key-management).
+* `Dpp__Esdc__AllowGeneratedSigningKey`: Set to `true` to permit a server-generated key stored in the database outside Development. (default: `false`)
+* `Dpp__Esdc__CertificatePem`: Optional issuer certificate PEM, embedded in the JWS header (`x5c`).
+* `Dpp__Esdc__TrustedPublicKeysPem__0`, `__1`, ...: Optional public key PEMs of peer economic operators whose ESDCs this server should accept.
+* `Dpp__RateLimit__PermitPerMinute`: Requests permitted per minute per client IP on the DPP endpoints. (default: `100`)
 
 **Note: A double underscore ('__') in environment variable keys creates nested configuration sections (hierarchical keys).**
 

@@ -23,17 +23,59 @@ namespace Opc.Ua.Cloud.Library
         public const string PropertyName = "controlledElements";
 
         /// <summary>
-        /// Parses the <c>controlledElements</c> object out of a DPP values JSON string into a
-        /// case-insensitive map of element path to its permitted roles. Returns an empty map when the
-        /// values JSON is absent, malformed, or carries no mapping (⇒ all elements public). Each entry's
-        /// value may be a single role string or an array of role strings.
+        /// Outcome of reading the reserved mapping. <see cref="Absent"/> and <see cref="Valid"/> are
+        /// authoritative answers; <see cref="Invalid"/> means the mapping could not be understood and
+        /// therefore says nothing about which elements are controlled.
         /// </summary>
-        public static IReadOnlyDictionary<string, string[]> Parse(string valuesJson)
+        public enum MappingState
+        {
+            /// <summary>No mapping is present, so every element is public.</summary>
+            Absent,
+
+            /// <summary>A well-formed mapping was read.</summary>
+            Valid,
+
+            /// <summary>The values blob or the mapping itself is malformed and cannot be trusted.</summary>
+            Invalid
+        }
+
+        /// <summary>
+        /// The parsed mapping together with its <see cref="MappingState"/>. Callers must treat
+        /// <see cref="MappingState.Invalid"/> as deny-all rather than as an empty (public) mapping:
+        /// an unreadable access policy is a failure to determine access, not evidence of its absence.
+        /// </summary>
+        public sealed class MappingResult
+        {
+            internal MappingResult(MappingState state, IReadOnlyDictionary<string, string[]> entries)
+            {
+                State = state;
+                Entries = entries;
+            }
+
+            public MappingState State { get; }
+
+            public IReadOnlyDictionary<string, string[]> Entries { get; }
+
+            /// <summary>True when the mapping could not be read and access must be denied.</summary>
+            public bool IsInvalid => State == MappingState.Invalid;
+        }
+
+        /// <summary>
+        /// Parses the <c>controlledElements</c> object out of a DPP values JSON string into a
+        /// case-insensitive map of element path to its permitted roles, reporting whether the mapping
+        /// was absent, valid, or malformed. Each entry's value may be a single role string or an array
+        /// of role strings; an entry that names no usable role makes the whole mapping
+        /// <see cref="MappingState.Invalid"/>, because silently dropping it would publish an element
+        /// that the author intended to control.
+        /// </summary>
+        public static MappingResult Read(string valuesJson)
         {
             var map = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+            // A DPP with no stored values has no elements to protect.
             if (string.IsNullOrWhiteSpace(valuesJson))
             {
-                return map;
+                return new MappingResult(MappingState.Absent, map);
             }
 
             JsonNode root;
@@ -43,24 +85,39 @@ namespace Opc.Ua.Cloud.Library
             }
             catch (JsonException)
             {
-                return map;
+                // The blob that would carry the mapping is unreadable, so we cannot conclude the
+                // mapping is absent - any controlled element it declared is now unknown to us.
+                return new MappingResult(MappingState.Invalid, map);
             }
 
-            if (root is not JsonObject obj || FindProperty(obj, PropertyName) is not JsonObject controlled)
+            if (root is not JsonObject obj)
             {
-                return map;
+                return new MappingResult(MappingState.Invalid, map);
+            }
+
+            JsonNode controlledNode = FindProperty(obj, PropertyName);
+            if (controlledNode is null)
+            {
+                return new MappingResult(MappingState.Absent, map);
+            }
+
+            if (controlledNode is not JsonObject controlled)
+            {
+                return new MappingResult(MappingState.Invalid, map);
             }
 
             foreach (KeyValuePair<string, JsonNode> entry in controlled)
             {
                 string[] roles = ParseRoles(entry.Value);
-                if (!string.IsNullOrWhiteSpace(entry.Key) && roles.Length > 0)
+                if (string.IsNullOrWhiteSpace(entry.Key) || roles.Length == 0)
                 {
-                    map[entry.Key] = roles;
+                    return new MappingResult(MappingState.Invalid, new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase));
                 }
+
+                map[entry.Key] = roles;
             }
 
-            return map;
+            return new MappingResult(MappingState.Valid, map);
         }
 
         /// <summary>
@@ -68,12 +125,22 @@ namespace Opc.Ua.Cloud.Library
         /// <c>controlledElements</c> mapping carried by <paramref name="existingValuesJson"/> so it
         /// survives value rewrites (browse-and-persist drops anything that is not a node value).
         /// </summary>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown when <paramref name="existingValuesJson"/> is present but unreadable. Rewriting it
+        /// would silently discard an access mapping we cannot see, turning controlled elements public.
+        /// </exception>
         public static string Merge(string nodeValuesJson, string existingValuesJson)
         {
             JsonObject result = ParseObject(nodeValuesJson);
 
             // Node browses never produce this key, but strip any stray copy before re-attaching.
             RemoveProperty(result, PropertyName);
+
+            if (!string.IsNullOrWhiteSpace(existingValuesJson) && TryParseObject(existingValuesJson) is null)
+            {
+                throw new InvalidOperationException(
+                    "Existing DPP values JSON is malformed; refusing to rewrite it because that would discard any controlled-element mapping it carries.");
+            }
 
             JsonObject existing = ParseObject(existingValuesJson);
             JsonNode controlled = FindProperty(existing, PropertyName);
@@ -84,6 +151,18 @@ namespace Opc.Ua.Cloud.Library
             }
 
             return result.ToJsonString();
+        }
+
+        private static JsonObject TryParseObject(string json)
+        {
+            try
+            {
+                return JsonNode.Parse(json) as JsonObject;
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
         }
 
         private static JsonObject ParseObject(string json)
