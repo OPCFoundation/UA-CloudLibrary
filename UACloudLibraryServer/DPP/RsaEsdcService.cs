@@ -315,6 +315,18 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
+        /// <summary>
+        /// True when this instance's signing key is authorized to sign for the DPP's economic
+        /// operator. Shares its rule with <see cref="Issue"/> so the two cannot drift apart.
+        /// </summary>
+        public bool CanIssueFor(DigitalProductPassport dpp)
+        {
+            ArgumentNullException.ThrowIfNull(dpp);
+
+            return _economicOperatorId is null
+                || string.Equals(dpp.EconomicOperatorId, _economicOperatorId, StringComparison.Ordinal);
+        }
+
         public ElectronicSignedDataConstruct Issue(DigitalProductPassport dpp)
         {
             ArgumentNullException.ThrowIfNull(dpp);
@@ -323,8 +335,7 @@ namespace Opc.Ua.Cloud.Library
             // statement about who signed it. Without this check any hosted passport could be signed
             // as - and then verified as - any economic operator it happened to name. Bind issuance to
             // the configured operator so the signature only ever asserts an identity we actually hold.
-            if (_economicOperatorId is not null
-                && !string.Equals(dpp.EconomicOperatorId, _economicOperatorId, StringComparison.Ordinal))
+            if (!CanIssueFor(dpp))
             {
                 throw new InvalidOperationException(
                     $"Refusing to issue an ESDC for economic operator '{dpp.EconomicOperatorId}': this server signs only for " +

@@ -33,7 +33,13 @@ namespace Opc.Ua.Cloud.Library
         private readonly object _gate = new();
         private byte[] _cachedKey;
         private string _cachedKeyId;
-        private bool _resolved;
+
+        // Volatile because EnsureResolved reads this outside the lock as the fast path of a
+        // double-checked lock. Without the barrier a thread could observe _resolved == true while
+        // still seeing a stale null _keysById/_cachedKey, since ordinary writes to those fields may
+        // be reordered past the flag. The volatile write below is a release barrier: every field
+        // assigned before it is visible to any thread that reads _resolved == true.
+        private volatile bool _resolved;
         private Dictionary<string, byte[]> _keysById;
 
         public DppAuditKeyProvider(IConfiguration configuration, ILoggerFactory loggerFactory)
@@ -144,6 +150,8 @@ namespace Opc.Ua.Cloud.Library
                 }
 
                 _keysById = keysById;
+
+                // Must be the last write in this block: it publishes every field above.
                 _resolved = true;
             }
         }

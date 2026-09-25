@@ -15,6 +15,20 @@ namespace Opc.Ua.Cloud.Library
         ElectronicSignedDataConstruct Issue(DigitalProductPassport dpp);
 
         /// <summary>
+        /// True when this service holds signing material authorized to issue for
+        /// <paramref name="dpp"/>'s economic operator.
+        /// </summary>
+        /// <remarks>
+        /// A library instance hosts passports for arbitrary operators, but signs only for the one it
+        /// represents. Reads of a third-party passport are still legitimate, so callers use this to
+        /// omit the ESDC rather than letting <see cref="Issue"/> throw and turn a valid read into a
+        /// 500. Issuance remains guarded independently: <see cref="Issue"/> still refuses a
+        /// mismatched operator, so this check is an availability convenience, not the security
+        /// boundary.
+        /// </remarks>
+        bool CanIssueFor(DigitalProductPassport dpp);
+
+        /// <summary>
         /// Verifies that the ESDC's signature matches its data, that it was produced by a trusted
         /// signing key (this instance's own key or a configured trust anchor), and that the envelope
         /// metadata agrees with the signed credential. Returns false for any tampering, signature

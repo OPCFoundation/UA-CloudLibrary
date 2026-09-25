@@ -244,6 +244,30 @@ namespace UACloudLibraryServer.UnitTests
         }
 
         [Fact]
+        public void CanIssueFor_AgreesWithIssue()
+        {
+            // The API layer asks CanIssueFor to decide whether to omit the ESDC rather than letting
+            // Issue throw and turn a valid public read into a 500. If the two ever disagreed, that
+            // read would start throwing again, so pin them together.
+            using var service = new RsaEsdcService(OperatorConfiguration("EO-1"));
+
+            Assert.True(service.CanIssueFor(SampleDppFor("EO-1")));
+            Assert.False(service.CanIssueFor(SampleDppFor("EO-SOMEONE-ELSE")));
+
+            Assert.Throws<InvalidOperationException>(() => service.Issue(SampleDppFor("EO-SOMEONE-ELSE")));
+        }
+
+        [Fact]
+        public void CanIssueFor_IsTrueForEveryOperator_WhenNoOperatorIsConfigured()
+        {
+            // The unconfigured constructor is the test/verification-only path; it has no operator
+            // binding, so it must not claim it cannot sign.
+            using var service = new RsaEsdcService(null);
+
+            Assert.True(service.CanIssueFor(SampleDppFor("EO-ANYONE")));
+        }
+
+        [Fact]
         public void OwnKey_CannotVouchForADifferentOperatorThanItIsBoundTo()
         {
             // An ESDC genuinely signed by an EO-1 server, then relabelled in the signed payload by a

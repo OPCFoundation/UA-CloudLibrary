@@ -281,9 +281,30 @@ namespace Opc.Ua.Cloud.Library
                 return null;
             }
 
-            IReadOnlyDictionary<string, string[]> controlled;
             DppControlledElements.MappingResult mapping = await GetControlledElementsAsync(dpp.DigitalProductPassportId).ConfigureAwait(false);
-            if (mapping.IsInvalid)
+            return FilterForRoles(dpp, callerRoles, mapping);
+        }
+
+        /// <summary>
+        /// As <see cref="FilterForRolesAsync(DigitalProductPassport, IEnumerable{string})"/>, but
+        /// applies an explicitly supplied mapping instead of loading the DPP's current one.
+        /// </summary>
+        /// <remarks>
+        /// Historical reads must use this: the stored mapping only describes the DPP as it is now, so
+        /// filtering an archived version against it would publish an element that was controlled at
+        /// the requested date and has since been un-mapped.
+        /// </remarks>
+        public DigitalProductPassport FilterForRoles(
+            DigitalProductPassport dpp,
+            IEnumerable<string> callerRoles,
+            DppControlledElements.MappingResult mapping)
+        {
+            if (dpp is null)
+            {
+                return null;
+            }
+
+            if (mapping is null || mapping.IsInvalid)
             {
                 // Fail closed: we cannot tell which elements are controlled, so expose none of them.
                 return new DigitalProductPassport {
@@ -300,7 +321,7 @@ namespace Opc.Ua.Cloud.Library
                 };
             }
 
-            controlled = mapping.Entries;
+            IReadOnlyDictionary<string, string[]> controlled = mapping.Entries;
             if (controlled.Count == 0)
             {
                 // No controlled elements for this DPP: everything is public, nothing to filter.
@@ -399,13 +420,13 @@ namespace Opc.Ua.Cloud.Library
 
         /// <summary>
         /// Returns the DPP snapshot that was active at <paramref name="asOfUtc"/>, per
-        /// EN 18222 (Method ReadDPPVersionByIdAndDate). If the requested timestamp is at or after
-        /// the live DPP's own <see cref="DigitalProductPassport.LastUpdate"/>, the live DPP is
-        /// returned; otherwise the archive is consulted for the latest snapshot at or before that
-        /// timestamp. Returns <c>null</c> when no version of the DPP existed at the requested
-        /// point in time.
+        /// EN 18222 (Method ReadDPPVersionByIdAndDate), together with the access policy that applied
+        /// to that version. If the requested timestamp is at or after the live DPP's own
+        /// <see cref="DigitalProductPassport.LastUpdate"/>, the live DPP is returned; otherwise the
+        /// archive is consulted for the latest snapshot at or before that timestamp. Returns
+        /// <c>null</c> when no version of the DPP existed at the requested point in time.
         /// </summary>
-        public async Task<DigitalProductPassport> GetDppVersionByIdAndDate(string userId, string dppId, DateTimeOffset asOfUtc)
+        public async Task<DppVersionSnapshot> GetDppVersionByIdAndDate(string userId, string dppId, DateTimeOffset asOfUtc)
         {
             DateTimeOffset target = asOfUtc.ToUniversalTime();
 
@@ -436,13 +457,15 @@ namespace Opc.Ua.Cloud.Library
             DigitalProductPassport live = await GetByDppId(userId, dppId).ConfigureAwait(false);
             if (live != null && live.LastUpdate.ToUniversalTime() <= target)
             {
-                return live;
+                // The live version's policy is the current stored mapping, by definition.
+                DbFiles liveFile = await _storage.DownloadFileAsync(dppId).ConfigureAwait(false);
+                return new DppVersionSnapshot(live, liveFile?.Values, policyArchived: true);
             }
 
             // Target is strictly earlier than the live DPP's activation time (or the DPP has no
             // live counterpart at all). Look up the latest archived snapshot whose valid-from
             // timestamp is at or before the target.
-            DigitalProductPassport archived = await _archive.GetVersionAtAsync(dppId, target).ConfigureAwait(false);
+            DppVersionSnapshot archived = await _archive.GetVersionAtAsync(dppId, target).ConfigureAwait(false);
             if (archived != null)
             {
                 return archived;
@@ -452,6 +475,44 @@ namespace Opc.Ua.Cloud.Library
             // "no version existed at that point in time" case (e.g. the target predates the very
             // first archived version), so a 404 from the controller is correct.
             return null;
+        }
+
+        /// <summary>
+        /// Filters an archived version against the access policy that was in force when it was
+        /// captured, rather than the DPP's current mapping.
+        /// </summary>
+        /// <remarks>
+        /// Snapshots written before the archive recorded policy carry none. Their policy cannot be
+        /// reconstructed, and substituting today's mapping is precisely the disclosure this guards
+        /// against, so those versions are filtered as if every element were controlled: the caller
+        /// receives the DPP's public envelope with no data elements.
+        /// </remarks>
+        public DigitalProductPassport FilterVersionForRoles(DppVersionSnapshot snapshot, IEnumerable<string> callerRoles)
+        {
+            if (snapshot?.Dpp is null)
+            {
+                return null;
+            }
+
+            if (!snapshot.PolicyArchived)
+            {
+                _logger.LogWarning(
+                    "DPP {DppId} has an archived version with no recorded access policy; withholding all elements rather than applying the current mapping to historical data.",
+                    snapshot.Dpp.DigitalProductPassportId);
+
+                // Passing a null mapping selects the fail-closed path.
+                return FilterForRoles(snapshot.Dpp, callerRoles, mapping: null);
+            }
+
+            DppControlledElements.MappingResult mapping = DppControlledElements.Read(snapshot.ControlledElementsValuesJson);
+            if (mapping.IsInvalid)
+            {
+                _logger.LogError(
+                    "Archived controlled-elements mapping for DPP {DppId} is malformed; denying access to all elements.",
+                    snapshot.Dpp.DigitalProductPassportId);
+            }
+
+            return FilterForRoles(snapshot.Dpp, callerRoles, mapping);
         }
 
         public async Task<DigitalProductPassport> GetByProductId(string userId, string productId)
@@ -818,7 +879,14 @@ namespace Opc.Ua.Cloud.Library
                 return (UpdateDppResult.NotFound, null, null);
             }
 
-            // EN 18222 requires that "if the update of some parts fails the complete update process
+            // Capture the access policy that governs the pre-update version too, and capture it now:
+            // PersistNodesetValuesAsync below rewrites the values blob this mapping lives in, so
+            // reading it at archive time would record the post-update policy against the pre-update
+            // data. That mismatch is what lets a historical read expose an element whose control was
+            // removed by this very update.
+            DbFiles preUpdateFile = await _storage.DownloadFileAsync(dppId).ConfigureAwait(false);
+            string preUpdatePolicy = preUpdateFile?.Values;
+
             // will fail and there should be no changes adopted in the DPP". OPC UA writes are not
             // transactional, so we honor that contract on a best-effort basis: capture each target's
             // current value immediately before writing it, and on the first write failure attempt to
@@ -893,7 +961,7 @@ namespace Opc.Ua.Cloud.Library
             //
             // preUpdate is guaranteed non-null here (we failed fast above if the snapshot could not
             // be captured), so we always have a previous version to archive.
-            bool archived = await _archive.ArchiveAsync(dppId, preUpdate, preUpdate.LastUpdate.ToUniversalTime()).ConfigureAwait(false);
+            bool archived = await _archive.ArchiveAsync(dppId, preUpdate, preUpdatePolicy, preUpdate.LastUpdate.ToUniversalTime()).ConfigureAwait(false);
             if (!archived)
             {
                 _logger.LogError("UpdateDppById: archive write failed for DPP {DppId}; rolling back durable update to honor no-changes-on-failure contract.", dppId);
@@ -1061,6 +1129,11 @@ namespace Opc.Ua.Cloud.Library
                 return (UpdateDppResult.NotFound, null, null);
             }
 
+            // Capture the pre-update access policy now, before PersistNodesetValuesAsync rewrites
+            // the values blob it lives in; see the matching comment in UpdateDppById.
+            DbFiles elementPreUpdateFile = await _storage.DownloadFileAsync(dppId).ConfigureAwait(false);
+            string elementPreUpdatePolicy = elementPreUpdateFile?.Values;
+
             // Capture the live leaf value immediately before the write so we can roll back to it
             // if any of the subsequent steps fail. Mirrors the appliedWrites bookkeeping in
             // UpdateDppById and keeps the best-effort "no changes adopted on failure" contract
@@ -1120,7 +1193,7 @@ namespace Opc.Ua.Cloud.Library
             //
             // preUpdate is guaranteed non-null here (we failed fast above if the snapshot could not
             // be captured), so we always have a previous version to archive.
-            bool archived = await _archive.ArchiveAsync(dppId, preUpdate, preUpdate.LastUpdate.ToUniversalTime()).ConfigureAwait(false);
+            bool archived = await _archive.ArchiveAsync(dppId, preUpdate, elementPreUpdatePolicy, preUpdate.LastUpdate.ToUniversalTime()).ConfigureAwait(false);
             if (!archived)
             {
                 _logger.LogError("UpdateDataElement: archive write failed for DPP {DppId}; rolling back durable update to honor no-changes-on-failure contract.", dppId);

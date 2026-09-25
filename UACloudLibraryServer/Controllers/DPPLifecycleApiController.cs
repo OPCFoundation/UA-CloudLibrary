@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Logging;
 using Opc.Ua.Cloud.Library.Models;
 
 namespace Opc.Ua.Cloud.Library.Controllers
@@ -30,12 +31,18 @@ namespace Opc.Ua.Cloud.Library.Controllers
         private readonly DPPService _dppService;
         private readonly IDppAuditLog _auditLog;
         private readonly IEsdcService _esdc;
+        private readonly ILogger<DPPLifecycleApiController> _logger;
 
-        public DPPLifecycleApiController(DPPService dppService, IDppAuditLog auditLog, IEsdcService esdc)
+        public DPPLifecycleApiController(
+            DPPService dppService,
+            IDppAuditLog auditLog,
+            IEsdcService esdc,
+            ILogger<DPPLifecycleApiController> logger)
         {
             _dppService = dppService;
             _auditLog = auditLog;
             _esdc = esdc;
+            _logger = logger;
         }
 
         // Anonymous public-read callers have no identity; EN 18246 §5.1 requires public DPP data to be
@@ -61,11 +68,32 @@ namespace Opc.Ua.Cloud.Library.Controllers
         // header limits, which would make otherwise valid reads fail operationally. Only the compact
         // key id goes in a header, so a verifier can select its trust anchor without parsing the body.
         //
-        // Callers must append the audit record *before* calling this. The ESDC carries the full DPP,
-        // so producing it before the read is durably logged would let a refused (503) unaudited read
-        // still hand over the data.
+        // Returns null - and the response then omits the ESDC - when this server holds no signing
+        // material for the DPP's economic operator. The library hosts passports for arbitrary
+        // operators but signs only for the one it represents, so an unsigned read is the correct
+        // outcome there rather than a 500 on an otherwise valid public GET. The ESDC is optional in
+        // the response model precisely because it cannot always be produced.
+        //
+        // Callers must build this *before* recording the audit entry and pass the result in: the
+        // ESDC carries the full DPP, so producing it after the read is logged is fine, but the
+        // audit record must not claim Success for a read that then fails to complete. No response
+        // bytes are sent until the action returns, so ordering issuance first cannot disclose data
+        // that a subsequent audit failure (503) is meant to withhold.
         private ElectronicSignedDataConstruct IssueEsdc(DigitalProductPassport dpp)
         {
+            if (!_esdc.CanIssueFor(dpp))
+            {
+                if (_logger.IsEnabled(LogLevel.Information))
+                {
+                    _logger.LogInformation(
+                        "Returning DPP {DppId} without an ESDC: this server does not hold signing material for economic operator {EconomicOperatorId}.",
+                        dpp.DigitalProductPassportId,
+                        dpp.EconomicOperatorId);
+                }
+
+                return null;
+            }
+
             ElectronicSignedDataConstruct esdc = _esdc.Issue(dpp);
 
             if (!string.IsNullOrEmpty(esdc.KeyId))
@@ -95,10 +123,14 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             dpp = await _dppService.FilterForRolesAsync(dpp, CallerRoles).ConfigureAwait(false);
 
-            // Audit before the ESDC exists: the ESDC embeds the full DPP, so issuing it first would
-            // leave the data on a response that the audit filter then turns into a 503.
+            // Build the ESDC first so any signing failure surfaces before the audit log claims the
+            // read succeeded. This discloses nothing early: the ESDC is an in-memory object and no
+            // response bytes are written until this action returns, so an audit failure downstream
+            // still turns the whole read into a 503 without handing over the data.
+            ElectronicSignedDataConstruct esdc = IssueEsdc(dpp);
+
             await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Read, dppId, null, "Success").ConfigureAwait(false);
-            return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, dpp, esdc: IssueEsdc(dpp)));
+            return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, dpp, esdc: esdc));
         }
 
         [AllowAnonymous]
@@ -118,9 +150,11 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             dpp = await _dppService.FilterForRolesAsync(dpp, CallerRoles).ConfigureAwait(false);
 
-            // Audit before issuing the ESDC; see ReadDppById.
+            // Issue before auditing; see ReadDppById.
+            ElectronicSignedDataConstruct esdc = IssueEsdc(dpp);
+
             await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Read, dpp.DigitalProductPassportId, null, "Success").ConfigureAwait(false);
-            return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, dpp, esdc: IssueEsdc(dpp)));
+            return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, dpp, esdc: esdc));
         }
 
         [AllowAnonymous]
@@ -434,8 +468,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 ));
             }
 
-            DigitalProductPassport dpp = await _dppService.GetDppVersionByIdAndDate(AccessUserId, dppId, asOf).ConfigureAwait(false);
-            if (dpp is null)
+            DppVersionSnapshot snapshot = await _dppService.GetDppVersionByIdAndDate(AccessUserId, dppId, asOf).ConfigureAwait(false);
+            if (snapshot is null)
             {
                 return NotFound(new ApiResponse<DigitalProductPassport>(
                     DppApiStatusCodes.ClientErrorResourceNotFound,
@@ -444,11 +478,16 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 ));
             }
 
-            dpp = await _dppService.FilterForRolesAsync(dpp, CallerRoles).ConfigureAwait(false);
+            // Filter against the policy that was in force for *this version*, not the DPP's current
+            // mapping: an element that was controlled at the requested date must stay withheld even
+            // if the control was removed since.
+            DigitalProductPassport dpp = _dppService.FilterVersionForRoles(snapshot, CallerRoles);
 
-            // Audit before issuing the ESDC; see ReadDppById.
+            // Issue before auditing; see ReadDppById.
+            ElectronicSignedDataConstruct esdc = IssueEsdc(dpp);
+
             await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Read, dppId, $"versions/{date}", "Success").ConfigureAwait(false);
-            return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, dpp, esdc: IssueEsdc(dpp)));
+            return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, dpp, esdc: esdc));
         }
     }
 }

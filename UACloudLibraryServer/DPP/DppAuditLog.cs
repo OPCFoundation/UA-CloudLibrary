@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Opc.Ua.Cloud.Library.Models;
 
@@ -33,15 +34,33 @@ namespace Opc.Ua.Cloud.Library
 
         private const int MaxAttempts = 5;
 
+        /// <summary>
+        /// Opt-in that allows a single keyed append to adopt an unkeyed checkpoint, for deployments
+        /// enabling <see cref="DppAuditKeyProvider.AuditKeyConfigurationPath"/> over an existing
+        /// unkeyed log.
+        /// </summary>
+        /// <remarks>
+        /// This cannot be inferred from the data. The previous heuristic - "no entry carries a
+        /// KeyId, so the log must predate the key" - reads attacker-controlled columns: KeyId lives
+        /// in the same table the HMAC exists to protect, so anyone able to rewrite history can also
+        /// clear every KeyId and null the checkpoint's key and MAC, making the log look legitimately
+        /// legacy. The next honest append would then re-MAC the forged chain with the current key.
+        /// Requiring an explicit operator decision removes the forgeable inference.
+        /// </remarks>
+        public const string AllowUnkeyedCheckpointMigrationPath = "Dpp:Audit:AllowUnkeyedCheckpointMigration";
+
         private readonly AppDbContext _db;
         private readonly IDppAuditKeyProvider _keyProvider;
         private readonly ILogger _logger;
+        private readonly bool _allowUnkeyedCheckpointMigration;
 
-        public DppAuditLog(AppDbContext db, IDppAuditKeyProvider keyProvider, ILoggerFactory loggerFactory)
+        public DppAuditLog(AppDbContext db, IDppAuditKeyProvider keyProvider, ILoggerFactory loggerFactory, IConfiguration configuration)
         {
             _db = db;
             _keyProvider = keyProvider;
             _logger = loggerFactory.CreateLogger("DppAuditLog");
+            _allowUnkeyedCheckpointMigration =
+                configuration?.GetValue<bool>(AllowUnkeyedCheckpointMigrationPath) ?? false;
         }
 
         /// <summary>
@@ -312,19 +331,19 @@ namespace Opc.Ua.Cloud.Library
             DppAuditKeyLookup checkpointKey = await _keyProvider.TryGetKeyByIdAsync(checkpoint.KeyId).ConfigureAwait(false);
             if (!checkpointKey.Found || checkpointKey.Key is null)
             {
-                // One legitimate exception: enabling a key for the first time. The checkpoint and
-                // every entry it covers predate the key, so there is nothing keyed to downgrade and
-                // this append is what re-keys the checkpoint. Mirrors the same carve-out in
-                // VerifyChainAsync - any keyed entry proves the checkpoint should have been keyed too.
-                bool anyKeyedEntry = await _db.DppAuditEntries
-                    .AsNoTracking()
-                    .AnyAsync(e => e.KeyId != null)
-                    .ConfigureAwait(false);
-
-                if (!anyKeyedEntry && checkpoint.KeyId is null)
+                // Enabling a key over an existing unkeyed log is the one legitimate reason to adopt
+                // an unkeyed checkpoint, but it cannot be detected from the log itself: KeyId is a
+                // plain column in the very table the key protects, so an attacker who rewrites
+                // history can also clear every KeyId and the checkpoint's key/MAC and make a forged
+                // chain look like untouched pre-key history. Inferring "legacy" from that data would
+                // let the next honest append re-MAC the forgery. The migration must therefore be an
+                // explicit operator decision.
+                if (checkpoint.KeyId is null && _allowUnkeyedCheckpointMigration)
                 {
                     _logger.LogWarning(
-                        "DPP audit checkpoint predates keyed auditing and is being re-keyed by this append. Entries written before the key was configured remain unauthenticated.");
+                        "DPP audit checkpoint is unkeyed and is being re-keyed by this append because {ConfigPath} is enabled. " +
+                        "Entries written before the key was configured remain unauthenticated. Disable this setting once the migration is complete.",
+                        AllowUnkeyedCheckpointMigrationPath);
                     return;
                 }
 
@@ -333,7 +352,9 @@ namespace Opc.Ua.Cloud.Library
 
                 throw new DppAuditException(
                     "The DPP audit checkpoint is not authenticated with an available key while keyed auditing is enabled. " +
-                    "Appending would authenticate an unverified state. Explicit operator recovery is required.");
+                    "Appending would authenticate an unverified state. If this deployment is enabling an audit key over an " +
+                    $"existing unkeyed log, set '{AllowUnkeyedCheckpointMigrationPath}' to true for the migration. " +
+                    "Otherwise explicit operator recovery is required.");
             }
 
             string expectedMac = ComputeCheckpointMac(checkpoint.EntryCount, checkpoint.TailHash, checkpointKey.Key, checkpoint.KeyId);
@@ -474,22 +495,31 @@ namespace Opc.Ua.Cloud.Library
             DppAuditKey currentKey = await _keyProvider.GetCurrentKeyAsync(cancellationToken).ConfigureAwait(false);
             if (currentKey.Key is not null && checkpointKey.Key is null)
             {
-                // Distinguish the genuine legacy case from an attack. A checkpoint predating the key
-                // can only be legitimate if every entry it covers also predates the key; any keyed
-                // entry proves the checkpoint should have been keyed too.
-                int keyedEntryCount = entries.Count(e => !string.IsNullOrEmpty(e.KeyId));
-                if (keyedEntryCount > 0)
+                // The previous heuristic accepted an unkeyed checkpoint whenever no entry carried a
+                // KeyId. That inference reads the same attacker-writable columns the MAC exists to
+                // defend: clearing every entry's KeyId along with the checkpoint's key and MAC
+                // reproduces the "legacy" shape exactly, so it cannot distinguish genuine pre-key
+                // history from a rewritten chain. Acceptance is therefore an explicit operator
+                // decision, not something derived from the data under attack.
+                if (!_allowUnkeyedCheckpointMigration)
                 {
-                    _logger.LogCritical(
-                        "DPP audit checkpoint is unkeyed while keyed auditing is enabled, but keyed entries exist; the checkpoint may have been downgraded to bypass MAC verification.");
+                    if (_logger.IsEnabled(LogLevel.Critical))
+                    {
+                        _logger.LogCritical(
+                            "DPP audit checkpoint is unkeyed while keyed auditing is enabled. This is either an un-migrated log or a downgrade to bypass MAC verification; set {ConfigPath} to true only if this deployment is knowingly enabling a key over an existing unkeyed log.",
+                            AllowUnkeyedCheckpointMigrationPath);
+                    }
+
                     return false;
                 }
 
-                // Genuinely legacy: keyed auditing was enabled after this checkpoint was written and
-                // nothing keyed has been appended since. The next append re-keys the checkpoint.
-                _logger.LogWarning(
-                    "DPP audit checkpoint predates {ConfigPath} and is not authenticated. It will be re-keyed on the next audited operation; until then truncation of the pre-key entries is not detectable.",
-                    DppAuditKeyProvider.AuditKeyConfigurationPath);
+                if (_logger.IsEnabled(LogLevel.Warning))
+                {
+                    _logger.LogWarning(
+                        "DPP audit checkpoint is unkeyed and accepted because {ConfigPath} is enabled. The pre-key entries are unauthenticated and their truncation is not detectable; disable the setting once the checkpoint has been re-keyed.",
+                        AllowUnkeyedCheckpointMigrationPath);
+                }
+
                 return true;
             }
 
