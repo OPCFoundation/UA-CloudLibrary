@@ -24,6 +24,16 @@ namespace Opc.Ua.Cloud.Library.Models
         /// <summary>Hash of the expected final entry (genesis hash when the log is empty).</summary>
         public string TailHash { get; set; }
 
+        /// <summary>
+        /// Keyed MAC over <see cref="EntryCount"/> and <see cref="TailHash"/>. Without it the
+        /// checkpoint is unauthenticated state sitting in the same database as the rows it guards, so
+        /// an attacker could truncate the log to any valid prefix, set the count to that prefix length
+        /// and copy the prefix's already-valid entry hash into <see cref="TailHash"/> - no key
+        /// required, and verification would still pass. Authenticating the checkpoint means a
+        /// truncation cannot be made self-consistent without the audit key.
+        /// </summary>
+        public string CheckpointMac { get; set; }
+
         /// <summary>When the checkpoint was last advanced; useful for operator diagnostics.</summary>
         public DateTimeOffset UpdatedAt { get; set; }
     }

@@ -120,6 +120,17 @@ namespace Opc.Ua.Cloud.Library
                 .AddEntityFrameworkStores<AppDbContext>()
                 .AddTokenProvider<ApiKeyTokenProvider>(ApiKeyTokenProvider.ApiKeyProviderName);
 
+            // Role claims are baked into the authentication cookie at sign-in, so revoking a role in
+            // the database does not by itself stop an already-issued cookie from passing the
+            // controlled-element and administration checks. AccessController bumps the user's
+            // security stamp on revocation; this interval bounds how long a stale cookie survives
+            // before the stamp is re-validated and the principal rejected. EN 18239 section 6.3
+            // requires emergency revocation to actually take effect, so the 30-minute framework
+            // default is too slow - one minute keeps the revocation window short while still
+            // avoiding a database round-trip on every single request.
+            services.Configure<SecurityStampValidatorOptions>(options =>
+                options.ValidationInterval = TimeSpan.FromMinutes(1));
+
             // Label the account identifier field (and its validation messages) "Username" rather than
             // "Email" while e-mail verification is disabled, matching the conditional syntax check in
             // EmailAddressWhenVerificationEnabledAttribute. Appended last so it wins over [Display].

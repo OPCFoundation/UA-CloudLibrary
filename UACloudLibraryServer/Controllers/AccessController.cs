@@ -94,7 +94,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 200, type: typeof(string), description: "A status message indicating the successful deletion.")]
         public async Task<IActionResult> DeleteRoleAsync(
             [FromRoute][Required][SwaggerParameter("Role name.")] string roleName,
-            [FromServices] RoleManager<IdentityRole> roleManager
+            [FromServices] RoleManager<IdentityRole> roleManager,
+            [FromServices] UserManager<IdentityUser> userManager
             )
         {
             // Deleting the canonical administrator role is unrecoverable in-band. Removing it drops
@@ -118,10 +119,21 @@ namespace Opc.Ua.Cloud.Library.Controllers
             // Write-ahead audit intent; see AddRoleAsync.
             await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"role={roleName}", "Attempted").ConfigureAwait(false);
 
+            // Deleting the role drops the AspNetUserRoles links for every member, but their existing
+            // authentication cookies still carry the role claim. Capture the members first and bump
+            // each security stamp after the delete, so nobody keeps passing role checks on a role
+            // that no longer exists.
+            IList<IdentityUser> affectedUsers = await userManager.GetUsersInRoleAsync(roleName).ConfigureAwait(false);
+
             IdentityResult result = await roleManager.DeleteAsync(role).ConfigureAwait(false);
             if (!result.Succeeded)
             {
                 return this.BadRequest(result);
+            }
+
+            foreach (IdentityUser affectedUser in affectedUsers)
+            {
+                await userManager.UpdateSecurityStampAsync(affectedUser).ConfigureAwait(false);
             }
 
             await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"role={roleName}", "Success").ConfigureAwait(false);
@@ -214,6 +226,12 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     return this.BadRequest(adminResult);
                 }
 
+                // Removing the role row does not invalidate authentication cookies already issued to
+                // this user: their role claims were baked in at sign-in. Bumping the security stamp
+                // inside the same transaction makes those cookies fail re-validation, so the
+                // revocation actually takes effect (within SecurityStampValidatorOptions.ValidationInterval).
+                await userManager.UpdateSecurityStampAsync(user).ConfigureAwait(false);
+
                 // Commit inside the lock so no concurrent request can observe the pre-revoke count.
                 await transaction.CommitAsync().ConfigureAwait(false);
 
@@ -231,6 +249,10 @@ namespace Opc.Ua.Cloud.Library.Controllers
             {
                 return this.BadRequest(result);
             }
+
+            // See the administrator branch: invalidate already-issued cookies carrying the revoked
+            // role claim, otherwise the user keeps passing controlled-element checks until expiry.
+            await userManager.UpdateSecurityStampAsync(user).ConfigureAwait(false);
 
             await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Success").ConfigureAwait(false);
             return new ObjectResult("User role revoked successfully") { StatusCode = (int)HttpStatusCode.OK };

@@ -43,6 +43,17 @@ namespace AdminShell
         [HttpPost]
         public async Task<ActionResult> Download(BrowserModel model)
         {
+            // A raw browse returns every node value, including elements the per-DPP controlledElements
+            // map restricts. This endpoint only requires ApiPolicy, so without an ownership check any
+            // authenticated caller could export a published DPP in full and bypass the role filtering
+            // that DPPLifecycleApiController applies on the read path. Gate on ownership exactly as
+            // Save does, rather than re-deriving role filtering over an untyped value dictionary.
+            NodeSetModel nodeSet = _database.GetNodeSets(User.Identity.Name, model.NodesetIdentifier).FirstOrDefault();
+            if ((nodeSet == null) || (User.Identity.Name != nodeSet.Metadata.UserId))
+            {
+                return Forbid();
+            }
+
             Dictionary<string, string> results = await _client.BrowseVariableNodesResursivelyAsync(User.Identity.Name, model.NodesetIdentifier, null).ConfigureAwait(false);
 
             // A browse returns node values only. Exporting them alone would produce a file that, when

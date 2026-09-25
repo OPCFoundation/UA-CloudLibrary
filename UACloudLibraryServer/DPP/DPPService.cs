@@ -433,24 +433,22 @@ namespace Opc.Ua.Cloud.Library
 
         public IReadOnlyList<string> GetDppIdsByProductIds(string userId, IReadOnlyList<string> productIds)
         {
-            var result = new List<string>();
-
-            foreach (string productId in productIds)
+            if (productIds is null || productIds.Count == 0)
             {
-                List<ObjectModel> dppList = _dataProvider.GetNodeModels(nsm => nsm.Objects, userId)
-                .Where(nsm => (nsm.DisplayName != null) && (nsm.DisplayName.Count > 0) && (nsm.DisplayName[0].Text == "UniqueProductIdentifier") && (nsm.NodeId == productId))
-                .ToList();
-
-                if (dppList != null)
-                {
-                    foreach (ObjectModel dpp in dppList)
-                    {
-                        result.Add(dpp.NodeSet.Identifier);
-                    }
-                }
+                return new List<string>();
             }
 
-            return result;
+            // One set-based query rather than one query per product id. The previous per-id loop meant
+            // a single request could issue as many database round-trips as it listed identifiers,
+            // so a caller spending one rate-limit permit could drive thousands of queries.
+            var requested = new HashSet<string>(productIds, StringComparer.Ordinal);
+
+            return _dataProvider.GetNodeModels(nsm => nsm.Objects, userId)
+                .Where(nsm => (nsm.DisplayName != null) && (nsm.DisplayName.Count > 0)
+                    && (nsm.DisplayName[0].Text == "UniqueProductIdentifier")
+                    && requested.Contains(nsm.NodeId))
+                .Select(nsm => nsm.NodeSet.Identifier)
+                .ToList();
         }
 
         public async Task<(ElementResult Result, string ErrorMessage, DataElement Element)> GetElement(

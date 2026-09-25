@@ -195,6 +195,7 @@ namespace Opc.Ua.Cloud.Library
 
             checkpoint.TailHash = entry.EntryHash;
             checkpoint.UpdatedAt = entry.Timestamp;
+            checkpoint.CheckpointMac = ComputeCheckpointMac(checkpoint.EntryCount, checkpoint.TailHash, auditKey);
 
             await _db.SaveChangesAsync().ConfigureAwait(false);
             await transaction.CommitAsync().ConfigureAwait(false);
@@ -258,7 +259,47 @@ namespace Opc.Ua.Cloud.Library
                 return false;
             }
 
+            // The two checks above only prove the log agrees with the checkpoint. They do not prove
+            // the checkpoint itself was not rewritten: truncating the log to a valid prefix and
+            // restating EntryCount/TailHash to match that prefix satisfies both. Authenticating the
+            // checkpoint closes that path, because a rolled-back checkpoint cannot be re-MAC'd
+            // without the audit key. auditKey was already resolved above for entry verification.
+            if (auditKey is not null)
+            {
+                string expectedMac = ComputeCheckpointMac(checkpoint.EntryCount, checkpoint.TailHash, auditKey);
+                if (string.IsNullOrEmpty(checkpoint.CheckpointMac)
+                    || !CryptographicOperations.FixedTimeEquals(
+                        Encoding.UTF8.GetBytes(checkpoint.CheckpointMac),
+                        Encoding.UTF8.GetBytes(expectedMac)))
+                {
+                    _logger.LogError("DPP audit checkpoint MAC does not verify; the checkpoint has been altered or rolled back.");
+                    return false;
+                }
+            }
+
             return true;
+        }
+
+        /// <summary>
+        /// Authenticates the checkpoint's length and tail. Returns null when no audit key is
+        /// configured, in which case the checkpoint stays unauthenticated and rollback to an earlier
+        /// valid prefix remains undetectable - see the audit-log limitations in the README.
+        /// </summary>
+        internal static string ComputeCheckpointMac(long entryCount, string tailHash, byte[] key)
+        {
+            if (key is null)
+            {
+                return null;
+            }
+
+            // Length-prefixed for the same reason entry hashing is: a delimiter could otherwise be
+            // shifted between the count and the tail to produce a colliding input.
+            using var buffer = new MemoryStream();
+            AppendField(buffer, entryCount.ToString(CultureInfo.InvariantCulture));
+            AppendField(buffer, tailHash);
+
+            using var hmac = new HMACSHA256(key);
+            return Convert.ToHexString(hmac.ComputeHash(buffer.ToArray()));
         }
 
         /// <summary>

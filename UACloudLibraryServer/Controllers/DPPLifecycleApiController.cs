@@ -21,6 +21,12 @@ namespace Opc.Ua.Cloud.Library.Controllers
     [ApiController]
     public class DPPLifecycleApiController : ControllerBase
     {
+        /// <summary>
+        /// Largest accepted <c>productIds</c> batch. Matches the default per-minute rate-limit
+        /// permit count so a single request cannot greatly outweigh a single permit.
+        /// </summary>
+        public const int MaxProductIdsPerRequest = 100;
+
         private readonly DPPService _dppService;
         private readonly IDppAuditLog _auditLog;
         private readonly IEsdcService _esdc;
@@ -130,6 +136,18 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     DppApiStatusCodes.ClientErrorBadRequest,
                     payload: null,
                     result: new ApiResult(new() { new ApiMessage("Error", "productIds must be a non-empty array") })
+                ));
+            }
+
+            // This endpoint is anonymous, so the request-count rate limiter is the only thing standing
+            // between a caller and the database. Without a cap on the batch, one permit buys an
+            // arbitrarily large amount of work and the limiter stops being a meaningful bound.
+            if (request.productIds.Count > MaxProductIdsPerRequest)
+            {
+                return BadRequest(new ApiResponse<List<string>>(
+                    DppApiStatusCodes.ClientErrorBadRequest,
+                    payload: null,
+                    result: new ApiResult(new() { new ApiMessage("Error", $"productIds must contain at most {MaxProductIdsPerRequest} entries") })
                 ));
             }
 
