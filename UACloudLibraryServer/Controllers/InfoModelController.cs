@@ -40,18 +40,23 @@ namespace Opc.Ua.Cloud.Library.Controllers
 {
     [Authorize(Policy = "ApiPolicy")]
     [ApiController]
+    [ServiceFilter(typeof(DppAuditFailureFilter))]
     public class InfoModelController : Controller
     {
         private readonly DbFileStorage _storage;
         private readonly CloudLibDataProvider _database;
         private readonly UAClient _client;
+        private readonly IDppAuditLog _auditLog;
 
-        public InfoModelController(DbFileStorage storage, CloudLibDataProvider database, UAClient client)
+        public InfoModelController(DbFileStorage storage, CloudLibDataProvider database, UAClient client, IDppAuditLog auditLog)
         {
             _storage = storage;
             _database = database;
             _client = client;
+            _auditLog = auditLog;
         }
+
+        private string OperatorId => User?.Identity?.Name ?? "anonymous";
 
         [HttpGet]
         [Route("/infomodel/find")]
@@ -236,9 +241,16 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             uaNamespace.Nodeset.NodesetXml = nodesetXml.Blob;
 
+            // A nodeset may carry a DPP, so its deletion is a DPP lifecycle event. Write the intent
+            // before the delete: the record store, the blob store and the metadata are separate, so an
+            // "Attempted" entry with no outcome is the signal that a deletion may have partially run.
+            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, identifier, null, "Attempted").ConfigureAwait(false);
+
             await _database.DeleteAllRecordsForNodesetAsync(nodeSetID).ConfigureAwait(false);
 
             await _storage.DeleteFileAsync(identifier).ConfigureAwait(false);
+
+            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, identifier, null, "Success").ConfigureAwait(false);
 
             return new ObjectResult(uaNamespace) { StatusCode = (int)HttpStatusCode.OK };
         }
@@ -260,13 +272,26 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult($"No nodeset XML was specified") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
+            // An upload creates or overwrites a nodeset that may carry a DPP. Overwriting is a modify
+            // rather than a create, so the operation is reported accordingly. The identifier is not
+            // known until the upload succeeds, so the pre-write entry is keyed by namespace URI.
+            DppAuditOperation operation = overwrite ? DppAuditOperation.Modify : DppAuditOperation.Create;
+            string auditTarget = uaNamespace.Nodeset.NamespaceUri?.ToString() ?? "(unknown namespace)";
+
+            await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Attempted").ConfigureAwait(false);
+
             string result = await _database.UploadNamespaceAndNodesetAsync(User.Identity.Name, uaNamespace, values, overwrite).ConfigureAwait(false);
             if (result != "success")
             {
+                await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Failed").ConfigureAwait(false);
                 return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
             string identifier = _database.GetIdentifier(uaNamespace);
+
+            // Record the outcome against the assigned identifier so the entry can be correlated with
+            // the subsequent read/modify entries for the same DPP.
+            await _auditLog.RecordAsync(OperatorId, operation, identifier ?? auditTarget, null, "Success").ConfigureAwait(false);
 
             return new ObjectResult(identifier) { StatusCode = (int)HttpStatusCode.OK };
         }

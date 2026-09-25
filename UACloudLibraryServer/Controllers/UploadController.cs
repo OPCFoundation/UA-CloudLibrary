@@ -40,14 +40,19 @@ using Opc.Ua.Cloud.Library.Models;
 namespace UANodesetWebViewer.Controllers
 {
     [Authorize(Policy = "ApiPolicy")]
+    [ServiceFilter(typeof(Opc.Ua.Cloud.Library.Controllers.DppAuditFailureFilter))]
     public class UploadController : Controller
     {
         private readonly CloudLibDataProvider _database;
+        private readonly IDppAuditLog _auditLog;
 
-        public UploadController(CloudLibDataProvider database)
+        public UploadController(CloudLibDataProvider database, IDppAuditLog auditLog)
         {
             _database = database;
+            _auditLog = auditLog;
         }
+
+        private string OperatorId => User?.Identity?.Name ?? "anonymous";
 
         public ActionResult Index()
         {
@@ -179,9 +184,32 @@ namespace UANodesetWebViewer.Controllers
                     nameSpace.SupportedLocales = locales.Split(',');
                 }
 
+                // An uploaded nodeset may carry a DPP, so this is a DPP create (or modify, when
+                // overwriting an existing one). Record the intent before the write: the upload is not
+                // transactional with the audit table, so an "Attempted" entry with no outcome shows a
+                // change may have landed without being fully logged.
+                DppAuditOperation operation = overwrite ? DppAuditOperation.Modify : DppAuditOperation.Create;
+                string auditTarget = nameSpace.Nodeset?.NamespaceUri?.ToString() ?? nodesettitle ?? "(unknown namespace)";
+
+                await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Attempted").ConfigureAwait(false);
+
                 string result = await _database.UploadNamespaceAndNodesetAsync(User.Identity.Name, nameSpace, valuesContent, overwrite).ConfigureAwait(false);
 
+                await _auditLog.RecordAsync(
+                    OperatorId,
+                    operation,
+                    _database.GetIdentifier(nameSpace) ?? auditTarget,
+                    null,
+                    result == "success" ? "Success" : "Failed").ConfigureAwait(false);
+
                 return View("Index", result);
+            }
+            catch (DppAuditException)
+            {
+                // Must not be swallowed by the general handler below: an unauditable upload has to
+                // surface as a refusal via DppAuditFailureFilter, not as an ordinary error message
+                // that leaves the caller unsure whether the change landed.
+                throw;
             }
             catch (Exception ex)
             {

@@ -44,6 +44,7 @@ using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -158,6 +159,15 @@ namespace Opc.Ua.Cloud.Library
             services.AddSingleton<IDppAuditKeyProvider, DppAuditKeyProvider>();
             services.AddScoped<Controllers.DppAuditFailureFilter>();
             services.AddScoped<IEsdcSigningKeyProvider, EsdcSigningKeyProvider>();
+
+            // Tamper evidence is only useful if something checks it. Registering verification as a
+            // health check means an altered or truncated audit log surfaces through normal monitoring
+            // instead of waiting for someone to ask. Tagged so liveness probes can skip it: it reads
+            // the entire audit table and belongs on a readiness/monitoring schedule.
+            services.AddHealthChecks()
+                .AddCheck<DppAuditChainHealthCheck>(
+                    DppAuditChainHealthCheck.Name,
+                    tags: new[] { DppAuditChainHealthCheck.Tag });
 
             // The signing key must be identical for every request and every instance, so the ESDC
             // service stays a singleton. Its key is resolved once, lazily, through a temporary scope:
@@ -502,6 +512,14 @@ namespace Opc.Ua.Cloud.Library
                 endpoints.MapBlazorHub();
 
                 endpoints.MapRazorPages();
+
+                // Audit-chain verification, exposed separately from any liveness probe because it
+                // reads the whole audit table. Requires administrator rights: the result reveals
+                // whether the log has been tampered with, which is not public information, and an
+                // unauthenticated caller could otherwise use it to drive repeated full-table scans.
+                endpoints.MapHealthChecks("/health/dpp-audit", new HealthCheckOptions {
+                    Predicate = registration => registration.Tags.Contains(DppAuditChainHealthCheck.Tag)
+                }).RequireAuthorization("AdministrationPolicy");
             });
         }
 

@@ -208,7 +208,17 @@ namespace Opc.Ua.Cloud.Library
         /// </summary>
         public async Task<bool> VerifyChainAsync()
         {
+            // The entries and the checkpoint must come from the same snapshot. Read separately under
+            // the default read-committed isolation, an append committing between the two queries would
+            // pair the old entry list with the advanced checkpoint, and verification would report
+            // tampering for a chain that is actually valid. RepeatableRead pins both reads to one
+            // snapshot so a concurrent AppendOnceAsync cannot produce a spurious failure.
+            await using var snapshot = await _db.Database
+                .BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead)
+                .ConfigureAwait(false);
+
             List<DppAuditEntry> entries = await _db.DppAuditEntries
+                .AsNoTracking()
                 .OrderBy(e => e.Sequence)
                 .ToListAsync()
                 .ConfigureAwait(false);

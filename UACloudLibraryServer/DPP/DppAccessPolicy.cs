@@ -6,13 +6,20 @@ namespace Opc.Ua.Cloud.Library
 {
     /// <summary>
     /// Stateless evaluator for the per-DPP <c>controlledElements</c> mapping. The mapping is keyed by
-    /// element <b>path</b> (the dotted <c>elementId</c> chain, e.g. <c>materials.supplierFacilityId</c>),
-    /// i.e. the element's address — not its <c>dictionaryReference</c> (which is reserved for semantic
-    /// dictionary references such as IEC CDD per EN 18223 §4.3). An element is public unless one of its
-    /// ancestor-or-self path prefixes appears in the mapping; controlling a container path therefore
-    /// controls its entire subtree. Controlled elements require one of the mapped roles (or an
-    /// administrator). The mapping is supplied per call because it travels with each DPP's values JSON
-    /// (see <see cref="DppControlledElements"/>).
+    /// element <b>path</b>: the dotted chain of <c>elementId</c> values as emitted by reads, e.g.
+    /// <c>6f9619ff-8b86-d011-b42d-00cf4fc964ff.3f2504e0-4f89-11d3-9a0c-0305e82c3301</c>. Those ids are
+    /// GUIDs derived from each node's ExpandedNodeId (see <c>DPPService.BuildElementId</c>), <b>not</b>
+    /// semantic BrowseNames - a name-based key such as <c>materials.supplierFacilityId</c> will never
+    /// match an emitted path, so the element would silently stay public. Take the ids from a read of
+    /// the DPP rather than composing them by hand.
+    /// <para>
+    /// The path is the element's address - not its <c>dictionaryReference</c> (which is reserved for
+    /// semantic dictionary references such as IEC CDD per EN 18223 &#167;4.3). An element is public
+    /// unless one of its ancestor-or-self path prefixes appears in the mapping; controlling a
+    /// container path therefore controls its entire subtree. Controlled elements require one of the
+    /// mapped roles (or an administrator). The mapping is supplied per call because it travels with
+    /// each DPP's values JSON (see <see cref="DppControlledElements"/>).
+    /// </para>
     /// </summary>
     public class DppAccessPolicy : IDppAccessPolicy
     {

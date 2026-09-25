@@ -9,13 +9,29 @@ namespace Opc.Ua.Cloud.Library
     /// <summary>
     /// Helpers for the per-DPP <c>controlledElements</c> mapping that travels inside a DPP's values
     /// JSON. The values file is otherwise a flat <c>{ nodeId: value }</c> dictionary; an optional
-    /// reserved <c>controlledElements</c> object maps each element <b>path</b> (the dotted
-    /// <c>elementId</c> chain that also addresses the element in the API, e.g.
-    /// <c>materials.supplierFacilityId</c>) to the role (or roles) permitted to read that element and
-    /// its subtree (EN 18239 §5.2). Note this is the element's address, not its
-    /// <c>dictionaryReference</c> (reserved for semantic dictionary references such as IEC CDD per
-    /// EN 18223 §4.3). Keeping the mapping with the DPP values means roles are assigned per DPP at
-    /// upload time rather than server-wide.
+    /// reserved <c>controlledElements</c> object maps each element <b>path</b> to the role (or roles)
+    /// permitted to read that element and its subtree (EN 18239 &#167;5.2).
+    /// <para>
+    /// The path is the dotted <c>elementId</c> chain that also addresses the element in the API, and
+    /// those ids are <b>GUIDs</b> derived from each node's ExpandedNodeId by
+    /// <c>DPPService.BuildElementId</c> - not semantic BrowseNames. A mapping therefore looks like:
+    /// </para>
+    /// <code>
+    /// "controlledElements": {
+    ///   "6f9619ff-8b86-d011-b42d-00cf4fc964ff": "Auditor",
+    ///   "6f9619ff-8b86-d011-b42d-00cf4fc964ff.3f2504e0-4f89-11d3-9a0c-0305e82c3301": [ "Auditor", "Recycler" ]
+    /// }
+    /// </code>
+    /// <para>
+    /// A name-based key such as <c>materials.supplierFacilityId</c> will never match an emitted path,
+    /// so the element would remain public with no error raised. Copy the ids from a read of the DPP
+    /// rather than composing them from BrowseNames.
+    /// </para>
+    /// <para>
+    /// Note this is the element's address, not its <c>dictionaryReference</c> (reserved for semantic
+    /// dictionary references such as IEC CDD per EN 18223 &#167;4.3). Keeping the mapping with the DPP
+    /// values means roles are assigned per DPP at upload time rather than server-wide.
+    /// </para>
     /// </summary>
     public static class DppControlledElements
     {
