@@ -244,13 +244,14 @@ namespace Opc.Ua.Cloud.Library.Controllers
             // A nodeset may carry a DPP, so its deletion is a DPP lifecycle event. Write the intent
             // before the delete: the record store, the blob store and the metadata are separate, so an
             // "Attempted" entry with no outcome is the signal that a deletion may have partially run.
-            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, identifier, null, "Attempted").ConfigureAwait(false);
+            string deleteOperationId = IDppAuditLog.NewOperationId();
+            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, identifier, null, "Attempted", deleteOperationId).ConfigureAwait(false);
 
             await _database.DeleteAllRecordsForNodesetAsync(nodeSetID).ConfigureAwait(false);
 
             await _storage.DeleteFileAsync(identifier).ConfigureAwait(false);
 
-            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, identifier, null, "Success").ConfigureAwait(false);
+            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, identifier, null, "Success", deleteOperationId).ConfigureAwait(false);
 
             return new ObjectResult(uaNamespace) { StatusCode = (int)HttpStatusCode.OK };
         }
@@ -278,12 +279,17 @@ namespace Opc.Ua.Cloud.Library.Controllers
             DppAuditOperation operation = overwrite ? DppAuditOperation.Modify : DppAuditOperation.Create;
             string auditTarget = uaNamespace.Nodeset.NamespaceUri?.ToString() ?? "(unknown namespace)";
 
-            await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Attempted").ConfigureAwait(false);
+            // The attempt is keyed by namespace URI and the outcome by the assigned identifier, so the
+            // two rows do not share a DppId. Without a shared operation id an unmatched attempt could
+            // not be paired with its outcome at all, which is the signal this pattern exists to give.
+            string operationId = IDppAuditLog.NewOperationId();
+
+            await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Attempted", operationId).ConfigureAwait(false);
 
             string result = await _database.UploadNamespaceAndNodesetAsync(User.Identity.Name, uaNamespace, values, overwrite).ConfigureAwait(false);
             if (result != "success")
             {
-                await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Failed").ConfigureAwait(false);
+                await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Failed", operationId).ConfigureAwait(false);
                 return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
@@ -291,7 +297,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             // Record the outcome against the assigned identifier so the entry can be correlated with
             // the subsequent read/modify entries for the same DPP.
-            await _auditLog.RecordAsync(OperatorId, operation, identifier ?? auditTarget, null, "Success").ConfigureAwait(false);
+            await _auditLog.RecordAsync(OperatorId, operation, identifier ?? auditTarget, null, "Success", operationId).ConfigureAwait(false);
 
             return new ObjectResult(identifier) { StatusCode = (int)HttpStatusCode.OK };
         }

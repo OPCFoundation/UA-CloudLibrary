@@ -46,7 +46,10 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                bool intact = await _auditLog.VerifyChainAsync().ConfigureAwait(false);
+                // Forward the probe's token: this reads the entire audit table, so a timed-out or
+                // disconnected probe must actually stop the scan rather than leaving it running.
+                // Otherwise repeated probes stack up abandoned full-table reads as the log grows.
+                bool intact = await _auditLog.VerifyChainAsync(cancellationToken).ConfigureAwait(false);
                 if (intact)
                 {
                     return HealthCheckResult.Healthy("DPP audit chain verified.");
@@ -57,6 +60,12 @@ namespace Opc.Ua.Cloud.Library
                 // specific entry at fault is reported by DppAuditLog itself.
                 _logger.LogCritical("DPP audit chain verification FAILED: entries were altered, inserted or removed.");
                 return HealthCheckResult.Unhealthy("DPP audit chain verification failed; the log has been altered or truncated.");
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // The probe gave up, which says nothing about the chain. Reporting Unhealthy here
+                // would turn a probe timeout into a tampering-shaped alert.
+                throw;
             }
             catch (DppAuditException ex)
             {

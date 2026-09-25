@@ -76,16 +76,16 @@ namespace Opc.Ua.Cloud.Library
                 return true;
             }
 
-            if (string.IsNullOrWhiteSpace(elementIdPath) || !DppJsonPath.TryParse(elementIdPath, out IReadOnlyList<DppJsonPath.Segment> segments, out _))
+            // Must match how GetElement resolves the path, or the policy is consulted for a key the
+            // resolver never uses and a controlled element is served as public.
+            string accessKey = BuildCanonicalAccessKey(elementIdPath);
+            if (accessKey is null)
             {
                 return false;
             }
 
-            return _accessPolicy.CanRead(BuildElementPath(segments), callerRoles, mapping.Entries);
+            return _accessPolicy.CanRead(accessKey, callerRoles, mapping.Entries);
         }
-
-        /// <summary>
-        /// True when a caller holding <paramref name="callerRoles"/> may modify the element addressed by
         /// <paramref name="elementIdPath"/>. Write rights mirror read rights: an element controlled for
         /// reading is equally controlled for writing, so a caller that may not see an element may not
         /// change it either. Elements outside the mapping stay writable by any authorized API principal,
@@ -104,12 +104,15 @@ namespace Opc.Ua.Cloud.Library
                 return true;
             }
 
-            if (string.IsNullOrWhiteSpace(elementIdPath) || !DppJsonPath.TryParse(elementIdPath, out IReadOnlyList<DppJsonPath.Segment> segments, out _))
+            // Same canonicalization as the write resolver, so a PATCH cannot be authorized against a
+            // different key than the one it ultimately modifies.
+            string accessKey = BuildCanonicalAccessKey(elementIdPath);
+            if (accessKey is null)
             {
                 return false;
             }
 
-            return _accessPolicy.CanRead(BuildElementPath(segments), callerRoles, mapping.Entries);
+            return _accessPolicy.CanRead(accessKey, callerRoles, mapping.Entries);
         }
 
         /// <summary>
@@ -159,14 +162,9 @@ namespace Opc.Ua.Cloud.Library
 
             string[] roles = callerRoles?.ToArray() ?? Array.Empty<string>();
 
-            // The addressed element's own path is the access key for its subtree. Strip the trailing
-            // element id so children are keyed by the same dotted path the mapping uses.
-            string basePath = null;
-            if (!string.IsNullOrWhiteSpace(elementIdPath) &&
-                DppJsonPath.TryParse(elementIdPath, out IReadOnlyList<DppJsonPath.Segment> segments, out _))
-            {
-                basePath = BuildElementPath(segments);
-            }
+            // The addressed element's own path is the access key for its subtree, canonicalized the
+            // same way the resolver canonicalizes it.
+            string basePath = BuildCanonicalAccessKey(elementIdPath);
 
             if (basePath is not null && !_accessPolicy.CanRead(basePath, roles, mapping.Entries))
             {
@@ -190,13 +188,71 @@ namespace Opc.Ua.Cloud.Library
             return index < 0 ? null : path.Substring(0, index);
         }
 
+        /// <summary>
+        /// Index of the first segment that actually addresses an element, skipping the optional
+        /// leading <c>elements</c> collection name.
+        /// </summary>
+        /// <remarks>
+        /// Resolution (<see cref="GetElement"/>, <c>UpdateDataElement</c>) accepts <c>$.elements.X</c>
+        /// and <c>X</c> as the same element. Authorization must therefore consume the prefix the same
+        /// way: keying the policy off <c>elements.X</c> while the tree resolves <c>X</c> means the
+        /// mapping entry for <c>X</c> is never consulted, and a controlled element is served as if it
+        /// were public. Any path normalization used for access control has to go through here.
+        /// </remarks>
+        internal static int ElementSegmentStart(IReadOnlyList<DppJsonPath.Segment> segments)
+        {
+            if (segments is null || segments.Count == 0)
+            {
+                return 0;
+            }
+
+            return segments[0].IsName && string.Equals(segments[0].Name, "elements", StringComparison.Ordinal)
+                ? 1
+                : 0;
+        }
+
+        /// <summary>
+        /// Builds the canonical access key for a caller-supplied path: the dotted element-id chain as
+        /// the resolver sees it, with the optional <c>elements</c> prefix removed.
+        /// </summary>
+        /// <remarks>
+        /// Returns null when the path cannot be parsed or addresses only the collection root, both of
+        /// which callers must treat as "deny" rather than "unmapped, therefore public".
+        /// </remarks>
+        internal static string BuildCanonicalAccessKey(string elementIdPath)
+        {
+            if (string.IsNullOrWhiteSpace(elementIdPath)
+                || !DppJsonPath.TryParse(elementIdPath, out IReadOnlyList<DppJsonPath.Segment> segments, out _))
+            {
+                return null;
+            }
+
+            int start = ElementSegmentStart(segments);
+            if (start >= segments.Count)
+            {
+                return null;
+            }
+
+            string key = BuildElementPath(segments, start);
+
+            // An empty key means the remaining path is index-only (e.g. "elements[0]"): it addresses
+            // a collection member without naming an element, so there is nothing to match against the
+            // mapping. Returning "" would be looked up, miss, and be treated as unmapped - i.e.
+            // public - so return null and let callers deny instead.
+            return string.IsNullOrEmpty(key) ? null : key;
+        }
+
         // Builds the dotted element-id path used as the access key from parsed JSONPath segments,
         // ignoring array-index segments (access rights apply uniformly to all items of a collection).
         private static string BuildElementPath(IReadOnlyList<DppJsonPath.Segment> segments)
+            => BuildElementPath(segments, 0);
+
+        private static string BuildElementPath(IReadOnlyList<DppJsonPath.Segment> segments, int startIndex)
         {
             var builder = new StringBuilder();
-            foreach (DppJsonPath.Segment segment in segments)
+            for (int i = startIndex; i < segments.Count; i++)
             {
+                DppJsonPath.Segment segment = segments[i];
                 if (segment.IsName)
                 {
                     if (builder.Length > 0)
@@ -469,14 +525,11 @@ namespace Opc.Ua.Cloud.Library
             // or a top-level scalar property. We expose only the elements tree via this method,
             // matching the EN 18222 contract (returns a DataElement).
             IReadOnlyList<DataElement> roots = dpp.Elements;
-            int startIndex = 0;
 
             // Allow consumers to omit a leading "elements" segment for ergonomics; the OPC UA
-            // tree is rooted at that collection in our model.
-            if (segments[0].IsName && string.Equals(segments[0].Name, "elements", StringComparison.Ordinal))
-            {
-                startIndex = 1;
-            }
+            // tree is rooted at that collection in our model. Shared with the access-control path so
+            // authorization and resolution can never disagree about which element is addressed.
+            int startIndex = ElementSegmentStart(segments);
 
             // After consuming an optional "elements" prefix the path must still address a specific
             // DataElement. Paths like "elements" or "$.elements" are a client error (they name the
@@ -886,11 +939,8 @@ namespace Opc.Ua.Cloud.Library
             }
 
             // Allow callers to omit a leading "elements" segment for ergonomics, matching the read path.
-            int startIndex = 0;
-            if (segments[0].IsName && string.Equals(segments[0].Name, "elements", StringComparison.Ordinal))
-            {
-                startIndex = 1;
-            }
+            // Shared helper so this can never drift from the key authorization was checked against.
+            int startIndex = ElementSegmentStart(segments);
 
             // A trailing ".value" segment addresses the leaf's value property, not a child node. In our
             // OPC UA model a leaf DataElement has no "value" child (its value is read/written on the

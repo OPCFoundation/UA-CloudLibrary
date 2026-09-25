@@ -95,17 +95,20 @@ namespace AdminShell
                 // Write-ahead audit intent, as on the other mutation paths: the storage write below is
                 // not transactional with the audit table, so an "Attempted" entry with no matching
                 // outcome is the signal that a save may have completed without being fully logged.
-                await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, model.NodesetIdentifier, null, "Attempted").ConfigureAwait(false);
+                // The shared operation id is what makes that pairing unambiguous when saves of the
+                // same nodeset interleave.
+                string operationId = IDppAuditLog.NewOperationId();
+                await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, model.NodesetIdentifier, null, "Attempted", operationId).ConfigureAwait(false);
 
                 string name = await _storage.UploadFileAsync(model.NodesetIdentifier, nodesetXml.Blob, nodesetXml.Values).ConfigureAwait(false);
                 if (name == null)
                 {
-                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, model.NodesetIdentifier, null, "Failed").ConfigureAwait(false);
+                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, model.NodesetIdentifier, null, "Failed", operationId).ConfigureAwait(false);
                     model.StatusMessage = "Failed to save changes to this nodeset.";
                 }
                 else
                 {
-                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, model.NodesetIdentifier, null, "Success").ConfigureAwait(false);
+                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, model.NodesetIdentifier, null, "Success", operationId).ConfigureAwait(false);
                     model.StatusMessage = "Save operation successful";
                 }
             }

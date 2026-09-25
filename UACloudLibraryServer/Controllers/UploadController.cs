@@ -191,7 +191,11 @@ namespace UANodesetWebViewer.Controllers
                 DppAuditOperation operation = overwrite ? DppAuditOperation.Modify : DppAuditOperation.Create;
                 string auditTarget = nameSpace.Nodeset?.NamespaceUri?.ToString() ?? nodesettitle ?? "(unknown namespace)";
 
-                await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Attempted").ConfigureAwait(false);
+                // The attempt is keyed by namespace URI and the outcome by the assigned identifier, so
+                // the two rows do not share a DppId; correlate them explicitly.
+                string operationId = IDppAuditLog.NewOperationId();
+
+                await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Attempted", operationId).ConfigureAwait(false);
 
                 string result = await _database.UploadNamespaceAndNodesetAsync(User.Identity.Name, nameSpace, valuesContent, overwrite).ConfigureAwait(false);
 
@@ -200,7 +204,8 @@ namespace UANodesetWebViewer.Controllers
                     operation,
                     _database.GetIdentifier(nameSpace) ?? auditTarget,
                     null,
-                    result == "success" ? "Success" : "Failed").ConfigureAwait(false);
+                    result == "success" ? "Success" : "Failed",
+                    operationId).ConfigureAwait(false);
 
                 return View("Index", result);
             }

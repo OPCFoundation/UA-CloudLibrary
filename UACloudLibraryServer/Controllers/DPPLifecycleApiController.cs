@@ -270,9 +270,11 @@ namespace Opc.Ua.Cloud.Library.Controllers
             // Recording the intent first inverts that failure mode: if this append fails the request
             // is refused before anything is mutated, and if the mutation or its completion record
             // fails afterwards the "Attempted" entry remains as evidence that a change was started.
-            // An Attempted entry with no matching outcome is the signal to investigate.
+            // An Attempted entry with no matching outcome is the signal to investigate; the shared
+            // operation id is what makes that pairing unambiguous when patches interleave.
             // This is not atomicity; closing that gap properly needs a transactional outbox.
-            await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, null, "Attempted").ConfigureAwait(false);
+            string operationId = IDppAuditLog.NewOperationId();
+            await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, null, "Attempted", operationId).ConfigureAwait(false);
 
             (DPPService.UpdateDppResult result, string errorMessage, DigitalProductPassport updated) =
                 await _dppService.UpdateDppById(User.Identity.Name, dppId, partialDPP).ConfigureAwait(false);
@@ -280,7 +282,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             switch (result)
             {
                 case DPPService.UpdateDppResult.Success:
-                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, null, "Success").ConfigureAwait(false);
+                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, null, "Success", operationId).ConfigureAwait(false);
 
                     // The updated DPP is returned verbatim from the write path, so apply the same role
                     // filter used on reads; otherwise a writer without read rights would receive
@@ -338,7 +340,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             // Write-ahead audit intent; see the note in UpdateDppById for why the record precedes
             // the mutation rather than following it.
-            await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "Attempted").ConfigureAwait(false);
+            string elementOperationId = IDppAuditLog.NewOperationId();
+            await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "Attempted", elementOperationId).ConfigureAwait(false);
 
             (DPPService.UpdateDppResult result, string errorMessage, DataElement updated) =
                 await _dppService.UpdateDataElement(User.Identity.Name, dppId, elementIdPath, body).ConfigureAwait(false);
@@ -346,7 +349,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             switch (result)
             {
                 case DPPService.UpdateDppResult.Success:
-                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "Success").ConfigureAwait(false);
+                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "Success", elementOperationId).ConfigureAwait(false);
 
                     // Filter the echoed element so a controlled descendant is not returned to a caller
                     // who may write the parent but not read the child.

@@ -38,6 +38,22 @@ namespace Opc.Ua.Cloud.Library.Models
 
         public string Outcome { get; set; }
 
+        /// <summary>
+        /// Correlates the write-ahead <c>Attempted</c> row with the row recording that operation's
+        /// outcome.
+        /// </summary>
+        /// <remarks>
+        /// The write-ahead design emits two rows per mutation, and the documented signal for a
+        /// possibly-unlogged change is an <c>Attempted</c> row with no matching outcome. Without a
+        /// correlation id that signal is unreliable: concurrent mutations of the same DPP interleave,
+        /// so it cannot be told which attempt a later <c>Success</c> closes. Uploads are worse still,
+        /// because the attempt is recorded against the namespace URI while the outcome is recorded
+        /// against the identifier assigned during the upload, so the two rows do not even share a
+        /// <see cref="DppId"/>. This id is part of the hashed content, so it cannot be retrofitted
+        /// onto an entry after the fact.
+        /// </remarks>
+        public string OperationId { get; set; }
+
         public string PreviousHash { get; set; }
 
         public string EntryHash { get; set; }

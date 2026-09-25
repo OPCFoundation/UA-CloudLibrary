@@ -50,7 +50,7 @@ namespace Opc.Ua.Cloud.Library
         /// fail the originating operation rather than proceed with an unlogged access or change,
         /// because silently dropping the record would forfeit the non-repudiation guarantee.
         /// </summary>
-        public async Task RecordAsync(string operatorId, DppAuditOperation operation, string dppId, string elementPath, string outcome)
+        public async Task RecordAsync(string operatorId, DppAuditOperation operation, string dppId, string elementPath, string outcome, string operationId = null)
         {
             Exception lastError = null;
 
@@ -59,7 +59,7 @@ namespace Opc.Ua.Cloud.Library
                 await s_appendLock.WaitAsync().ConfigureAwait(false);
                 try
                 {
-                    await AppendOnceAsync(operatorId, operation, dppId, elementPath, outcome).ConfigureAwait(false);
+                    await AppendOnceAsync(operatorId, operation, dppId, elementPath, outcome, operationId).ConfigureAwait(false);
                     return;
                 }
                 catch (DbUpdateException ex)
@@ -142,7 +142,7 @@ namespace Opc.Ua.Cloud.Library
             _db.ChangeTracker.Clear();
         }
 
-        private async Task AppendOnceAsync(string operatorId, DppAuditOperation operation, string dppId, string elementPath, string outcome)
+        private async Task AppendOnceAsync(string operatorId, DppAuditOperation operation, string dppId, string elementPath, string outcome, string operationId)
         {
             // AppDbContext enables EnableRetryOnFailure, and NpgsqlRetryingExecutionStrategy refuses
             // user-initiated transactions: a retry would otherwise replay only part of the unit. The
@@ -180,6 +180,7 @@ namespace Opc.Ua.Cloud.Library
                     DppId = dppId,
                     ElementPath = elementPath,
                     Outcome = outcome,
+                    OperationId = operationId,
                     PreviousHash = previousHash
                 };
                 DppAuditKey auditKey = await _keyProvider.GetCurrentKeyAsync().ConfigureAwait(false);
@@ -211,7 +212,7 @@ namespace Opc.Ua.Cloud.Library
 
                 checkpoint.TailHash = entry.EntryHash;
                 checkpoint.UpdatedAt = entry.Timestamp;
-                checkpoint.CheckpointMac = ComputeCheckpointMac(checkpoint.EntryCount, checkpoint.TailHash, auditKey.Key);
+                checkpoint.CheckpointMac = ComputeCheckpointMac(checkpoint.EntryCount, checkpoint.TailHash, auditKey.Key, auditKey.KeyId);
                 checkpoint.KeyId = auditKey.KeyId;
 
                 await _db.SaveChangesAsync().ConfigureAwait(false);
@@ -224,16 +225,18 @@ namespace Opc.Ua.Cloud.Library
         /// when any entry was altered or inserted, and also when entries were removed from the end -
         /// a case the chain alone cannot reveal, since a truncated log is still a valid prefix.
         /// </summary>
-        public async Task<bool> VerifyChainAsync()
+        public async Task<bool> VerifyChainAsync(CancellationToken cancellationToken = default)
         {
             // AppDbContext enables EnableRetryOnFailure, and NpgsqlRetryingExecutionStrategy rejects
             // user-initiated transactions, so the snapshot below has to be opened by the strategy.
             IExecutionStrategy strategy = _db.Database.CreateExecutionStrategy();
 
-            return await strategy.ExecuteAsync(VerifyChainInSnapshotAsync).ConfigureAwait(false);
+            return await strategy.ExecuteAsync(
+                cancellationToken,
+                (token) => VerifyChainInSnapshotAsync(token)).ConfigureAwait(false);
         }
 
-        private async Task<bool> VerifyChainInSnapshotAsync()
+        private async Task<bool> VerifyChainInSnapshotAsync(CancellationToken cancellationToken)
         {
             // The entries and the checkpoint must come from the same snapshot. Read separately under
             // the default read-committed isolation, an append committing between the two queries would
@@ -241,13 +244,13 @@ namespace Opc.Ua.Cloud.Library
             // tampering for a chain that is actually valid. RepeatableRead pins both reads to one
             // snapshot so a concurrent AppendOnceAsync cannot produce a spurious failure.
             await using var snapshot = await _db.Database
-                .BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead)
+                .BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead, cancellationToken)
                 .ConfigureAwait(false);
 
             List<DppAuditEntry> entries = await _db.DppAuditEntries
                 .AsNoTracking()
                 .OrderBy(e => e.Sequence)
-                .ToListAsync()
+                .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
 
             string previousHash = GenesisHash;
@@ -258,7 +261,7 @@ namespace Opc.Ua.Cloud.Library
                 // for the first time, or rotating one, look like wholesale tampering - a false alarm
                 // on a security control, which is worse than no alarm because it teaches operators to
                 // ignore it.
-                DppAuditKeyLookup lookup = await _keyProvider.TryGetKeyByIdAsync(entry.KeyId).ConfigureAwait(false);
+                DppAuditKeyLookup lookup = await _keyProvider.TryGetKeyByIdAsync(entry.KeyId, cancellationToken).ConfigureAwait(false);
                 if (!lookup.Found)
                 {
                     // Not tampering: the entry's key simply is not configured, so nothing can be said
@@ -284,7 +287,7 @@ namespace Opc.Ua.Cloud.Library
 
             DppAuditCheckpoint checkpoint = await _db.DppAuditCheckpoints
                 .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.Id == DppAuditCheckpoint.SingletonId)
+                .FirstOrDefaultAsync(c => c.Id == DppAuditCheckpoint.SingletonId, cancellationToken)
                 .ConfigureAwait(false);
 
             if (checkpoint is null)
@@ -320,7 +323,7 @@ namespace Opc.Ua.Cloud.Library
             // restating EntryCount/TailHash to match that prefix satisfies both. Authenticating the
             // checkpoint closes that path, because a rolled-back checkpoint cannot be re-MAC'd
             // without the audit key. As with entries, use the key the checkpoint was written with.
-            DppAuditKeyLookup checkpointKey = await _keyProvider.TryGetKeyByIdAsync(checkpoint.KeyId).ConfigureAwait(false);
+            DppAuditKeyLookup checkpointKey = await _keyProvider.TryGetKeyByIdAsync(checkpoint.KeyId, cancellationToken).ConfigureAwait(false);
             if (!checkpointKey.Found)
             {
                 _logger.LogError(
@@ -331,9 +334,37 @@ namespace Opc.Ua.Cloud.Library
                     $"Configure it under '{DppAuditKeyProvider.RetiredKeysConfigurationPath}' to verify the checkpoint.");
             }
 
+            // A null KeyId means "written while unkeyed", which resolves successfully by design so
+            // pre-keying history still verifies. But the checkpoint lives in the database it protects,
+            // so an attacker who can edit it could simply null KeyId and CheckpointMac and this branch
+            // would skip MAC verification entirely - re-opening the truncate-to-valid-prefix attack
+            // even though a key is configured. Once keyed auditing is on, an unkeyed checkpoint is
+            // therefore refused rather than trusted.
+            DppAuditKey currentKey = await _keyProvider.GetCurrentKeyAsync(cancellationToken).ConfigureAwait(false);
+            if (currentKey.Key is not null && checkpointKey.Key is null)
+            {
+                // Distinguish the genuine legacy case from an attack. A checkpoint predating the key
+                // can only be legitimate if every entry it covers also predates the key; any keyed
+                // entry proves the checkpoint should have been keyed too.
+                int keyedEntryCount = entries.Count(e => !string.IsNullOrEmpty(e.KeyId));
+                if (keyedEntryCount > 0)
+                {
+                    _logger.LogCritical(
+                        "DPP audit checkpoint is unkeyed while keyed auditing is enabled, but keyed entries exist; the checkpoint may have been downgraded to bypass MAC verification.");
+                    return false;
+                }
+
+                // Genuinely legacy: keyed auditing was enabled after this checkpoint was written and
+                // nothing keyed has been appended since. The next append re-keys the checkpoint.
+                _logger.LogWarning(
+                    "DPP audit checkpoint predates {ConfigPath} and is not authenticated. It will be re-keyed on the next audited operation; until then truncation of the pre-key entries is not detectable.",
+                    DppAuditKeyProvider.AuditKeyConfigurationPath);
+                return true;
+            }
+
             if (checkpointKey.Key is not null)
             {
-                string expectedMac = ComputeCheckpointMac(checkpoint.EntryCount, checkpoint.TailHash, checkpointKey.Key);
+                string expectedMac = ComputeCheckpointMac(checkpoint.EntryCount, checkpoint.TailHash, checkpointKey.Key, checkpoint.KeyId);
                 if (string.IsNullOrEmpty(checkpoint.CheckpointMac)
                     || !CryptographicOperations.FixedTimeEquals(
                         Encoding.UTF8.GetBytes(checkpoint.CheckpointMac),
@@ -348,11 +379,16 @@ namespace Opc.Ua.Cloud.Library
         }
 
         /// <summary>
-        /// Authenticates the checkpoint's length and tail. Returns null when no audit key is
-        /// configured, in which case the checkpoint stays unauthenticated and rollback to an earlier
-        /// valid prefix remains undetectable - see the audit-log limitations in the README.
+        /// Authenticates the checkpoint's length, tail and key identifier. Returns null when no audit
+        /// key is configured, in which case the checkpoint stays unauthenticated and rollback to an
+        /// earlier valid prefix remains undetectable - see the audit-log limitations in the README.
         /// </summary>
-        internal static string ComputeCheckpointMac(long entryCount, string tailHash, byte[] key)
+        /// <remarks>
+        /// The key id is covered by the MAC, not merely stored beside it: leaving it outside would let
+        /// an attacker repoint a checkpoint at a different (say, leaked or retired) key while keeping
+        /// the MAC intact.
+        /// </remarks>
+        internal static string ComputeCheckpointMac(long entryCount, string tailHash, byte[] key, string keyId = null)
         {
             if (key is null)
             {
@@ -364,6 +400,7 @@ namespace Opc.Ua.Cloud.Library
             using var buffer = new MemoryStream();
             AppendField(buffer, entryCount.ToString(CultureInfo.InvariantCulture));
             AppendField(buffer, tailHash);
+            AppendField(buffer, keyId);
 
             using var hmac = new HMACSHA256(key);
             return Convert.ToHexString(hmac.ComputeHash(buffer.ToArray()));
@@ -410,6 +447,7 @@ namespace Opc.Ua.Cloud.Library
             AppendField(buffer, entry.DppId);
             AppendField(buffer, entry.ElementPath);
             AppendField(buffer, entry.Outcome);
+            AppendField(buffer, entry.OperationId);
 
             byte[] canonical = buffer.ToArray();
 
