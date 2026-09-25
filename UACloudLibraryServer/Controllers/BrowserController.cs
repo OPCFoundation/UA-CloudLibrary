@@ -45,7 +45,13 @@ namespace AdminShell
         {
             Dictionary<string, string> results = await _client.BrowseVariableNodesResursivelyAsync(User.Identity.Name, model.NodesetIdentifier, null).ConfigureAwait(false);
 
-            return File(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(results, s_jsonOptions)), "text/json", "nodevalues.json");
+            // A browse returns node values only. Exporting them alone would produce a file that, when
+            // re-uploaded, silently strips the per-DPP controlledElements map and turns every
+            // controlled element public - so re-attach it the same way the Save path does.
+            DbFiles nodesetXml = await _storage.DownloadFileAsync(model.NodesetIdentifier).ConfigureAwait(false);
+            string values = DppControlledElements.Merge(JsonSerializer.Serialize(results, s_jsonOptions), nodesetXml?.Values);
+
+            return File(Encoding.UTF8.GetBytes(values), "text/json", "nodevalues.json");
         }
 
         [HttpPost]

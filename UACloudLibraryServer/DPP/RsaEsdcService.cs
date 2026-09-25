@@ -2,6 +2,7 @@ using System;
 using System.Buffers.Text;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
@@ -48,9 +49,90 @@ namespace Opc.Ua.Cloud.Library
         private readonly string _certificateBase64;
         private readonly string _keyId;
 
-        // Keys accepted by Verify. Contains this instance's own signing key plus any additional
-        // trust anchors from configuration. Never populated from a submitted ESDC.
-        private readonly List<RSA> _trustedKeys = new();
+        // Keys accepted by Verify, each bound to the issuer it is authorized to speak for. Never
+        // populated from a submitted ESDC.
+        private readonly List<TrustAnchor> _trustedKeys = new();
+
+        /// <summary>
+        /// A public key together with the issuer it is authorized to sign for.
+        /// </summary>
+        /// <remarks>
+        /// The binding is the point: a bare set of trusted keys establishes only that *someone*
+        /// trusted signed the credential, so any trusted peer could issue one naming a different
+        /// economic operator and still verify.
+        /// </remarks>
+        private sealed class TrustAnchor
+        {
+            internal TrustAnchor(RSA key, string issuer, string keyId, bool isOwnKey)
+            {
+                Key = key;
+                Issuer = issuer;
+                KeyId = keyId;
+                IsOwnKey = isOwnKey;
+            }
+
+            internal RSA Key { get; }
+
+            /// <summary>Issuer this key may sign for; null means unbound (legacy configuration).</summary>
+            internal string Issuer { get; }
+
+            /// <summary>Optional pinned JWS <c>kid</c>.</summary>
+            internal string KeyId { get; }
+
+            /// <summary>True for this server's own signing key.</summary>
+            internal bool IsOwnKey { get; }
+        }
+
+        /// <summary>
+        /// True when <paramref name="anchor"/> is authorized to vouch for the signed issuer.
+        /// </summary>
+        /// <remarks>
+        /// An issuer-bound anchor must match the signed <c>issuer</c>, and its pinned <c>kid</c>
+        /// when one is configured. Unbound anchors (this server's own key, and the legacy flat
+        /// list) are only accepted when the signed issuer is absent or is not claimed by any bound
+        /// anchor - so adding a bound anchor for an operator stops an unbound key from
+        /// impersonating it.
+        /// </remarks>
+        private bool AnchorMayVouchFor(TrustAnchor anchor, string signedIssuer, string signedKeyId)
+        {
+            if (anchor.Issuer is not null)
+            {
+                if (!string.Equals(anchor.Issuer, signedIssuer, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                // A pinned key id, when configured, must match the signed header.
+                return string.IsNullOrEmpty(anchor.KeyId)
+                    || string.Equals(anchor.KeyId, signedKeyId, StringComparison.Ordinal);
+            }
+
+            // Unbound anchor: refuse if some bound anchor already claims this issuer.
+            if (!string.IsNullOrEmpty(signedIssuer)
+                && _trustedKeys.Any(a => a.Issuer is not null && string.Equals(a.Issuer, signedIssuer, StringComparison.Ordinal)))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static RSA ImportAnchorKey(string publicKeyPem, string configurationPath)
+        {
+            var anchor = RSA.Create();
+            try
+            {
+                anchor.ImportFromPem(publicKeyPem);
+                return anchor;
+            }
+            catch (ArgumentException)
+            {
+                // A malformed trust anchor must not silently widen or narrow trust.
+                anchor.Dispose();
+                throw new InvalidOperationException(
+                    $"Configured ESDC trust anchor '{configurationPath}' is not a valid public key PEM.");
+            }
+        }
 
         /// <summary>
         /// Creates the service using an explicitly resolved signing key. This is the production path:
@@ -119,11 +201,46 @@ namespace Opc.Ua.Cloud.Library
                 _keyId = Convert.ToHexString(SHA256.HashData(_rsa.ExportSubjectPublicKeyInfo()));
             }
 
-            // Our own key always verifies what we issue.
-            _trustedKeys.Add(_rsa);
+            // Our own key always verifies what we issue, bound to this server as its own issuer.
+            _trustedKeys.Add(new TrustAnchor(_rsa, issuer: null, keyId: _keyId, isOwnKey: true));
 
             // Additional trust anchors let this instance verify ESDCs issued by peer operators.
-            // Configured as Dpp:Esdc:TrustedPublicKeysPem:0, :1, ... (SubjectPublicKeyInfo PEM).
+            //
+            // Preferred form binds each key to the issuer it is authorized to sign for:
+            //   Dpp:Esdc:TrustedIssuers:0:Issuer        - economic operator id
+            //   Dpp:Esdc:TrustedIssuers:0:PublicKeyPem  - SubjectPublicKeyInfo PEM
+            //   Dpp:Esdc:TrustedIssuers:0:KeyId         - optional, pins the JWS 'kid'
+            //
+            // Without that binding any trusted peer could sign a credential claiming a different
+            // operator as issuer and still verify, because the key set alone says nothing about who
+            // each key speaks for.
+            IConfigurationSection boundIssuers = configuration?.GetSection("Dpp:Esdc:TrustedIssuers");
+            if (boundIssuers is not null)
+            {
+                foreach (IConfigurationSection child in boundIssuers.GetChildren())
+                {
+                    string issuer = child["Issuer"];
+                    string publicKeyPem = child["PublicKeyPem"];
+                    string keyId = child["KeyId"];
+
+                    if (string.IsNullOrWhiteSpace(publicKeyPem))
+                    {
+                        continue;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(issuer))
+                    {
+                        throw new InvalidOperationException(
+                            $"Configured ESDC trust anchor '{child.Path}' has no 'Issuer'. An anchor without an issuer would authorize its holder to sign as any operator.");
+                    }
+
+                    _trustedKeys.Add(new TrustAnchor(ImportAnchorKey(publicKeyPem, child.Path), issuer, keyId, isOwnKey: false));
+                }
+            }
+
+            // Legacy flat list: keys with no issuer binding. Retained so existing deployments keep
+            // working, but they are only accepted for credentials this server itself issued - an
+            // unbound key must not be able to vouch for an arbitrary issuer.
             IConfigurationSection trusted = configuration?.GetSection("Dpp:Esdc:TrustedPublicKeysPem");
             if (trusted is not null)
             {
@@ -134,19 +251,7 @@ namespace Opc.Ua.Cloud.Library
                         continue;
                     }
 
-                    var anchor = RSA.Create();
-                    try
-                    {
-                        anchor.ImportFromPem(child.Value);
-                        _trustedKeys.Add(anchor);
-                    }
-                    catch (ArgumentException)
-                    {
-                        // A malformed trust anchor must not silently widen or narrow trust.
-                        anchor.Dispose();
-                        throw new InvalidOperationException(
-                            $"Configured ESDC trust anchor '{child.Path}' is not a valid public key PEM.");
-                    }
+                    _trustedKeys.Add(new TrustAnchor(ImportAnchorKey(child.Value, child.Path), issuer: null, keyId: null, isOwnKey: false));
                 }
             }
         }
@@ -242,11 +347,38 @@ namespace Opc.Ua.Cloud.Library
                 byte[] signature = Base64Url.DecodeFromChars(parts[2]);
                 byte[] signingInput = Encoding.UTF8.GetBytes(parts[0] + "." + parts[1]);
 
-                // Only trusted keys may satisfy verification.
-                bool signatureValid = false;
-                foreach (RSA trusted in _trustedKeys)
+                using var header = JsonDocument.Parse(Base64Url.DecodeFromChars(parts[0]));
+                using var payload = JsonDocument.Parse(Base64Url.DecodeFromChars(parts[1]));
+
+                // Confirm the payload is actually a Verifiable Credential.
+                if (!IsVerifiableCredential(payload.RootElement))
                 {
-                    if (trusted.VerifyData(signingInput, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1))
+                    return false;
+                }
+
+                // Select the anchor from the *signed* issuer before checking the signature, rather
+                // than accepting whichever trusted key happens to verify. Trying every key would
+                // only establish that some trusted party signed this, so any trusted peer could
+                // issue a credential naming a different economic operator and still pass.
+                string signedIssuer = payload.RootElement.TryGetProperty("issuer", out JsonElement issuerElement)
+                    && issuerElement.ValueKind == JsonValueKind.String
+                        ? issuerElement.GetString()
+                        : null;
+
+                string signedKeyId = header.RootElement.TryGetProperty("kid", out JsonElement kidElement)
+                    && kidElement.ValueKind == JsonValueKind.String
+                        ? kidElement.GetString()
+                        : null;
+
+                bool signatureValid = false;
+                foreach (TrustAnchor anchor in _trustedKeys)
+                {
+                    if (!AnchorMayVouchFor(anchor, signedIssuer, signedKeyId))
+                    {
+                        continue;
+                    }
+
+                    if (anchor.Key.VerifyData(signingInput, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1))
                     {
                         signatureValid = true;
                         break;
@@ -254,15 +386,6 @@ namespace Opc.Ua.Cloud.Library
                 }
 
                 if (!signatureValid)
-                {
-                    return false;
-                }
-
-                using var header = JsonDocument.Parse(Base64Url.DecodeFromChars(parts[0]));
-                using var payload = JsonDocument.Parse(Base64Url.DecodeFromChars(parts[1]));
-
-                // Confirm the payload is actually a Verifiable Credential.
-                if (!IsVerifiableCredential(payload.RootElement))
                 {
                     return false;
                 }
@@ -469,10 +592,10 @@ namespace Opc.Ua.Cloud.Library
 
         public void Dispose()
         {
-            foreach (RSA trusted in _trustedKeys)
+            foreach (TrustAnchor trusted in _trustedKeys)
             {
                 // _rsa is in this list; disposing it here covers it once.
-                trusted.Dispose();
+                trusted.Key.Dispose();
             }
 
             _trustedKeys.Clear();

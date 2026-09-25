@@ -160,8 +160,19 @@ namespace Opc.Ua.Cloud.Library
                             {
                                 foreach (JsonProperty pair in keyvalues.RootElement.EnumerateObject())
                                 {
-                                    if (string.Equals(pair.Name, DppControlledElements.PropertyName, StringComparison.OrdinalIgnoreCase)
-                                        || pair.Value.ValueKind != JsonValueKind.String)
+                                    // Skip the reserved access-control mapping: it is not a node value.
+                                    if (string.Equals(pair.Name, DppControlledElements.PropertyName, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        continue;
+                                    }
+
+                                    // Values files legitimately carry primitives as JSON scalars
+                                    // ({ "node": 42 }, { "node": true }), not just strings. Filtering
+                                    // to JsonValueKind.String alone would silently drop those and
+                                    // leave the variable uninitialised, so coerce each primitive to
+                                    // its wire string the way the previous Dictionary<string,string>
+                                    // deserialization did.
+                                    if (!TryGetWireValue(pair.Value, out string wireValue))
                                     {
                                         continue;
                                     }
@@ -178,7 +189,7 @@ namespace Opc.Ua.Cloud.Library
 
                                     if (Find(nodeId) is BaseVariableState variable)
                                     {
-                                        variable.Value = new Variant(pair.Value.GetString());
+                                        variable.Value = new Variant(wireValue);
                                     }
                                 }
                             }
@@ -189,6 +200,38 @@ namespace Opc.Ua.Cloud.Library
                         Console.WriteLine("Error parsing values JSON. Skipping values patching:" + ex.Message);
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Converts a values-JSON entry to the wire string used to seed a variable, matching the
+        /// behaviour of the original <c>Dictionary&lt;string, string&gt;</c> deserialization.
+        /// </summary>
+        /// <remarks>
+        /// Strings pass through unchanged. Numbers and booleans are emitted as their raw JSON text,
+        /// so <c>42</c> and <c>true</c> seed the variable rather than being discarded. Structural
+        /// values (objects and arrays) and nulls are rejected: they are not scalar node values, and
+        /// the reserved access mapping is the only object a values file is expected to contain.
+        /// </remarks>
+        internal static bool TryGetWireValue(JsonElement element, out string wireValue)
+        {
+            switch (element.ValueKind)
+            {
+                case JsonValueKind.String:
+                    wireValue = element.GetString();
+                    return wireValue is not null;
+
+                case JsonValueKind.Number:
+                case JsonValueKind.True:
+                case JsonValueKind.False:
+                    // GetRawText preserves the author's formatting (including significant leading
+                    // or trailing zeros) instead of round-tripping through a numeric type.
+                    wireValue = element.GetRawText();
+                    return true;
+
+                default:
+                    wireValue = null;
+                    return false;
             }
         }
     }

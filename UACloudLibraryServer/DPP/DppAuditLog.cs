@@ -33,11 +33,13 @@ namespace Opc.Ua.Cloud.Library
         private const int MaxAttempts = 5;
 
         private readonly AppDbContext _db;
+        private readonly IDppAuditKeyProvider _keyProvider;
         private readonly ILogger _logger;
 
-        public DppAuditLog(AppDbContext db, ILoggerFactory loggerFactory)
+        public DppAuditLog(AppDbContext db, IDppAuditKeyProvider keyProvider, ILoggerFactory loggerFactory)
         {
             _db = db;
+            _keyProvider = keyProvider;
             _logger = loggerFactory.CreateLogger("DppAuditLog");
         }
 
@@ -168,7 +170,8 @@ namespace Opc.Ua.Cloud.Library
                 Outcome = outcome,
                 PreviousHash = previousHash
             };
-            entry.EntryHash = ComputeHash(entry, previousHash);
+            byte[] auditKey = await _keyProvider.GetAuditKeyAsync().ConfigureAwait(false);
+            entry.EntryHash = ComputeHash(entry, previousHash, auditKey);
 
             _db.DppAuditEntries.Add(entry);
 
@@ -209,10 +212,12 @@ namespace Opc.Ua.Cloud.Library
                 .ToListAsync()
                 .ConfigureAwait(false);
 
+            byte[] auditKey = await _keyProvider.GetAuditKeyAsync().ConfigureAwait(false);
+
             string previousHash = GenesisHash;
             foreach (DppAuditEntry entry in entries)
             {
-                if (entry.PreviousHash != previousHash || entry.EntryHash != ComputeHash(entry, previousHash))
+                if (entry.PreviousHash != previousHash || entry.EntryHash != ComputeHash(entry, previousHash, auditKey))
                 {
                     return false;
                 }
@@ -275,7 +280,18 @@ namespace Opc.Ua.Cloud.Library
             return new DateTimeOffset(value.Ticks - (value.Ticks % ticksPerMicrosecond), value.Offset);
         }
 
-        internal static string ComputeHash(DppAuditEntry entry, string previousHash)
+        /// <summary>
+        /// Builds the digest an entry carries. Fields are length-prefixed rather than
+        /// delimiter-joined, so caller-controlled values containing the separator cannot produce two
+        /// different entries with the same digest.
+        /// </summary>
+        /// <param name="key">
+        /// When supplied, HMAC-SHA256 is used instead of a bare SHA-256. This is what makes the log
+        /// tamper-evident against someone who can write to the database: an unkeyed digest is a
+        /// public function of the stored rows, so it can simply be recomputed after an edit. When
+        /// null the log degrades to an integrity check only - see <see cref="DppAuditKeyProvider"/>.
+        /// </param>
+        internal static string ComputeHash(DppAuditEntry entry, string previousHash, byte[] key = null)
         {
             using var buffer = new MemoryStream();
 
@@ -287,8 +303,15 @@ namespace Opc.Ua.Cloud.Library
             AppendField(buffer, entry.ElementPath);
             AppendField(buffer, entry.Outcome);
 
-            byte[] hash = SHA256.HashData(buffer.ToArray());
-            return Convert.ToHexString(hash);
+            byte[] canonical = buffer.ToArray();
+
+            if (key is { Length: > 0 })
+            {
+                using var hmac = new HMACSHA256(key);
+                return Convert.ToHexString(hmac.ComputeHash(canonical));
+            }
+
+            return Convert.ToHexString(SHA256.HashData(canonical));
         }
 
         // Writes "<byte length>:<utf8 bytes>" so the field boundaries are recoverable from the

@@ -122,5 +122,61 @@ namespace UACloudLibraryServer.UnitTests
 
                 Assert.NotEqual(hashedBeforeStore, hashedAfterReload);
             }
+
+            [Fact]
+            public void KeyedHash_DiffersFromUnkeyedHash()
+            {
+                // The point of keying: an unkeyed digest is a public function of the stored rows, so
+                // anyone able to edit the audit tables can recompute it. A keyed digest cannot be
+                // reproduced without the key.
+                var timestamp = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+                DppAuditEntry entry = Entry("dpp-1", "materials", timestamp);
+                byte[] key = new byte[32];
+
+                Assert.NotEqual(
+                    DppAuditLog.ComputeHash(entry, DppAuditLog.GenesisHash),
+                    DppAuditLog.ComputeHash(entry, DppAuditLog.GenesisHash, key));
+            }
+
+            [Fact]
+            public void DifferentKeys_ProduceDifferentHashes()
+            {
+                // An attacker with a different key (or none) cannot forge a digest that verifies.
+                var timestamp = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+                DppAuditEntry entry = Entry("dpp-1", "materials", timestamp);
+
+                byte[] keyA = new byte[32];
+                byte[] keyB = new byte[32];
+                keyB[0] = 1;
+
+                Assert.NotEqual(
+                    DppAuditLog.ComputeHash(entry, DppAuditLog.GenesisHash, keyA),
+                    DppAuditLog.ComputeHash(entry, DppAuditLog.GenesisHash, keyB));
+            }
+
+            [Fact]
+            public void SameKey_ProducesStableHash()
+            {
+                // Verification recomputes with the same key, so it must be deterministic.
+                var timestamp = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+                DppAuditEntry entry = Entry("dpp-1", "materials", timestamp);
+                byte[] key = new byte[32];
+
+                Assert.Equal(
+                    DppAuditLog.ComputeHash(entry, DppAuditLog.GenesisHash, key),
+                    DppAuditLog.ComputeHash(entry, DppAuditLog.GenesisHash, key));
+            }
+
+            [Fact]
+            public void KeyedHash_StillDetectsFieldCollisions()
+            {
+                // The length-prefixed encoding must keep working under HMAC, not just bare SHA-256.
+                var timestamp = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+                byte[] key = new byte[32];
+
+                Assert.NotEqual(
+                    DppAuditLog.ComputeHash(Entry("a|b", "c", timestamp), DppAuditLog.GenesisHash, key),
+                    DppAuditLog.ComputeHash(Entry("a", "b|c", timestamp), DppAuditLog.GenesisHash, key));
+            }
         }
     }

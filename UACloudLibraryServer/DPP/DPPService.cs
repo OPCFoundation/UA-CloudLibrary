@@ -928,7 +928,7 @@ namespace Opc.Ua.Cloud.Library
                 DppJsonPath.Segment segment = segments[i];
                 NodesetViewerNode next = segment.IsIndex
                     ? (segment.Index.Value >= 0 && segment.Index.Value < currentChildren.Count ? currentChildren[segment.Index.Value] : null)
-                    : currentChildren.FirstOrDefault(c => string.Equals(c.Text, segment.Name, StringComparison.Ordinal));
+                    : currentChildren.FirstOrDefault(c => MatchesElementId(c, segment.Name));
 
                 if (next == null)
                 {
@@ -1132,7 +1132,7 @@ namespace Opc.Ua.Cloud.Library
                     return ($"Each entry under '{pathPrefix}' must carry a non-empty string 'elementId'.", null);
                 }
 
-                NodesetViewerNode match = liveChildren.FirstOrDefault(c => c.Text == elementId);
+                NodesetViewerNode match = liveChildren.FirstOrDefault(c => MatchesElementId(c, elementId));
                 if (match == null)
                 {
                     return ($"Element '{pathPrefix}.{elementId}' was not found on the DPP.", null);
@@ -1591,6 +1591,27 @@ namespace Opc.Ua.Cloud.Library
             }
 
             return output;
+        }
+
+        /// <summary>
+        /// True when <paramref name="node"/> is addressed by <paramref name="elementId"/>.
+        /// </summary>
+        /// <remarks>
+        /// Reads emit <see cref="BuildElementId"/> hashes, so writes must match on the same value or
+        /// an id obtained from a read could be read back but never updated. The node's raw
+        /// <c>Text</c> (its BrowseName) is still accepted so paths written against the earlier
+        /// behaviour keep working; it is only a fallback, because BrowseNames can collide across
+        /// namespaces whereas the hashed id cannot.
+        /// </remarks>
+        private static bool MatchesElementId(NodesetViewerNode node, string elementId)
+        {
+            if (node is null || string.IsNullOrEmpty(elementId))
+            {
+                return false;
+            }
+
+            return string.Equals(BuildElementId(node.Id), elementId, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(node.Text, elementId, StringComparison.Ordinal);
         }
 
         // Produces a stable, globally-unique element id (as a GUID string) for a DPP data element from

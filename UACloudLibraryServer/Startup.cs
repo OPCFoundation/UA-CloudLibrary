@@ -144,6 +144,7 @@ namespace Opc.Ua.Cloud.Library
             services.AddScoped<DPPService>();
             services.AddSingleton<IDppAccessPolicy, DppAccessPolicy>();
             services.AddScoped<IDppAuditLog, DppAuditLog>();
+            services.AddSingleton<IDppAuditKeyProvider, DppAuditKeyProvider>();
             services.AddScoped<Controllers.DppAuditFailureFilter>();
             services.AddScoped<IEsdcSigningKeyProvider, EsdcSigningKeyProvider>();
 
@@ -306,7 +307,33 @@ namespace Opc.Ua.Cloud.Library
 
             string serviceName = Configuration["Application"] ?? "UACloudLibrary";
 
-            services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Directory.GetCurrentDirectory()));
+            // Data Protection keys encrypt the authentication cookie, antiforgery
+            // tokens and the e-mail confirmation / password reset tokens. They must
+            // OUTLIVE the process: if they are lost, every existing cookie and token
+            // becomes undecryptable, which signs all users out and makes outstanding
+            // reset links fail. Worse, the antiforgery token on an already-open login
+            // page can no longer be validated, so the POST is rejected by model
+            // validation before the credentials are ever checked - which looks exactly
+            // like a wrong password.
+            //
+            // Directory.GetCurrentDirectory() is the container's working directory and
+            // is destroyed on every restart, so the key ring is configurable: point
+            // DATA_PROTECTION_KEY_PATH at a mounted volume in any containerised
+            // deployment. SetApplicationName pins the key ring's purpose string so
+            // keys stay valid across restarts and replicas.
+            string keyPath = Configuration["DATA_PROTECTION_KEY_PATH"];
+            if (string.IsNullOrWhiteSpace(keyPath))
+            {
+                keyPath = Directory.GetCurrentDirectory();
+            }
+            else
+            {
+                Directory.CreateDirectory(keyPath);
+            }
+
+            services.AddDataProtection()
+                .PersistKeysToFileSystem(new DirectoryInfo(keyPath))
+                .SetApplicationName(serviceName);
 
             services.Configure<IISServerOptions>(options => {
                 options.AllowSynchronousIO = true;
