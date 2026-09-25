@@ -60,10 +60,12 @@ namespace Opc.Ua.Cloud.Library
             }
             catch (DppAuditException ex)
             {
-                // The log could not be read at all, so its integrity is unknown. That is not the same
-                // as proven-tampered, but it is equally not a clean bill of health.
+                // Integrity is *unknown*, not disproven: the log could not be read, or an entry was
+                // signed with a key that is no longer configured. Keeping this distinct from the
+                // failure above matters - reporting "unverifiable" as "tampered" would produce false
+                // alarms on an ordinary key rotation, and an alert that cries wolf gets muted.
                 _logger.LogError(ex, "DPP audit chain could not be verified.");
-                return HealthCheckResult.Unhealthy("DPP audit chain could not be read for verification.", ex);
+                return HealthCheckResult.Unhealthy($"DPP audit chain could not be verified: {ex.Message}", ex);
             }
             catch (InvalidOperationException ex)
             {

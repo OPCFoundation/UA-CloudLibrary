@@ -34,6 +34,12 @@ namespace Opc.Ua.Cloud.Library.Models
         /// </summary>
         public string CheckpointMac { get; set; }
 
+        /// <summary>
+        /// Fingerprint of the audit key that produced <see cref="CheckpointMac"/>, or <c>null</c> when
+        /// the checkpoint was written with no key configured. See <c>DppAuditEntry.KeyId</c>.
+        /// </summary>
+        public string KeyId { get; set; }
+
         /// <summary>When the checkpoint was last advanced; useful for operator diagnostics.</summary>
         public DateTimeOffset UpdatedAt { get; set; }
     }

@@ -372,7 +372,21 @@ Three security capabilities sit across the read and write paths. Each is keyed o
 >
 > Be clear about the remaining limit: this does **not** defend against an attacker who holds both the key and database write access, and it does not prove *when* an entry was written. A deployment that needs tamper evidence against a compromised database operator should additionally anchor the checkpoint in an external append-only store (a WORM bucket, a transparency log, or periodic off-host export). That is not implemented here.
 >
-> When no key is configured the server logs a warning at startup and the log degrades to an integrity check only &mdash; it will still catch accidental corruption, but not deliberate modification. **Entries written under a different key (or none) will not re-verify after the key changes**, for the same reason as the timestamp change above.
+> When no key is configured the server logs a warning at startup and the log degrades to an integrity check only &mdash; it will still catch accidental corruption, but not deliberate modification.
+
+#### Rotating the audit key
+
+Each entry records the fingerprint of the key that signed it (`KeyId`, migration `AddDppAuditKeyId`), and verification uses *that* key rather than whichever key happens to be configured at verification time. Without this, enabling a key for the first time or rotating one would make every earlier entry fail verification and the audit health check would report tampering that never occurred &mdash; a false alarm on a tamper-evidence control is worse than no alarm, because it teaches operators to ignore it.
+
+To rotate:
+
+1. Move the current value of `Dpp__Audit__HmacKey` into the next free `Dpp__Audit__RetiredHmacKeys__N` slot.
+2. Set `Dpp__Audit__HmacKey` to the new key.
+3. Restart. New entries are signed with the new key; existing entries continue to verify against the retired one.
+
+Entries written before any key was configured carry no fingerprint and keep verifying as unkeyed, so enabling a key for the first time needs no retired entry and no backfill.
+
+> **Retired keys must be kept for as long as the entries they signed are retained.** Dropping one does not cause a false tampering report &mdash; verification distinguishes the two cases and reports those entries as *unverifiable*, failing the health check with a message naming the missing fingerprint &mdash; but it is not recoverable: nothing can re-establish the integrity of those entries afterwards. Treat retired audit keys as part of the audit record's retention policy, not as expired secrets to be cleaned up.
 
 **Electronic Signed Data Constructs (EN 18246 Annex A / B.5, §4.7).** Full-DPP reads return the ESDC in the response envelope's `esdc` field, carrying it as a **W3C Verifiable Credential** (VC Data Model 2.0) secured with an enveloped JWS (`application/vc+jwt`) per the W3C *Securing Verifiable Credentials using JOSE and COSE* recommendation. The DPP is the credential's `credentialSubject.digitalProductPassport`, the economic operator is the `issuer`, and the unique product identifier is the subject `id`. [`IEsdcService`](UACloudLibraryServer/DPP/IEsdcService.cs) / [`RsaEsdcService`](UACloudLibraryServer/DPP/RsaEsdcService.cs) sign with RS256, using the key resolved by [`IEsdcSigningKeyProvider`](UACloudLibraryServer/DPP/IEsdcSigningKeyProvider.cs) (see [ESDC signing key management](#esdc-signing-key-management)); an optional issuer certificate (`Dpp:Esdc:CertificatePem`) is embedded in the JWS header (`x5c`) and must correspond to the signing key, or the server refuses to start &mdash; a mismatched certificate would tell verifiers that a key which cannot verify the signature produced the credential. The VC-JWT is self-contained and independently verifiable by any VC-JWT verifier, free of charge and without contacting the issuer. `Verify` accepts only signatures made by a **trusted** key &mdash; this server's own key or one listed in `Dpp:Esdc:TrustedPublicKeysPem` &mdash; and additionally requires the unsigned envelope fields to match the signed credential; a key embedded in a submitted ESDC is never trusted, since that would prove only self-consistency. Validating the issuer's certificate against an EU trusted list / governance framework (Annex A.3) is a deployment responsibility and is out of scope of this service.
 
@@ -562,6 +576,7 @@ Curtail bot access using the Google reCAPTCHA.
 * `Dpp__Esdc__TrustedPublicKeysPem__0`, `__1`, ...: Legacy, unbound public key PEMs of peer economic operators. Prefer the issuer-bound form below.
 * `Dpp__Esdc__TrustedIssuers__0__Issuer`, `__0__PublicKeyPem`, `__0__KeyId`: Trusted peer bound to the issuer it may sign for. `KeyId` is optional and pins the JWS `kid`.
 * `Dpp__Audit__HmacKey`: Base64 key (at least 32 bytes) authenticating the DPP audit chain. Without it the chain is integrity-checked but not tamper-evident against database modification.
+* `Dpp__Audit__RetiredHmacKeys__0`, `__1`, ...: Previously used audit keys, retained so entries signed with them stay verifiable after a rotation. See [rotating the audit key](#rotating-the-audit-key).
 * `Dpp__RateLimit__PermitPerMinute`: Requests permitted per minute per client IP on the DPP endpoints. (default: `100`)
 * `Dpp__ForwardedHeaders__KnownProxies__0`, `__1`, ...: IP addresses of trusted reverse proxies whose `X-Forwarded-For`/`X-Forwarded-Proto` headers should be honoured.
 * `Dpp__ForwardedHeaders__KnownNetworks__0`, `__1`, ...: Trusted proxy networks in CIDR form (e.g. `10.0.0.0/8`).

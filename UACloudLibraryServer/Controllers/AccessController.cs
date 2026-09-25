@@ -59,6 +59,28 @@ namespace Opc.Ua.Cloud.Library.Controllers
         // Every instance must use the same value for the lock to serialize them against each other.
         private const long AdministratorRoleLockId = 0x4450504144_4D494EL;
 
+        /// <summary>
+        /// Result of the replay-safe administrator-revocation body, kept separate from the HTTP
+        /// response so audit writes and response shaping stay outside the retriable delegate.
+        /// </summary>
+        private enum AdminRevocationOutcome
+        {
+            /// <summary>The role was removed and existing sessions were invalidated.</summary>
+            Revoked,
+
+            /// <summary>The user does not hold the role, either originally or after a prior attempt.</summary>
+            AlreadyRevoked,
+
+            /// <summary>Refused: this is the only remaining administrator.</summary>
+            RefusedLastAdministrator,
+
+            /// <summary>The role removal itself failed.</summary>
+            RemovalFailed,
+
+            /// <summary>Role removed, but the security stamp update failed, so cookies survive.</summary>
+            RevokedButSessionsRemain
+        }
+
         // The acting administrator performing the access-rights change; bound to the audit entry so
         // every change to roles/rights is attributable (EN 18239 section 5.2(16)).
         private string OperatorId => User?.Identity?.Name ?? "anonymous";
@@ -221,12 +243,21 @@ namespace Opc.Ua.Cloud.Library.Controllers
             // requests, which is what the last-administrator invariant needs.
             if (string.Equals(roleName, Roles.Administrator, StringComparison.OrdinalIgnoreCase))
             {
+                // Write-ahead audit intent BEFORE entering the retriable delegate. The execution
+                // strategy may replay that delegate, and the audit log commits on its own context, so
+                // writing this inside would duplicate the entry once per attempt.
+                await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Attempted").ConfigureAwait(false);
+
                 // AppDbContext enables EnableRetryOnFailure, and NpgsqlRetryingExecutionStrategy
                 // refuses user-initiated transactions, so the advisory-lock transaction has to be
                 // opened by the strategy rather than directly.
                 IExecutionStrategy strategy = dbContext.Database.CreateExecutionStrategy();
 
-                return await strategy.ExecuteAsync(async () => {
+                // The delegate must be safe to replay. UserManager commits on a separate connection,
+                // so a transient failure after RemoveFromRoleAsync succeeded would re-run this body
+                // with the role already gone. Returning an outcome value rather than an IActionResult
+                // keeps the audit writes and the response shaping outside the retriable region.
+                AdminRevocationOutcome outcome = await strategy.ExecuteAsync(async () => {
                     await using IDbContextTransaction transaction = await dbContext.Database
                         .BeginTransactionAsync()
                         .ConfigureAwait(false);
@@ -238,49 +269,70 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     IList<IdentityUser> administrators = await userManager.GetUsersInRoleAsync(Roles.Administrator).ConfigureAwait(false);
                     bool isAdministrator = administrators.Any(a => string.Equals(a.Id, user.Id, StringComparison.Ordinal));
 
-                    if (isAdministrator && administrators.Count <= 1)
+                    if (!isAdministrator)
                     {
-                        await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Denied").ConfigureAwait(false);
-                        return (IActionResult)new ObjectResult($"Cannot revoke the '{Roles.Administrator}' role from the only remaining administrator; grant it to another account first.") {
-                            StatusCode = (int)HttpStatusCode.Forbidden
-                        };
+                        // Either the user never held the role, or a previous attempt of this same
+                        // delegate already removed it. Both are indistinguishable here and both mean
+                        // the desired end state holds, so report success rather than the 400 that
+                        // re-running RemoveFromRoleAsync would produce.
+                        await transaction.CommitAsync().ConfigureAwait(false);
+                        return AdminRevocationOutcome.AlreadyRevoked;
                     }
 
-                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Attempted").ConfigureAwait(false);
+                    if (administrators.Count <= 1)
+                    {
+                        await transaction.CommitAsync().ConfigureAwait(false);
+                        return AdminRevocationOutcome.RefusedLastAdministrator;
+                    }
 
                     IdentityResult adminResult = await userManager.RemoveFromRoleAsync(user, roleName).ConfigureAwait(false);
                     if (!adminResult.Succeeded)
                     {
-                        return this.BadRequest(adminResult);
+                        await transaction.CommitAsync().ConfigureAwait(false);
+                        return AdminRevocationOutcome.RemovalFailed;
                     }
 
-                    // Removing the role row does not invalidate authentication cookies already issued to
-                    // this user: their role claims were baked in at sign-in. Bumping the security stamp
-                    // makes those cookies fail re-validation, so the revocation actually takes effect
-                    // (within SecurityStampValidatorOptions.ValidationInterval).
+                    // Removing the role row does not invalidate authentication cookies already issued
+                    // to this user: their role claims were baked in at sign-in. Bumping the security
+                    // stamp makes those cookies fail re-validation, so the revocation actually takes
+                    // effect (within SecurityStampValidatorOptions.ValidationInterval).
                     IdentityResult adminStampResult = await userManager.UpdateSecurityStampAsync(user).ConfigureAwait(false);
-                    if (!adminStampResult.Succeeded)
-                    {
-                        // Deliberately NOT rolled back. AppDbContext is registered transient, so the
-                        // context backing UserManager is a different instance on a different connection:
-                        // RemoveFromRoleAsync has already committed independently of this transaction, and
-                        // rolling back here would undo only the advisory lock while falsely implying the
-                        // revocation was abandoned. Treat it as the same partial failure as the ordinary
-                        // branch - the role is gone, the session is not, and an operator has to be told.
-                        await transaction.CommitAsync().ConfigureAwait(false);
+
+                    // Release the advisory lock only after the removal and the stamp update have both
+                    // completed, so a concurrent request cannot observe the pre-revoke count.
+                    await transaction.CommitAsync().ConfigureAwait(false);
+
+                    // Deliberately not rolled back on stamp failure: AppDbContext is transient, so
+                    // UserManager already committed the removal on its own connection. Rolling back
+                    // here would undo only the advisory lock while falsely implying the revocation was
+                    // abandoned.
+                    return adminStampResult.Succeeded
+                        ? AdminRevocationOutcome.Revoked
+                        : AdminRevocationOutcome.RevokedButSessionsRemain;
+                }).ConfigureAwait(false);
+
+                switch (outcome)
+                {
+                    case AdminRevocationOutcome.RefusedLastAdministrator:
+                        await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Denied").ConfigureAwait(false);
+                        return new ObjectResult($"Cannot revoke the '{Roles.Administrator}' role from the only remaining administrator; grant it to another account first.") {
+                            StatusCode = (int)HttpStatusCode.Forbidden
+                        };
+
+                    case AdminRevocationOutcome.RemovalFailed:
+                        await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Failed").ConfigureAwait(false);
+                        return new ObjectResult("Failed to revoke the role.") { StatusCode = (int)HttpStatusCode.InternalServerError };
+
+                    case AdminRevocationOutcome.RevokedButSessionsRemain:
                         await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}; security stamp not updated", "PartialFailure").ConfigureAwait(false);
                         return new ObjectResult($"Role revoked, but the user's existing sessions could not be invalidated; they may retain the '{roleName}' claim until their cookie expires.") {
                             StatusCode = (int)HttpStatusCode.InternalServerError
                         };
-                    }
 
-                    // Release the advisory lock only after the removal and the stamp update have both
-                    // completed, so a concurrent request cannot observe the pre-revoke administrator count.
-                    await transaction.CommitAsync().ConfigureAwait(false);
-
-                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Success").ConfigureAwait(false);
-                    return new ObjectResult("User role revoked successfully") { StatusCode = (int)HttpStatusCode.OK };
-                }).ConfigureAwait(false);
+                    default:
+                        await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Success").ConfigureAwait(false);
+                        return new ObjectResult("User role revoked successfully") { StatusCode = (int)HttpStatusCode.OK };
+                }
             }
 
             // Write-ahead audit intent; see AddRoleAsync. This matters most on the revocation path:

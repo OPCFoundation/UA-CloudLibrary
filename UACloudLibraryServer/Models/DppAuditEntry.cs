@@ -41,5 +41,18 @@ namespace Opc.Ua.Cloud.Library.Models
         public string PreviousHash { get; set; }
 
         public string EntryHash { get; set; }
+
+        /// <summary>
+        /// Fingerprint of the audit key that produced <see cref="EntryHash"/>, or <c>null</c> when the
+        /// entry was written with no key configured.
+        /// </summary>
+        /// <remarks>
+        /// Without this, verification could only ever recompute history with whatever key is
+        /// configured *now*, so enabling or rotating the key would make every earlier entry fail and
+        /// the audit health check report tampering that never happened. Recording which key signed
+        /// each entry lets verification use the right one and lets a genuinely missing key be
+        /// reported as "unverifiable" rather than "tampered".
+        /// </remarks>
+        public string KeyId { get; set; }
     }
 }

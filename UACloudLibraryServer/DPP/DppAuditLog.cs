@@ -182,8 +182,12 @@ namespace Opc.Ua.Cloud.Library
                     Outcome = outcome,
                     PreviousHash = previousHash
                 };
-                byte[] auditKey = await _keyProvider.GetAuditKeyAsync().ConfigureAwait(false);
-                entry.EntryHash = ComputeHash(entry, previousHash, auditKey);
+                DppAuditKey auditKey = await _keyProvider.GetCurrentKeyAsync().ConfigureAwait(false);
+                entry.EntryHash = ComputeHash(entry, previousHash, auditKey.Key);
+
+                // Record which key signed this entry so verification can later use that key rather
+                // than whatever is configured at verification time.
+                entry.KeyId = auditKey.KeyId;
 
                 _db.DppAuditEntries.Add(entry);
 
@@ -207,7 +211,8 @@ namespace Opc.Ua.Cloud.Library
 
                 checkpoint.TailHash = entry.EntryHash;
                 checkpoint.UpdatedAt = entry.Timestamp;
-                checkpoint.CheckpointMac = ComputeCheckpointMac(checkpoint.EntryCount, checkpoint.TailHash, auditKey);
+                checkpoint.CheckpointMac = ComputeCheckpointMac(checkpoint.EntryCount, checkpoint.TailHash, auditKey.Key);
+                checkpoint.KeyId = auditKey.KeyId;
 
                 await _db.SaveChangesAsync().ConfigureAwait(false);
                 await transaction.CommitAsync().ConfigureAwait(false);
@@ -245,12 +250,31 @@ namespace Opc.Ua.Cloud.Library
                 .ToListAsync()
                 .ConfigureAwait(false);
 
-            byte[] auditKey = await _keyProvider.GetAuditKeyAsync().ConfigureAwait(false);
-
             string previousHash = GenesisHash;
             foreach (DppAuditEntry entry in entries)
             {
-                if (entry.PreviousHash != previousHash || entry.EntryHash != ComputeHash(entry, previousHash, auditKey))
+                // Verify with the key that signed THIS entry, not whichever key happens to be
+                // configured now. Recomputing history with the current key would make enabling a key
+                // for the first time, or rotating one, look like wholesale tampering - a false alarm
+                // on a security control, which is worse than no alarm because it teaches operators to
+                // ignore it.
+                DppAuditKeyLookup lookup = await _keyProvider.TryGetKeyByIdAsync(entry.KeyId).ConfigureAwait(false);
+                if (!lookup.Found)
+                {
+                    // Not tampering: the entry's key simply is not configured, so nothing can be said
+                    // about it either way. Reporting this as tampering would be a lie; reporting it as
+                    // valid would be worse.
+                    _logger.LogError(
+                        "DPP audit entry {Sequence} was signed with key {KeyId}, which is not configured. Add it to {RetiredKeysPath} to keep this entry verifiable.",
+                        entry.Sequence,
+                        entry.KeyId,
+                        DppAuditKeyProvider.RetiredKeysConfigurationPath);
+                    throw new DppAuditException(
+                        $"Audit entry {entry.Sequence} was signed with key '{entry.KeyId}', which is not configured. " +
+                        $"Its integrity cannot be determined. Configure the key under '{DppAuditKeyProvider.RetiredKeysConfigurationPath}' to verify it.");
+                }
+
+                if (entry.PreviousHash != previousHash || entry.EntryHash != ComputeHash(entry, previousHash, lookup.Key))
                 {
                     return false;
                 }
@@ -295,10 +319,21 @@ namespace Opc.Ua.Cloud.Library
             // the checkpoint itself was not rewritten: truncating the log to a valid prefix and
             // restating EntryCount/TailHash to match that prefix satisfies both. Authenticating the
             // checkpoint closes that path, because a rolled-back checkpoint cannot be re-MAC'd
-            // without the audit key. auditKey was already resolved above for entry verification.
-            if (auditKey is not null)
+            // without the audit key. As with entries, use the key the checkpoint was written with.
+            DppAuditKeyLookup checkpointKey = await _keyProvider.TryGetKeyByIdAsync(checkpoint.KeyId).ConfigureAwait(false);
+            if (!checkpointKey.Found)
             {
-                string expectedMac = ComputeCheckpointMac(checkpoint.EntryCount, checkpoint.TailHash, auditKey);
+                _logger.LogError(
+                    "DPP audit checkpoint was written with key {KeyId}, which is not configured; its integrity cannot be determined.",
+                    checkpoint.KeyId);
+                throw new DppAuditException(
+                    $"The audit checkpoint was written with key '{checkpoint.KeyId}', which is not configured. " +
+                    $"Configure it under '{DppAuditKeyProvider.RetiredKeysConfigurationPath}' to verify the checkpoint.");
+            }
+
+            if (checkpointKey.Key is not null)
+            {
+                string expectedMac = ComputeCheckpointMac(checkpoint.EntryCount, checkpoint.TailHash, checkpointKey.Key);
                 if (string.IsNullOrEmpty(checkpoint.CheckpointMac)
                     || !CryptographicOperations.FixedTimeEquals(
                         Encoding.UTF8.GetBytes(checkpoint.CheckpointMac),
