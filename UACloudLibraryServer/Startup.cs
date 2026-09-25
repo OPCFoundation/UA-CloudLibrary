@@ -99,15 +99,12 @@ namespace Opc.Ua.Cloud.Library
             //     would be told to open ws:// from an https:// page and the browser
             //     would block it as mixed content.
             //
-            // KnownIPNetworks/KnownProxies are cleared because the proxy's address is
-            // not known ahead of time and is not in the default loopback allow-list.
-            // That is safe only where this server is reachable exclusively through
-            // the proxy; expose it directly and a caller could spoof these headers.
-            services.Configure<ForwardedHeadersOptions>(options => {
-                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-                options.KnownIPNetworks.Clear();
-                options.KnownProxies.Clear();
-            });
+            // Which proxies are trusted is decided by the single
+            // Configure<ForwardedHeadersOptions> registration further down, which is
+            // driven by Dpp:ForwardedHeaders:*. Deliberately do NOT add a second
+            // registration here: configure delegates compose rather than replace, so an
+            // unconditional KnownProxies.Clear() here would silently override the
+            // configured trust list and leave every caller trusted.
 
             services.AddControllersWithViews();
 

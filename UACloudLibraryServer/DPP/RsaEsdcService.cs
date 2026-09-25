@@ -372,15 +372,20 @@ namespace Opc.Ua.Cloud.Library
                 return false;
             }
 
-            if (esdc.IssuedAt != default
-                && credential.TryGetProperty("validFrom", out JsonElement validFrom)
-                && validFrom.ValueKind == JsonValueKind.String)
+            // A supplied IssuedAt must be backed by a signed value. Treating an absent or wrongly
+            // typed validFrom as "nothing to compare" would let an envelope carry an arbitrary
+            // timestamp that no signed field contradicts, which is exactly the metadata-binding gap
+            // this method exists to close - so the signed value is required, not merely checked when
+            // conveniently present.
+            if (esdc.IssuedAt != default)
             {
-                if (!DateTimeOffset.TryParse(
-                        validFrom.GetString(),
-                        CultureInfo.InvariantCulture,
-                        DateTimeStyles.RoundtripKind,
-                        out DateTimeOffset signedIssuedAt)
+                if (!credential.TryGetProperty("validFrom", out JsonElement validFrom)
+                    || validFrom.ValueKind != JsonValueKind.String
+                    || !DateTimeOffset.TryParse(
+                            validFrom.GetString(),
+                            CultureInfo.InvariantCulture,
+                            DateTimeStyles.RoundtripKind,
+                            out DateTimeOffset signedIssuedAt)
                     || signedIssuedAt.ToUniversalTime() != esdc.IssuedAt.ToUniversalTime())
                 {
                     return false;

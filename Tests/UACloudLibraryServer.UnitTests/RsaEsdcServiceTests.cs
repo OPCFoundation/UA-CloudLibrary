@@ -251,6 +251,52 @@ namespace UACloudLibraryServer.UnitTests
                 Assert.True(service.Verify(esdc));
             }
 
+            [Fact]
+            public void Verify_RequiresSignedValidFrom_WhenEnvelopeSuppliesIssuedAt()
+            {
+                // An envelope timestamp must be backed by a signed value. If an absent or wrongly
+                // typed validFrom simply skipped the comparison, the envelope could carry any
+                // IssuedAt it liked and nothing signed would contradict it.
+                using RSA key = RSA.Create(2048);
+                string privateKeyPem = key.ExportPkcs8PrivateKeyPem();
+
+                using var service = new RsaEsdcService(null, privateKeyPem);
+                ElectronicSignedDataConstruct esdc = service.Issue(SampleDpp());
+
+                // Re-sign a credential with validFrom removed, so the signature stays genuine and
+                // only the metadata binding is under test.
+                string[] parts = esdc.VerifiableCredentialJwt.Split('.');
+                using JsonDocument payload = JsonDocument.Parse(Base64Url.DecodeFromChars(parts[1]));
+
+                var stripped = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+                foreach (JsonProperty property in payload.RootElement.EnumerateObject())
+                {
+                    if (!string.Equals(property.Name, "validFrom", StringComparison.Ordinal))
+                    {
+                        stripped[property.Name] = property.Value;
+                    }
+                }
+
+                byte[] strippedPayload = JsonSerializer.SerializeToUtf8Bytes(stripped);
+                string encodedPayload = Base64Url.EncodeToString(strippedPayload);
+                string signingInput = parts[0] + "." + encodedPayload;
+                byte[] signature = key.SignData(Encoding.UTF8.GetBytes(signingInput), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+
+                var tampered = new ElectronicSignedDataConstruct {
+                    Issuer = esdc.Issuer,
+                    Subject = esdc.Subject,
+                    IssuedAt = esdc.IssuedAt,
+                    KeyId = esdc.KeyId,
+                    Format = esdc.Format,
+                    SignatureAlgorithm = esdc.SignatureAlgorithm,
+                    VerifiableCredentialJwt = signingInput + "." + Base64Url.EncodeToString(signature),
+                    PublicKey = esdc.PublicKey,
+                    Certificate = esdc.Certificate
+                };
+
+                Assert.False(service.Verify(tampered));
+            }
+
             private static string ExportCertificatePem(X509Certificate2 certificate) =>
                 new string(PemEncoding.Write("CERTIFICATE", certificate.RawData));
         }

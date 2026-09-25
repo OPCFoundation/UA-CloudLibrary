@@ -27,7 +27,10 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
@@ -88,6 +91,18 @@ namespace Opc.Ua.Cloud.Library.Controllers
             [FromServices] RoleManager<IdentityRole> roleManager
             )
         {
+            // Deleting the canonical administrator role is unrecoverable in-band. Removing it drops
+            // the AspNetUserRoles links for every administrator, and recreating the role later does
+            // not restore them - so the only accounts able to reach this endpoint and repair the
+            // assignments would have just lost that ability. Refuse rather than offer a footgun.
+            if (string.Equals(roleName, Roles.Administrator, StringComparison.OrdinalIgnoreCase))
+            {
+                await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"role={roleName}", "Denied").ConfigureAwait(false);
+                return new ObjectResult($"The '{Roles.Administrator}' role is required for administrative access and cannot be deleted.") {
+                    StatusCode = (int)HttpStatusCode.Forbidden
+                };
+            }
+
             IdentityRole role = await roleManager.FindByNameAsync(roleName).ConfigureAwait(false);
             if (role == null)
             {
@@ -151,6 +166,24 @@ namespace Opc.Ua.Cloud.Library.Controllers
             if (user == null)
             {
                 return NotFound();
+            }
+
+            // Revoking the administrator role from the last administrator is the same unrecoverable
+            // lockout as deleting the role, reached by a different route: afterwards nobody can call
+            // this endpoint to undo it. Revoking from one of several administrators stays allowed,
+            // including for emergency revocation (EN 18239 section 6.3).
+            if (string.Equals(roleName, Roles.Administrator, StringComparison.OrdinalIgnoreCase))
+            {
+                IList<IdentityUser> administrators = await userManager.GetUsersInRoleAsync(Roles.Administrator).ConfigureAwait(false);
+                bool isAdministrator = administrators.Any(a => string.Equals(a.Id, user.Id, StringComparison.Ordinal));
+
+                if (isAdministrator && administrators.Count <= 1)
+                {
+                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Denied").ConfigureAwait(false);
+                    return new ObjectResult($"Cannot revoke the '{Roles.Administrator}' role from the only remaining administrator; grant it to another account first.") {
+                        StatusCode = (int)HttpStatusCode.Forbidden
+                    };
+                }
             }
 
             // Write-ahead audit intent; see AddRoleAsync. This matters most on the revocation path:

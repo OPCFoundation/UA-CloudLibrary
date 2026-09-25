@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -65,6 +66,16 @@ namespace Opc.Ua.Cloud.Library
                     lastError = ex;
                     ResetTracking();
                 }
+                catch (DbException ex) when (IsTransientConflict(ex))
+                {
+                    // Under Serializable isolation PostgreSQL often detects the conflict at COMMIT,
+                    // where the provider raises a bare DbException (SQLSTATE 40001) rather than a
+                    // DbUpdateException. Without this the expected cross-instance conflict would
+                    // escape the retry loop and surface as an unshaped 500 instead of retrying or
+                    // returning the documented 503.
+                    lastError = ex;
+                    ResetTracking();
+                }
                 catch (InvalidOperationException ex)
                 {
                     lastError = ex;
@@ -91,6 +102,35 @@ namespace Opc.Ua.Cloud.Library
             throw new DppAuditException(
                 $"Could not durably record the {operation} audit entry for DPP '{dppId}'. The operation was refused because it cannot be audited.",
                 lastError);
+        }
+
+        // PostgreSQL SQLSTATEs for conflicts that are expected under Serializable isolation and are
+        // resolved by retrying: 40001 serialization_failure, 40P01 deadlock_detected.
+        private const string SerializationFailureSqlState = "40001";
+        private const string DeadlockDetectedSqlState = "40P01";
+
+        /// <summary>
+        /// True when the exception (or any exception it wraps) reports a SQLSTATE that indicates a
+        /// transient concurrency conflict rather than a genuine failure.
+        /// </summary>
+        /// <remarks>
+        /// Matched on SQLSTATE rather than by catching <c>Npgsql.PostgresException</c> so the audit
+        /// log does not take a direct dependency on the database provider package. EF frequently
+        /// wraps the provider exception, so inner exceptions are inspected as well.
+        /// </remarks>
+        private static bool IsTransientConflict(Exception exception)
+        {
+            for (Exception current = exception; current is not null; current = current.InnerException)
+            {
+                if (current is DbException dbException
+                    && (string.Equals(dbException.SqlState, SerializationFailureSqlState, StringComparison.Ordinal)
+                        || string.Equals(dbException.SqlState, DeadlockDetectedSqlState, StringComparison.Ordinal)))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void ResetTracking()
