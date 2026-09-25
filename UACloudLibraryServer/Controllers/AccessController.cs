@@ -104,6 +104,10 @@ namespace Opc.Ua.Cloud.Library.Controllers
             IdentityResult result = await roleManager.CreateAsync(new IdentityRole { Name = roleName }).ConfigureAwait(false);
             if (!result.Succeeded)
             {
+                // A known, synchronously-reported failure. Returning without an outcome would leave
+                // the Attempted row unmatched, which is reserved for "a change may have completed
+                // without being logged" - so an ordinary rejection would raise that alarm falsely.
+                await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Create, "access-rights", $"role={roleName}", "Failed", operationId).ConfigureAwait(false);
                 return this.BadRequest(result);
             }
 
@@ -153,6 +157,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             IdentityResult result = await roleManager.DeleteAsync(role).ConfigureAwait(false);
             if (!result.Succeeded)
             {
+                await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"role={roleName}", "Failed", deleteOperationId).ConfigureAwait(false);
                 return this.BadRequest(result);
             }
 
@@ -203,6 +208,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             IdentityResult result = await userManager.AddToRoleAsync(user, roleName).ConfigureAwait(false);
             if (!result.Succeeded)
             {
+                await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, "access-rights", $"grant role={roleName} to user={userId}", "Failed", grantOperationId).ConfigureAwait(false);
                 return this.BadRequest(result);
             }
 

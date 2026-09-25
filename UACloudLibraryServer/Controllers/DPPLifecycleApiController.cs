@@ -291,6 +291,10 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     return Ok(new ApiResponse<DigitalProductPassport>(DppApiStatusCodes.Success, visible));
 
                 case DPPService.UpdateDppResult.NotFound:
+                    // A known outcome, so it must close the operation. Leaving it unmatched would make
+                    // an ordinary client error read as a possibly-unlogged mutation, which is the one
+                    // signal this pattern exists to raise.
+                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, null, "NotFound", operationId).ConfigureAwait(false);
                     return NotFound(new ApiResponse<DigitalProductPassport>(
                         DppApiStatusCodes.ClientErrorResourceNotFound,
                         payload: null,
@@ -298,14 +302,28 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     ));
 
                 case DPPService.UpdateDppResult.BadRequest:
+                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, null, "Rejected", operationId).ConfigureAwait(false);
                     return BadRequest(new ApiResponse<DigitalProductPassport>(
                         DppApiStatusCodes.ClientErrorBadRequest,
                         payload: null,
                         result: new ApiResult(new() { new ApiMessage("Error", errorMessage) })
                     ));
 
+                case DPPService.UpdateDppResult.WriteFailedPartiallyApplied:
+                    // The write failed AND the compensating rollback did not fully restore the
+                    // original values, so the DPP is left in a state matching no version. Recorded
+                    // distinctly from a clean failure because it needs operator attention.
+                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, null, "PartialFailure", operationId).ConfigureAwait(false);
+                    return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status500InternalServerError, new ApiResponse<DigitalProductPassport>(
+                        DppApiStatusCodes.ServerInternalError,
+                        payload: null,
+                        result: new ApiResult(new() { new ApiMessage("Error", errorMessage ?? "Update failed") })
+                    ));
+
                 case DPPService.UpdateDppResult.WriteFailed:
                 default:
+                    // Write failed and everything was rolled back: the DPP is unchanged.
+                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, null, "Failed", operationId).ConfigureAwait(false);
                     return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status500InternalServerError, new ApiResponse<DigitalProductPassport>(
                         DppApiStatusCodes.ServerInternalError,
                         payload: null,
@@ -360,6 +378,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     return Ok(new ApiResponse<DataElement>(DppApiStatusCodes.Success, visible));
 
                 case DPPService.UpdateDppResult.NotFound:
+                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "NotFound", elementOperationId).ConfigureAwait(false);
                     return NotFound(new ApiResponse<DataElement>(
                         DppApiStatusCodes.ClientErrorResourceNotFound,
                         payload: null,
@@ -367,14 +386,26 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     ));
 
                 case DPPService.UpdateDppResult.BadRequest:
+                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "Rejected", elementOperationId).ConfigureAwait(false);
                     return BadRequest(new ApiResponse<DataElement>(
                         DppApiStatusCodes.ClientErrorBadRequest,
                         payload: null,
                         result: new ApiResult(new() { new ApiMessage("Error", errorMessage) })
                     ));
 
+                case DPPService.UpdateDppResult.WriteFailedPartiallyApplied:
+                    // See UpdateDppById: the rollback did not fully restore the original values, so
+                    // the element is left in a state matching no version.
+                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "PartialFailure", elementOperationId).ConfigureAwait(false);
+                    return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status500InternalServerError, new ApiResponse<DataElement>(
+                        DppApiStatusCodes.ServerInternalError,
+                        payload: null,
+                        result: new ApiResult(new() { new ApiMessage("Error", errorMessage ?? "Update failed") })
+                    ));
+
                 case DPPService.UpdateDppResult.WriteFailed:
                 default:
+                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "Failed", elementOperationId).ConfigureAwait(false);
                     return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status500InternalServerError, new ApiResponse<DataElement>(
                         DppApiStatusCodes.ServerInternalError,
                         payload: null,

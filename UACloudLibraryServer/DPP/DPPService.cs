@@ -624,7 +624,23 @@ namespace Opc.Ua.Cloud.Library
             Success,
             NotFound,
             BadRequest,
-            WriteFailed
+
+            /// <summary>
+            /// The write failed and every applied change was rolled back, so the DPP is unchanged.
+            /// </summary>
+            WriteFailed,
+
+            /// <summary>
+            /// The write failed and at least one applied change could not be rolled back, so the DPP
+            /// is left partially mutated.
+            /// </summary>
+            /// <remarks>
+            /// Distinct from <see cref="WriteFailed"/> because the two demand different responses: a
+            /// clean rollback is an ordinary error, whereas a failed rollback means live data no
+            /// longer matches any consistent version and needs operator attention. Reporting both
+            /// identically would bury the second in the noise of the first.
+            /// </remarks>
+            WriteFailedPartiallyApplied
         }
 
         // JSON key (camelCase per DigitalProductPassport contract) -> OPC UA BrowseName (PascalCase per nodeset).
@@ -818,8 +834,9 @@ namespace Opc.Ua.Cloud.Library
                 if (!ok)
                 {
                     _logger.LogError("UpdateDppById: write failed for DPP {DppId}, field '{Field}'.", dppId, fieldPath);
-                    await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
-                    return (UpdateDppResult.WriteFailed, $"Failed to write field '{fieldPath}'.", null);
+                    bool fieldRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                    return (fieldRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
+                        $"Failed to write field '{fieldPath}'.", null);
                 }
 
                 appliedWrites.Add((nodeId, originalValue, fieldPath));
@@ -835,8 +852,9 @@ namespace Opc.Ua.Cloud.Library
                 await BumpLastUpdateAsync(userId, dppId, dppProperties).ConfigureAwait(false);
             if (lastUpdateWrite is null)
             {
-                await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
-                return (UpdateDppResult.WriteFailed, "Update could not be completed; the version timestamp could not be advanced.", null);
+                bool timestampRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                return (timestampRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
+                    "Update could not be completed; the version timestamp could not be advanced.", null);
             }
 
             appliedWrites.Add(lastUpdateWrite.Value);
@@ -851,8 +869,9 @@ namespace Opc.Ua.Cloud.Library
                 // best-effort "no changes adopted on failure" contract by reverting the live nodes
                 // back to their captured pre-update values; otherwise the in-memory DPP would
                 // diverge from what is on disk until the next server restart.
-                await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
-                return (UpdateDppResult.WriteFailed, "Update applied in memory but could not be persisted to storage.", null);
+                bool persistRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                return (persistRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
+                    "Update applied in memory but could not be persisted to storage.", null);
             }
 
             // Only now that the change is durable do we commit the pre-update snapshot to the
@@ -878,12 +897,18 @@ namespace Opc.Ua.Cloud.Library
             if (!archived)
             {
                 _logger.LogError("UpdateDppById: archive write failed for DPP {DppId}; rolling back durable update to honor no-changes-on-failure contract.", dppId);
-                await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                bool archiveRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
                 if (!await PersistNodesetValuesAsync(userId, dppId).ConfigureAwait(false))
                 {
                     _logger.LogError("UpdateDppById: rollback persist also failed for DPP {DppId}; update is now durable but archive is missing and client sees failure.", dppId);
+
+                    // The reverted values never reached storage, so the durable state still carries
+                    // the update the client is being told failed.
+                    archiveRolledBack = false;
                 }
-                return (UpdateDppResult.WriteFailed, "Update could not be completed; previous version could not be archived.", null);
+
+                return (archiveRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
+                    "Update could not be completed; previous version could not be archived.", null);
             }
 
             DigitalProductPassport updated = await GetByDppId(userId, dppId).ConfigureAwait(false);
@@ -1065,8 +1090,9 @@ namespace Opc.Ua.Cloud.Library
                 await BumpLastUpdateAsync(userId, dppId, dppProperties).ConfigureAwait(false);
             if (lastUpdateWrite is null)
             {
-                await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
-                return (UpdateDppResult.WriteFailed, "Update could not be completed; the version timestamp could not be advanced.", null);
+                bool elementTimestampRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                return (elementTimestampRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
+                    "Update could not be completed; the version timestamp could not be advanced.", null);
             }
 
             appliedWrites.Add(lastUpdateWrite.Value);
@@ -1075,8 +1101,9 @@ namespace Opc.Ua.Cloud.Library
             if (!await PersistNodesetValuesAsync(userId, dppId).ConfigureAwait(false))
             {
                 _logger.LogError("UpdateDataElement: failed to persist updated values for DPP {DppId}.", dppId);
-                await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
-                return (UpdateDppResult.WriteFailed, "Update applied in memory but could not be persisted to storage.", null);
+                bool elementPersistRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                return (elementPersistRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
+                    "Update applied in memory but could not be persisted to storage.", null);
             }
 
             // Only commit the archive snapshot after the change is durable, matching the ordering
@@ -1097,12 +1124,18 @@ namespace Opc.Ua.Cloud.Library
             if (!archived)
             {
                 _logger.LogError("UpdateDataElement: archive write failed for DPP {DppId}; rolling back durable update to honor no-changes-on-failure contract.", dppId);
-                await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                bool elementArchiveRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
                 if (!await PersistNodesetValuesAsync(userId, dppId).ConfigureAwait(false))
                 {
                     _logger.LogError("UpdateDataElement: rollback persist also failed for DPP {DppId}; update is now durable but archive is missing and client sees failure.", dppId);
+
+                    // The reverted values never reached storage, so the durable state still carries
+                    // the update the client is being told failed.
+                    elementArchiveRolledBack = false;
                 }
-                return (UpdateDppResult.WriteFailed, "Update could not be completed; previous version could not be archived.", null);
+
+                return (elementArchiveRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
+                    "Update could not be completed; previous version could not be archived.", null);
             }
 
             // Re-read the updated element to return it in the response. We rebuild the lookup path
@@ -1270,11 +1303,23 @@ namespace Opc.Ua.Cloud.Library
         // from here is to surface as much diagnostic context as possible: at this point the
         // original UpdateDppById call is already returning WriteFailed and the live DPP may
         // still hold some of the in-flight values - logging lets operators reconcile manually.
-        private async Task TryRollbackWritesAsync(
+        /// <summary>
+        /// Attempts to restore the original values of writes already applied, returning true only
+        /// when every one was restored.
+        /// </summary>
+        /// <remarks>
+        /// The return value matters for auditing: a failed write whose rollback succeeded left the
+        /// DPP unchanged, whereas one whose rollback failed left it partially mutated. Those are
+        /// materially different outcomes for an operator, so the caller records them differently
+        /// rather than reporting both as a plain failure.
+        /// </remarks>
+        private async Task<bool> TryRollbackWritesAsync(
             string userId,
             string dppId,
             List<(string NodeId, string OriginalValue, string FieldPath)> appliedWrites)
         {
+            bool allRestored = true;
+
             for (int i = appliedWrites.Count - 1; i >= 0; i--)
             {
                 var (nodeId, originalValue, fieldPath) = appliedWrites[i];
@@ -1283,6 +1328,7 @@ namespace Opc.Ua.Cloud.Library
                     bool restored = await _client.VariableWrite(userId, dppId, nodeId, originalValue ?? string.Empty).ConfigureAwait(false);
                     if (!restored)
                     {
+                        allRestored = false;
                         _logger.LogError(
                             "UpdateDppById: rollback failed for DPP {DppId}, field '{Field}'. Live value may be inconsistent with the original snapshot.",
                             dppId,
@@ -1291,6 +1337,7 @@ namespace Opc.Ua.Cloud.Library
                 }
                 catch (Exception ex)
                 {
+                    allRestored = false;
                     _logger.LogError(
                         ex,
                         "UpdateDppById: rollback threw for DPP {DppId}, field '{Field}'. Live value may be inconsistent with the original snapshot.",
@@ -1298,6 +1345,8 @@ namespace Opc.Ua.Cloud.Library
                         fieldPath);
                 }
             }
+
+            return allRestored;
         }
 
         // Writes a fresh UTC timestamp to the DPP's "LastUpdate" variable so version retrieval and
