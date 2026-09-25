@@ -257,15 +257,30 @@ namespace UACloudLibraryServer.UnitTests
         }
 
         [Fact]
-        public void UnconfiguredOperatorId_PreservesPreviousIssuanceBehaviour()
+        public void ProductionSigningPath_RequiresAnAuthoritativeOperatorId()
         {
-            // Existing deployments have no Dpp:Esdc:EconomicOperatorId set. Issuance must keep working
-            // for them rather than failing closed on upgrade; the binding is opt-in.
-            using var service = new RsaEsdcService(null);
+            // The issuer claim is copied from DPP content, so an optional binding is no binding at all
+            // for a deployment that omits it: any uploaded passport could name an arbitrary operator
+            // and receive a signature from this server's trusted key. The production constructor
+            // therefore refuses to start, exactly as it does without a stable signing key.
+            using RSA key = RSA.Create(2048);
+            string privateKeyPem = key.ExportPkcs8PrivateKeyPem();
 
-            DigitalProductPassport anyOperator = SampleDppFor("EO-ANYTHING");
+            InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+                () => new RsaEsdcService(null, privateKeyPem));
 
-            ElectronicSignedDataConstruct esdc = service.Issue(anyOperator);
+            Assert.Contains("EconomicOperatorId", ex.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void ProductionSigningPath_StartsWithAnOperatorIdConfigured()
+        {
+            using RSA key = RSA.Create(2048);
+            string privateKeyPem = key.ExportPkcs8PrivateKeyPem();
+
+            using var service = new RsaEsdcService(OperatorConfiguration("EO-1"), privateKeyPem);
+
+            ElectronicSignedDataConstruct esdc = service.Issue(SampleDpp());
             Assert.True(service.Verify(esdc));
         }
 
@@ -314,10 +329,13 @@ namespace UACloudLibraryServer.UnitTests
                 using RSA key = RSA.Create(2048);
                 string privateKeyPem = key.ExportPkcs8PrivateKeyPem();
 
-                using var before = new RsaEsdcService(null, privateKeyPem);
+                // The production constructor requires an authoritative operator id, so supply one.
+                IConfiguration configuration = OperatorConfiguration("EO-1");
+
+                using var before = new RsaEsdcService(configuration, privateKeyPem);
                 ElectronicSignedDataConstruct esdc = before.Issue(SampleDpp());
 
-                using var afterRestart = new RsaEsdcService(null, privateKeyPem);
+                using var afterRestart = new RsaEsdcService(configuration, privateKeyPem);
                 Assert.True(afterRestart.Verify(esdc));
             }
 
@@ -391,7 +409,7 @@ namespace UACloudLibraryServer.UnitTests
                 using RSA key = RSA.Create(2048);
                 string privateKeyPem = key.ExportPkcs8PrivateKeyPem();
 
-                using var service = new RsaEsdcService(null, privateKeyPem);
+                using var service = new RsaEsdcService(OperatorConfiguration("EO-1"), privateKeyPem);
                 ElectronicSignedDataConstruct esdc = service.Issue(SampleDpp());
 
                 // Re-sign a credential with validFrom removed, so the signature stays genuine and

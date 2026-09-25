@@ -208,11 +208,28 @@ namespace Opc.Ua.Cloud.Library
 
             // The economic operator this server signs for. Issuance is refused for any other operator,
             // and the own-key anchor is bound to it so a credential naming a different operator cannot
-            // be verified by our own key either. Left null only when unconfigured, which preserves the
-            // previous unbound behaviour for existing deployments - see the Issue() guard.
+            // be verified by our own key either.
+            //
+            // This is REQUIRED on the production signing path. The issuer claim is otherwise copied
+            // from DPP content - data this server merely hosts - so leaving it unset means any
+            // uploaded passport can name an arbitrary economic operator and receive a valid signature
+            // from this server's trusted key. An optional guard against impersonation is no guard at
+            // all for the deployment that forgets it, so the service refuses to start instead, the
+            // same way it refuses to start without a stable signing key.
             _economicOperatorId = configuration?["Dpp:Esdc:EconomicOperatorId"];
             if (string.IsNullOrWhiteSpace(_economicOperatorId))
             {
+                if (requireResolvedKey)
+                {
+                    throw new InvalidOperationException(
+                        "Dpp:Esdc:EconomicOperatorId is not configured. The ESDC issuer is taken from each DPP's own " +
+                        "EconomicOperatorId, so without an authoritative operator id this server would sign credentials " +
+                        "asserting whatever operator a hosted passport happens to name. Set it to the economic operator " +
+                        "this deployment represents.");
+                }
+
+                // Unresolved-key path (tests and the configuration-only constructor): there is no
+                // stable key here either, so nothing it signs is trusted beyond the process.
                 _economicOperatorId = null;
             }
 

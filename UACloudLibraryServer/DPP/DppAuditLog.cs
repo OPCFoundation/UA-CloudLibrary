@@ -229,6 +229,15 @@ namespace Opc.Ua.Cloud.Library
                 }
                 else
                 {
+                    // Extending a checkpoint asserts that it described the log correctly up to this
+                    // point - and re-MACs that assertion with the real key. So it has to be checked
+                    // first. Otherwise an attacker truncates the chain, sets EntryCount to the
+                    // surviving length, and simply waits: the next legitimate append overwrites the
+                    // tail, signs the attacker's count, and verification then accepts the truncated
+                    // history as authentic. Refusing to build on an unverified checkpoint is what
+                    // stops a normal write from laundering the tampering.
+                    await EnsureCheckpointMatchesLogAsync(checkpoint, auditKey).ConfigureAwait(false);
+
                     checkpoint.EntryCount += 1;
                 }
 
@@ -240,6 +249,106 @@ namespace Opc.Ua.Cloud.Library
                 await _db.SaveChangesAsync().ConfigureAwait(false);
                 await transaction.CommitAsync().ConfigureAwait(false);
             }).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Refuses the append unless the existing checkpoint already describes the persisted log.
+        /// </summary>
+        /// <remarks>
+        /// This is a guard against laundering, not a full chain verification: it deliberately does
+        /// not re-walk every entry hash, because doing so on every append would make each write cost
+        /// a full table scan. It checks the three fields an append is about to overwrite and re-sign
+        /// &#8212; the count, the tail, and the MAC binding them &#8212; so a checkpoint that has been
+        /// edited to describe a truncated log cannot be extended and thereby authenticated. Detecting
+        /// alterations *within* the retained entries remains <see cref="VerifyChainAsync"/>'s job.
+        /// </remarks>
+        /// <exception cref="DppAuditException">
+        /// The checkpoint does not match the log, so appending would sign an unverified state.
+        /// </exception>
+        private async Task EnsureCheckpointMatchesLogAsync(DppAuditCheckpoint checkpoint, DppAuditKey auditKey)
+        {
+            // Excludes the new entry: it is tracked but not yet persisted.
+            long persistedCount = await _db.DppAuditEntries
+                .AsNoTracking()
+                .LongCountAsync()
+                .ConfigureAwait(false);
+
+            if (checkpoint.EntryCount != persistedCount)
+            {
+                _logger.LogCritical(
+                    "DPP audit checkpoint count does not match the persisted log; refusing to append so the mismatch is not signed away.");
+
+                throw new DppAuditException(
+                    "The DPP audit checkpoint does not match the persisted log, so the log may have been truncated or altered. " +
+                    "Appending would authenticate that state. Explicit operator recovery is required.");
+            }
+
+            DppAuditEntry persistedTail = await _db.DppAuditEntries
+                .AsNoTracking()
+                .OrderByDescending(e => e.Sequence)
+                .FirstOrDefaultAsync()
+                .ConfigureAwait(false);
+
+            string expectedTail = persistedTail?.EntryHash ?? GenesisHash;
+            if (!string.Equals(checkpoint.TailHash, expectedTail, StringComparison.Ordinal))
+            {
+                _logger.LogCritical(
+                    "DPP audit checkpoint tail hash does not match the persisted log; refusing to append so the mismatch is not signed away.");
+
+                throw new DppAuditException(
+                    "The DPP audit checkpoint tail does not match the persisted log, so the most recent entries may have been replaced. " +
+                    "Appending would authenticate that state. Explicit operator recovery is required.");
+            }
+
+            // With no key the MAC is absent by design and there is nothing further to check: the
+            // checkpoint was never authenticated, which the README documents as the unkeyed mode.
+            if (auditKey.Key is null)
+            {
+                return;
+            }
+
+            // A keyed deployment must not extend an unkeyed or wrongly-keyed checkpoint: that is the
+            // downgrade path VerifyChainAsync already refuses, and it must not be reachable here either.
+            DppAuditKeyLookup checkpointKey = await _keyProvider.TryGetKeyByIdAsync(checkpoint.KeyId).ConfigureAwait(false);
+            if (!checkpointKey.Found || checkpointKey.Key is null)
+            {
+                // One legitimate exception: enabling a key for the first time. The checkpoint and
+                // every entry it covers predate the key, so there is nothing keyed to downgrade and
+                // this append is what re-keys the checkpoint. Mirrors the same carve-out in
+                // VerifyChainAsync - any keyed entry proves the checkpoint should have been keyed too.
+                bool anyKeyedEntry = await _db.DppAuditEntries
+                    .AsNoTracking()
+                    .AnyAsync(e => e.KeyId != null)
+                    .ConfigureAwait(false);
+
+                if (!anyKeyedEntry && checkpoint.KeyId is null)
+                {
+                    _logger.LogWarning(
+                        "DPP audit checkpoint predates keyed auditing and is being re-keyed by this append. Entries written before the key was configured remain unauthenticated.");
+                    return;
+                }
+
+                _logger.LogCritical(
+                    "DPP audit checkpoint is unkeyed or signed with an unavailable key while keyed auditing is enabled; refusing to append.");
+
+                throw new DppAuditException(
+                    "The DPP audit checkpoint is not authenticated with an available key while keyed auditing is enabled. " +
+                    "Appending would authenticate an unverified state. Explicit operator recovery is required.");
+            }
+
+            string expectedMac = ComputeCheckpointMac(checkpoint.EntryCount, checkpoint.TailHash, checkpointKey.Key, checkpoint.KeyId);
+            if (string.IsNullOrEmpty(checkpoint.CheckpointMac)
+                || !CryptographicOperations.FixedTimeEquals(
+                    Encoding.UTF8.GetBytes(checkpoint.CheckpointMac),
+                    Encoding.UTF8.GetBytes(expectedMac)))
+            {
+                _logger.LogCritical(
+                    "DPP audit checkpoint MAC does not verify; refusing to append so the altered checkpoint is not re-signed with the current key.");
+
+                throw new DppAuditException(
+                    "The DPP audit checkpoint MAC does not verify, so the checkpoint has been altered. " +
+                    "Appending would re-sign it with the current key. Explicit operator recovery is required.");
+            }
         }
 
         /// <summary>

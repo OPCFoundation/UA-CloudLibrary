@@ -176,7 +176,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             // it expires, and an operator needs to know to force those sessions out.
             if (staleUserIds.Count > 0)
             {
-                await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"role={roleName}; security stamp not updated for users={string.Join(",", staleUserIds)}", "PartialFailure").ConfigureAwait(false);
+                await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"role={roleName}; security stamp not updated for users={string.Join(",", staleUserIds)}", "PartialFailure", deleteOperationId).ConfigureAwait(false);
                 return new ObjectResult($"Role deleted, but the sessions of {staleUserIds.Count} user(s) could not be invalidated; they may retain the '{roleName}' claim until their cookie expires.") {
                     StatusCode = (int)HttpStatusCode.InternalServerError
                 };
