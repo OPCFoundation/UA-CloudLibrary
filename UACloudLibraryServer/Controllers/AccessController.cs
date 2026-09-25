@@ -282,11 +282,19 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     if (!isAdministrator)
                     {
                         // Either the user never held the role, or a previous attempt of this same
-                        // delegate already removed it. Both are indistinguishable here and both mean
-                        // the desired end state holds, so report success rather than the 400 that
-                        // re-running RemoveFromRoleAsync would produce.
+                        // delegate already removed it. Both are indistinguishable here, so the stamp
+                        // update has to be re-run rather than assumed: a replay can land here after a
+                        // prior attempt committed RemoveFromRoleAsync and then failed *before*
+                        // invalidating sessions. Reporting success without re-running it would leave
+                        // the removed administrator holding a working cookie - the precise failure the
+                        // stamp bump exists to prevent. UpdateSecurityStampAsync is idempotent, so
+                        // running it again when the previous attempt did succeed is harmless.
+                        IdentityResult replayStampResult = await userManager.UpdateSecurityStampAsync(user).ConfigureAwait(false);
                         await transaction.CommitAsync().ConfigureAwait(false);
-                        return AdminRevocationOutcome.AlreadyRevoked;
+
+                        return replayStampResult.Succeeded
+                            ? AdminRevocationOutcome.AlreadyRevoked
+                            : AdminRevocationOutcome.RevokedButSessionsRemain;
                     }
 
                     if (administrators.Count <= 1)

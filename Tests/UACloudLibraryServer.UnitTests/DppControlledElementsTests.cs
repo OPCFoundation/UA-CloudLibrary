@@ -117,5 +117,81 @@ namespace UACloudLibraryServer.UnitTests
             Assert.Equal(s_recycler, map.Entries["materials.billOfMaterials"]);
             Assert.Contains("\"new\"", merged);
         }
+
+        // JSON allows several case variants of the same reserved name to coexist. The lookup is
+        // case-insensitive, so silently taking the first would let a decoy empty policy shadow a
+        // real one and make controlled elements public.
+        [Theory]
+        [InlineData("""
+        { "controlledElements": {}, "ControlledElements": { "secret": "Auditor" } }
+        """)]
+        [InlineData("""
+        { "ControlledElements": { "secret": "Auditor" }, "controlledElements": {} }
+        """)]
+        [InlineData("""
+        { "controlledElements": { "a": "Auditor" }, "CONTROLLEDELEMENTS": { "b": "Recycler" } }
+        """)]
+        public void Read_MultipleCaseVariants_AreInvalidNotPublic(string values)
+        {
+            DppControlledElements.MappingResult result = DppControlledElements.Read(values);
+
+            // Invalid means deny-all. Absent (the previous behaviour for the decoy-first ordering)
+            // would have meant public-by-default.
+            Assert.Equal(DppControlledElements.MappingState.Invalid, result.State);
+            Assert.True(result.IsInvalid);
+        }
+
+        [Fact]
+        public void Read_SingleNonCanonicalCasing_IsStillAccepted()
+        {
+            // One spelling is unambiguous regardless of casing, so it must keep working.
+            const string values = """
+            { "ControlledElements": { "supplierInfo": "Customs" } }
+            """;
+
+            DppControlledElements.MappingResult result = DppControlledElements.Read(values);
+
+            Assert.Equal(DppControlledElements.MappingState.Valid, result.State);
+            Assert.Equal(s_customs, result.Entries["supplierInfo"]);
+        }
+
+        [Fact]
+        public void Merge_RefusesAmbiguousControlledElements()
+        {
+            // Re-attaching one copy would discard the others and convert Read's deny-all into
+            // whatever the surviving copy permits.
+            const string existing = """
+            { "controlledElements": {}, "ControlledElements": { "secret": "Auditor" } }
+            """;
+            const string freshNodeValues = """
+            { "ns=1;i=1": "new" }
+            """;
+
+            InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+                () => DppControlledElements.Merge(freshNodeValues, existing));
+
+            Assert.Contains("case-variant", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void Merge_StripsEveryCaseVariantFromBrowseOutput()
+        {
+            // Browse output should never carry the reserved key, but if it carries several variants
+            // they must all be removed - otherwise the merged document would be the ambiguous shape
+            // that Read has to reject.
+            const string freshNodeValues = """
+            { "ns=1;i=1": "new", "controlledElements": { "stray": "Recycler" }, "ControlledElements": { "stray2": "Customs" } }
+            """;
+            const string existing = """
+            { "controlledElements": { "supplierInfo": "Customs" } }
+            """;
+
+            string merged = DppControlledElements.Merge(freshNodeValues, existing);
+
+            DppControlledElements.MappingResult map = DppControlledElements.Read(merged);
+            Assert.Equal(DppControlledElements.MappingState.Valid, map.State);
+            Assert.Single(map.Entries);
+            Assert.Equal(s_customs, map.Entries["supplierInfo"]);
+        }
     }
 }

@@ -115,7 +115,18 @@ namespace Opc.Ua.Cloud.Library
             // represents a null value as a null reference, so a single null check would treat
             // { "controlledElements": null } as "no mapping" - i.e. public-by-default - turning a
             // malformed policy into a fail-open one.
-            if (!TryFindProperty(obj, PropertyName, out JsonNode controlledNode))
+            PropertyLookup lookup = TryFindProperty(obj, PropertyName, out JsonNode controlledNode);
+
+            if (lookup == PropertyLookup.Ambiguous)
+            {
+                // Several case-variant spellings of the reserved name: which one is the policy is
+                // undecidable, so treat the mapping as unreadable rather than picking one. Reporting
+                // Absent here would classify the DPP as fully public on the strength of whichever
+                // copy happened to be enumerated first.
+                return new MappingResult(MappingState.Invalid, map);
+            }
+
+            if (lookup == PropertyLookup.Absent)
             {
                 return new MappingResult(MappingState.Absent, map);
             }
@@ -163,7 +174,18 @@ namespace Opc.Ua.Cloud.Library
             }
 
             JsonObject existing = ParseObject(existingValuesJson);
-            if (TryFindProperty(existing, PropertyName, out JsonNode controlled))
+            PropertyLookup lookup = TryFindProperty(existing, PropertyName, out JsonNode controlled);
+
+            if (lookup == PropertyLookup.Ambiguous)
+            {
+                // Re-attaching one of several case-variant copies would silently drop the others,
+                // and Read treats this state as Invalid (deny-all). Rewriting it to a single copy
+                // would convert that denial into whatever the surviving copy happens to permit.
+                throw new InvalidOperationException(
+                    $"Existing DPP values JSON contains multiple case-variant spellings of '{PropertyName}'; refusing to rewrite it because that would discard an access mapping.");
+            }
+
+            if (lookup == PropertyLookup.Found)
             {
                 if (controlled is null)
                 {
@@ -210,38 +232,71 @@ namespace Opc.Ua.Cloud.Library
         }
 
         /// <summary>
+        /// Outcome of looking up the reserved property, distinguishing absence, a single match, and
+        /// an ambiguous set of case-variant duplicates.
+        /// </summary>
+        private enum PropertyLookup
+        {
+            /// <summary>No property with this name, in any casing.</summary>
+            Absent,
+
+            /// <summary>Exactly one match, whose value is reported.</summary>
+            Found,
+
+            /// <summary>Several case-variant spellings of the same reserved name.</summary>
+            Ambiguous
+        }
+
+        /// <summary>
         /// Case-insensitive property lookup that reports presence separately from the value, so an
         /// explicit JSON null (which surfaces as a null <see cref="JsonNode"/>) is not mistaken for
         /// an absent property.
         /// </summary>
-        private static bool TryFindProperty(JsonObject obj, string name, out JsonNode value)
+        /// <remarks>
+        /// JSON permits <c>controlledElements</c> and <c>ControlledElements</c> to coexist, and the
+        /// lookup is case-insensitive, so silently taking the first would let a document carry a
+        /// decoy empty policy ahead of the real one: the element would be classified public while a
+        /// second spelling of the same reserved name restricted it. Since there is no principled way
+        /// to choose between them, the ambiguity is reported and both callers fail closed.
+        /// </remarks>
+        private static PropertyLookup TryFindProperty(JsonObject obj, string name, out JsonNode value)
         {
+            value = null;
+            int matches = 0;
+
             foreach (KeyValuePair<string, JsonNode> entry in obj)
             {
                 if (string.Equals(entry.Key, name, StringComparison.OrdinalIgnoreCase))
                 {
+                    matches++;
+                    if (matches > 1)
+                    {
+                        value = null;
+                        return PropertyLookup.Ambiguous;
+                    }
+
                     value = entry.Value;
-                    return true;
                 }
             }
 
-            value = null;
-            return false;
+            return matches == 1 ? PropertyLookup.Found : PropertyLookup.Absent;
         }
 
         private static void RemoveProperty(JsonObject obj, string name)
         {
-            string key = null;
+            // Remove every case variant, not just the first. Merge strips stray copies from browse
+            // output before re-attaching the authoritative mapping; leaving a second spelling behind
+            // would produce exactly the ambiguous document that Read has to reject.
+            var keys = new List<string>();
             foreach (KeyValuePair<string, JsonNode> entry in obj)
             {
                 if (string.Equals(entry.Key, name, StringComparison.OrdinalIgnoreCase))
                 {
-                    key = entry.Key;
-                    break;
+                    keys.Add(entry.Key);
                 }
             }
 
-            if (key is not null)
+            foreach (string key in keys)
             {
                 obj.Remove(key);
             }

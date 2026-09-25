@@ -81,6 +81,9 @@ namespace Opc.Ua.Cloud.Library
                 }
                 catch (InvalidOperationException ex)
                 {
+                    // Note DppAuditException derives from Exception, not InvalidOperationException,
+                    // so a deliberate refusal (e.g. a missing checkpoint over existing entries)
+                    // propagates immediately instead of being retried five times.
                     lastError = ex;
                     ResetTracking();
                 }
@@ -198,7 +201,26 @@ namespace Opc.Ua.Cloud.Library
 
                 if (checkpoint is null)
                 {
+                    // A missing checkpoint is only legitimate when nothing has ever been appended.
+                    // With entries already present it means the checkpoint was deleted - and creating
+                    // a fresh one here would MAC it over whatever prefix survives, so the next
+                    // legitimate append would permanently authenticate an attacker's truncation
+                    // before the health check ever observed the checkpoint was gone. Refuse instead:
+                    // the append fails, the calling operation is refused (DppAuditException), and the
+                    // missing checkpoint stays visible for VerifyChainAsync to report.
                     long existing = await _db.DppAuditEntries.LongCountAsync().ConfigureAwait(false);
+
+                    // The new entry is tracked but not yet committed, so it is not counted here.
+                    if (existing > 0)
+                    {
+                        _logger.LogCritical(
+                            "DPP audit checkpoint is missing while audit entries exist. Refusing to append, because initializing a new checkpoint would authenticate a possibly-truncated log. Restore the checkpoint from backup or re-initialize the audit log deliberately.");
+
+                        throw new DppAuditException(
+                            "The DPP audit checkpoint is missing while audit entries exist. The log may have been truncated, " +
+                            "so appending would authenticate an unverified state. Explicit operator recovery is required.");
+                    }
+
                     checkpoint = new DppAuditCheckpoint {
                         Id = DppAuditCheckpoint.SingletonId,
                         EntryCount = existing + 1
