@@ -214,6 +214,11 @@ namespace Opc.Ua.Cloud.Library.Controllers
             // and leave none - the guard would pass while the invariant it protects is broken. A
             // PostgreSQL advisory lock serializes across instances (a process-local lock would not)
             // and is released when the connection closes, so a crash mid-revoke cannot wedge it.
+            //
+            // Note the transaction here exists to scope the advisory lock, NOT to make the role
+            // removal atomic: AppDbContext is transient, so UserManager writes on its own connection
+            // and commits independently. Holding the lock still serializes the check against other
+            // requests, which is what the last-administrator invariant needs.
             if (string.Equals(roleName, Roles.Administrator, StringComparison.OrdinalIgnoreCase))
             {
                 await using IDbContextTransaction transaction = await dbContext.Database
@@ -245,19 +250,26 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
                 // Removing the role row does not invalidate authentication cookies already issued to
                 // this user: their role claims were baked in at sign-in. Bumping the security stamp
-                // inside the same transaction makes those cookies fail re-validation, so the
-                // revocation actually takes effect (within SecurityStampValidatorOptions.ValidationInterval).
+                // makes those cookies fail re-validation, so the revocation actually takes effect
+                // (within SecurityStampValidatorOptions.ValidationInterval).
                 IdentityResult adminStampResult = await userManager.UpdateSecurityStampAsync(user).ConfigureAwait(false);
                 if (!adminStampResult.Succeeded)
                 {
-                    // Still inside the transaction, so the revocation can be abandoned cleanly rather
-                    // than leaving a user whose role row is gone but whose cookie still works.
-                    await transaction.RollbackAsync().ConfigureAwait(false);
-                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Failed").ConfigureAwait(false);
-                    return this.BadRequest(adminStampResult);
+                    // Deliberately NOT rolled back. AppDbContext is registered transient, so the
+                    // context backing UserManager is a different instance on a different connection:
+                    // RemoveFromRoleAsync has already committed independently of this transaction, and
+                    // rolling back here would undo only the advisory lock while falsely implying the
+                    // revocation was abandoned. Treat it as the same partial failure as the ordinary
+                    // branch - the role is gone, the session is not, and an operator has to be told.
+                    await transaction.CommitAsync().ConfigureAwait(false);
+                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}; security stamp not updated", "PartialFailure").ConfigureAwait(false);
+                    return new ObjectResult($"Role revoked, but the user's existing sessions could not be invalidated; they may retain the '{roleName}' claim until their cookie expires.") {
+                        StatusCode = (int)HttpStatusCode.InternalServerError
+                    };
                 }
 
-                // Commit inside the lock so no concurrent request can observe the pre-revoke count.
+                // Release the advisory lock only after the removal and the stamp update have both
+                // completed, so a concurrent request cannot observe the pre-revoke administrator count.
                 await transaction.CommitAsync().ConfigureAwait(false);
 
                 await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Success").ConfigureAwait(false);

@@ -49,6 +49,11 @@ namespace Opc.Ua.Cloud.Library
         private readonly string _certificateBase64;
         private readonly string _keyId;
 
+        /// <summary>
+        /// Economic operator this server is authorized to sign for, or null when unconfigured.
+        /// </summary>
+        private readonly string _economicOperatorId;
+
         // Keys accepted by Verify, each bound to the issuer it is authorized to speak for. Never
         // populated from a submitted ESDC.
         private readonly List<TrustAnchor> _trustedKeys = new();
@@ -201,8 +206,19 @@ namespace Opc.Ua.Cloud.Library
                 _keyId = Convert.ToHexString(SHA256.HashData(_rsa.ExportSubjectPublicKeyInfo()));
             }
 
-            // Our own key always verifies what we issue, bound to this server as its own issuer.
-            _trustedKeys.Add(new TrustAnchor(_rsa, issuer: null, keyId: _keyId, isOwnKey: true));
+            // The economic operator this server signs for. Issuance is refused for any other operator,
+            // and the own-key anchor is bound to it so a credential naming a different operator cannot
+            // be verified by our own key either. Left null only when unconfigured, which preserves the
+            // previous unbound behaviour for existing deployments - see the Issue() guard.
+            _economicOperatorId = configuration?["Dpp:Esdc:EconomicOperatorId"];
+            if (string.IsNullOrWhiteSpace(_economicOperatorId))
+            {
+                _economicOperatorId = null;
+            }
+
+            // Our own key always verifies what we issue. When an operator id is configured the anchor
+            // is bound to it, so the key cannot vouch for a credential claiming a different operator.
+            _trustedKeys.Add(new TrustAnchor(_rsa, issuer: _economicOperatorId, keyId: _keyId, isOwnKey: true));
 
             // Additional trust anchors let this instance verify ESDCs issued by peer operators.
             //
@@ -285,6 +301,18 @@ namespace Opc.Ua.Cloud.Library
         public ElectronicSignedDataConstruct Issue(DigitalProductPassport dpp)
         {
             ArgumentNullException.ThrowIfNull(dpp);
+
+            // The issuer is copied from DPP content, which is data this server hosts rather than a
+            // statement about who signed it. Without this check any hosted passport could be signed
+            // as - and then verified as - any economic operator it happened to name. Bind issuance to
+            // the configured operator so the signature only ever asserts an identity we actually hold.
+            if (_economicOperatorId is not null
+                && !string.Equals(dpp.EconomicOperatorId, _economicOperatorId, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to issue an ESDC for economic operator '{dpp.EconomicOperatorId}': this server signs only for " +
+                    $"'{_economicOperatorId}' (Dpp:Esdc:EconomicOperatorId). Signing it would assert an identity this key does not represent.");
+            }
 
             var credential = new VerifiableCredential {
                 Id = $"urn:uuid:{Guid.NewGuid()}",

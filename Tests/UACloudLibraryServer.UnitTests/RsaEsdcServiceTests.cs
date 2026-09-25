@@ -202,6 +202,73 @@ namespace UACloudLibraryServer.UnitTests
             Assert.True(verifier.Verify(esdc));
         }
 
+        private static IConfiguration OperatorConfiguration(string economicOperatorId) =>
+            new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string> {
+                    ["Dpp:Esdc:EconomicOperatorId"] = economicOperatorId
+                })
+                .Build();
+
+        private static DigitalProductPassport SampleDppFor(string economicOperatorId) => new()
+        {
+            DigitalProductPassportId = "dpp-1",
+            UniqueProductIdentifier = "prod-1",
+            DppSchemaVersion = "1.0",
+            DppStatus = "active",
+            LastUpdate = DateTimeOffset.UtcNow,
+            EconomicOperatorId = economicOperatorId
+        };
+
+        [Fact]
+        public void Issue_RefusesDppBelongingToAnotherEconomicOperator()
+        {
+            // The issuer is taken from DPP content, which is merely data this server hosts. Signing it
+            // unchecked would let any hosted passport be attested as any operator it happened to name.
+            using var service = new RsaEsdcService(OperatorConfiguration("EO-1"));
+
+            DigitalProductPassport foreign = SampleDppFor("EO-SOMEONE-ELSE");
+
+            InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => service.Issue(foreign));
+            Assert.Contains("EO-SOMEONE-ELSE", ex.Message, StringComparison.Ordinal);
+            Assert.Contains("EO-1", ex.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void Issue_AllowsDppForTheConfiguredEconomicOperator()
+        {
+            using var service = new RsaEsdcService(OperatorConfiguration("EO-1"));
+
+            // SampleDpp is EO-1, which is exactly who this server signs for.
+            ElectronicSignedDataConstruct esdc = service.Issue(SampleDpp());
+            Assert.True(service.Verify(esdc));
+        }
+
+        [Fact]
+        public void OwnKey_CannotVouchForADifferentOperatorThanItIsBoundTo()
+        {
+            // An ESDC genuinely signed by an EO-1 server, then relabelled in the signed payload by a
+            // server configured for a different operator, must not verify against the second server's
+            // own key: binding the own-key anchor is what stops it acting as a universal anchor.
+            using var issuer = new RsaEsdcService(OperatorConfiguration("EO-1"));
+            ElectronicSignedDataConstruct esdc = issuer.Issue(SampleDpp());
+
+            using var otherOperator = new RsaEsdcService(OperatorConfiguration("EO-2"));
+            Assert.False(otherOperator.Verify(esdc));
+        }
+
+        [Fact]
+        public void UnconfiguredOperatorId_PreservesPreviousIssuanceBehaviour()
+        {
+            // Existing deployments have no Dpp:Esdc:EconomicOperatorId set. Issuance must keep working
+            // for them rather than failing closed on upgrade; the binding is opt-in.
+            using var service = new RsaEsdcService(null);
+
+            DigitalProductPassport anyOperator = SampleDppFor("EO-ANYTHING");
+
+            ElectronicSignedDataConstruct esdc = service.Issue(anyOperator);
+            Assert.True(service.Verify(esdc));
+        }
+
         [Fact]
         public void Verify_RejectsEnvelopeMetadataThatContradictsSignedCredential()
         {
