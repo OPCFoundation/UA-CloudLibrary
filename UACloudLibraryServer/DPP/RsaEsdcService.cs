@@ -350,6 +350,15 @@ namespace Opc.Ua.Cloud.Library
                 using var header = JsonDocument.Parse(Base64Url.DecodeFromChars(parts[0]));
                 using var payload = JsonDocument.Parse(Base64Url.DecodeFromChars(parts[1]));
 
+                // Both halves are attacker-controlled and only guaranteed to be *valid JSON*, not JSON
+                // objects. TryGetProperty throws InvalidOperationException on any other root kind (an
+                // array, say), which would turn this boolean API into an exception on malformed input.
+                if (header.RootElement.ValueKind != JsonValueKind.Object
+                    || payload.RootElement.ValueKind != JsonValueKind.Object)
+                {
+                    return false;
+                }
+
                 // Confirm the payload is actually a Verifiable Credential.
                 if (!IsVerifiableCredential(payload.RootElement))
                 {
@@ -407,6 +416,14 @@ namespace Opc.Ua.Cloud.Library
             {
                 return false;
             }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
         }
 
         /// <summary>
@@ -456,6 +473,17 @@ namespace Opc.Ua.Cloud.Library
             }
             catch (CryptographicException)
             {
+                return false;
+            }
+            catch (ArgumentException)
+            {
+                // Malformed embedded key material (bad PEM, bad certificate bytes).
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                // Defence in depth: a JSON element accessed as the wrong kind. The checks above should
+                // prevent this, but this is a boolean API over untrusted input and must not throw.
                 return false;
             }
         }
@@ -534,9 +562,14 @@ namespace Opc.Ua.Cloud.Library
         {
             using (var header = JsonDocument.Parse(Base64Url.DecodeFromChars(encodedHeader)))
             {
-                if (header.RootElement.TryGetProperty("x5c", out JsonElement x5c)
+                // The header is attacker-supplied: it need not be an object, and x5c[0] need not be a
+                // string. GetString() throws InvalidOperationException on any other element kind, which
+                // would escape the boolean verification API rather than being reported as "invalid".
+                if (header.RootElement.ValueKind == JsonValueKind.Object
+                    && header.RootElement.TryGetProperty("x5c", out JsonElement x5c)
                     && x5c.ValueKind == JsonValueKind.Array
-                    && x5c.GetArrayLength() > 0)
+                    && x5c.GetArrayLength() > 0
+                    && x5c[0].ValueKind == JsonValueKind.String)
                 {
                     using X509Certificate2 headerCert = X509CertificateLoader.LoadCertificate(Convert.FromBase64String(x5c[0].GetString()));
                     return headerCert.GetRSAPublicKey();
@@ -552,7 +585,23 @@ namespace Opc.Ua.Cloud.Library
             if (!string.IsNullOrEmpty(esdc.PublicKey))
             {
                 var rsa = RSA.Create();
-                rsa.ImportFromPem(esdc.PublicKey);
+                try
+                {
+                    // ImportFromPem throws ArgumentException on malformed PEM, which the callers do not
+                    // catch. Dispose the instance and let the caller treat this as unverifiable.
+                    rsa.ImportFromPem(esdc.PublicKey);
+                }
+                catch (ArgumentException)
+                {
+                    rsa.Dispose();
+                    return null;
+                }
+                catch (CryptographicException)
+                {
+                    rsa.Dispose();
+                    return null;
+                }
+
                 return rsa;
             }
 

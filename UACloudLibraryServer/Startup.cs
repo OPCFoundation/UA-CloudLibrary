@@ -316,8 +316,6 @@ namespace Opc.Ua.Cloud.Library
                 options.EnableAnnotations();
             });
 
-            string serviceName = Configuration["Application"] ?? "UACloudLibrary";
-
             // Data Protection keys encrypt the authentication cookie, antiforgery
             // tokens and the e-mail confirmation / password reset tokens. They must
             // OUTLIVE the process: if they are lost, every existing cookie and token
@@ -330,8 +328,7 @@ namespace Opc.Ua.Cloud.Library
             // Directory.GetCurrentDirectory() is the container's working directory and
             // is destroyed on every restart, so the key ring is configurable: point
             // DATA_PROTECTION_KEY_PATH at a mounted volume in any containerised
-            // deployment. SetApplicationName pins the key ring's purpose string so
-            // keys stay valid across restarts and replicas.
+            // deployment.
             string keyPath = Configuration["DATA_PROTECTION_KEY_PATH"];
             if (string.IsNullOrWhiteSpace(keyPath))
             {
@@ -342,9 +339,26 @@ namespace Opc.Ua.Cloud.Library
                 Directory.CreateDirectory(keyPath);
             }
 
-            services.AddDataProtection()
-                .PersistKeysToFileSystem(new DirectoryInfo(keyPath))
-                .SetApplicationName(serviceName);
+            IDataProtectionBuilder dataProtection = services.AddDataProtection()
+                .PersistKeysToFileSystem(new DirectoryInfo(keyPath));
+
+            // Deliberately NOT calling SetApplicationName() by default. The application discriminator
+            // is part of the key derivation, so changing it invalidates every payload protected under
+            // the previous value: on the first upgrade an otherwise-durable key ring would stop being
+            // able to decrypt existing cookies, antiforgery tokens and reset/confirmation links. The
+            // framework default derives the discriminator from the content root path, which is stable
+            // across restarts and identical across replicas of the same image, so the default already
+            // gives the cross-replica behaviour this was originally meant to provide.
+            //
+            // Set DATA_PROTECTION_APPLICATION_NAME only when replicas genuinely need to share a key
+            // ring but do not share a content root path. It is a one-time breaking change for the
+            // deployment that adopts it: existing users are signed out and outstanding reset and
+            // confirmation links stop working, so roll it out in a maintenance window.
+            string applicationName = Configuration["DATA_PROTECTION_APPLICATION_NAME"];
+            if (!string.IsNullOrWhiteSpace(applicationName))
+            {
+                dataProtection.SetApplicationName(applicationName);
+            }
 
             services.Configure<IISServerOptions>(options => {
                 options.AllowSynchronousIO = true;

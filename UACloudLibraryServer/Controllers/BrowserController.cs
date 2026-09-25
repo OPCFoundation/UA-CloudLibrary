@@ -7,27 +7,33 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Opc.Ua.Cloud.Library;
+using Opc.Ua.Cloud.Library.Controllers;
 using Opc.Ua.Cloud.Library.Models;
 
 namespace AdminShell
 {
     [Authorize(Policy = "ApiPolicy")]
+    [ServiceFilter(typeof(DppAuditFailureFilter))]
     public class BrowserController : Controller
     {
         private readonly UAClient _client;
         private readonly DbFileStorage _storage;
         private readonly CloudLibDataProvider _database;
+        private readonly IDppAuditLog _auditLog;
 
         // Node values may contain characters like <, >, & that System.Text.Json escapes to \uXXXX by
         // default; relaxed escaping keeps the stored values blob readable and Newtonsoft-equivalent.
         private static readonly JsonSerializerOptions s_jsonOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
-        public BrowserController(UAClient client, DbFileStorage storage, CloudLibDataProvider database)
+        public BrowserController(UAClient client, DbFileStorage storage, CloudLibDataProvider database, IDppAuditLog auditLog)
         {
             _client = client;
             _storage = storage;
             _database = database;
+            _auditLog = auditLog;
         }
+
+        private string OperatorId => User?.Identity?.Name ?? "anonymous";
 
         public ActionResult Index(string nodesetIdentifier, string nodesetName, string userName, string statusMessage, string search)
         {
@@ -62,6 +68,13 @@ namespace AdminShell
             DbFiles nodesetXml = await _storage.DownloadFileAsync(model.NodesetIdentifier).ConfigureAwait(false);
             string values = DppControlledElements.Merge(JsonSerializer.Serialize(results, s_jsonOptions), nodesetXml?.Values);
 
+            // This exports the whole value set, controlled elements included. Ownership stops an
+            // unauthorised read, but the non-repudiation invariant is that DPP reads are recorded, so
+            // audit before the bytes are handed over: appending afterwards would mean a failed append
+            // turns into a 503 on a response that already disclosed the data. A failure here raises
+            // DppAuditException, which DppAuditFailureFilter converts into a 503.
+            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Read, model.NodesetIdentifier, null, "Success").ConfigureAwait(false);
+
             return File(Encoding.UTF8.GetBytes(values), "text/json", "nodevalues.json");
         }
 
@@ -79,18 +92,26 @@ namespace AdminShell
                 // so merge it back from the existing values blob to avoid dropping it on save.
                 nodesetXml.Values = DppControlledElements.Merge(JsonSerializer.Serialize(results, s_jsonOptions), nodesetXml.Values);
 
+                // Write-ahead audit intent, as on the other mutation paths: the storage write below is
+                // not transactional with the audit table, so an "Attempted" entry with no matching
+                // outcome is the signal that a save may have completed without being fully logged.
+                await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, model.NodesetIdentifier, null, "Attempted").ConfigureAwait(false);
+
                 string name = await _storage.UploadFileAsync(model.NodesetIdentifier, nodesetXml.Blob, nodesetXml.Values).ConfigureAwait(false);
                 if (name == null)
                 {
+                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, model.NodesetIdentifier, null, "Failed").ConfigureAwait(false);
                     model.StatusMessage = "Failed to save changes to this nodeset.";
                 }
                 else
                 {
+                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, model.NodesetIdentifier, null, "Success").ConfigureAwait(false);
                     model.StatusMessage = "Save operation successful";
                 }
             }
             else
             {
+                await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, model.NodesetIdentifier, null, "Denied").ConfigureAwait(false);
                 model.StatusMessage = "You are not authorized to save changes to this nodeset.";
             }
 

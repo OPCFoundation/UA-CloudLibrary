@@ -124,6 +124,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             // each security stamp after the delete, so nobody keeps passing role checks on a role
             // that no longer exists.
             IList<IdentityUser> affectedUsers = await userManager.GetUsersInRoleAsync(roleName).ConfigureAwait(false);
+            var staleUserIds = new List<string>();
 
             IdentityResult result = await roleManager.DeleteAsync(role).ConfigureAwait(false);
             if (!result.Succeeded)
@@ -133,7 +134,23 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             foreach (IdentityUser affectedUser in affectedUsers)
             {
-                await userManager.UpdateSecurityStampAsync(affectedUser).ConfigureAwait(false);
+                IdentityResult stampResult = await userManager.UpdateSecurityStampAsync(affectedUser).ConfigureAwait(false);
+                if (!stampResult.Succeeded)
+                {
+                    staleUserIds.Add(affectedUser.Id);
+                }
+            }
+
+            // The role row is already gone and cannot be restored by re-adding it (the member links
+            // are lost with it), so this cannot be rolled back. Report the partial failure instead of
+            // claiming success: each listed user keeps a cookie carrying the deleted role claim until
+            // it expires, and an operator needs to know to force those sessions out.
+            if (staleUserIds.Count > 0)
+            {
+                await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"role={roleName}; security stamp not updated for users={string.Join(",", staleUserIds)}", "PartialFailure").ConfigureAwait(false);
+                return new ObjectResult($"Role deleted, but the sessions of {staleUserIds.Count} user(s) could not be invalidated; they may retain the '{roleName}' claim until their cookie expires.") {
+                    StatusCode = (int)HttpStatusCode.InternalServerError
+                };
             }
 
             await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"role={roleName}", "Success").ConfigureAwait(false);
@@ -230,7 +247,15 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 // this user: their role claims were baked in at sign-in. Bumping the security stamp
                 // inside the same transaction makes those cookies fail re-validation, so the
                 // revocation actually takes effect (within SecurityStampValidatorOptions.ValidationInterval).
-                await userManager.UpdateSecurityStampAsync(user).ConfigureAwait(false);
+                IdentityResult adminStampResult = await userManager.UpdateSecurityStampAsync(user).ConfigureAwait(false);
+                if (!adminStampResult.Succeeded)
+                {
+                    // Still inside the transaction, so the revocation can be abandoned cleanly rather
+                    // than leaving a user whose role row is gone but whose cookie still works.
+                    await transaction.RollbackAsync().ConfigureAwait(false);
+                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Failed").ConfigureAwait(false);
+                    return this.BadRequest(adminStampResult);
+                }
 
                 // Commit inside the lock so no concurrent request can observe the pre-revoke count.
                 await transaction.CommitAsync().ConfigureAwait(false);
@@ -252,7 +277,17 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             // See the administrator branch: invalidate already-issued cookies carrying the revoked
             // role claim, otherwise the user keeps passing controlled-element checks until expiry.
-            await userManager.UpdateSecurityStampAsync(user).ConfigureAwait(false);
+            IdentityResult stampResult = await userManager.UpdateSecurityStampAsync(user).ConfigureAwait(false);
+            if (!stampResult.Succeeded)
+            {
+                // The role removal is already persisted and this path has no enclosing transaction,
+                // so the revocation is incomplete rather than undone: the user keeps a working cookie
+                // carrying the revoked role. Report it instead of returning success.
+                await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}; security stamp not updated", "PartialFailure").ConfigureAwait(false);
+                return new ObjectResult($"Role revoked, but the user's existing sessions could not be invalidated; they may retain the '{roleName}' claim until their cookie expires.") {
+                    StatusCode = (int)HttpStatusCode.InternalServerError
+                };
+            }
 
             await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Success").ConfigureAwait(false);
             return new ObjectResult("User role revoked successfully") { StatusCode = (int)HttpStatusCode.OK };

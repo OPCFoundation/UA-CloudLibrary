@@ -108,6 +108,70 @@ namespace UACloudLibraryServer.UnitTests
             Assert.True(RsaEsdcService.VerifyIntegrityOnly(esdc));
         }
 
+        // These are boolean APIs over entirely attacker-controlled input, so malformed material must
+        // come back as "false" rather than as an exception escaping to the caller.
+        [Theory]
+        // Header is valid JSON but an array, not an object: TryGetProperty("kid") would throw.
+        [InlineData("[]")]
+        [InlineData("[1,2,3]")]
+        // Header is a bare JSON scalar.
+        [InlineData("\"a string\"")]
+        [InlineData("42")]
+        [InlineData("null")]
+        public void Verify_ReturnsFalseForNonObjectHeader(string headerJson)
+        {
+            using var issuer = new RsaEsdcService(null);
+            ElectronicSignedDataConstruct esdc = issuer.Issue(SampleDpp());
+
+            string[] parts = esdc.VerifiableCredentialJwt.Split('.');
+            string forgedJwt = Base64Url.EncodeToString(Encoding.UTF8.GetBytes(headerJson))
+                + "." + parts[1] + "." + parts[2];
+
+            var malformed = new ElectronicSignedDataConstruct {
+                VerifiableCredentialJwt = forgedJwt,
+                PublicKey = esdc.PublicKey
+            };
+
+            using var verifier = new RsaEsdcService(null);
+            Assert.False(verifier.Verify(malformed));
+            Assert.False(RsaEsdcService.VerifyIntegrityOnly(malformed));
+        }
+
+        [Theory]
+        // x5c present but its first element is not a string: GetString() would throw.
+        [InlineData("{\"alg\":\"RS256\",\"x5c\":[123]}")]
+        [InlineData("{\"alg\":\"RS256\",\"x5c\":[{}]}")]
+        [InlineData("{\"alg\":\"RS256\",\"x5c\":[null]}")]
+        public void VerifyIntegrityOnly_ReturnsFalseForNonStringX5c(string headerJson)
+        {
+            using var issuer = new RsaEsdcService(null);
+            ElectronicSignedDataConstruct esdc = issuer.Issue(SampleDpp());
+
+            string[] parts = esdc.VerifiableCredentialJwt.Split('.');
+            string forgedJwt = Base64Url.EncodeToString(Encoding.UTF8.GetBytes(headerJson))
+                + "." + parts[1] + "." + parts[2];
+
+            Assert.False(RsaEsdcService.VerifyIntegrityOnly(new ElectronicSignedDataConstruct {
+                VerifiableCredentialJwt = forgedJwt
+            }));
+        }
+
+        [Theory]
+        [InlineData("not a pem at all")]
+        [InlineData("-----BEGIN PUBLIC KEY-----\nnot base64!!!\n-----END PUBLIC KEY-----")]
+        [InlineData("-----BEGIN PUBLIC KEY-----\n-----END PUBLIC KEY-----")]
+        public void VerifyIntegrityOnly_ReturnsFalseForMalformedPublicKeyPem(string pem)
+        {
+            using var issuer = new RsaEsdcService(null);
+            ElectronicSignedDataConstruct esdc = issuer.Issue(SampleDpp());
+
+            // ImportFromPem throws ArgumentException on malformed PEM; it must not escape.
+            Assert.False(RsaEsdcService.VerifyIntegrityOnly(new ElectronicSignedDataConstruct {
+                VerifiableCredentialJwt = esdc.VerifiableCredentialJwt,
+                PublicKey = pem
+            }));
+        }
+
         [Fact]
         public void Verify_RejectsSelfSignedForgery()
         {
