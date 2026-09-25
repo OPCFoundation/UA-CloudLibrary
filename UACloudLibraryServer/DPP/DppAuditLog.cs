@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 using Opc.Ua.Cloud.Library.Models;
 
@@ -143,62 +144,74 @@ namespace Opc.Ua.Cloud.Library
 
         private async Task AppendOnceAsync(string operatorId, DppAuditOperation operation, string dppId, string elementPath, string outcome)
         {
-            // Serializable isolation prevents two instances from reading the same tail and writing
-            // entries that claim the same predecessor.
-            using var transaction = await _db.Database
-                .BeginTransactionAsync(System.Data.IsolationLevel.Serializable)
-                .ConfigureAwait(false);
+            // AppDbContext enables EnableRetryOnFailure, and NpgsqlRetryingExecutionStrategy refuses
+            // user-initiated transactions: a retry would otherwise replay only part of the unit. The
+            // transaction must therefore be opened *by* the strategy so the whole read-hash-write
+            // sequence is one retriable unit.
+            IExecutionStrategy strategy = _db.Database.CreateExecutionStrategy();
 
-            DppAuditEntry tail = await _db.DppAuditEntries
-                .OrderByDescending(e => e.Sequence)
-                .FirstOrDefaultAsync()
-                .ConfigureAwait(false);
+            await strategy.ExecuteAsync(async () => {
+                // Serializable isolation prevents two instances from reading the same tail and writing
+                // entries that claim the same predecessor.
+                using var transaction = await _db.Database
+                    .BeginTransactionAsync(System.Data.IsolationLevel.Serializable)
+                    .ConfigureAwait(false);
 
-            string previousHash = tail?.EntryHash ?? GenesisHash;
+                // The strategy may replay this delegate, so any state tracked by a failed attempt has
+                // to be discarded before the tail is re-read.
+                _db.ChangeTracker.Clear();
 
-            var entry = new DppAuditEntry {
-                // PostgreSQL's "timestamp with time zone" stores microseconds, but DateTimeOffset.UtcNow
-                // carries 100-nanosecond ticks. Hashing the untruncated value would produce a hash the
-                // database can never reproduce: on reload the timestamp comes back rounded, so
-                // VerifyChainAsync would recompute a different hash and report tampering for entries
-                // that were never touched. Truncate first so the hashed value is the value stored.
-                Timestamp = TruncateToMicroseconds(DateTimeOffset.UtcNow),
-                OperatorId = string.IsNullOrEmpty(operatorId) ? "anonymous" : operatorId,
-                Operation = operation,
-                DppId = dppId,
-                ElementPath = elementPath,
-                Outcome = outcome,
-                PreviousHash = previousHash
-            };
-            byte[] auditKey = await _keyProvider.GetAuditKeyAsync().ConfigureAwait(false);
-            entry.EntryHash = ComputeHash(entry, previousHash, auditKey);
+                DppAuditEntry tail = await _db.DppAuditEntries
+                    .OrderByDescending(e => e.Sequence)
+                    .FirstOrDefaultAsync()
+                    .ConfigureAwait(false);
 
-            _db.DppAuditEntries.Add(entry);
+                string previousHash = tail?.EntryHash ?? GenesisHash;
 
-            DppAuditCheckpoint checkpoint = await _db.DppAuditCheckpoints
-                .FirstOrDefaultAsync(c => c.Id == DppAuditCheckpoint.SingletonId)
-                .ConfigureAwait(false);
-
-            if (checkpoint is null)
-            {
-                long existing = await _db.DppAuditEntries.LongCountAsync().ConfigureAwait(false);
-                checkpoint = new DppAuditCheckpoint {
-                    Id = DppAuditCheckpoint.SingletonId,
-                    EntryCount = existing + 1
+                var entry = new DppAuditEntry {
+                    // PostgreSQL's "timestamp with time zone" stores microseconds, but DateTimeOffset.UtcNow
+                    // carries 100-nanosecond ticks. Hashing the untruncated value would produce a hash the
+                    // database can never reproduce: on reload the timestamp comes back rounded, so
+                    // VerifyChainAsync would recompute a different hash and report tampering for entries
+                    // that were never touched. Truncate first so the hashed value is the value stored.
+                    Timestamp = TruncateToMicroseconds(DateTimeOffset.UtcNow),
+                    OperatorId = string.IsNullOrEmpty(operatorId) ? "anonymous" : operatorId,
+                    Operation = operation,
+                    DppId = dppId,
+                    ElementPath = elementPath,
+                    Outcome = outcome,
+                    PreviousHash = previousHash
                 };
-                _db.DppAuditCheckpoints.Add(checkpoint);
-            }
-            else
-            {
-                checkpoint.EntryCount += 1;
-            }
+                byte[] auditKey = await _keyProvider.GetAuditKeyAsync().ConfigureAwait(false);
+                entry.EntryHash = ComputeHash(entry, previousHash, auditKey);
 
-            checkpoint.TailHash = entry.EntryHash;
-            checkpoint.UpdatedAt = entry.Timestamp;
-            checkpoint.CheckpointMac = ComputeCheckpointMac(checkpoint.EntryCount, checkpoint.TailHash, auditKey);
+                _db.DppAuditEntries.Add(entry);
 
-            await _db.SaveChangesAsync().ConfigureAwait(false);
-            await transaction.CommitAsync().ConfigureAwait(false);
+                DppAuditCheckpoint checkpoint = await _db.DppAuditCheckpoints
+                    .FirstOrDefaultAsync(c => c.Id == DppAuditCheckpoint.SingletonId)
+                    .ConfigureAwait(false);
+
+                if (checkpoint is null)
+                {
+                    long existing = await _db.DppAuditEntries.LongCountAsync().ConfigureAwait(false);
+                    checkpoint = new DppAuditCheckpoint {
+                        Id = DppAuditCheckpoint.SingletonId,
+                        EntryCount = existing + 1
+                    };
+                    _db.DppAuditCheckpoints.Add(checkpoint);
+                }
+                else
+                {
+                    checkpoint.EntryCount += 1;
+                }
+
+                checkpoint.TailHash = entry.EntryHash;
+                checkpoint.UpdatedAt = entry.Timestamp;
+                checkpoint.CheckpointMac = ComputeCheckpointMac(checkpoint.EntryCount, checkpoint.TailHash, auditKey);
+
+                await _db.SaveChangesAsync().ConfigureAwait(false);
+                await transaction.CommitAsync().ConfigureAwait(false);
+            }).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -207,6 +220,15 @@ namespace Opc.Ua.Cloud.Library
         /// a case the chain alone cannot reveal, since a truncated log is still a valid prefix.
         /// </summary>
         public async Task<bool> VerifyChainAsync()
+        {
+            // AppDbContext enables EnableRetryOnFailure, and NpgsqlRetryingExecutionStrategy rejects
+            // user-initiated transactions, so the snapshot below has to be opened by the strategy.
+            IExecutionStrategy strategy = _db.Database.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(VerifyChainInSnapshotAsync).ConfigureAwait(false);
+        }
+
+        private async Task<bool> VerifyChainInSnapshotAsync()
         {
             // The entries and the checkpoint must come from the same snapshot. Read separately under
             // the default read-committed isolation, an append committing between the two queries would
