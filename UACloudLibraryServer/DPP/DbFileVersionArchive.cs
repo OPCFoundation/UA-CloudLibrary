@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -51,6 +52,12 @@ namespace Opc.Ua.Cloud.Library
         private const string TickFormat = "D19";
         private const char TickSuffixSeparator = '-';
 
+        // Marker property that distinguishes a policy-carrying envelope from a pre-envelope row
+        // holding a bare serialized DPP. Deliberately a name the DPP model itself never emits, so
+        // its presence is an unambiguous discriminator.
+        private const string SnapshotEnvelopeMarker = "archiveSchemaVersion";
+        private const int SnapshotEnvelopeVersion = 1;
+
         // Per-process monotonic counter for the in-process tie-break component of the row name.
         // Initialized to the default 0; the first Interlocked.Increment yields 1, then increments
         // climb monotonically. BuildRowName masks the result with 0xFFFFFF so the field always
@@ -62,7 +69,7 @@ namespace Opc.Ua.Cloud.Library
         // DigitalProductPassport. The model uses System.Text.Json polymorphism
         // ([JsonPolymorphic]/[JsonDerivedType] with discriminator "objectType") plus
         // [JsonPropertyName] overrides and [JsonStringEnumConverter] on Granularity, so the
-        // archive must (de)serialize with System.Text.Json - Newtonsoft.Json would ignore
+        // archive must (de)serialize with System.Text.Json: any other serializer would ignore
         // those attributes and fail to instantiate the abstract DataElement base type on read.
         // DefaultIgnoreCondition.WhenWritingNull keeps optional members (e.g. FacilityId,
         // ContentSpecificationIds, DictionaryReference, ValueDataType) out of the stored blob.
@@ -80,7 +87,7 @@ namespace Opc.Ua.Cloud.Library
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public async Task<bool> ArchiveAsync(string dppId, DigitalProductPassport snapshot, DateTimeOffset capturedAtUtc)
+        public async Task<bool> ArchiveAsync(string dppId, DigitalProductPassport snapshot, string controlledElementsValuesJson, DateTimeOffset capturedAtUtc)
         {
             if (string.IsNullOrEmpty(dppId))
             {
@@ -100,7 +107,10 @@ namespace Opc.Ua.Cloud.Library
             // below the practical concern threshold for an archive workload.
             string name = BuildRowName(dppId, ticks);
 
-            string payload = JsonSerializer.Serialize(snapshot, s_snapshotJsonOptions);
+            // Store the DPP inside an envelope that also carries the access policy of the moment.
+            // Reading back a bare DPP (no envelope) identifies a pre-envelope row; see
+            // GetVersionAtAsync.
+            string payload = WriteSnapshotBlob(snapshot, controlledElementsValuesJson);
             string stored = await _storage.UploadFileAsync(name, payload, null).ConfigureAwait(false);
             if (string.IsNullOrEmpty(stored))
             {
@@ -114,7 +124,7 @@ namespace Opc.Ua.Cloud.Library
             return true;
         }
 
-        public async Task<DigitalProductPassport> GetVersionAtAsync(string dppId, DateTimeOffset asOfUtc)
+        public async Task<DppVersionSnapshot> GetVersionAtAsync(string dppId, DateTimeOffset asOfUtc)
         {
             if (string.IsNullOrEmpty(dppId))
             {
@@ -160,15 +170,88 @@ namespace Opc.Ua.Cloud.Library
                 return null;
             }
 
+            return DeserializeSnapshot(row.Blob, match);
+        }
+
+        /// <summary>
+        /// Reads a stored row, transparently handling both the current policy-carrying envelope and
+        /// pre-envelope rows that hold a bare serialized DPP.
+        /// </summary>
+        private DppVersionSnapshot DeserializeSnapshot(string blob, string rowName)
+        {
             try
             {
-                return JsonSerializer.Deserialize<DigitalProductPassport>(row.Blob, s_snapshotJsonOptions);
+                DppVersionSnapshot snapshot = ReadSnapshotBlob(blob);
+                if (snapshot is null)
+                {
+                    _logger.LogError("DbFileVersionArchive: snapshot row {Name} carries no usable DPP.", rowName);
+                }
+
+                return snapshot;
             }
             catch (JsonException ex)
             {
-                _logger.LogError(ex, "DbFileVersionArchive: failed to deserialize snapshot row {Name}.", match);
+                _logger.LogError(ex, "DbFileVersionArchive: failed to deserialize snapshot row {Name}.", rowName);
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Pure counterpart of <see cref="WriteSnapshotBlob"/>. Returns null when the blob carries no
+        /// usable DPP; throws <see cref="JsonException"/> for malformed JSON.
+        /// </summary>
+        internal static DppVersionSnapshot ReadSnapshotBlob(string blob)
+        {
+            // Both shapes are JSON objects, so discriminate on the envelope's marker property
+            // rather than on parse success: a bare DPP would otherwise deserialize into an
+            // envelope with every member null and look like an empty snapshot.
+            using (JsonDocument probe = JsonDocument.Parse(blob))
+            {
+                if (probe.RootElement.ValueKind != JsonValueKind.Object)
+                {
+                    return null;
+                }
+
+                if (!probe.RootElement.TryGetProperty(SnapshotEnvelopeMarker, out _))
+                {
+                    // Pre-envelope row: the DPP survives but the access policy of the day was
+                    // never recorded. Report PolicyArchived=false so the caller fails closed
+                    // instead of applying today's mapping to historical data.
+                    DigitalProductPassport legacy = JsonSerializer.Deserialize<DigitalProductPassport>(blob, s_snapshotJsonOptions);
+                    return legacy is null ? null : new DppVersionSnapshot(legacy, null, policyArchived: false);
+                }
+            }
+
+            SnapshotEnvelope envelope = JsonSerializer.Deserialize<SnapshotEnvelope>(blob, s_snapshotJsonOptions);
+            return envelope?.Dpp is null
+                ? null
+                : new DppVersionSnapshot(envelope.Dpp, envelope.ControlledElementsValues, policyArchived: true);
+        }
+
+        /// <summary>Serializes a snapshot and its access policy into the stored envelope shape.</summary>
+        internal static string WriteSnapshotBlob(DigitalProductPassport snapshot, string controlledElementsValuesJson) =>
+            JsonSerializer.Serialize(
+                new SnapshotEnvelope {
+                    SchemaVersion = SnapshotEnvelopeVersion,
+                    Dpp = snapshot,
+                    ControlledElementsValues = controlledElementsValuesJson
+                },
+                s_snapshotJsonOptions);
+
+        /// <summary>
+        /// Stored shape of an archived version: the DPP plus the access policy in force when it was
+        /// captured.
+        /// </summary>
+        private sealed class SnapshotEnvelope
+        {
+            [JsonPropertyName(SnapshotEnvelopeMarker)]
+            public int SchemaVersion { get; set; }
+
+            [JsonPropertyName("dpp")]
+            public DigitalProductPassport Dpp { get; set; }
+
+            [JsonPropertyName("controlledElementsValues")]
+            public string ControlledElementsValues { get; set; }
         }
 
         private static string BuildRowPrefix(string dppId)

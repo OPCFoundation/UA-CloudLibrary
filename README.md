@@ -18,23 +18,18 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
 - [Development Setup](#development-setup)
 - [Authentication and Authorization](#authentication-and-authorization)
 - [Digital Product Passport (DPP)](#digital-product-passport-dpp)
-  - [Conceptual model](#conceptual-model)
-  - [Serialization (EN 18223 Clause 5 / Annex A)](#serialization-en-18223-clause-5--annex-a)
-  - [Response envelope](#response-envelope)
-  - [Endpoints](#endpoints)
-  - [`elementIdPath` &mdash; JSONPath addressing](#elementidpath--jsonpath-addressing)
-  - [Write semantics, archival and persistence](#write-semantics-archival-and-persistence)
-  - [Durable version archive](#durable-version-archive)
-  - [Error responses](#error-responses)
 - [Database Configuration](#database-configuration)
 - [Cloud Hosting Setup](#cloud-hosting-setup)
+  - [Required environment variables](#required-environment-variables)
   - [Migrating from version 1.0 to version 1.1](#migrating-from-version-10-to-version-11)
   - [Required Settings - PostgreSQL](#required-settings---postgresql)
-  - [Setting Password for Admin Account](#setting-password-for-admin-account)
+  - [Setting Credentials for Admin Account](#setting-credentials-for-admin-account)
   - [Optional Settings](#optional-settings)
   - [Optional Settings - Captcha](#optional-settings---captcha)
+  - [Optional Settings - Data Protection](#optional-settings---data-protection)
+  - [Settings - DPP](#settings---dpp)
 - [Deployment](#deployment)
-- [Security &ndash; STRIDE Threat Analysis (UA-CloudLibrary server)](#security--stride-threat-analysis-ua-cloudlibrary-server)
+- [Security - STRIDE Threat Analysis (UA-CloudLibrary server)](#security---stride-threat-analysis-ua-cloudlibrary-server)
   - [API Key Security Features](#api-key-security-features)
   - [Residual recommendations for operators](#residual-recommendations-for-operators)
 
@@ -136,224 +131,29 @@ Approval of freshly uploaded OPC UA Information Models for download by everyone 
 
 ## Digital Product Passport (DPP)
 
-The UA Cloud Library hosts a Digital Product Passport (DPP) Lifecycle API that exposes selected OPC UA information models as DPPs. It is aligned with three European Norms:
+The UA Cloud Library can expose uploaded OPC UA information models as Digital Product Passports, aligned with EN 18221, EN 18222, EN 18223, EN 18239 and EN 18246.
 
-* **EN 18221** &mdash; *Digital product passport - data storage, archiving, and data persistence* &mdash; shapes the storage, archiving and version-retrieval behaviour (Clause 4.1 storage, Clause 4.2 archiving).
-* **EN 18222** &mdash; *Digital Product Passport - Application Programming Interfaces (APIs) for the product passport lifecycle management and searchability* &mdash; shapes the REST surface (`ReadDppById`, `ReadDppByProductId`, `ReadDppIdsByProductIds`, `ReadDataElement`, `UpdateDppById`, `UpdateDataElement`, `ReadDppVersionByIdAndDate`).
-* **EN 18223** &mdash; *Digital Product Passport - System interoperability* &mdash; shapes the semantic data model (Clause 4: `DigitalProductPassport` and its `DataElement` subclasses) and the JSON serialization (Clause 5 / Annex A).
-
-The DPP surface is implemented by:
-
-* [`Controllers/DPPLifecycleApiController.cs`](UACloudLibraryServer/Controllers/DPPLifecycleApiController.cs) &mdash; the HTTP boundary.
-* [`DPPService.cs`](UACloudLibraryServer/DPPService.cs) &mdash; the service-layer orchestration.
-* [`UAClientServer/UAClient.cs`](UACloudLibraryServer/UAClientServer/UAClient.cs) &mdash; live access to the embedded OPC UA server.
-* [`DbFileStorage.cs`](UACloudLibraryServer/DbFileStorage.cs) &mdash; durable persistence of nodeset XML and variable values.
-* [`IDppVersionArchive.cs`](UACloudLibraryServer/IDppVersionArchive.cs) and [`DbFileVersionArchive.cs`](UACloudLibraryServer/DbFileVersionArchive.cs) &mdash; durable archive of DPP version snapshots.
-* [`Models/DppModel.cs`](UACloudLibraryServer/Models/DppModel.cs), [`Models/DppApiResponse.cs`](UACloudLibraryServer/Models/DppApiResponse.cs), [`Models/Pagination.cs`](UACloudLibraryServer/Models/Pagination.cs) &mdash; request/response contracts.
-* [`DppJsonPath.cs`](UACloudLibraryServer/DppJsonPath.cs) &mdash; the JSONPath subset used for `elementIdPath` addressing.
-
-### Conceptual model
-
-A DPP is constructed on-demand from an OPC UA nodeset that has been uploaded to the Cloud Library. The DPP root, its `uniqueProductIdentifier`, `granularity`, `dppStatus`, `lastUpdate` timestamp, `economicOperatorId`/`facilityId`, `contentSpecificationIds`, and the tree of `DataElement` children are read from the live OPC UA address space rooted at the `Objects` folder of the addressed nodeset. The DPP identifier (`dppId`) is the nodeset identifier issued by the Cloud Library on upload.
-
-The DPP header follows EN 18223 Clause 4.1.2.1 Table 1:
-
-| Property | Cardinality | Notes |
-|---|---|---|
-| `digitalProductPassportId` | [1] | Globally unique, opaque string. EN 18223 does not mandate a URI shape; this server emits the Cloud Library nodeset identifier (the decimal form of the nodeset's stable hash code, e.g. `"3851629631"`) so callers can round-trip the value back through the `v1/dpps/{dppId}` endpoints. |
-| `uniqueProductIdentifier` | [1] | Product identifier per EN 18219. |
-| `granularity` | [1] | Enumeration: `model`, `batch`, `item` (EN 18223 Clause 4.1.2.2 — lowercase on the wire). |
-| `dppSchemaVersion` | [1] | Reference standard the DPP schema follows. |
-| `dppStatus` | [1] | e.g. `active`, `inactive`, `archived`, `invalid`. |
-| `lastUpdate` | [1] | UTC timestamp per ISO 8601-1. |
-| `economicOperatorId` | [1] | Operator identifier per EN 18219. |
-| `facilityId` | [0..1] | Facility identifier per EN 18219. |
-| `contentSpecificationIds` | [0..*] | References to horizontal or product-type content specifications. |
-| `elements` | [0..*] | Tree of `DataElement` instances. |
-
-`DataElement` is a polymorphic type discriminated by the `objectType` property (EN 18223 Clause 4.1.2.3 - 4.1.2.8):
-
-| `objectType` | C# type | Purpose |
-|---|---|---|
-| `DataElementCollection` | `DataElementCollection` | A named container of child `DataElement`s (mixed types allowed). |
-| `SingleValuedDataElement` | `SingleValuedDataElement` | A leaf carrying a single value (any JSON primitive, object or array). |
-| `MultiValuedDataElement` | `MultiValuedDataElement` | A leaf carrying a homogenous, non-empty list of nested `DataElement`s (children serialized under `value`). |
-| `RelatedResource` | `RelatedResource` | A reference to an external resource (document, certificate) with `contentType`, `url`, optional `language` and `resourceTitle`. |
-| `MultiLanguageDataElement` | `MultiLanguageDataElement` | A language-dependent value with one or more `{ value, language }` entries under `value`. |
-
-### Serialization (EN 18223 Clause 5 / Annex A)
-
-EN 18223 defines two equivalent JSON serializations:
-
-* a **compressed** form (Clause 5.2) where each `DataElement` uses its `elementId` as the JSON object key and `dictionaryReference`/`valueDataType` are looked up from an external data dictionary, and
-* an **expanded** form (Annex A) where every `DataElement` is a self-describing JSON object carrying `objectType`, `elementId`, optional `dictionaryReference`, optional `valueDataType` and the value/children of the element.
-
-This implementation emits the **expanded form** in every response from [`DPPLifecycleApiController`](UACloudLibraryServer/Controllers/DPPLifecycleApiController.cs) and accepts the same expanded form on `PATCH` requests. This choice keeps DPP payloads self-describing and removes the need for the client to resolve dictionary references in order to interpret a value. The expanded form is structurally identical to the examples shown in EN 18223 Annex A.
-
-The discriminator property is `objectType` (EN 18223 Clause 5.2.2 / Annex A). The mapping between the EN 18223 subclasses and the JSON shape produced by [`DppModel.cs`](UACloudLibraryServer/Models/DppModel.cs) is:
-
-| EN 18223 subclass | Clause | JSON shape |
-|---|---|---|
-| `DigitalProductPassport` | 4.1.2.1 / 5.2.4 | Top-level object with the header properties above and an `elements` array. |
-| `DataElementCollection` | 4.1.2.4 / 5.2.5 | `{ "objectType": "DataElementCollection", "elementId": ..., "elements": [ ... ] }`. |
-| `SingleValuedDataElement` | 4.1.2.5 / 5.2.6 | `{ "objectType": "SingleValuedDataElement", "elementId": ..., "valueDataType": ..., "value": <any JSON type> }`. |
-| `MultiValuedDataElement` | 4.1.2.6 / 5.2.7 | `{ "objectType": "MultiValuedDataElement", "elementId": ..., "valueDataType": ..., "value": [ ...same-type DataElements... ] }` (children under `value`, per Annex A Example 4). |
-| `RelatedResource` | 4.1.2.7 / 5.2.8 | `{ "objectType": "RelatedResource", "elementId": ..., "contentType": ..., "url": ..., "language": ..., "resourceTitle": ... }`. |
-| `MultiLanguageDataElement` | 4.1.2.8 / 5.2.9 | `{ "objectType": "MultiLanguageDataElement", "elementId": ..., "value": [ { "value": "...", "language": "en-GB" }, ... ] }`. |
-
-`valueDataType` values follow the XSD-to-JSON mapping table of EN 18223 Clause 5.2.3 (e.g. `xsd:integer`, `xsd:decimal`, `xsd:boolean`, `xsd:string`, `xsd:dateTime`, `xsd:anyURI`, `xsd:base64Binary`). The unsupported XSD types listed in Clause 4.1.2.9 (`ENTITIES`, `IDREFS`, `NMTOKENS`, `NOTATION`, `QName` and the XSD `string`-derived built-ins) are also not produced by this server.
-
-Example DPP body returned by `GET v1/dpps/{dppId}` (abbreviated, expanded form):
-
-```json
-{
-  "digitalProductPassportId": "3851629631",
-  "uniqueProductIdentifier": "https://example.org/products/abc",
-  "granularity": "model",
-  "dppSchemaVersion": "EN18223:v1.0",
-  "dppStatus": "active",
-  "lastUpdate": "2025-08-22T03:12:00Z",
-  "economicOperatorId": "gxx:ppp456789",
-  "facilityId": "gxx:xxx987654",
-  "contentSpecificationIds": ["EN1234_xyz", "EN5678_abc"],
-  "elements": [
-    {
-      "objectType": "DataElementCollection",
-      "elementId": "performanceMetrics",
-      "elements": [
-        {
-          "objectType": "SingleValuedDataElement",
-          "elementId": "maxPressure",
-          "valueDataType": "xsd:float",
-          "value": 750.0
-        },
-        {
-          "objectType": "MultiValuedDataElement",
-          "elementId": "efficiencyRatings",
-          "valueDataType": "xsd:float",
-          "value": [
-            { "objectType": "SingleValuedDataElement", "elementId": "r1", "valueDataType": "xsd:float", "value": 0.95 },
-            { "objectType": "SingleValuedDataElement", "elementId": "r2", "valueDataType": "xsd:float", "value": 0.92 }
-          ]
-        }
-      ]
-    },
-    {
-      "objectType": "MultiLanguageDataElement",
-      "elementId": "productDescription",
-      "value": [
-        { "value": "Smart Thermostat", "language": "en-GB" },
-        { "value": "Intelligenter Thermostat", "language": "de-DE" }
-      ]
-    },
-    {
-      "objectType": "RelatedResource",
-      "elementId": "userManual",
-      "contentType": "application/pdf",
-      "url": "https://data.example.com/manuals/thermostat.pdf",
-      "language": "en-GB",
-      "resourceTitle": "User Manual"
-    }
-  ]
-}
-```
-
-### Response envelope
-
-Every endpoint returns the same envelope (`ApiResponse<T>` in `Models/DppApiResponse.cs`):
-
-```jsonc
-{
-  "statusCode": "Success",                 // DppApiStatusCodes constant
-  "payload":    { /* T */ },               // method-specific result, may be null on error
-  "result":     { "message": [             // optional human-readable messages
-      { "messageType": "Error", "text": "Resource not found" }
-  ]},
-  "pagination": { "nextCursor": "20", "hasMore": true, "limit": 20 } // only on paged methods
-}
-```
-
-The `statusCode` values are the symbolic constants from `DppApiStatusCodes` (`Success`, `ClientErrorBadRequest`, `ClientErrorResourceNotFound`, `ServerInternalError`, ...). The HTTP status code mirrors the envelope status (`200`, `400`, `404`, `500`).
-
-### Endpoints
-
-All routes are versioned under `v1/` and require an authenticated principal satisfying the `ApiPolicy` (Basic auth, signed-in cookie, or `X-API-Key` &mdash; see [Authentication and Authorization](#authentication-and-authorization)).
-
-| Method | Route | DPP lifecycle operation |
-|---|---|---|
-| `GET`   | `v1/dpps/{dppId}` | Returns the full DPP rooted at the addressed nodeset. |
-| `GET`   | `v1/dppsByProductId/{productId}` | Returns the latest DPP whose `UniqueProductIdentifier` equals `productId` (resolved by browsing all nodesets visible to the caller and picking the newest `lastUpdate`). |
-| `POST`  | `v1/dppsByProductIds` | Returns the list of DPP identifiers matching the supplied `productIds`. Supports paging via `?limit=` and `?cursor=` query parameters; the response envelope carries a `pagination` block. |
-| `GET`   | `v1/dpps/{dppId}/elements/{*elementIdPath}` | Returns the `DataElement` addressed by the JSONPath subset described below. |
-| `PATCH` | `v1/dpps/{dppId}` | Applies a partial DPP with merge-patch-shaped semantics: only members present in the request body are touched, members that are absent are left unchanged. Full RFC 7396 deletion (`null` means "delete that field") is **not** supported because the DPP is backed by a fixed OPC UA address space, so `null` on any scalar field and any non-array value for `elements` are rejected as `400`. Accepts `application/json`. Snapshots the pre-update DPP into the archive, writes leaf values to the live OPC UA server, then persists the new values. |
-| `PATCH` | `v1/dpps/{dppId}/elements/{*elementIdPath}` | Updates a single addressed leaf element. Snapshots, writes, and persists as above. |
-| `GET`   | `v1/dpps/{dppId}/versions/{date}` | Returns the DPP snapshot that was active at the supplied ISO 8601 timestamp. If `date` is &ge; the live DPP's own `LastUpdate`, the live DPP is returned; otherwise the archive is consulted for the latest snapshot at or before `date`. Returns `404` when no version existed at that point in time. |
-
-The request body for `POST v1/dppsByProductIds` is:
-
-```json
-{ "productIds": ["urn:product:1", "urn:product:2"] }
-```
-
-### `elementIdPath` &mdash; JSONPath addressing
-
-`elementIdPath` is a JSONPath expression rooted at the `DigitalProductPassport.elements` collection. The parser ([`DppJsonPath`](UACloudLibraryServer/DppJsonPath.cs)) accepts the subset of RFC 9535 actually used by the DPP data model:
-
-* Optional root identifier `$` or `$.`.
-* Dot child selector: `.name`.
-* Bracket name selector with single or double quotes: `['name']`, `["name"]`.
-* Bracket index selector: `[0]`, `[3]`.
-
-Filter expressions, wildcards (`*`), slice selectors and the descendant operator (`..`) are rejected with `ClientErrorBadRequest`. Examples:
-
-```
-manufacturer
-materials[0].name
-$['battery']['cells'][2]['voltage']
-```
-
-### Write semantics, archival and persistence
-
-The DPP update path strictly separates the three concerns of the Browser UI's `Save` flow:
-
-1. **Pre-update snapshot capture.** Before any write, `DPPService` browses the current DPP and keeps the snapshot in memory.
-2. **Live write.** The resolved leaf values are written to the running embedded OPC UA server via `UAClient.VariableWrite(...)`. `UAClient` does *not* persist anything to the database.
-3. **Explicit persistence.** After the live write succeeds, `DPPService.PersistNodesetValuesAsync(...)` re-browses the variables and upserts the serialized values into `DbFiles.Values` through `DbFileStorage.UploadFileAsync(...)`, so the change survives a server restart (the embedded OPC UA server rehydrates values from `DbFiles.Values` on startup via `NodesetFileNodeManager.AddNodesAndValues`).
-4. **Archive commit.** Only after the live write **and** persistence both succeed does `DPPService` call `IDppVersionArchive.ArchiveAsync(dppId, snapshot, snapshot.LastUpdate.ToUniversalTime())` with the pre-update snapshot captured in step 1. The capture timestamp is the snapshot's own `LastUpdate` (i.e. when that version *became active*) rather than `DateTimeOffset.UtcNow` (which would record when the *next* version takes over), so the archive's at-or-before lookup in `GetVersionAtAsync` correctly returns the snapshot for any `asOfUtc` inside its validity window. Failed updates therefore never create phantom archive entries, and the archive view is always consistent with what was actually persisted. This satisfies the EN 18221 Clause 4.2 requirement that *“archiving starts when the first change of the initial digital product passport occurs”* and that *“all changes to the digital product passport shall be archived”*.
-
-No-op updates (an empty PATCH body, or a body whose entries all resolve to zero concrete writes) short-circuit before step 2, so they never touch the OPC UA address space, never bump the persisted `PublicationDate`, and never create an archive entry.
-
-**Rollback on archive failure.** If pre-update snapshot capture fails (returns null) or archive commit fails after persistence, the entire update is rolled back: `DPPService` restores the already-applied writes to their captured original values and re-persists, then returns `WriteFailed` (500). This keeps the observable API outcome synchronized with the stored state and prevents clients from seeing a failure for a durable update and inadvertently retrying (which would apply the update twice). The only residual failure case where the DPP can stay partially mutated is when the compensating rollback writes themselves fail, which is logged so operators can reconcile manually.
-
-To prevent a save from silently overwriting an earlier on-disk version, the persistence step rewrites the `PublicationDate="..."` attribute in the stored nodeset XML to the current UTC timestamp with millisecond precision (`yyyy-MM-ddTHH:mm:ss.fffZ`). This mirrors the in-XML date bump already used by `UAClient.CopyNodeset` and ensures every persisted save is uniquely datable even when updates land in the same wall-clock second.
-
-When the update payload addresses an element via `value`, the server decides leaf-vs-collection semantics from the **live OPC UA browse** of the matched node, not from the client-supplied `objectType` field. If the live node has children the array under `value` is recursed into (multivalued collection); if it has no children the array is written as-is (multilanguage leaf). This keeps a malicious or buggy client from forcing an array payload onto the wrong parent node.
-
-DPP leaf values are persisted by the OPC UA layer as strings. The read path only re-types values whose stored text starts with an unambiguous JSON **structural** marker (`{`, `[` or `"`): JSON objects, arrays and quoted strings round-trip as their typed `JsonNode` form, while everything else surfaces verbatim as a JSON string. Numeric, boolean and bare-`null` literals are intentionally **not** re-typed because there is no per-leaf type metadata to tell e.g. the product code `"007"` apart from the number `7`, or the stored string `"true"` apart from the boolean `true`. Clients that need typed scalars should write them inside an explicit JSON object / array shape (e.g. a `MultiValuedDataElement.value` entry) and parse leaf strings themselves when needed.
-
-### Durable version archive
-
-The archive implements the archiving rules of EN 18221 Clause 4.2 (point-in-time retrievability of all past changes during the DPP lifetime) by reusing the existing `DbFileStorage`:
-
-* Each snapshot is stored as its own row in the `DbFiles` table whose `Name` follows the layout `dpp-archive::{dppId}::{capturedAtUtcTicks:D19}-{counter:X6}{randomHex8}` and whose `Blob` holds the JSON-serialized `DigitalProductPassport`. The trailing `-{counter:X6}{randomHex8}` segment combines a per-process monotonic counter (formatted as 6 uppercase hex chars, masked to 24 bits to keep the field fixed-width) with 4 random bytes (8 hex chars) so each row name is probabilistically unique by construction, both within and across processes.
-* The fixed-width 19-digit tick stamp remains the dominant sort key, so lexicographic ordering still matches chronological order: retrieving the snapshot at or before a target timestamp is an ordered prefix scan via `DbFileStorage.ListFileNamesAsync(prefix)`. Ties within the same tick are broken deterministically by `(counter, randomHex)`, so the scan still selects the most recent write at that tick.
-* Because the row name is probabilistically unique, the previous check-then-write loop has been removed. The underlying writer (`DbFileStorage.UploadFileAsync`) is an upsert keyed on `DbFiles.Name`, so an astronomically unlikely `(counter, randomHex)` collision within the same tick would silently overwrite the prior row rather than being rejected; the collision odds (~1 in 2^32 per same-tick same-counter pair) sit well below the practical concern threshold for an archive workload, and the archived tick value always reflects the snapshot's true capture time.
-
-`DbFileVersionArchive` is registered as a scoped service in `Startup.ConfigureServices`. Its dependency `DbFileStorage` (and the underlying `AppDbContext`) are registered as transient, so each archive instance gets a fresh storage layer scoped to the current HTTP request without sharing change-tracker state across requests.
-
-### Error responses
-
-| Condition | HTTP | `statusCode` |
-|---|---|---|
-| Resource (DPP or element) does not exist | 404 | `ClientErrorResourceNotFound` |
-| Invalid request body, malformed `elementIdPath`, bad `date`, bad pagination input | 400 | `ClientErrorBadRequest` |
-| Live OPC UA write or post-write persistence failed | 500 | `ServerInternalError` |
-| Method succeeded | 200 | `Success` |
+The DPP Lifecycle API, its access-control model, audit log, signing and configuration are documented separately in **[dpp.md](dpp.md)**.
 
 ## Database Configuration
 The UA Cloud Library database configuration is documented in the [Database Setup](Docs/Database%20Setup.md) document.
 
 ## Cloud Hosting Setup
+
+### Required environment variables
+
+Set these before deploying. The first three cause the server to **fail fast at startup** if missing; `ServicePassword` instead blocks admin login, which is easy to mistake for a wrong password.
+
+| Variable | Required | If missing |
+|---|---|---|
+| `ConnectionStrings__CloudLibraryPostgreSQL` | Always | Server fails to start. Npgsql connection string to the PostgreSQL instance &mdash; see [Required Settings - PostgreSQL](#required-settings---postgresql). |
+| `Dpp__Esdc__PrivateKeyPem` | Outside Development | Server fails to start. PKCS#8 PEM key used to sign Digital Product Passport credentials; supply it from a managed secret store. Set `Dpp__Esdc__AllowGeneratedSigningKey=true` instead to accept a server-generated key held in the database &mdash; intended for development and evaluation only. See [dpp.md](dpp.md#signing-key-management). |
+| `Dpp__Esdc__EconomicOperatorId` | Whenever a signing key is resolved | Server fails to start. The economic operator this deployment signs for; without it the server would sign credentials asserting whichever operator a hosted passport happens to name. See [dpp.md](dpp.md#issuer-binding). |
+| `ServicePassword` | Always | Server starts, but **admin login always fails** &mdash; the rejection looks like a wrong password. Administration password for Swagger and the REST API; see [Setting Credentials for Admin Account](#setting-credentials-for-admin-account). |
+
+> **Upgrading an existing deployment?** The two `Dpp__Esdc__*` variables are newer requirements. A deployment that starts cleanly today may refuse to start after upgrading until both are set.
+
+Everything else is optional and documented below.
 
 ### Migrating from version 1.0 to version 1.1
 To migrate from version 1.0 to version 1.1, you need to update your database as V1.1 no longer requires blob storage. We provided a command line tool called BlobToPGTable in this repository for the major clouds which will complete this step for you.
@@ -394,6 +194,21 @@ Curtail bot access using the Google reCAPTCHA.
 * `CaptchaSettings__SiteKey`: Public key. Obtain from reCAPTCHA admin console.
 * `CaptchaSettings__BotThreshold`: Minimum score between 0.0 (bot likely) and 1.0 (human likely). (default: `0.5`)
 
+### Optional Settings - Data Protection
+
+* `DATA_PROTECTION_KEY_PATH`: Directory holding the ASP.NET Core Data Protection key ring. The directory is created if it does not exist. (default: the process working directory)
+* `DATA_PROTECTION_APPLICATION_NAME`: Overrides the Data Protection application discriminator. **Leave unset unless you need it** &mdash; see the warning below. (default: derived by the framework from the content root path)
+
+> **Set `DATA_PROTECTION_KEY_PATH` in any containerised deployment.** The key ring encrypts authentication cookies, antiforgery tokens and the e-mail confirmation / password-reset tokens, so it has to outlive the process. The default is the container's working directory, which is discarded on every restart &mdash; losing the keys signs every user out and makes outstanding reset links fail. The failure is also misleading rather than obvious: the antiforgery token on an already-open login page can no longer be validated, so the POST is rejected before the credentials are ever checked, which presents to the user as a wrong password. Point this at a mounted volume that survives restarts, and share it across replicas so a request handled by one instance can be decrypted by another.
+
+> **Changing `DATA_PROTECTION_APPLICATION_NAME` invalidates existing cookies and tokens.** The application name is an input to key derivation, so payloads protected under one discriminator cannot be read under another &mdash; even with the identical key ring. Setting, changing or removing this value therefore signs every user out and breaks outstanding password-reset and e-mail-confirmation links, exactly as if the keys had been lost. The framework default is derived from the content root path, which is already stable across restarts and identical across replicas of the same image, so most deployments should leave this unset. Set it only when replicas must share a key ring without sharing a content root path, and treat adopting it as a one-time breaking change to perform in a maintenance window.
+
+### Settings - DPP
+
+`Dpp__Esdc__PrivateKeyPem` and `Dpp__Esdc__EconomicOperatorId` are **required outside Development** &mdash; see [Required environment variables](#required-environment-variables) above.
+
+The remaining DPP settings are optional: signing trust anchors, audit keys, rate limiting and reverse-proxy configuration are documented in [dpp.md](dpp.md#configuration-reference).
+
 **Note: A double underscore ('__') in environment variable keys creates nested configuration sections (hierarchical keys).**
 
 ## Deployment
@@ -402,7 +217,7 @@ Docker containers are automatically built for the UA Cloud Library. The latest v
 
 `docker pull ghcr.io/opcfoundation/ua-cloudlibrary:latest`
 
-## Security – STRIDE Threat Analysis (UA-CloudLibrary server)
+## Security - STRIDE Threat Analysis (UA-CloudLibrary server)
 
 The following STRIDE-based threat model covers the `UACloudLibraryServer` project (the ASP.NET Core / Blazor Server application that exposes the REST API, Swagger UI, user-management UI, OPC UA Information Model upload/download, DPP service and the embedded OPC UA server). Each row identifies a representative threat for one of the six STRIDE categories and lists the corresponding in-code or operational mitigation already implemented in this repository, plus any residual recommendations for operators.
 
@@ -412,9 +227,9 @@ The following STRIDE-based threat model covers the `UACloudLibraryServer` projec
 | 2 | **S**poofing | Interactive UI / Identity area (`Areas/Identity/Pages/Account/*`) | An attacker creates an account using a victim's email address or hijacks a session. | ASP.NET Core Identity is used with confirmed-account sign-in (`RequireConfirmedAccount = true` whenever `EmailSenderAPIKey` is configured), email confirmation flow (`ConfirmEmail`, `ConfirmEmailChange`), password reset confirmation, lockout (`Lockout.cshtml`) and optional Google reCAPTCHA (`CaptchaValidation`) on registration. External identity providers (Microsoft Account, Azure Entra ID via `Microsoft.Identity.Web`, OPC Foundation OAuth2) are wired through `AddAuthentication()` in `Startup` so federated MFA can be enforced at the IdP. |
 | 3 | **S**poofing | Service-to-service callers using API keys | A leaked or guessed key is replayed against the API. | API keys are issued per user via `ApiKeyTokenProvider` (registered through Identity's token-provider pipeline) and validated by `UserService.ValidateApiKeyAsync` from `ApiKeyAuthenticationHandler`. Keys are bound to the issuing Identity user, can be revoked from `ManageApiKeys.cshtml`, are transmitted only via the dedicated `X-API-Key` header (declared as the Swagger `ApiKeyAuth` security scheme) and are only honoured when the operator has explicitly opted-in via the `APIKeyAuth` environment variable. |
 | 4 | **T**ampering | Inbound nodeset / values / DPP file uploads (`UploadController`, `DPPLifecycleApiController`, `AssetAdministrationShellEnvironmentService`) | A caller submits a malformed or malicious file (XXE, oversized payload, executable disguised as XML/JSON) to corrupt the library or trigger code execution. | `UploadController.UploadNodeset` validates that `nodesetFile.ContentType == "text/xml"` and `values.ContentType == "text/json"`, rejects empty payloads, wraps file names in `FileInfo` for path-character validation and persists content as text. Nodeset XML is parsed through the OPC Foundation `Opc.Ua.Configuration` / `NodesetModelFactoryOpc` pipeline which uses safe XML readers. All metadata fields (title, license, copyright, description, URLs) are individually validated before reaching `CloudLibDataProvider.UploadNamespaceAndNodesetAsync`. Operators should additionally configure Kestrel/IIS request-body size limits and front the service with a WAF. |
-| 5 | **T**ampering | Database persistence (`AppDbContext`, `CloudLibDataProvider`, `DbFileStorage`) | SQL injection or direct DB tampering modifies stored nodesets, users or roles. | EF Core (`Microsoft.EntityFrameworkCore` / Npgsql) is used everywhere – all queries are parameterised LINQ. Schema is managed exclusively through versioned EF Core migrations under `Migrations/`. PostgreSQL credentials are taken from the `ConnectionStrings__CloudLibraryPostgreSQL` environment variable and never hard-coded. Operators are expected to grant the application a least-privilege DB role and to keep PostgreSQL ≥ 11.20. |
-| 6 | **T**ampering | Data-protection keys & cookies | An attacker who reads the key ring forges authentication cookies or anti-forgery tokens. | `Startup.ConfigureServices` calls `services.AddDataProtection().PersistKeysToFileSystem(...)` so keys are persisted (and can be mounted on a protected volume in container deployments). External-login correlation cookies are pinned to `SameSite=Strict` and `CookieSecurePolicy.Always`, and the entire pipeline runs behind `app.UseHttpsRedirection()`. ASP.NET Core's automatic anti-forgery token validation is active for the Razor Pages / Blazor UI. |
-| 7 | **R**epudiation | Administrative actions (approve / delete nodesets, manage users, issue API keys) | A user denies performing a destructive action because actions are not auditable. | All privileged endpoints sit behind authenticated identities (Identity user or federated principal) so every request is bound to a `User.Identity.Name`. The upload pipeline records the uploader's identity (`_database.UploadNamespaceAndNodesetAsync(User.Identity.Name, ...)`). Application logging is enabled via `services.AddLogging(builder => builder.AddConsole())` and emits structured logs that can be shipped to a central SIEM/Log Analytics workspace from the container host. |
+| 5 | **T**ampering | Database persistence (`AppDbContext`, `CloudLibDataProvider`, `DbFileStorage`) | SQL injection or direct DB tampering modifies stored nodesets, users or roles. | EF Core (`Microsoft.EntityFrameworkCore` / Npgsql) is used everywhere -œ all queries are parameterised LINQ. Schema is managed exclusively through versioned EF Core migrations under `Migrations/`. PostgreSQL credentials are taken from the `ConnectionStrings__CloudLibraryPostgreSQL` environment variable and never hard-coded. Operators are expected to grant the application a least-privilege DB role and to keep PostgreSQL  11.20. |
+| 6 | **T**ampering | Data-protection keys & cookies | An attacker who reads the key ring forges authentication cookies or anti-forgery tokens. | `Startup.ConfigureServices` calls `services.AddDataProtection().PersistKeysToFileSystem(...).SetApplicationName(...)`, with the key-ring directory configurable via `DATA_PROTECTION_KEY_PATH` so it can be placed on a volume whose permissions are restricted to the application identity. The default is the process working directory, which in a container is discarded on restart &mdash; see [Optional Settings - Data Protection](#optional-settings---data-protection). Keys are stored unencrypted at rest, so filesystem permissions are the control; operators wanting defence in depth should additionally protect the ring with a KMS or certificate (`ProtectKeysWith*`). External-login correlation cookies are pinned to `SameSite=Strict` and `CookieSecurePolicy.Always`, and the entire pipeline runs behind `app.UseHttpsRedirection()`. ASP.NET Core's automatic anti-forgery token validation is active for the Razor Pages / Blazor UI. |
+| 7 | **R**epudiation | Administrative actions (approve / delete nodesets, manage users, issue API keys) and DPP access | A user denies performing a destructive action, or denies reading controlled data, because actions are not auditable. | All privileged endpoints sit behind authenticated identities (Identity user or federated principal) so every request is bound to a `User.Identity.Name`. The upload pipeline records the uploader's identity (`_database.UploadNamespaceAndNodesetAsync(User.Identity.Name, ...)`). Every DPP read and modify, and every role grant/revoke, is additionally written to the hash-chained audit log (`IDppAuditLog` / `DppAuditLog`) bound to the acting operator; mutations write an `Attempted` record before the change and the outcome after, and a request whose audit entry cannot be committed fails with `503` rather than completing unlogged. Configure `Dpp__Audit__HmacKey` to authenticate the chain &mdash; **without it the digests are unkeyed, so anyone able to write to the audit tables can recompute them and pass verification**. The tail checkpoint (length plus last entry hash) is authenticated with the same key, so truncating the log to an earlier valid prefix and restating the checkpoint to match it no longer verifies. See [what the audit log does and does not prove](dpp.md#audit-log). Application logging is enabled via `services.AddLogging(builder => builder.AddConsole())` and emits structured logs that can be shipped to a central SIEM/Log Analytics workspace from the container host. |
 | 8 | **R**epudiation | External OAuth callback (`/Account/ExternalLogin`, `OAuthEvents.OnCreatingTicket`) | A replayed or forged ticket is accepted as a legitimate sign-in. | The OAuth handler enforces correlation cookies (`CorrelationCookie.SameSite = Strict`, `SecurePolicy = Always`), uses HTTPS-only token endpoints, calls `EnsureSuccessStatusCode()` on the userinfo response, and stamps a `TicketCreated` token into the authentication properties so the time of issuance is preserved alongside the access token. |
 | 9 | **I**nformation disclosure | Stored user secrets (passwords, API keys, external tokens) | DB compromise leaks credentials usable elsewhere. | Passwords are stored as PBKDF2 hashes by ASP.NET Core Identity (`AddDefaultIdentity<IdentityUser>`). API keys are issued through `ApiKeyTokenProvider` (an Identity `IUserTwoFactorTokenProvider`) and validated server-side by `UserService.ValidateApiKeyAsync`; they are not echoed back to the user after creation. OAuth refresh/access tokens stored via `SaveTokens = true` are protected by ASP.NET Core Data Protection. |
 | 10 | **I**nformation disclosure | Configuration / secrets surface | Secrets such as `ServicePassword`, `EmailSenderAPIKey`, `OAuth2ClientSecret`, `Authentication:Microsoft:ClientSecret`, `CaptchaSettings__SecretKey` and the PostgreSQL password leak via source control or logs. | All secrets are read from `IConfiguration` (environment variables / mounted secret stores) and are never committed to the repository. The README explicitly documents the env-var contract (`ServicePassword`, `EmailSenderAPIKey`, `Authentication:Microsoft:ClientSecret`, `OAuth2ClientSecret`, `CaptchaSettings__SecretKey`, `ConnectionStrings__CloudLibraryPostgreSQL`). The development-only exception page is gated by `env.IsDevelopment()` so stack traces are not returned in production. |
@@ -422,8 +237,11 @@ The following STRIDE-based threat model covers the `UACloudLibraryServer` projec
 | 12 | **D**enial of service | Public registration / login / password-reset endpoints | Bots flood self-registration, exhaust the email quota, or brute-force passwords. | Self-registration can be disabled entirely via `AllowSelfRegistration=false`. Google reCAPTCHA v3 is enforced through `CaptchaValidation` (configurable score via `CaptchaSettings__BotThreshold`) on registration. Identity's built-in lockout (`Lockout.cshtml`) blocks password brute-force. Email sending is delegated to Postmark or SendGrid (`PostmarkEmailSender`, `SendGridEmailSender`) which apply provider-side rate limits. |
 | 13 | **D**enial of service | Large or malicious uploads, expensive nodeset parsing | A caller uploads many huge nodesets to fill storage or pin CPU. | Upload endpoints require an authenticated identity (`ApiPolicy`) so anonymous flooding is not possible. Uploaded nodesets are streamed through `MemoryStream` and then handed to `CloudLibDataProvider.UploadNamespaceAndNodesetAsync` which deduplicates by deterministic hash (`DeterministicHash.cs`) and stores them in PostgreSQL via `DbFileStorage`. Operators should additionally configure Kestrel (`KestrelServerOptions`) request-body size limits and HTTP timeouts at the reverse proxy. |
 | 14 | **D**enial of service | Embedded OPC UA server (`UAClientServer/SimpleServer.cs`, `NodesetFileNodeManager.cs`) | A malicious OPC UA client opens excessive sessions/subscriptions or sends malformed messages. | The server is built on the OPC Foundation `Opc.Ua.Server` stack which enforces session limits, message size limits and security-policy validation through the configured `ApplicationInstance`. The OPC UA application certificate is created and validated automatically by `ApplicationInstance` so unsigned channels are rejected. |
-| 15 | **E**levation of privilege | Administrative endpoints (approval, user/role management) | A regular user escalates to administrator and approves or deletes arbitrary nodesets. | Administrative operations are protected by the `AdministrationPolicy` defined in `Startup.ConfigureServices` (`policy.RequireRole("Administrator")`). The `Administrator` role can only be assigned by an existing administrator via the management UI, and the bootstrap admin credentials are supplied out-of-band via the `ServicePassword` (and optional `ServiceUsername`, default `admin`) environment variables. API-key principals only carry the claims of the user that minted them, so a compromised key cannot exceed that user's role set. |
-| 16 | **E**levation of privilege | Authentication-handler bypass | A bug in a custom authentication handler grants access without valid credentials. | The custom handlers (`BasicAuthenticationHandler`, `SignedInUserAuthenticationHandler`, `ApiKeyAuthenticationHandler`) all delegate credential verification to `UserService` which uses the Identity `UserManager`/`SignInManager` APIs (PBKDF2 password verification, normalised user lookup, time-constant comparisons). Authentication failures consistently return `AuthenticateResult.Fail/NoResult` and never short-circuit the pipeline as success. The combined `ApiPolicy` requires `RequireAuthenticatedUser()` so a `NoResult` from one scheme cannot be interpreted as success. |
+| 15 | **D**enial of service | Anonymous DPP read endpoints (`DPPLifecycleApiController`, `v1/dpps/*`) | EN 18246 requires public DPP data to be readable without login, so an unauthenticated caller can scrape or flood these routes. | The DPP endpoints carry `[EnableRateLimiting(Startup.DppRateLimitPolicy)]`, a fixed-window limiter partitioned per client IP and returning `429` when exceeded; the per-minute allowance is configurable via `Dpp__RateLimit__PermitPerMinute` (default 100). Partitioning depends on seeing the real client address, so behind a proxy the `Dpp__ForwardedHeaders__*` settings must be configured &mdash; otherwise every caller shares the proxy's bucket. Each read also issues an ESDC (an RSA signature), so the limiter bounds signing cost as well as data egress. A request-count limiter only bounds work if no single request can carry unbounded work, so `POST dppsByProductIds` caps `productIds` at 100 entries (`DPPLifecycleApiController.MaxProductIdsPerRequest`, returning `400` above that) and resolves the whole batch in one set-based query rather than one query per identifier. |
+| 16 | **E**levation of privilege | Administrative endpoints (approval, user/role management) | A regular user escalates to administrator and approves or deletes arbitrary nodesets, or an administrator is locked out so nobody can administer the system. | Administrative operations are protected by the `AdministrationPolicy` defined in `Startup.ConfigureServices` (`policy.RequireRole(Roles.Administrator)`, value `"Administrator"`). The role can only be assigned by an existing administrator via `AccessController`, and the bootstrap admin credentials are supplied out-of-band via the `ServicePassword` (and optional `ServiceUsername`, default `admin`) environment variables. API-key principals only carry the claims of the user that minted them, so a compromised key cannot exceed that user's role set. The role itself is also protected against self-inflicted lockout: deleting the `Administrator` role, or revoking it from the last remaining administrator, is refused with `403`, because neither is recoverable in-band once the accounts able to repair it have lost access. The last-administrator check runs under a PostgreSQL advisory lock so two concurrent revocations cannot both observe a safe count and leave none. Role claims are embedded in the authentication cookie at sign-in, so revoking a role (or deleting one) also bumps the affected users' Identity security stamp; `SecurityStampValidatorOptions.ValidationInterval` is set to one minute, which bounds how long an already-issued cookie can keep passing role checks. Revocation is therefore effective within that window rather than instantly &mdash; deployments needing immediate cut-off should shorten the interval, at the cost of a database round-trip per request. |
+| 17 | **E**levation of privilege | Authentication-handler bypass | A bug in a custom authentication handler grants access without valid credentials. | The custom handlers (`BasicAuthenticationHandler`, `SignedInUserAuthenticationHandler`, `ApiKeyAuthenticationHandler`) all delegate credential verification to `UserService` which uses the Identity `UserManager`/`SignInManager` APIs (PBKDF2 password verification, normalised user lookup, time-constant comparisons). Authentication failures consistently return `AuthenticateResult.Fail/NoResult` and never short-circuit the pipeline as success. The combined `ApiPolicy` requires `RequireAuthenticatedUser()` so a `NoResult` from one scheme cannot be interpreted as success. |
+| 18 | **I**nformation disclosure | Role-controlled DPP data elements (`DPPService`, `DppControlledElements`) | EN 18246 requires different economic operators to see different subsets of the same passport, so a caller reads elements their role is not entitled to. | Every DPP leaving the service is passed through `DPPService.FilterForRolesAsync`, which drops elements whose `controlledElements` entry does not grant the caller's roles; the filter is applied on the read path itself rather than in the UI, so REST, GraphQL and browse responses are filtered identically. `PATCH` responses are re-filtered after the write so a mutation cannot echo back data the caller could not have read. Writes are separately gated by `CanWriteElementAsync`, and nodeset-level visibility is enforced by `IsNodesetAccessibleAsync` before element filtering runs. Elements with no `controlledElements` entry are treated as public by design &mdash; access is deny-by-default only for elements explicitly placed under control. Raw browse surfaces bypass this filtering entirely because they return the untyped value dictionary rather than a typed DPP, so `BrowserController`'s export is restricted to the nodeset owner instead. Historical reads (`versions/{date}`) filter against the policy archived with that version rather than the current mapping, so removing an element from `controlledElements` does not retroactively publish it in older snapshots. Filtering descends every element container (`DataElementCollection.Elements` and `MultiValuedDataElement.Value`) via the shared `ChildElementsOf` helper, so a controlled element nested in a multi-valued element cannot survive into the response or the signed ESDC. An unavailable policy source is treated as deny-all rather than as an absent mapping. |
+| 19 | **S**poofing | ESDC verification / trust anchors (`RsaEsdcService`) | A peer presents a self-signed ESDC claiming to originate from another economic operator, and the server accepts it as that operator's attestation. | ESDCs are W3C VC-JWT signed with RS256. Trust anchors are configured issuer-bound via `Dpp__Esdc__TrustedIssuers__N__{Issuer,PublicKeyPem,KeyId}`, and `AnchorMayVouchFor` requires the anchor to match the **signed** `issuer` claim (and the `kid`, when pinned) before the signature is accepted &mdash; so holding a trusted key does not let an operator sign for a different issuer. The issuer and `validFrom` are read from the signed payload, never from the unprotected header. Where a certificate is supplied, `EnsureCertificateMatchesSigningKey` verifies it binds to the signing key. The legacy unbound `Dpp__Esdc__TrustedPublicKeysPem` list is still honoured for compatibility but **any key in it can vouch for any issuer**; prefer the issuer-bound form. On the issuing side, `Dpp__Esdc__EconomicOperatorId` is **required** wherever a stable signing key is configured: the server refuses to start without it, refuses to sign a DPP naming a different operator, and binds its own key to that identifier so the key cannot act as a universal anchor. Making it optional would have left the impersonation open for any deployment that omitted it. See [ESDC issuer binding](dpp.md#issuer-binding). |
 
 ### API Key Security Features
 
@@ -497,9 +315,9 @@ For complete client library documentation and examples, see the [Client Library 
 
 | Attack Type | Without Delay | With 150ms Delay | Effectiveness |
 |-------------|---------------|------------------|---------------|
-| Brute Force (1M keys) | 16 minutes | 1.7 days | **~99% slower** ✅ |
-| DOS (1000 req/sec) | Server overload | Max ~6-7 req/sec | **~99.3% reduction** ✅ |
-| Timing Analysis | Exploitable | Fixed timing | **Mitigated** ✅ |
+| Brute Force (1M keys) | 16 minutes | 1.7 days | **~99% slower**  |
+| DOS (1000 req/sec) | Server overload | Max ~6-7 req/sec | **~99.3% reduction**  |
+| Timing Analysis | Exploitable | Fixed timing | **Mitigated**  |
 
 #### **Performance Considerations**
 * **Async Implementation:** Uses `Task.Delay()` which doesn't block threads, allowing the server to handle other requests during the delay

@@ -32,7 +32,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using Newtonsoft.Json;
+using System.Text.Json;
 using Opc.Ua.Export;
 using Opc.Ua.Server;
 
@@ -152,22 +152,45 @@ namespace Opc.Ua.Cloud.Library
                     {
                         if (!string.IsNullOrEmpty(values))
                         {
-                            Dictionary<string, string> keyvalues = JsonConvert.DeserializeObject<Dictionary<string, string>>(values);
-                            foreach (KeyValuePair<string, string> pair in keyvalues)
+                            // Parse as a JSON document rather than a Dictionary<string,string>: the
+                            // values file may carry a reserved "controlledElements" object (the per-DPP
+                            // access map), which is not a node value and must be skipped here.
+                            using JsonDocument keyvalues = JsonDocument.Parse(values);
+                            if (keyvalues.RootElement.ValueKind == JsonValueKind.Object)
                             {
-                                NodeId nodeId;
-                                if (pair.Key.StartsWith("nsu=", StringComparison.Ordinal))
+                                foreach (JsonProperty pair in keyvalues.RootElement.EnumerateObject())
                                 {
-                                    nodeId = ExpandedNodeId.ToNodeId(new ExpandedNodeId(pair.Key), Server.NamespaceUris);
-                                }
-                                else
-                                {
-                                    nodeId = new NodeId(NodeId.Parse(pair.Key).Identifier, (ushort)Server.NamespaceUris.GetIndex(namespaceUri));
-                                }
+                                    // Skip the reserved access-control mapping: it is not a node value.
+                                    if (string.Equals(pair.Name, DppControlledElements.PropertyName, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        continue;
+                                    }
 
-                                if (Find(nodeId) is BaseVariableState variable)
-                                {
-                                    variable.Value = new Variant(pair.Value);
+                                    // Values files legitimately carry primitives as JSON scalars
+                                    // ({ "node": 42 }, { "node": true }), not just strings. Filtering
+                                    // to JsonValueKind.String alone would silently drop those and
+                                    // leave the variable uninitialised, so coerce each primitive to
+                                    // its wire string the way the previous Dictionary<string,string>
+                                    // deserialization did.
+                                    if (!TryGetWireValue(pair.Value, out string wireValue))
+                                    {
+                                        continue;
+                                    }
+
+                                    NodeId nodeId;
+                                    if (pair.Name.StartsWith("nsu=", StringComparison.Ordinal))
+                                    {
+                                        nodeId = ExpandedNodeId.ToNodeId(new ExpandedNodeId(pair.Name), Server.NamespaceUris);
+                                    }
+                                    else
+                                    {
+                                        nodeId = new NodeId(NodeId.Parse(pair.Name).Identifier, (ushort)Server.NamespaceUris.GetIndex(namespaceUri));
+                                    }
+
+                                    if (Find(nodeId) is BaseVariableState variable)
+                                    {
+                                        variable.Value = new Variant(wireValue);
+                                    }
                                 }
                             }
                         }
@@ -177,6 +200,38 @@ namespace Opc.Ua.Cloud.Library
                         Console.WriteLine("Error parsing values JSON. Skipping values patching:" + ex.Message);
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Converts a values-JSON entry to the wire string used to seed a variable, matching the
+        /// behaviour of the original <c>Dictionary&lt;string, string&gt;</c> deserialization.
+        /// </summary>
+        /// <remarks>
+        /// Strings pass through unchanged. Numbers and booleans are emitted as their raw JSON text,
+        /// so <c>42</c> and <c>true</c> seed the variable rather than being discarded. Structural
+        /// values (objects and arrays) and nulls are rejected: they are not scalar node values, and
+        /// the reserved access mapping is the only object a values file is expected to contain.
+        /// </remarks>
+        internal static bool TryGetWireValue(JsonElement element, out string wireValue)
+        {
+            switch (element.ValueKind)
+            {
+                case JsonValueKind.String:
+                    wireValue = element.GetString();
+                    return wireValue is not null;
+
+                case JsonValueKind.Number:
+                case JsonValueKind.True:
+                case JsonValueKind.False:
+                    // GetRawText preserves the author's formatting (including significant leading
+                    // or trailing zeros) instead of round-tripping through a numeric type.
+                    wireValue = element.GetRawText();
+                    return true;
+
+                default:
+                    wireValue = null;
+                    return false;
             }
         }
     }

@@ -40,14 +40,19 @@ using Opc.Ua.Cloud.Library.Models;
 namespace UANodesetWebViewer.Controllers
 {
     [Authorize(Policy = "ApiPolicy")]
+    [ServiceFilter(typeof(Opc.Ua.Cloud.Library.Controllers.DppAuditFailureFilter))]
     public class UploadController : Controller
     {
         private readonly CloudLibDataProvider _database;
+        private readonly IDppAuditLog _auditLog;
 
-        public UploadController(CloudLibDataProvider database)
+        public UploadController(CloudLibDataProvider database, IDppAuditLog auditLog)
         {
             _database = database;
+            _auditLog = auditLog;
         }
+
+        private string OperatorId => User?.Identity?.Name ?? "anonymous";
 
         public ActionResult Index()
         {
@@ -179,9 +184,50 @@ namespace UANodesetWebViewer.Controllers
                     nameSpace.SupportedLocales = locales.Split(',');
                 }
 
-                string result = await _database.UploadNamespaceAndNodesetAsync(User.Identity.Name, nameSpace, valuesContent, overwrite).ConfigureAwait(false);
+                // An uploaded nodeset may carry a DPP, so this is a DPP create (or modify, when
+                // overwriting an existing one). Record the intent before the write: the upload is not
+                // transactional with the audit table, so an "Attempted" entry with no outcome shows a
+                // change may have landed without being fully logged.
+                DppAuditOperation operation = overwrite ? DppAuditOperation.Modify : DppAuditOperation.Create;
+                string auditTarget = nameSpace.Nodeset?.NamespaceUri?.ToString() ?? nodesettitle ?? "(unknown namespace)";
+
+                // The attempt is keyed by namespace URI and the outcome by the assigned identifier, so
+                // the two rows do not share a DppId; correlate them explicitly.
+                string operationId = DppAuditOperationId.New();
+
+                await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Attempted", operationId).ConfigureAwait(false);
+
+                UploadResult uploadResult = await _database.UploadNamespaceAndNodesetWithResultAsync(User.Identity.Name, nameSpace, valuesContent, overwrite).ConfigureAwait(false);
+                string result = uploadResult.Message;
+
+                // Branch on what actually happened to storage, not just on success. The blob is
+                // written before the metadata, so a failure can still leave the nodeset committed:
+                // recording that as a plain Failed would say the upload never happened, and a
+                // failure of this very append would then be reported as a retryable refusal for an
+                // operation that did change storage.
+                string uploadTarget = _database.GetIdentifier(nameSpace) ?? auditTarget;
+                if (uploadResult.Succeeded)
+                {
+                    await _auditLog.RecordCommittedOutcomeAsync(OperatorId, operation, uploadTarget, null, "Success", operationId).ConfigureAwait(false);
+                }
+                else if (uploadResult.PartiallyApplied)
+                {
+                    await _auditLog.RecordCommittedOutcomeAsync(OperatorId, operation, uploadTarget, null, "PartialFailure", operationId).ConfigureAwait(false);
+                }
+                else
+                {
+                    // Nothing was written, so the ordinary refusal semantics apply.
+                    await _auditLog.RecordAsync(OperatorId, operation, uploadTarget, null, "Failed", operationId).ConfigureAwait(false);
+                }
 
                 return View("Index", result);
+            }
+            catch (DppAuditException)
+            {
+                // Must not be swallowed by the general handler below: an unauditable upload has to
+                // surface as a refusal via DppAuditFailureFilter, not as an ordinary error message
+                // that leaves the caller unsure whether the change landed.
+                throw;
             }
             catch (Exception ex)
             {

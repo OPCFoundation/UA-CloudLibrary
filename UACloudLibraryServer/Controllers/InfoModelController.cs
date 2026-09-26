@@ -40,18 +40,23 @@ namespace Opc.Ua.Cloud.Library.Controllers
 {
     [Authorize(Policy = "ApiPolicy")]
     [ApiController]
+    [ServiceFilter(typeof(DppAuditFailureFilter))]
     public class InfoModelController : Controller
     {
         private readonly DbFileStorage _storage;
         private readonly CloudLibDataProvider _database;
         private readonly UAClient _client;
+        private readonly IDppAuditLog _auditLog;
 
-        public InfoModelController(DbFileStorage storage, CloudLibDataProvider database, UAClient client)
+        public InfoModelController(DbFileStorage storage, CloudLibDataProvider database, UAClient client, IDppAuditLog auditLog)
         {
             _storage = storage;
             _database = database;
             _client = client;
+            _auditLog = auditLog;
         }
+
+        private string OperatorId => User?.Identity?.Name ?? "anonymous";
 
         [HttpGet]
         [Route("/infomodel/find")]
@@ -236,9 +241,19 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             uaNamespace.Nodeset.NodesetXml = nodesetXml.Blob;
 
+            // A nodeset may carry a DPP, so its deletion is a DPP lifecycle event. Write the intent
+            // before the delete: the record store, the blob store and the metadata are separate, so an
+            // "Attempted" entry with no outcome is the signal that a deletion may have partially run.
+            string deleteOperationId = DppAuditOperationId.New();
+            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, identifier, null, "Attempted", deleteOperationId).ConfigureAwait(false);
+
             await _database.DeleteAllRecordsForNodesetAsync(nodeSetID).ConfigureAwait(false);
 
             await _storage.DeleteFileAsync(identifier).ConfigureAwait(false);
+
+            // Both deletion steps have already run and neither can be undone here, so a failure to
+            // record this outcome must not be reported as a retryable refusal.
+            await _auditLog.RecordCommittedOutcomeAsync(OperatorId, DppAuditOperation.Delete, identifier, null, "Success", deleteOperationId).ConfigureAwait(false);
 
             return new ObjectResult(uaNamespace) { StatusCode = (int)HttpStatusCode.OK };
         }
@@ -260,13 +275,51 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult($"No nodeset XML was specified") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            string result = await _database.UploadNamespaceAndNodesetAsync(User.Identity.Name, uaNamespace, values, overwrite).ConfigureAwait(false);
-            if (result != "success")
+            // An upload creates or overwrites a nodeset that may carry a DPP. Overwriting is a modify
+            // rather than a create, so the operation is reported accordingly. The identifier is not
+            // known until the upload succeeds, so the pre-write entry is keyed by namespace URI.
+            DppAuditOperation operation = overwrite ? DppAuditOperation.Modify : DppAuditOperation.Create;
+            string auditTarget = uaNamespace.Nodeset.NamespaceUri?.ToString() ?? "(unknown namespace)";
+
+            // The attempt is keyed by namespace URI and the outcome by the assigned identifier, so the
+            // two rows do not share a DppId. Without a shared operation id an unmatched attempt could
+            // not be paired with its outcome at all, which is the signal this pattern exists to give.
+            string operationId = DppAuditOperationId.New();
+
+            await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Attempted", operationId).ConfigureAwait(false);
+
+            UploadResult uploadResult = await _database.UploadNamespaceAndNodesetWithResultAsync(User.Identity.Name, uaNamespace, values, overwrite).ConfigureAwait(false);
+            if (!uploadResult.Succeeded)
             {
-                return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.InternalServerError };
+                // The blob is written before the metadata, so a failure here does not imply storage
+                // is unchanged. A partially-applied upload is recorded as such and treated as
+                // post-commit: reporting it as a clean failure would both lose the partial-write
+                // signal and, if this append itself failed, tell the client the request was safe to
+                // repeat when it had already changed storage.
+                if (uploadResult.PartiallyApplied)
+                {
+                    await _auditLog.RecordCommittedOutcomeAsync(
+                        OperatorId,
+                        operation,
+                        _database.GetIdentifier(uaNamespace) ?? auditTarget,
+                        null,
+                        "PartialFailure",
+                        operationId).ConfigureAwait(false);
+                }
+                else
+                {
+                    await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Failed", operationId).ConfigureAwait(false);
+                }
+
+                return new ObjectResult(uploadResult.Message) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
             string identifier = _database.GetIdentifier(uaNamespace);
+
+            // Record the outcome against the assigned identifier so the entry can be correlated with
+            // the subsequent read/modify entries for the same DPP. The upload is already durable at
+            // this point, so this outcome is post-commit.
+            await _auditLog.RecordCommittedOutcomeAsync(OperatorId, operation, identifier ?? auditTarget, null, "Success", operationId).ConfigureAwait(false);
 
             return new ObjectResult(identifier) { StatusCode = (int)HttpStatusCode.OK };
         }

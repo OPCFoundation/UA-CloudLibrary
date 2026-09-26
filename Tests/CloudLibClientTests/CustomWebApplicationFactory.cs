@@ -47,7 +47,14 @@ namespace CloudLibClient.Tests
                             { "ServicePassword", "testpw" },
                             { "ConnectionStrings:CloudLibraryPostgreSQL", "Server=localhost;Username=testuser;Database=cloudlib_test;Port=5432;Password=password;SSLMode=Prefer;Include Error Detail=true" },
                             { "OAuth2ClientId", "Test" },
-                            { "OAuth2ClientSecret", "TestSecret" }
+                            { "OAuth2ClientSecret", "TestSecret" },
+
+                            // Required wherever a stable ESDC signing key is resolved: the issuer of an
+                            // ESDC is otherwise taken from the DPP's own content, so the server refuses
+                            // to start without an authoritative operator id rather than sign credentials
+                            // asserting whatever operator a hosted passport names. The test host runs the
+                            // real Startup, so it has to configure this exactly as a deployment does.
+                            { "Dpp:Esdc:EconomicOperatorId", "urn:uacl:test-economic-operator" }
                         })
                 );
         }

@@ -619,13 +619,29 @@ namespace Opc.Ua.Cloud.Library
             return true;
         }
 
-        public async Task<string> CopyNodeset(string userId, string nodesetIdentifier, string name)
+        /// <summary>
+        /// Copies an existing nodeset under a new title, republishing it with the current date.
+        /// </summary>
+        /// <remarks>
+        /// Returns an <see cref="UploadResult"/> rather than a message so the caller can tell a
+        /// failure that changed nothing from one that left the copied nodeset stored. The copy may
+        /// carry a DPP, so the caller is also responsible for auditing the operation.
+        /// </remarks>
+        public async Task<UploadResult> CopyNodeset(string userId, string nodesetIdentifier, string name)
         {
             try
             {
                 DbFiles file = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
+                if (file == null)
+                {
+                    return UploadResult.Failed($"Nodeset {nodesetIdentifier} was not found.");
+                }
 
                 UANameSpace metadata = await _database.RetrieveAllMetadataAsync(userId, uint.Parse(nodesetIdentifier, CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                if (metadata?.Nodeset == null)
+                {
+                    return UploadResult.Failed($"Metadata for nodeset {nodesetIdentifier} was not found.");
+                }
 
                 metadata.Title = name;
                 metadata.Nodeset.NodesetXml = file.Blob;
@@ -641,12 +657,15 @@ namespace Opc.Ua.Cloud.Library
                 sb.Insert(start, now);
                 metadata.Nodeset.NodesetXml = sb.ToString();
 
-                return await _database.UploadNamespaceAndNodesetAsync(userId, metadata, file.Values, false).ConfigureAwait(false);
+                return await _database.UploadNamespaceAndNodesetWithResultAsync(userId, metadata, file.Values, false).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 Console.WriteLine("CopyNodeset: " + ex.Message);
-                return ex.Message;
+
+                // Everything that can throw here runs before the upload is invoked, so nothing was
+                // written. The upload itself reports its own commit state and does not throw.
+                return UploadResult.Failed(ex.Message);
             }
         }
 

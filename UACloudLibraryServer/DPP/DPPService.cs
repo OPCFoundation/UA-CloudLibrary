@@ -2,11 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using Opc.Ua.Cloud.Library.Models;
 
 namespace Opc.Ua.Cloud.Library
@@ -18,14 +21,484 @@ namespace Opc.Ua.Cloud.Library
         private readonly CloudLibDataProvider _dataProvider;
         private readonly DbFileStorage _storage;
         private readonly IDppVersionArchive _archive;
+        private readonly IDppAccessPolicy _accessPolicy;
 
-        public DPPService(UAClient client, CloudLibDataProvider dataProvider, DbFileStorage storage, IDppVersionArchive archive, ILoggerFactory loggerFactory)
+        // Node values may contain characters like <, >, & that System.Text.Json escapes to \uXXXX by
+        // default; relaxed escaping keeps the stored values blob readable and Newtonsoft-equivalent.
+        private static readonly JsonSerializerOptions s_valuesJsonOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
+        public DPPService(UAClient client, CloudLibDataProvider dataProvider, DbFileStorage storage, IDppVersionArchive archive, IDppAccessPolicy accessPolicy, ILoggerFactory loggerFactory)
         {
             _client = client;
             _dataProvider = dataProvider;
             _storage = storage;
             _archive = archive;
+            _accessPolicy = accessPolicy;
             _logger = loggerFactory.CreateLogger("DPPService");
+        }
+
+        /// <summary>
+        /// Loads the per-DPP <c>controlledElements</c> mapping (element path -> permitted roles) from the
+        /// DPP's stored values blob, together with whether that mapping was absent, valid, or malformed.
+        /// Callers must fail closed on <see cref="DppControlledElements.MappingState.Invalid"/>: an
+        /// unreadable policy is a failure to determine access, not proof that access is unrestricted.
+        /// </summary>
+        /// <remarks>
+        /// Neither a storage fault nor a missing row is reported as an absent mapping; both become
+        /// <see cref="DppControlledElements.MappingState.Invalid"/>. These reads are anonymous, and
+        /// "the policy could not be loaded" is indistinguishable in shape from "this DPP controls
+        /// nothing" - but only the second one means the data is public. A DPP is materialised from
+        /// the live OPC UA address space, so it can still be served while its stored row is missing;
+        /// treating that as "no controlled elements" would publish every protected element of a
+        /// passport whose policy simply is not there. <see cref="DppControlledElements.MappingState.Absent"/>
+        /// is therefore reserved for a row that exists and genuinely declares no policy.
+        /// </remarks>
+        public async Task<DppControlledElements.MappingResult> GetControlledElementsAsync(string dppId)
+        {
+            DbFiles file;
+            try
+            {
+                file = await _storage.DownloadFileAsync(dppId).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Could not load the controlled-elements mapping for DPP {DppId}; denying access to all elements because the policy is unknown, not absent.",
+                    dppId);
+
+                return DppControlledElements.Unavailable();
+            }
+
+            if (file is null)
+            {
+                _logger.LogError(
+                    "No stored values row exists for DPP {DppId}, so its controlled-elements mapping cannot be read; denying access to all elements rather than treating the missing policy as an absent one.",
+                    dppId);
+
+                return DppControlledElements.Unavailable();
+            }
+
+            DppControlledElements.MappingResult mapping = DppControlledElements.Read(file.Values);
+            if (mapping.IsInvalid)
+            {
+                _logger.LogError(
+                    "Controlled-elements mapping for DPP {DppId} is malformed; denying access to all elements until it is repaired.",
+                    dppId);
+            }
+
+            return mapping;
+        }
+
+        /// <summary>
+        /// True when a caller holding <paramref name="callerRoles"/> may read the element addressed by
+        /// <paramref name="elementIdPath"/>, per the DPP's own controlled-elements mapping (EN 18239 §5.2).
+        /// The access key is the element's path (dotted <c>elementId</c> chain), matching how the API
+        /// addresses elements. Public elements are readable by anyone, including anonymous callers.
+        /// </summary>
+        public async Task<bool> CanReadElementAsync(string dppId, string elementIdPath, IEnumerable<string> callerRoles)
+        {
+            DppControlledElements.MappingResult mapping = await GetControlledElementsAsync(dppId).ConfigureAwait(false);
+            if (mapping.IsInvalid)
+            {
+                return false;
+            }
+
+            if (mapping.Entries.Count == 0)
+            {
+                return true;
+            }
+
+            // Must match how GetElement resolves the path, or the policy is consulted for a key the
+            // resolver never uses and a controlled element is served as public.
+            string accessKey = BuildCanonicalAccessKey(elementIdPath);
+            if (accessKey is null)
+            {
+                return false;
+            }
+
+            return _accessPolicy.CanRead(accessKey, callerRoles, mapping.Entries);
+        }
+        /// <paramref name="elementIdPath"/>. Write rights mirror read rights: an element controlled for
+        /// reading is equally controlled for writing, so a caller that may not see an element may not
+        /// change it either. Elements outside the mapping stay writable by any authorized API principal,
+        /// preserving the existing contract for public data.
+        /// </summary>
+        public async Task<bool> CanWriteElementAsync(string dppId, string elementIdPath, IEnumerable<string> callerRoles)
+        {
+            DppControlledElements.MappingResult mapping = await GetControlledElementsAsync(dppId).ConfigureAwait(false);
+            if (mapping.IsInvalid)
+            {
+                return false;
+            }
+
+            if (mapping.Entries.Count == 0)
+            {
+                return true;
+            }
+
+            // Same canonicalization as the write resolver, so a PATCH cannot be authorized against a
+            // different key than the one it ultimately modifies.
+            string accessKey = BuildCanonicalAccessKey(elementIdPath);
+            if (accessKey is null)
+            {
+                return false;
+            }
+
+            return _accessPolicy.CanRead(accessKey, callerRoles, mapping.Entries);
+        }
+
+        /// <summary>
+        /// True when a caller holding <paramref name="callerRoles"/> may submit a whole-DPP patch.
+        /// Because such a patch can address any element, the caller must satisfy every controlled
+        /// element's role requirement; otherwise a partially-authorized writer could modify data it
+        /// cannot read. DPPs with no controlled elements stay writable by any authorized principal.
+        /// </summary>
+        public async Task<bool> CanWriteDppAsync(string dppId, IEnumerable<string> callerRoles)
+        {
+            DppControlledElements.MappingResult mapping = await GetControlledElementsAsync(dppId).ConfigureAwait(false);
+            if (mapping.IsInvalid)
+            {
+                return false;
+            }
+
+            if (mapping.Entries.Count == 0)
+            {
+                return true;
+            }
+
+            string[] roles = callerRoles?.ToArray() ?? Array.Empty<string>();
+            return mapping.Entries.Keys.All(path => _accessPolicy.CanRead(path, roles, mapping.Entries));
+        }
+
+        /// <summary>
+        /// Prunes a single element's subtree so that a readable ancestor never leaks controlled
+        /// descendants. Returns null when the element itself is not readable.
+        /// </summary>
+        public async Task<DataElement> FilterElementForRolesAsync(string dppId, string elementIdPath, DataElement element, IEnumerable<string> callerRoles)
+        {
+            if (element is null)
+            {
+                return null;
+            }
+
+            DppControlledElements.MappingResult mapping = await GetControlledElementsAsync(dppId).ConfigureAwait(false);
+            if (mapping.IsInvalid)
+            {
+                return null;
+            }
+
+            if (mapping.Entries.Count == 0)
+            {
+                return element;
+            }
+
+            string[] roles = callerRoles?.ToArray() ?? Array.Empty<string>();
+
+            // The addressed element's own path is the access key for its subtree, canonicalized the
+            // same way the resolver canonicalizes it. A null key means the path cannot be expressed
+            // as one the mapping could match (unparseable, collection root, or index-addressed), so
+            // deny rather than skipping the check - the other call sites treat null the same way.
+            string basePath = BuildCanonicalAccessKey(elementIdPath);
+            if (basePath is null || !_accessPolicy.CanRead(basePath, roles, mapping.Entries))
+            {
+                return null;
+            }
+
+            string parentPath = TrimLastSegment(basePath);
+            List<DataElement> filtered = FilterElements(new List<DataElement> { element }, roles, mapping.Entries, parentPath);
+            return filtered.Count == 0 ? null : filtered[0];
+        }
+
+        // Drops the final dotted segment so a child's key is built as "<parent>.<elementId>".
+        private static string TrimLastSegment(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return null;
+            }
+
+            int index = path.LastIndexOf('.');
+            return index < 0 ? null : path.Substring(0, index);
+        }
+
+        /// <summary>
+        /// Index of the first segment that actually addresses an element, skipping the optional
+        /// leading <c>elements</c> collection name.
+        /// </summary>
+        /// <remarks>
+        /// Resolution (<see cref="GetElement"/>, <c>UpdateDataElement</c>) accepts <c>$.elements.X</c>
+        /// and <c>X</c> as the same element. Authorization must therefore consume the prefix the same
+        /// way: keying the policy off <c>elements.X</c> while the tree resolves <c>X</c> means the
+        /// mapping entry for <c>X</c> is never consulted, and a controlled element is served as if it
+        /// were public. Any path normalization used for access control has to go through here.
+        /// </remarks>
+        internal static int ElementSegmentStart(IReadOnlyList<DppJsonPath.Segment> segments)
+        {
+            if (segments is null || segments.Count == 0)
+            {
+                return 0;
+            }
+
+            return segments[0].IsName && string.Equals(segments[0].Name, "elements", StringComparison.Ordinal)
+                ? 1
+                : 0;
+        }
+
+        /// <summary>
+        /// Builds the canonical access key for a caller-supplied path: the dotted element-id chain as
+        /// the resolver sees it, with the optional <c>elements</c> prefix removed.
+        /// </summary>
+        /// <remarks>
+        /// Returns null when the path cannot be parsed, addresses only the collection root, or uses an
+        /// index selector &#8212; all of which callers must treat as "deny" rather than "unmapped,
+        /// therefore public".
+        /// <para>
+        /// Index selectors are refused rather than ignored. The mapping is keyed by the dotted chain of
+        /// real <c>elementId</c> values, but an index names a position rather than an element, so it
+        /// contributes nothing to the key while the resolver still descends through it. Dropping the
+        /// index would reduce <c>$.elements[0].abc</c> to <c>abc</c> while the resolver reaches
+        /// <c>&lt;rootId&gt;.abc</c>: controls on <c>&lt;rootId&gt;</c> or <c>&lt;rootId&gt;.abc</c>
+        /// would never be consulted, and an anonymous read or an authenticated write could reach a
+        /// controlled node as if it were public. Resolving the index to its element id instead would
+        /// need the DPP tree, which authorization deliberately does not load; refusing keeps this a
+        /// pure function and fails closed. Callers can always address the same node by name.
+        /// </para>
+        /// </remarks>
+        internal static string BuildCanonicalAccessKey(string elementIdPath)
+        {
+            if (string.IsNullOrWhiteSpace(elementIdPath)
+                || !DppJsonPath.TryParse(elementIdPath, out IReadOnlyList<DppJsonPath.Segment> segments, out _))
+            {
+                return null;
+            }
+
+            int start = ElementSegmentStart(segments);
+            if (start >= segments.Count)
+            {
+                return null;
+            }
+
+            // Any index selector in the addressing portion of the path makes the key unable to
+            // describe the node the resolver will reach, so refuse instead of building a key that
+            // silently omits it. The skipped "elements" prefix is not examined: it names the
+            // collection, not an element.
+            for (int i = start; i < segments.Count; i++)
+            {
+                if (!segments[i].IsName)
+                {
+                    return null;
+                }
+            }
+
+            string key = BuildElementPath(segments, start);
+
+            // Defensive: a name-only segment run always produces a non-empty key, but returning ""
+            // would be looked up, miss, and read as unmapped - i.e. public - so deny instead.
+            return string.IsNullOrEmpty(key) ? null : key;
+        }
+
+        // Builds the dotted element-id path used as the access key from parsed JSONPath segments,
+        // ignoring array-index segments (access rights apply uniformly to all items of a collection).
+        private static string BuildElementPath(IReadOnlyList<DppJsonPath.Segment> segments)
+            => BuildElementPath(segments, 0);
+
+        private static string BuildElementPath(IReadOnlyList<DppJsonPath.Segment> segments, int startIndex)
+        {
+            var builder = new StringBuilder();
+            for (int i = startIndex; i < segments.Count; i++)
+            {
+                DppJsonPath.Segment segment = segments[i];
+                if (segment.IsName)
+                {
+                    if (builder.Length > 0)
+                    {
+                        builder.Append('.');
+                    }
+
+                    builder.Append(segment.Name);
+                }
+            }
+
+            return builder.ToString();
+        }
+
+        /// <summary>
+        /// Returns a copy of <paramref name="dpp"/> with every controlled data element the caller is not
+        /// authorized to read removed, so unauthenticated/under-privileged callers only ever see public
+        /// elements. The controlled mapping is the DPP's own (carried in its values blob). Controlled
+        /// elements are pruned recursively from nested collections. Returns the same instance when
+        /// nothing is filtered to avoid needless allocation.
+        /// </summary>
+        public async Task<DigitalProductPassport> FilterForRolesAsync(DigitalProductPassport dpp, IEnumerable<string> callerRoles)
+        {
+            if (dpp is null)
+            {
+                return null;
+            }
+
+            DppControlledElements.MappingResult mapping = await GetControlledElementsAsync(dpp.DigitalProductPassportId).ConfigureAwait(false);
+            return FilterForRoles(dpp, callerRoles, mapping);
+        }
+
+        /// <summary>
+        /// As <see cref="FilterForRolesAsync(DigitalProductPassport, IEnumerable{string})"/>, but
+        /// applies an explicitly supplied mapping instead of loading the DPP's current one.
+        /// </summary>
+        /// <remarks>
+        /// Historical reads must use this: the stored mapping only describes the DPP as it is now, so
+        /// filtering an archived version against it would publish an element that was controlled at
+        /// the requested date and has since been un-mapped.
+        /// </remarks>
+        public DigitalProductPassport FilterForRoles(
+            DigitalProductPassport dpp,
+            IEnumerable<string> callerRoles,
+            DppControlledElements.MappingResult mapping)
+        {
+            if (dpp is null)
+            {
+                return null;
+            }
+
+            if (mapping is null || mapping.IsInvalid)
+            {
+                // Fail closed: we cannot tell which elements are controlled, so expose none of them.
+                return new DigitalProductPassport {
+                    DigitalProductPassportId = dpp.DigitalProductPassportId,
+                    UniqueProductIdentifier = dpp.UniqueProductIdentifier,
+                    Granularity = dpp.Granularity,
+                    DppSchemaVersion = dpp.DppSchemaVersion,
+                    DppStatus = dpp.DppStatus,
+                    LastUpdate = dpp.LastUpdate,
+                    EconomicOperatorId = dpp.EconomicOperatorId,
+                    FacilityId = dpp.FacilityId,
+                    ContentSpecificationIds = dpp.ContentSpecificationIds,
+                    Elements = new List<DataElement>()
+                };
+            }
+
+            IReadOnlyDictionary<string, string[]> controlled = mapping.Entries;
+            if (controlled.Count == 0)
+            {
+                // No controlled elements for this DPP: everything is public, nothing to filter.
+                return dpp;
+            }
+
+            string[] roles = callerRoles?.ToArray() ?? Array.Empty<string>();
+            List<DataElement> filtered = FilterElements(dpp.Elements, roles, controlled, null);
+            if (ReferenceEquals(filtered, dpp.Elements))
+            {
+                return dpp;
+            }
+
+            return new DigitalProductPassport {
+                DigitalProductPassportId = dpp.DigitalProductPassportId,
+                UniqueProductIdentifier = dpp.UniqueProductIdentifier,
+                Granularity = dpp.Granularity,
+                DppSchemaVersion = dpp.DppSchemaVersion,
+                DppStatus = dpp.DppStatus,
+                LastUpdate = dpp.LastUpdate,
+                EconomicOperatorId = dpp.EconomicOperatorId,
+                FacilityId = dpp.FacilityId,
+                ContentSpecificationIds = dpp.ContentSpecificationIds,
+                Elements = filtered
+            };
+        }
+
+        // Recursively drops elements the caller may not read; descends into every element container
+        // (see ChildElementsOf), tracking each element's dotted path so access is keyed by element
+        // address (not dictionaryReference). Returns the original list reference unchanged when
+        // nothing was pruned.
+        private List<DataElement> FilterElements(List<DataElement> elements, string[] roles, IReadOnlyDictionary<string, string[]> controlled, string parentPath)
+        {
+            if (elements is null || elements.Count == 0)
+            {
+                return elements;
+            }
+
+            var result = new List<DataElement>(elements.Count);
+            bool changed = false;
+
+            foreach (DataElement element in elements)
+            {
+                string path = string.IsNullOrEmpty(parentPath) ? element.ElementId : parentPath + "." + element.ElementId;
+
+                if (!_accessPolicy.CanRead(path, roles, controlled))
+                {
+                    changed = true;
+                    continue;
+                }
+
+                DataElement pruned = FilterContainer(element, roles, controlled, path);
+                if (!ReferenceEquals(pruned, element))
+                {
+                    changed = true;
+                }
+
+                result.Add(pruned);
+            }
+
+            return changed ? result : elements;
+        }
+
+        /// <summary>
+        /// Filters the children of a container element, returning a clone when anything was pruned
+        /// and the original instance otherwise. Leaves are returned unchanged.
+        /// </summary>
+        /// <remarks>
+        /// Cloning rather than mutating matters: these instances come from the cached/browsed DPP,
+        /// so pruning in place would let one caller's role filtering leak into what the next caller
+        /// sees.
+        /// </remarks>
+        private DataElement FilterContainer(DataElement element, string[] roles, IReadOnlyDictionary<string, string[]> controlled, string path)
+        {
+            switch (element)
+            {
+                case DataElementCollection coll:
+                {
+                    List<DataElement> childFiltered = FilterElements(coll.Elements, roles, controlled, path);
+                    return ReferenceEquals(childFiltered, coll.Elements)
+                        ? element
+                        : new DataElementCollection {
+                            ElementId = coll.ElementId,
+                            DictionaryReference = coll.DictionaryReference,
+                            Elements = childFiltered
+                        };
+                }
+
+                case MultiValuedDataElement multi:
+                {
+                    List<DataElement> valueFiltered = FilterElements(multi.Value, roles, controlled, path);
+                    return ReferenceEquals(valueFiltered, multi.Value)
+                        ? element
+                        : new MultiValuedDataElement {
+                            ElementId = multi.ElementId,
+                            DictionaryReference = multi.DictionaryReference,
+                            ValueDataType = multi.ValueDataType,
+                            Value = valueFiltered
+                        };
+                }
+
+                default:
+                    return element;
+            }
+        }
+
+        /// <summary>
+        /// True when <paramref name="userId"/> is allowed to see the nodeset backing a DPP, i.e. the
+        /// nodeset is published, ownerless, or owned by that user. A null/empty user id means an
+        /// anonymous caller and restricts the result to published nodesets.
+        /// </summary>
+        private async Task<bool> IsNodesetAccessibleAsync(string userId, string nodesetIdentifier)
+        {
+            if (string.IsNullOrWhiteSpace(nodesetIdentifier))
+            {
+                return false;
+            }
+
+            return await _dataProvider.GetNodeSets(userId, nodesetIdentifier)
+                .AnyAsync()
+                .ConfigureAwait(false);
         }
 
         public async Task<DigitalProductPassport> GetByDppId(string userId, string dppId)
@@ -42,15 +515,32 @@ namespace Opc.Ua.Cloud.Library
 
         /// <summary>
         /// Returns the DPP snapshot that was active at <paramref name="asOfUtc"/>, per
-        /// EN 18222 (Method ReadDPPVersionByIdAndDate). If the requested timestamp is at or after
-        /// the live DPP's own <see cref="DigitalProductPassport.LastUpdate"/>, the live DPP is
-        /// returned; otherwise the archive is consulted for the latest snapshot at or before that
-        /// timestamp. Returns <c>null</c> when no version of the DPP existed at the requested
-        /// point in time.
+        /// EN 18222 (Method ReadDPPVersionByIdAndDate), together with the access policy that applied
+        /// to that version. If the requested timestamp is at or after the live DPP's own
+        /// <see cref="DigitalProductPassport.LastUpdate"/>, the live DPP is returned; otherwise the
+        /// archive is consulted for the latest snapshot at or before that timestamp. Returns
+        /// <c>null</c> when no version of the DPP existed at the requested point in time.
         /// </summary>
-        public async Task<DigitalProductPassport> GetDppVersionByIdAndDate(string userId, string dppId, DateTimeOffset asOfUtc)
+        public async Task<DppVersionSnapshot> GetDppVersionByIdAndDate(string userId, string dppId, DateTimeOffset asOfUtc)
         {
             DateTimeOffset target = asOfUtc.ToUniversalTime();
+
+            // Authorize against the nodeset before touching either the live DPP or the archive.
+            // BrowseDppFromRootAsync applies this guard for live reads, but the archive lookup below
+            // is a separate store keyed only by dppId: without this check an unpublished, private or
+            // deleted DPP would still surrender its historical snapshots to an anonymous caller,
+            // because GetByDppId returning null is indistinguishable from "not authorized" here.
+            if (!await IsNodesetAccessibleAsync(userId, dppId).ConfigureAwait(false))
+            {
+                if (_logger.IsEnabled(LogLevel.Information))
+                {
+                    _logger.LogInformation(
+                        "Denied DPP version read of nodeset {NodesetIdentifier}: not published and not owned by the caller.",
+                        dppId);
+                }
+
+                return null;
+            }
 
             // Resolve the live DPP first: it is the active version for any target at or after its
             // own LastUpdate, which is the common case (most ReadDPPVersionByIdAndDate calls ask
@@ -62,13 +552,23 @@ namespace Opc.Ua.Cloud.Library
             DigitalProductPassport live = await GetByDppId(userId, dppId).ConfigureAwait(false);
             if (live != null && live.LastUpdate.ToUniversalTime() <= target)
             {
-                return live;
+                // The live version's policy is the current stored mapping, by definition - but only
+                // when that row actually exists. A DPP is materialised from the live OPC UA address
+                // space, so it can still be served while its DbFiles row is missing; passing a null
+                // blob through as an archived policy would read as "no controlled elements" and
+                // publish the whole element tree. Report the policy as unknown instead, which sends
+                // FilterVersionForRoles down its fail-closed path, exactly as an ordinary read
+                // treats a missing policy row as unavailable rather than absent.
+                DbFiles liveFile = await _storage.DownloadFileAsync(dppId).ConfigureAwait(false);
+                return liveFile is null
+                    ? new DppVersionSnapshot(live, null, policyArchived: false)
+                    : new DppVersionSnapshot(live, liveFile.Values, policyArchived: true);
             }
 
             // Target is strictly earlier than the live DPP's activation time (or the DPP has no
             // live counterpart at all). Look up the latest archived snapshot whose valid-from
             // timestamp is at or before the target.
-            DigitalProductPassport archived = await _archive.GetVersionAtAsync(dppId, target).ConfigureAwait(false);
+            DppVersionSnapshot archived = await _archive.GetVersionAtAsync(dppId, target).ConfigureAwait(false);
             if (archived != null)
             {
                 return archived;
@@ -78,6 +578,45 @@ namespace Opc.Ua.Cloud.Library
             // "no version existed at that point in time" case (e.g. the target predates the very
             // first archived version), so a 404 from the controller is correct.
             return null;
+        }
+
+        /// <summary>
+        /// Filters an archived version against the access policy that was in force when it was
+        /// captured, rather than the DPP's current mapping.
+        /// </summary>
+        /// <remarks>
+        /// A snapshot may carry no policy for two reasons: it was archived before the archive
+        /// recorded policy, or it is the live version and its stored values row is missing. Neither
+        /// can be reconstructed after the fact, and substituting today's mapping is precisely the
+        /// disclosure this guards against, so both are filtered as if every element were controlled:
+        /// the caller receives the DPP's public envelope with no data elements.
+        /// </remarks>
+        public DigitalProductPassport FilterVersionForRoles(DppVersionSnapshot snapshot, IEnumerable<string> callerRoles)
+        {
+            if (snapshot?.Dpp is null)
+            {
+                return null;
+            }
+
+            if (!snapshot.PolicyArchived)
+            {
+                _logger.LogWarning(
+                    "No access policy is available for the requested version of DPP {DppId}; withholding all elements rather than applying the current mapping.",
+                    snapshot.Dpp.DigitalProductPassportId);
+
+                // Passing a null mapping selects the fail-closed path.
+                return FilterForRoles(snapshot.Dpp, callerRoles, mapping: null);
+            }
+
+            DppControlledElements.MappingResult mapping = DppControlledElements.Read(snapshot.ControlledElementsValuesJson);
+            if (mapping.IsInvalid)
+            {
+                _logger.LogError(
+                    "Archived controlled-elements mapping for DPP {DppId} is malformed; denying access to all elements.",
+                    snapshot.Dpp.DigitalProductPassportId);
+            }
+
+            return FilterForRoles(snapshot.Dpp, callerRoles, mapping);
         }
 
         public async Task<DigitalProductPassport> GetByProductId(string userId, string productId)
@@ -115,24 +654,22 @@ namespace Opc.Ua.Cloud.Library
 
         public IReadOnlyList<string> GetDppIdsByProductIds(string userId, IReadOnlyList<string> productIds)
         {
-            var result = new List<string>();
-
-            foreach (string productId in productIds)
+            if (productIds is null || productIds.Count == 0)
             {
-                List<ObjectModel> dppList = _dataProvider.GetNodeModels(nsm => nsm.Objects, userId)
-                .Where(nsm => (nsm.DisplayName != null) && (nsm.DisplayName.Count > 0) && (nsm.DisplayName[0].Text == "UniqueProductIdentifier") && (nsm.NodeId == productId))
-                .ToList();
-
-                if (dppList != null)
-                {
-                    foreach (ObjectModel dpp in dppList)
-                    {
-                        result.Add(dpp.NodeSet.Identifier);
-                    }
-                }
+                return new List<string>();
             }
 
-            return result;
+            // One set-based query rather than one query per product id. The previous per-id loop meant
+            // a single request could issue as many database round-trips as it listed identifiers,
+            // so a caller spending one rate-limit permit could drive thousands of queries.
+            var requested = new HashSet<string>(productIds, StringComparer.Ordinal);
+
+            return _dataProvider.GetNodeModels(nsm => nsm.Objects, userId)
+                .Where(nsm => (nsm.DisplayName != null) && (nsm.DisplayName.Count > 0)
+                    && (nsm.DisplayName[0].Text == "UniqueProductIdentifier")
+                    && requested.Contains(nsm.NodeId))
+                .Select(nsm => nsm.NodeSet.Identifier)
+                .ToList();
         }
 
         public async Task<(ElementResult Result, string ErrorMessage, DataElement Element)> GetElement(
@@ -153,14 +690,11 @@ namespace Opc.Ua.Cloud.Library
             // or a top-level scalar property. We expose only the elements tree via this method,
             // matching the EN 18222 contract (returns a DataElement).
             IReadOnlyList<DataElement> roots = dpp.Elements;
-            int startIndex = 0;
 
             // Allow consumers to omit a leading "elements" segment for ergonomics; the OPC UA
-            // tree is rooted at that collection in our model.
-            if (segments[0].IsName && string.Equals(segments[0].Name, "elements", StringComparison.Ordinal))
-            {
-                startIndex = 1;
-            }
+            // tree is rooted at that collection in our model. Shared with the access-control path so
+            // authorization and resolution can never disagree about which element is addressed.
+            int startIndex = ElementSegmentStart(segments);
 
             // After consuming an optional "elements" prefix the path must still address a specific
             // DataElement. Paths like "elements" or "$.elements" are a client error (they name the
@@ -237,15 +771,30 @@ namespace Opc.Ua.Cloud.Library
                     return current;
                 }
 
-                currentChildren = current switch {
-                    DataElementCollection coll => coll.Elements,
-                    MultiValuedDataElement multi => multi.Value,
-                    _ => null
-                };
+                currentChildren = ChildElementsOf(current);
             }
 
             return current;
         }
+
+        /// <summary>
+        /// The child elements a <see cref="DataElement"/> contains, or <c>null</c> for a leaf.
+        /// </summary>
+        /// <remarks>
+        /// Single definition of what "contains children" means, deliberately shared by path
+        /// resolution and by the role filter. These two previously each had their own idea of the
+        /// element tree: resolution descended both container types while the filter only descended
+        /// <see cref="DataElementCollection"/>, so a controlled element nested under a
+        /// <see cref="MultiValuedDataElement"/> was addressable but never filtered - it stayed in the
+        /// response and was signed into the ESDC. Any future container type must be added here once,
+        /// and both behaviours follow.
+        /// </remarks>
+        internal static IReadOnlyList<DataElement> ChildElementsOf(DataElement element) =>
+            element switch {
+                DataElementCollection coll => coll.Elements,
+                MultiValuedDataElement multi => multi.Value,
+                _ => null
+            };
 
         /// <summary>
         /// Result of an <see cref="UpdateDppById"/> call.
@@ -255,7 +804,23 @@ namespace Opc.Ua.Cloud.Library
             Success,
             NotFound,
             BadRequest,
-            WriteFailed
+
+            /// <summary>
+            /// The write failed and every applied change was rolled back, so the DPP is unchanged.
+            /// </summary>
+            WriteFailed,
+
+            /// <summary>
+            /// The write failed and at least one applied change could not be rolled back, so the DPP
+            /// is left partially mutated.
+            /// </summary>
+            /// <remarks>
+            /// Distinct from <see cref="WriteFailed"/> because the two demand different responses: a
+            /// clean rollback is an ordinary error, whereas a failed rollback means live data no
+            /// longer matches any consistent version and needs operator attention. Reporting both
+            /// identically would bury the second in the noise of the first.
+            /// </remarks>
+            WriteFailedPartiallyApplied
         }
 
         // JSON key (camelCase per DigitalProductPassport contract) -> OPC UA BrowseName (PascalCase per nodeset).
@@ -433,7 +998,14 @@ namespace Opc.Ua.Cloud.Library
                 return (UpdateDppResult.NotFound, null, null);
             }
 
-            // EN 18222 requires that "if the update of some parts fails the complete update process
+            // Capture the access policy that governs the pre-update version too, and capture it now:
+            // PersistNodesetValuesAsync below rewrites the values blob this mapping lives in, so
+            // reading it at archive time would record the post-update policy against the pre-update
+            // data. That mismatch is what lets a historical read expose an element whose control was
+            // removed by this very update.
+            DbFiles preUpdateFile = await _storage.DownloadFileAsync(dppId).ConfigureAwait(false);
+            string preUpdatePolicy = preUpdateFile?.Values;
+
             // will fail and there should be no changes adopted in the DPP". OPC UA writes are not
             // transactional, so we honor that contract on a best-effort basis: capture each target's
             // current value immediately before writing it, and on the first write failure attempt to
@@ -449,8 +1021,9 @@ namespace Opc.Ua.Cloud.Library
                 if (!ok)
                 {
                     _logger.LogError("UpdateDppById: write failed for DPP {DppId}, field '{Field}'.", dppId, fieldPath);
-                    await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
-                    return (UpdateDppResult.WriteFailed, $"Failed to write field '{fieldPath}'.", null);
+                    bool fieldRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                    return (fieldRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
+                        $"Failed to write field '{fieldPath}'.", null);
                 }
 
                 appliedWrites.Add((nodeId, originalValue, fieldPath));
@@ -466,8 +1039,9 @@ namespace Opc.Ua.Cloud.Library
                 await BumpLastUpdateAsync(userId, dppId, dppProperties).ConfigureAwait(false);
             if (lastUpdateWrite is null)
             {
-                await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
-                return (UpdateDppResult.WriteFailed, "Update could not be completed; the version timestamp could not be advanced.", null);
+                bool timestampRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                return (timestampRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
+                    "Update could not be completed; the version timestamp could not be advanced.", null);
             }
 
             appliedWrites.Add(lastUpdateWrite.Value);
@@ -482,8 +1056,9 @@ namespace Opc.Ua.Cloud.Library
                 // best-effort "no changes adopted on failure" contract by reverting the live nodes
                 // back to their captured pre-update values; otherwise the in-memory DPP would
                 // diverge from what is on disk until the next server restart.
-                await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
-                return (UpdateDppResult.WriteFailed, "Update applied in memory but could not be persisted to storage.", null);
+                bool persistRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                return (persistRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
+                    "Update applied in memory but could not be persisted to storage.", null);
             }
 
             // Only now that the change is durable do we commit the pre-update snapshot to the
@@ -505,16 +1080,22 @@ namespace Opc.Ua.Cloud.Library
             //
             // preUpdate is guaranteed non-null here (we failed fast above if the snapshot could not
             // be captured), so we always have a previous version to archive.
-            bool archived = await _archive.ArchiveAsync(dppId, preUpdate, preUpdate.LastUpdate.ToUniversalTime()).ConfigureAwait(false);
+            bool archived = await _archive.ArchiveAsync(dppId, preUpdate, preUpdatePolicy, preUpdate.LastUpdate.ToUniversalTime()).ConfigureAwait(false);
             if (!archived)
             {
                 _logger.LogError("UpdateDppById: archive write failed for DPP {DppId}; rolling back durable update to honor no-changes-on-failure contract.", dppId);
-                await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                bool archiveRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
                 if (!await PersistNodesetValuesAsync(userId, dppId).ConfigureAwait(false))
                 {
                     _logger.LogError("UpdateDppById: rollback persist also failed for DPP {DppId}; update is now durable but archive is missing and client sees failure.", dppId);
+
+                    // The reverted values never reached storage, so the durable state still carries
+                    // the update the client is being told failed.
+                    archiveRolledBack = false;
                 }
-                return (UpdateDppResult.WriteFailed, "Update could not be completed; previous version could not be archived.", null);
+
+                return (archiveRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
+                    "Update could not be completed; previous version could not be archived.", null);
             }
 
             DigitalProductPassport updated = await GetByDppId(userId, dppId).ConfigureAwait(false);
@@ -570,11 +1151,8 @@ namespace Opc.Ua.Cloud.Library
             }
 
             // Allow callers to omit a leading "elements" segment for ergonomics, matching the read path.
-            int startIndex = 0;
-            if (segments[0].IsName && string.Equals(segments[0].Name, "elements", StringComparison.Ordinal))
-            {
-                startIndex = 1;
-            }
+            // Shared helper so this can never drift from the key authorization was checked against.
+            int startIndex = ElementSegmentStart(segments);
 
             // A trailing ".value" segment addresses the leaf's value property, not a child node. In our
             // OPC UA model a leaf DataElement has no "value" child (its value is read/written on the
@@ -610,7 +1188,7 @@ namespace Opc.Ua.Cloud.Library
                 DppJsonPath.Segment segment = segments[i];
                 NodesetViewerNode next = segment.IsIndex
                     ? (segment.Index.Value >= 0 && segment.Index.Value < currentChildren.Count ? currentChildren[segment.Index.Value] : null)
-                    : currentChildren.FirstOrDefault(c => string.Equals(c.Text, segment.Name, StringComparison.Ordinal));
+                    : currentChildren.FirstOrDefault(c => MatchesElementId(c, segment.Name));
 
                 if (next == null)
                 {
@@ -670,6 +1248,11 @@ namespace Opc.Ua.Cloud.Library
                 return (UpdateDppResult.NotFound, null, null);
             }
 
+            // Capture the pre-update access policy now, before PersistNodesetValuesAsync rewrites
+            // the values blob it lives in; see the matching comment in UpdateDppById.
+            DbFiles elementPreUpdateFile = await _storage.DownloadFileAsync(dppId).ConfigureAwait(false);
+            string elementPreUpdatePolicy = elementPreUpdateFile?.Values;
+
             // Capture the live leaf value immediately before the write so we can roll back to it
             // if any of the subsequent steps fail. Mirrors the appliedWrites bookkeeping in
             // UpdateDppById and keeps the best-effort "no changes adopted on failure" contract
@@ -699,8 +1282,9 @@ namespace Opc.Ua.Cloud.Library
                 await BumpLastUpdateAsync(userId, dppId, dppProperties).ConfigureAwait(false);
             if (lastUpdateWrite is null)
             {
-                await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
-                return (UpdateDppResult.WriteFailed, "Update could not be completed; the version timestamp could not be advanced.", null);
+                bool elementTimestampRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                return (elementTimestampRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
+                    "Update could not be completed; the version timestamp could not be advanced.", null);
             }
 
             appliedWrites.Add(lastUpdateWrite.Value);
@@ -709,8 +1293,9 @@ namespace Opc.Ua.Cloud.Library
             if (!await PersistNodesetValuesAsync(userId, dppId).ConfigureAwait(false))
             {
                 _logger.LogError("UpdateDataElement: failed to persist updated values for DPP {DppId}.", dppId);
-                await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
-                return (UpdateDppResult.WriteFailed, "Update applied in memory but could not be persisted to storage.", null);
+                bool elementPersistRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                return (elementPersistRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
+                    "Update applied in memory but could not be persisted to storage.", null);
             }
 
             // Only commit the archive snapshot after the change is durable, matching the ordering
@@ -727,16 +1312,22 @@ namespace Opc.Ua.Cloud.Library
             //
             // preUpdate is guaranteed non-null here (we failed fast above if the snapshot could not
             // be captured), so we always have a previous version to archive.
-            bool archived = await _archive.ArchiveAsync(dppId, preUpdate, preUpdate.LastUpdate.ToUniversalTime()).ConfigureAwait(false);
+            bool archived = await _archive.ArchiveAsync(dppId, preUpdate, elementPreUpdatePolicy, preUpdate.LastUpdate.ToUniversalTime()).ConfigureAwait(false);
             if (!archived)
             {
                 _logger.LogError("UpdateDataElement: archive write failed for DPP {DppId}; rolling back durable update to honor no-changes-on-failure contract.", dppId);
-                await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
+                bool elementArchiveRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
                 if (!await PersistNodesetValuesAsync(userId, dppId).ConfigureAwait(false))
                 {
                     _logger.LogError("UpdateDataElement: rollback persist also failed for DPP {DppId}; update is now durable but archive is missing and client sees failure.", dppId);
+
+                    // The reverted values never reached storage, so the durable state still carries
+                    // the update the client is being told failed.
+                    elementArchiveRolledBack = false;
                 }
-                return (UpdateDppResult.WriteFailed, "Update could not be completed; previous version could not be archived.", null);
+
+                return (elementArchiveRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
+                    "Update could not be completed; previous version could not be archived.", null);
             }
 
             // Re-read the updated element to return it in the response. We rebuild the lookup path
@@ -814,7 +1405,7 @@ namespace Opc.Ua.Cloud.Library
                     return ($"Each entry under '{pathPrefix}' must carry a non-empty string 'elementId'.", null);
                 }
 
-                NodesetViewerNode match = liveChildren.FirstOrDefault(c => c.Text == elementId);
+                NodesetViewerNode match = liveChildren.FirstOrDefault(c => MatchesElementId(c, elementId));
                 if (match == null)
                 {
                     return ($"Element '{pathPrefix}.{elementId}' was not found on the DPP.", null);
@@ -904,11 +1495,23 @@ namespace Opc.Ua.Cloud.Library
         // from here is to surface as much diagnostic context as possible: at this point the
         // original UpdateDppById call is already returning WriteFailed and the live DPP may
         // still hold some of the in-flight values - logging lets operators reconcile manually.
-        private async Task TryRollbackWritesAsync(
+        /// <summary>
+        /// Attempts to restore the original values of writes already applied, returning true only
+        /// when every one was restored.
+        /// </summary>
+        /// <remarks>
+        /// The return value matters for auditing: a failed write whose rollback succeeded left the
+        /// DPP unchanged, whereas one whose rollback failed left it partially mutated. Those are
+        /// materially different outcomes for an operator, so the caller records them differently
+        /// rather than reporting both as a plain failure.
+        /// </remarks>
+        private async Task<bool> TryRollbackWritesAsync(
             string userId,
             string dppId,
             List<(string NodeId, string OriginalValue, string FieldPath)> appliedWrites)
         {
+            bool allRestored = true;
+
             for (int i = appliedWrites.Count - 1; i >= 0; i--)
             {
                 var (nodeId, originalValue, fieldPath) = appliedWrites[i];
@@ -917,6 +1520,7 @@ namespace Opc.Ua.Cloud.Library
                     bool restored = await _client.VariableWrite(userId, dppId, nodeId, originalValue ?? string.Empty).ConfigureAwait(false);
                     if (!restored)
                     {
+                        allRestored = false;
                         _logger.LogError(
                             "UpdateDppById: rollback failed for DPP {DppId}, field '{Field}'. Live value may be inconsistent with the original snapshot.",
                             dppId,
@@ -925,6 +1529,7 @@ namespace Opc.Ua.Cloud.Library
                 }
                 catch (Exception ex)
                 {
+                    allRestored = false;
                     _logger.LogError(
                         ex,
                         "UpdateDppById: rollback threw for DPP {DppId}, field '{Field}'. Live value may be inconsistent with the original snapshot.",
@@ -932,6 +1537,8 @@ namespace Opc.Ua.Cloud.Library
                         fieldPath);
                 }
             }
+
+            return allRestored;
         }
 
         // Writes a fresh UTC timestamp to the DPP's "LastUpdate" variable so version retrieval and
@@ -1017,8 +1624,11 @@ namespace Opc.Ua.Cloud.Library
                 }
 
                 string updatedXml = AdvancePublicationDate(file.Blob);
-                string serialized = JsonConvert.SerializeObject(values);
-                string stored = await _storage.UploadFileAsync(nodesetIdentifier, updatedXml, serialized).ConfigureAwait(false);
+                string serialized = JsonSerializer.Serialize(values, s_valuesJsonOptions);
+                // Re-attach the per-DPP controlledElements mapping: a browse only returns node values,
+                // so without this the access mapping carried in the values blob would be lost on update.
+                string merged = DppControlledElements.Merge(serialized, file.Values);
+                string stored = await _storage.UploadFileAsync(nodesetIdentifier, updatedXml, merged).ConfigureAwait(false);
                 return !string.IsNullOrEmpty(stored);
             }
             catch (Exception ex)
@@ -1069,6 +1679,24 @@ namespace Opc.Ua.Cloud.Library
         // Browses the OPC UA address space to construct a DPP for the given nodeset identifier.
         private async Task<DigitalProductPassport> BrowseDppFromRootAsync(string userId, string nodesetIdentifier)
         {
+            // Authorization chokepoint for every DPP read path (direct id, product id, and versions).
+            // The browse below ultimately loads the nodeset blob via DbFileStorage.DownloadFileAsync,
+            // which applies no publication/ownership filter of its own, so an unguarded browse would
+            // let anyone who guesses an identifier read an unpublished or privately-owned DPP.
+            if (!await IsNodesetAccessibleAsync(userId, nodesetIdentifier).ConfigureAwait(false))
+            {
+                // Deliberately indistinguishable from "not found" so the endpoint does not confirm the
+                // existence of unpublished identifiers to unauthorized callers.
+                if (_logger.IsEnabled(LogLevel.Information))
+                {
+                    _logger.LogInformation(
+                        "Denied DPP browse of nodeset {NodesetIdentifier}: not published and not owned by the caller.",
+                        nodesetIdentifier);
+                }
+
+                return null;
+            }
+
             List<NodesetViewerNode> nodeList = await _client.GetChildren(userId, nodesetIdentifier, ObjectIds.ObjectsFolder.ToString()).ConfigureAwait(false);
             if (nodeList == null)
             {
@@ -1237,7 +1865,7 @@ namespace Opc.Ua.Cloud.Library
                 if (grandChildren.Count > 0)
                 {
                     output.Add(new DataElementCollection {
-                        ElementId = childNode.Text,
+                        ElementId = BuildElementId(childNode.Id),
                         Elements = grandChildren
                     });
                 }
@@ -1245,13 +1873,45 @@ namespace Opc.Ua.Cloud.Library
                 {
                     string value = await _client.VariableRead(userId, nodesetIdentifier, childNode.Id).ConfigureAwait(false);
                     output.Add(new SingleValuedDataElement {
-                        ElementId = childNode.Text,
+                        ElementId = BuildElementId(childNode.Id),
                         Value = ParseLeafValue(value)
                     });
                 }
             }
 
             return output;
+        }
+
+        /// <summary>
+        /// True when <paramref name="node"/> is addressed by <paramref name="elementId"/>.
+        /// </summary>
+        /// <remarks>
+        /// Reads emit <see cref="BuildElementId"/> hashes, so writes must match on the same value or
+        /// an id obtained from a read could be read back but never updated. The node's raw
+        /// <c>Text</c> (its BrowseName) is still accepted so paths written against the earlier
+        /// behaviour keep working; it is only a fallback, because BrowseNames can collide across
+        /// namespaces whereas the hashed id cannot.
+        /// </remarks>
+        private static bool MatchesElementId(NodesetViewerNode node, string elementId)
+        {
+            if (node is null || string.IsNullOrEmpty(elementId))
+            {
+                return false;
+            }
+
+            return string.Equals(BuildElementId(node.Id), elementId, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(node.Text, elementId, StringComparison.Ordinal);
+        }
+
+        // Produces a stable, globally-unique element id (as a GUID string) for a DPP data element from
+        // the node's ExpandedNodeId. The ExpandedNodeId embeds the namespace URI plus the node
+        // identifier, so the id is unique even when BrowseNames/DisplayNames collide across namespaces,
+        // and is deterministic across reads (unlike a random GUID) so element addressing and the
+        // per-DPP access mapping stay stable.
+        private static string BuildElementId(string expandedNodeId)
+        {
+            byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(expandedNodeId ?? string.Empty));
+            return new Guid(hash.AsSpan(0, 16)).ToString();
         }
 
         // Leaf variables are persisted as strings by the OPC UA layer, but writes accept typed JSON
