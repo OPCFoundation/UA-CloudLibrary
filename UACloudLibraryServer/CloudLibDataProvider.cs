@@ -410,7 +410,21 @@ namespace Opc.Ua.Cloud.Library
                 }
             }
 
-            await IndexNodeSetModelAsync(nodeSet, uaNamespace).ConfigureAwait(false);
+            // Indexing runs after both the blob and the metadata are committed, and it can throw -
+            // an empty model list, a missing metadata row, or a failure saving the node models.
+            // Letting that escape would bypass the partially-applied result entirely: the caller
+            // would see an unshaped exception, neither upload controller would reach its
+            // PartialFailure branch, and the write-ahead Attempted entry would be left unmatched
+            // with no indication that storage had in fact changed.
+            try
+            {
+                await IndexNodeSetModelAsync(nodeSet, uaNamespace).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to index nodeset {Identifier} after it was stored.", uaNamespace?.Nodeset?.Identifier);
+                return UploadResult.FailedAfterStorageWrite($"Nodeset was stored but could not be indexed: {ex.Message}");
+            }
 
             return UploadResult.Success();
         }

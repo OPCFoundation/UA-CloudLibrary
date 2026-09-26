@@ -456,7 +456,7 @@
 
         if ((ModalTitle == "Copy") && save)
         {
-            CopyStatus = await _client.CopyNodeset(UserName, NodesetIdentifier, ModalValue).ConfigureAwait(false);
+            CopyStatus = (await _client.CopyNodeset(UserName, NodesetIdentifier, ModalValue).ConfigureAwait(false)).Message;
         }
 
         await InvokeAsync(StateHasChanged).ConfigureAwait(false);

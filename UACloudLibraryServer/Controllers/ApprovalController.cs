@@ -40,17 +40,24 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace Opc.Ua.Cloud.Library.Controllers
 {
     [Authorize(Policy = "ApiPolicy")]
+    [ServiceFilter(typeof(DppAuditFailureFilter))]
     [ApiController]
     public class ApprovalController : Controller
     {
         private readonly UAClient _client;
+        private readonly IDppAuditLog _auditLog;
         private readonly ILogger _logger;
 
-        public ApprovalController(UAClient client, ILoggerFactory logger)
+        public ApprovalController(UAClient client, IDppAuditLog auditLog, ILoggerFactory logger)
         {
             _client = client;
+            _auditLog = auditLog;
             _logger = logger.CreateLogger("ApprovalController");
         }
+
+        // The administrator performing the approval; bound to the audit entry so the created copy is
+        // attributable like every other DPP create.
+        private string OperatorId => User?.Identity?.Name ?? "anonymous";
 
 
         [HttpPut]
@@ -63,12 +70,40 @@ namespace Opc.Ua.Cloud.Library.Controllers
             [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier,
             [FromQuery][Required][SwaggerParameter("(Name of the approved namespace)")] string name)
         {
-            if (await _client.CopyNodeset(User.Identity.Name, identifier, name).ConfigureAwait(false) != null)
+            // An approval copies a nodeset, which may carry a DPP, so it is a DPP create and is
+            // audited like every other one. Write the intent first: the copy touches the blob store
+            // and the database, which share no transaction, so an "Attempted" entry with no matching
+            // outcome is the signal that a copy may have landed without being fully logged.
+            string operationId = DppAuditOperationId.New();
+            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Create, identifier, $"approve as {name}", "Attempted", operationId).ConfigureAwait(false);
+
+            UploadResult result = await _client.CopyNodeset(User.Identity.Name, identifier, name).ConfigureAwait(false);
+
+            if (result.Succeeded)
             {
+                // The copy is durable, so a failure to record this outcome must not be reported as a
+                // retryable refusal.
+                await _auditLog.RecordCommittedOutcomeAsync(OperatorId, DppAuditOperation.Create, identifier, $"approve as {name}", "Success", operationId).ConfigureAwait(false);
                 return new ObjectResult("Approval successful") { StatusCode = (int)HttpStatusCode.OK };
             }
-            _logger.LogError($"Approval failed: {identifier} not found.");
-            return NotFound();
+
+            if (result.PartiallyApplied)
+            {
+                // The nodeset was stored but the operation did not complete, so the approval left
+                // durable changes behind and must not be presented as a clean failure.
+                await _auditLog.RecordCommittedOutcomeAsync(OperatorId, DppAuditOperation.Create, identifier, $"approve as {name}", "PartialFailure", operationId).ConfigureAwait(false);
+                _logger.LogError("Approval of {Identifier} partly applied: {Message}", identifier, result.Message);
+
+                return new ObjectResult(result.Message) { StatusCode = (int)HttpStatusCode.InternalServerError };
+            }
+
+            // Nothing was written. Previously this branch was unreachable: CopyNodeset returned a
+            // message string and never null, so the null check reported "Approval successful" for
+            // every failure, including a missing nodeset.
+            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Create, identifier, $"approve as {name}", "Failed", operationId).ConfigureAwait(false);
+            _logger.LogError("Approval failed for {Identifier}: {Message}", identifier, result.Message);
+
+            return new ObjectResult(result.Message) { StatusCode = (int)HttpStatusCode.NotFound };
         }
     }
 }

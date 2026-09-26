@@ -182,7 +182,9 @@ Reads and changes to DPP data are recorded in an append-only, hash-chained audit
 
 > **A failed audit append is reported differently depending on whether anything changed.** If nothing was applied, you get a retryable `503` and repeating the request is correct. If the change already committed and only its completion record failed, you get a `500` stating the change was applied and must **not** be retried &mdash; retrying would apply it twice.
 
-> **A partly-applied upload is recorded as such.** An upload writes the nodeset before its metadata, so it can fail with the nodeset already stored. That outcome is recorded as `PartialFailure` rather than `Failed`, and treated as a committed change: the response still reports the error, but the audit trail shows storage was touched, and a failure of that audit write is not presented as a safe retry. Re-uploading after a `PartialFailure` is the normal recovery &mdash; use the overwrite flag, since the nodeset may already be present.
+> **A partly-applied upload is recorded as such.** An upload writes the nodeset, then its metadata, then indexes it, so it can fail with the nodeset already stored. That outcome is recorded as `PartialFailure` rather than `Failed`, and treated as a committed change: the response still reports the error, but the audit trail shows storage was touched, and a failure of that audit write is not presented as a safe retry. Re-uploading after a `PartialFailure` is the normal recovery &mdash; use the overwrite flag, since the nodeset may already be present.
+>
+> The same applies to **approving** a nodeset, which copies it and can therefore create a passport: approvals write the same intent and outcome records as a direct upload, and an approval that cannot be audited is refused rather than completed silently.
 
 > **Durability limitation.** A change touches several stores that share no transaction, so each change writes an intent record before it and a closing record after it. Every known outcome writes a closing record, which means an unmatched intent record specifically indicates the outcome is *unknown* &mdash; the process died mid-operation, or the closing write itself failed &mdash; rather than that the request was merely refused. This makes the gap **detectable**, not impossible; true atomicity would require a transactional outbox, which is not implemented.
 
@@ -314,7 +316,7 @@ A double underscore (`__`) in an environment variable key creates a nested confi
 
 | Setting | Description |
 |---|---|
-| `Dpp__RateLimit__PermitPerMinute` | Requests permitted per minute per client IP on the DPP endpoints. (default: `100`) |
+| `Dpp__RateLimit__PermitPerMinute` | Requests permitted per minute per client IP on the DPP endpoints. Must be greater than zero; the server refuses to start otherwise. (default: `100`) |
 | `Dpp__ForwardedHeaders__KnownProxies__0`, `__1`, ... | IP addresses of trusted reverse proxies whose `X-Forwarded-For`/`X-Forwarded-Proto` headers should be honoured. |
 | `Dpp__ForwardedHeaders__KnownNetworks__0`, `__1`, ... | Trusted proxy networks in CIDR form (e.g. `10.0.0.0/8`). |
 | `Dpp__ForwardedHeaders__TrustAllProxies` | Set to `true` **only** when the server is network-isolated behind a proxy and cannot be reached directly. (default: `false`) |

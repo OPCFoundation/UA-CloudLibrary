@@ -456,6 +456,18 @@ namespace Opc.Ua.Cloud.Library
             // Limit access to DPP services to prevent attacks or unauthorized
             // mass data scraping. Partition the window per client IP so one caller cannot exhaust others.
             int permitPerMinute = Configuration.GetValue<int?>("Dpp:RateLimit:PermitPerMinute") ?? 100;
+
+            // Validated here rather than left to the limiter. The partition factory is lazy, so an
+            // invalid value would not surface until the first DPP request and would then throw on a
+            // user request instead of failing the deployment - a configuration typo presenting as a
+            // runtime fault. FixedWindowRateLimiter requires a positive permit limit.
+            if (permitPerMinute <= 0)
+            {
+                throw new InvalidOperationException(
+                    $"Dpp:RateLimit:PermitPerMinute is {permitPerMinute}, but it must be greater than zero. " +
+                    "Remove the setting to use the default of 100 requests per minute per client IP.");
+            }
+
             services.AddRateLimiter(options => {
                 options.RejectionStatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status429TooManyRequests;
                 options.AddPolicy(DppRateLimitPolicy, httpContext =>
