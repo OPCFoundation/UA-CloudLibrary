@@ -68,10 +68,9 @@ namespace UACloudLibraryServer.UnitTests
         [Fact]
         public void EveryPostMutationOutcome_UsesTheCommittedHelper()
         {
-            string controllers = ControllersDirectory();
             var offenders = new List<string>();
 
-            foreach (string file in Directory.EnumerateFiles(controllers, "*.cs"))
+            foreach (string file in AuditingSourceFiles())
             {
                 string source = File.ReadAllText(file);
 
@@ -113,14 +112,14 @@ namespace UACloudLibraryServer.UnitTests
         /// <remarks>
         /// Whole invocations rather than single lines. An earlier version matched the call and its
         /// outcome argument on the same physical line, so a multiline call - of which several exist
-        /// in these controllers - could be switched from <c>RecordCommittedOutcomeAsync</c> to
+        /// in the scanned sources - could be switched from <c>RecordCommittedOutcomeAsync</c> to
         /// <c>RecordAsync</c> while its <c>"PartialFailure"</c> argument sat on a later line, and the
         /// scan would never inspect the two together. The invariant was effectively unenforced for
         /// exactly the calls most likely to carry it.
         /// <para>
         /// Parenthesis balancing rather than a real parse: it is string- and comment-aware, which is
-        /// sufficient for a guard over first-party controller source and avoids taking a Roslyn
-        /// dependency in this test project.
+        /// sufficient for a guard over first-party source and avoids taking a Roslyn dependency in
+        /// this test project.
         /// </para>
         /// </remarks>
         private static IEnumerable<AuditInvocation> FindAuditInvocations(string source)
@@ -270,6 +269,34 @@ namespace UACloudLibraryServer.UnitTests
             string controllers = Path.Combine(dir.FullName, "UACloudLibraryServer", "Controllers");
             Assert.True(Directory.Exists(controllers), $"Controllers directory not found at '{controllers}'.");
             return controllers;
+        }
+
+        /// <summary>
+        /// Every first-party source file that may append audit entries: the controllers and the
+        /// Blazor components.
+        /// </summary>
+        /// <remarks>
+        /// The components are included because scoping this scan to <c>Controllers/*.cs</c> is what
+        /// let an unaudited nodeset copy sit in <c>TreePage.razor</c> unnoticed - the same blind spot
+        /// that made a <c>.cs</c>-only search miss that caller in the first place. Any file that can
+        /// reach <c>IDppAuditLog</c> has to be in scope, or the guard only protects the places
+        /// someone already remembered to look.
+        /// </remarks>
+        private static IEnumerable<string> AuditingSourceFiles()
+        {
+            string controllers = ControllersDirectory();
+            foreach (string file in Directory.EnumerateFiles(controllers, "*.cs"))
+            {
+                yield return file;
+            }
+
+            string components = Path.Combine(Directory.GetParent(controllers).FullName, "Components");
+            Assert.True(Directory.Exists(components), $"Components directory not found at '{components}'.");
+
+            foreach (string file in Directory.EnumerateFiles(components, "*.razor", SearchOption.AllDirectories))
+            {
+                yield return file;
+            }
         }
     }
 }
