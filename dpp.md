@@ -170,7 +170,15 @@ Reads and changes to DPP data are recorded in an append-only, hash-chained audit
 >
 > Even with a key, this does not defend against an attacker holding **both** the key and database write access, and it does not prove *when* an entry was written. Deployments needing evidence against a compromised database operator should additionally anchor the log in an external append-only store (a WORM bucket, a transparency log, or periodic off-host export). That is not provided here.
 
-> **Verification has to be invoked to be worth anything.** Hash-chaining makes tampering detectable, but nothing detects it unless the chain is actually re-walked. `GET /health/dpp-audit` re-verifies the log and reports `Unhealthy` when it has been altered or truncated, so tampering surfaces through whatever already monitors the service. It requires administrator rights and reads every audit row, so point a readiness or monitoring schedule at it rather than a liveness probe.
+> **Verification has to be invoked to be worth anything.** Hash-chaining makes tampering detectable, but nothing detects it unless the chain is actually re-walked. `GET /health/dpp-audit` re-verifies the log and reports `Unhealthy` whenever it cannot be vouched for, so a problem surfaces through whatever already monitors the service. It requires administrator rights and reads every audit row, so point a readiness or monitoring schedule at it rather than a liveness probe.
+>
+> The status alone does not tell you which problem you have &mdash; read the description, which distinguishes three cases:
+>
+> * **Altered or truncated.** The chain does not match itself or the checkpoint. This is a tampering signal.
+> * **Not authenticated.** The checkpoint predates the configured audit key and the migration has not been enabled. Just as likely an un-migrated deployment as an attack, so it is reported as a migration rather than an intrusion &mdash; see [rotating the audit key](#rotating-the-audit-key).
+> * **Could not be verified.** An entry was signed with a key that is no longer configured, so its integrity is unknown rather than disproven. Restore the retired key to resolve it.
+>
+> The separation is deliberate: reporting an ordinary key rotation or a pending migration as tampering is a false alarm on a security control, and an alert that cries wolf gets muted &mdash; which costs you the real signal.
 
 > **A failed audit append is reported differently depending on whether anything changed.** If nothing was applied, you get a retryable `503` and repeating the request is correct. If the change already committed and only its completion record failed, you get a `500` stating the change was applied and must **not** be retried &mdash; retrying would apply it twice.
 

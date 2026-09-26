@@ -30,16 +30,24 @@ namespace Opc.Ua.Cloud.Library
         Task RecordAsync(string operatorId, DppAuditOperation operation, string dppId, string elementPath, string outcome, string operationId = null);
 
         /// <summary>
-        /// Recomputes the hash chain and returns true when every entry's hash matches its content and
-        /// predecessor, and the chain still matches the persisted checkpoint, i.e. no entry was
-        /// inserted, removed (including from the end) or altered.
+        /// Recomputes the hash chain and reports whether every entry matches its content and
+        /// predecessor, and whether the chain still matches the persisted checkpoint.
         /// </summary>
+        /// <remarks>
+        /// Returns <see cref="DppAuditVerificationOutcome.Tampered"/> only for an actual mismatch.
+        /// A chain that is well-formed but cannot be authenticated because its checkpoint predates
+        /// the configured key is reported as
+        /// <see cref="DppAuditVerificationOutcome.MigrationRequired"/>, so a documented migration
+        /// state is not announced as an intrusion. Entries whose signing key is no longer configured
+        /// are neither: they raise <see cref="DppAuditException"/>, because their integrity is
+        /// unknown rather than disproven.
+        /// </remarks>
         /// <param name="cancellationToken">
         /// Cancels the verification. This reads the entire append-only audit table, so a caller that
         /// has given up (a timed-out health probe, a disconnected client) must be able to stop the
         /// scan; otherwise repeated probes accumulate increasingly expensive abandoned reads as the
         /// table grows.
         /// </param>
-        Task<bool> VerifyChainAsync(CancellationToken cancellationToken = default);
+        Task<DppAuditVerificationOutcome> VerifyChainAsync(CancellationToken cancellationToken = default);
     }
 }

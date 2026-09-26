@@ -37,8 +37,8 @@ namespace UACloudLibraryServer.UnitTests
             public Task RecordAsync(string operatorId, DppAuditOperation operation, string dppId, string elementPath, string outcome, string operationId = null) =>
                 throw new DppAuditException("append failed");
 
-            public Task<bool> VerifyChainAsync(System.Threading.CancellationToken cancellationToken = default) =>
-                Task.FromResult(true);
+            public Task<DppAuditVerificationOutcome> VerifyChainAsync(System.Threading.CancellationToken cancellationToken = default) =>
+                Task.FromResult(DppAuditVerificationOutcome.Verified);
         }
 
         [Fact]

@@ -49,17 +49,34 @@ namespace Opc.Ua.Cloud.Library
                 // Forward the probe's token: this reads the entire audit table, so a timed-out or
                 // disconnected probe must actually stop the scan rather than leaving it running.
                 // Otherwise repeated probes stack up abandoned full-table reads as the log grows.
-                bool intact = await _auditLog.VerifyChainAsync(cancellationToken).ConfigureAwait(false);
-                if (intact)
-                {
-                    return HealthCheckResult.Healthy("DPP audit chain verified.");
-                }
+                DppAuditVerificationOutcome outcome = await _auditLog.VerifyChainAsync(cancellationToken).ConfigureAwait(false);
 
-                // Deliberately Unhealthy rather than Degraded: a chain that does not verify means the
-                // non-repudiation guarantee the log exists to provide is already void, and the
-                // specific entry at fault is reported by DppAuditLog itself.
-                _logger.LogCritical("DPP audit chain verification FAILED: entries were altered, inserted or removed.");
-                return HealthCheckResult.Unhealthy("DPP audit chain verification failed; the log has been altered or truncated.");
+                switch (outcome)
+                {
+                    case DppAuditVerificationOutcome.Verified:
+                        return HealthCheckResult.Healthy("DPP audit chain verified.");
+
+                    case DppAuditVerificationOutcome.MigrationRequired:
+                        // Unhealthy, because the chain is not authenticated and appends are refused -
+                        // but described as a migration rather than an intrusion. The data cannot tell
+                        // this apart from a downgrade, so the message names both possibilities and
+                        // points at the setting that resolves the legitimate one. Asserting tampering
+                        // here would produce the same false alarm the unverifiable-entry path below
+                        // is careful to avoid.
+                        _logger.LogCritical(
+                            "DPP audit chain is not authenticated: the checkpoint predates the configured audit key. Complete the documented migration, or treat this as a downgrade if the log was expected to be keyed already.");
+                        return HealthCheckResult.Unhealthy(
+                            "DPP audit chain is not authenticated: the checkpoint is unkeyed while keyed auditing is enabled. " +
+                            "This is either an un-migrated log, which the checkpoint-migration setting resolves, or a downgrade to bypass verification.");
+
+                    case DppAuditVerificationOutcome.Tampered:
+                    default:
+                        // Deliberately Unhealthy rather than Degraded: a chain that does not verify
+                        // means the non-repudiation guarantee the log exists to provide is already
+                        // void, and the specific entry at fault is reported by DppAuditLog itself.
+                        _logger.LogCritical("DPP audit chain verification FAILED: entries were altered, inserted or removed.");
+                        return HealthCheckResult.Unhealthy("DPP audit chain verification failed; the log has been altered or truncated.");
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

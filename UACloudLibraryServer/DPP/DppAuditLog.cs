@@ -373,11 +373,19 @@ namespace Opc.Ua.Cloud.Library
         }
 
         /// <summary>
-        /// Recomputes the hash chain and compares it against the persisted checkpoint. Returns false
-        /// when any entry was altered or inserted, and also when entries were removed from the end -
-        /// a case the chain alone cannot reveal, since a truncated log is still a valid prefix.
+        /// Recomputes the hash chain and compares it against the persisted checkpoint. Reports
+        /// <see cref="DppAuditVerificationOutcome.Tampered"/> when any entry was altered or inserted,
+        /// and also when entries were removed from the end - a case the chain alone cannot reveal,
+        /// since a truncated log is still a valid prefix.
         /// </summary>
-        public async Task<bool> VerifyChainAsync(CancellationToken cancellationToken = default)
+        /// <remarks>
+        /// An unkeyed checkpoint under keyed auditing is reported as
+        /// <see cref="DppAuditVerificationOutcome.MigrationRequired"/> rather than as tampering. The
+        /// two are indistinguishable in the data, which is why acceptance requires an explicit
+        /// operator decision - but announcing a documented migration state as an intrusion is the
+        /// false alarm this method is otherwise careful to avoid.
+        /// </remarks>
+        public async Task<DppAuditVerificationOutcome> VerifyChainAsync(CancellationToken cancellationToken = default)
         {
             // AppDbContext enables EnableRetryOnFailure, and NpgsqlRetryingExecutionStrategy rejects
             // user-initiated transactions, so the snapshot below has to be opened by the strategy.
@@ -388,7 +396,7 @@ namespace Opc.Ua.Cloud.Library
                 (token) => VerifyChainInSnapshotAsync(token)).ConfigureAwait(false);
         }
 
-        private async Task<bool> VerifyChainInSnapshotAsync(CancellationToken cancellationToken)
+        private async Task<DppAuditVerificationOutcome> VerifyChainInSnapshotAsync(CancellationToken cancellationToken)
         {
             // The entries and the checkpoint must come from the same snapshot. Read separately under
             // the default read-committed isolation, an append committing between the two queries would
@@ -431,7 +439,7 @@ namespace Opc.Ua.Cloud.Library
 
                 if (entry.PreviousHash != previousHash || entry.EntryHash != ComputeHash(entry, previousHash, lookup.Key))
                 {
-                    return false;
+                    return DppAuditVerificationOutcome.Tampered;
                 }
 
                 previousHash = entry.EntryHash;
@@ -447,11 +455,11 @@ namespace Opc.Ua.Cloud.Library
                 // No checkpoint yet: only an empty log is consistent with never having appended.
                 if (entries.Count == 0)
                 {
-                    return true;
+                    return DppAuditVerificationOutcome.Verified;
                 }
 
                 _logger.LogError("DPP audit checkpoint is missing while {Count} entries exist; cannot rule out truncation.", entries.Count);
-                return false;
+                return DppAuditVerificationOutcome.Tampered;
             }
 
             if (checkpoint.EntryCount != entries.Count)
@@ -460,14 +468,14 @@ namespace Opc.Ua.Cloud.Library
                     "DPP audit log length mismatch: checkpoint expects {Expected} entries but {Actual} are present.",
                     checkpoint.EntryCount,
                     entries.Count);
-                return false;
+                return DppAuditVerificationOutcome.Tampered;
             }
 
             string expectedTail = entries.Count == 0 ? GenesisHash : entries[^1].EntryHash;
             if (!string.Equals(checkpoint.TailHash, expectedTail, StringComparison.Ordinal))
             {
                 _logger.LogError("DPP audit log tail hash does not match the checkpoint; the most recent entries may have been replaced.");
-                return false;
+                return DppAuditVerificationOutcome.Tampered;
             }
 
             // The two checks above only prove the log agrees with the checkpoint. They do not prove
@@ -510,7 +518,11 @@ namespace Opc.Ua.Cloud.Library
                             AllowUnkeyedCheckpointMigrationPath);
                     }
 
-                    return false;
+                    // Reported as MigrationRequired rather than Tampered. The log still fails
+                    // verification and appends are still refused, but the two states are genuinely
+                    // indistinguishable here, so claiming tampering would raise an intrusion alert
+                    // for what is just as likely an un-migrated deployment.
+                    return DppAuditVerificationOutcome.MigrationRequired;
                 }
 
                 if (_logger.IsEnabled(LogLevel.Warning))
@@ -520,7 +532,7 @@ namespace Opc.Ua.Cloud.Library
                         AllowUnkeyedCheckpointMigrationPath);
                 }
 
-                return true;
+                return DppAuditVerificationOutcome.Verified;
             }
 
             if (checkpointKey.Key is not null)
@@ -532,11 +544,11 @@ namespace Opc.Ua.Cloud.Library
                         Encoding.UTF8.GetBytes(expectedMac)))
                 {
                     _logger.LogError("DPP audit checkpoint MAC does not verify; the checkpoint has been altered or rolled back.");
-                    return false;
+                    return DppAuditVerificationOutcome.Tampered;
                 }
             }
 
-            return true;
+            return DppAuditVerificationOutcome.Verified;
         }
 
         /// <summary>
