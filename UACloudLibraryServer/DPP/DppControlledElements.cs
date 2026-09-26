@@ -77,6 +77,15 @@ namespace Opc.Ua.Cloud.Library
         }
 
         /// <summary>
+        /// A mapping that could not be loaded at all, e.g. because the storage holding it was
+        /// unreachable. Reported as <see cref="MappingState.Invalid"/> so callers deny access:
+        /// an unavailable policy source says nothing about which elements are controlled, and is
+        /// emphatically not evidence that none are.
+        /// </summary>
+        public static MappingResult Unavailable() =>
+            new(MappingState.Invalid, new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase));
+
+        /// <summary>
         /// Parses the <c>controlledElements</c> object out of a DPP values JSON string into a
         /// case-insensitive map of element path to its permitted roles, reporting whether the mapping
         /// was absent, valid, or malformed. Each entry's value may be a single role string or an array

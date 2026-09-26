@@ -193,7 +193,7 @@ namespace UANodesetWebViewer.Controllers
 
                 // The attempt is keyed by namespace URI and the outcome by the assigned identifier, so
                 // the two rows do not share a DppId; correlate them explicitly.
-                string operationId = IDppAuditLog.NewOperationId();
+                string operationId = DppAuditOperationId.New();
 
                 await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Attempted", operationId).ConfigureAwait(false);
 

@@ -98,7 +98,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             // audit append cannot join. Recording the intent first means a failed append refuses the
             // request before anything changes, and an "Attempted" entry with no matching outcome
             // flags a change that completed without being logged. See DPPLifecycleApiController.
-            string operationId = IDppAuditLog.NewOperationId();
+            string operationId = DppAuditOperationId.New();
             await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Create, "access-rights", $"role={roleName}", "Attempted", operationId).ConfigureAwait(false);
 
             IdentityResult result = await roleManager.CreateAsync(new IdentityRole { Name = roleName }).ConfigureAwait(false);
@@ -144,7 +144,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             }
 
             // Write-ahead audit intent; see AddRoleAsync.
-            string deleteOperationId = IDppAuditLog.NewOperationId();
+            string deleteOperationId = DppAuditOperationId.New();
             await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"role={roleName}", "Attempted", deleteOperationId).ConfigureAwait(false);
 
             // Deleting the role drops the AspNetUserRoles links for every member, but their existing
@@ -202,7 +202,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return NotFound();
             }
             // Write-ahead audit intent; see AddRoleAsync.
-            string grantOperationId = IDppAuditLog.NewOperationId();
+            string grantOperationId = DppAuditOperationId.New();
             await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, "access-rights", $"grant role={roleName} to user={userId}", "Attempted", grantOperationId).ConfigureAwait(false);
 
             IdentityResult result = await userManager.AddToRoleAsync(user, roleName).ConfigureAwait(false);
@@ -255,7 +255,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 // Write-ahead audit intent BEFORE entering the retriable delegate. The execution
                 // strategy may replay that delegate, and the audit log commits on its own context, so
                 // writing this inside would duplicate the entry once per attempt.
-                string revokeOperationId = IDppAuditLog.NewOperationId();
+                string revokeOperationId = DppAuditOperationId.New();
                 await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Attempted", revokeOperationId).ConfigureAwait(false);
 
                 // AppDbContext enables EnableRetryOnFailure, and NpgsqlRetryingExecutionStrategy
@@ -356,7 +356,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             // Write-ahead audit intent; see AddRoleAsync. This matters most on the revocation path:
             // an emergency revocation that completed without a record would be indistinguishable
             // from one that never happened.
-            string ordinaryRevokeOperationId = IDppAuditLog.NewOperationId();
+            string ordinaryRevokeOperationId = DppAuditOperationId.New();
             await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Attempted", ordinaryRevokeOperationId).ConfigureAwait(false);
 
             IdentityResult result = await userManager.RemoveFromRoleAsync(user, roleName).ConfigureAwait(false);

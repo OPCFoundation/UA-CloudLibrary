@@ -43,9 +43,30 @@ namespace Opc.Ua.Cloud.Library
         /// Callers must fail closed on <see cref="DppControlledElements.MappingState.Invalid"/>: an
         /// unreadable policy is a failure to determine access, not proof that access is unrestricted.
         /// </summary>
+        /// <remarks>
+        /// A storage fault is reported as <see cref="DppControlledElements.MappingState.Invalid"/>
+        /// rather than as an absent mapping. These reads are anonymous, and "the policy source was
+        /// unreachable" is indistinguishable in shape from "this DPP controls nothing" - but only the
+        /// second one means the data is public. Treating an outage as the latter would publish every
+        /// controlled element of a protected passport for as long as the database was degraded.
+        /// </remarks>
         public async Task<DppControlledElements.MappingResult> GetControlledElementsAsync(string dppId)
         {
-            DbFiles file = await _storage.DownloadFileAsync(dppId).ConfigureAwait(false);
+            DbFiles file;
+            try
+            {
+                file = await _storage.DownloadFileAsync(dppId).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Could not load the controlled-elements mapping for DPP {DppId}; denying access to all elements because the policy is unknown, not absent.",
+                    dppId);
+
+                return DppControlledElements.Unavailable();
+            }
+
             DppControlledElements.MappingResult mapping = DppControlledElements.Read(file?.Values);
             if (mapping.IsInvalid)
             {
@@ -349,9 +370,10 @@ namespace Opc.Ua.Cloud.Library
             };
         }
 
-        // Recursively drops elements the caller may not read; descends into collections, tracking each
-        // element's dotted path so access is keyed by element address (not dictionaryReference). Returns
-        // the original list reference unchanged when nothing was pruned.
+        // Recursively drops elements the caller may not read; descends into every element container
+        // (see ChildElementsOf), tracking each element's dotted path so access is keyed by element
+        // address (not dictionaryReference). Returns the original list reference unchanged when
+        // nothing was pruned.
         private List<DataElement> FilterElements(List<DataElement> elements, string[] roles, IReadOnlyDictionary<string, string[]> controlled, string parentPath)
         {
             if (elements is null || elements.Count == 0)
@@ -372,21 +394,59 @@ namespace Opc.Ua.Cloud.Library
                     continue;
                 }
 
-                if (element is DataElementCollection coll)
+                DataElement pruned = FilterContainer(element, roles, controlled, path);
+                if (!ReferenceEquals(pruned, element))
                 {
-                    List<DataElement> childFiltered = FilterElements(coll.Elements, roles, controlled, path);
-                    if (!ReferenceEquals(childFiltered, coll.Elements))
-                    {
-                        changed = true;
-                        result.Add(new DataElementCollection { ElementId = coll.ElementId, DictionaryReference = coll.DictionaryReference, Elements = childFiltered });
-                        continue;
-                    }
+                    changed = true;
                 }
 
-                result.Add(element);
+                result.Add(pruned);
             }
 
             return changed ? result : elements;
+        }
+
+        /// <summary>
+        /// Filters the children of a container element, returning a clone when anything was pruned
+        /// and the original instance otherwise. Leaves are returned unchanged.
+        /// </summary>
+        /// <remarks>
+        /// Cloning rather than mutating matters: these instances come from the cached/browsed DPP,
+        /// so pruning in place would let one caller's role filtering leak into what the next caller
+        /// sees.
+        /// </remarks>
+        private DataElement FilterContainer(DataElement element, string[] roles, IReadOnlyDictionary<string, string[]> controlled, string path)
+        {
+            switch (element)
+            {
+                case DataElementCollection coll:
+                {
+                    List<DataElement> childFiltered = FilterElements(coll.Elements, roles, controlled, path);
+                    return ReferenceEquals(childFiltered, coll.Elements)
+                        ? element
+                        : new DataElementCollection {
+                            ElementId = coll.ElementId,
+                            DictionaryReference = coll.DictionaryReference,
+                            Elements = childFiltered
+                        };
+                }
+
+                case MultiValuedDataElement multi:
+                {
+                    List<DataElement> valueFiltered = FilterElements(multi.Value, roles, controlled, path);
+                    return ReferenceEquals(valueFiltered, multi.Value)
+                        ? element
+                        : new MultiValuedDataElement {
+                            ElementId = multi.ElementId,
+                            DictionaryReference = multi.DictionaryReference,
+                            ValueDataType = multi.ValueDataType,
+                            Value = valueFiltered
+                        };
+                }
+
+                default:
+                    return element;
+            }
         }
 
         /// <summary>
@@ -667,15 +727,30 @@ namespace Opc.Ua.Cloud.Library
                     return current;
                 }
 
-                currentChildren = current switch {
-                    DataElementCollection coll => coll.Elements,
-                    MultiValuedDataElement multi => multi.Value,
-                    _ => null
-                };
+                currentChildren = ChildElementsOf(current);
             }
 
             return current;
         }
+
+        /// <summary>
+        /// The child elements a <see cref="DataElement"/> contains, or <c>null</c> for a leaf.
+        /// </summary>
+        /// <remarks>
+        /// Single definition of what "contains children" means, deliberately shared by path
+        /// resolution and by the role filter. These two previously each had their own idea of the
+        /// element tree: resolution descended both container types while the filter only descended
+        /// <see cref="DataElementCollection"/>, so a controlled element nested under a
+        /// <see cref="MultiValuedDataElement"/> was addressable but never filtered - it stayed in the
+        /// response and was signed into the ESDC. Any future container type must be added here once,
+        /// and both behaviours follow.
+        /// </remarks>
+        internal static IReadOnlyList<DataElement> ChildElementsOf(DataElement element) =>
+            element switch {
+                DataElementCollection coll => coll.Elements,
+                MultiValuedDataElement multi => multi.Value,
+                _ => null
+            };
 
         /// <summary>
         /// Result of an <see cref="UpdateDppById"/> call.

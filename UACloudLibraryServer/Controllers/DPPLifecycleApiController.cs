@@ -307,7 +307,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             // An Attempted entry with no matching outcome is the signal to investigate; the shared
             // operation id is what makes that pairing unambiguous when patches interleave.
             // This is not atomicity; closing that gap properly needs a transactional outbox.
-            string operationId = IDppAuditLog.NewOperationId();
+            string operationId = DppAuditOperationId.New();
             await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, null, "Attempted", operationId).ConfigureAwait(false);
 
             (DPPService.UpdateDppResult result, string errorMessage, DigitalProductPassport updated) =
@@ -316,7 +316,14 @@ namespace Opc.Ua.Cloud.Library.Controllers
             switch (result)
             {
                 case DPPService.UpdateDppResult.Success:
-                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, null, "Success", operationId).ConfigureAwait(false);
+                    // The update is already durable at this point, so a failure to record the
+                    // outcome must not be reported to the client as a refusal it can retry.
+                    //
+                    // One Success is actually a no-op: an empty patch body changes nothing and
+                    // commits nothing. It is still treated as committed here, which at worst tells
+                    // a client not to retry something that would have been harmless to retry. That
+                    // is the safe direction to err in; the reverse would invite a duplicate write.
+                    await _auditLog.RecordCommittedOutcomeAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, null, "Success", operationId).ConfigureAwait(false);
 
                     // The updated DPP is returned verbatim from the write path, so apply the same role
                     // filter used on reads; otherwise a writer without read rights would receive
@@ -346,8 +353,9 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 case DPPService.UpdateDppResult.WriteFailedPartiallyApplied:
                     // The write failed AND the compensating rollback did not fully restore the
                     // original values, so the DPP is left in a state matching no version. Recorded
-                    // distinctly from a clean failure because it needs operator attention.
-                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, null, "PartialFailure", operationId).ConfigureAwait(false);
+                    // distinctly from a clean failure because it needs operator attention. Durable
+                    // changes survive here too, so this outcome is also post-commit.
+                    await _auditLog.RecordCommittedOutcomeAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, null, "PartialFailure", operationId).ConfigureAwait(false);
                     return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status500InternalServerError, new ApiResponse<DigitalProductPassport>(
                         DppApiStatusCodes.ServerInternalError,
                         payload: null,
@@ -392,7 +400,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             // Write-ahead audit intent; see the note in UpdateDppById for why the record precedes
             // the mutation rather than following it.
-            string elementOperationId = IDppAuditLog.NewOperationId();
+            string elementOperationId = DppAuditOperationId.New();
             await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "Attempted", elementOperationId).ConfigureAwait(false);
 
             (DPPService.UpdateDppResult result, string errorMessage, DataElement updated) =
@@ -401,7 +409,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
             switch (result)
             {
                 case DPPService.UpdateDppResult.Success:
-                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "Success", elementOperationId).ConfigureAwait(false);
+                    // Already durable; see UpdateDppById.
+                    await _auditLog.RecordCommittedOutcomeAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "Success", elementOperationId).ConfigureAwait(false);
 
                     // Filter the echoed element so a controlled descendant is not returned to a caller
                     // who may write the parent but not read the child.
@@ -429,8 +438,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
                 case DPPService.UpdateDppResult.WriteFailedPartiallyApplied:
                     // See UpdateDppById: the rollback did not fully restore the original values, so
-                    // the element is left in a state matching no version.
-                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "PartialFailure", elementOperationId).ConfigureAwait(false);
+                    // the element is left in a state matching no version. Post-commit as well.
+                    await _auditLog.RecordCommittedOutcomeAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "PartialFailure", elementOperationId).ConfigureAwait(false);
                     return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status500InternalServerError, new ApiResponse<DataElement>(
                         DppApiStatusCodes.ServerInternalError,
                         payload: null,

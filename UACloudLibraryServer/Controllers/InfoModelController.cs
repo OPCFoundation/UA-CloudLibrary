@@ -244,7 +244,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             // A nodeset may carry a DPP, so its deletion is a DPP lifecycle event. Write the intent
             // before the delete: the record store, the blob store and the metadata are separate, so an
             // "Attempted" entry with no outcome is the signal that a deletion may have partially run.
-            string deleteOperationId = IDppAuditLog.NewOperationId();
+            string deleteOperationId = DppAuditOperationId.New();
             await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, identifier, null, "Attempted", deleteOperationId).ConfigureAwait(false);
 
             await _database.DeleteAllRecordsForNodesetAsync(nodeSetID).ConfigureAwait(false);
@@ -282,7 +282,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             // The attempt is keyed by namespace URI and the outcome by the assigned identifier, so the
             // two rows do not share a DppId. Without a shared operation id an unmatched attempt could
             // not be paired with its outcome at all, which is the signal this pattern exists to give.
-            string operationId = IDppAuditLog.NewOperationId();
+            string operationId = DppAuditOperationId.New();
 
             await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Attempted", operationId).ConfigureAwait(false);
 

@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Opc.Ua.Cloud.Library.Models;
@@ -27,14 +25,9 @@ namespace Opc.Ua.Cloud.Library
         /// Correlates a write-ahead <c>Attempted</c> entry with the entry recording its outcome.
         /// Supply the same value for both so an attempt with no matching outcome can be identified
         /// unambiguously, even when operations on the same DPP interleave. Use
-        /// <see cref="NewOperationId"/> to generate one.
+        /// <see cref="DppAuditOperationId.New"/> to generate one.
         /// </param>
         Task RecordAsync(string operatorId, DppAuditOperation operation, string dppId, string elementPath, string outcome, string operationId = null);
-
-        /// <summary>
-        /// Generates an identifier correlating the two entries of one write-ahead audited operation.
-        /// </summary>
-        static string NewOperationId() => Guid.NewGuid().ToString("N");
 
         /// <summary>
         /// Recomputes the hash chain and returns true when every entry's hash matches its content and
