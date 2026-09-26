@@ -288,11 +288,30 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Attempted", operationId).ConfigureAwait(false);
 
-            string result = await _database.UploadNamespaceAndNodesetAsync(User.Identity.Name, uaNamespace, values, overwrite).ConfigureAwait(false);
-            if (result != "success")
+            UploadResult uploadResult = await _database.UploadNamespaceAndNodesetWithResultAsync(User.Identity.Name, uaNamespace, values, overwrite).ConfigureAwait(false);
+            if (!uploadResult.Succeeded)
             {
-                await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Failed", operationId).ConfigureAwait(false);
-                return new ObjectResult(result) { StatusCode = (int)HttpStatusCode.InternalServerError };
+                // The blob is written before the metadata, so a failure here does not imply storage
+                // is unchanged. A partially-applied upload is recorded as such and treated as
+                // post-commit: reporting it as a clean failure would both lose the partial-write
+                // signal and, if this append itself failed, tell the client the request was safe to
+                // repeat when it had already changed storage.
+                if (uploadResult.PartiallyApplied)
+                {
+                    await _auditLog.RecordCommittedOutcomeAsync(
+                        OperatorId,
+                        operation,
+                        _database.GetIdentifier(uaNamespace) ?? auditTarget,
+                        null,
+                        "PartialFailure",
+                        operationId).ConfigureAwait(false);
+                }
+                else
+                {
+                    await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Failed", operationId).ConfigureAwait(false);
+                }
+
+                return new ObjectResult(uploadResult.Message) { StatusCode = (int)HttpStatusCode.InternalServerError };
             }
 
             string identifier = _database.GetIdentifier(uaNamespace);

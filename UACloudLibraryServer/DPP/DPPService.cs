@@ -552,9 +552,17 @@ namespace Opc.Ua.Cloud.Library
             DigitalProductPassport live = await GetByDppId(userId, dppId).ConfigureAwait(false);
             if (live != null && live.LastUpdate.ToUniversalTime() <= target)
             {
-                // The live version's policy is the current stored mapping, by definition.
+                // The live version's policy is the current stored mapping, by definition - but only
+                // when that row actually exists. A DPP is materialised from the live OPC UA address
+                // space, so it can still be served while its DbFiles row is missing; passing a null
+                // blob through as an archived policy would read as "no controlled elements" and
+                // publish the whole element tree. Report the policy as unknown instead, which sends
+                // FilterVersionForRoles down its fail-closed path, exactly as an ordinary read
+                // treats a missing policy row as unavailable rather than absent.
                 DbFiles liveFile = await _storage.DownloadFileAsync(dppId).ConfigureAwait(false);
-                return new DppVersionSnapshot(live, liveFile?.Values, policyArchived: true);
+                return liveFile is null
+                    ? new DppVersionSnapshot(live, null, policyArchived: false)
+                    : new DppVersionSnapshot(live, liveFile.Values, policyArchived: true);
             }
 
             // Target is strictly earlier than the live DPP's activation time (or the DPP has no
@@ -577,10 +585,11 @@ namespace Opc.Ua.Cloud.Library
         /// captured, rather than the DPP's current mapping.
         /// </summary>
         /// <remarks>
-        /// Snapshots written before the archive recorded policy carry none. Their policy cannot be
-        /// reconstructed, and substituting today's mapping is precisely the disclosure this guards
-        /// against, so those versions are filtered as if every element were controlled: the caller
-        /// receives the DPP's public envelope with no data elements.
+        /// A snapshot may carry no policy for two reasons: it was archived before the archive
+        /// recorded policy, or it is the live version and its stored values row is missing. Neither
+        /// can be reconstructed after the fact, and substituting today's mapping is precisely the
+        /// disclosure this guards against, so both are filtered as if every element were controlled:
+        /// the caller receives the DPP's public envelope with no data elements.
         /// </remarks>
         public DigitalProductPassport FilterVersionForRoles(DppVersionSnapshot snapshot, IEnumerable<string> callerRoles)
         {
@@ -592,7 +601,7 @@ namespace Opc.Ua.Cloud.Library
             if (!snapshot.PolicyArchived)
             {
                 _logger.LogWarning(
-                    "DPP {DppId} has an archived version with no recorded access policy; withholding all elements rather than applying the current mapping to historical data.",
+                    "No access policy is available for the requested version of DPP {DppId}; withholding all elements rather than applying the current mapping.",
                     snapshot.Dpp.DigitalProductPassportId);
 
                 // Passing a null mapping selects the fail-closed path.

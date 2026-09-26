@@ -197,19 +197,26 @@ namespace UANodesetWebViewer.Controllers
 
                 await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Attempted", operationId).ConfigureAwait(false);
 
-                string result = await _database.UploadNamespaceAndNodesetAsync(User.Identity.Name, nameSpace, valuesContent, overwrite).ConfigureAwait(false);
+                UploadResult uploadResult = await _database.UploadNamespaceAndNodesetWithResultAsync(User.Identity.Name, nameSpace, valuesContent, overwrite).ConfigureAwait(false);
+                string result = uploadResult.Message;
 
-                // Branch on the result rather than recording both outcomes through one call: on
-                // success the nodeset is already durable, so a failed append here must not be
-                // reported as a retryable refusal that invites the user to upload again. A failure
-                // leaves nothing persisted, so it keeps the ordinary refusal semantics.
+                // Branch on what actually happened to storage, not just on success. The blob is
+                // written before the metadata, so a failure can still leave the nodeset committed:
+                // recording that as a plain Failed would say the upload never happened, and a
+                // failure of this very append would then be reported as a retryable refusal for an
+                // operation that did change storage.
                 string uploadTarget = _database.GetIdentifier(nameSpace) ?? auditTarget;
-                if (result == "success")
+                if (uploadResult.Succeeded)
                 {
                     await _auditLog.RecordCommittedOutcomeAsync(OperatorId, operation, uploadTarget, null, "Success", operationId).ConfigureAwait(false);
                 }
+                else if (uploadResult.PartiallyApplied)
+                {
+                    await _auditLog.RecordCommittedOutcomeAsync(OperatorId, operation, uploadTarget, null, "PartialFailure", operationId).ConfigureAwait(false);
+                }
                 else
                 {
+                    // Nothing was written, so the ordinary refusal semantics apply.
                     await _auditLog.RecordAsync(OperatorId, operation, uploadTarget, null, "Failed", operationId).ConfigureAwait(false);
                 }
 

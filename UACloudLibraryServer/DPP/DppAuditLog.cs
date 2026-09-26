@@ -106,6 +106,27 @@ namespace Opc.Ua.Cloud.Library
                     lastError = ex;
                     ResetTracking();
                 }
+                catch (Exception ex) when (ex is not DppAuditException and not OperationCanceledException)
+                {
+                    // Anything else that reaches here - a non-transient DbException such as a
+                    // connection or permission failure, or any provider-specific fault - must still
+                    // leave as a DppAuditException. DppAuditFailureFilter can only shape that type,
+                    // so an unwrapped failure would bypass it entirely: a read would return a bare
+                    // 500 rather than the documented 503, and a post-commit mutation would lose the
+                    // "applied; do not retry" response and invite a duplicate write.
+                    //
+                    // Deliberately excluded: DppAuditException is already the shaped refusal, and
+                    // OperationCanceledException means the caller gave up, which says nothing about
+                    // the log and must stay a cancellation.
+                    //
+                    // Not retried, unlike the cases above: those are contention that a retry
+                    // resolves, whereas this is a fault that will not fix itself within five
+                    // attempts spaced tens of milliseconds apart. Failing fast also keeps the
+                    // originating request from waiting out the whole backoff on a dead database.
+                    lastError = ex;
+                    ResetTracking();
+                    break;
+                }
                 finally
                 {
                     s_appendLock.Release();
@@ -119,10 +140,9 @@ namespace Opc.Ua.Cloud.Library
 
             _logger.LogError(
                 lastError,
-                "Failed to append DPP audit entry for {Operation} on {DppId} after {Attempts} attempts; failing the operation to preserve non-repudiation.",
+                "Failed to append DPP audit entry for {Operation} on {DppId}; failing the operation to preserve non-repudiation.",
                 operation,
-                dppId,
-                MaxAttempts);
+                dppId);
 
             throw new DppAuditException(
                 $"Could not durably record the {operation} audit entry for DPP '{dppId}'. The operation was refused because it cannot be audited.",

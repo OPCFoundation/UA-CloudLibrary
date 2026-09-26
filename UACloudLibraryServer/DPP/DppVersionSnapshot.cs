@@ -31,10 +31,17 @@ namespace Opc.Ua.Cloud.Library
         public string ControlledElementsValuesJson { get; }
 
         /// <summary>
-        /// False for snapshots written before the archive recorded access policy. Their policy is
-        /// unknowable after the fact, so callers must fail closed rather than substituting today's
-        /// mapping - the substitution is exactly the disclosure this type exists to prevent.
+        /// False when no access policy is available for this version, so callers must fail closed
+        /// rather than substituting today's mapping - the substitution is exactly the disclosure
+        /// this type exists to prevent.
         /// </summary>
+        /// <remarks>
+        /// Two situations produce it: a snapshot written before the archive recorded policy, whose
+        /// policy is unknowable after the fact; and a live version whose stored values row is
+        /// missing. A DPP is materialised from the live OPC UA address space, so it can still be
+        /// served in that state - which is precisely when "no policy row" must not be read as
+        /// "nothing is controlled".
+        /// </remarks>
         public bool PolicyArchived { get; }
     }
 }
