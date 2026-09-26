@@ -62,7 +62,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 throw new InvalidOperationException(
                     $"No ESDC signing key is configured. Set '{PrivateKeyConfigurationPath}' from a managed secret store " +
-                    $"(see the ESDC signing key management section of the README), or set " +
+                    $"(see the signing key management section of dpp.md), or set " +
                     $"'{AllowGeneratedKeyConfigurationPath}' to true to accept a server-generated key stored in the database. " +
                     "The server refuses to sign with a database-held key in this environment because that key is present " +
                     "in every database backup and readable by anything with database access.");
@@ -98,7 +98,7 @@ namespace Opc.Ua.Cloud.Library
                 _logger.LogWarning(
                     "No ESDC signing key was configured ({ConfigPath}), so one was generated and stored in the database. " +
                     "It is now shared by all instances and survives restarts, but it is also present in database backups. " +
-                    "For production, supply a key from a managed secret store instead - see the ESDC key management section of the README.",
+                    "For production, supply a key from a managed secret store instead - see the signing key management section of dpp.md.",
                     PrivateKeyConfigurationPath);
 
                 return generated;

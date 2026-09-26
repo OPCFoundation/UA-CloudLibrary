@@ -44,11 +44,14 @@ namespace Opc.Ua.Cloud.Library
         /// unreadable policy is a failure to determine access, not proof that access is unrestricted.
         /// </summary>
         /// <remarks>
-        /// A storage fault is reported as <see cref="DppControlledElements.MappingState.Invalid"/>
-        /// rather than as an absent mapping. These reads are anonymous, and "the policy source was
-        /// unreachable" is indistinguishable in shape from "this DPP controls nothing" - but only the
-        /// second one means the data is public. Treating an outage as the latter would publish every
-        /// controlled element of a protected passport for as long as the database was degraded.
+        /// Neither a storage fault nor a missing row is reported as an absent mapping; both become
+        /// <see cref="DppControlledElements.MappingState.Invalid"/>. These reads are anonymous, and
+        /// "the policy could not be loaded" is indistinguishable in shape from "this DPP controls
+        /// nothing" - but only the second one means the data is public. A DPP is materialised from
+        /// the live OPC UA address space, so it can still be served while its stored row is missing;
+        /// treating that as "no controlled elements" would publish every protected element of a
+        /// passport whose policy simply is not there. <see cref="DppControlledElements.MappingState.Absent"/>
+        /// is therefore reserved for a row that exists and genuinely declares no policy.
         /// </remarks>
         public async Task<DppControlledElements.MappingResult> GetControlledElementsAsync(string dppId)
         {
@@ -67,7 +70,16 @@ namespace Opc.Ua.Cloud.Library
                 return DppControlledElements.Unavailable();
             }
 
-            DppControlledElements.MappingResult mapping = DppControlledElements.Read(file?.Values);
+            if (file is null)
+            {
+                _logger.LogError(
+                    "No stored values row exists for DPP {DppId}, so its controlled-elements mapping cannot be read; denying access to all elements rather than treating the missing policy as an absent one.",
+                    dppId);
+
+                return DppControlledElements.Unavailable();
+            }
+
+            DppControlledElements.MappingResult mapping = DppControlledElements.Read(file.Values);
             if (mapping.IsInvalid)
             {
                 _logger.LogError(
@@ -184,10 +196,11 @@ namespace Opc.Ua.Cloud.Library
             string[] roles = callerRoles?.ToArray() ?? Array.Empty<string>();
 
             // The addressed element's own path is the access key for its subtree, canonicalized the
-            // same way the resolver canonicalizes it.
+            // same way the resolver canonicalizes it. A null key means the path cannot be expressed
+            // as one the mapping could match (unparseable, collection root, or index-addressed), so
+            // deny rather than skipping the check - the other call sites treat null the same way.
             string basePath = BuildCanonicalAccessKey(elementIdPath);
-
-            if (basePath is not null && !_accessPolicy.CanRead(basePath, roles, mapping.Entries))
+            if (basePath is null || !_accessPolicy.CanRead(basePath, roles, mapping.Entries))
             {
                 return null;
             }
@@ -237,8 +250,20 @@ namespace Opc.Ua.Cloud.Library
         /// the resolver sees it, with the optional <c>elements</c> prefix removed.
         /// </summary>
         /// <remarks>
-        /// Returns null when the path cannot be parsed or addresses only the collection root, both of
-        /// which callers must treat as "deny" rather than "unmapped, therefore public".
+        /// Returns null when the path cannot be parsed, addresses only the collection root, or uses an
+        /// index selector &#8212; all of which callers must treat as "deny" rather than "unmapped,
+        /// therefore public".
+        /// <para>
+        /// Index selectors are refused rather than ignored. The mapping is keyed by the dotted chain of
+        /// real <c>elementId</c> values, but an index names a position rather than an element, so it
+        /// contributes nothing to the key while the resolver still descends through it. Dropping the
+        /// index would reduce <c>$.elements[0].abc</c> to <c>abc</c> while the resolver reaches
+        /// <c>&lt;rootId&gt;.abc</c>: controls on <c>&lt;rootId&gt;</c> or <c>&lt;rootId&gt;.abc</c>
+        /// would never be consulted, and an anonymous read or an authenticated write could reach a
+        /// controlled node as if it were public. Resolving the index to its element id instead would
+        /// need the DPP tree, which authorization deliberately does not load; refusing keeps this a
+        /// pure function and fails closed. Callers can always address the same node by name.
+        /// </para>
         /// </remarks>
         internal static string BuildCanonicalAccessKey(string elementIdPath)
         {
@@ -254,12 +279,22 @@ namespace Opc.Ua.Cloud.Library
                 return null;
             }
 
+            // Any index selector in the addressing portion of the path makes the key unable to
+            // describe the node the resolver will reach, so refuse instead of building a key that
+            // silently omits it. The skipped "elements" prefix is not examined: it names the
+            // collection, not an element.
+            for (int i = start; i < segments.Count; i++)
+            {
+                if (!segments[i].IsName)
+                {
+                    return null;
+                }
+            }
+
             string key = BuildElementPath(segments, start);
 
-            // An empty key means the remaining path is index-only (e.g. "elements[0]"): it addresses
-            // a collection member without naming an element, so there is nothing to match against the
-            // mapping. Returning "" would be looked up, miss, and be treated as unmapped - i.e.
-            // public - so return null and let callers deny instead.
+            // Defensive: a name-only segment run always produces a non-empty key, but returning ""
+            // would be looked up, miss, and read as unmapped - i.e. public - so deny instead.
             return string.IsNullOrEmpty(key) ? null : key;
         }
 

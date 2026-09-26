@@ -320,7 +320,7 @@ namespace Opc.Ua.Cloud.Library
             }
 
             // With no key the MAC is absent by design and there is nothing further to check: the
-            // checkpoint was never authenticated, which the README documents as the unkeyed mode.
+            // checkpoint was never authenticated, which dpp.md documents as the unkeyed mode.
             if (auditKey.Key is null)
             {
                 return;
@@ -542,7 +542,7 @@ namespace Opc.Ua.Cloud.Library
         /// <summary>
         /// Authenticates the checkpoint's length, tail and key identifier. Returns null when no audit
         /// key is configured, in which case the checkpoint stays unauthenticated and rollback to an
-        /// earlier valid prefix remains undetectable - see the audit-log limitations in the README.
+        /// earlier valid prefix remains undetectable - see the audit-log limitations in dpp.md.
         /// </summary>
         /// <remarks>
         /// The key id is covered by the MAC, not merely stored beside it: leaving it outside would let

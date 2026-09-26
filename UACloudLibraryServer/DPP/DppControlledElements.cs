@@ -93,11 +93,19 @@ namespace Opc.Ua.Cloud.Library
         /// <see cref="MappingState.Invalid"/>, because silently dropping it would publish an element
         /// that the author intended to control.
         /// </summary>
+        /// <remarks>
+        /// Pass only the contents of a values row that <b>exists</b>. A blank input is reported as
+        /// <see cref="MappingState.Absent"/> ("this DPP declares no controlled elements", i.e.
+        /// public), which is the right answer for a stored row carrying no policy and the wrong one
+        /// for a row that could not be loaded at all. Callers that cannot distinguish the two must
+        /// use <see cref="Unavailable"/> instead - see <c>DPPService.GetControlledElementsAsync</c>.
+        /// </remarks>
         public static MappingResult Read(string valuesJson)
         {
             var map = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
-            // A DPP with no stored values has no elements to protect.
+            // An existing row with no values declares no controlled elements, so there is nothing to
+            // protect. A *missing* row is not this case; see the remarks above.
             if (string.IsNullOrWhiteSpace(valuesJson))
             {
                 return new MappingResult(MappingState.Absent, map);

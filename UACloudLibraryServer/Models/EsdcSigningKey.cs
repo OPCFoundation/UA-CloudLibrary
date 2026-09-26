@@ -13,7 +13,7 @@ namespace Opc.Ua.Cloud.Library.Models
     /// This is a fallback, not the recommended production arrangement. A private key stored here also
     /// lives in every database backup and is visible to anything with database access. Supplying the
     /// key through <c>Dpp:Esdc:PrivateKeyPem</c> from a managed secret store keeps the signing material
-    /// out of application data entirely; see the ESDC key management section of the README.
+    /// out of application data entirely; see the signing key management section of dpp.md.
     /// </remarks>
     public class EsdcSigningKey
     {

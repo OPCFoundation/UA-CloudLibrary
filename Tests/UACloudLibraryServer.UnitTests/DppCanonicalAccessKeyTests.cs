@@ -47,21 +47,36 @@ namespace UACloudLibraryServer.UnitTests
         }
 
         [Theory]
-        // Index segments do not participate in the key: rights apply uniformly to all items of a
-        // collection, and the resolver resolves the index against the tree.
+        // Any index selector in the addressing portion of the path refuses the key outright. An
+        // index names a position rather than an element, so it cannot appear in a mapping keyed by
+        // element ids - and silently dropping it would build a key describing a different node than
+        // the one the resolver reaches.
         [InlineData("elements[0]")]
         [InlineData("$.elements[0]")]
-        public void CollectionRootWithIndexOnly_YieldsNoKey(string path)
+        [InlineData("$.elements[0].abc")]
+        [InlineData("elements[0].abc")]
+        [InlineData("abc[0]")]
+        [InlineData("abc[0].def")]
+        [InlineData("$.abc.def[2]")]
+        public void IndexedPaths_YieldNoKey(string path)
         {
-            // After the "elements" prefix is consumed only an index remains, which addresses no named
-            // element. Callers must treat null as deny rather than as "unmapped, therefore public".
+            // Callers must treat null as deny rather than as "unmapped, therefore public".
             Assert.Null(DPPService.BuildCanonicalAccessKey(path));
         }
 
         [Fact]
-        public void IndexedChild_KeysOnTheNamedSegments()
+        public void IndexedPath_DoesNotCollapseToItsNamedSegments()
         {
-            Assert.Equal("abc", DPPService.BuildCanonicalAccessKey("$.elements[0].abc"));
+            // The reported bypass. "$.elements[0].abc" resolves under the concrete element at index
+            // 0, so the node reached is "<rootId>.abc". Reducing the key to "abc" would mean the
+            // controls on "<rootId>" and "<rootId>.abc" are never consulted, letting an anonymous
+            // read or an authenticated write reach a controlled node as if it were public.
+            Assert.Null(DPPService.BuildCanonicalAccessKey("$.elements[0].abc"));
+            Assert.NotEqual("abc", DPPService.BuildCanonicalAccessKey("$.elements[0].abc"));
+
+            // Addressing the same element by name still works, which is the supported way to
+            // authorize a request against a mapping keyed by element ids.
+            Assert.Equal("rootId.abc", DPPService.BuildCanonicalAccessKey("$.elements.rootId.abc"));
         }
 
         [Theory]
