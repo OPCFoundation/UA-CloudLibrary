@@ -199,13 +199,19 @@ namespace UANodesetWebViewer.Controllers
 
                 string result = await _database.UploadNamespaceAndNodesetAsync(User.Identity.Name, nameSpace, valuesContent, overwrite).ConfigureAwait(false);
 
-                await _auditLog.RecordAsync(
-                    OperatorId,
-                    operation,
-                    _database.GetIdentifier(nameSpace) ?? auditTarget,
-                    null,
-                    result == "success" ? "Success" : "Failed",
-                    operationId).ConfigureAwait(false);
+                // Branch on the result rather than recording both outcomes through one call: on
+                // success the nodeset is already durable, so a failed append here must not be
+                // reported as a retryable refusal that invites the user to upload again. A failure
+                // leaves nothing persisted, so it keeps the ordinary refusal semantics.
+                string uploadTarget = _database.GetIdentifier(nameSpace) ?? auditTarget;
+                if (result == "success")
+                {
+                    await _auditLog.RecordCommittedOutcomeAsync(OperatorId, operation, uploadTarget, null, "Success", operationId).ConfigureAwait(false);
+                }
+                else
+                {
+                    await _auditLog.RecordAsync(OperatorId, operation, uploadTarget, null, "Failed", operationId).ConfigureAwait(false);
+                }
 
                 return View("Index", result);
             }

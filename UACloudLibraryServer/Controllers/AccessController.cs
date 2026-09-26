@@ -111,7 +111,9 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return this.BadRequest(result);
             }
 
-            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Create, "access-rights", $"role={roleName}", "Success", operationId).ConfigureAwait(false);
+            // The role row is already created, so a failure to record this outcome must not be
+            // reported as a retryable refusal: a retry would collide with the existing role.
+            await _auditLog.RecordCommittedOutcomeAsync(OperatorId, DppAuditOperation.Create, "access-rights", $"role={roleName}", "Success", operationId).ConfigureAwait(false);
             return new ObjectResult("Role added successfully") { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -176,13 +178,13 @@ namespace Opc.Ua.Cloud.Library.Controllers
             // it expires, and an operator needs to know to force those sessions out.
             if (staleUserIds.Count > 0)
             {
-                await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"role={roleName}; security stamp not updated for users={string.Join(",", staleUserIds)}", "PartialFailure", deleteOperationId).ConfigureAwait(false);
+                await _auditLog.RecordCommittedOutcomeAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"role={roleName}; security stamp not updated for users={string.Join(",", staleUserIds)}", "PartialFailure", deleteOperationId).ConfigureAwait(false);
                 return new ObjectResult($"Role deleted, but the sessions of {staleUserIds.Count} user(s) could not be invalidated; they may retain the '{roleName}' claim until their cookie expires.") {
                     StatusCode = (int)HttpStatusCode.InternalServerError
                 };
             }
 
-            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"role={roleName}", "Success", deleteOperationId).ConfigureAwait(false);
+            await _auditLog.RecordCommittedOutcomeAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"role={roleName}", "Success", deleteOperationId).ConfigureAwait(false);
             return new ObjectResult("Role deleted successfully") { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -212,7 +214,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return this.BadRequest(result);
             }
 
-            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, "access-rights", $"grant role={roleName} to user={userId}", "Success", grantOperationId).ConfigureAwait(false);
+            await _auditLog.RecordCommittedOutcomeAsync(OperatorId, DppAuditOperation.Modify, "access-rights", $"grant role={roleName} to user={userId}", "Success", grantOperationId).ConfigureAwait(false);
             return new ObjectResult("User role added successfully") { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -342,13 +344,13 @@ namespace Opc.Ua.Cloud.Library.Controllers
                         return new ObjectResult("Failed to revoke the role.") { StatusCode = (int)HttpStatusCode.InternalServerError };
 
                     case AdminRevocationOutcome.RevokedButSessionsRemain:
-                        await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}; security stamp not updated", "PartialFailure", revokeOperationId).ConfigureAwait(false);
+                        await _auditLog.RecordCommittedOutcomeAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}; security stamp not updated", "PartialFailure", revokeOperationId).ConfigureAwait(false);
                         return new ObjectResult($"Role revoked, but the user's existing sessions could not be invalidated; they may retain the '{roleName}' claim until their cookie expires.") {
                             StatusCode = (int)HttpStatusCode.InternalServerError
                         };
 
                     default:
-                        await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Success", revokeOperationId).ConfigureAwait(false);
+                        await _auditLog.RecordCommittedOutcomeAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Success", revokeOperationId).ConfigureAwait(false);
                         return new ObjectResult("User role revoked successfully") { StatusCode = (int)HttpStatusCode.OK };
                 }
             }
@@ -374,13 +376,13 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 // The role removal is already persisted and this path has no enclosing transaction,
                 // so the revocation is incomplete rather than undone: the user keeps a working cookie
                 // carrying the revoked role. Report it instead of returning success.
-                await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}; security stamp not updated", "PartialFailure", ordinaryRevokeOperationId).ConfigureAwait(false);
+                await _auditLog.RecordCommittedOutcomeAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}; security stamp not updated", "PartialFailure", ordinaryRevokeOperationId).ConfigureAwait(false);
                 return new ObjectResult($"Role revoked, but the user's existing sessions could not be invalidated; they may retain the '{roleName}' claim until their cookie expires.") {
                     StatusCode = (int)HttpStatusCode.InternalServerError
                 };
             }
 
-            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Success", ordinaryRevokeOperationId).ConfigureAwait(false);
+            await _auditLog.RecordCommittedOutcomeAsync(OperatorId, DppAuditOperation.Delete, "access-rights", $"revoke role={roleName} from user={userId}", "Success", ordinaryRevokeOperationId).ConfigureAwait(false);
             return new ObjectResult("User role revoked successfully") { StatusCode = (int)HttpStatusCode.OK };
         }
     }

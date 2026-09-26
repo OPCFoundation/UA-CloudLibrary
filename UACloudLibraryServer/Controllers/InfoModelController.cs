@@ -251,7 +251,9 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             await _storage.DeleteFileAsync(identifier).ConfigureAwait(false);
 
-            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, identifier, null, "Success", deleteOperationId).ConfigureAwait(false);
+            // Both deletion steps have already run and neither can be undone here, so a failure to
+            // record this outcome must not be reported as a retryable refusal.
+            await _auditLog.RecordCommittedOutcomeAsync(OperatorId, DppAuditOperation.Delete, identifier, null, "Success", deleteOperationId).ConfigureAwait(false);
 
             return new ObjectResult(uaNamespace) { StatusCode = (int)HttpStatusCode.OK };
         }
@@ -296,8 +298,9 @@ namespace Opc.Ua.Cloud.Library.Controllers
             string identifier = _database.GetIdentifier(uaNamespace);
 
             // Record the outcome against the assigned identifier so the entry can be correlated with
-            // the subsequent read/modify entries for the same DPP.
-            await _auditLog.RecordAsync(OperatorId, operation, identifier ?? auditTarget, null, "Success", operationId).ConfigureAwait(false);
+            // the subsequent read/modify entries for the same DPP. The upload is already durable at
+            // this point, so this outcome is post-commit.
+            await _auditLog.RecordCommittedOutcomeAsync(OperatorId, operation, identifier ?? auditTarget, null, "Success", operationId).ConfigureAwait(false);
 
             return new ObjectResult(identifier) { StatusCode = (int)HttpStatusCode.OK };
         }

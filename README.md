@@ -23,7 +23,6 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
   - [Response envelope](#response-envelope)
   - [Endpoints](#endpoints)
   - [`elementIdPath` &mdash; JSONPath addressing](#elementidpath--jsonpath-addressing)
-  - [Write semantics, archival and persistence](#write-semantics-archival-and-persistence)
   - [Durable version archive](#durable-version-archive)
   - [Access control, audit and signing (EN 18239 / EN 18246)](#access-control-audit-and-signing-en-18239--en-18246)
   - [ESDC signing key management](#esdc-signing-key-management)
@@ -359,6 +358,8 @@ Three security capabilities sit across the read and write paths. Each is keyed o
 > * **The change already committed** and only its closing entry failed: `500`, with a body stating the change was applied and must not be retried. Calling this a "refusal" would invite a retry that applies the change a second time.
 >
 > The distinction is carried by `DppAuditException.MutationCommitted`, which is set only at the call sites that know the mutation succeeded (`IDppAuditLog.RecordCommittedOutcomeAsync`). It defaults to `false`, so any site that does not state otherwise gets the safe, retryable interpretation. In both cases the unmatched `Attempted` entry remains as the signal that the operation needs reconciliation.
+
+> This applies to **every** audited mutation, not just DPP reads and patches: role creation, deletion, grant and revoke (`AccessController`), nodeset deletion and upload (`InfoModelController`, `UploadController`) and nodeset save (`BrowserController`) all record their terminal `Success`/`PartialFailure` outcome through the committed helper. Nothing at runtime can detect a site that simply forgot to, so `DppAuditCommittedOutcomeTests` scans the controllers and fails the build if a post-mutation outcome is recorded through the plain `RecordAsync` &mdash; `Read` outcomes are exempt, since nothing was changed and retrying is genuinely safe.
 
 > **Verification has to be invoked to be worth anything.** Hash-chaining makes tampering *detectable*, but nothing detects it unless the chain is actually re-walked. `GET /health/dpp-audit` runs `VerifyChainAsync` and reports `Unhealthy` when the log has been altered or truncated, so a tampered log surfaces through whatever already monitors the service rather than waiting for someone to ask. The endpoint requires administrator rights &mdash; whether the audit log has been tampered with is not public information, and an anonymous caller could otherwise drive repeated full-table scans. It is excluded from the default health set because it reads every audit row, so point a readiness or monitoring schedule at it rather than a liveness probe.
 
