@@ -158,7 +158,7 @@ The DPP header follows EN 18223 Clause 4.1.2.1 Table 1:
 |---|---|---|
 | `digitalProductPassportId` | [1] | Globally unique, opaque string. EN 18223 does not mandate a URI shape; this server emits the Cloud Library nodeset identifier (the decimal form of the nodeset's stable hash code, e.g. `"3851629631"`) so callers can round-trip the value back through the `v1/dpps/{dppId}` endpoints. |
 | `uniqueProductIdentifier` | [1] | Product identifier per EN 18219. |
-| `granularity` | [1] | Enumeration: `model`, `batch`, `item` (EN 18223 Clause 4.1.2.2 - lowercase on the wire). |
+| `granularity` | [1] | Enumeration: `model`, `batch`, `item` (EN 18223 Clause 4.1.2.2 — lowercase on the wire). |
 | `dppSchemaVersion` | [1] | Reference standard the DPP schema follows. |
 | `dppStatus` | [1] | e.g. `active`, `inactive`, `archived`, `invalid`. |
 | `lastUpdate` | [1] | UTC timestamp per ISO 8601-1. |
@@ -309,25 +309,6 @@ manufacturer
 materials[0].name
 $['battery']['cells'][2]['voltage']
 ```
-
-### Write semantics, archival and persistence
-
-The DPP update path strictly separates the three concerns of the Browser UI's `Save` flow:
-
-1. **Pre-update snapshot capture.** Before any write, `DPPService` browses the current DPP and keeps the snapshot in memory.
-2. **Live write.** The resolved leaf values are written to the running embedded OPC UA server via `UAClient.VariableWrite(...)`. `UAClient` does *not* persist anything to the database.
-3. **Explicit persistence.** After the live write succeeds, `DPPService.PersistNodesetValuesAsync(...)` re-browses the variables and upserts the serialized values into `DbFiles.Values` through `DbFileStorage.UploadFileAsync(...)`, so the change survives a server restart (the embedded OPC UA server rehydrates values from `DbFiles.Values` on startup via `NodesetFileNodeManager.AddNodesAndValues`).
-4. **Archive commit.** Only after the live write **and** persistence both succeed does `DPPService` call `IDppVersionArchive.ArchiveAsync(dppId, snapshot, snapshot.LastUpdate.ToUniversalTime())` with the pre-update snapshot captured in step 1. The capture timestamp is the snapshot's own `LastUpdate` (i.e. when that version *became active*) rather than `DateTimeOffset.UtcNow` (which would record when the *next* version takes over), so the archive's at-or-before lookup in `GetVersionAtAsync` correctly returns the snapshot for any `asOfUtc` inside its validity window. Failed updates therefore never create phantom archive entries, and the archive view is always consistent with what was actually persisted. This satisfies the EN 18221 Clause 4.2 requirement that *Ã¢â‚¬Å“archiving starts when the first change of the initial digital product passport occursÃ¢â‚¬Â* and that *Ã¢â‚¬Å“all changes to the digital product passport shall be archivedÃ¢â‚¬Â*.
-
-No-op updates (an empty PATCH body, or a body whose entries all resolve to zero concrete writes) short-circuit before step 2, so they never touch the OPC UA address space, never bump the persisted `PublicationDate`, and never create an archive entry.
-
-**Rollback on archive failure.** If pre-update snapshot capture fails (returns null) or archive commit fails after persistence, the entire update is rolled back: `DPPService` restores the already-applied writes to their captured original values and re-persists, then returns `WriteFailed` (500). This keeps the observable API outcome synchronized with the stored state and prevents clients from seeing a failure for a durable update and inadvertently retrying (which would apply the update twice). The only residual failure case where the DPP can stay partially mutated is when the compensating rollback writes themselves fail, which is logged so operators can reconcile manually.
-
-To prevent a save from silently overwriting an earlier on-disk version, the persistence step rewrites the `PublicationDate="..."` attribute in the stored nodeset XML to the current UTC timestamp with millisecond precision (`yyyy-MM-ddTHH:mm:ss.fffZ`). This mirrors the in-XML date bump already used by `UAClient.CopyNodeset` and ensures every persisted save is uniquely datable even when updates land in the same wall-clock second.
-
-When the update payload addresses an element via `value`, the server decides leaf-vs-collection semantics from the **live OPC UA browse** of the matched node, not from the client-supplied `objectType` field. If the live node has children the array under `value` is recursed into (multivalued collection); if it has no children the array is written as-is (multilanguage leaf). This keeps a malicious or buggy client from forcing an array payload onto the wrong parent node.
-
-DPP leaf values are persisted by the OPC UA layer as strings. The read path only re-types values whose stored text starts with an unambiguous JSON **structural** marker (`{`, `[` or `"`): JSON objects, arrays and quoted strings round-trip as their typed `JsonNode` form, while everything else surfaces verbatim as a JSON string. Numeric, boolean and bare-`null` literals are intentionally **not** re-typed because there is no per-leaf type metadata to tell e.g. the product code `"007"` apart from the number `7`, or the stored string `"true"` apart from the boolean `true`. Clients that need typed scalars should write them inside an explicit JSON object / array shape (e.g. a `MultiValuedDataElement.value` entry) and parse leaf strings themselves when needed.
 
 ### Durable version archive
 
@@ -497,7 +478,7 @@ The older flat `Dpp:Esdc:TrustedPublicKeysPem` list is still read so existing de
 
 The DPP service implements the access-rights, security and data-authentication requirements as summarised below. Items marked *Deployment* are organisational, identity-provider or infrastructure responsibilities outside this application's code.
 
-**EN 18239 - Access rights management, IT security, business confidentiality**
+**EN 18239 — Access rights management, IT security, business confidentiality**
 
 | Clause | Requirement | Status |
 |---|---|---|
@@ -513,7 +494,7 @@ The DPP service implements the access-rights, security and data-authentication r
 | §5.2(13), Annex A | Authentication per the relevant legal act; MFA, identity proofing, sole control, dynamic auth | Deployment |
 | §6.4 / §6.5 | Business continuity (ISO 22301), ISMS/PDCA (ISO 27001), incident response, DoS resilience, security-by-design | Deployment |
 
-**EN 18246 - Data authentication, reliability and integrity**
+**EN 18246 — Data authentication, reliability and integrity**
 
 | Clause | Requirement | Status |
 |---|---|---|
@@ -549,7 +530,7 @@ You **must** have installed PostgreSQL version 11.20 or higher. You **must** als
 ```
 "Server=localhost;Username=MyUserName;Password=MyUserPassword;Database=uacloudlib;Port=5432;Ssl Mode=Require;Include Error Detail=true",
 ```
-**Note: you must create a user account with set privileges to access the database, and set `Ssl Mode=Require` for any non-loopback server - most managed PostgreSQL offerings (including Azure Database for PostgreSQL) reject unencrypted connections outright.**
+**Note: you must create a user account with set privileges to access the database, and set `Ssl Mode=Require` for any non-loopback server — most managed PostgreSQL offerings (including Azure Database for PostgreSQL) reject unencrypted connections outright.**
 
 ### Setting Credentials for Admin Account
 To enable access, from both Swagger and the REST API, you must set a password using this environment variable:
