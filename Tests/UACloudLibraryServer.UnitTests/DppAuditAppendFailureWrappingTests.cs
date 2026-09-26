@@ -23,8 +23,9 @@ namespace UACloudLibraryServer.UnitTests
     /// <see cref="DbUpdateException"/>, transient <see cref="DbException"/> and
     /// <see cref="InvalidOperationException"/>, so an ordinary database outage escaped unwrapped.
     /// <para>
-    /// <c>RecordAsync</c> itself needs a live Npgsql context, so these tests pin the predicate that
-    /// decides what gets wrapped rather than exercising the loop end to end.
+    /// <c>RecordAsync</c> itself needs a live Npgsql context, so these tests exercise the production
+    /// catch-filter predicate (<c>DppAuditLog.ShouldWrapAsAuditFailure</c>, which the catch clause
+    /// actually calls) rather than driving the loop end to end.
     /// </para>
     /// </remarks>
     public class DppAuditAppendFailureWrappingTests
@@ -35,12 +36,11 @@ namespace UACloudLibraryServer.UnitTests
         }
 
         /// <summary>
-        /// Mirrors the <c>when</c> clause guarding the catch-all in <c>RecordAsync</c>. Kept in sync
-        /// deliberately: if the production filter widens to swallow cancellation or to re-wrap an
-        /// already-shaped refusal, this should start failing.
+        /// The production predicate itself, not a restatement of it. An earlier version of this test
+        /// duplicated the rule locally, which meant it kept passing even if
+        /// <c>RecordAsync</c> stopped wrapping - precisely the regression it exists to catch.
         /// </summary>
-        private static bool IsWrapped(Exception ex) =>
-            ex is not DppAuditException and not OperationCanceledException;
+        private static bool IsWrapped(Exception ex) => DppAuditLog.ShouldWrapAsAuditFailure(ex);
 
         [Fact]
         public void NonTransientDatabaseFailure_IsWrapped()

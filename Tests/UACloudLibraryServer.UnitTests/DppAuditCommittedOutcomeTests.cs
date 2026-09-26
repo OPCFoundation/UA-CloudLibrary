@@ -73,30 +73,26 @@ namespace UACloudLibraryServer.UnitTests
 
             foreach (string file in Directory.EnumerateFiles(controllers, "*.cs"))
             {
-                string[] lines = File.ReadAllLines(file);
-                for (int i = 0; i < lines.Length; i++)
+                string source = File.ReadAllText(file);
+
+                foreach (AuditInvocation call in FindAuditInvocations(source))
                 {
-                    string line = lines[i];
-                    if (!line.Contains("_auditLog.Record", StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
-
                     // Read outcomes are legitimately retryable: nothing was mutated.
-                    if (line.Contains("DppAuditOperation.Read", StringComparison.Ordinal))
+                    if (call.Text.Contains("DppAuditOperation.Read", StringComparison.Ordinal))
                     {
                         continue;
                     }
 
-                    Match outcome = PostCommitOutcomeRegex().Match(line);
+                    Match outcome = PostCommitOutcomeRegex().Match(call.Text);
                     if (!outcome.Success)
                     {
                         continue;
                     }
 
-                    if (!line.Contains("RecordCommittedOutcomeAsync", StringComparison.Ordinal))
+                    if (!call.Text.Contains("RecordCommittedOutcomeAsync", StringComparison.Ordinal))
                     {
-                        offenders.Add($"{Path.GetFileName(file)}:{i + 1} records \"{outcome.Groups[1].Value}\" via RecordAsync");
+                        int line = source.Take(call.Start).Count(c => c == '\n') + 1;
+                        offenders.Add($"{Path.GetFileName(file)}:{line} records \"{outcome.Groups[1].Value}\" via RecordAsync");
                     }
                 }
             }
@@ -107,6 +103,145 @@ namespace UACloudLibraryServer.UnitTests
                 "reported as a retryable 503 for a change that is already durable. Use " +
                 "RecordCommittedOutcomeAsync instead:" + Environment.NewLine +
                 string.Join(Environment.NewLine, offenders));
+        }
+
+        private readonly record struct AuditInvocation(int Start, string Text);
+
+        /// <summary>
+        /// Extracts each complete <c>_auditLog.Record...(...)</c> invocation, argument list included.
+        /// </summary>
+        /// <remarks>
+        /// Whole invocations rather than single lines. An earlier version matched the call and its
+        /// outcome argument on the same physical line, so a multiline call - of which several exist
+        /// in these controllers - could be switched from <c>RecordCommittedOutcomeAsync</c> to
+        /// <c>RecordAsync</c> while its <c>"PartialFailure"</c> argument sat on a later line, and the
+        /// scan would never inspect the two together. The invariant was effectively unenforced for
+        /// exactly the calls most likely to carry it.
+        /// <para>
+        /// Parenthesis balancing rather than a real parse: it is string- and comment-aware, which is
+        /// sufficient for a guard over first-party controller source and avoids taking a Roslyn
+        /// dependency in this test project.
+        /// </para>
+        /// </remarks>
+        private static IEnumerable<AuditInvocation> FindAuditInvocations(string source)
+        {
+            const string marker = "_auditLog.Record";
+
+            int index = source.IndexOf(marker, StringComparison.Ordinal);
+            while (index >= 0)
+            {
+                int open = source.IndexOf('(', index);
+                if (open < 0)
+                {
+                    yield break;
+                }
+
+                int close = FindMatchingParen(source, open);
+                if (close < 0)
+                {
+                    yield break;
+                }
+
+                yield return new AuditInvocation(index, source[index..(close + 1)]);
+                index = source.IndexOf(marker, close, StringComparison.Ordinal);
+            }
+        }
+
+        /// <summary>
+        /// Index of the parenthesis closing the one at <paramref name="open"/>, ignoring parentheses
+        /// inside string literals and comments. Returns -1 when unbalanced.
+        /// </summary>
+        private static int FindMatchingParen(string source, int open)
+        {
+            int depth = 0;
+
+            for (int i = open; i < source.Length; i++)
+            {
+                char c = source[i];
+
+                // Skip over a string or character literal wholesale, so a parenthesis or quote
+                // inside a message does not unbalance the count.
+                if (c is '"' or '\'')
+                {
+                    i = SkipLiteral(source, i);
+                    continue;
+                }
+
+                if (c == '/' && i + 1 < source.Length)
+                {
+                    if (source[i + 1] == '/')
+                    {
+                        int eol = source.IndexOf('\n', i);
+                        if (eol < 0)
+                        {
+                            return -1;
+                        }
+
+                        i = eol;
+                        continue;
+                    }
+
+                    if (source[i + 1] == '*')
+                    {
+                        int end = source.IndexOf("*/", i + 2, StringComparison.Ordinal);
+                        if (end < 0)
+                        {
+                            return -1;
+                        }
+
+                        i = end + 1;
+                        continue;
+                    }
+                }
+
+                if (c == '(')
+                {
+                    depth++;
+                }
+                else if (c == ')')
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        return i;
+                    }
+                }
+            }
+
+            return -1;
+        }
+
+        /// <summary>Index of the closing quote of the literal starting at <paramref name="start"/>.</summary>
+        private static int SkipLiteral(string source, int start)
+        {
+            char quote = source[start];
+
+            // Verbatim strings have no escape sequences; a doubled quote is an escaped quote.
+            bool verbatim = start > 0 && source[start - 1] == '@';
+
+            for (int i = start + 1; i < source.Length; i++)
+            {
+                char c = source[i];
+
+                if (!verbatim && c == '\\')
+                {
+                    i++;
+                    continue;
+                }
+
+                if (c == quote)
+                {
+                    if (verbatim && i + 1 < source.Length && source[i + 1] == quote)
+                    {
+                        i++;
+                        continue;
+                    }
+
+                    return i;
+                }
+            }
+
+            return source.Length - 1;
         }
 
         [Fact]

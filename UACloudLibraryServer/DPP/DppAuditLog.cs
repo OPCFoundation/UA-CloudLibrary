@@ -106,7 +106,7 @@ namespace Opc.Ua.Cloud.Library
                     lastError = ex;
                     ResetTracking();
                 }
-                catch (Exception ex) when (ex is not DppAuditException and not OperationCanceledException)
+                catch (Exception ex) when (ShouldWrapAsAuditFailure(ex))
                 {
                     // Anything else that reaches here - a non-transient DbException such as a
                     // connection or permission failure, or any provider-specific fault - must still
@@ -114,10 +114,6 @@ namespace Opc.Ua.Cloud.Library
                     // so an unwrapped failure would bypass it entirely: a read would return a bare
                     // 500 rather than the documented 503, and a post-commit mutation would lose the
                     // "applied; do not retry" response and invite a duplicate write.
-                    //
-                    // Deliberately excluded: DppAuditException is already the shaped refusal, and
-                    // OperationCanceledException means the caller gave up, which says nothing about
-                    // the log and must stay a cancellation.
                     //
                     // Not retried, unlike the cases above: those are contention that a retry
                     // resolves, whereas this is a fault that will not fix itself within five
@@ -153,6 +149,27 @@ namespace Opc.Ua.Cloud.Library
         // resolved by retrying: 40001 serialization_failure, 40P01 deadlock_detected.
         private const string SerializationFailureSqlState = "40001";
         private const string DeadlockDetectedSqlState = "40P01";
+
+        /// <summary>
+        /// True when an append failure must be re-raised as a <see cref="DppAuditException"/>.
+        /// </summary>
+        /// <remarks>
+        /// <c>DppAuditFailureFilter</c> can only shape <see cref="DppAuditException"/>, so anything
+        /// else escaping the append bypasses it: a read returns a bare 500 instead of the documented
+        /// 503, and a post-commit mutation loses the "applied; do not retry" response.
+        /// <para>
+        /// Two exclusions. <see cref="DppAuditException"/> is already the shaped refusal and carries
+        /// its own message, so re-wrapping it would bury the explanation. A cancellation means the
+        /// caller gave up, which says nothing about the log and must stay a cancellation.
+        /// </para>
+        /// <para>
+        /// Exposed to the test assembly deliberately: a test that restated this rule locally would
+        /// keep passing if the production catch stopped wrapping, which is the regression it exists
+        /// to detect.
+        /// </para>
+        /// </remarks>
+        internal static bool ShouldWrapAsAuditFailure(Exception ex) =>
+            ex is not DppAuditException and not OperationCanceledException;
 
         /// <summary>
         /// True when the exception (or any exception it wraps) reports a SQLSTATE that indicates a
