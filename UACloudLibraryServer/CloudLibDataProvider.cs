@@ -204,7 +204,27 @@ namespace Opc.Ua.Cloud.Library
             return GenerateHashCode(nodeSet).ToString(CultureInfo.InvariantCulture);
         }
 
+        /// <summary>
+        /// Uploads a nodeset and its metadata, returning only the status message.
+        /// </summary>
+        /// <remarks>
+        /// Prefer <see cref="UploadNamespaceAndNodesetWithResultAsync"/> on any path that audits the
+        /// outcome: this overload discards whether the nodeset blob was already written, which is
+        /// what distinguishes a clean failure from a partially-applied one.
+        /// </remarks>
         public async Task<string> UploadNamespaceAndNodesetAsync(string userId, UANameSpace uaNamespace, string values, bool overwrite)
+            => (await UploadNamespaceAndNodesetWithResultAsync(userId, uaNamespace, values, overwrite).ConfigureAwait(false)).Message;
+
+        /// <summary>
+        /// Uploads a nodeset and its metadata, reporting whether anything was durably written.
+        /// </summary>
+        /// <remarks>
+        /// The blob is stored before the metadata is added, and the metadata step can fail, so a
+        /// failure here does not imply storage is unchanged. Callers that audit the outcome need
+        /// that distinction: a partially-applied upload has to be recorded as such, and a later
+        /// audit failure must not tell the client the request was safely retryable.
+        /// </remarks>
+        public async Task<UploadResult> UploadNamespaceAndNodesetWithResultAsync(string userId, UANameSpace uaNamespace, string values, bool overwrite)
         {
             UANodeSet nodeSet = null;
 
@@ -214,7 +234,7 @@ namespace Opc.Ua.Cloud.Library
             }
             catch (Exception ex)
             {
-                return $"Could not parse nodeset XML file: {ex.Message}";
+                return UploadResult.Failed($"Could not parse nodeset XML file: {ex.Message}");
             }
 
             // generate a unique hash code
@@ -223,12 +243,12 @@ namespace Opc.Ua.Cloud.Library
             {
                 if (nodesetHashCode == 0)
                 {
-                    return "Nodeset invalid. Please make sure it includes a valid Model URI and publication date!";
+                    return UploadResult.Failed("Nodeset invalid. Please make sure it includes a valid Model URI and publication date!");
                 }
 
                 if (nodeSet.Models.Length != 1)
                 {
-                    return "Nodeset not supported. Please make sure it includes exactly one Model!";
+                    return UploadResult.Failed("Nodeset not supported. Please make sure it includes exactly one Model!");
                 }
 
                 // check if the nodeset already exists in the database for the legacy hashcode algorithm
@@ -244,14 +264,14 @@ namespace Opc.Ua.Cloud.Library
                             ModelTableEntry firstModel = legacyNodeSet.Models.Length > 0 ? legacyNodeSet.Models[0] : null;
                             if (firstModel == null)
                             {
-                                return $"Nodeset exists but existing nodeset had no model entry.";
+                                return UploadResult.Failed($"Nodeset exists but existing nodeset had no model entry.");
                             }
                             if ((!firstModel.PublicationDateSpecified && !nodeSet.Models[0].PublicationDateSpecified) || firstModel.PublicationDate == nodeSet.Models[0].PublicationDate)
                             {
                                 if (!overwrite)
                                 {
                                     // nodeset already exists
-                                    return "Nodeset already exists. Use overwrite flag to overwrite this existing legacy entry in the Library.";
+                                    return UploadResult.Failed("Nodeset already exists. Use overwrite flag to overwrite this existing legacy entry in the Library.");
                                 }
                             }
                             else
@@ -262,7 +282,7 @@ namespace Opc.Ua.Cloud.Library
                         }
                         catch (Exception ex)
                         {
-                            return $"Nodeset exists but existing nodeset could not be validated: {ex.Message}.";
+                            return UploadResult.Failed($"Nodeset exists but existing nodeset could not be validated: {ex.Message}.");
                         }
 
                         // check userId matches if nodeset already exists
@@ -276,7 +296,7 @@ namespace Opc.Ua.Cloud.Library
                             // we treat no user in the database like an admin user
                             if (string.IsNullOrEmpty(existingLegacyNamespaces.UserId) || existingLegacyNamespaces.IsPublished)
                             {
-                                return $"Nodeset already exists for admin user. Cannot overwrite with user {userId}";
+                                return UploadResult.Failed($"Nodeset already exists for admin user. Cannot overwrite with user {userId}");
                             }
                         }
                     }
@@ -293,7 +313,7 @@ namespace Opc.Ua.Cloud.Library
                 if (existingNamespace != null)
                 {
                     // nodeset already exists
-                    return "Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.";
+                    return UploadResult.Failed("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.");
                 }
 
                 // nodeset metadata not found: allow overwrite of orphaned blob
@@ -311,7 +331,7 @@ namespace Opc.Ua.Cloud.Library
                 // we treat no user in the database like an admin user
                 if (string.IsNullOrEmpty(existingNamespaces.UserId) || existingNamespaces.IsPublished)
                 {
-                    return $"Nodeset already exists for admin user. Cannot overwrite with user {userId}";
+                    return UploadResult.Failed($"Nodeset already exists for admin user. Cannot overwrite with user {userId}");
                 }
             }
 
@@ -358,14 +378,20 @@ namespace Opc.Ua.Cloud.Library
             {
                 string message = "Error: NodeSet file could not be stored.";
                 _logger.LogError(message);
-                return message;
+
+                // The store itself failed, so nothing was committed and retrying is safe.
+                return UploadResult.Failed(message);
             }
 
+            // Past this point the nodeset blob is durably written. Any failure below leaves storage
+            // changed, so it must be reported as partially applied rather than as a clean failure -
+            // otherwise the audit trail records the upload as never having happened, and the client
+            // is told the request is safe to repeat.
             string dbMessage = await AddMetaDataAsync(userId, uaNamespace, nodeSet, legacyNodesetHashCode).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(dbMessage))
             {
                 _logger.LogError(dbMessage);
-                return dbMessage;
+                return UploadResult.FailedAfterStorageWrite(dbMessage);
             }
 
             if (legacyNodesetHashCode != 0)
@@ -384,9 +410,23 @@ namespace Opc.Ua.Cloud.Library
                 }
             }
 
-            await IndexNodeSetModelAsync(nodeSet, uaNamespace).ConfigureAwait(false);
+            // Indexing runs after both the blob and the metadata are committed, and it can throw -
+            // an empty model list, a missing metadata row, or a failure saving the node models.
+            // Letting that escape would bypass the partially-applied result entirely: the caller
+            // would see an unshaped exception, neither upload controller would reach its
+            // PartialFailure branch, and the write-ahead Attempted entry would be left unmatched
+            // with no indication that storage had in fact changed.
+            try
+            {
+                await IndexNodeSetModelAsync(nodeSet, uaNamespace).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to index nodeset {Identifier} after it was stored.", uaNamespace?.Nodeset?.Identifier);
+                return UploadResult.FailedAfterStorageWrite($"Nodeset was stored but could not be indexed: {ex.Message}");
+            }
 
-            return "success";
+            return UploadResult.Success();
         }
 
         public static UANodeSet ReadUANodeSet(string nodeSetXml)

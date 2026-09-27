@@ -36,6 +36,7 @@ using System.Net.Sockets;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.RateLimiting;
 using System.Threading.Tasks;
 using AdminShell;
 using Microsoft.AspNetCore.Authentication;
@@ -43,12 +44,14 @@ using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -66,6 +69,10 @@ namespace Opc.Ua.Cloud.Library
 {
     public class Startup
     {
+        // Rate-limit policy applied to DPP services to prevent unauthorized mass data scraping
+        // (EN 18239 §5.2(11)/(15)).
+        public const string DppRateLimitPolicy = "DppRateLimit";
+
         public Startup(IConfiguration configuration, IWebHostEnvironment environment)
         {
             Configuration = configuration;
@@ -93,15 +100,12 @@ namespace Opc.Ua.Cloud.Library
             //     would be told to open ws:// from an https:// page and the browser
             //     would block it as mixed content.
             //
-            // KnownIPNetworks/KnownProxies are cleared because the proxy's address is
-            // not known ahead of time and is not in the default loopback allow-list.
-            // That is safe only where this server is reachable exclusively through
-            // the proxy; expose it directly and a caller could spoof these headers.
-            services.Configure<ForwardedHeadersOptions>(options => {
-                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-                options.KnownIPNetworks.Clear();
-                options.KnownProxies.Clear();
-            });
+            // Which proxies are trusted is decided by the single
+            // Configure<ForwardedHeadersOptions> registration further down, which is
+            // driven by Dpp:ForwardedHeaders:*. Deliberately do NOT add a second
+            // registration here: configure delegates compose rather than replace, so an
+            // unconditional KnownProxies.Clear() here would silently override the
+            // configured trust list and leave every caller trusted.
 
             services.AddControllersWithViews();
 
@@ -116,6 +120,17 @@ namespace Opc.Ua.Cloud.Library
                 .AddRoles<IdentityRole>()
                 .AddEntityFrameworkStores<AppDbContext>()
                 .AddTokenProvider<ApiKeyTokenProvider>(ApiKeyTokenProvider.ApiKeyProviderName);
+
+            // Role claims are baked into the authentication cookie at sign-in, so revoking a role in
+            // the database does not by itself stop an already-issued cookie from passing the
+            // controlled-element and administration checks. AccessController bumps the user's
+            // security stamp on revocation; this interval bounds how long a stale cookie survives
+            // before the stamp is re-validated and the principal rejected. EN 18239 section 6.3
+            // requires emergency revocation to actually take effect, so the 30-minute framework
+            // default is too slow - one minute keeps the revocation window short while still
+            // avoiding a database round-trip on every single request.
+            services.Configure<SecurityStampValidatorOptions>(options =>
+                options.ValidationInterval = TimeSpan.FromMinutes(1));
 
             // Label the account identifier field (and its validation messages) "Username" rather than
             // "Email" while e-mail verification is disabled, matching the conditional syntax check in
@@ -139,9 +154,32 @@ namespace Opc.Ua.Cloud.Library
             services.AddScoped<AssetAdministrationShellEnvironmentService>();
 
             services.AddScoped<DPPService>();
+            services.AddSingleton<IDppAccessPolicy, DppAccessPolicy>();
+            services.AddScoped<IDppAuditLog, DppAuditLog>();
+            services.AddSingleton<IDppAuditKeyProvider, DppAuditKeyProvider>();
+            services.AddScoped<Controllers.DppAuditFailureFilter>();
+            services.AddScoped<IEsdcSigningKeyProvider, EsdcSigningKeyProvider>();
 
-            // EN 18221 Clause 4.2 archiving hook, satisfied with durable persistence
-            // via the existing DbFileStorage layer.
+            // Tamper evidence is only useful if something checks it. Registering verification as a
+            // health check means an altered or truncated audit log surfaces through normal monitoring
+            // instead of waiting for someone to ask. Tagged so liveness probes can skip it: it reads
+            // the entire audit table and belongs on a readiness/monitoring schedule.
+            services.AddHealthChecks()
+                .AddCheck<DppAuditChainHealthCheck>(
+                    DppAuditChainHealthCheck.Name,
+                    tags: new[] { DppAuditChainHealthCheck.Tag });
+
+            // The signing key must be identical for every request and every instance, so the ESDC
+            // service stays a singleton. Its key is resolved once, lazily, through a temporary scope:
+            // resolution needs the scoped DbContext, and it must happen after migrations have created
+            // the table, which rules out resolving it here during ConfigureServices.
+            services.AddSingleton<IEsdcService>(sp => {
+                using IServiceScope scope = sp.GetRequiredService<IServiceScopeFactory>().CreateScope();
+                var keyProvider = scope.ServiceProvider.GetRequiredService<IEsdcSigningKeyProvider>();
+                string privateKeyPem = keyProvider.GetOrCreatePrivateKeyPemAsync().GetAwaiter().GetResult();
+
+                return new RsaEsdcService(sp.GetRequiredService<IConfiguration>(), privateKeyPem);
+            });
             services.AddScoped<IDppVersionArchive, DbFileVersionArchive>();
 
             services.AddScoped<CaptchaValidation>();
@@ -223,7 +261,7 @@ namespace Opc.Ua.Cloud.Library
             }
 
             services.AddAuthorization(options => {
-                options.AddPolicy("AdministrationPolicy", policy => policy.RequireRole("Administrator"));
+                options.AddPolicy("AdministrationPolicy", policy => policy.RequireRole(Roles.Administrator));
             });
 
             if (Configuration["APIKeyAuth"] != null)
@@ -288,9 +326,49 @@ namespace Opc.Ua.Cloud.Library
                 options.EnableAnnotations();
             });
 
-            string serviceName = Configuration["Application"] ?? "UACloudLibrary";
+            // Data Protection keys encrypt the authentication cookie, antiforgery
+            // tokens and the e-mail confirmation / password reset tokens. They must
+            // OUTLIVE the process: if they are lost, every existing cookie and token
+            // becomes undecryptable, which signs all users out and makes outstanding
+            // reset links fail. Worse, the antiforgery token on an already-open login
+            // page can no longer be validated, so the POST is rejected by model
+            // validation before the credentials are ever checked - which looks exactly
+            // like a wrong password.
+            //
+            // Directory.GetCurrentDirectory() is the container's working directory and
+            // is destroyed on every restart, so the key ring is configurable: point
+            // DATA_PROTECTION_KEY_PATH at a mounted volume in any containerised
+            // deployment.
+            string keyPath = Configuration["DATA_PROTECTION_KEY_PATH"];
+            if (string.IsNullOrWhiteSpace(keyPath))
+            {
+                keyPath = Directory.GetCurrentDirectory();
+            }
+            else
+            {
+                Directory.CreateDirectory(keyPath);
+            }
 
-            services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Directory.GetCurrentDirectory()));
+            IDataProtectionBuilder dataProtection = services.AddDataProtection()
+                .PersistKeysToFileSystem(new DirectoryInfo(keyPath));
+
+            // Deliberately NOT calling SetApplicationName() by default. The application discriminator
+            // is part of the key derivation, so changing it invalidates every payload protected under
+            // the previous value: on the first upgrade an otherwise-durable key ring would stop being
+            // able to decrypt existing cookies, antiforgery tokens and reset/confirmation links. The
+            // framework default derives the discriminator from the content root path, which is stable
+            // across restarts and identical across replicas of the same image, so the default already
+            // gives the cross-replica behaviour this was originally meant to provide.
+            //
+            // Set DATA_PROTECTION_APPLICATION_NAME only when replicas genuinely need to share a key
+            // ring but do not share a content root path. It is a one-time breaking change for the
+            // deployment that adopts it: existing users are signed out and outstanding reset and
+            // confirmation links stop working, so roll it out in a maintenance window.
+            string applicationName = Configuration["DATA_PROTECTION_APPLICATION_NAME"];
+            if (!string.IsNullOrWhiteSpace(applicationName))
+            {
+                dataProtection.SetApplicationName(applicationName);
+            }
 
             services.Configure<IISServerOptions>(options => {
                 options.AllowSynchronousIO = true;
@@ -302,6 +380,106 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddServerSideBlazor();
 
+            // When this server runs behind a TLS-terminating reverse proxy (an
+            // ingress controller, for example), the proxy forwards the request over
+            // plain HTTP and records the original scheme and client IP in the
+            // X-Forwarded-Proto and X-Forwarded-For headers. Without honouring them:
+            //
+            //   - ASP.NET Identity builds its login redirect from the scheme it sees,
+            //     so it would send browsers an absolute http:// URL and silently
+            //     downgrade the connection, putting credentials on the wire in clear.
+            //   - The rate limiter below partitions on the connection's remote IP,
+            //     which would be the proxy's address for every caller - collapsing a
+            //     per-client limit into one shared bucket.
+            //
+            // KnownIPNetworks/KnownProxies are NOT cleared by default. Clearing them makes the
+            // middleware accept X-Forwarded-For/-Proto from any caller, so anyone able to reach this
+            // server directly could spoof their client IP (evading the per-IP rate limit below) and
+            // spoof the scheme used to build redirects. That is only acceptable where the server is
+            // genuinely unreachable except through the proxy, which is a deployment property this
+            // code cannot verify - so it must be stated explicitly by the operator.
+            //
+            // Configure whichever matches the deployment:
+            //   Dpp:ForwardedHeaders:KnownProxies:0    - specific proxy IP addresses
+            //   Dpp:ForwardedHeaders:KnownNetworks:0   - CIDR ranges, e.g. "10.0.0.0/8"
+            //   Dpp:ForwardedHeaders:TrustAllProxies   - true only when network-isolated behind a proxy
+            services.Configure<ForwardedHeadersOptions>(options => {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+                string[] knownProxies = Configuration.GetSection("Dpp:ForwardedHeaders:KnownProxies").Get<string[]>() ?? [];
+                string[] knownNetworks = Configuration.GetSection("Dpp:ForwardedHeaders:KnownNetworks").Get<string[]>() ?? [];
+                bool trustAllProxies = Configuration.GetValue<bool>("Dpp:ForwardedHeaders:TrustAllProxies");
+
+                if (trustAllProxies)
+                {
+                    // Explicit operator opt-in: the server is stated to be reachable only via the proxy.
+                    options.KnownIPNetworks.Clear();
+                    options.KnownProxies.Clear();
+                }
+                else if (knownProxies.Length > 0 || knownNetworks.Length > 0)
+                {
+                    // Replace the loopback defaults with exactly the configured trust anchors.
+                    options.KnownIPNetworks.Clear();
+                    options.KnownProxies.Clear();
+
+                    foreach (string proxy in knownProxies)
+                    {
+                        if (System.Net.IPAddress.TryParse(proxy, out System.Net.IPAddress address))
+                        {
+                            options.KnownProxies.Add(address);
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException(
+                                $"Dpp:ForwardedHeaders:KnownProxies contains '{proxy}', which is not a valid IP address.");
+                        }
+                    }
+
+                    foreach (string network in knownNetworks)
+                    {
+                        if (System.Net.IPNetwork.TryParse(network, out System.Net.IPNetwork parsed))
+                        {
+                            options.KnownIPNetworks.Add(parsed);
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException(
+                                $"Dpp:ForwardedHeaders:KnownNetworks contains '{network}', which is not a valid CIDR network.");
+                        }
+                    }
+                }
+
+                // Otherwise the framework defaults apply (loopback only), which is the safe choice
+                // for a server that may be directly reachable.
+            });
+
+            // Limit access to DPP services to prevent attacks or unauthorized
+            // mass data scraping. Partition the window per client IP so one caller cannot exhaust others.
+            int permitPerMinute = Configuration.GetValue<int?>("Dpp:RateLimit:PermitPerMinute") ?? 100;
+
+            // Validated here rather than left to the limiter. The partition factory is lazy, so an
+            // invalid value would not surface until the first DPP request and would then throw on a
+            // user request instead of failing the deployment - a configuration typo presenting as a
+            // runtime fault. FixedWindowRateLimiter requires a positive permit limit.
+            if (permitPerMinute <= 0)
+            {
+                throw new InvalidOperationException(
+                    $"Dpp:RateLimit:PermitPerMinute is {permitPerMinute}, but it must be greater than zero. " +
+                    "Remove the setting to use the default of 100 requests per minute per client IP.");
+            }
+
+            services.AddRateLimiter(options => {
+                options.RejectionStatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status429TooManyRequests;
+                options.AddPolicy(DppRateLimitPolicy, httpContext =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+                        factory: _ => new FixedWindowRateLimiterOptions {
+                            PermitLimit = permitPerMinute,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0
+                        }));
+            });
+
             services.AddHostedService<CloudLibStartupTask>();
         }
 
@@ -309,9 +487,8 @@ namespace Opc.Ua.Cloud.Library
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, AppDbContext appDbContext, ApplicationInstance uaApp)
         {
             // Must run before anything that reads the request scheme or client IP -
-            // UseHttpsRedirection, the authentication middleware and the Blazor hub
-            // negotiation all do. See the ForwardedHeadersOptions note in
-            // ConfigureServices.
+            // UseHttpsRedirection, the authentication middleware and the rate limiter
+            // all do. See the ForwardedHeadersOptions note in ConfigureServices.
             app.UseForwardedHeaders();
 
             if (env.IsDevelopment())
@@ -332,6 +509,9 @@ namespace Opc.Ua.Cloud.Library
 
             app.UseRouting();
 
+            // Enforce DPP service rate limits (must follow UseRouting so endpoint policies are resolved).
+            app.UseRateLimiter();
+
             app.UseAuthentication();
 
             app.UseAuthorization();
@@ -344,6 +524,21 @@ namespace Opc.Ua.Cloud.Library
                 endpoints.MapBlazorHub();
 
                 endpoints.MapRazorPages();
+
+                // Audit-chain verification, exposed separately from any liveness probe because it
+                // reads the whole audit table. Requires administrator rights: the result reveals
+                // whether the log has been tampered with, which is not public information, and an
+                // unauthenticated caller could otherwise use it to drive repeated full-table scans.
+                //
+                // Both policies are required, mirroring how the administrative controllers combine a
+                // class-level ApiPolicy with a method-level AdministrationPolicy. AdministrationPolicy
+                // declares only a role requirement and no authentication schemes, so on its own the
+                // endpoint would fall back to the default Identity cookie alone - a monitoring client
+                // presenting Basic or API-key credentials would be seen as unauthenticated even though
+                // both are supported everywhere else.
+                endpoints.MapHealthChecks("/health/dpp-audit", new HealthCheckOptions {
+                    Predicate = registration => registration.Tags.Contains(DppAuditChainHealthCheck.Tag)
+                }).RequireAuthorization("ApiPolicy", "AdministrationPolicy");
             });
         }
 
@@ -386,7 +581,46 @@ namespace Opc.Ua.Cloud.Library
                     throw new InvalidOperationException("Database not available, exiting!");
                 }
 
+                await EnsureEsdcSigningKeyAsync(scope.ServiceProvider).ConfigureAwait(false);
+
                 await InitOPCUAClientServerAsync(uaApp).ConfigureAwait(false);
+            }
+
+            // Resolving the ESDC service here forces the signing key to be resolved (and, if permitted,
+            // generated and persisted) during startup. Failing at boot is deliberate: the alternative is
+            // a server that starts cleanly and only reveals it cannot sign when the first DPP is read.
+            private static async Task EnsureEsdcSigningKeyAsync(IServiceProvider services)
+            {
+                var configuration = services.GetRequiredService<IConfiguration>();
+                var environment = services.GetRequiredService<IWebHostEnvironment>();
+                var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+
+                try
+                {
+                    // Touch the singleton so key resolution happens now.
+                    services.GetRequiredService<IEsdcService>();
+                }
+                catch (InvalidOperationException ex)
+                {
+                    logger.LogError(ex, "Failed to resolve the ESDC signing key during startup.");
+                    throw;
+                }
+
+                if (!string.IsNullOrWhiteSpace(configuration[EsdcSigningKeyProvider.PrivateKeyConfigurationPath]))
+                {
+                    return;
+                }
+
+                // Reached only where the generated key is permitted: Development, or an explicit opt-in.
+                logger.LogWarning(
+                    "{ConfigPath} is not configured, so ESDCs are signed with a key generated by the server and stored in the database. " +
+                    "That key is included in database backups and readable by anything with database access. " +
+                    "For production, provide the key from a managed secret store - see the signing key management section of dpp.md. " +
+                    "Environment: {EnvironmentName}.",
+                    EsdcSigningKeyProvider.PrivateKeyConfigurationPath,
+                    environment.EnvironmentName);
+
+                await Task.CompletedTask.ConfigureAwait(false);
             }
 
             private static async Task EnsureIsPublishedColumnAsync(AppDbContext dbContext, CancellationToken cancellationToken)
