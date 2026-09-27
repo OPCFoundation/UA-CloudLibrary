@@ -88,7 +88,7 @@ namespace Opc.Ua.Cloud.Library.Authentication
                     return null;
                 }
 
-                List<Claim> claims = [new Claim(ClaimTypes.Name, username), new Claim(ClaimTypes.Role, "Administrator")];
+                List<Claim> claims = [new Claim(ClaimTypes.Name, username), new Claim(ClaimTypes.Role, Roles.Administrator)];
 
                 return claims;
             }

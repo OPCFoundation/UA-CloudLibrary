@@ -133,8 +133,17 @@ namespace Opc.Ua.Cloud.Library
         }
 
         /// <summary>
-        /// Download a blob to a file.
+        /// Download a blob to a file. Returns <c>null</c> only when no row with that name exists.
         /// </summary>
+        /// <remarks>
+        /// Storage faults propagate rather than being flattened into <c>null</c>. Callers cannot
+        /// otherwise tell "this file does not exist" from "the database was unreachable", and
+        /// several of them make security decisions on that distinction: the DPP access policy
+        /// travels inside <see cref="DbFiles.Values"/>, so a swallowed outage would read as
+        /// "no controlled elements" and publish every element of an otherwise protected passport.
+        /// Failing loudly turns that silent disclosure into an ordinary error response.
+        /// <see cref="DeleteFileAsync"/> already rethrows for the same reason.
+        /// </remarks>
         public async Task<DbFiles> DownloadFileAsync(string name, CancellationToken cancellationToken = default)
         {
             try
@@ -144,7 +153,7 @@ namespace Opc.Ua.Cloud.Library
             catch (Exception ex)
             {
                 _logger.LogError(ex, "DownloadFileAsync failed for {Name}.", name);
-                return null;
+                throw;
             }
         }
         public async Task DeleteFileAsync(string name, CancellationToken cancellationToken = default)

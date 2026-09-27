@@ -15,10 +15,13 @@
 @using Microsoft.JSInterop
 @using AdminShell
 @using Opc.Ua
+@using Opc.Ua.Cloud.Library.Models
 
 @inject UAClient _client
 @inject CloudLibDataProvider DataProvider
 @inject IJSRuntime JSRuntime
+@inject IDppAuditLog _auditLog
+@inject AuthenticationStateProvider AuthStateProvider
 @implements IDisposable
 
 <h1>@NodesetName</h1>
@@ -456,10 +459,79 @@
 
         if ((ModalTitle == "Copy") && save)
         {
-            CopyStatus = await _client.CopyNodeset(UserName, NodesetIdentifier, ModalValue).ConfigureAwait(false);
+            CopyStatus = await CopyNodesetAuditedAsync().ConfigureAwait(false);
         }
 
         await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+    }
+
+    // A copy creates a nodeset that may carry a DPP, so it is a DPP create and is audited like the
+    // equivalent REST path in ApprovalController. This page had no auditing at all: copies made
+    // through the browser UI left no trace in the audit log, while the same operation performed via
+    // /approval was fully attributable.
+    private async Task<string> CopyNodesetAuditedAsync()
+    {
+        // Attribute the entry to the authenticated user, not to the UserName parameter. UserName
+        // arrives from the /browser query string, so it is caller-supplied and must never become the
+        // operator id on a non-repudiable record. The controller's own Download/Save actions already
+        // use User.Identity.Name for exactly this reason.
+        var state = await AuthStateProvider.GetAuthenticationStateAsync().ConfigureAwait(false);
+        string operatorId = state?.User?.Identity?.Name ?? "anonymous";
+
+        // Write the intent first: the copy touches the blob store and the database, which share no
+        // transaction, so an "Attempted" entry with no matching outcome is the signal that a copy may
+        // have landed without being fully logged.
+        string operationId = DppAuditOperationId.New();
+        string elementPath = $"copy as {ModalValue}";
+
+        try
+        {
+            await _auditLog.RecordAsync(operatorId, DppAuditOperation.Create, NodesetIdentifier, elementPath, "Attempted", operationId).ConfigureAwait(false);
+        }
+        catch (DppAuditException)
+        {
+            // Nothing has been written yet, so refusing here is the safe outcome: it is better to
+            // decline a copy than to perform one that cannot be logged.
+            return "Copy refused: the operation could not be recorded in the audit log.";
+        }
+
+        UploadResult result = await _client.CopyNodeset(UserName, NodesetIdentifier, ModalValue).ConfigureAwait(false);
+
+        try
+        {
+            // Branch on literal outcomes rather than computing one into a variable. The source guard
+            // in DppAuditCommittedOutcomeTests matches the outcome literal inside the invocation, so
+            // passing a variable here would place this call outside the invariant it is meant to be
+            // held to - it would read as compliant while being unchecked.
+            if (result.Succeeded)
+            {
+                // The copy is durable, so a failure to record this outcome must not be reported as a
+                // retryable refusal.
+                await _auditLog.RecordCommittedOutcomeAsync(operatorId, DppAuditOperation.Create, NodesetIdentifier, elementPath, "Success", operationId).ConfigureAwait(false);
+            }
+            else if (result.PartiallyApplied)
+            {
+                // The nodeset was stored but the copy did not complete, so durable changes were left
+                // behind and this must not be presented as a clean failure.
+                await _auditLog.RecordCommittedOutcomeAsync(operatorId, DppAuditOperation.Create, NodesetIdentifier, elementPath, "PartialFailure", operationId).ConfigureAwait(false);
+            }
+            else
+            {
+                // Nothing was written, so a failed append here is a genuine, retryable refusal.
+                await _auditLog.RecordAsync(operatorId, DppAuditOperation.Create, NodesetIdentifier, elementPath, "Failed", operationId).ConfigureAwait(false);
+            }
+        }
+        catch (DppAuditException ex)
+        {
+            // There is no DppAuditFailureFilter on a Blazor render path, so the shaping a controller
+            // would get from the filter has to happen here or the user sees an unhandled error while
+            // the copy itself may have succeeded.
+            return ex.MutationCommitted
+                ? "Copy completed, but the audit entry could not be written. Do not retry; report this to an administrator."
+                : "Copy failed and the outcome could not be recorded in the audit log.";
+        }
+
+        return result.Message;
     }
 
     protected override async Task OnInitializedAsync()
