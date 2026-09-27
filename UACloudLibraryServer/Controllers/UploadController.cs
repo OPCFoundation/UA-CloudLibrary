@@ -241,13 +241,6 @@ namespace UANodesetWebViewer.Controllers
                 // that leaves the caller unsure whether the change landed.
                 throw;
             }
-            catch (DppAuditException)
-            {
-                // Must not be swallowed by the general handler below: an unauditable upload has to
-                // surface as a refusal via DppAuditFailureFilter, not as an ordinary error message
-                // that leaves the caller unsure whether the change landed.
-                throw;
-            }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error uploading nodeset: {ex.Message}");
