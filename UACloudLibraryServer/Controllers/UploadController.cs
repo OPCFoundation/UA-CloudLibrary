@@ -59,6 +59,18 @@ namespace UANodesetWebViewer.Controllers
             return View("Index", string.Empty);
         }
 
+        private IActionResult UploadStatus(bool succeeded, string message)
+        {
+            // The upload form posts via fetch so that the entered values (including the selected
+            // files) survive a failed attempt, e.g. when the overwrite flag was forgotten.
+            if (Request.Headers.XRequestedWith == "XMLHttpRequest")
+            {
+                return Json(new { succeeded, message });
+            }
+
+            return View("Index", message);
+        }
+
         [HttpPost]
         public async Task<IActionResult> UploadNodeset(
             IFormFile nodesetFile,
@@ -220,7 +232,7 @@ namespace UANodesetWebViewer.Controllers
                     await _auditLog.RecordAsync(OperatorId, operation, uploadTarget, null, "Failed", operationId).ConfigureAwait(false);
                 }
 
-                return View("Index", result);
+                return UploadStatus(uploadResult.Succeeded, result);
             }
             catch (DppAuditException)
             {
@@ -232,7 +244,7 @@ namespace UANodesetWebViewer.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine($"Error uploading nodeset: {ex.Message}");
-                return View("Index", ex.Message);
+                return UploadStatus(false, ex.Message);
             }
         }
     }
