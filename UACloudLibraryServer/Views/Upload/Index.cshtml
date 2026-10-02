@@ -19,13 +19,10 @@
         </div>
 
         <div class="auth-card-body card-body pt-2">
-            @if (hasStatus)
-            {
-                <div class="alert alert-info d-flex align-items-start" role="alert">
-                    <i class="fas fa-info-circle mt-1 mr-2" aria-hidden="true"></i>
-                    <div><strong>Upload status:</strong> @Model</div>
-                </div>
-            }
+            <div id="uploadStatus" class="alert alert-info d-flex align-items-start @(hasStatus ? "" : "d-none")" role="alert">
+                <i class="fas fa-info-circle mt-1 mr-2" aria-hidden="true"></i>
+                <div><strong>Upload status:</strong> <span id="uploadStatusText">@Model</span></div>
+            </div>
 
             <form id="uploadForm" method="post" enctype="multipart/form-data" asp-controller="Upload" asp-action="UploadNodeset" novalidate>
 
@@ -240,6 +237,53 @@
             // Prevent the browser from navigating away when a file is dropped outside a zone.
             ['dragover', 'drop'].forEach(function (evt) {
                 window.addEventListener(evt, function (e) { e.preventDefault(); });
+            });
+
+            // Submit without reloading the page so the entered values and selected files are kept
+            // when the upload is rejected (e.g. the nodeset already exists and overwrite was not set).
+            var form = document.getElementById('uploadForm');
+            var button = document.getElementById('uploadButton');
+            var status = document.getElementById('uploadStatus');
+            var statusText = document.getElementById('uploadStatusText');
+
+            function showStatus(message, succeeded) {
+                statusText.textContent = message;
+                status.classList.remove('d-none', 'alert-info', 'alert-success', 'alert-danger');
+                status.classList.add(succeeded === true ? 'alert-success' : (succeeded === false ? 'alert-danger' : 'alert-info'));
+                status.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                if (!form.checkValidity()) {
+                    form.reportValidity();
+                    return;
+                }
+
+                button.disabled = true;
+                fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin'
+                }).then(function (response) {
+                    if (!response.ok) {
+                        return response.text().then(function (text) { throw new Error(text || response.statusText); });
+                    }
+                    return response.json();
+                }).then(function (data) {
+                    showStatus(data.message, data.succeeded);
+                    if (data.succeeded) {
+                        form.reset();
+                        document.querySelectorAll('.dropzone').forEach(function (zone) {
+                            updateZone(zone, document.getElementById(zone.getAttribute('data-input')));
+                        });
+                    }
+                }).catch(function (err) {
+                    showStatus(err.message || 'Upload failed.', false);
+                }).finally(function () {
+                    button.disabled = false;
+                });
             });
         })();
     </script>
