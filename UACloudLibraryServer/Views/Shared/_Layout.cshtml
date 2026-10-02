@@ -1,5 +1,7 @@
 
 @namespace AdminShell
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<IdentityUser> SignInManager
 
 @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
 
@@ -20,14 +22,19 @@
     @{
         var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
         var isHome = string.Equals(currentController, "Home", StringComparison.OrdinalIgnoreCase);
-        var navItems = new (string Controller, string Label, string Icon)[]
-        {
-            ("Home", "Home", "fa-home"),
-            ("Explorer", "Explorer", "fa-cubes"),
-            ("Upload", "Upload", "fa-cloud-upload-alt"),
-        };
+        var isSignedIn = SignInManager.IsSignedIn(User);
+        var navItems = isSignedIn
+            ? new (string Controller, string Label, string Icon)[]
+            {
+                ("Home", "Home", "fa-home"),
+                ("Explorer", "Explorer", "fa-cubes"),
+                ("Upload", "Upload", "fa-cloud-upload-alt"),
+            }
+            : new (string Controller, string Label, string Icon)[]
+            {
+                ("Home", "Home", "fa-home"),
+            };
     }
-    <div class="top-bar"></div>
     <header class="app-bar">
         <nav class="navbar navbar-expand-md navbar-dark app-bar-toolbar">
             <div class="container-fluid">

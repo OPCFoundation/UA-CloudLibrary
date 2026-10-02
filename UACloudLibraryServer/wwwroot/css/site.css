@@ -12,7 +12,7 @@ for details on configuring this project to bundle and minify static web assets. 
 /*-------------------------------------------*/
 :root {
     --opc-mid:  #196096;
-    --opc-dark: #084A79;
+    --opc-dark: rgb(25, 96, 150);
     --opc-accent: #448FD1;
     --opc-light-1: #E8EFF4;
     --opc-light-2: #A3C4DE;
@@ -201,7 +201,7 @@ a {
 /*---------------------------------------------------*/
 header.app-bar {
     height: auto;
-    background: linear-gradient(100deg, var(--opc-mid) 0%, var(--opc-dark) 100%);
+    background-color: var(--app-bar-main);
     color: var(--app-bar-contrast);
     box-shadow: 0 2px 4px -1px rgba(0,0,0,.2), 0 4px 5px 0 rgba(0,0,0,.14), 0 1px 10px 0 rgba(0,0,0,.12);
 }
