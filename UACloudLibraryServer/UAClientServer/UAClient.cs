@@ -276,7 +276,7 @@ namespace Opc.Ua.Cloud.Library
                     nodeManager.AddNamespace(nodesetXml.Blob);
                     nodeManager.AddNodesAndValues(nodesetXml.Blob, nodesetXml.Values);
 
-                    LoadedNamespaces.Add(nodeManager.NamespaceUris.Last(), new Tuple<string, string>(requiredModel.Version, dependentNodeset.Version));
+                    LoadedNamespaces[nodeManager.NamespaceUris.Last()] = new Tuple<string, string>(requiredModel.Version, dependentNodeset.Version);
                 }
             }
         }
@@ -465,7 +465,7 @@ namespace Opc.Ua.Cloud.Library
                 WriteValue nodeToWrite = new() {
                     NodeId = nodeID,
                     AttributeId = Attributes.Value,
-                    Value = new DataValue(payload)
+                    Value = new DataValue(new Variant(await ConvertPayloadToNodeDataType(nodeID, payload).ConfigureAwait(false)))
                 };
 
                 WriteValueCollection nodesToWrite = new() {
@@ -491,6 +491,150 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
+        /// <summary>
+        /// Checks whether the value of the given node can be edited from the browser UI.
+        /// Returns null when the node is writable, otherwise a human-readable reason.
+        /// </summary>
+        public async Task<string> GetVariableWriteBlocker(string userId, string nodesetIdentifier, string nodeId)
+        {
+            try
+            {
+                if (!await ValidateSession(userId, nodesetIdentifier).ConfigureAwait(false))
+                {
+                    return "No OPC UA session is available for this nodeset.";
+                }
+
+                Node node = await _session.ReadNodeAsync(ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris)).ConfigureAwait(false);
+                if (node == null)
+                {
+                    return "The node could not be read from the nodeset.";
+                }
+
+                if (node is not VariableNode variable)
+                {
+                    return $"Only Variable nodes have a value that can be edited (this node is a {node.NodeClass}).";
+                }
+
+                // Namespace 0 nodes (e.g. Server/ServerStatus) belong to the embedded OPC UA server, not
+                // to the uploaded nodeset, and are skipped by BrowseVariableNodesResursivelyAsync when
+                // node values are saved - so an edit could never be persisted.
+                if (node.NodeId.NamespaceIndex == 0)
+                {
+                    return "This node belongs to the OPC UA base namespace and is maintained by the server itself; it is not part of this nodeset and is not included when node values are saved.";
+                }
+
+                if ((variable.AccessLevel & AccessLevels.CurrentWrite) == 0)
+                {
+                    return "The node's AccessLevel does not include CurrentWrite, so its value is read-only.";
+                }
+
+                if ((variable.UserAccessLevel & AccessLevels.CurrentWrite) == 0)
+                {
+                    return "The node's UserAccessLevel does not include CurrentWrite, so its value is read-only for the current user.";
+                }
+
+                if (variable.ValueRank != ValueRanks.Scalar && variable.ValueRank != ValueRanks.ScalarOrOneDimension && variable.ValueRank != ValueRanks.Any)
+                {
+                    return "Array values cannot be edited as a single text value.";
+                }
+
+                BuiltInType builtInType = TypeInfo.GetBuiltInType(variable.DataType, _session.TypeTree);
+                switch (builtInType)
+                {
+                    case BuiltInType.Null:
+                    case BuiltInType.ExtensionObject:
+                    case BuiltInType.Variant:
+                    case BuiltInType.DataValue:
+                    case BuiltInType.DiagnosticInfo:
+                        return $"The node's data type ({variable.DataType}) is a structured or abstract type that cannot be edited as text.";
+                    default:
+                        return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                return "The node's write permissions could not be determined: " + ex.Message;
+            }
+        }
+
+        /// <summary>
+        /// Validates that a value could be stored for the given node in a user value set without
+        /// writing to the shared server: the node must be editable (see <see cref="GetVariableWriteBlocker"/>)
+        /// and the text must convert to the node's data type. Returns null when valid, otherwise a reason.
+        /// </summary>
+        public async Task<string> ValidateValueForNode(string userId, string nodesetIdentifier, string nodeId, string value)
+        {
+            string blocker = await GetVariableWriteBlocker(userId, nodesetIdentifier, nodeId).ConfigureAwait(false);
+            if (blocker != null)
+            {
+                return blocker;
+            }
+
+            try
+            {
+                Node node = await _session.ReadNodeAsync(ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris)).ConfigureAwait(false);
+                if (node is VariableNode variable)
+                {
+                    BuiltInType builtInType = TypeInfo.GetBuiltInType(variable.DataType, _session.TypeTree);
+                    if (builtInType != BuiltInType.Null && builtInType != BuiltInType.String)
+                    {
+                        TypeInfo.Cast(value, builtInType);
+                    }
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                return $"The value '{value}' cannot be converted to the node's data type: {ex.Message}";
+            }
+        }
+
+        /// <summary>
+        /// Returns the canonical node values of the nodeset with the given user value set applied on
+        /// top, so a private set can be exported in the same shape as the owner's saved values.
+        /// </summary>
+        public async Task<Dictionary<string, string>> ExportValuesAsync(string userId, string nodesetIdentifier, IReadOnlyDictionary<string, string> overlay)
+        {
+            Dictionary<string, string> values = await BrowseVariableNodesResursivelyAsync(userId, nodesetIdentifier, null).ConfigureAwait(false)
+                ?? new Dictionary<string, string>();
+
+            if (overlay != null)
+            {
+                foreach (KeyValuePair<string, string> kv in overlay)
+                {
+                    values[kv.Key] = kv.Value;
+                }
+            }
+
+            return values;
+        }
+
+        // The browser UI always submits a string, but the server rejects writes whose value does
+        // not match the variable's data type (BadTypeMismatch). Cast to the target built-in type
+        // when possible and fall back to the raw string otherwise.
+        private async Task<object> ConvertPayloadToNodeDataType(NodeId nodeID, string payload)
+        {
+            try
+            {
+                Node node = await _session.ReadNodeAsync(nodeID).ConfigureAwait(false);
+                if (node is VariableNode variable)
+                {
+                    BuiltInType builtInType = TypeInfo.GetBuiltInType(variable.DataType, _session.TypeTree);
+                    if (builtInType != BuiltInType.Null && builtInType != BuiltInType.String)
+                    {
+                        return TypeInfo.Cast(payload, builtInType);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Converting payload to node data type failed, writing as string: " + ex.Message);
+            }
+
+            return payload;
+        }
+
         private async Task<bool> ValidateSession(string userId, string nodesetIdentifier)
         {
             if (string.IsNullOrEmpty(nodesetIdentifier))
@@ -504,7 +648,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 EndpointDescription selectedEndpoint = null;
 
-                if (_sessions.TryGetValue(nodesetIdentifier, out Opc.Ua.Client.ISession value) && (value != null) && value.Connected)
+                if (TryGetLiveSession(nodesetIdentifier, out Opc.Ua.Client.ISession value))
                 {
                     Console.WriteLine("Re-using existing OPC UA server and session for nodeset " + nodesetIdentifier);
                     _session = value;
@@ -517,6 +661,18 @@ namespace Opc.Ua.Cloud.Library
 
                     try
                     {
+                        // Another caller on this instance may have started the server and created the
+                        // session while we waited for the lock (e.g. tree expand and state restore run
+                        // concurrently after a page load). Starting a second server here would reload
+                        // the dependent nodesets into LoadedNamespaces a second time and fail, and the
+                        // resulting DisposeSession would tear down the good session as well.
+                        if (TryGetLiveSession(nodesetIdentifier, out Opc.Ua.Client.ISession existing))
+                        {
+                            Console.WriteLine("Re-using OPC UA session created concurrently for nodeset " + nodesetIdentifier);
+                            _session = existing;
+                            return true;
+                        }
+
                         int maxRetry = 5000;
                         while (selectedEndpoint == null)
                         {
@@ -715,12 +871,39 @@ namespace Opc.Ua.Cloud.Library
             return nodesetFiles;
         }
 
+        // A session left in the cache after it was disposed throws ObjectDisposedException from
+        // Connected; treat it as absent and evict it so the next caller can start cleanly.
+        private static bool TryGetLiveSession(string nodesetIdentifier, out Opc.Ua.Client.ISession session)
+        {
+            session = null;
+
+            if (!_sessions.TryGetValue(nodesetIdentifier, out Opc.Ua.Client.ISession cached) || cached == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                if (cached.Connected)
+                {
+                    session = cached;
+                    return true;
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
+            _sessions.TryRemove(nodesetIdentifier, out _);
+            return false;
+        }
+
         public async Task DisposeSession()
         {
             // remove session from our concurrent dictionary
             foreach (var key in _sessions.Keys.ToList())
             {
-                if (_sessions[key] == _session)
+                if (_sessions.TryGetValue(key, out Opc.Ua.Client.ISession cached) && ReferenceEquals(cached, _session))
                 {
                     _sessions.TryRemove(key, out _);
                 }
@@ -728,12 +911,20 @@ namespace Opc.Ua.Cloud.Library
 
             if (_session != null)
             {
-                if (_session.Connected)
+                try
                 {
-                    await _session.CloseAsync().ConfigureAwait(false);
+                    if (_session.Connected)
+                    {
+                        await _session.CloseAsync().ConfigureAwait(false);
+                    }
+
+                    _session.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("DisposeSession: " + ex.Message);
                 }
 
-                _session.Dispose();
                 _session = null;
             }
         }

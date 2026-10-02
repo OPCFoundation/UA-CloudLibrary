@@ -16,11 +16,13 @@
 @using AdminShell
 @using Opc.Ua
 @using Opc.Ua.Cloud.Library.Models
+@using Opc.Ua.Cloud.Library.ValueSets
 
 @inject UAClient _client
 @inject CloudLibDataProvider DataProvider
 @inject IJSRuntime JSRuntime
 @inject IDppAuditLog _auditLog
+@inject IValueSetStore ValueSetStore
 @inject AuthenticationStateProvider AuthStateProvider
 @implements IDisposable
 
@@ -205,7 +207,7 @@
                                     </div>
                                 </div>
                                 <div class="card-body">
-                                    <Tree Nodes="TreeNodes" TNode="NodesetViewerNode" ChildSelector="node => node.Children" SelectedNodeChanged="SelectedNodeChanged" OnNodeExpand="OnNodeExpand" HasChildNodes="HasChildNodes" ExpandedNodes="ExpandedNodes">
+                                    <Tree Nodes="TreeNodes" TNode="NodesetViewerNode" ChildSelector="node => node.Children" SelectedNodeChanged="SelectedNodeChanged" OnNodeExpand="OnNodeExpand" HasChildNodes="HasChildNodes" ExpandedNodes="ExpandedNodes" ExpandedNodesChanged="OnExpandedNodesChanged">
                                         <TitleTemplate>
                                             @{
                                                 bool isSelected = context.Id == SelectedNode.Id;
@@ -301,10 +303,45 @@
                             <div class="card">
                                 <div class="card-header">
                                     <b><span style="color: red;">Selected Node</span> Value</b>
-                                    <button type="button" class="btn btn-primary" style="float: right" @onclick="() => OpenEditDialog(NodeValue)">Edit</button><br/>
+                                    <button type="button" class="btn btn-primary" style="float: right" @onclick="() => OpenEditDialog(NodeValue)" disabled="@(!CanEditSelectedNode)" title="@(CanEditSelectedNode ? "Edit the value of the selected node" : EditBlockedReason)">Edit</button><br/>
+                                    @if (!CanEditSelectedNode && !string.IsNullOrEmpty(EditBlockedReason))
+                                    {
+                                        <span class="text-muted"><i class="fas fa-lock mr-1"></i>@EditBlockedReason</span><br/>
+                                    }
                                     @if (!string.IsNullOrEmpty(WriteStatus))
                                     {
                                         <span style="color: red;">@WriteStatus</span>
+                                    }
+                                    <div class="input-group input-group-sm mt-2">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text" title="Node values are read from and edits are written to the selected value set. 'Nodeset values' are the owner's canonical values; your own value sets are private overlays on top of them.">Value set</span>
+                                        </div>
+                                        <select class="form-control" value="@ActiveValueSetId" @onchange="OnValueSetSelected" disabled="@(!CanUseValueSets)">
+                                            <option value="">Nodeset values</option>
+                                            @foreach (var set in ValueSets)
+                                            {
+                                                <option value="@set.Id">@set.Name</option>
+                                            }
+                                        </select>
+                                        <div class="input-group-append">
+                                            <button type="button" class="btn btn-outline-secondary" title="Create a new empty value set" @onclick="OpenNewValueSetDialog" disabled="@(!CanUseValueSets)">New</button>
+                                            <button type="button" class="btn btn-outline-secondary" title="Rename the selected value set" @onclick="OpenRenameValueSetDialog" disabled="@(ActiveValueSet == null)">Rename</button>
+                                            <button type="button" class="btn btn-outline-secondary" title="Copy the selected value set" @onclick="OpenCloneValueSetDialog" disabled="@(ActiveValueSet == null)">Clone</button>
+                                            <a class="btn btn-outline-secondary @(ActiveValueSet == null ? "disabled" : "")" title="Download the nodeset values with this set applied" href="@(ActiveValueSet == null ? "#" : $"/valuesets/{ActiveValueSet.Id}/export")" target="_blank">Export</a>
+                                            <button type="button" class="btn btn-outline-danger" title="Delete the selected value set" @onclick="DeleteActiveValueSet" disabled="@(ActiveValueSet == null)">Delete</button>
+                                        </div>
+                                    </div>
+                                    @if (!CanUseValueSets)
+                                    {
+                                        <small class="text-muted">Sign in to create your own value sets for this nodeset.</small>
+                                    }
+                                    else if (ActiveValueSet != null)
+                                    {
+                                        <small class="text-muted">@ActiveValueSetEntries.Count node value(s) overridden in this set. Edits are stored privately in the set and do not change the nodeset itself.</small>
+                                    }
+                                    @if (!string.IsNullOrEmpty(ValueSetStatus))
+                                    {
+                                        <br/><span style="color: red;">@ValueSetStatus</span>
                                     }
                                 </div>
                                 <div class="card-body">
@@ -315,6 +352,18 @@
                                     else
                                     {
                                         <span>(none)</span>
+                                    }
+                                    @if (ActiveValueSet != null && SelectedNode != null)
+                                    {
+                                        @if (SelectedNodeIsOverridden)
+                                        {
+                                            <span class="badge badge-info ml-2" title="This value comes from the selected value set">@ActiveValueSet.Name</span>
+                                            <button type="button" class="btn btn-link btn-sm" title="Remove this node from the value set and fall back to the nodeset value" @onclick="ResetSelectedNodeValue">Reset to nodeset value</button>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge badge-light ml-2" title="This node is not overridden in the selected value set">nodeset value</span>
+                                        }
                                     }
                                 </div>
                             </div>
@@ -385,6 +434,24 @@
 
     private string WriteStatus = string.Empty;
 
+    private string EditBlockedReason = "Select a Variable node in the tree to edit its value.";
+
+    private bool CanEditSelectedNode => string.IsNullOrEmpty(EditBlockedReason);
+
+    // Named value sets are private per-user overlays on the nodeset's canonical values. When one is
+    // active, reads show the overlay value (falling back to the live server value) and edits are
+    // stored in the set instead of being written to the shared embedded OPC UA server.
+    private List<NodesetValueSet> ValueSets { get; set; } = new List<NodesetValueSet>();
+    private string ActiveValueSetId { get; set; } = string.Empty;
+    private NodesetValueSet ActiveValueSet => ValueSets.FirstOrDefault(vs => vs.Id.ToString() == ActiveValueSetId);
+    private Dictionary<string, string> ActiveValueSetEntries { get; set; } = new Dictionary<string, string>(StringComparer.Ordinal);
+    private string ValueSetStatus { get; set; } = string.Empty;
+    private string _valueSetUserId;
+    private bool CanUseValueSets => !string.IsNullOrEmpty(_valueSetUserId);
+    private bool SelectedNodeIsOverridden => SelectedNode != null && ActiveValueSet != null && ActiveValueSetEntries.ContainsKey(SelectedNode.Id);
+
+    private string ValueSetStorageKey => "uacl-value-set:" + (NodesetIdentifier ?? string.Empty);
+
     private bool IsDownloading = false;
 
     private string SearchQuery { get; set; } = string.Empty;
@@ -411,8 +478,173 @@
 
     private NodesetViewerNode SelectedNode { get; set; } = null;
 
+    // The "Save node values" form posts to BrowserController and redirects back, which tears down the
+    // Blazor circuit. The tree state is therefore kept in the browser's sessionStorage (per tab) so
+    // the open branches and selected node survive that round trip.
+    private bool _isInteractive = false;
+    private bool _isRestoringState = false;
+    private readonly TaskCompletionSource _initialLoad = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    private string TreeStateStorageKey => "uacl-tree-state:" + (NodesetIdentifier ?? string.Empty);
+
+    private sealed class TreeState
+    {
+        public List<string> Expanded { get; set; } = new List<string>();
+        public string Selected { get; set; }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        _isInteractive = true;
+
+        // OnInitializedAsync is still expanding the root when the first render completes. Browsing
+        // the same nodeset from two paths at once makes UAClient start a second embedded server for
+        // it, which fails and tears down the working session - leaving an empty tree.
+        await _initialLoad.Task.ConfigureAwait(false);
+
+        await LoadValueSetsAsync().ConfigureAwait(false);
+        await RestoreTreeStateAsync().ConfigureAwait(false);
+    }
+
+    private async Task OnExpandedNodesChanged(IList<NodesetViewerNode> expanded)
+    {
+        ExpandedNodes = expanded;
+        await PersistTreeStateAsync().ConfigureAwait(false);
+    }
+
+    private async Task PersistTreeStateAsync()
+    {
+        if (!_isInteractive || _isRestoringState)
+        {
+            return;
+        }
+
+        try
+        {
+            TreeState state = new TreeState {
+                Expanded = ExpandedNodes.Where(n => n != null && !string.IsNullOrEmpty(n.Id)).Select(n => n.Id).Distinct(StringComparer.Ordinal).ToList(),
+                Selected = SelectedNode?.Id
+            };
+
+            await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", TreeStateStorageKey, JsonSerializer.Serialize(state)).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Persisting tree state failed: {ex.Message}");
+        }
+    }
+
+    private async Task RestoreTreeStateAsync()
+    {
+        TreeState state;
+        try
+        {
+            string json = await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", TreeStateStorageKey).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(json))
+            {
+                return;
+            }
+
+            state = JsonSerializer.Deserialize<TreeState>(json);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Reading tree state failed: {ex.Message}");
+            return;
+        }
+
+        if (state == null)
+        {
+            return;
+        }
+
+        _isRestoringState = true;
+        try
+        {
+            // Expanded ids may be stored in any order; re-expand in passes so that a child branch is
+            // found once its parent has been loaded, until no further progress is made.
+            HashSet<string> remaining = new HashSet<string>(state.Expanded ?? new List<string>(), StringComparer.Ordinal);
+            bool progress = true;
+            while (remaining.Count > 0 && progress)
+            {
+                progress = false;
+                foreach (NodesetViewerNode node in EnumerateLoadedNodes())
+                {
+                    if (!remaining.Contains(node.Id))
+                    {
+                        continue;
+                    }
+
+                    await LoadChildrenAsync(node).ConfigureAwait(false);
+                    if (!ExpandedNodes.Contains(node))
+                    {
+                        ExpandedNodes.Add(node);
+                    }
+
+                    remaining.Remove(node.Id);
+                    progress = true;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(state.Selected))
+            {
+                NodesetViewerNode selected = EnumerateLoadedNodes().FirstOrDefault(n => string.Equals(n.Id, state.Selected, StringComparison.Ordinal));
+                if (selected != null)
+                {
+                    await SelectedNodeChanged(selected).ConfigureAwait(false);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Restoring tree state failed: {ex.Message}");
+        }
+        finally
+        {
+            _isRestoringState = false;
+        }
+
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+    }
+
+    private IEnumerable<NodesetViewerNode> EnumerateLoadedNodes()
+    {
+        List<NodesetViewerNode> result = new List<NodesetViewerNode>();
+        Queue<NodesetViewerNode> queue = new Queue<NodesetViewerNode>(TreeNodes);
+        while (queue.Count > 0)
+        {
+            NodesetViewerNode node = queue.Dequeue();
+            if (node == null || string.IsNullOrEmpty(node.Id))
+            {
+                continue;
+            }
+
+            result.Add(node);
+
+            if (node.ChildrenLoaded && node.Children != null)
+            {
+                foreach (NodesetViewerNode child in node.Children)
+                {
+                    queue.Enqueue(child);
+                }
+            }
+        }
+
+        return result;
+    }
+
     private void OpenEditDialog(string value)
     {
+        if (!CanEditSelectedNode)
+        {
+            return;
+        }
+
         ModalDisplay = "display:block;";
         ModalClass = "Show";
         ShowBackDrop = true;
@@ -445,21 +677,250 @@
 
         if ((ModalTitle == "Edit") && save)
         {
-            bool writeSucceeded = await _client.VariableWrite(UserName, NodesetIdentifier, SelectedNode.Id, ModalValue).ConfigureAwait(false);
-            if (writeSucceeded)
+            if (ActiveValueSet != null)
             {
-                NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, SelectedNode.Id).ConfigureAwait(false);
-                WriteStatus = string.Empty;
+                string problem = await _client.ValidateValueForNode(UserName, NodesetIdentifier, SelectedNode.Id, ModalValue).ConfigureAwait(false);
+                if (problem != null)
+                {
+                    WriteStatus = problem;
+                }
+                else
+                {
+                    try
+                    {
+                        await ValueSetStore.SetValueAsync(ActiveValueSet.Id, _valueSetUserId, SelectedNode.Id, ModalValue).ConfigureAwait(false);
+                        ActiveValueSetEntries[SelectedNode.Id] = ModalValue;
+                        NodeValue = ModalValue;
+                        WriteStatus = string.Empty;
+                    }
+                    catch (Exception ex)
+                    {
+                        WriteStatus = "Failed to store the value in the value set: " + ex.Message;
+                    }
+                }
             }
             else
             {
-                WriteStatus = "Failed to write variable value.";
+                bool writeSucceeded = await _client.VariableWrite(UserName, NodesetIdentifier, SelectedNode.Id, ModalValue).ConfigureAwait(false);
+                if (writeSucceeded)
+                {
+                    NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, SelectedNode.Id).ConfigureAwait(false);
+                    WriteStatus = string.Empty;
+                }
+                else
+                {
+                    WriteStatus = "Failed to write variable value.";
+                }
             }
         }
 
         if ((ModalTitle == "Copy") && save)
         {
             CopyStatus = await CopyNodesetAuditedAsync().ConfigureAwait(false);
+        }
+
+        if (save && (ModalTitle == "New value set" || ModalTitle == "Rename value set" || ModalTitle == "Clone value set"))
+        {
+            await ApplyValueSetDialogAsync().ConfigureAwait(false);
+        }
+
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+    }
+
+    private async Task LoadValueSetsAsync()
+    {
+        try
+        {
+            var state = await AuthStateProvider.GetAuthenticationStateAsync().ConfigureAwait(false);
+            _valueSetUserId = state?.User?.Identity?.IsAuthenticated == true ? state.User.Identity.Name : null;
+            if (!CanUseValueSets)
+            {
+                return;
+            }
+
+            ValueSets = (await ValueSetStore.ListAsync(NodesetIdentifier, _valueSetUserId).ConfigureAwait(false)).ToList();
+
+            // Like the tree state, the active set survives the Save redirect via sessionStorage.
+            string stored = await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", ValueSetStorageKey).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(stored) && ValueSets.Any(vs => vs.Id.ToString() == stored))
+            {
+                await ActivateValueSetAsync(stored).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            ValueSetStatus = "Value sets could not be loaded: " + ex.Message;
+        }
+    }
+
+    private async Task OnValueSetSelected(ChangeEventArgs e)
+    {
+        await ActivateValueSetAsync(e.Value?.ToString() ?? string.Empty).ConfigureAwait(false);
+
+        if (SelectedNode != null)
+        {
+            await SelectedNodeChanged(SelectedNode).ConfigureAwait(false);
+        }
+
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+    }
+
+    private async Task ActivateValueSetAsync(string id)
+    {
+        ActiveValueSetId = id ?? string.Empty;
+        ValueSetStatus = string.Empty;
+        ActiveValueSetEntries = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        try
+        {
+            if (ActiveValueSet != null)
+            {
+                var entries = await ValueSetStore.GetValuesAsync(ActiveValueSet.Id, _valueSetUserId).ConfigureAwait(false);
+                if (entries != null)
+                {
+                    ActiveValueSetEntries = new Dictionary<string, string>(entries, StringComparer.Ordinal);
+                }
+            }
+
+            if (_isInteractive)
+            {
+                await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", ValueSetStorageKey, ActiveValueSetId).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            ValueSetStatus = "Value set could not be loaded: " + ex.Message;
+        }
+    }
+
+    private void OpenNewValueSetDialog()
+    {
+        OpenValueSetDialog("New value set", "Name of the new value set", string.Empty);
+    }
+
+    private void OpenRenameValueSetDialog()
+    {
+        if (ActiveValueSet != null)
+        {
+            OpenValueSetDialog("Rename value set", "New name for the value set", ActiveValueSet.Name);
+        }
+    }
+
+    private void OpenCloneValueSetDialog()
+    {
+        if (ActiveValueSet != null)
+        {
+            OpenValueSetDialog("Clone value set", "Name of the copied value set", ActiveValueSet.Name + " (copy)");
+        }
+    }
+
+    private void OpenValueSetDialog(string title, string description, string value)
+    {
+        ModalDisplay = "display:block;";
+        ModalClass = "Show";
+        ShowBackDrop = true;
+
+        ModalTitle = title;
+        ModalDescription = description;
+        ModalValue = value;
+
+        StateHasChanged();
+    }
+
+    private async Task ApplyValueSetDialogAsync()
+    {
+        if (!CanUseValueSets)
+        {
+            return;
+        }
+
+        try
+        {
+            NodesetValueSet result = null;
+            switch (ModalTitle)
+            {
+                case "New value set":
+                    result = await ValueSetStore.CreateAsync(NodesetIdentifier, _valueSetUserId, ModalValue, null).ConfigureAwait(false);
+                    break;
+                case "Rename value set":
+                    if (ActiveValueSet != null)
+                    {
+                        result = await ValueSetStore.UpdateAsync(ActiveValueSet.Id, _valueSetUserId, ModalValue, ActiveValueSet.Description).ConfigureAwait(false);
+                    }
+                    break;
+                case "Clone value set":
+                    if (ActiveValueSet != null)
+                    {
+                        result = await ValueSetStore.CloneAsync(ActiveValueSet.Id, _valueSetUserId, ModalValue).ConfigureAwait(false);
+                    }
+                    break;
+            }
+
+            ValueSets = (await ValueSetStore.ListAsync(NodesetIdentifier, _valueSetUserId).ConfigureAwait(false)).ToList();
+            if (result != null)
+            {
+                await ActivateValueSetAsync(result.Id.ToString()).ConfigureAwait(false);
+                if (SelectedNode != null)
+                {
+                    await SelectedNodeChanged(SelectedNode).ConfigureAwait(false);
+                }
+            }
+
+            ValueSetStatus = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            ValueSetStatus = ex.Message;
+        }
+    }
+
+    private async Task DeleteActiveValueSet()
+    {
+        if (ActiveValueSet == null)
+        {
+            return;
+        }
+
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Delete value set '{ActiveValueSet.Name}' and all its node values?").ConfigureAwait(false);
+        if (!confirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            await ValueSetStore.DeleteAsync(ActiveValueSet.Id, _valueSetUserId).ConfigureAwait(false);
+            ValueSets = (await ValueSetStore.ListAsync(NodesetIdentifier, _valueSetUserId).ConfigureAwait(false)).ToList();
+            await ActivateValueSetAsync(string.Empty).ConfigureAwait(false);
+            if (SelectedNode != null)
+            {
+                await SelectedNodeChanged(SelectedNode).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            ValueSetStatus = "Value set could not be deleted: " + ex.Message;
+        }
+
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+    }
+
+    private async Task ResetSelectedNodeValue()
+    {
+        if (ActiveValueSet == null || SelectedNode == null)
+        {
+            return;
+        }
+
+        try
+        {
+            await ValueSetStore.RemoveValueAsync(ActiveValueSet.Id, _valueSetUserId, SelectedNode.Id).ConfigureAwait(false);
+            ActiveValueSetEntries.Remove(SelectedNode.Id);
+            NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, SelectedNode.Id).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            ValueSetStatus = "Value could not be reset: " + ex.Message;
         }
 
         await InvokeAsync(StateHasChanged).ConfigureAwait(false);
@@ -548,7 +1009,14 @@
         TreeNodes.Add(root);
         SelectedNode = root;
 
-        await OnNodeExpand(root).ConfigureAwait(false);
+        try
+        {
+            await OnNodeExpand(root).ConfigureAwait(false);
+        }
+        finally
+        {
+            _initialLoad.TrySetResult();
+        }
 
         if (!string.IsNullOrWhiteSpace(Search))
         {
@@ -641,8 +1109,20 @@
     {
         SelectedNode = node;
         SelectedNodeDocumentationUrl = null;
+        WriteStatus = string.Empty;
 
         NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, node.Id).ConfigureAwait(false);
+
+        if (ActiveValueSet != null && ActiveValueSetEntries.TryGetValue(node.Id, out string overlayValue) && ReferenceEquals(SelectedNode, node))
+        {
+            NodeValue = overlayValue;
+        }
+
+        string blocker = await _client.GetVariableWriteBlocker(UserName, NodesetIdentifier, node.Id).ConfigureAwait(false);
+        if (ReferenceEquals(SelectedNode, node))
+        {
+            EditBlockedReason = blocker;
+        }
 
         try
         {
@@ -656,6 +1136,8 @@
         {
             SelectedNodeDocumentationUrl = null;
         }
+
+        await PersistTreeStateAsync().ConfigureAwait(false);
     }
 
     private bool HasChildNodes(NodesetViewerNode node)
