@@ -2,25 +2,37 @@
 @inject SignInManager<IdentityUser> SignInManager
 @inject UserManager<IdentityUser> UserManager
 
-<ul class="navbar-nav">
+<ul class="navbar-nav app-bar-user">
 @if (SignInManager.IsSignedIn(User))
 {
     <li class="nav-item">
-        <a  class="nav-link text-white" asp-area="Identity" asp-page="/Account/Manage/Index" title="Manage">Hello @User.Identity.Name!</a>
+        <a class="nav-link app-bar-user-link" asp-area="Identity" asp-page="/Account/Manage/Index" title="Manage account">
+            <span class="app-bar-avatar"><i class="fas fa-user" aria-hidden="true"></i></span>
+            <span class="app-bar-user-name">@User.Identity.Name</span>
+        </a>
     </li>
     <li class="nav-item">
-        <form  class="form-inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
-            <button type="submit" class="nav-link btn btn-link text-white">Logout</button>
+        <form class="form-inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
+            <button type="submit" class="nav-link btn btn-link app-bar-user-link" title="Logout">
+                <span class="app-bar-avatar"><i class="fas fa-sign-out-alt" aria-hidden="true"></i></span>
+                <span class="app-bar-user-name">Logout</span>
+            </button>
         </form>
     </li>
 }
 else
 {
     <li class="nav-item">
-        <a class="nav-link text-white" asp-area="Identity" asp-page="/Account/Register">Register</a>
+        <a class="nav-link app-bar-user-link" asp-area="Identity" asp-page="/Account/Register" title="Register">
+            <span class="app-bar-avatar"><i class="fas fa-user-plus" aria-hidden="true"></i></span>
+            <span class="app-bar-user-name">Register</span>
+        </a>
     </li>
     <li class="nav-item">
-        <a class="nav-link text-white" asp-area="Identity" asp-page="/Account/Login">Login</a>
+        <a class="nav-link app-bar-user-link" asp-area="Identity" asp-page="/Account/Login" title="Login">
+            <span class="app-bar-avatar"><i class="fas fa-sign-in-alt" aria-hidden="true"></i></span>
+            <span class="app-bar-user-name">Login</span>
+        </a>
     </li>
 }
 </ul>
