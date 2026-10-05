@@ -2,24 +2,34 @@
 for details on configuring this project to bundle and minify static web assets. */
 
 /*-------------------------------------------*/
-/*Import fonts (matches SpecificationServer)  */
+/*Import fonts (matches UA NodeSet Editor)    */
 /*-------------------------------------------*/
-@import url(https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap);
+@import url(https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap);
 
 /*-------------------------------------------*/
 /*OPC UA brand palette & fonts (matches       */
-/*SpecificationServer / other OPCF sites)     */
+/*UA NodeSet Editor / other OPCF sites)       */
 /*-------------------------------------------*/
 :root {
     --opc-mid:  #196096;
-    --opc-dark: #084A79;
-    --font-body: Roboto, Helvetica, Arial, sans-serif;
-    --font-ui:   Roboto, Helvetica, Arial, sans-serif;
+    --opc-dark: rgb(25, 96, 150);
+    --opc-accent: #448FD1;
+    --opc-light-1: #E8EFF4;
+    --opc-light-2: #A3C4DE;
+    --app-bar-main: var(--opc-dark);
+    --app-bar-contrast: #ffffff;
+    --app-bar-height: 64px;
+    --font-body: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+    --font-ui:   Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
     --font-mono: 'Consolas', 'Cascadia Code', monospace;
 }
 
 body {
     font-family: var(--font-body);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 /*-------------------------------------------*/
@@ -187,41 +197,207 @@ a {
 }
 
 /*---------------------------------------------------*/
-/*Header overrides to align with other CESMII sites. */
+/*App bar (mirrors the UA NodeSet Editor top menu).   */
 /*---------------------------------------------------*/
-header {
+header.app-bar {
     height: auto;
-    background: linear-gradient(100deg, var(--opc-mid) 0%, var(--opc-dark) 100%);
-    border-bottom: 1px solid;
-    align-items: center
+    background-color: var(--app-bar-main);
+    color: var(--app-bar-contrast);
+    box-shadow: 0 2px 4px -1px rgba(0,0,0,.2), 0 4px 5px 0 rgba(0,0,0,.14), 0 1px 10px 0 rgba(0,0,0,.12);
 }
 
-    header, header .navbar-brand {
-        color: #fff
+.app-bar-toolbar {
+    min-height: 56px;
+    padding: 0 .5rem;
+}
+
+@media (min-width: 768px) {
+    .app-bar-toolbar {
+        min-height: var(--app-bar-height);
+        padding: 0 1.25rem;
+    }
+}
+
+.app-bar-toolbar .container-fluid {
+    gap: .75rem;
+}
+
+a.navbar-brand.app-bar-brand {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    min-width: 0;
+    flex-shrink: 0;
+    padding: 0;
+    margin-right: 0;
+    color: var(--app-bar-contrast);
+    white-space: nowrap;
+    text-align: left;
+    word-break: normal;
+}
+
+    .app-bar-brand:hover,
+    .app-bar-brand:focus {
+        color: var(--app-bar-contrast);
+        opacity: .85;
+        text-decoration: none;
     }
 
-        header .navbar-brand:hover {
-            color: unset;
-            opacity: .75
-        }
+.app-bar-logo {
+    height: 46px;
+    display: none;
+}
 
-        header .navbar-brand img {
-            height: 50px;
-            border-top: 1px solid #fff;
-            border-left: 1px solid #fff;
-            border-bottom: 1px solid #000;
-            border-right: 1px solid #000;
-        }
+@media (min-width: 576px) {
+    .app-bar-logo {
+        display: block;
+    }
+}
 
-        header .nav-link {
-            font-family: var(--font-ui);
-            color: #fff !important;
-            opacity: .9
-        }
+.app-bar-title {
+    font-family: var(--font-ui);
+    font-weight: 500;
+    font-size: 1.05rem;
+    line-height: 1.6;
+    letter-spacing: .0075em;
+}
 
-            header .nav-link:hover {
-                opacity: .75
-            }
+@media (min-width: 768px) {
+    .app-bar-title {
+        font-size: 1.2rem;
+    }
+}
+
+.app-bar-nav-wrap {
+    flex: 1 1 auto;
+    display: flex;
+    justify-content: center;
+    min-width: 0;
+}
+
+.app-bar-nav {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: .25rem;
+    padding: .25rem;
+    height: 46px;
+    box-sizing: border-box;
+    border-radius: 980px;
+    background-color: rgba(255,255,255,.12);
+}
+
+.app-bar-nav-link {
+    display: inline-flex;
+    align-items: center;
+    height: 100%;
+    padding: .375rem 1.125rem !important;
+    border-radius: 980px;
+    font-family: var(--font-ui);
+    font-size: .95rem;
+    font-weight: 500;
+    line-height: 1;
+    color: rgba(255,255,255,.85) !important;
+    background-color: transparent;
+    text-decoration: none;
+    transition: background-color .15s ease-in-out, color .15s ease-in-out;
+}
+
+    .app-bar-nav-link:hover,
+    .app-bar-nav-link:focus {
+        background-color: rgba(255,255,255,.18);
+        color: var(--app-bar-contrast) !important;
+        text-decoration: none;
+    }
+
+    .app-bar-nav-link.active,
+    .app-bar-nav-link.active:hover {
+        background-color: var(--app-bar-contrast);
+        color: var(--app-bar-main) !important;
+    }
+
+.app-bar-actions {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.app-bar-user {
+    flex-direction: row;
+    align-items: center;
+    gap: .25rem;
+}
+
+.app-bar-user-link {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .25rem .5rem !important;
+    border: 0;
+    border-radius: 980px;
+    background-color: transparent;
+    font-family: var(--font-ui);
+    font-size: .875rem;
+    font-weight: 500;
+    color: var(--app-bar-contrast) !important;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+    .app-bar-user-link:hover,
+    .app-bar-user-link:focus {
+        background-color: transparent;
+        color: var(--app-bar-contrast) !important;
+        text-decoration: none;
+        box-shadow: none;
+    }
+
+.app-bar-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: rgba(255,255,255,.22);
+    color: var(--app-bar-contrast);
+    font-size: 12px;
+    transition: background-color .2s, color .2s;
+}
+
+.app-bar-user-link:hover .app-bar-avatar {
+    background-color: var(--app-bar-contrast);
+    color: var(--app-bar-main);
+}
+
+@media (max-width: 767.98px) {
+    .app-bar-toolbar .navbar-collapse {
+        padding: .5rem 0 .75rem;
+    }
+
+    .app-bar-nav-wrap {
+        justify-content: flex-start;
+        margin-bottom: .5rem;
+    }
+
+    .app-bar-nav {
+        height: auto;
+    }
+
+    .app-bar-nav-link {
+        height: 38px;
+    }
+
+    .app-bar-user {
+        flex-wrap: wrap;
+    }
+}
+
+/* Legacy header selectors still used by Identity pages */
+header .nav-link {
+    font-family: var(--font-ui);
+    color: #fff !important;
+}
 
 /*-------------------------------------------*/
 /*Button overrides                           */

@@ -187,9 +187,9 @@
                                 <tr class="uacl-result-row @(isSelected ? "is-selected" : null)" @onclick="() => SelectItem(rowItem)">
                                     <td>
                                         <div class="d-flex align-items-center">
-                                            @if (!string.IsNullOrWhiteSpace(rowItem.IconUrl))
+                                            @if (HasValidIcon(rowItem))
                                             {
-                                                <img src="@rowItem.IconUrl" alt="" class="uacl-row-icon mr-3" />
+                                                <img src="@rowItem.IconUrl" alt="" class="uacl-row-icon mr-3" @onerror="() => OnIconLoadError(rowItem)" />
                                             }
                                             else
                                             {
@@ -238,9 +238,9 @@
                     <div class="uacl-details card shadow-sm mt-3 mb-3">
                         <div class="card-header d-flex align-items-center justify-content-between bg-light">
                             <div class="d-flex align-items-center">
-                                @if (!string.IsNullOrWhiteSpace(SelectedItem.IconUrl))
+                                @if (HasValidIcon(SelectedItem))
                                 {
-                                    <img src="@SelectedItem.IconUrl" alt="" class="uacl-details-icon mr-3" />
+                                    <img src="@SelectedItem.IconUrl" alt="" class="uacl-details-icon mr-3" @onerror="() => OnIconLoadError(SelectedItem)" />
                                 }
                                 else
                                 {
@@ -534,6 +534,24 @@
     private NamespaceMetaDataModel SelectedItem;
 
     private string SelectedTypeDocumentationUrl;
+
+    private readonly HashSet<string> FailedIconUrls = new(StringComparer.OrdinalIgnoreCase);
+
+    private bool HasValidIcon(NamespaceMetaDataModel item)
+    {
+        return !string.IsNullOrWhiteSpace(item?.IconUrl)
+            && Uri.TryCreate(item.IconUrl, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == "data")
+            && !FailedIconUrls.Contains(item.IconUrl);
+    }
+
+    private void OnIconLoadError(NamespaceMetaDataModel item)
+    {
+        if (!string.IsNullOrWhiteSpace(item?.IconUrl))
+        {
+            FailedIconUrls.Add(item.IconUrl);
+        }
+    }
 
     private async Task SelectItem(NamespaceMetaDataModel item)
     {

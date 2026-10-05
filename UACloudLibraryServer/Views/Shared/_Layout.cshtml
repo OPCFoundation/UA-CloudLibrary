@@ -1,5 +1,7 @@
 
 @namespace AdminShell
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<IdentityUser> SignInManager
 
 @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
 
@@ -17,23 +19,49 @@
     <link rel="stylesheet" href="~/css/treeStyles.css" />
 </head>
 <body>
-    <div class="top-bar"></div>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-dark">
+    @{
+        var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+        var isHome = string.Equals(currentController, "Home", StringComparison.OrdinalIgnoreCase);
+        var isSignedIn = SignInManager.IsSignedIn(User);
+        var navItems = isSignedIn
+            ? new (string Controller, string Label, string Icon)[]
+            {
+                ("Home", "Home", "fa-home"),
+                ("Explorer", "Explorer", "fa-cubes"),
+                ("Upload", "Upload", "fa-cloud-upload-alt"),
+            }
+            : new (string Controller, string Label, string Icon)[]
+            {
+                ("Home", "Home", "fa-home"),
+            };
+    }
+    <header class="app-bar">
+        <nav class="navbar navbar-expand-md navbar-dark app-bar-toolbar">
             <div class="container-fluid">
-                <div class="d-flex align-items-center">
-                    <a class="navbar-brand headline-2 text-nowrap" asp-area="" asp-controller="Home" asp-action="Index">
-                        <img class="logo mr-3 mb-2" src="~/logo.jpg" alt="OPCF Logo" />
-                        UA Cloud Library
-                    </a>
-                </div>
-                <button class="navbar-toggler" type="button" data-toggle="collapse" data-target=".navbar-collapse" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                <a class="navbar-brand app-bar-brand" asp-area="" asp-controller="Home" asp-action="Index" title="Home">
+                    <img class="app-bar-logo" src="~/opclogo.png" alt="OPC Foundation" />
+                    <span class="app-bar-title">UA Cloud Library</span>
+                </a>
+                <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#appBarNav" aria-controls="appBarNav" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex flex-sm-row-reverse">
-                    <partial name="_LoginPartial" />
-                    <ul class="navbar-nav flex-grow-1">
-                    </ul>
+                <div class="navbar-collapse collapse" id="appBarNav">
+                    <div class="app-bar-nav-wrap @(isHome ? "d-none" : null)">
+                        <ul class="navbar-nav app-bar-nav">
+                            @foreach (var item in navItems)
+                            {
+                                var active = string.Equals(currentController, item.Controller, StringComparison.OrdinalIgnoreCase);
+                                <li class="nav-item">
+                                    <a class="nav-link app-bar-nav-link @(active ? "active" : null)" asp-area="" asp-controller="@item.Controller" asp-action="Index" aria-current="@(active ? "page" : null)">
+                                        <i class="fas @item.Icon mr-2" aria-hidden="true"></i>@item.Label
+                                    </a>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                    <div class="app-bar-actions ml-md-auto">
+                        <partial name="_LoginPartial" />
+                    </div>
                 </div>
             </div>
         </nav>
