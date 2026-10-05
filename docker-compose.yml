@@ -12,7 +12,6 @@ services:
         ipv4_address: 10.6.0.20
     environment:
         ConnectionStrings__CloudLibraryPostgreSQL: "Server=db;Username=${POSTGRESQL_USERNAME};Password=${POSTGRESQL_PASSWORD};Database=${POSTGRESQL_DATABASE};Port=5432;Ssl Mode=Prefer"
-        ASPNETCORE_HTTP_PORTS: "443"
         ServicePassword: ${SERVICE_PASSWORD}
         ServiceUsername: ${SERVICE_USERNAME}
         PostgreSQLEndpoint: db
