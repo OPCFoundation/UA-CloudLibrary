@@ -451,6 +451,115 @@ namespace Opc.Ua.Cloud.Library
             return value;
         }
 
+        /// <summary>
+        /// Returns the fields of an enumeration DataType node, or null if the node is not an enumeration.
+        /// The DataTypeDefinition attribute is used first; the EnumStrings/EnumValues properties are used as fallback.
+        /// </summary>
+        public async Task<List<EnumFieldInfo>> ReadEnumFields(string userId, string nodesetIdentifier, string nodeId)
+        {
+            try
+            {
+                if (!await ValidateSession(userId, nodesetIdentifier).ConfigureAwait(false))
+                {
+                    return null;
+                }
+
+                NodeId id = ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris);
+
+                ReadValueIdCollection nodesToRead = new() {
+                    new ReadValueId { NodeId = id, AttributeId = Attributes.NodeClass },
+                    new ReadValueId { NodeId = id, AttributeId = Attributes.DataTypeDefinition }
+                };
+
+                ReadResponse response = await _session.ReadAsync(null, 0, TimestampsToReturn.Neither, nodesToRead, CancellationToken.None).ConfigureAwait(false);
+                ClientBase.ValidateResponse(response.Results, nodesToRead);
+
+                if (response.Results.Count < 2 || response.Results[0].Value is not int nodeClass || (NodeClass)nodeClass != NodeClass.DataType)
+                {
+                    return null;
+                }
+
+                if (ExtensionObject.ToEncodeable(response.Results[1].Value as ExtensionObject) is EnumDefinition enumDefinition && enumDefinition.Fields != null && enumDefinition.Fields.Count > 0)
+                {
+                    return enumDefinition.Fields.Select(f => new EnumFieldInfo {
+                        Name = f.Name ?? string.Empty,
+                        Value = f.Value,
+                        DisplayName = f.DisplayName?.Text ?? string.Empty,
+                        Description = f.Description?.Text ?? string.Empty
+                    }).ToList();
+                }
+
+                return await ReadEnumFieldsFromProperties(id).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("ReadEnumFields: " + ex.Message);
+                return null;
+            }
+        }
+
+        private async Task<List<EnumFieldInfo>> ReadEnumFieldsFromProperties(NodeId dataTypeId)
+        {
+            BrowseDescription nodeToBrowse = new() {
+                NodeId = dataTypeId,
+                BrowseDirection = BrowseDirection.Forward,
+                ReferenceTypeId = ReferenceTypeIds.HasProperty,
+                IncludeSubtypes = true,
+                NodeClassMask = (uint)NodeClass.Variable,
+                ResultMask = (uint)BrowseResultMask.All
+            };
+
+            ReferenceDescriptionCollection references = await Browse(_session, nodeToBrowse).ConfigureAwait(false);
+            if (references == null)
+            {
+                return null;
+            }
+
+            foreach (ReferenceDescription reference in references)
+            {
+                string name = reference.BrowseName?.Name;
+                if (name != BrowseNames.EnumStrings && name != BrowseNames.EnumValues)
+                {
+                    continue;
+                }
+
+                DataValue dataValue = await _session.ReadValueAsync(ExpandedNodeId.ToNodeId(reference.NodeId, _session.NamespaceUris)).ConfigureAwait(false);
+
+                if (dataValue?.Value is LocalizedText[] enumStrings)
+                {
+                    return enumStrings.Select((s, i) => new EnumFieldInfo {
+                        Name = s?.Text ?? string.Empty,
+                        Value = i,
+                        DisplayName = s?.Text ?? string.Empty
+                    }).ToList();
+                }
+
+                if (dataValue?.Value is ExtensionObject[] enumValues)
+                {
+                    List<EnumFieldInfo> fields = new();
+                    foreach (ExtensionObject extensionObject in enumValues)
+                    {
+                        if (ExtensionObject.ToEncodeable(extensionObject) is EnumValueType enumValue)
+                        {
+                            fields.Add(new EnumFieldInfo {
+                                Name = enumValue.DisplayName?.Text ?? string.Empty,
+                                Value = enumValue.Value,
+                                DisplayName = enumValue.DisplayName?.Text ?? string.Empty,
+                                Description = enumValue.Description?.Text ?? string.Empty
+                            });
+                        }
+                    }
+
+                    if (fields.Count > 0)
+                    {
+                        return fields;
+                    }
+                }
+            }
+
+            return null;
+        }
+
         public async Task<bool> VariableWrite(string userId, string nodesetIdentifier, string nodeId, string payload)
         {
             try
