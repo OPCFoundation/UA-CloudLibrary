@@ -13,8 +13,11 @@ services:
     environment:
         ConnectionStrings__CloudLibraryPostgreSQL: "Server=db;Username=${POSTGRESQL_USERNAME};Password=${POSTGRESQL_PASSWORD};Database=${POSTGRESQL_DATABASE};Port=5432;Ssl Mode=Prefer"
         ServicePassword: ${SERVICE_PASSWORD}
+        ServiceUsername: ${SERVICE_USERNAME}
         PostgreSQLEndpoint: db
         APIKeyAuth: "true"
+        Dpp__Esdc__AllowGeneratedSigningKey: ${DPP_ESDC_ALLOW_GENERATED_SIGNING_KEY:-false}
+        Dpp__Esdc__EconomicOperatorId: ${DPP_ESDC_ECONOMIC_OPERATOR_ID:-}
   db:
     image: postgres
     restart: always

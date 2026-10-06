@@ -241,6 +241,7 @@ namespace UANodesetWebViewer.Controllers
                 // that leaves the caller unsure whether the change landed.
                 throw;
             }
+
             catch (Exception ex)
             {
                 Console.WriteLine($"Error uploading nodeset: {ex.Message}");

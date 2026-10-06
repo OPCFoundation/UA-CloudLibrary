@@ -26,60 +26,81 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @implements IDisposable
 
-<h1>@NodesetName</h1>
+<div class="d-flex align-items-center justify-content-between">
+    <h1 class="mb-0">@NodesetName</h1>
+    <span class="d-flex align-items-center">
+        @if (!string.IsNullOrEmpty(CopyStatus))
+        {
+            <span class="text-muted mr-3">@CopyStatus</span>
+        }
+        <button type="button" class="btn btn-primary" title="Copy nodeset file" @onclick="() => OpenCopyDialog()"><i class="fas fa-copy mr-2"></i>Copy</button>
+    </span>
+</div>
 <div style="height:100%">
     <div class="uacl-container">
         <div class="uacl-content">
             <div class="container">
                 <p>
                     <div class="col-12 row">
-                        <div class="col-6">
-                            <div class="card h-100">
-                                <div class="card-header">
-                                    <b>Loaded Nodesets</b>
-                                    <button type="button" class="btn btn-primary btn-sm" style="float: right" @onclick="DownloadAllDependencyNodesets" disabled="@IsDownloading">
-                                        @if (IsDownloading)
-                                        {
-                                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                            <span> Preparing...</span>
-                                        }
-                                        else
-                                        {
-                                            <span>Download All</span>
-                                        }
-                                    </button>
-                                    <br/>
-                                </div>
-                                <div class="card-body">
-                                    @foreach (KeyValuePair<string, Tuple<string, string>> ns in _client.LoadedNamespaces)
-                                    {
-                                        <span>@ns.Key ReqVer: @ns.Value.Item1 LoadVer: @ns.Value.Item2</span><br/>
-                                    }
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="card h-100">
-                                <div class="card-header">
-                                    <b>Required Nodesets Missing from UA Cloud Library</b><br/>
-                                </div>
-                                <div class="card-body">
-                                    @if (_client.MissingNamespaces.Count == 0)
-                                    {
-                                        <span>(none)</span><br/>
-                                    }
-                                    else
-                                    {
-                                        foreach (var ns in _client.MissingNamespaces)
-                                        {
-                                            <span>@ns</span><br/>
-                                        }
-                                    }
-                                </div>
-                            </div>
+                        <div class="col-12">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="@(() => ShowNodesetDetails = !ShowNodesetDetails)" aria-expanded="@ShowNodesetDetails.ToString().ToLowerInvariant()">
+                                <i class="fas @(ShowNodesetDetails ? "fa-chevron-up" : "fa-chevron-down") mr-2"></i>@(ShowNodesetDetails ? "Hide nodeset details" : "Show nodeset details")
+                            </button>
                         </div>
                     </div>
                 </p>
+                @if (ShowNodesetDetails)
+                {
+                    <p>
+                        <div class="col-12 row">
+                            <div class="col-6">
+                                <div class="card h-100">
+                                    <div class="card-header">
+                                        <b>Loaded Nodesets</b>
+                                        <button type="button" class="btn btn-primary btn-sm" style="float: right" @onclick="DownloadAllDependencyNodesets" disabled="@IsDownloading">
+                                            @if (IsDownloading)
+                                            {
+                                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                                <span> Preparing...</span>
+                                            }
+                                            else
+                                            {
+                                                <span>Download All</span>
+                                            }
+                                        </button>
+                                        <br/>
+                                    </div>
+                                    <div class="card-body">
+                                        @foreach (KeyValuePair<string, Tuple<string, string>> ns in _client.LoadedNamespaces)
+                                        {
+                                            <span>@ns.Key ReqVer: @ns.Value.Item1 LoadVer: @ns.Value.Item2</span><br/>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="card h-100">
+                                    <div class="card-header">
+                                        <b>Required Nodesets Missing from UA Cloud Library</b><br/>
+                                    </div>
+                                    <div class="card-body">
+                                        @if (_client.MissingNamespaces.Count == 0)
+                                        {
+                                            <span>(none)</span><br/>
+                                        }
+                                        else
+                                        {
+                                            foreach (var ns in _client.MissingNamespaces)
+                                            {
+                                                <span>@ns</span><br/>
+                                            }
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </p>
+                }
                 <p>
                     <div class="col-12 row">
                         <div class="col-6">
@@ -300,6 +321,35 @@
                                     }
                                 </div>
                             </div>
+                            @if (SelectedNodeEnumFields != null && SelectedNodeEnumFields.Count > 0)
+                            {
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <b><i class="fas fa-list-ol mr-2"></i>Enum Fields</b>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <table class="table table-sm table-striped mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>Value</th>
+                                                    <th>Name</th>
+                                                    <th>Description</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var field in SelectedNodeEnumFields)
+                                                {
+                                                    <tr>
+                                                        <td><code>@field.Value</code></td>
+                                                        <td>@field.Name</td>
+                                                        <td class="text-muted">@field.Description</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            }
                             <div class="card">
                                 <div class="card-header">
                                     <b><span style="color: red;">Selected Node</span> Value</b>
@@ -367,17 +417,30 @@
                                     }
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </p>
-                <p>
-                    <div class="col-12 row">
-                        <div class="col-6">
-                            <div class="card h-100">
+                            <div class="card mt-3">
                                 <div class="card-header">
-                                    <b>Nodeset File</b>
-                                    <button type="button" class="btn btn-primary" style="float: right" @onclick="() => OpenCopyDialog()">Copy</button><br/>
-                                    @CopyStatus
+                                    <b>Node Values</b>
+                                    <span style="float: right">
+                                        <form method="post" action="/Browser/Download" style="display:inline">
+                                            <input type="hidden" name="NodesetIdentifier" value="@NodesetIdentifier" />
+                                            <input type="hidden" name="NodesetName" value="@NodesetName" />
+                                            <input type="hidden" name="UserName" value="@UserName" />
+                                            <input type="hidden" name="Search" value="@Search" />
+                                            <input id="downloadButton" class="btn btn-primary btn_browser" type="submit" value="Download" />
+                                        </form>
+                                        <form method="post" action="/Browser/Save" style="display:inline; margin-left: 0.5rem">
+                                            <input type="hidden" name="NodesetIdentifier" value="@NodesetIdentifier" />
+                                            <input type="hidden" name="NodesetName" value="@NodesetName" />
+                                            <input type="hidden" name="UserName" value="@UserName" />
+                                            <input type="hidden" name="Search" value="@Search" />
+                                            <input id="saveButton" class="btn btn-primary btn_browser" type="submit" value="Save" />
+                                        </form>
+                                    </span>
+                                    <br/>
+                                    @if (!string.IsNullOrEmpty(StatusMessage))
+                                    {
+                                        <span>@StatusMessage</span>
+                                    }
                                 </div>
                             </div>
                         </div>
@@ -422,6 +485,8 @@
 
     [Parameter] public string Search { get; set; }
 
+    [Parameter] public string StatusMessage { get; set; }
+
     private string ModalClass = string.Empty;
     private string ModalDisplay = "display:none";
     private bool ShowBackDrop = false;
@@ -453,6 +518,8 @@
     private string ValueSetStorageKey => "uacl-value-set:" + (NodesetIdentifier ?? string.Empty);
 
     private bool IsDownloading = false;
+
+    private bool ShowNodesetDetails = false;
 
     private string SearchQuery { get; set; } = string.Empty;
     private string SearchScope { get; set; } = string.Empty;
@@ -1105,23 +1172,23 @@
 
     private string SelectedNodeDocumentationUrl;
 
+    private List<EnumFieldInfo> SelectedNodeEnumFields;
+
     private async Task SelectedNodeChanged(NodesetViewerNode node)
     {
         SelectedNode = node;
         SelectedNodeDocumentationUrl = null;
-        WriteStatus = string.Empty;
+        SelectedNodeEnumFields = null;
 
         NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, node.Id).ConfigureAwait(false);
 
-        if (ActiveValueSet != null && ActiveValueSetEntries.TryGetValue(node.Id, out string overlayValue) && ReferenceEquals(SelectedNode, node))
+        if (string.Equals(node.NodeClass, "DataType", StringComparison.Ordinal))
         {
-            NodeValue = overlayValue;
-        }
-
-        string blocker = await _client.GetVariableWriteBlocker(UserName, NodesetIdentifier, node.Id).ConfigureAwait(false);
-        if (ReferenceEquals(SelectedNode, node))
-        {
-            EditBlockedReason = blocker;
+            var fields = await _client.ReadEnumFields(UserName, NodesetIdentifier, node.Id).ConfigureAwait(false);
+            if (ReferenceEquals(SelectedNode, node))
+            {
+                SelectedNodeEnumFields = fields;
+            }
         }
 
         try
