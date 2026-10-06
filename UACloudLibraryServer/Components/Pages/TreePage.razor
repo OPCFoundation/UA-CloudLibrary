@@ -1179,8 +1179,20 @@
         SelectedNode = node;
         SelectedNodeDocumentationUrl = null;
         SelectedNodeEnumFields = null;
+        WriteStatus = string.Empty;
 
         NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, node.Id).ConfigureAwait(false);
+
+        if (ActiveValueSet != null && ActiveValueSetEntries.TryGetValue(node.Id, out string overlayValue) && ReferenceEquals(SelectedNode, node))
+        {
+            NodeValue = overlayValue;
+        }
+
+        string blocker = await _client.GetVariableWriteBlocker(UserName, NodesetIdentifier, node.Id).ConfigureAwait(false);
+        if (ReferenceEquals(SelectedNode, node))
+        {
+            EditBlockedReason = blocker;
+        }
 
         if (string.Equals(node.NodeClass, "DataType", StringComparison.Ordinal))
         {
