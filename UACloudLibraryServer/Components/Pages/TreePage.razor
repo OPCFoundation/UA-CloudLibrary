@@ -353,7 +353,16 @@
                             <div class="card">
                                 <div class="card-header">
                                     <b><span style="color: red;">Selected Node</span> Value</b>
-                                    <button type="button" class="btn btn-primary" style="float: right" @onclick="() => OpenEditDialog(NodeValue)" disabled="@(!CanEditSelectedNode)" title="@(CanEditSelectedNode ? "Edit the value of the selected node" : EditBlockedReason)">Edit</button><br/>
+                                    <span style="float: right">
+                                        <button type="button" class="btn btn-primary" @onclick="() => OpenEditDialog(NodeValue)" disabled="@(!CanEditSelectedNode)" title="@(CanEditSelectedNode ? "Edit the value of the selected node" : EditBlockedReason)">Edit</button>
+                                        <form method="post" action="/Browser/Save" style="display:inline; margin-left: 0.5rem">
+                                            <input type="hidden" name="NodesetIdentifier" value="@NodesetIdentifier" />
+                                            <input type="hidden" name="NodesetName" value="@NodesetName" />
+                                            <input type="hidden" name="UserName" value="@UserName" />
+                                            <input type="hidden" name="Search" value="@Search" />
+                                            <input id="saveButton" class="btn btn-primary btn_browser" type="submit" value="Save" title="Save the current node values to the nodeset" />
+                                        </form>
+                                    </span><br/>
                                     @if (!CanEditSelectedNode && !string.IsNullOrEmpty(EditBlockedReason))
                                     {
                                         <span class="text-muted"><i class="fas fa-lock mr-1"></i>@EditBlockedReason</span><br/>
@@ -361,6 +370,10 @@
                                     @if (!string.IsNullOrEmpty(WriteStatus))
                                     {
                                         <span style="color: red;">@WriteStatus</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(StatusMessage))
+                                    {
+                                        <span>@StatusMessage</span><br/>
                                     }
                                     <div class="input-group input-group-sm mt-2">
                                         <div class="input-group-prepend">
@@ -414,32 +427,6 @@
                                         {
                                             <span class="badge badge-light ml-2" title="This node is not overridden in the selected value set">nodeset value</span>
                                         }
-                                    }
-                                </div>
-                            </div>
-                            <div class="card mt-3">
-                                <div class="card-header">
-                                    <b>Node Values</b>
-                                    <span style="float: right">
-                                        <form method="post" action="/Browser/Download" style="display:inline">
-                                            <input type="hidden" name="NodesetIdentifier" value="@NodesetIdentifier" />
-                                            <input type="hidden" name="NodesetName" value="@NodesetName" />
-                                            <input type="hidden" name="UserName" value="@UserName" />
-                                            <input type="hidden" name="Search" value="@Search" />
-                                            <input id="downloadButton" class="btn btn-primary btn_browser" type="submit" value="Download" />
-                                        </form>
-                                        <form method="post" action="/Browser/Save" style="display:inline; margin-left: 0.5rem">
-                                            <input type="hidden" name="NodesetIdentifier" value="@NodesetIdentifier" />
-                                            <input type="hidden" name="NodesetName" value="@NodesetName" />
-                                            <input type="hidden" name="UserName" value="@UserName" />
-                                            <input type="hidden" name="Search" value="@Search" />
-                                            <input id="saveButton" class="btn btn-primary btn_browser" type="submit" value="Save" />
-                                        </form>
-                                    </span>
-                                    <br/>
-                                    @if (!string.IsNullOrEmpty(StatusMessage))
-                                    {
-                                        <span>@StatusMessage</span>
                                     }
                                 </div>
                             </div>
