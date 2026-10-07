@@ -456,6 +456,19 @@
                                     @if (!string.IsNullOrEmpty(ValueSetStatus))
                                     {
                                         <br/><span style="color: @(ValueSetStatusIsError ? "red" : "green");">@ValueSetStatus</span>
+                                        @if (ValueSetImportDetails.Count > 0)
+                                        {
+                                            <button type="button" class="btn btn-link btn-sm p-0 ml-2" @onclick="@(() => ShowValueSetImportDetails = !ShowValueSetImportDetails)">@(ShowValueSetImportDetails ? "Hide details" : "Show details")</button>
+                                            @if (ShowValueSetImportDetails)
+                                            {
+                                                <ul class="small text-muted mt-1 mb-0 pl-3" style="max-height: 12rem; overflow-y: auto;">
+                                                    @foreach (string detail in ValueSetImportDetails)
+                                                    {
+                                                        <li style="word-break: break-all;">@detail</li>
+                                                    }
+                                                </ul>
+                                            }
+                                        }
                                     }
                                 </div>
                                 <div class="card-body">
@@ -513,6 +526,59 @@
     <div class="modal-backdrop fade show"></div>
 }
 
+@if (ShowNamespaceMapDialog)
+{
+    <div class="modal show" tabindex="-1" role="dialog" style="display:block;">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Map namespace indexes</h5>
+                </div>
+                <div class="modal-body">
+                    <p>
+                        The file '@_pendingImportFileName' refers to node ids by namespace index (<code>ns=…</code>) instead of namespace URI (<code>nsu=…</code>).
+                        Namespace indexes are only valid within the server that exported the file, so please select which loaded nodeset each index refers to.
+                    </p>
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 8rem">Index</th>
+                                <th>Nodeset (namespace URI)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (ushort index in PendingNamespaceIndexes)
+                            {
+                                ushort idx = index;
+                                <tr>
+                                    <td><code>ns=@idx</code></td>
+                                    <td>
+                                        <select class="form-control form-control-sm" value="@(NamespaceMappings.TryGetValue(idx, out string sel) ? sel : string.Empty)" @onchange="@(e => NamespaceMappings[idx] = e.Value?.ToString() ?? string.Empty)">
+                                            <option value="">(skip values in this namespace)</option>
+                                            @if (_client?.LoadedNamespaces != null)
+                                            {
+                                                @foreach (var ns in _client.LoadedNamespaces.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase))
+                                                {
+                                                    <option value="@ns">@ns</option>
+                                                }
+                                            }
+                                        </select>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" @onclick="ConfirmNamespaceMapping" disabled="@(IsImporting || !NamespaceMappings.Values.Any(v => !string.IsNullOrEmpty(v)))">Import</button>
+                    <button type="button" class="btn btn-secondary" @onclick="CancelNamespaceMapping" disabled="@IsImporting">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
 @code {
 
     [Parameter] public string NodesetIdentifier { get;set; }
@@ -558,9 +624,20 @@
         set { _valueSetStatus = value; ValueSetStatusIsError = true; }
     }
     private bool ValueSetStatusIsError { get; set; } = true;
+    private List<string> ValueSetImportDetails { get; set; } = new List<string>();
+    private bool ShowValueSetImportDetails { get; set; } = false;
     private bool ShowValueSetMenu { get; set; } = false;
     private bool IsImporting { get; set; } = false;
     private const long ValueSetImportMaxBytes = 20 * 1024 * 1024;
+
+    // An import whose keys use namespace indexes (ns=N) is held here until the user has mapped
+    // every index to one of the loaded nodesets, because an index is only meaningful on the
+    // server that produced the file.
+    private bool ShowNamespaceMapDialog { get; set; } = false;
+    private Dictionary<string, JsonElement> _pendingImport;
+    private string _pendingImportFileName = string.Empty;
+    private List<ushort> PendingNamespaceIndexes { get; set; } = new List<ushort>();
+    private Dictionary<ushort, string> NamespaceMappings { get; set; } = new Dictionary<ushort, string>();
     private string _valueSetUserId;
     private bool _valueSetsLoaded = false;
     private bool CanUseValueSets => !string.IsNullOrEmpty(_valueSetUserId);
@@ -1074,6 +1151,8 @@
 
         IsImporting = true;
         ValueSetStatus = string.Empty;
+        ValueSetImportDetails = new List<string>();
+        ShowValueSetImportDetails = false;
         await InvokeAsync(StateHasChanged).ConfigureAwait(false);
 
         try
@@ -1090,48 +1169,18 @@
                 return;
             }
 
-            Dictionary<string, string> canonical = await _client.BrowseVariableNodesResursivelyAsync(UserName, NodesetIdentifier, null).ConfigureAwait(false)
-                ?? new Dictionary<string, string>();
-
-            var toImport = new Dictionary<string, string>(StringComparer.Ordinal);
-            int skipped = 0;
-            foreach (KeyValuePair<string, JsonElement> kv in parsed)
+            List<ushort> indexes = FindUnmappedNamespaceIndexes(parsed);
+            if (indexes.Count > 0)
             {
-                // The reserved controlledElements map and anything else that is not a scalar node
-                // value belongs to the nodeset's access policy, not to a value set.
-                if (string.Equals(kv.Key, DppControlledElements.PropertyName, StringComparison.Ordinal)
-                    || kv.Value.ValueKind == JsonValueKind.Object
-                    || kv.Value.ValueKind == JsonValueKind.Array
-                    || kv.Value.ValueKind == JsonValueKind.Null)
-                {
-                    skipped++;
-                    continue;
-                }
-
-                string value = kv.Value.ValueKind == JsonValueKind.String ? kv.Value.GetString() : kv.Value.GetRawText();
-                if (!canonical.TryGetValue(kv.Key, out string current) || !string.Equals(current, value, StringComparison.Ordinal))
-                {
-                    toImport[kv.Key] = value;
-                }
+                _pendingImport = parsed;
+                _pendingImportFileName = e.File.Name;
+                PendingNamespaceIndexes = indexes;
+                NamespaceMappings = indexes.ToDictionary(i => i, _ => string.Empty);
+                ShowNamespaceMapDialog = true;
+                return;
             }
 
-            if (toImport.Count > 0)
-            {
-                await ValueSetStore.SetValuesAsync(ActiveValueSet.Id, _valueSetUserId, toImport).ConfigureAwait(false);
-                foreach (KeyValuePair<string, string> kv in toImport)
-                {
-                    ActiveValueSetEntries[kv.Key] = kv.Value;
-                }
-            }
-
-            ValueSetStatus = $"Imported {toImport.Count} value(s) from '{e.File.Name}' into '{ActiveValueSet.Name}'"
-                + (skipped > 0 ? $" ({skipped} non-value entr{(skipped == 1 ? "y" : "ies")} skipped)" : string.Empty) + ".";
-            ValueSetStatusIsError = false;
-
-            if (SelectedNode != null)
-            {
-                await SelectedNodeChanged(SelectedNode).ConfigureAwait(false);
-            }
+            await ApplyValueSetImportAsync(parsed, e.File.Name, null).ConfigureAwait(false);
         }
         catch (JsonException ex)
         {
@@ -1150,6 +1199,266 @@
             IsImporting = false;
             await InvokeAsync(StateHasChanged).ConfigureAwait(false);
         }
+    }
+
+    // Keys of the form "ns=N;..." carry a server-local namespace index rather than a URI. The tree
+    // and the canonical values use "nsu=<uri>;..." ids, so such keys never match a node unless the
+    // index is translated. Index 0 is the OPC UA namespace and needs no mapping.
+    private static List<ushort> FindUnmappedNamespaceIndexes(Dictionary<string, JsonElement> parsed)
+    {
+        var indexes = new SortedSet<ushort>();
+        foreach (string key in parsed.Keys)
+        {
+            if (TryGetNamespaceIndex(key, out ushort index, out _) && index != 0)
+            {
+                indexes.Add(index);
+            }
+        }
+
+        return indexes.ToList();
+    }
+
+    private static bool TryGetNamespaceIndex(string key, out ushort index, out string identifierPart)
+    {
+        index = 0;
+        identifierPart = null;
+
+        if (string.IsNullOrEmpty(key) || !key.StartsWith("ns=", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        int separator = key.IndexOf(';');
+        if (separator <= 3 || !ushort.TryParse(key.Substring(3, separator - 3), out index))
+        {
+            return false;
+        }
+
+        identifierPart = key.Substring(separator + 1);
+        return true;
+    }
+
+    private async Task ConfirmNamespaceMapping()
+    {
+        if (_pendingImport == null)
+        {
+            ShowNamespaceMapDialog = false;
+            return;
+        }
+
+        IsImporting = true;
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+
+        try
+        {
+            Dictionary<string, JsonElement> parsed = _pendingImport;
+            string fileName = _pendingImportFileName;
+            var mapping = NamespaceMappings.Where(kv => !string.IsNullOrEmpty(kv.Value)).ToDictionary(kv => kv.Key, kv => kv.Value);
+
+            ShowNamespaceMapDialog = false;
+            _pendingImport = null;
+            _pendingImportFileName = string.Empty;
+
+            await ApplyValueSetImportAsync(parsed, fileName, mapping).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            ValueSetStatus = "Import failed: " + ex.Message;
+        }
+        finally
+        {
+            IsImporting = false;
+            await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+        }
+    }
+
+    private void CancelNamespaceMapping()
+    {
+        ShowNamespaceMapDialog = false;
+        _pendingImport = null;
+        _pendingImportFileName = string.Empty;
+        PendingNamespaceIndexes = new List<ushort>();
+        NamespaceMappings = new Dictionary<ushort, string>();
+        ValueSetStatus = "Import cancelled.";
+    }
+
+    private async Task ApplyValueSetImportAsync(Dictionary<string, JsonElement> parsed, string fileName, Dictionary<ushort, string> namespaceMapping)
+    {
+        if (ActiveValueSet == null)
+        {
+            return;
+        }
+
+        Dictionary<string, string> canonical = await _client.BrowseVariableNodesResursivelyAsync(UserName, NodesetIdentifier, null).ConfigureAwait(false)
+            ?? new Dictionary<string, string>();
+
+        var toImport = new Dictionary<string, string>(StringComparer.Ordinal);
+        var skippedDetails = new List<string>();
+        int skipped = 0;
+        int unmapped = 0;
+        int unknown = 0;
+        int unchanged = 0;
+        foreach (KeyValuePair<string, JsonElement> kv in parsed)
+        {
+            // The reserved controlledElements map and anything else that is not a scalar node
+            // value belongs to the nodeset's access policy, not to a value set.
+            if (string.Equals(kv.Key, DppControlledElements.PropertyName, StringComparison.Ordinal)
+                || kv.Value.ValueKind == JsonValueKind.Object
+                || kv.Value.ValueKind == JsonValueKind.Array
+                || kv.Value.ValueKind == JsonValueKind.Null)
+            {
+                skipped++;
+                continue;
+            }
+
+            string key = kv.Key;
+            if (TryGetNamespaceIndex(key, out ushort index, out string identifierPart) && index != 0)
+            {
+                if (namespaceMapping == null || !namespaceMapping.TryGetValue(index, out string namespaceUri))
+                {
+                    unmapped++;
+                    skippedDetails.Add($"{kv.Key}: namespace index {index} was not mapped to a nodeset");
+                    continue;
+                }
+
+                key = "nsu=" + namespaceUri + ";" + identifierPart;
+            }
+
+            // The canonical list only holds variables that currently have a non-empty value, so a
+            // valid Variable with an empty value (or one not reached by the hierarchical browse) is
+            // missing from it. Verify such ids directly against the server before rejecting them.
+            string value = kv.Value.ValueKind == JsonValueKind.String ? kv.Value.GetString() : kv.Value.GetRawText();
+            if (!canonical.TryGetValue(key, out string current))
+            {
+                string reason = await _client.ExplainUnmatchedNodeId(UserName, NodesetIdentifier, key).ConfigureAwait(false);
+                if (reason != null)
+                {
+                    unknown++;
+                    skippedDetails.Add(key == kv.Key ? $"{kv.Key}: {reason}" : $"{kv.Key} (mapped to {key}): {reason}");
+                    continue;
+                }
+
+                toImport[key] = value;
+                continue;
+            }
+
+            if (!string.Equals(current, value, StringComparison.Ordinal))
+            {
+                toImport[key] = value;
+            }
+            else
+            {
+                unchanged++;
+            }
+        }
+
+        if (toImport.Count > 0)
+        {
+            await ValueSetStore.SetValuesAsync(ActiveValueSet.Id, _valueSetUserId, toImport).ConfigureAwait(false);
+            foreach (KeyValuePair<string, string> kv in toImport)
+            {
+                ActiveValueSetEntries[kv.Key] = kv.Value;
+            }
+        }
+
+        var notes = new List<string>();
+        if (skipped > 0)
+        {
+            notes.Add($"{skipped} non-value entr{(skipped == 1 ? "y" : "ies")} skipped");
+        }
+        if (unmapped > 0)
+        {
+            notes.Add($"{unmapped} value(s) in unmapped namespaces skipped");
+        }
+        if (unknown > 0)
+        {
+            notes.Add($"{unknown} value(s) for nodes not in this nodeset skipped");
+        }
+        if (unchanged > 0)
+        {
+            notes.Add($"{unchanged} value(s) identical to the nodeset value not stored");
+        }
+
+        ValueSetStatus = $"Imported {toImport.Count} value(s) from '{fileName}' into '{ActiveValueSet.Name}'"
+            + (notes.Count > 0 ? " (" + string.Join(", ", notes) + ")" : string.Empty) + ".";
+        ValueSetStatusIsError = toImport.Count == 0 && (unmapped > 0 || unknown > 0);
+        ValueSetImportDetails = skippedDetails;
+        ShowValueSetImportDetails = toImport.Count == 0 && skippedDetails.Count > 0;
+
+        await RefreshTreeAfterImportAsync(toImport.Keys).ConfigureAwait(false);
+    }
+
+    // Make the imported values visible immediately: expand the tree down to each imported node
+    // (loading children on demand) and re-read the selected node so its value card is current.
+    private async Task RefreshTreeAfterImportAsync(IEnumerable<string> importedNodeIds)
+    {
+        var expanded = new HashSet<NodesetViewerNode>(ExpandedNodes);
+        int budget = 200;
+        foreach (string nodeId in importedNodeIds)
+        {
+            if (budget-- <= 0)
+            {
+                break;
+            }
+
+            List<NodesetViewerNode> path = await FindPathToNodeAsync(TreeNodes, nodeId).ConfigureAwait(false);
+            if (path == null)
+            {
+                continue;
+            }
+
+            // Expand every ancestor so the node (and its [value] marker) is actually on screen.
+            for (int i = 0; i < path.Count - 1; i++)
+            {
+                expanded.Add(path[i]);
+            }
+        }
+
+        ExpandedNodes = expanded.ToList();
+
+        if (SelectedNode != null)
+        {
+            await SelectedNodeChanged(SelectedNode).ConfigureAwait(false);
+        }
+
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+    }
+
+    private async Task<List<NodesetViewerNode>> FindPathToNodeAsync(List<NodesetViewerNode> nodes, string nodeId)
+    {
+        if (nodes == null)
+        {
+            return null;
+        }
+
+        foreach (NodesetViewerNode node in nodes)
+        {
+            if (node == null)
+            {
+                continue;
+            }
+
+            if (string.Equals(node.Id, nodeId, StringComparison.Ordinal))
+            {
+                return new List<NodesetViewerNode> { node };
+            }
+
+            // Only descend into nodes whose children are already loaded; browsing the whole
+            // address space here would be far too expensive for large nodesets.
+            if (!node.ChildrenLoaded)
+            {
+                continue;
+            }
+
+            List<NodesetViewerNode> sub = await FindPathToNodeAsync(node.Children, nodeId).ConfigureAwait(false);
+            if (sub != null)
+            {
+                sub.Insert(0, node);
+                return sub;
+            }
+        }
+
+        return null;
     }
 
     private async Task ResetSelectedNodeValue()

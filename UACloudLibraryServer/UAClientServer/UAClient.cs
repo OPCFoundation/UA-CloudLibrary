@@ -131,6 +131,79 @@ namespace Opc.Ua.Cloud.Library
             return nodes;
         }
 
+        /// <summary>
+        /// Explains why a node id from an imported value file could not be matched against the
+        /// nodeset's variable values. Returns null when the id refers to an existing Variable node
+        /// (which is a valid import target even if it currently has no value), otherwise a short
+        /// human readable reason.
+        /// </summary>
+        public async Task<string> ExplainUnmatchedNodeId(string userId, string nodesetIdentifier, string nodeId)
+        {
+            ExpandedNodeId expanded;
+            try
+            {
+                expanded = ExpandedNodeId.Parse(nodeId);
+            }
+            catch (Exception ex)
+            {
+                return "the id could not be parsed: " + ex.Message;
+            }
+
+            if (expanded.IsNull)
+            {
+                return "the id is empty";
+            }
+
+            if (!string.IsNullOrEmpty(expanded.NamespaceUri))
+            {
+                if (!LoadedNamespaces.ContainsKey(expanded.NamespaceUri))
+                {
+                    return $"namespace '{expanded.NamespaceUri}' is not loaded for this nodeset";
+                }
+            }
+            else if (expanded.NamespaceIndex == 0)
+            {
+                return "nodes in the OPC UA base namespace (ns=0) are not part of a nodeset's values";
+            }
+
+            try
+            {
+                if (!await ValidateSession(userId, nodesetIdentifier).ConfigureAwait(false))
+                {
+                    return "no session to the nodeset server";
+                }
+
+                NodeId id = ExpandedNodeId.ToNodeId(expanded, _session.NamespaceUris);
+                if (NodeId.IsNull(id))
+                {
+                    return $"namespace '{expanded.NamespaceUri}' is not in the server namespace table";
+                }
+
+                Node node = await _session.ReadNodeAsync(id).ConfigureAwait(false);
+                if (node == null)
+                {
+                    return "no node with this id exists in the nodeset";
+                }
+
+                if (node.NodeClass != NodeClass.Variable)
+                {
+                    return $"the node '{node.DisplayName}' is a {node.NodeClass}, not a Variable";
+                }
+
+                // An existing Variable is always a valid value set target, regardless of whether
+                // it currently has a value or how it is referenced.
+                return null;
+            }
+            catch (ServiceResultException ex) when (ex.StatusCode == StatusCodes.BadNodeIdUnknown)
+            {
+                return "no node with this id exists in the nodeset";
+            }
+            catch (Exception ex)
+            {
+                return "the node could not be read: " + ex.Message;
+            }
+        }
+
         public async Task<Dictionary<string, string>> BrowseVariableNodesResursivelyAsync(string userId, string nodesetIdentifier, string nodeId)
         {
             Dictionary<string, string> results = new();
