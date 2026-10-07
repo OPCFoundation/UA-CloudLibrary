@@ -334,9 +334,9 @@ namespace Opc.Ua.Cloud.Library
                 null,
                 nodeToBrowse.NodeId,
                 0,
-                BrowseDirection.Forward,
-                null,
-                true,
+                nodeToBrowse.BrowseDirection,
+                nodeToBrowse.ReferenceTypeId,
+                nodeToBrowse.IncludeSubtypes,
                 nodeToBrowse.NodeClassMask
                 ).ConfigureAwait(false);
 

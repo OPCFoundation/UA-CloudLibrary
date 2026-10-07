@@ -162,6 +162,15 @@
                                                    @bind="FindAll" disabled="@IsSearching" />
                                             <label class="custom-control-label" for="findAllCheckbox">Find all</label>
                                         </div>
+                                        <div class="custom-control custom-checkbox mr-3">
+                                            <input type="checkbox" class="custom-control-input" id="variablesOnlyCheckbox"
+                                                   @bind="ShowVariablesOnly" disabled="@(IsSearching || string.IsNullOrEmpty(SearchScope))" />
+                                            <label class="custom-control-label" for="variablesOnlyCheckbox" title="@(string.IsNullOrEmpty(SearchScope) ? "Select a nodeset scope to filter the tree" : "Only show branches of the selected nodeset scope that contain Variable nodes")">Show Variables Only</label>
+                                            @if (IsScanningVariables)
+                                            {
+                                                <span class="spinner-border spinner-border-sm text-muted ml-2" role="status" title="Scanning the tree for Variables..." aria-hidden="true"></span>
+                                            }
+                                        </div>
                                         <button type="button" class="btn btn-sm btn-outline-primary"
                                                 @onclick="FindNext"
                                                 disabled="@(IsSearching || SearchMatchIds.Count == 0)">
@@ -228,7 +237,7 @@
                                     </div>
                                 </div>
                                 <div class="card-body">
-                                    <Tree Nodes="TreeNodes" TNode="NodesetViewerNode" ChildSelector="node => node.Children" SelectedNodeChanged="SelectedNodeChanged" OnNodeExpand="OnNodeExpand" HasChildNodes="HasChildNodes" ExpandedNodes="ExpandedNodes" ExpandedNodesChanged="OnExpandedNodesChanged">
+                                    <Tree Nodes="TreeNodes" TNode="NodesetViewerNode" ChildSelector="VisibleChildren" SelectedNodeChanged="SelectedNodeChanged" OnNodeExpand="OnNodeExpand" HasChildNodes="HasChildNodes" ExpandedNodes="ExpandedNodes" ExpandedNodesChanged="OnExpandedNodesChanged">
                                         <TitleTemplate>
                                             @{
                                                 bool isSelected = context.Id == SelectedNode.Id;
@@ -239,6 +248,8 @@
                                                     && IsNodeInScope(context, SearchScope);
                                                 string style = (color != null ? "color:" + color + ";" : string.Empty)
                                                     + (isMatch && !isSelected ? "background-color:#fff3cd;" : string.Empty);
+                                                string setValue = null;
+                                                bool hasSetValue = ActiveValueSet != null && context.Id != null && ActiveValueSetEntries.TryGetValue(context.Id, out setValue);
                                             }
                                             <span style="@style">
                                                 @if (bold)
@@ -250,6 +261,10 @@
                                                     @context.Text
                                                 }
                                             </span>
+                                            @if (hasSetValue)
+                                            {
+                                                <span class="text-muted ml-1" title="Value in value set '@ActiveValueSet.Name'">[@setValue]</span>
+                                            }
                                         </TitleTemplate>
                                     </Tree>
                                 </div>
@@ -509,12 +524,34 @@
     private bool ShowNodesetDetails = false;
 
     private string SearchQuery { get; set; } = string.Empty;
-    private string SearchScope { get; set; } = string.Empty;
+    private string _searchScope = string.Empty;
+    private string SearchScope
+    {
+        get => _searchScope;
+        set
+        {
+            _searchScope = value ?? string.Empty;
+            StartVariablesOnlyScan();
+        }
+    }
     private HashSet<string> SearchMatchIds { get; set; } = new HashSet<string>(StringComparer.Ordinal);
     private List<NodesetViewerNode> SearchMatches { get; set; } = new List<NodesetViewerNode>();
     private List<List<NodesetViewerNode>> SearchMatchAncestors { get; set; } = new List<List<NodesetViewerNode>>();
     private int SearchCursor { get; set; } = -1;
     private bool FindAll { get; set; } = false;
+    private bool _showVariablesOnly = false;
+    private bool ShowVariablesOnly
+    {
+        get => _showVariablesOnly;
+        set
+        {
+            _showVariablesOnly = value;
+            StartVariablesOnlyScan();
+        }
+    }
+    private bool IsVariablesOnlyFilterActive => ShowVariablesOnly && !string.IsNullOrEmpty(SearchScope);
+    private bool IsScanningVariables { get; set; } = false;
+    private CancellationTokenSource _scanCts;
     private string SearchStatus { get; set; } = string.Empty;
     private bool IsSearching { get; set; } = false;
     private bool ShowSearchHelp { get; set; } = false;
@@ -1214,7 +1251,119 @@
         }
 
         // Unknown until browsed; once loaded, an empty list is a real leaf.
-        return !node.ChildrenLoaded || node.Children.Count > 0;
+        if (!node.ChildrenLoaded)
+        {
+            return true;
+        }
+
+        return IsVariablesOnlyFilterActive ? node.Children.Any(MayContainVariables) : node.Children.Count > 0;
+    }
+
+    private IEnumerable<NodesetViewerNode> VisibleChildren(NodesetViewerNode node)
+    {
+        if (node?.Children == null)
+        {
+            return Enumerable.Empty<NodesetViewerNode>();
+        }
+
+        return IsVariablesOnlyFilterActive ? node.Children.Where(MayContainVariables) : node.Children;
+    }
+
+    // A branch is shown only if its subtree contains a Variable that belongs to the selected
+    // nodeset scope; branches with no in-scope nodes, or with in-scope nodes but no Variables, are
+    // hidden. Children are browsed lazily, so enabling the filter triggers a scan that loads the
+    // whole tree up front (see StartVariablesOnlyScan); while that scan runs, unbrowsed branches
+    // stay visible so the tree does not flicker, and afterwards every branch has been resolved.
+    private bool MayContainVariables(NodesetViewerNode node)
+    {
+        if (node == null)
+        {
+            return false;
+        }
+
+        if (string.Equals(node.NodeClass, "Variable", StringComparison.Ordinal) && IsNodeInScope(node, SearchScope))
+        {
+            return true;
+        }
+
+        if (!node.ChildrenLoaded)
+        {
+            return IsScanningVariables;
+        }
+
+        return node.Children != null && node.Children.Any(MayContainVariables);
+    }
+
+    private void StartVariablesOnlyScan()
+    {
+        _scanCts?.Cancel();
+        _scanCts?.Dispose();
+        _scanCts = null;
+
+        if (!IsVariablesOnlyFilterActive || !_isInteractive)
+        {
+            IsScanningVariables = false;
+            return;
+        }
+
+        _scanCts = new CancellationTokenSource();
+        _ = ScanForVariablesAsync(_scanCts.Token);
+    }
+
+    private async Task ScanForVariablesAsync(CancellationToken ct)
+    {
+        IsScanningVariables = true;
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+
+        try
+        {
+            int visited = 0;
+            var frontier = new List<NodesetViewerNode>(TreeNodes);
+            while (frontier.Count > 0 && visited < SearchMaxNodes)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                await LoadChildrenBatchAsync(frontier, ct).ConfigureAwait(false);
+                visited += frontier.Count;
+
+                var next = new List<NodesetViewerNode>();
+                foreach (var node in frontier)
+                {
+                    if (node.Children == null)
+                    {
+                        continue;
+                    }
+
+                    foreach (var child in node.Children)
+                    {
+                        // Variables are leaves for this purpose; nothing below them needs browsing.
+                        if (!string.Equals(child.NodeClass, "Variable", StringComparison.Ordinal) && !child.ChildrenLoaded)
+                        {
+                            next.Add(child);
+                        }
+                    }
+                }
+
+                frontier = next;
+                await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Variables-only scan failed: {ex.Message}");
+        }
+        finally
+        {
+            if (!ct.IsCancellationRequested)
+            {
+                IsScanningVariables = false;
+                await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+            }
+        }
     }
 
     private static string ExtractNodeIdSuffix(string nodeId)
@@ -1580,6 +1729,9 @@
         _searchCts?.Cancel();
         _searchCts?.Dispose();
         _searchCts = null;
+        _scanCts?.Cancel();
+        _scanCts?.Dispose();
+        _scanCts = null;
     }
 
     private async Task DownloadAllDependencyNodesets()
