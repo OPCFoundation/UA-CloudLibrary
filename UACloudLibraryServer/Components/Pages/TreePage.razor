@@ -445,13 +445,17 @@
                                     {
                                         <small class="text-muted">Sign in to create your own value sets for this nodeset.</small>
                                     }
+                                    else if (!_valueSetsLoaded)
+                                    {
+                                        <small class="text-muted">Loading your value sets...</small>
+                                    }
                                     else if (ActiveValueSet != null)
                                     {
                                         <small class="text-muted">@ActiveValueSetEntries.Count node value(s) overridden in this set. Edits are stored privately in the set and do not change the nodeset itself.</small>
                                     }
                                     @if (!string.IsNullOrEmpty(ValueSetStatus))
                                     {
-                                        <br/><span style="color: red;">@ValueSetStatus</span>
+                                        <br/><span style="color: @(ValueSetStatusIsError ? "red" : "green");">@ValueSetStatus</span>
                                     }
                                 </div>
                                 <div class="card-body">
@@ -546,11 +550,19 @@
     private string ActiveValueSetId { get; set; } = string.Empty;
     private NodesetValueSet ActiveValueSet => ValueSets.FirstOrDefault(vs => vs.Id.ToString() == ActiveValueSetId);
     private Dictionary<string, string> ActiveValueSetEntries { get; set; } = new Dictionary<string, string>(StringComparer.Ordinal);
-    private string ValueSetStatus { get; set; } = string.Empty;
+    private string _valueSetStatus = string.Empty;
+    // Every status message is an error unless the code path that sets it explicitly marks success afterwards.
+    private string ValueSetStatus
+    {
+        get => _valueSetStatus;
+        set { _valueSetStatus = value; ValueSetStatusIsError = true; }
+    }
+    private bool ValueSetStatusIsError { get; set; } = true;
     private bool ShowValueSetMenu { get; set; } = false;
     private bool IsImporting { get; set; } = false;
     private const long ValueSetImportMaxBytes = 20 * 1024 * 1024;
     private string _valueSetUserId;
+    private bool _valueSetsLoaded = false;
     private bool CanUseValueSets => !string.IsNullOrEmpty(_valueSetUserId);
     private bool SelectedNodeIsOverridden => SelectedNode != null && ActiveValueSet != null && ActiveValueSetEntries.ContainsKey(SelectedNode.Id);
 
@@ -635,6 +647,7 @@
         await _initialLoad.Task.ConfigureAwait(false);
 
         await LoadValueSetsAsync().ConfigureAwait(false);
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
         await RestoreTreeStateAsync().ConfigureAwait(false);
     }
 
@@ -854,18 +867,35 @@
         await InvokeAsync(StateHasChanged).ConfigureAwait(false);
     }
 
-    private async Task LoadValueSetsAsync()
+    private async Task ResolveValueSetUserAsync()
     {
         try
         {
             var state = await AuthStateProvider.GetAuthenticationStateAsync().ConfigureAwait(false);
             _valueSetUserId = state?.User?.Identity?.IsAuthenticated == true ? state.User.Identity.Name : null;
+        }
+        catch (Exception ex)
+        {
+            ValueSetStatus = "Value sets could not be loaded: " + ex.Message;
+        }
+    }
+
+    private async Task LoadValueSetsAsync()
+    {
+        try
+        {
+            if (_valueSetUserId == null)
+            {
+                await ResolveValueSetUserAsync().ConfigureAwait(false);
+            }
+
             if (!CanUseValueSets)
             {
                 return;
             }
 
             ValueSets = (await ValueSetStore.ListAsync(NodesetIdentifier, _valueSetUserId).ConfigureAwait(false)).ToList();
+            _valueSetsLoaded = true;
 
             // Like the tree state, the active set survives the Save redirect via sessionStorage.
             string stored = await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", ValueSetStorageKey).ConfigureAwait(false);
@@ -1096,6 +1126,7 @@
 
             ValueSetStatus = $"Imported {toImport.Count} value(s) from '{e.File.Name}' into '{ActiveValueSet.Name}'"
                 + (skipped > 0 ? $" ({skipped} non-value entr{(skipped == 1 ? "y" : "ies")} skipped)" : string.Empty) + ".";
+            ValueSetStatusIsError = false;
 
             if (SelectedNode != null)
             {
@@ -1213,6 +1244,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Resolve the signed-in user before the first render so the value set controls are not
+        // shown as 'sign in required' while the root is still being expanded.
+        await ResolveValueSetUserAsync().ConfigureAwait(false);
+
         TreeNodes.Clear();
 
         NodesetViewerNode root = new NodesetViewerNode()
