@@ -10,6 +10,7 @@
 @using System.Threading
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Web;
 @using Microsoft.AspNetCore.Http
 @using Microsoft.JSInterop
@@ -24,6 +25,7 @@
 @inject IDppAuditLog _auditLog
 @inject IValueSetStore ValueSetStore
 @inject AuthenticationStateProvider AuthStateProvider
+@inject DbFileStorage Storage
 @implements IDisposable
 
 <div class="d-flex align-items-center justify-content-between">
@@ -370,13 +372,17 @@
                                     <b><span style="color: red;">Selected Node</span> Value</b>
                                     <span style="float: right">
                                         <button type="button" class="btn btn-primary" @onclick="() => OpenEditDialog(NodeValue)" disabled="@(!CanEditSelectedNode)" title="@(CanEditSelectedNode ? "Edit the value of the selected node" : EditBlockedReason)">Edit</button>
-                                        <form method="post" action="/Browser/Save" style="display:inline; margin-left: 0.5rem">
-                                            <input type="hidden" name="NodesetIdentifier" value="@NodesetIdentifier" />
-                                            <input type="hidden" name="NodesetName" value="@NodesetName" />
-                                            <input type="hidden" name="UserName" value="@UserName" />
-                                            <input type="hidden" name="Search" value="@Search" />
-                                            <input id="saveButton" class="btn btn-primary btn_browser" type="submit" value="Save" title="Save the current node values to the nodeset" />
-                                        </form>
+                                        <button id="saveButton" type="button" class="btn btn-primary btn_browser" style="margin-left: 0.5rem" @onclick="SaveNodeValues" disabled="@IsSaving" title="Save the current node values to the nodeset">
+                                            @if (IsSaving)
+                                            {
+                                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                                <span> Saving...</span>
+                                            }
+                                            else
+                                            {
+                                                <span>Save</span>
+                                            }
+                                        </button>
                                     </span><br/>
                                     @if (!CanEditSelectedNode && !string.IsNullOrEmpty(EditBlockedReason))
                                     {
@@ -402,11 +408,37 @@
                                             }
                                         </select>
                                         <div class="input-group-append">
-                                            <button type="button" class="btn btn-outline-secondary" title="Create a new empty value set" @onclick="OpenNewValueSetDialog" disabled="@(!CanUseValueSets)">New</button>
-                                            <button type="button" class="btn btn-outline-secondary" title="Rename the selected value set" @onclick="OpenRenameValueSetDialog" disabled="@(ActiveValueSet == null)">Rename</button>
-                                            <button type="button" class="btn btn-outline-secondary" title="Copy the selected value set" @onclick="OpenCloneValueSetDialog" disabled="@(ActiveValueSet == null)">Clone</button>
-                                            <a class="btn btn-outline-secondary @(ActiveValueSet == null ? "disabled" : "")" title="Download the nodeset values with this set applied" href="@(ActiveValueSet == null ? "#" : $"/valuesets/{ActiveValueSet.Id}/export")" target="_blank">Export</a>
-                                            <button type="button" class="btn btn-outline-danger" title="Delete the selected value set" @onclick="DeleteActiveValueSet" disabled="@(ActiveValueSet == null)">Delete</button>
+                                            <div class="btn-group @(ShowValueSetMenu ? "show" : string.Empty)">
+                                                <button type="button" class="btn btn-outline-secondary dropdown-toggle" title="Value set actions" aria-haspopup="true" aria-expanded="@ShowValueSetMenu.ToString().ToLowerInvariant()" @onclick="@(() => ShowValueSetMenu = !ShowValueSetMenu)" disabled="@(!CanUseValueSets || IsImporting)">
+                                                    @if (IsImporting)
+                                                    {
+                                                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span>Actions</span>
+                                                    }
+                                                </button>
+                                                <div class="dropdown-menu dropdown-menu-right @(ShowValueSetMenu ? "show" : string.Empty)">
+                                                    <button type="button" class="dropdown-item" title="Create a new empty value set" @onclick="@(() => { ShowValueSetMenu = false; OpenNewValueSetDialog(); })">New</button>
+                                                    <button type="button" class="dropdown-item" title="Rename the selected value set" @onclick="@(() => { ShowValueSetMenu = false; OpenRenameValueSetDialog(); })" disabled="@(ActiveValueSet == null)">Rename</button>
+                                                    <button type="button" class="dropdown-item" title="Copy the selected value set" @onclick="@(() => { ShowValueSetMenu = false; OpenCloneValueSetDialog(); })" disabled="@(ActiveValueSet == null)">Clone</button>
+                                                    <div class="dropdown-divider"></div>
+                                                    @if (ActiveValueSet == null)
+                                                    {
+                                                        <button type="button" class="dropdown-item" disabled>Import...</button>
+                                                        <button type="button" class="dropdown-item" disabled>Export</button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <label class="dropdown-item mb-0" for="valueSetImportFile" style="cursor: pointer" title="Import node values from a previously exported JSON file into the selected value set" @onclick="@(() => ShowValueSetMenu = false)">Import...</label>
+                                                        <a class="dropdown-item" title="Download the nodeset values with this set applied" href="@($"/valuesets/{ActiveValueSet.Id}/export")" target="_blank" @onclick="@(() => ShowValueSetMenu = false)">Export</a>
+                                                    }
+                                                    <div class="dropdown-divider"></div>
+                                                    <button type="button" class="dropdown-item text-danger" title="Delete the selected value set" @onclick="@(() => { ShowValueSetMenu = false; return DeleteActiveValueSet(); })" disabled="@(ActiveValueSet == null)">Delete</button>
+                                                </div>
+                                            </div>
+                                            <InputFile id="valueSetImportFile" accept=".json,application/json" style="display: none" OnChange="ImportValueSetFile" />
                                         </div>
                                     </div>
                                     @if (!CanUseValueSets)
@@ -501,6 +533,8 @@
 
     private string WriteStatus = string.Empty;
 
+    private bool IsSaving = false;
+
     private string EditBlockedReason = "Select a Variable node in the tree to edit its value.";
 
     private bool CanEditSelectedNode => string.IsNullOrEmpty(EditBlockedReason);
@@ -513,6 +547,9 @@
     private NodesetValueSet ActiveValueSet => ValueSets.FirstOrDefault(vs => vs.Id.ToString() == ActiveValueSetId);
     private Dictionary<string, string> ActiveValueSetEntries { get; set; } = new Dictionary<string, string>(StringComparer.Ordinal);
     private string ValueSetStatus { get; set; } = string.Empty;
+    private bool ShowValueSetMenu { get; set; } = false;
+    private bool IsImporting { get; set; } = false;
+    private const long ValueSetImportMaxBytes = 20 * 1024 * 1024;
     private string _valueSetUserId;
     private bool CanUseValueSets => !string.IsNullOrEmpty(_valueSetUserId);
     private bool SelectedNodeIsOverridden => SelectedNode != null && ActiveValueSet != null && ActiveValueSetEntries.ContainsKey(SelectedNode.Id);
@@ -569,9 +606,8 @@
 
     private NodesetViewerNode SelectedNode { get; set; } = null;
 
-    // The "Save node values" form posts to BrowserController and redirects back, which tears down the
-    // Blazor circuit. The tree state is therefore kept in the browser's sessionStorage (per tab) so
-    // the open branches and selected node survive that round trip.
+    // The tree state is kept in the browser's sessionStorage (per tab) so the open branches and
+    // selected node survive a page reload or navigation away and back.
     private bool _isInteractive = false;
     private bool _isRestoringState = false;
     private readonly TaskCompletionSource _initialLoad = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -994,6 +1030,95 @@
         }
 
         await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+    }
+
+    // An exported file holds the full node values with the set applied, in the same shape as the
+    // owner's saved values. Only entries that differ from the current nodeset value are stored in
+    // the set, so importing an export does not override every node with an identical copy.
+    private async Task ImportValueSetFile(InputFileChangeEventArgs e)
+    {
+        if (ActiveValueSet == null || e.File == null)
+        {
+            return;
+        }
+
+        IsImporting = true;
+        ValueSetStatus = string.Empty;
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+
+        try
+        {
+            Dictionary<string, JsonElement> parsed;
+            using (Stream stream = e.File.OpenReadStream(ValueSetImportMaxBytes))
+            {
+                parsed = await JsonSerializer.DeserializeAsync<Dictionary<string, JsonElement>>(stream).ConfigureAwait(false);
+            }
+
+            if (parsed == null)
+            {
+                ValueSetStatus = "The file does not contain a JSON object of node values.";
+                return;
+            }
+
+            Dictionary<string, string> canonical = await _client.BrowseVariableNodesResursivelyAsync(UserName, NodesetIdentifier, null).ConfigureAwait(false)
+                ?? new Dictionary<string, string>();
+
+            var toImport = new Dictionary<string, string>(StringComparer.Ordinal);
+            int skipped = 0;
+            foreach (KeyValuePair<string, JsonElement> kv in parsed)
+            {
+                // The reserved controlledElements map and anything else that is not a scalar node
+                // value belongs to the nodeset's access policy, not to a value set.
+                if (string.Equals(kv.Key, DppControlledElements.PropertyName, StringComparison.Ordinal)
+                    || kv.Value.ValueKind == JsonValueKind.Object
+                    || kv.Value.ValueKind == JsonValueKind.Array
+                    || kv.Value.ValueKind == JsonValueKind.Null)
+                {
+                    skipped++;
+                    continue;
+                }
+
+                string value = kv.Value.ValueKind == JsonValueKind.String ? kv.Value.GetString() : kv.Value.GetRawText();
+                if (!canonical.TryGetValue(kv.Key, out string current) || !string.Equals(current, value, StringComparison.Ordinal))
+                {
+                    toImport[kv.Key] = value;
+                }
+            }
+
+            if (toImport.Count > 0)
+            {
+                await ValueSetStore.SetValuesAsync(ActiveValueSet.Id, _valueSetUserId, toImport).ConfigureAwait(false);
+                foreach (KeyValuePair<string, string> kv in toImport)
+                {
+                    ActiveValueSetEntries[kv.Key] = kv.Value;
+                }
+            }
+
+            ValueSetStatus = $"Imported {toImport.Count} value(s) from '{e.File.Name}' into '{ActiveValueSet.Name}'"
+                + (skipped > 0 ? $" ({skipped} non-value entr{(skipped == 1 ? "y" : "ies")} skipped)" : string.Empty) + ".";
+
+            if (SelectedNode != null)
+            {
+                await SelectedNodeChanged(SelectedNode).ConfigureAwait(false);
+            }
+        }
+        catch (JsonException ex)
+        {
+            ValueSetStatus = "The file is not valid node values JSON: " + ex.Message;
+        }
+        catch (IOException ex)
+        {
+            ValueSetStatus = "The file could not be read: " + ex.Message;
+        }
+        catch (Exception ex)
+        {
+            ValueSetStatus = "Import failed: " + ex.Message;
+        }
+        finally
+        {
+            IsImporting = false;
+            await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+        }
     }
 
     private async Task ResetSelectedNodeValue()
@@ -1798,6 +1923,78 @@ string fileName = $"{sanitizedKey}.xml";
             await InvokeAsync(StateHasChanged);
         }
     }
+
+    // Saving used to post a plain HTML form to BrowserController.Save, which redirected back to
+    // /browser and tore down the circuit - losing the search scope, query and filter selections.
+    // The same ownership check, controlledElements merge and write-ahead auditing are done here
+    // in-circuit so the page keeps its state.
+    private async Task SaveNodeValues()
+    {
+        if (IsSaving)
+        {
+            return;
+        }
+
+        IsSaving = true;
+        StatusMessage = string.Empty;
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+
+        try
+        {
+            var state = await AuthStateProvider.GetAuthenticationStateAsync().ConfigureAwait(false);
+            string operatorId = state?.User?.Identity?.Name;
+
+            NodeSetModel nodeSet = string.IsNullOrEmpty(operatorId) ? null : DataProvider.GetNodeSets(operatorId, NodesetIdentifier).FirstOrDefault();
+            if ((nodeSet == null) || (operatorId != nodeSet.Metadata.UserId))
+            {
+                await _auditLog.RecordAsync(operatorId ?? "anonymous", DppAuditOperation.Modify, NodesetIdentifier, null, "Denied").ConfigureAwait(false);
+                StatusMessage = "You are not authorized to save changes to this nodeset.";
+                return;
+            }
+
+            DbFiles nodesetXml = await Storage.DownloadFileAsync(NodesetIdentifier).ConfigureAwait(false);
+            if (nodesetXml == null)
+            {
+                StatusMessage = "The nodeset's stored values could not be loaded, so the save was refused to avoid dropping its access policy.";
+                return;
+            }
+
+            Dictionary<string, string> results = await _client.BrowseVariableNodesResursivelyAsync(operatorId, NodesetIdentifier, null).ConfigureAwait(false);
+            nodesetXml.Values = DppControlledElements.Merge(JsonSerializer.Serialize(results, s_saveJsonOptions), nodesetXml.Values);
+
+            string operationId = DppAuditOperationId.New();
+            await _auditLog.RecordAsync(operatorId, DppAuditOperation.Modify, NodesetIdentifier, null, "Attempted", operationId).ConfigureAwait(false);
+
+            string name = await Storage.UploadFileAsync(NodesetIdentifier, nodesetXml.Blob, nodesetXml.Values).ConfigureAwait(false);
+            if (name == null)
+            {
+                await _auditLog.RecordAsync(operatorId, DppAuditOperation.Modify, NodesetIdentifier, null, "Failed", operationId).ConfigureAwait(false);
+                StatusMessage = "Failed to save changes to this nodeset.";
+            }
+            else
+            {
+                await _auditLog.RecordCommittedOutcomeAsync(operatorId, DppAuditOperation.Modify, NodesetIdentifier, null, "Success", operationId).ConfigureAwait(false);
+                StatusMessage = "Save operation successful";
+            }
+        }
+        catch (DppAuditException ex)
+        {
+            StatusMessage = ex.MutationCommitted
+                ? "Save completed, but the audit entry could not be written. Do not retry; report this to an administrator."
+                : "Save refused: the operation could not be recorded in the audit log.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Failed to save changes to this nodeset: " + ex.Message;
+        }
+        finally
+        {
+            IsSaving = false;
+            await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+        }
+    }
+
+    private static readonly JsonSerializerOptions s_saveJsonOptions = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
     private string ViewNodeType(NodesetViewerNode item)
     {
