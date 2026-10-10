@@ -16,12 +16,12 @@ jobs:
       contents: read #This is required for actions/checkout
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # Nerdbank.GitVersioning needs the full history to compute a version
 
       - name: Set up .NET Core
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.x'
 
@@ -38,7 +38,7 @@ jobs:
         run: dotnet publish UACloudLibraryServer/UA-CloudLibrary.csproj --configuration Release --no-build --output "${{env.DOTNET_ROOT}}/myapp"
 
       - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: .net-app
           path: ${{env.DOTNET_ROOT}}/myapp
@@ -52,12 +52,12 @@ jobs:
 
     steps:
       - name: Download artifact from build job
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: .net-app
       
       - name: Login to Azure
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_34BF74BCB51B4C2DAAECC4001A316E9E }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_DD569F9850C043F79744A2A511A7EF4B }}
