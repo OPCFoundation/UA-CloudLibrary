@@ -31,6 +31,9 @@ jobs:
         run: dotnet format --verify-no-changes -v:diag --exclude ~/.nuget
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # GITHUB_TOKEN needs this to push to nuget.pkg.github.com
     steps:
 
     - name: Start PostgreSQL on Ubuntu
@@ -95,7 +98,9 @@ jobs:
       run: dotnet nuget add source --username ${{ github.repository_owner }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
     - name: publish NuGet
       if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
-      run: dotnet nuget push "Opc.Ua.CloudLib.Client/bin/Release/*.nupkg"  --source "github"
+      # --skip-duplicate: every build of main produces the same package version until
+      # version.json is bumped, so a re-push of an existing version must not fail the job.
+      run: dotnet nuget push "Opc.Ua.CloudLib.Client/bin/Release/*.nupkg" --source "github" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
     - name: publish NuGet Symbols
       if: ${{ github.event_name != 'pull_request' }} # Will only push nuget, when not in pull_request
-      run: dotnet nuget push "Opc.Ua.CloudLib.Client/bin/Release/*.snupkg"  --source "github"
+      run: dotnet nuget push "Opc.Ua.CloudLib.Client/bin/Release/*.snupkg" --source "github" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
