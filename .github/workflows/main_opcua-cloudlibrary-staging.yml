@@ -17,17 +17,25 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Nerdbank.GitVersioning needs the full history to compute a version
 
       - name: Set up .NET Core
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.x'
 
+      # Build/publish the web project only. Pointing at the solution would drag in the
+      # docker-compose project, the test projects and the other tools, and `dotnet publish`
+      # does not accept -o for a solution.
+      - name: Restore
+        run: dotnet restore UACloudLibraryServer/UA-CloudLibrary.csproj
+
       - name: Build with dotnet
-        run: dotnet build UA-CloudLibrary.sln --configuration Release     
+        run: dotnet build UACloudLibraryServer/UA-CloudLibrary.csproj --configuration Release --no-restore
 
       - name: dotnet publish
-        run: dotnet publish -c Release -o "${{env.DOTNET_ROOT}}/myapp"
+        run: dotnet publish UACloudLibraryServer/UA-CloudLibrary.csproj --configuration Release --no-build --output "${{env.DOTNET_ROOT}}/myapp"
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
