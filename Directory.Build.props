@@ -1,4 +1,8 @@
 ﻿<Project>
-  <Import Project="common.props" />
-  <Import Project="version.props" />
+  <!-- The Visual Studio docker-compose project (.dcproj) has no TargetFramework and is
+       not NuGet-restorable. Importing these files into it adds PackageReference items
+       (Nerdbank.GitVersioning, SourceLink), which makes NuGet treat it as a restore
+       input and fail with NU1105 "Invalid target framework ''" outside Visual Studio. -->
+  <Import Project="common.props" Condition="'$(MSBuildProjectExtension)' != '.dcproj'" />
+  <Import Project="version.props" Condition="'$(MSBuildProjectExtension)' != '.dcproj'" />
 </Project>
