@@ -182,6 +182,8 @@ namespace Opc.Ua.Cloud.Library
             });
             services.AddScoped<IDppVersionArchive, DbFileVersionArchive>();
 
+            services.AddScoped<ValueSets.IValueSetStore, ValueSets.ValueSetStore>();
+
             services.AddScoped<CaptchaValidation>();
 
             if (!string.IsNullOrEmpty(Configuration["UseSendGridEmailSender"]))

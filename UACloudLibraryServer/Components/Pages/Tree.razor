@@ -108,7 +108,9 @@
             {
                 loadingNodes.Add(node);
 
-                await OnNodeExpand.Invoke(node).ConfigureAwait(false);
+                // Stay on the Blazor dispatcher: the ExpandedNodesChanged callback below triggers
+                // StateHasChanged on the parent, which must not run off the sync context.
+                await OnNodeExpand.Invoke(node);
 
                 loadingNodes.Remove(node);
             }
@@ -120,8 +122,7 @@
             await ExpandedNodesChanged.InvokeAsync(ExpandedNodes);
         }
 
-        // Switch to UI thread for StateHasChanged
-        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+        StateHasChanged();
     }
 
     private void OnSelectNode(TNode node)

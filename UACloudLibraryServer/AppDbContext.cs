@@ -116,6 +116,11 @@ namespace Opc.Ua.Cloud.Library
         // instances. Only used when no key is supplied via Dpp:Esdc:PrivateKeyPem.
         public DbSet<EsdcSigningKey> EsdcSigningKeys { get; set; }
 
+        // Per-user named node value overlays for a nodeset; the owner's canonical values stay in DbFiles.Values.
+        public DbSet<NodesetValueSet> NodesetValueSets { get; set; }
+
+        public DbSet<NodesetValueSetEntry> NodesetValueSetEntries { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -169,6 +174,19 @@ namespace Opc.Ua.Cloud.Library
             builder.Entity<DppAuditEntry>()
                 .Property(e => e.Operation)
                 .HasConversion<string>();
+
+            builder.Entity<NodesetValueSet>()
+                .HasIndex(vs => new { vs.NodesetIdentifier, vs.UserId, vs.Name })
+                .IsUnique();
+
+            builder.Entity<NodesetValueSetEntry>()
+                .HasKey(e => new { e.ValueSetId, e.NodeId });
+
+            builder.Entity<NodesetValueSetEntry>()
+                .HasOne(e => e.ValueSet)
+                .WithMany(vs => vs.Entries)
+                .HasForeignKey(e => e.ValueSetId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
 
         public void CreateNodeModel(ModelBuilder modelBuilder, bool cascadeDelete = false, bool methodArgs = false)

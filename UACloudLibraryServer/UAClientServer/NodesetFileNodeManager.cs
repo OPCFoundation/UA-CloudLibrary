@@ -107,6 +107,15 @@ namespace Opc.Ua.Cloud.Library
                     {
                         try
                         {
+                            // This server exists to let the nodeset owner edit design-time values, so
+                            // every imported variable must accept writes regardless of the (default
+                            // read-only) AccessLevel declared in the nodeset XML.
+                            if (predefinedNodes[i] is BaseVariableState variable)
+                            {
+                                variable.AccessLevel |= AccessLevels.CurrentWrite;
+                                variable.UserAccessLevel |= AccessLevels.CurrentWrite;
+                            }
+
                             AddPredefinedNode(SystemContext, predefinedNodes[i]);
                         }
                         catch (Exception ex)
