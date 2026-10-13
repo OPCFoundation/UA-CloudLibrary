@@ -19,8 +19,7 @@ namespace Opc.Ua.Cloud.Library
             // with or without the column. The snapshot now includes it so it is not re-offered.
             migrationBuilder.CreateTable(
                 name: "NodesetValueSets",
-                columns: table => new
-                {
+                columns: table => new {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     NodesetIdentifier = table.Column<string>(type: "text", nullable: false),
                     UserId = table.Column<string>(type: "text", nullable: false),
@@ -29,22 +28,19 @@ namespace Opc.Ua.Cloud.Library
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     LastModified = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_NodesetValueSets", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
                 name: "NodesetValueSetEntries",
-                columns: table => new
-                {
+                columns: table => new {
                     ValueSetId = table.Column<Guid>(type: "uuid", nullable: false),
                     NodeId = table.Column<string>(type: "text", nullable: false),
                     Value = table.Column<string>(type: "text", nullable: false),
                     LastModified = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
                 },
-                constraints: table =>
-                {
+                constraints: table => {
                     table.PrimaryKey("PK_NodesetValueSetEntries", x => new { x.ValueSetId, x.NodeId });
                     table.ForeignKey(
                         name: "FK_NodesetValueSetEntries_NodesetValueSets_ValueSetId",
