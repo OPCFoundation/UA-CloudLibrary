@@ -683,6 +683,9 @@
     private bool IsVariablesOnlyFilterActive => ShowVariablesOnly && !string.IsNullOrEmpty(SearchScope);
     private bool IsScanningVariables { get; set; } = false;
     private CancellationTokenSource _scanCts;
+    // Bumped whenever the Variables-only filter changes so the <Tree> is recreated (via @key)
+    // instead of diffed, giving a complete redraw of the visible branches.
+    private int _treeVersion = 0;
     private string SearchStatus { get; set; } = string.Empty;
     private bool IsSearching { get; set; } = false;
     private bool ShowSearchHelp { get; set; } = false;
