@@ -657,11 +657,15 @@
         set
         {
             _searchScope = value ?? string.Empty;
+            if (string.IsNullOrEmpty(_searchScope))
+            {
+                _showVariablesOnly = false;
+            }
             StartVariablesOnlyScan();
         }
     }
     private HashSet<string> SearchMatchIds { get; set; } = new HashSet<string>(StringComparer.Ordinal);
-    private List<NodesetViewerNode> SearchMatches { get; set; } = new List<NodesetViewerNode>();
+    private List<NodesetViewerNode> SearchMatches { get; set; }
     private List<List<NodesetViewerNode>> SearchMatchAncestors { get; set; } = new List<List<NodesetViewerNode>>();
     private int SearchCursor { get; set; } = -1;
     private bool FindAll { get; set; } = false;
