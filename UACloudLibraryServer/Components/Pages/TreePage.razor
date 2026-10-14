@@ -239,7 +239,7 @@
                                     </div>
                                 </div>
                                 <div class="card-body">
-                                    <Tree Nodes="TreeNodes" TNode="NodesetViewerNode" ChildSelector="VisibleChildren" SelectedNodeChanged="SelectedNodeChanged" OnNodeExpand="OnNodeExpand" HasChildNodes="HasChildNodes" ExpandedNodes="ExpandedNodes" ExpandedNodesChanged="OnExpandedNodesChanged">
+                                    <Tree Nodes="TreeNodes" TNode="NodesetViewerNode" @key="_treeVersion" ChildSelector="VisibleChildren" SelectedNodeChanged="SelectedNodeChanged" OnNodeExpand="OnNodeExpand" HasChildNodes="HasChildNodes" ExpandedNodes="ExpandedNodes" ExpandedNodesChanged="OnExpandedNodesChanged">
                                         <TitleTemplate>
                                             @{
                                                 bool isSelected = context.Id == SelectedNode.Id;
@@ -661,7 +661,7 @@
             {
                 _showVariablesOnly = false;
             }
-            StartVariablesOnlyScan();
+            ApplyVariablesOnlyFilter();
         }
     }
     private HashSet<string> SearchMatchIds { get; set; } = new HashSet<string>(StringComparer.Ordinal);
@@ -676,12 +676,15 @@
         set
         {
             _showVariablesOnly = value;
-            StartVariablesOnlyScan();
+            ApplyVariablesOnlyFilter();
         }
     }
     private bool IsVariablesOnlyFilterActive => ShowVariablesOnly && !string.IsNullOrEmpty(SearchScope);
     private bool IsScanningVariables { get; set; } = false;
     private CancellationTokenSource _scanCts;
+    // Bumped whenever the Variables-only filter changes so the <Tree> is recreated (via @key)
+    // instead of diffed, giving a complete redraw of the visible branches.
+    private int _treeVersion = 0;
     private string SearchStatus { get; set; } = string.Empty;
     private bool IsSearching { get; set; } = false;
     private bool ShowSearchHelp { get; set; } = false;
@@ -1767,6 +1770,64 @@
         return node.Children != null && node.Children.Any(MayContainVariables);
     }
 
+    private void ApplyVariablesOnlyFilter()
+    {
+        _treeVersion++;
+        StartVariablesOnlyScan();
+    }
+
+    // Once every branch has been resolved, drop expanded branches that contain no in-scope
+    // Variables so they cannot stay open, and fall back to the root if the selected node is no
+    // longer reachable through the filtered tree.
+    private async Task ReconcileTreeWithVariablesOnlyFilterAsync()
+    {
+        if (!IsVariablesOnlyFilterActive)
+        {
+            return;
+        }
+
+        HashSet<NodesetViewerNode> visible = new HashSet<NodesetViewerNode>();
+        Queue<NodesetViewerNode> queue = new Queue<NodesetViewerNode>(TreeNodes.Where(n => n != null));
+        while (queue.Count > 0)
+        {
+            NodesetViewerNode node = queue.Dequeue();
+            if (!visible.Add(node))
+            {
+                continue;
+            }
+
+            foreach (NodesetViewerNode child in VisibleChildren(node))
+            {
+                queue.Enqueue(child);
+            }
+        }
+
+        bool changed = false;
+        for (int i = ExpandedNodes.Count - 1; i >= 0; i--)
+        {
+            NodesetViewerNode expanded = ExpandedNodes[i];
+            if (expanded == null || !visible.Contains(expanded) || !HasChildNodes(expanded))
+            {
+                ExpandedNodes.RemoveAt(i);
+                changed = true;
+            }
+        }
+
+        NodesetViewerNode root = TreeNodes.FirstOrDefault();
+        if (SelectedNode != null && !visible.Contains(SelectedNode) && root != null)
+        {
+            await SelectedNodeChanged(root).ConfigureAwait(false);
+            changed = false;
+        }
+
+        if (changed)
+        {
+            await PersistTreeStateAsync().ConfigureAwait(false);
+        }
+
+        _treeVersion++;
+    }
+
     private void StartVariablesOnlyScan()
     {
         _scanCts?.Cancel();
@@ -1834,6 +1895,7 @@
             if (!ct.IsCancellationRequested)
             {
                 IsScanningVariables = false;
+                await InvokeAsync(ReconcileTreeWithVariablesOnlyFilterAsync).ConfigureAwait(false);
                 await InvokeAsync(StateHasChanged).ConfigureAwait(false);
             }
         }
