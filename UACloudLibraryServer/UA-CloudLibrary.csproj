@@ -51,7 +51,8 @@
 		<PackageReference Include="SendGrid" Version="9.29.3" />
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
 		<PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="10.2.3" />
-    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.401" />
+		<PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+		<PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.401" />
     <PackageReference Update="Nerdbank.GitVersioning" Version="3.10.94" />
 	</ItemGroup>
 </Project>
