@@ -159,7 +159,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
         [AllowAnonymous]
         [HttpPost("dppsByProductIds")]
-        public ActionResult<ApiResponse<List<string>>> ReadDppIdsByProductIds(
+        public async Task<ActionResult<ApiResponse<List<string>>>> ReadDppIdsByProductIds(
             [FromBody][Required] ReadDppIdsRequest request,
             [FromQuery] int? limit = null,
             [FromQuery] string cursor = null)
@@ -209,7 +209,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             // deduplication, ordinal sort and cursor parsing rules live in DppPagination so they
             // can be unit-tested without the HTTP pipeline; the controller only translates the
             // outcome into the spec-shaped ApiResponse envelope.
-            IEnumerable<string> rawIds = _dppService.GetDppIdsByProductIds(AccessUserId, request.productIds);
+            IEnumerable<string> rawIds = await _dppService.GetDppIdsByProductIds(AccessUserId, request.productIds).ConfigureAwait(false);
             DppPagination.SliceOutcome outcome = DppPagination.TrySlice(
                 rawIds, limit, cursor,
                 out List<string> page,

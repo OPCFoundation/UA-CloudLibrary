@@ -30,13 +30,19 @@ The API is aligned with five European Norms:
 
 ## Conceptual model
 
-A DPP is constructed on demand from an OPC UA nodeset that has been uploaded to the Cloud Library. Its header properties and its tree of data elements are read from the nodeset's live address space. The DPP identifier (`dppId`) is the nodeset identifier the Cloud Library issues on upload, so any nodeset you upload is addressable as a passport without a separate registration step.
+An uploaded nodeset is a DPP **template**: it defines the structure of a passport and carries default or example values. A passport itself is a **value set** created on that template: the set holds the passport's own values (its product identifier, status, element values and so on), and any node it does not set falls back to the template's value. One template can therefore back many passports, one per product, batch or item.
+
+- The DPP identifier (`dppId`) is the value set's id, a GUID. Nodeset identifiers are not passports and are not accepted by the DPP endpoints.
+- A value set is private to its owner until the owner publishes it (`POST /valuesets/{id}/publish`). Published passports can be read by anyone; unpublished ones only by their owner. The template must also be visible to the caller.
+- `dppsByProductId` and `dppsByProductIds` find passports by the value their set gives to `uniqueProductIdentifier`. Several passports may share a product identifier: `dppsByProductIds` returns all of them, and `dppsByProductId` returns the most recently modified one.
+- Updates (`PATCH`) change the passport's value set, not the template, and require the caller to own the set. Each update is applied as a single database transaction, so it either takes full effect or none.
+- Access control (controlled elements) comes from the template, so every passport built on a template is governed by the same policy. Version history is kept per passport.
 
 The DPP header follows EN 18223 Clause 4.1.2.1 Table 1:
 
 | Property | Cardinality | Notes |
 |---|---|---|
-| `digitalProductPassportId` | [1] | Globally unique, opaque string. This server emits the Cloud Library nodeset identifier (e.g. `"3851629631"`), so callers can round-trip the value back through the `v1/dpps/{dppId}` endpoints. |
+| `digitalProductPassportId` | [1] | Globally unique, opaque string. This server emits the passport's value set id, a GUID, so callers can round-trip the value back through the `v1/dpps/{dppId}` endpoints. |
 | `uniqueProductIdentifier` | [1] | Product identifier per EN 18219. |
 | `granularity` | [1] | Enumeration: `model`, `batch`, `item` (lowercase on the wire). |
 | `dppSchemaVersion` | [1] | Reference standard the DPP schema follows. |
@@ -94,13 +100,13 @@ Every endpoint returns the same envelope:
 
 All routes are versioned under `v1/`.
 
-**Read routes are reachable anonymously**, so public DPP data can be read without logging in (EN 18246 Clause 5.1). Authenticated callers additionally see any controlled elements their roles permit. **Write routes require authentication** and ownership of the underlying nodeset.
+**Read routes are reachable anonymously**, so public DPP data can be read without logging in (EN 18246 Clause 5.1). Authenticated callers additionally see any controlled elements their roles permit. **Write routes require authentication**, ownership of the passport's value set, and every role needed to write the controlled elements involved.
 
 | Method | Route | Description |
 |---|---|---|
 | `GET` | `v1/dpps/{dppId}` | Returns the full DPP. |
 | `GET` | `v1/dppsByProductId/{productId}` | Returns the DPP for a unique product identifier. |
-| `POST` | `v1/dppsByProductIds` | Resolves a batch of product identifiers to DPP ids. Accepts up to 100 ids per request; supports `limit` and `cursor` for paging. |
+| `POST` | `v1/dppsByProductIds` | Resolves a batch of product identifiers to DPP ids, sorted by id. Accepts up to 100 ids per request; supports `limit` and `cursor` for paging. |
 | `GET` | `v1/dpps/{dppId}/elements/{elementIdPath}` | Returns a single data element. |
 | `GET` | `v1/dpps/{dppId}/versions/{date}` | Returns the DPP as it stood at an ISO 8601 timestamp. See [version history](#version-history). |
 | `PATCH` | `v1/dpps/{dppId}` | Partially updates the DPP header. |
@@ -137,7 +143,7 @@ Archiving is part of the update contract: if a snapshot cannot be stored, the up
 
 ## Controlled access
 
-Read access is **public by default**. To restrict an element, list it in a reserved `controlledElements` object in the values file you upload alongside the nodeset. The mapping is per DPP, and it maps an element **path** to the role or roles permitted to read that element and everything beneath it.
+Read access is **public by default**. To restrict an element, list it in a reserved `controlledElements` object in the values file you upload alongside the template nodeset. The mapping belongs to the template, so it applies to every passport built on it, and it maps an element **path** to the role or roles permitted to read that element and everything beneath it. A value set cannot carry or change the mapping.
 
 The values file is otherwise the flat `{ nodeId: value }` map already used to seed variable values:
 
@@ -156,7 +162,7 @@ Access is keyed by element **path** &mdash; the dotted chain of `elementId` valu
 
 > **A mapping that cannot be read unambiguously denies access rather than granting it.** The reserved property is matched case-insensitively, but JSON allows several spellings to coexist. A file carrying both `controlledElements` and `ControlledElements` has no single authoritative policy, so it is rejected as deny-all rather than letting an empty decoy shadow a real mapping. The same applies to an unparseable file and to `"controlledElements": null`: a policy that cannot be understood is never treated as an absent one.
 
-> **An unavailable policy source is not an absent policy.** If the storage holding the mapping cannot be reached, or the passport has no stored values row at all, elements are withheld rather than published. Because reads are anonymous, treating either case as "this passport controls nothing" would expose every controlled element. This matters specifically because a DPP is built from the live OPC UA address space: it can still be served while its stored row is missing, so the missing row must deny rather than default to public. For the same reason, exporting or saving a nodeset is refused when its stored values cannot be loaded: writing the browse output alone would drop the `controlledElements` map, and re-uploading that file would publish everything it protected.
+> **An unavailable policy source is not an absent policy.** If the storage holding the mapping cannot be reached, or the template has no stored values row at all, elements are withheld rather than published. Because reads are anonymous, treating either case as "this passport controls nothing" would expose every controlled element. This matters specifically because a DPP is built from the template's live OPC UA address space: it can still be served while the template's stored row is missing, so the missing row must deny rather than default to public. For the same reason, exporting or saving a nodeset is refused when its stored values cannot be loaded: writing the browse output alone would drop the `controlledElements` map, and re-uploading that file would publish everything it protected.
 
 > **Filtering covers nested elements.** Controlled elements are withheld wherever they appear in the tree, including inside multi-valued elements, and are excluded from the signed ESDC as well as from the response body.
 
@@ -165,6 +171,8 @@ Access is keyed by element **path** &mdash; the dotted chain of `elementId` valu
 Reads and changes to DPP data are recorded in an append-only, hash-chained audit log (EN 18246 Clause 4.7), making a change non-repudiable and retrospective tampering detectable.
 
 **If an operation cannot be recorded, it is refused.** A read that cannot be logged returns `503` without disclosing data; a change that cannot be logged is not applied.
+
+> **Value-set changes are audited too.** Because a value set *is* the passport, every change to one is recorded, whether it is made through the DPP API (`PATCH`), the `/valuesets` REST endpoints, or the nodeset browser: creating, renaming, cloning or deleting a set, publishing or unpublishing it, and editing, importing or removing its values. Each change is attributed to the signed-in user and follows the same rules as any other change: refused if it cannot be recorded beforehand, and reported as applied-but-unrecorded (do not retry) if only the closing record fails.
 
 > **What the audit log does and does not prove.** Configure `Dpp__Audit__HmacKey` (base64, at least 32 bytes, from a managed secret store) to make the chain tamper-evident against someone who can write to the database. Without a key the log is integrity-checked but *not* tamper-proof: anyone able to modify the audit tables can recompute the digests and pass verification.
 >
@@ -342,8 +350,8 @@ A double underscore (`__`) in an environment variable key creates a nested confi
 | Status | Meaning |
 |---|---|
 | `400` | Malformed request: an unsupported `elementIdPath`, an invalid timestamp, an empty or oversized batch. |
-| `401` / `403` | Authentication missing, or the caller does not own the underlying nodeset. |
-| `404` | No such DPP, element, or no version at the requested time. |
+| `401` / `403` | Authentication missing, or the caller lacks a role required to write a controlled element. |
+| `404` | No such DPP, element, or no version at the requested time. Also returned for a passport the caller may not read, and for a write by anyone other than the value set's owner, so the API does not reveal that a private passport exists. |
 | `429` | Rate limit exceeded. |
 | `500` | The change was applied but could not be fully recorded. **Do not retry**; verify current state first. |
 | `503` | The request was refused because it could not be audited. Nothing was applied; retrying is safe. |

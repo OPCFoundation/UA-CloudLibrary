@@ -36,6 +36,13 @@ namespace Opc.Ua.Cloud.Library.Models
 
         public DateTimeOffset LastModified { get; set; }
 
+        /// <summary>
+        /// When true the set is served as a public Digital Product Passport: anyone may read it
+        /// through the DPP API and find it by its unique product identifier. Sets stay private by
+        /// default, so publishing the template nodeset never exposes the values other users keep.
+        /// </summary>
+        public bool IsPublished { get; set; }
+
         public virtual ICollection<NodesetValueSetEntry> Entries { get; set; } = new List<NodesetValueSetEntry>();
     }
 }

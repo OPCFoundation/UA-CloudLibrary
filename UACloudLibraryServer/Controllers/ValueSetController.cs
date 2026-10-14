@@ -21,6 +21,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
     /// scoped to the calling user, so sets of other users are never visible.
     /// </summary>
     [Authorize(Policy = "ApiPolicy")]
+    [ServiceFilter(typeof(DppAuditFailureFilter))]
     [ApiController]
     public class ValueSetController : Controller
     {
@@ -28,15 +29,58 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
         private readonly IValueSetStore _store;
         private readonly UAClient _client;
+        private readonly IDppAuditLog _auditLog;
 
-        public ValueSetController(IValueSetStore store, UAClient client)
+        public ValueSetController(IValueSetStore store, UAClient client, IDppAuditLog auditLog)
         {
             _store = store;
             _client = client;
+            _auditLog = auditLog;
         }
 
         private string UserId => User?.Identity?.Name;
 
+        // The authenticated caller, bound to every audit entry so value-set changes are attributable.
+        private string OperatorId => User?.Identity?.Name ?? "anonymous";
+
+        /// <summary>
+        /// Runs a value-set change between a write-ahead "Attempted" entry and an outcome entry.
+        /// </summary>
+        /// <remarks>
+        /// A value set is a Digital Product Passport, so every change to it is audited like a DPP
+        /// change. <paramref name="change"/> returns the passport id the outcome concerns, or null when
+        /// it changed nothing (an unknown set or a name clash). A completed change is durable, so its
+        /// outcome uses <see cref="DppAuditLogExtensions.RecordCommittedOutcomeAsync"/>: a failure to
+        /// log it must not be reported as a safe retry. A change that throws is recorded as failed and
+        /// the exception rethrown, so the action's own error handling still applies.
+        /// </remarks>
+        private async Task<T> AuditedAsync<T>(DppAuditOperation operation, string target, string detail, Func<Task<(T Result, string DppId)>> change)
+        {
+            string operationId = DppAuditOperationId.New();
+            await _auditLog.RecordAsync(OperatorId, operation, target, detail, "Attempted", operationId).ConfigureAwait(false);
+
+            (T Result, string DppId) outcome;
+            try
+            {
+                outcome = await change().ConfigureAwait(false);
+            }
+            catch
+            {
+                await _auditLog.RecordAsync(OperatorId, operation, target, detail, "Failed", operationId).ConfigureAwait(false);
+                throw;
+            }
+
+            if (outcome.DppId is null)
+            {
+                await _auditLog.RecordAsync(OperatorId, operation, target, detail, "Failed", operationId).ConfigureAwait(false);
+            }
+            else
+            {
+                await _auditLog.RecordCommittedOutcomeAsync(OperatorId, operation, outcome.DppId, detail, "Success", operationId).ConfigureAwait(false);
+            }
+
+            return outcome.Result;
+        }
         [HttpGet]
         [Route("/valuesets")]
         [SwaggerResponse(statusCode: 200, type: typeof(ValueSetSummary[]), description: "The calling user's value sets for the given nodeset.")]
@@ -71,7 +115,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         {
             try
             {
-                NodesetValueSet set = await _store.CreateAsync(request.NodesetIdentifier, UserId, request.Name, request.Description, ct).ConfigureAwait(false);
+                NodesetValueSet set = await AuditedAsync(DppAuditOperation.Create, request.NodesetIdentifier, $"create value set {request.Name}", async () => { NodesetValueSet s = await _store.CreateAsync(request.NodesetIdentifier, UserId, request.Name, request.Description, ct).ConfigureAwait(false); return (s, s?.Id.ToString()); }).ConfigureAwait(false);
                 return StatusCode((int)HttpStatusCode.Created, ValueSetSummary.From(set));
             }
             catch (InvalidOperationException ex)
@@ -93,7 +137,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         {
             try
             {
-                NodesetValueSet set = await _store.UpdateAsync(id, UserId, request.Name, request.Description, ct).ConfigureAwait(false);
+                NodesetValueSet set = await AuditedAsync(DppAuditOperation.Modify, id.ToString(), $"rename to {request.Name}", async () => { NodesetValueSet s = await _store.UpdateAsync(id, UserId, request.Name, request.Description, ct).ConfigureAwait(false); return (s, s?.Id.ToString()); }).ConfigureAwait(false);
                 return set == null ? NotFound() : Ok(ValueSetSummary.From(set));
             }
             catch (InvalidOperationException ex)
@@ -112,9 +156,29 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 404)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
         {
-            return await _store.DeleteAsync(id, UserId, ct).ConfigureAwait(false) ? NoContent() : NotFound();
+            bool deleted = await AuditedAsync(DppAuditOperation.Delete, id.ToString(), "delete value set", async () => { bool d = await _store.DeleteAsync(id, UserId, ct).ConfigureAwait(false); return (d, d ? id.ToString() : null); }).ConfigureAwait(false);
+            return deleted ? NoContent() : NotFound();
         }
 
+        [HttpPost]
+        [Route("/valuesets/{id:guid}/publish")]
+        [SwaggerResponse(statusCode: 204, description: "The set is now readable by anyone as a Digital Product Passport.")]
+        [SwaggerResponse(statusCode: 404)]
+        public async Task<IActionResult> Publish(Guid id, CancellationToken ct)
+        {
+            bool found = await AuditedAsync(DppAuditOperation.Modify, id.ToString(), "publish", async () => { bool f = await _store.SetPublishedAsync(id, UserId, true, ct).ConfigureAwait(false); return (f, f ? id.ToString() : null); }).ConfigureAwait(false);
+            return found ? NoContent() : NotFound();
+        }
+
+        [HttpPost]
+        [Route("/valuesets/{id:guid}/unpublish")]
+        [SwaggerResponse(statusCode: 204, description: "The set is private again: only its owner can read it as a passport.")]
+        [SwaggerResponse(statusCode: 404)]
+        public async Task<IActionResult> Unpublish(Guid id, CancellationToken ct)
+        {
+            bool found = await AuditedAsync(DppAuditOperation.Modify, id.ToString(), "unpublish", async () => { bool f = await _store.SetPublishedAsync(id, UserId, false, ct).ConfigureAwait(false); return (f, f ? id.ToString() : null); }).ConfigureAwait(false);
+            return found ? NoContent() : NotFound();
+        }
         [HttpPost]
         [Route("/valuesets/{id:guid}/clone")]
         [SwaggerResponse(statusCode: 201, type: typeof(ValueSetSummary))]
@@ -124,7 +188,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         {
             try
             {
-                NodesetValueSet set = await _store.CloneAsync(id, UserId, request.Name, ct).ConfigureAwait(false);
+                NodesetValueSet set = await AuditedAsync(DppAuditOperation.Create, id.ToString(), $"clone as {request.Name}", async () => { NodesetValueSet s = await _store.CloneAsync(id, UserId, request.Name, ct).ConfigureAwait(false); return (s, s?.Id.ToString()); }).ConfigureAwait(false);
                 return set == null ? NotFound() : StatusCode((int)HttpStatusCode.Created, ValueSetSummary.From(set));
             }
             catch (InvalidOperationException ex)
@@ -175,7 +239,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return BadRequest(problems);
             }
 
-            await _store.SetValuesAsync(id, UserId, request.Values, ct).ConfigureAwait(false);
+            await AuditedAsync(DppAuditOperation.Modify, id.ToString(), $"set {request.Values.Count} value(s)", async () => { await _store.SetValuesAsync(id, UserId, request.Values, ct).ConfigureAwait(false); return (true, id.ToString()); }).ConfigureAwait(false);
             return NoContent();
         }
 
@@ -199,7 +263,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return BadRequest(problem);
             }
 
-            await _store.SetValueAsync(id, UserId, nodeId, request.Value, ct).ConfigureAwait(false);
+            await AuditedAsync(DppAuditOperation.Modify, id.ToString(), nodeId, async () => { await _store.SetValueAsync(id, UserId, nodeId, request.Value, ct).ConfigureAwait(false); return (true, id.ToString()); }).ConfigureAwait(false);
             return NoContent();
         }
 
@@ -209,7 +273,9 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 404)]
         public async Task<IActionResult> RemoveValue(Guid id, string nodeId, CancellationToken ct)
         {
-            return await _store.RemoveValueAsync(id, UserId, Uri.UnescapeDataString(nodeId), ct).ConfigureAwait(false) ? NoContent() : NotFound();
+            string removedNodeId = Uri.UnescapeDataString(nodeId);
+            bool removed = await AuditedAsync(DppAuditOperation.Modify, id.ToString(), $"remove {removedNodeId}", async () => { bool r = await _store.RemoveValueAsync(id, UserId, removedNodeId, ct).ConfigureAwait(false); return (r, r ? id.ToString() : null); }).ConfigureAwait(false);
+            return removed ? NoContent() : NotFound();
         }
 
         [HttpGet]

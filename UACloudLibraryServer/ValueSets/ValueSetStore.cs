@@ -229,6 +229,98 @@ namespace Opc.Ua.Cloud.Library.ValueSets
             return true;
         }
 
+        public async Task<bool> SetPublishedAsync(Guid id, string userId, bool isPublished, CancellationToken ct = default)
+        {
+            RequireUser(userId);
+
+            NodesetValueSet set = await TrackedAsync(id, userId, ct).ConfigureAwait(false);
+            if (set == null)
+            {
+                return false;
+            }
+
+            set.IsPublished = isPublished;
+            set.LastModified = DateTimeOffset.UtcNow;
+            await _dbContext.SaveChangesAsync(ct).ConfigureAwait(false);
+            return true;
+        }
+
+        public async Task<NodesetValueSet> GetReadableWithValuesAsync(Guid id, string userId, CancellationToken ct = default)
+        {
+            return await Readable(userId)
+                .Include(vs => vs.Entries)
+                .FirstOrDefaultAsync(vs => vs.Id == id, ct).ConfigureAwait(false);
+        }
+
+        public async Task<IReadOnlyList<NodesetValueSet>> FindReadableByEntryValuesAsync(IReadOnlyCollection<string> values, string userId, CancellationToken ct = default)
+        {
+            if (values == null || values.Count == 0)
+            {
+                return Array.Empty<NodesetValueSet>();
+            }
+
+            List<string> requested = values.ToList();
+            return await Readable(userId)
+                .Where(vs => vs.Entries.Any(e => requested.Contains(e.Value)))
+                .Include(vs => vs.Entries)
+                .ToListAsync(ct).ConfigureAwait(false);
+        }
+
+        public async Task RestoreValuesAsync(Guid id, string userId, IReadOnlyDictionary<string, string> values, IReadOnlyCollection<string> removeNodeIds, CancellationToken ct = default)
+        {
+            RequireUser(userId);
+
+            NodesetValueSet set = await TrackedAsync(id, userId, ct).ConfigureAwait(false)
+                ?? throw new KeyNotFoundException($"Value set {id} not found.");
+
+            List<string> touched = (values?.Keys ?? Enumerable.Empty<string>()).Concat(removeNodeIds ?? Array.Empty<string>()).ToList();
+            Dictionary<string, NodesetValueSetEntry> existing = await _dbContext.NodesetValueSetEntries
+                .Where(e => e.ValueSetId == id && touched.Contains(e.NodeId))
+                .ToDictionaryAsync(e => e.NodeId, ct).ConfigureAwait(false);
+
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            foreach (string nodeId in removeNodeIds ?? Array.Empty<string>())
+            {
+                if (existing.TryGetValue(nodeId, out NodesetValueSetEntry stale))
+                {
+                    _dbContext.NodesetValueSetEntries.Remove(stale);
+                }
+            }
+
+            foreach (KeyValuePair<string, string> kv in values ?? new Dictionary<string, string>())
+            {
+                if (existing.TryGetValue(kv.Key, out NodesetValueSetEntry entry))
+                {
+                    entry.Value = kv.Value ?? string.Empty;
+                    entry.LastModified = now;
+                }
+                else
+                {
+                    _dbContext.NodesetValueSetEntries.Add(new NodesetValueSetEntry { ValueSetId = id, NodeId = kv.Key, Value = kv.Value ?? string.Empty, LastModified = now });
+                }
+            }
+
+            set.LastModified = now;
+            await _dbContext.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
+        public async Task<string> GetNodesetIdentifierAsync(Guid id, CancellationToken ct = default)
+        {
+            return await _dbContext.NodesetValueSets
+                .AsNoTracking()
+                .Where(vs => vs.Id == id)
+                .Select(vs => vs.NodesetIdentifier)
+                .FirstOrDefaultAsync(ct).ConfigureAwait(false);
+        }
+
+        // Sets a caller may read as a passport: their own, or anyone's once published. Unlike the
+        // editing members, this accepts an anonymous caller, because DPP reads are anonymous.
+        private IQueryable<NodesetValueSet> Readable(string userId)
+        {
+            IQueryable<NodesetValueSet> sets = _dbContext.NodesetValueSets.AsNoTracking();
+            return string.IsNullOrWhiteSpace(userId)
+                ? sets.Where(vs => vs.IsPublished)
+                : sets.Where(vs => vs.IsPublished || vs.UserId == userId);
+        }
         private Task<NodesetValueSet> TrackedAsync(Guid id, string userId, CancellationToken ct)
         {
             return _dbContext.NodesetValueSets.FirstOrDefaultAsync(vs => vs.Id == id && vs.UserId == userId, ct);

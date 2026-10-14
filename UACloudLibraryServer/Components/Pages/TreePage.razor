@@ -1,20 +1,13 @@
 ﻿
-@using System.Net
-@using System.Net.Http
-@using System.Net.Http.Headers
-@using System.Net.Http.Json
-@using System.Text.Json
-@using System.Web
 @using System.IO
 @using System.IO.Compression
+@using System.Text.Json
 @using System.Threading
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Web;
-@using Microsoft.AspNetCore.Http
 @using Microsoft.JSInterop
-@using AdminShell
 @using Opc.Ua
 @using Opc.Ua.Cloud.Library.Models
 @using Opc.Ua.Cloud.Library.ValueSets
@@ -423,6 +416,7 @@
                                                     <button type="button" class="dropdown-item" title="Create a new empty value set" @onclick="@(() => { ShowValueSetMenu = false; OpenNewValueSetDialog(); })">New</button>
                                                     <button type="button" class="dropdown-item" title="Rename the selected value set" @onclick="@(() => { ShowValueSetMenu = false; OpenRenameValueSetDialog(); })" disabled="@(ActiveValueSet == null)">Rename</button>
                                                     <button type="button" class="dropdown-item" title="Copy the selected value set" @onclick="@(() => { ShowValueSetMenu = false; OpenCloneValueSetDialog(); })" disabled="@(ActiveValueSet == null)">Clone</button>
+                                                    <button type="button" class="dropdown-item" title="@(ActiveValueSet?.IsPublished == true ? "Make this passport private again: only you will be able to read it through the DPP API" : "Publish this value set as a Digital Product Passport that anyone can read through the DPP API")" @onclick="@(() => { ShowValueSetMenu = false; return ToggleActiveValueSetPublished(); })" disabled="@(ActiveValueSet == null)">@(ActiveValueSet?.IsPublished == true ? "Unpublish" : "Publish")</button>
                                                     <div class="dropdown-divider"></div>
                                                     @if (ActiveValueSet == null)
                                                     {
@@ -451,7 +445,7 @@
                                     }
                                     else if (ActiveValueSet != null)
                                     {
-                                        <small class="text-muted">@ActiveValueSetEntries.Count node value(s) overridden in this set. Edits are stored privately in the set and do not change the nodeset itself.</small>
+                                        <small class="text-muted">@ActiveValueSetEntries.Count node value(s) overridden in this set. Edits are stored in the set and do not change the nodeset itself. @(ActiveValueSet.IsPublished ? "Published: anyone can read it as passport " + ActiveValueSet.Id + "." : "Not published: only you can read it as a passport.")</small>
                                     }
                                     @if (!string.IsNullOrEmpty(ValueSetStatus))
                                     {
@@ -905,10 +899,14 @@
                 {
                     try
                     {
-                        await ValueSetStore.SetValueAsync(ActiveValueSet.Id, _valueSetUserId, SelectedNode.Id, ModalValue).ConfigureAwait(false);
+                        await AuditedValueSetChangeAsync(DppAuditOperation.Modify, ActiveValueSet.Id.ToString(), SelectedNode.Id, async () => { await ValueSetStore.SetValueAsync(ActiveValueSet.Id, _valueSetUserId, SelectedNode.Id, ModalValue).ConfigureAwait(false); return (true, ActiveValueSet.Id.ToString()); }).ConfigureAwait(false);
                         ActiveValueSetEntries[SelectedNode.Id] = ModalValue;
                         NodeValue = ModalValue;
                         WriteStatus = string.Empty;
+                    }
+                    catch (DppAuditException ex)
+                    {
+                        WriteStatus = DescribeAuditFailure(ex);
                     }
                     catch (Exception ex)
                     {
@@ -1074,18 +1072,18 @@
             switch (ModalTitle)
             {
                 case "New value set":
-                    result = await ValueSetStore.CreateAsync(NodesetIdentifier, _valueSetUserId, ModalValue, null).ConfigureAwait(false);
+                    result = await AuditedValueSetChangeAsync(DppAuditOperation.Create, NodesetIdentifier, $"create value set {ModalValue}", async () => { NodesetValueSet s = await ValueSetStore.CreateAsync(NodesetIdentifier, _valueSetUserId, ModalValue, null).ConfigureAwait(false); return (s, s?.Id.ToString()); }).ConfigureAwait(false);
                     break;
                 case "Rename value set":
                     if (ActiveValueSet != null)
                     {
-                        result = await ValueSetStore.UpdateAsync(ActiveValueSet.Id, _valueSetUserId, ModalValue, ActiveValueSet.Description).ConfigureAwait(false);
+                        result = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, ActiveValueSet.Id.ToString(), $"rename to {ModalValue}", async () => { NodesetValueSet s = await ValueSetStore.UpdateAsync(ActiveValueSet.Id, _valueSetUserId, ModalValue, ActiveValueSet.Description).ConfigureAwait(false); return (s, s?.Id.ToString()); }).ConfigureAwait(false);
                     }
                     break;
                 case "Clone value set":
                     if (ActiveValueSet != null)
                     {
-                        result = await ValueSetStore.CloneAsync(ActiveValueSet.Id, _valueSetUserId, ModalValue).ConfigureAwait(false);
+                        result = await AuditedValueSetChangeAsync(DppAuditOperation.Create, ActiveValueSet.Id.ToString(), $"clone as {ModalValue}", async () => { NodesetValueSet s = await ValueSetStore.CloneAsync(ActiveValueSet.Id, _valueSetUserId, ModalValue).ConfigureAwait(false); return (s, s?.Id.ToString()); }).ConfigureAwait(false);
                     }
                     break;
             }
@@ -1101,6 +1099,10 @@
             }
 
             ValueSetStatus = string.Empty;
+        }
+        catch (DppAuditException ex)
+        {
+            ValueSetStatus = DescribeAuditFailure(ex);
         }
         catch (Exception ex)
         {
@@ -1123,13 +1125,18 @@
 
         try
         {
-            await ValueSetStore.DeleteAsync(ActiveValueSet.Id, _valueSetUserId).ConfigureAwait(false);
+            Guid deletedId = ActiveValueSet.Id;
+            await AuditedValueSetChangeAsync(DppAuditOperation.Delete, deletedId.ToString(), "delete value set", async () => { bool deleted = await ValueSetStore.DeleteAsync(deletedId, _valueSetUserId).ConfigureAwait(false); return (deleted, deleted ? deletedId.ToString() : null); }).ConfigureAwait(false);
             ValueSets = (await ValueSetStore.ListAsync(NodesetIdentifier, _valueSetUserId).ConfigureAwait(false)).ToList();
             await ActivateValueSetAsync(string.Empty).ConfigureAwait(false);
             if (SelectedNode != null)
             {
                 await SelectedNodeChanged(SelectedNode).ConfigureAwait(false);
             }
+        }
+        catch (DppAuditException ex)
+        {
+            ValueSetStatus = DescribeAuditFailure(ex);
         }
         catch (Exception ex)
         {
@@ -1139,7 +1146,99 @@
         await InvokeAsync(StateHasChanged).ConfigureAwait(false);
     }
 
-    // An exported file holds the full node values with the set applied, in the same shape as the
+    // Publishing makes the set a Digital Product Passport that anyone can read through the DPP API,
+    // addressed by the set's id. Confirmed first, because it exposes values the owner may consider
+    // private; unpublishing needs no confirmation since it only narrows access.
+    private async Task ToggleActiveValueSetPublished()
+    {
+        if (ActiveValueSet == null)
+        {
+            return;
+        }
+
+        bool publish = !ActiveValueSet.IsPublished;
+        if (publish)
+        {
+            bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Publish value set '{ActiveValueSet.Name}'? Anyone will be able to read it through the DPP API as passport {ActiveValueSet.Id}.").ConfigureAwait(false);
+            if (!confirmed)
+            {
+                return;
+            }
+        }
+
+        string activeId = ActiveValueSetId;
+        try
+        {
+            Guid publishId = ActiveValueSet.Id;
+            bool found = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, publishId.ToString(), publish ? "publish" : "unpublish", async () => { bool f = await ValueSetStore.SetPublishedAsync(publishId, _valueSetUserId, publish).ConfigureAwait(false); return (f, f ? publishId.ToString() : null); }).ConfigureAwait(false);
+            if (!found)
+            {
+                ValueSetStatus = "Value set could not be found; it may have been deleted.";
+            }
+            else
+            {
+                // Reload so ActiveValueSet, which is looked up from this list, reflects the new state.
+                ValueSets = (await ValueSetStore.ListAsync(NodesetIdentifier, _valueSetUserId).ConfigureAwait(false)).ToList();
+                ActiveValueSetId = activeId;
+                ValueSetStatus = publish
+                    ? $"Published. Passport id: {activeId}"
+                    : "Unpublished. The passport is private again.";
+                ValueSetStatusIsError = false;
+            }
+        }
+        catch (DppAuditException ex)
+        {
+            ValueSetStatus = DescribeAuditFailure(ex);
+        }
+        catch (Exception ex)
+        {
+            ValueSetStatus = (publish ? "Value set could not be published: " : "Value set could not be unpublished: ") + ex.Message;
+        }
+
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+    }
+
+    // A value set is a Digital Product Passport, so every change to it is audited like any other
+    // DPP change: a write-ahead "Attempted" entry, the change, then its outcome. The operator is the
+    // authenticated user (_valueSetUserId), never the UserName parameter, which comes from the query
+    // string. The change returns the passport id it touched, or null when it changed nothing. A
+    // completed change is durable, so its outcome uses RecordCommittedOutcomeAsync; a failure there
+    // surfaces as a DppAuditException with MutationCommitted set, which callers report as "saved but
+    // not logged" rather than as a retryable failure.
+    private async Task<T> AuditedValueSetChangeAsync<T>(DppAuditOperation operation, string target, string detail, Func<Task<(T Result, string DppId)>> change)
+    {
+        string operationId = DppAuditOperationId.New();
+        await _auditLog.RecordAsync(_valueSetUserId, operation, target, detail, "Attempted", operationId).ConfigureAwait(false);
+
+        (T Result, string DppId) outcome;
+        try
+        {
+            outcome = await change().ConfigureAwait(false);
+        }
+        catch
+        {
+            await _auditLog.RecordAsync(_valueSetUserId, operation, target, detail, "Failed", operationId).ConfigureAwait(false);
+            throw;
+        }
+
+        if (outcome.DppId is null)
+        {
+            await _auditLog.RecordAsync(_valueSetUserId, operation, target, detail, "Failed", operationId).ConfigureAwait(false);
+        }
+        else
+        {
+            await _auditLog.RecordCommittedOutcomeAsync(_valueSetUserId, operation, outcome.DppId, detail, "Success", operationId).ConfigureAwait(false);
+        }
+
+        return outcome.Result;
+    }
+
+    // Shapes an audit failure the way DppAuditFailureFilter does for the REST API, since a Blazor
+    // event handler has no filter: a change that was saved must not be presented as safe to retry.
+    private static string DescribeAuditFailure(DppAuditException ex) =>
+        ex.MutationCommitted
+            ? "The change was saved but could not be recorded in the audit log. Do not repeat it; report this to an administrator."
+            : "The change was refused because it could not be recorded in the audit log. Nothing was changed; you can try again.";    // An exported file holds the full node values with the set applied, in the same shape as the
     // owner's saved values. Only entries that differ from the current nodeset value are stored in
     // the set, so importing an export does not override every node with an identical copy.
     private async Task ImportValueSetFile(InputFileChangeEventArgs e)
@@ -1189,6 +1288,10 @@
         catch (IOException ex)
         {
             ValueSetStatus = "The file could not be read: " + ex.Message;
+        }
+        catch (DppAuditException ex)
+        {
+            ValueSetStatus = DescribeAuditFailure(ex);
         }
         catch (Exception ex)
         {
@@ -1260,6 +1363,10 @@
             _pendingImportFileName = string.Empty;
 
             await ApplyValueSetImportAsync(parsed, fileName, mapping).ConfigureAwait(false);
+        }
+        catch (DppAuditException ex)
+        {
+            ValueSetStatus = DescribeAuditFailure(ex);
         }
         catch (Exception ex)
         {
@@ -1354,7 +1461,7 @@
 
         if (toImport.Count > 0)
         {
-            await ValueSetStore.SetValuesAsync(ActiveValueSet.Id, _valueSetUserId, toImport).ConfigureAwait(false);
+            await AuditedValueSetChangeAsync(DppAuditOperation.Modify, ActiveValueSet.Id.ToString(), $"import {toImport.Count} value(s) from {fileName}", async () => { await ValueSetStore.SetValuesAsync(ActiveValueSet.Id, _valueSetUserId, toImport).ConfigureAwait(false); return (true, ActiveValueSet.Id.ToString()); }).ConfigureAwait(false);
             foreach (KeyValuePair<string, string> kv in toImport)
             {
                 ActiveValueSetEntries[kv.Key] = kv.Value;
@@ -1470,9 +1577,13 @@
 
         try
         {
-            await ValueSetStore.RemoveValueAsync(ActiveValueSet.Id, _valueSetUserId, SelectedNode.Id).ConfigureAwait(false);
+            await AuditedValueSetChangeAsync(DppAuditOperation.Modify, ActiveValueSet.Id.ToString(), $"remove {SelectedNode.Id}", async () => { bool removed = await ValueSetStore.RemoveValueAsync(ActiveValueSet.Id, _valueSetUserId, SelectedNode.Id).ConfigureAwait(false); return (removed, removed ? ActiveValueSet.Id.ToString() : null); }).ConfigureAwait(false);
             ActiveValueSetEntries.Remove(SelectedNode.Id);
             NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, SelectedNode.Id).ConfigureAwait(false);
+        }
+        catch (DppAuditException ex)
+        {
+            ValueSetStatus = DescribeAuditFailure(ex);
         }
         catch (Exception ex)
         {

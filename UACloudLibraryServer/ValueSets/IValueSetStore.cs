@@ -37,5 +37,33 @@ namespace Opc.Ua.Cloud.Library.ValueSets
 
         /// <summary>Removes a node from the set so it falls back to the canonical value.</summary>
         Task<bool> RemoveValueAsync(Guid id, string userId, string nodeId, CancellationToken ct = default);
+        /// <summary>Publishes or unpublishes a set the user owns. Returns false when no such set exists.</summary>
+        Task<bool> SetPublishedAsync(Guid id, string userId, bool isPublished, CancellationToken ct = default);
+
+        /// <summary>
+        /// Loads a set, with its entries, for serving as a Digital Product Passport. The owner may
+        /// always read it; anyone else only once it is published. A null or empty
+        /// <paramref name="userId"/> is an anonymous caller.
+        /// </summary>
+        Task<NodesetValueSet> GetReadableWithValuesAsync(Guid id, string userId, CancellationToken ct = default);
+
+        /// <summary>
+        /// Every set, with entries, that the caller may read and that holds any of
+        /// <paramref name="values"/> as an entry value. A candidate list for product-id lookup only:
+        /// the caller must confirm the value is on the passport's UniqueProductIdentifier node.
+        /// </summary>
+        Task<IReadOnlyList<NodesetValueSet>> FindReadableByEntryValuesAsync(IReadOnlyCollection<string> values, string userId, CancellationToken ct = default);
+
+        /// <summary>
+        /// The template nodeset a set is based on, regardless of who may read the set. Used only to
+        /// locate the template's access policy, which is never returned to the caller.
+        /// </summary>
+        Task<string> GetNodesetIdentifierAsync(Guid id, CancellationToken ct = default);
+        /// <summary>
+        /// Applies <paramref name="values"/> and removes <paramref name="removeNodeIds"/> in one
+        /// transaction. Used to restore a set's previous state when a passport update must be undone,
+        /// including removing entries the failed update added.
+        /// </summary>
+        Task RestoreValuesAsync(Guid id, string userId, IReadOnlyDictionary<string, string> values, IReadOnlyCollection<string> removeNodeIds, CancellationToken ct = default);
     }
 }
