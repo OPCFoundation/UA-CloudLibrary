@@ -1197,6 +1197,16 @@
         string activeId = publishId.ToString();
         try
         {
+            // Publishing exposes private values, so refuse it for a session that value edits would
+            // refuse: the circuit's principal can outlive a security-stamp change.
+            if (await GetCurrentRolesAsync().ConfigureAwait(false) == null)
+            {
+                ValueSetStatus = "Your session is no longer valid. Sign in again.";
+                ValueSetStatusIsError = true;
+                await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+                return;
+            }
+
             bool found = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, publishId.ToString(), publish ? "publish" : "unpublish", async () => { bool f = await ValueSetStore.SetPublishedAsync(publishId, _valueSetUserId, publish).ConfigureAwait(false); return (f, f ? publishId.ToString() : null); }).ConfigureAwait(false);
             if (!found)
             {
@@ -1279,6 +1289,24 @@
     // Value edits are passport updates: they go through DPPService so controlled-element roles,
     // archiving, LastUpdate and the revision check apply exactly as they do to a DPP PATCH.
     private async Task<(DPPService.UpdateDppResult Result, string DppId)> UpdateValuesAsync(Guid setId, IReadOnlyDictionary<string, string> writes, IReadOnlyCollection<string> removals)
+    {
+        // DPPService and its CloudLibDataProvider share one DbContext for this circuit, and the
+        // store's own gate is released between its calls, so overlapping edits, imports and resets
+        // would run EF queries concurrently. Run each complete update on its own.
+        await _valueUpdateGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            return await UpdateValuesCoreAsync(setId, writes, removals).ConfigureAwait(false);
+        }
+        finally
+        {
+            _valueUpdateGate.Release();
+        }
+    }
+
+    private readonly SemaphoreSlim _valueUpdateGate = new(1, 1);
+
+    private async Task<(DPPService.UpdateDppResult Result, string DppId)> UpdateValuesCoreAsync(Guid setId, IReadOnlyDictionary<string, string> writes, IReadOnlyCollection<string> removals)
     {
         // Roles cached for the circuit can outlive a revocation: cookie revalidation does not run
         // for events on an open circuit. Re-check the security stamp and read the current roles.

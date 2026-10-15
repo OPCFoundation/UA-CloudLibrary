@@ -61,6 +61,12 @@ namespace Opc.Ua.Cloud.Library
         // replaces _server, so without this list DisposeAsync would stop only the last one and leave
         // earlier servers listening with their address spaces loaded.
         private readonly List<SimpleServer> _startedServers = new();
+
+        // Every session this instance created, one per server in _startedServers that came up. They
+        // stay in the static _sessions cache after a switch to another nodeset, so DisposeAsync must
+        // close and evict each of them before stopping its server; otherwise a cached session to a
+        // stopped server could be handed out again and would keep this instance alive via KeepAlive.
+        private readonly List<Opc.Ua.Client.ISession> _createdSessions = new();
         private Opc.Ua.Client.ISession _session;
 
         // The nodeset _session was opened for. Each nodeset runs in its own server and address space,
@@ -990,6 +996,7 @@ namespace Opc.Ua.Cloud.Library
                         await newSession.FetchNamespaceTablesAsync().ConfigureAwait(false);
 
                         _sessions[nodesetIdentifier] = newSession;
+                        _createdSessions.Add(newSession);
                         _session = newSession;
                         _sessionNodesetIdentifier = nodesetIdentifier;
 
@@ -1169,6 +1176,36 @@ namespace Opc.Ua.Cloud.Library
                 _reconnectHandler.Dispose();
                 _reconnectHandler = null;
             }
+
+            foreach (Opc.Ua.Client.ISession owned in _createdSessions)
+            {
+                // Evict only while the cache still holds this exact session, so a newer session for
+                // the same nodeset created by another client is left alone.
+                foreach (KeyValuePair<string, Opc.Ua.Client.ISession> entry in _sessions.ToList())
+                {
+                    if (ReferenceEquals(entry.Value, owned))
+                    {
+                        _sessions.TryRemove(entry);
+                    }
+                }
+
+                try
+                {
+                    owned.KeepAlive -= StandardClient_KeepAlive;
+                    if (owned.Connected)
+                    {
+                        await owned.CloseAsync().ConfigureAwait(false);
+                    }
+
+                    owned.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("DisposeAsync: failed to close OPC UA session: " + ex.Message);
+                }
+            }
+
+            _createdSessions.Clear();
 
             foreach (SimpleServer server in _startedServers)
             {
