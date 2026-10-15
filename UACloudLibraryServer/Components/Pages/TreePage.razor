@@ -19,6 +19,8 @@
 @inject IValueSetStore ValueSetStore
 @inject DPPService DppService
 @inject AuthenticationStateProvider AuthStateProvider
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
 @inject DbFileStorage Storage
 @implements IDisposable
 
@@ -916,14 +918,8 @@
 
                         if (result == DPPService.UpdateDppResult.Success && IsStillActive(setId))
                         {
-                            ActiveValueSetEntries[nodeId] = value;
-
-                            // The tree stays interactive during the update, so another node may be
-                            // selected by now; only show the value if the edited node still is.
-                            if (SelectedNode?.Id == nodeId)
-                            {
-                                NodeValue = value;
-                            }
+                            // The service also writes LastUpdate, so only the persisted entries are correct.
+                            await ReloadPersistedEntriesAsync(setId).ConfigureAwait(false);
                         }
 
                         WriteStatus = DescribeUpdateResult(result);
@@ -972,7 +968,6 @@
         {
             var state = await AuthStateProvider.GetAuthenticationStateAsync().ConfigureAwait(false);
             _valueSetUserId = state?.User?.Identity?.IsAuthenticated == true ? state.User.Identity.Name : null;
-            _valueSetUserRoles = state?.User?.Claims?.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToArray() ?? Array.Empty<string>();
         }
         catch (Exception ex)
         {
@@ -1186,20 +1181,22 @@
             return;
         }
 
+        // Capture the target before the confirmation is awaited: the selection can change while the
+        // dialog is open, and the confirmed set must be the one that is published.
+        Guid publishId = ActiveValueSet.Id;
         bool publish = !ActiveValueSet.IsPublished;
         if (publish)
         {
-            bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Publish value set '{ActiveValueSet.Name}'? Anyone will be able to read it through the DPP API as passport {ActiveValueSet.Id}.").ConfigureAwait(false);
+            bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Publish value set '{ActiveValueSet.Name}'? Anyone will be able to read it through the DPP API as passport {publishId}.").ConfigureAwait(false);
             if (!confirmed)
             {
                 return;
             }
         }
 
-        string activeId = ActiveValueSetId;
+        string activeId = publishId.ToString();
         try
         {
-            Guid publishId = ActiveValueSet.Id;
             bool found = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, publishId.ToString(), publish ? "publish" : "unpublish", async () => { bool f = await ValueSetStore.SetPublishedAsync(publishId, _valueSetUserId, publish).ConfigureAwait(false); return (f, f ? publishId.ToString() : null); }).ConfigureAwait(false);
             if (!found)
             {
@@ -1276,10 +1273,6 @@
             ? "The change was saved but could not be recorded in the audit log. Do not repeat it; report this to an administrator."
             : "The change was refused because it could not be recorded in the audit log. Nothing was changed; you can try again.";
 
-    // Roles of the signed-in user, needed because value edits are subject to the template's
-    // controlled-element write rights, exactly as a DPP PATCH is.
-    private string[] _valueSetUserRoles = Array.Empty<string>();
-
     // The service's message for the last value-set update, shown when the update is refused.
     private string _lastValueSetError;
 
@@ -1287,7 +1280,16 @@
     // archiving, LastUpdate and the revision check apply exactly as they do to a DPP PATCH.
     private async Task<(DPPService.UpdateDppResult Result, string DppId)> UpdateValuesAsync(Guid setId, IReadOnlyDictionary<string, string> writes, IReadOnlyCollection<string> removals)
     {
-        (DPPService.UpdateDppResult result, string error) = await DppService.UpdateValueSetValuesAsync(_valueSetUserId, setId, writes, removals, _valueSetUserRoles).ConfigureAwait(false);
+        // Roles cached for the circuit can outlive a revocation: cookie revalidation does not run
+        // for events on an open circuit. Re-check the security stamp and read the current roles.
+        string[] roles = await GetCurrentRolesAsync().ConfigureAwait(false);
+        if (roles == null)
+        {
+            _lastValueSetError = "Your session is no longer valid. Sign in again.";
+            return (DPPService.UpdateDppResult.Forbidden, null);
+        }
+
+        (DPPService.UpdateDppResult result, string error) = await DppService.UpdateValueSetValuesAsync(_valueSetUserId, setId, writes, removals, roles).ConfigureAwait(false);
         _lastValueSetError = error;
 
         // Only outcomes that changed storage are logged as committed; refusals stay retryable.
@@ -1298,6 +1300,67 @@
     // True when setId is still the selected set, so a finished update only refreshes the page's
     // cached values if the user has not switched to another set in the meantime.
     private bool IsStillActive(Guid setId) => ActiveValueSet?.Id == setId;
+
+    // Returns the signed-in user's current roles, or null when the circuit's principal is no longer
+    // valid (user gone, or security stamp changed by a revocation). Uses its own scope so the check
+    // never shares a DbContext with an overlapping handler.
+    private async Task<string[]> GetCurrentRolesAsync()
+    {
+        AuthenticationState state = await AuthStateProvider.GetAuthenticationStateAsync().ConfigureAwait(false);
+        System.Security.Claims.ClaimsPrincipal principal = state?.User;
+        if (principal?.Identity?.IsAuthenticated != true)
+        {
+            return null;
+        }
+
+        using IServiceScope scope = ScopeFactory.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.UserManager<Microsoft.AspNetCore.Identity.IdentityUser>>();
+        Microsoft.AspNetCore.Identity.IdentityUser user = await userManager.GetUserAsync(principal).ConfigureAwait(false);
+        if (user == null || !string.Equals(user.UserName, _valueSetUserId, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        if (userManager.SupportsUserSecurityStamp)
+        {
+            string claimed = principal.FindFirst(userManager.Options.ClaimsIdentity.SecurityStampClaimType)?.Value;
+            string current = await userManager.GetSecurityStampAsync(user).ConfigureAwait(false);
+            if (!string.Equals(claimed, current, StringComparison.Ordinal))
+            {
+                return null;
+            }
+        }
+
+        return (await userManager.GetRolesAsync(user).ConfigureAwait(false)).ToArray();
+    }
+
+    // Replaces the cached entries with the stored ones and refreshes the selected node, rechecking
+    // the selection after each await.
+    private async Task ReloadPersistedEntriesAsync(Guid setId)
+    {
+        IReadOnlyDictionary<string, string> persisted = await ValueSetStore.GetValuesAsync(setId, _valueSetUserId).ConfigureAwait(false);
+        if (persisted == null || !IsStillActive(setId))
+        {
+            return;
+        }
+
+        ActiveValueSetEntries = new Dictionary<string, string>(persisted, StringComparer.Ordinal);
+
+        string nodeId = SelectedNode?.Id;
+        if (nodeId == null)
+        {
+            return;
+        }
+
+        string shown = ActiveValueSetEntries.TryGetValue(nodeId, out string own)
+            ? own
+            : await _client.VariableRead(UserName, NodesetIdentifier, nodeId).ConfigureAwait(false);
+
+        if (IsStillActive(setId) && SelectedNode?.Id == nodeId)
+        {
+            NodeValue = shown;
+        }
+    }
 
     private string DescribeUpdateResult(DPPService.UpdateDppResult result) => result switch
     {
@@ -1543,10 +1606,8 @@
 
             if (IsStillActive(setId))
             {
-                foreach (KeyValuePair<string, string> kv in toImport)
-                {
-                    ActiveValueSetEntries[kv.Key] = kv.Value;
-                }
+                // The service also writes LastUpdate, so only the persisted entries are correct.
+                await ReloadPersistedEntriesAsync(setId).ConfigureAwait(false);
             }
         }
         var notes = new List<string>();
