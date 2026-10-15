@@ -265,6 +265,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return result switch {
                     DPPService.PublishValueSetResult.Success => NoContent(),
                     DPPService.PublishValueSetResult.NotAPassport => Conflict("This value set's nodeset has no DigitalProductPassport object, so it cannot be published as a passport."),
+                    DPPService.PublishValueSetResult.TemplateUnavailable => StatusCode((int)HttpStatusCode.ServiceUnavailable, "The value set's nodeset could not be read, so it could not be checked for a passport. Nothing was changed; try again."),
                     _ => NotFound(),
                 };
             }

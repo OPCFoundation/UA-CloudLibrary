@@ -211,13 +211,10 @@ namespace Opc.Ua.Cloud.Library
         // No other client can know about them, so this client stops them itself.
         private readonly List<SimpleServer> _orphanServers = new();
 
-        // The pair this client is currently using. The session is read through it on every use, so a
-        // reconnect performed by the pair is picked up by all of its borrowers.
+        // The pair this client most recently selected. Operations never read it after an await: each
+        // acquires its pair through AcquireSessionAsync and uses that one throughout, because another
+        // call on this client may select a different nodeset in the meantime.
         private SharedSession _current;
-
-#pragma warning disable IDE1006 // keeps the long-standing name used throughout this class
-        private Opc.Ua.Client.ISession _session => _current?.Session;
-#pragma warning restore IDE1006
 
         // The nodeset _current was borrowed for. Each nodeset runs in its own server and address
         // space, so a session is only valid for the nodeset it was created for.
@@ -240,15 +237,30 @@ namespace Opc.Ua.Cloud.Library
 
         public async Task<List<NodesetViewerNode>> GetChildren(string userId, string nodesetIdentifier, string nodeId, bool includeTypes = false)
         {
-            List<NodesetViewerNode> nodes = null;
-            ReferenceDescriptionCollection references = null;
+            (_, List<NodesetViewerNode> nodes) = await TryGetChildrenAsync(userId, nodesetIdentifier, nodeId, includeTypes).ConfigureAwait(false);
+            return nodes;
+        }
+
+        /// <summary>
+        /// Browses a node's children. Unlike <see cref="GetChildren"/>, a failure (no session, or the
+        /// browse threw) is reported separately from a successful browse that found no children, so a
+        /// caller that must not act on an unreadable template can tell the two apart.
+        /// </summary>
+        public async Task<(bool Succeeded, List<NodesetViewerNode> Nodes)> TryGetChildrenAsync(string userId, string nodesetIdentifier, string nodeId, bool includeTypes = false)
+        {
+            SharedSession pair = null;
+            Opc.Ua.Client.ISession session;
+            ReferenceDescriptionCollection references;
 
             try
             {
-                if (!await ValidateSession(userId, nodesetIdentifier).ConfigureAwait(false))
+                pair = await AcquireSessionAsync(userId, nodesetIdentifier).ConfigureAwait(false);
+                if (pair == null)
                 {
-                    return null;
+                    return (false, null);
                 }
+
+                session = pair.Session;
 
                 uint mask = (uint)(NodeClass.Object | NodeClass.Variable);
                 if (includeTypes)
@@ -257,7 +269,7 @@ namespace Opc.Ua.Cloud.Library
                 }
 
                 BrowseDescription nodeToBrowse = new() {
-                    NodeId = ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris),
+                    NodeId = ExpandedNodeId.ToNodeId(nodeId, session.NamespaceUris),
                     BrowseDirection = BrowseDirection.Forward,
                     ReferenceTypeId = ReferenceTypeIds.HierarchicalReferences,
                     IncludeSubtypes = true,
@@ -265,34 +277,37 @@ namespace Opc.Ua.Cloud.Library
                     ResultMask = (uint)BrowseResultMask.All
                 };
 
-                references = await Browse(_session, nodeToBrowse).ConfigureAwait(false);
+                references = await Browse(session, nodeToBrowse).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 Console.WriteLine("GetChildren: " + ex.Message);
 
-                await DisposeSession().ConfigureAwait(false);
+                await DisposeSession(pair, nodesetIdentifier).ConfigureAwait(false);
+                return (false, null);
             }
 
-            if ((references != null) && (references.Count > 0))
+            if ((references == null) || (references.Count == 0))
             {
-                nodes = new List<NodesetViewerNode>();
-
-                foreach (ReferenceDescription description in references)
-                {
-                    NodeId id = ExpandedNodeId.ToNodeId(description.NodeId, _session.NamespaceUris);
-
-                    nodes.Add(new NodesetViewerNode() {
-                        Id = NodeId.ToExpandedNodeId(id, _session.NamespaceUris).ToString(),
-                        Text = description.DisplayName.ToString(),
-                        BrowseName = description.BrowseName?.Name ?? string.Empty,
-                        NodeClass = description.NodeClass.ToString(),
-                        Children = new List<NodesetViewerNode>()
-                    });
-                }
+                // Browsed successfully and found nothing; GetChildren still returns null for this.
+                return (true, null);
             }
 
-            return nodes;
+            var nodes = new List<NodesetViewerNode>();
+            foreach (ReferenceDescription description in references)
+            {
+                NodeId id = ExpandedNodeId.ToNodeId(description.NodeId, session.NamespaceUris);
+
+                nodes.Add(new NodesetViewerNode() {
+                    Id = NodeId.ToExpandedNodeId(id, session.NamespaceUris).ToString(),
+                    Text = description.DisplayName.ToString(),
+                    BrowseName = description.BrowseName?.Name ?? string.Empty,
+                    NodeClass = description.NodeClass.ToString(),
+                    Children = new List<NodesetViewerNode>()
+                });
+            }
+
+            return (true, nodes);
         }
 
         /// <summary>
@@ -332,18 +347,20 @@ namespace Opc.Ua.Cloud.Library
 
             try
             {
-                if (!await ValidateSession(userId, nodesetIdentifier).ConfigureAwait(false))
+                SharedSession pair = await AcquireSessionAsync(userId, nodesetIdentifier).ConfigureAwait(false);
+                if (pair == null)
                 {
                     return "no session to the nodeset server";
                 }
 
-                NodeId id = ExpandedNodeId.ToNodeId(expanded, _session.NamespaceUris);
+                Opc.Ua.Client.ISession session = pair.Session;
+                NodeId id = ExpandedNodeId.ToNodeId(expanded, session.NamespaceUris);
                 if (NodeId.IsNull(id))
                 {
                     return $"namespace '{expanded.NamespaceUri}' is not in the server namespace table";
                 }
 
-                Node node = await _session.ReadNodeAsync(id).ConfigureAwait(false);
+                Node node = await session.ReadNodeAsync(id).ConfigureAwait(false);
                 if (node == null)
                 {
                     return "no node with this id exists in the nodeset";
@@ -378,10 +395,12 @@ namespace Opc.Ua.Cloud.Library
             }
 
             ReferenceDescriptionCollection references = null;
+            SharedSession pair = null;
 
             try
             {
-                if (!await ValidateSession(userId, nodesetIdentifier).ConfigureAwait(false))
+                pair = await AcquireSessionAsync(userId, nodesetIdentifier).ConfigureAwait(false);
+                if (pair == null)
                 {
                     return null;
                 }
@@ -395,13 +414,13 @@ namespace Opc.Ua.Cloud.Library
                     ResultMask = (uint)BrowseResultMask.All
                 };
 
-                references = await Browse(_session, nodeToBrowse).ConfigureAwait(false);
+                references = await Browse(pair.Session, nodeToBrowse).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 Console.WriteLine("BrowseVariableNodesResursivelyAsync: " + ex.Message);
 
-                await DisposeSession().ConfigureAwait(false);
+                await DisposeSession(pair, nodesetIdentifier).ConfigureAwait(false);
             }
 
             if ((references != null) && (references.Count > 0))
@@ -584,31 +603,34 @@ namespace Opc.Ua.Cloud.Library
 
         public async Task<object> GetTypeDefinition(string userId, string nodesetIdentifier, string nodeId)
         {
-            if (!await ValidateSession(userId, nodesetIdentifier).ConfigureAwait(false))
+            SharedSession pair = await AcquireSessionAsync(userId, nodesetIdentifier).ConfigureAwait(false);
+            if (pair == null)
             {
                 return string.Empty;
             }
 
+            Opc.Ua.Client.ISession session = pair.Session;
+
             // read the variable node from the OPC UA server
-            Node node = await _session.ReadNodeAsync(ExpandedNodeId.ToNodeId(new ExpandedNodeId(nodeId), _session.NamespaceUris)).ConfigureAwait(false);
+            Node node = await session.ReadNodeAsync(ExpandedNodeId.ToNodeId(new ExpandedNodeId(nodeId), session.NamespaceUris)).ConfigureAwait(false);
             if (node?.NodeClass == NodeClass.DataType)
             {
                 // return complex type definition
                 DataTypeNode dataTypeNode = (DataTypeNode)node;
-                return new { Namespaces = _session.NamespaceUris.ToArray(), dataTypeNode.DataTypeDefinition };
+                return new { Namespaces = session.NamespaceUris.ToArray(), dataTypeNode.DataTypeDefinition };
             }
             else
             {
                 // return references
-                ReferenceDescriptionCollection references = await Browse(_session, new BrowseDescription {
-                    NodeId = ExpandedNodeId.ToNodeId(new ExpandedNodeId(nodeId), _session.NamespaceUris),
+                ReferenceDescriptionCollection references = await Browse(session, new BrowseDescription {
+                    NodeId = ExpandedNodeId.ToNodeId(new ExpandedNodeId(nodeId), session.NamespaceUris),
                     BrowseDirection = BrowseDirection.Forward,
                     ReferenceTypeId = null,
                     IncludeSubtypes = true,
                     NodeClassMask = 0,
                     ResultMask = (uint)BrowseResultMask.All
                 }).ConfigureAwait(false);
-                return new { Namespaces = _session.NamespaceUris.ToArray(), references };
+                return new { Namespaces = session.NamespaceUris.ToArray(), references };
             }
         }
 
@@ -620,16 +642,19 @@ namespace Opc.Ua.Cloud.Library
             {
                 ReadValueIdCollection nodesToRead = new();
 
-                if (!await ValidateSession(userId, nodesetIdentifier).ConfigureAwait(false))
+                SharedSession pair = await AcquireSessionAsync(userId, nodesetIdentifier).ConfigureAwait(false);
+                if (pair == null)
                 {
                     return string.Empty;
                 }
 
+                Opc.Ua.Client.ISession session = pair.Session;
+
                 // read the variable node from the OPC UA server
-                VariableNode node = (VariableNode)await _session.ReadNodeAsync(ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris)).ConfigureAwait(false);
+                VariableNode node = (VariableNode)await session.ReadNodeAsync(ExpandedNodeId.ToNodeId(nodeId, session.NamespaceUris)).ConfigureAwait(false);
 
                 ReadValueId valueId = new();
-                valueId.NodeId = ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris);
+                valueId.NodeId = ExpandedNodeId.ToNodeId(nodeId, session.NamespaceUris);
                 valueId.AttributeId = Attributes.Value;
                 valueId.IndexRange = null;
                 valueId.DataEncoding = null;
@@ -638,9 +663,9 @@ namespace Opc.Ua.Cloud.Library
                 // Load the data type's complex type once per session. ComplexTypeSystem emits a new
                 // dynamic assembly for every type it builds, so creating one per read regenerated
                 // the same types on every value read and made each read slow.
-                await EnsureComplexTypeLoadedAsync(_session, node.DataType).ConfigureAwait(false);
+                await EnsureComplexTypeLoadedAsync(session, node.DataType).ConfigureAwait(false);
 
-                ReadResponse response = await _session.ReadAsync(null, 0, TimestampsToReturn.Both, nodesToRead, CancellationToken.None).ConfigureAwait(false);
+                ReadResponse response = await session.ReadAsync(null, 0, TimestampsToReturn.Both, nodesToRead, CancellationToken.None).ConfigureAwait(false);
 
                 ClientBase.ValidateResponse(response.Results, nodesToRead);
                 ClientBase.ValidateDiagnosticInfos(response.DiagnosticInfos, nodesToRead);
@@ -708,19 +733,21 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                if (!await ValidateSession(userId, nodesetIdentifier).ConfigureAwait(false))
+                SharedSession pair = await AcquireSessionAsync(userId, nodesetIdentifier).ConfigureAwait(false);
+                if (pair == null)
                 {
                     return null;
                 }
 
-                NodeId id = ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris);
+                Opc.Ua.Client.ISession session = pair.Session;
+                NodeId id = ExpandedNodeId.ToNodeId(nodeId, session.NamespaceUris);
 
                 ReadValueIdCollection nodesToRead = new() {
                     new ReadValueId { NodeId = id, AttributeId = Attributes.NodeClass },
                     new ReadValueId { NodeId = id, AttributeId = Attributes.DataTypeDefinition }
                 };
 
-                ReadResponse response = await _session.ReadAsync(null, 0, TimestampsToReturn.Neither, nodesToRead, CancellationToken.None).ConfigureAwait(false);
+                ReadResponse response = await session.ReadAsync(null, 0, TimestampsToReturn.Neither, nodesToRead, CancellationToken.None).ConfigureAwait(false);
                 ClientBase.ValidateResponse(response.Results, nodesToRead);
 
                 if (response.Results.Count < 2 || response.Results[0].Value is not int nodeClass || (NodeClass)nodeClass != NodeClass.DataType)
@@ -738,7 +765,7 @@ namespace Opc.Ua.Cloud.Library
                     }).ToList();
                 }
 
-                return await ReadEnumFieldsFromProperties(id).ConfigureAwait(false);
+                return await ReadEnumFieldsFromProperties(session, id).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -747,7 +774,7 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
-        private async Task<List<EnumFieldInfo>> ReadEnumFieldsFromProperties(NodeId dataTypeId)
+        private async Task<List<EnumFieldInfo>> ReadEnumFieldsFromProperties(Opc.Ua.Client.ISession session, NodeId dataTypeId)
         {
             BrowseDescription nodeToBrowse = new() {
                 NodeId = dataTypeId,
@@ -758,7 +785,7 @@ namespace Opc.Ua.Cloud.Library
                 ResultMask = (uint)BrowseResultMask.All
             };
 
-            ReferenceDescriptionCollection references = await Browse(_session, nodeToBrowse).ConfigureAwait(false);
+            ReferenceDescriptionCollection references = await Browse(session, nodeToBrowse).ConfigureAwait(false);
             if (references == null)
             {
                 return null;
@@ -772,7 +799,7 @@ namespace Opc.Ua.Cloud.Library
                     continue;
                 }
 
-                DataValue dataValue = await _session.ReadValueAsync(ExpandedNodeId.ToNodeId(reference.NodeId, _session.NamespaceUris)).ConfigureAwait(false);
+                DataValue dataValue = await session.ReadValueAsync(ExpandedNodeId.ToNodeId(reference.NodeId, session.NamespaceUris)).ConfigureAwait(false);
 
                 if (dataValue?.Value is LocalizedText[] enumStrings)
                 {
@@ -813,24 +840,26 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                if (!await ValidateSession(userId, nodesetIdentifier).ConfigureAwait(false))
+                SharedSession pair = await AcquireSessionAsync(userId, nodesetIdentifier).ConfigureAwait(false);
+                if (pair == null)
                 {
                     return false;
                 }
 
-                NodeId nodeID = ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris);
+                Opc.Ua.Client.ISession session = pair.Session;
+                NodeId nodeID = ExpandedNodeId.ToNodeId(nodeId, session.NamespaceUris);
 
                 WriteValue nodeToWrite = new() {
                     NodeId = nodeID,
                     AttributeId = Attributes.Value,
-                    Value = new DataValue(new Variant(await ConvertPayloadToNodeDataType(nodeID, payload).ConfigureAwait(false)))
+                    Value = new DataValue(new Variant(await ConvertPayloadToNodeDataType(session, nodeID, payload).ConfigureAwait(false)))
                 };
 
                 WriteValueCollection nodesToWrite = new() {
                     nodeToWrite
                 };
 
-                WriteResponse response = await _session.WriteAsync(null, nodesToWrite, CancellationToken.None).ConfigureAwait(false);
+                WriteResponse response = await session.WriteAsync(null, nodesToWrite, CancellationToken.None).ConfigureAwait(false);
 
                 ClientBase.ValidateResponse(response.Results, nodesToWrite);
                 ClientBase.ValidateDiagnosticInfos(response.DiagnosticInfos, nodesToWrite);
@@ -855,14 +884,29 @@ namespace Opc.Ua.Cloud.Library
         /// </summary>
         public async Task<string> GetVariableWriteBlocker(string userId, string nodesetIdentifier, string nodeId)
         {
+            SharedSession pair;
             try
             {
-                if (!await ValidateSession(userId, nodesetIdentifier).ConfigureAwait(false))
-                {
-                    return "No OPC UA session is available for this nodeset.";
-                }
+                pair = await AcquireSessionAsync(userId, nodesetIdentifier).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                return "The node's write permissions could not be determined: " + ex.Message;
+            }
 
-                Node node = await _session.ReadNodeAsync(ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris)).ConfigureAwait(false);
+            if (pair == null)
+            {
+                return "No OPC UA session is available for this nodeset.";
+            }
+
+            return await GetVariableWriteBlockerAsync(pair.Session, nodeId).ConfigureAwait(false);
+        }
+
+        private static async Task<string> GetVariableWriteBlockerAsync(Opc.Ua.Client.ISession session, string nodeId)
+        {
+            try
+            {
+                Node node = await session.ReadNodeAsync(ExpandedNodeId.ToNodeId(nodeId, session.NamespaceUris)).ConfigureAwait(false);
                 if (node == null)
                 {
                     return "The node could not be read from the nodeset.";
@@ -896,7 +940,7 @@ namespace Opc.Ua.Cloud.Library
                     return "Array values cannot be edited as a single text value.";
                 }
 
-                BuiltInType builtInType = TypeInfo.GetBuiltInType(variable.DataType, _session.TypeTree);
+                BuiltInType builtInType = TypeInfo.GetBuiltInType(variable.DataType, session.TypeTree);
                 switch (builtInType)
                 {
                     case BuiltInType.Null:
@@ -922,7 +966,24 @@ namespace Opc.Ua.Cloud.Library
         /// </summary>
         public async Task<string> ValidateValueForNode(string userId, string nodesetIdentifier, string nodeId, string value)
         {
-            string blocker = await GetVariableWriteBlocker(userId, nodesetIdentifier, nodeId).ConfigureAwait(false);
+            // One session for both the permission check and the conversion check.
+            SharedSession pair;
+            try
+            {
+                pair = await AcquireSessionAsync(userId, nodesetIdentifier).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                return "The node's write permissions could not be determined: " + ex.Message;
+            }
+
+            if (pair == null)
+            {
+                return "No OPC UA session is available for this nodeset.";
+            }
+
+            Opc.Ua.Client.ISession session = pair.Session;
+            string blocker = await GetVariableWriteBlockerAsync(session, nodeId).ConfigureAwait(false);
             if (blocker != null)
             {
                 return blocker;
@@ -930,10 +991,10 @@ namespace Opc.Ua.Cloud.Library
 
             try
             {
-                Node node = await _session.ReadNodeAsync(ExpandedNodeId.ToNodeId(nodeId, _session.NamespaceUris)).ConfigureAwait(false);
+                Node node = await session.ReadNodeAsync(ExpandedNodeId.ToNodeId(nodeId, session.NamespaceUris)).ConfigureAwait(false);
                 if (node is VariableNode variable)
                 {
-                    BuiltInType builtInType = TypeInfo.GetBuiltInType(variable.DataType, _session.TypeTree);
+                    BuiltInType builtInType = TypeInfo.GetBuiltInType(variable.DataType, session.TypeTree);
                     if (builtInType != BuiltInType.Null && builtInType != BuiltInType.String)
                     {
                         TypeInfo.Cast(value, builtInType);
@@ -971,14 +1032,14 @@ namespace Opc.Ua.Cloud.Library
         // The browser UI always submits a string, but the server rejects writes whose value does
         // not match the variable's data type (BadTypeMismatch). Cast to the target built-in type
         // when possible and fall back to the raw string otherwise.
-        private async Task<object> ConvertPayloadToNodeDataType(NodeId nodeID, string payload)
+        private static async Task<object> ConvertPayloadToNodeDataType(Opc.Ua.Client.ISession session, NodeId nodeID, string payload)
         {
             try
             {
-                Node node = await _session.ReadNodeAsync(nodeID).ConfigureAwait(false);
+                Node node = await session.ReadNodeAsync(nodeID).ConfigureAwait(false);
                 if (node is VariableNode variable)
                 {
-                    BuiltInType builtInType = TypeInfo.GetBuiltInType(variable.DataType, _session.TypeTree);
+                    BuiltInType builtInType = TypeInfo.GetBuiltInType(variable.DataType, session.TypeTree);
                     if (builtInType != BuiltInType.Null && builtInType != BuiltInType.String)
                     {
                         return TypeInfo.Cast(payload, builtInType);
@@ -993,30 +1054,29 @@ namespace Opc.Ua.Cloud.Library
             return payload;
         }
 
-        private async Task<bool> ValidateSession(string userId, string nodesetIdentifier)
+        // Returns the live pair for a nodeset, borrowing or creating it as needed, or null if no
+        // session could be established. Callers use the returned pair for the whole operation and
+        // never re-read _current after an await, so a concurrent selection of another nodeset on
+        // this client cannot redirect an operation that is already running.
+        private async Task<SharedSession> AcquireSessionAsync(string userId, string nodesetIdentifier)
         {
             if (string.IsNullOrEmpty(nodesetIdentifier))
             {
                 Console.WriteLine("Failed to validate session: No nodeset identifier specified.");
-                return false;
+                return null;
             }
 
-            // A connected session for a *different* nodeset must not be reused: it would browse that
-            // nodeset's address space and return the wrong nodes. Stop using it (this client keeps
-            // its borrow of that pair, so it can switch back) and select the right one.
+            // Reuse the current pair if it is for this nodeset and still connected.
             lock (_sessionSwitchGate)
             {
-                if (_current != null && !string.Equals(_sessionNodesetIdentifier, nodesetIdentifier, StringComparison.Ordinal))
+                if (_current != null && string.Equals(_sessionNodesetIdentifier, nodesetIdentifier, StringComparison.Ordinal) && IsConnected(_current))
                 {
-                    // Clear the tag with the pair: if starting the new nodeset then fails, failure
-                    // cleanup (DisposeSession) must not release the retained pair of the previous one.
-                    _current = null;
-                    _sessionNodesetIdentifier = null;
+                    return _current;
                 }
             }
 
-            // check if we have an existing session for this nodeset
-            if (_session == null || !_session.Connected)
+            // Otherwise this client may already borrow a live pair for the nodeset, or one may be
+            // cached; both are found by TryBorrowLiveSession.
             {
                 EndpointDescription selectedEndpoint = null;
 
@@ -1024,6 +1084,7 @@ namespace Opc.Ua.Cloud.Library
                 {
                     Console.WriteLine("Re-using existing OPC UA server and session for nodeset " + nodesetIdentifier);
                     InstallSession(value, nodesetIdentifier);
+                    return value;
                 }
                 else
                 {
@@ -1042,7 +1103,7 @@ namespace Opc.Ua.Cloud.Library
                         {
                             Console.WriteLine("Re-using OPC UA session created concurrently for nodeset " + nodesetIdentifier);
                             InstallSession(existing, nodesetIdentifier);
-                            return true;
+                            return existing;
                         }
 
                         int maxRetry = 5000;
@@ -1051,7 +1112,7 @@ namespace Opc.Ua.Cloud.Library
                             if (maxRetry < 1)
                             {
                                 Console.WriteLine("Failed to start OPC UA server: Max retries reached!");
-                                return false;
+                                return null;
                             }
 
                             try
@@ -1109,7 +1170,7 @@ namespace Opc.Ua.Cloud.Library
                         else
                         {
                             Console.WriteLine($"Nodeset {nodesetIdentifier} not found in database.");
-                            return false;
+                            return null;
                         }
 
                         ConfiguredEndpoint configuredEndpoint = new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(_app.ApplicationConfiguration));
@@ -1126,7 +1187,7 @@ namespace Opc.Ua.Cloud.Library
                         if (newSession == null || !newSession.Connected)
                         {
                             Console.WriteLine("Failed to create new OPC UA session.");
-                            return false;
+                            return null;
                         }
 
                         await newSession.FetchNamespaceTablesAsync().ConfigureAwait(false);
@@ -1154,6 +1215,7 @@ namespace Opc.Ua.Cloud.Library
                         InstallSession(shared, nodesetIdentifier);
 
                         Console.WriteLine("OPC UA server started and session created for nodeset " + nodesetIdentifier);
+                        return shared;
                     }
                     finally
                     {
@@ -1161,8 +1223,18 @@ namespace Opc.Ua.Cloud.Library
                     }
                 }
             }
+        }
 
-            return true;
+        private static bool IsConnected(SharedSession pair)
+        {
+            try
+            {
+                return pair.Session.Connected;
+            }
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
         }
 
         /// <summary>
@@ -1363,32 +1435,39 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
-        // Called after an operation on the current session failed. The session is shared, so it is
-        // not closed outright: it stops being handed out, and this client releases its reference.
-        // Other borrowers keep theirs; the last to release it closes it.
-        public async Task DisposeSession()
+        // Called after an operation on a pair failed. Acts only on that pair - the one the operation
+        // actually used - never on whatever this client has selected since. The session is shared, so
+        // it is not closed outright: it stops being handed out, and this client releases its
+        // reference. Other borrowers keep theirs; the last to release it closes it.
+        private async Task DisposeSession(SharedSession pair, string nodesetIdentifier)
         {
-            string nodeset;
-            lock (_sessionSwitchGate)
-            {
-                nodeset = _sessionNodesetIdentifier;
-                _current = null;
-            }
-
-            if (nodeset == null)
+            if (pair == null || nodesetIdentifier == null)
             {
                 return;
             }
 
-            lock (s_poolGate)
+            lock (_sessionSwitchGate)
             {
-                if (_borrowed.TryGetValue(nodeset, out SharedSession shared))
+                if (ReferenceEquals(_current, pair))
                 {
-                    _sessions.TryRemove(new KeyValuePair<string, SharedSession>(nodeset, shared));
+                    _current = null;
+                    _sessionNodesetIdentifier = null;
                 }
             }
 
-            await ReleaseAsync(nodeset).ConfigureAwait(false);
+            lock (s_poolGate)
+            {
+                // Release only if this client still holds exactly this pair for the nodeset; a newer
+                // pair borrowed meanwhile must not be released in its place.
+                if (!_borrowed.TryGetValue(nodesetIdentifier, out SharedSession held) || !ReferenceEquals(held, pair))
+                {
+                    return;
+                }
+
+                _sessions.TryRemove(new KeyValuePair<string, SharedSession>(nodesetIdentifier, pair));
+            }
+
+            await ReleaseAsync(nodesetIdentifier).ConfigureAwait(false);
         }
 
         public async ValueTask DisposeAsync()

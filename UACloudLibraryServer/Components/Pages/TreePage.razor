@@ -1242,6 +1242,10 @@
             {
                 ValueSetStatus = "This nodeset has no DigitalProductPassport object, so the value set cannot be published as a passport.";
             }
+            else if (outcome == DPPService.PublishValueSetResult.TemplateUnavailable)
+            {
+                ValueSetStatus = "The nodeset could not be read, so the value set could not be published. Nothing was changed; try again.";
+            }
             else if (outcome != DPPService.PublishValueSetResult.Success)
             {
                 ValueSetStatus = "Value set could not be found; it may have been deleted.";

@@ -1150,7 +1150,13 @@ namespace Opc.Ua.Cloud.Library
             /// The set's template has no DigitalProductPassport object, so there is no passport to
             /// publish: the DPP URL would return 404.
             /// </summary>
-            NotAPassport
+            NotAPassport,
+
+            /// <summary>
+            /// The set's template could not be read, so it is unknown whether it is a passport.
+            /// Nothing was changed; the caller may retry.
+            /// </summary>
+            TemplateUnavailable
         }
 
         /// <summary>
@@ -1167,9 +1173,16 @@ namespace Opc.Ua.Cloud.Library
                 return PublishValueSetResult.NotFound;
             }
 
-            if (publish && await FindDppNodeAsync(userId, set.NodesetIdentifier).ConfigureAwait(false) is null)
+            if (publish)
             {
-                return PublishValueSetResult.NotAPassport;
+                switch (await ClassifyTemplateAsync(userId, set.NodesetIdentifier).ConfigureAwait(false))
+                {
+                    case TemplateKind.Ordinary:
+                        return PublishValueSetResult.NotAPassport;
+
+                    case TemplateKind.Unknown:
+                        return PublishValueSetResult.TemplateUnavailable;
+                }
             }
 
             return await _valueSets.SetPublishedAsync(valueSetId, userId, publish).ConfigureAwait(false)
@@ -1207,10 +1220,16 @@ namespace Opc.Ua.Cloud.Library
 
             // A value set on an ordinary nodeset (no DigitalProductPassport object) is a plain overlay,
             // not a passport. It keeps the owner check, per-node validation, revision check and
-            // auditing, but has no access policy to enforce and no version history to keep.
-            if (await FindDppNodeAsync(userId, passport.NodesetIdentifier).ConfigureAwait(false) is null)
+            // auditing, but has no access policy to enforce and no version history to keep. Only a
+            // template that was actually browsed and found to have no passport takes that path; if
+            // the browse fails, nothing is written.
+            switch (await ClassifyTemplateAsync(userId, passport.NodesetIdentifier).ConfigureAwait(false))
             {
-                return await CommitOverlayWritesAsync(userId, passport, writes, removals).ConfigureAwait(false);
+                case TemplateKind.Unknown:
+                    return (UpdateDppResult.WriteFailed, "The nodeset could not be read, so the change could not be checked. Nothing was changed; try again.");
+
+                case TemplateKind.Ordinary:
+                    return await CommitOverlayWritesAsync(userId, passport, writes, removals).ConfigureAwait(false);
             }
 
             DigitalProductPassport preUpdate = await BuildPassportAsync(userId, passport).ConfigureAwait(false);
@@ -1861,6 +1880,32 @@ namespace Opc.Ua.Cloud.Library
         {
             List<NodesetViewerNode> nodeList = await _client.GetChildren(userId, nodesetIdentifier, ObjectIds.ObjectsFolder.ToString()).ConfigureAwait(false);
             return nodeList?.FirstOrDefault(n => n.Text == "DigitalProductPassport");
+        }
+
+        private enum TemplateKind
+        {
+            /// <summary>The template has a DigitalProductPassport object.</summary>
+            Passport,
+
+            /// <summary>The template was browsed successfully and has no passport object.</summary>
+            Ordinary,
+
+            /// <summary>The template could not be browsed, so whether it is a passport is unknown.</summary>
+            Unknown
+        }
+
+        // Decides whether a template is a passport. A failed browse is Unknown, never Ordinary:
+        // treating an unreadable passport template as ordinary would skip the controlled-element
+        // role check, archiving and LastUpdate for any write made while the browse fails.
+        private async Task<TemplateKind> ClassifyTemplateAsync(string userId, string nodesetIdentifier)
+        {
+            (bool succeeded, List<NodesetViewerNode> nodes) = await _client.TryGetChildrenAsync(userId, nodesetIdentifier, ObjectIds.ObjectsFolder.ToString()).ConfigureAwait(false);
+            if (!succeeded)
+            {
+                return TemplateKind.Unknown;
+            }
+
+            return nodes?.Any(n => n.Text == "DigitalProductPassport") == true ? TemplateKind.Passport : TemplateKind.Ordinary;
         }
         // Reads DPP properties and child elements from an OPC UA node, building the full DPP object graph.
         private async Task<DigitalProductPassport> GenerateDPPFromDPPNode(string userId, string nodesetIdentifier, NodesetViewerNode dppNode, string dppId, IReadOnlyDictionary<string, string> overlay)
