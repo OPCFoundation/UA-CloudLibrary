@@ -1008,7 +1008,10 @@ namespace Opc.Ua.Cloud.Library
             {
                 if (_current != null && !string.Equals(_sessionNodesetIdentifier, nodesetIdentifier, StringComparison.Ordinal))
                 {
+                    // Clear the tag with the pair: if starting the new nodeset then fails, failure
+                    // cleanup (DisposeSession) must not release the retained pair of the previous one.
                     _current = null;
+                    _sessionNodesetIdentifier = null;
                 }
             }
 
