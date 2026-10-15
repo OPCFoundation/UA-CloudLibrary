@@ -9,11 +9,28 @@
 .uic-tree--hidden {
     display: none;
 }
+/* Each node is a flex row: a fixed-width chevron column (kept even for leaves so siblings line
+   up) followed by the title. Nested trees are indented by the parent's margin only. */
+.uic-tree__row {
+    display: flex;
+    align-items: center;
+}
 .uic-tree__icon {
-    float: left;
+    flex: 0 0 1.25rem;
+    width: 1.25rem;
+    text-align: center;
+}
+.uic-tree__chevron {
+    font-size: 0.65rem;
+    color: #6c757d;
+    cursor: pointer;
+}
+.uic-tree__chevron:hover {
+    color: #212529;
 }
 .uic-tree__title {
-    margin-left: 1.25rem;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 .uic-tree__title span,
 .uic-tree__title b {
@@ -27,4 +44,58 @@
 }
 .uic-tree .curosr-pointer {
     cursor: pointer;
+}
+/* Inline value of the selected Variable node. The title is white-on-blue, so the value keeps the
+   inherited color instead of the muted gray used for non-selected nodes. */
+.uic-tree__value {
+    display: inline-block;
+    padding: 0 0.4rem;
+    border-radius: 0.25rem;
+    color: inherit;
+    background-color: rgba(255, 255, 255, 0.2);
+    white-space: nowrap;
+}
+.uic-tree__value--editable {
+    cursor: text;
+}
+.uic-tree__value--editable:hover {
+    background-color: rgba(255, 255, 255, 0.35);
+}
+.uic-tree__value-edit-icon {
+    margin-left: 0.4rem;
+    font-size: 0.8em;
+    opacity: 0.6;
+}
+.uic-tree__value--editable:hover .uic-tree__value-edit-icon {
+    opacity: 1;
+}
+.uic-tree__value--empty {
+    cursor: pointer;
+    font-style: italic;
+    opacity: 0.85;
+    background-color: transparent;
+    border: 1px dashed currentColor;
+}
+.uic-tree__value--empty:hover {
+    opacity: 1;
+    background-color: rgba(255, 255, 255, 0.2);
+}
+.uic-tree__inline-edit {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    vertical-align: middle;
+}
+.uic-tree__inline-input {
+    width: 14rem;
+    height: 1.6rem;
+    padding: 0 0.4rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.85rem;
+    color: #212529;
+}
+.uic-tree__inline-edit .btn {
+    height: 1.6rem;
+    padding: 0 0.4rem;
+    line-height: 1;
 }

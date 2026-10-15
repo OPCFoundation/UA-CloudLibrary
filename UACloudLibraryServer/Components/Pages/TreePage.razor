@@ -237,7 +237,7 @@
                                     </div>
                                 </div>
                                 <div class="card-body">
-                                    <Tree Nodes="TreeNodes" TNode="NodesetViewerNode" ChildSelector="VisibleChildren" SelectedNode="SelectedNode" SelectedNodeChanged="SelectedNodeChanged" OnNodeExpand="OnNodeExpand" HasChildNodes="HasChildNodes" ExpandedNodes="ExpandedNodes" ExpandedNodesChanged="OnExpandedNodesChanged">
+                                    <Tree Nodes="VisibleTopLevelNodes" TNode="NodesetViewerNode" ChildSelector="VisibleChildren" SelectedNode="SelectedNode" SelectedNodeChanged="SelectedNodeChanged" OnNodeExpand="OnNodeExpand" HasChildNodes="HasChildNodes" ExpandedNodes="ExpandedNodes" ExpandedNodesChanged="OnExpandedNodesChanged">
                                         <TitleTemplate>
                                             @{
                                                 bool isSelected = context.Id == SelectedNode.Id;
@@ -252,6 +252,7 @@
                                                 string setValue = null;
                                                 bool hasSetValue = ActiveValueSet != null && context.Id != null && ActiveValueSetEntries.TryGetValue(context.Id, out setValue);
                                                 string iconName = NodeIcons.GetIconName(context.Icon);
+                                                bool isSelectedVariable = isSelected && string.Equals(context.NodeClass, "Variable", StringComparison.Ordinal);
                                             }
                                             @if (!string.IsNullOrEmpty(iconName))
                                             {
@@ -267,9 +268,36 @@
                                                     @context.Text
                                                 }
                                             </span>
-                                            @if (hasSetValue)
+                                            @if (isSelectedVariable)
                                             {
-                                                <span class="text-muted ml-1" title="Value in value set '@ActiveValueSet.Name'">[@setValue]</span>
+                                                @if (IsInlineEditing)
+                                                {
+                                                    <span class="uic-tree__inline-edit ml-2" @onclick:stopPropagation="true">
+                                                        <input class="form-control form-control-sm uic-tree__inline-input" type="text" @bind="InlineEditValue" @bind:event="oninput" @onkeydown="OnInlineEditKeyDown" disabled="@IsInlineSaving" placeholder="Enter a value" title="Enter saves, Escape cancels" />
+                                                        <button type="button" class="btn btn-sm btn-light" title="Save value" @onclick="CommitInlineEdit" disabled="@IsInlineSaving"><i class="fas fa-check"></i></button>
+                                                        <button type="button" class="btn btn-sm btn-light" title="Cancel" @onclick="CancelInlineEdit" disabled="@IsInlineSaving"><i class="fas fa-times"></i></button>
+                                                    </span>
+                                                }
+                                                else if (!string.IsNullOrEmpty(NodeValue))
+                                                {
+                                                    <span class="uic-tree__value ml-2 @(CanEditSelectedNode ? "uic-tree__value--editable" : null)" title="@(CanEditSelectedNode ? "Click to edit the value" : EditBlockedReason)" @onclick="BeginInlineEdit" @onclick:stopPropagation="true">
+                                                        <span class="text-monospace">@NodeValue</span>
+                                                        @if (CanEditSelectedNode)
+                                                        {
+                                                            <i class="fas fa-pencil-alt uic-tree__value-edit-icon" aria-hidden="true"></i>
+                                                        }
+                                                    </span>
+                                                }
+                                                else if (CanEditSelectedNode)
+                                                {
+                                                    <span class="uic-tree__value uic-tree__value--empty ml-2" title="No value yet. Click to set one." @onclick="BeginInlineEdit" @onclick:stopPropagation="true">
+                                                        <i class="fas fa-pencil-alt mr-1" aria-hidden="true"></i>set value
+                                                    </span>
+                                                }
+                                            }
+                                            else if (hasSetValue)
+                                            {
+                                                <span class="@(isSelected ? "ml-1" : "text-muted ml-1")" title="Value in value set '@ActiveValueSet.Name'">[@setValue]</span>
                                             }
                                         </TitleTemplate>
                                     </Tree>
@@ -618,6 +646,11 @@
 
     private bool IsSaving = false;
 
+    // Inline value editor shown in the tree for the selected Variable node.
+    private bool IsInlineEditing = false;
+    private bool IsInlineSaving = false;
+    private string InlineEditValue = string.Empty;
+
     private string EditBlockedReason = "Select a Variable node in the tree to edit its value.";
 
     private bool CanEditSelectedNode => string.IsNullOrEmpty(EditBlockedReason);
@@ -819,7 +852,7 @@
                         continue;
                     }
 
-                    await LoadChildrenAsync(node).ConfigureAwait(false);
+                    await LoadChildrenWithLookAheadAsync(node).ConfigureAwait(false);
                     if (!ExpandedNodes.Contains(node))
                     {
                         ExpandedNodes.Add(node);
@@ -916,57 +949,7 @@
 
         if ((ModalTitle == "Edit") && save)
         {
-            if (ActiveValueSet != null && SelectedNode != null)
-            {
-                // Capture the target and value before the first await: the set selector and tree stay
-                // enabled, so ActiveValueSet, SelectedNode and ModalValue can change during validation
-                // or the audit append. The same inputs are used for validation and the write.
-                Guid setId = ActiveValueSet.Id;
-                string nodeId = SelectedNode.Id;
-                string value = ModalValue;
-
-                string problem = await _client.ValidateValueForNode(UserName, NodesetIdentifier, nodeId, value).ConfigureAwait(false);
-                if (problem != null)
-                {
-                    WriteStatus = problem;
-                }
-                else
-                {
-                    try
-                    {
-                        DPPService.UpdateDppResult result = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, setId.ToString(), nodeId, () => UpdateValuesAsync(setId, new Dictionary<string, string> { [nodeId] = value }, Array.Empty<string>())).ConfigureAwait(false);
-
-                        if (result == DPPService.UpdateDppResult.Success && IsStillActive(setId))
-                        {
-                            // The service also writes LastUpdate, so only the persisted entries are correct.
-                            await ReloadPersistedEntriesAsync(setId).ConfigureAwait(false);
-                        }
-
-                        WriteStatus = DescribeUpdateResult(result);
-                    }
-                    catch (DppAuditException ex)
-                    {
-                        WriteStatus = DescribeAuditFailure(ex);
-                    }
-                    catch (Exception ex)
-                    {
-                        WriteStatus = "Failed to store the value in the value set: " + ex.Message;
-                    }
-                }
-            }
-            else
-            {
-                bool writeSucceeded = await _client.VariableWrite(UserName, NodesetIdentifier, SelectedNode.Id, ModalValue).ConfigureAwait(false);
-                if (writeSucceeded)
-                {
-                    NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, SelectedNode.Id).ConfigureAwait(false);
-                    WriteStatus = string.Empty;
-                }
-                else
-                {
-                    WriteStatus = "Failed to write variable value.";
-                }
-            }
+            await SaveSelectedNodeValueAsync(ModalValue).ConfigureAwait(false);
         }
 
         if ((ModalTitle == "Copy") && save)
@@ -980,6 +963,125 @@
         }
 
         await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Stores a new value for the selected node: in the active value set when one is selected,
+    /// otherwise directly on the embedded server. Returns true when the value was accepted.
+    /// Shared by the edit dialog and the inline editor in the tree.
+    /// </summary>
+    private async Task<bool> SaveSelectedNodeValueAsync(string newValue)
+    {
+        if (SelectedNode == null || !CanEditSelectedNode)
+        {
+            return false;
+        }
+
+        if (ActiveValueSet != null)
+        {
+            // Capture the target and value before the first await: the set selector and tree stay
+            // enabled, so ActiveValueSet and SelectedNode can change during validation
+            // or the audit append. The same inputs are used for validation and the write.
+            Guid setId = ActiveValueSet.Id;
+            string nodeId = SelectedNode.Id;
+            string value = newValue;
+
+            string problem = await _client.ValidateValueForNode(UserName, NodesetIdentifier, nodeId, value).ConfigureAwait(false);
+            if (problem != null)
+            {
+                WriteStatus = problem;
+                return false;
+            }
+
+            try
+            {
+                DPPService.UpdateDppResult result = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, setId.ToString(), nodeId, () => UpdateValuesAsync(setId, new Dictionary<string, string> { [nodeId] = value }, Array.Empty<string>())).ConfigureAwait(false);
+
+                if (result == DPPService.UpdateDppResult.Success && IsStillActive(setId))
+                {
+                    // The service also writes LastUpdate, so only the persisted entries are correct.
+                    await ReloadPersistedEntriesAsync(setId).ConfigureAwait(false);
+                }
+
+                WriteStatus = DescribeUpdateResult(result);
+                return result == DPPService.UpdateDppResult.Success;
+            }
+            catch (DppAuditException ex)
+            {
+                WriteStatus = DescribeAuditFailure(ex);
+            }
+            catch (Exception ex)
+            {
+                WriteStatus = "Failed to store the value in the value set: " + ex.Message;
+            }
+
+            return false;
+        }
+
+        bool writeSucceeded = await _client.VariableWrite(UserName, NodesetIdentifier, SelectedNode.Id, newValue).ConfigureAwait(false);
+        if (writeSucceeded)
+        {
+            NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, SelectedNode.Id).ConfigureAwait(false);
+            WriteStatus = string.Empty;
+            return true;
+        }
+
+        WriteStatus = "Failed to write variable value.";
+        return false;
+    }
+
+    private void BeginInlineEdit()
+    {
+        if (!CanEditSelectedNode || IsInlineSaving)
+        {
+            return;
+        }
+
+        InlineEditValue = NodeValue ?? string.Empty;
+        IsInlineEditing = true;
+    }
+
+    private void CancelInlineEdit()
+    {
+        IsInlineEditing = false;
+        InlineEditValue = string.Empty;
+    }
+
+    private async Task CommitInlineEdit()
+    {
+        if (!IsInlineEditing || IsInlineSaving)
+        {
+            return;
+        }
+
+        IsInlineSaving = true;
+        try
+        {
+            bool saved = await SaveSelectedNodeValueAsync(InlineEditValue).ConfigureAwait(false);
+            if (saved)
+            {
+                IsInlineEditing = false;
+                InlineEditValue = string.Empty;
+            }
+        }
+        finally
+        {
+            IsInlineSaving = false;
+        }
+
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+    }
+
+    private async Task OnInlineEditKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await CommitInlineEdit().ConfigureAwait(false);
+        }
+        else if (e.Key == "Escape")
+        {
+            CancelInlineEdit();
+        }
     }
 
     private async Task ResolveValueSetUserAsync()
@@ -1921,6 +2023,7 @@
 
         TreeNodes.Clear();
 
+        // The OPC UA Root folder is not shown; the tree starts with its children (Objects, Types, Views).
         NodesetViewerNode root = new NodesetViewerNode()
         {
             Id = ObjectIds.RootFolder.ToString(),
@@ -1929,12 +2032,12 @@
             Children = new List<NodesetViewerNode>()
         };
 
-        TreeNodes.Add(root);
-        SelectedNode = root;
+        SelectedNode = new NodesetViewerNode();
 
         try
         {
             await OnNodeExpand(root).ConfigureAwait(false);
+            TreeNodes.AddRange(root.Children ?? new List<NodesetViewerNode>());
         }
         finally
         {
@@ -1950,7 +2053,34 @@
 
     private async Task OnNodeExpand(NodesetViewerNode node)
     {
+        await LoadChildrenWithLookAheadAsync(node).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Loads a node's children and then browses one level deeper, so every visible child knows
+    /// whether it has children of its own: branches get a chevron, leaves do not. Runs sequentially
+    /// because parallel browses right after a session was created can tear it down.
+    /// </summary>
+    private async Task LoadChildrenWithLookAheadAsync(NodesetViewerNode node)
+    {
         await LoadChildrenAsync(node).ConfigureAwait(false);
+
+        if (node?.Children == null)
+        {
+            return;
+        }
+
+        foreach (NodesetViewerNode child in node.Children.ToList())
+        {
+            try
+            {
+                await LoadChildrenAsync(child).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Look-ahead browse failed for node '{child.Id}': {ex.Message}");
+            }
+        }
     }
 
     private async Task LoadChildrenAsync(NodesetViewerNode node)
@@ -1964,12 +2094,21 @@
         bool browseSucceeded = true;
         try
         {
-            children = await _client.GetChildren(UserName, NodesetIdentifier, node.Id, true).ConfigureAwait(false);
+            // TryGetChildrenAsync distinguishes a failed browse from a node without children; a
+            // failure must not be cached as a leaf or the node would lose its expand chevron.
+            (browseSucceeded, children) = await _client.TryGetChildrenAsync(UserName, NodesetIdentifier, node.Id, true).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             browseSucceeded = false;
             Console.WriteLine($"OnNodeExpand failed for node '{node.Id}': {ex}");
+        }
+
+        if (!browseSucceeded)
+        {
+            // Keep whatever was known and leave the node retryable.
+            node.Children ??= new List<NodesetViewerNode>();
+            return;
         }
 
         // Filter out any null entries and drop nulls in place so downstream
@@ -2032,6 +2171,11 @@
 
     private async Task SelectedNodeChanged(NodesetViewerNode node)
     {
+        if (!ReferenceEquals(SelectedNode, node))
+        {
+            CancelInlineEdit();
+        }
+
         SelectedNode = node;
         SelectedNodeDocumentationUrl = null;
         SelectedNodeEnumFields = null;
@@ -2088,14 +2232,11 @@
             return true;
         }
 
-        if (!IsVariablesOnlyFilterActive)
-        {
-            return node.Children.Count > 0;
-        }
-
-        // The root must always stay openable so the user can never end up with an empty, dead tree.
-        return TreeNodes.Contains(node) ? node.Children.Count > 0 : node.Children.Any(MayContainVariables);
+        return node.Children.Count > 0;
     }
+
+    // Top-level nodes are the children of the hidden Root folder.
+    private IEnumerable<NodesetViewerNode> VisibleTopLevelNodes => FilterVisible(TreeNodes);
 
     private IEnumerable<NodesetViewerNode> VisibleChildren(NodesetViewerNode node)
     {
@@ -2104,19 +2245,20 @@
             return Enumerable.Empty<NodesetViewerNode>();
         }
 
+        return FilterVisible(node.Children);
+    }
+
+    // Branches are never hidden: every node that has (or may still have) children is rendered so
+    // the tree can always be browsed. The Variables-only filter only drops leaf nodes that are
+    // not Variables of the selected scope.
+    private IEnumerable<NodesetViewerNode> FilterVisible(IEnumerable<NodesetViewerNode> nodes)
+    {
         if (!IsVariablesOnlyFilterActive)
         {
-            return node.Children;
+            return nodes;
         }
 
-        // If nothing under the root qualifies (scope without Variables), show the root's real
-        // children instead of an empty tree so the user can still navigate.
-        if (TreeNodes.Contains(node) && !node.Children.Any(MayContainVariables))
-        {
-            return node.Children;
-        }
-
-        return node.Children.Where(MayContainVariables);
+        return nodes.Where(n => n != null && (HasChildNodes(n) || MayContainVariables(n)));
     }
 
     // A branch is shown only if its subtree contains a Variable that belongs to the selected
@@ -2165,7 +2307,7 @@
         }
 
         HashSet<NodesetViewerNode> visible = new HashSet<NodesetViewerNode>();
-        Queue<NodesetViewerNode> queue = new Queue<NodesetViewerNode>(TreeNodes.Where(n => n != null));
+        Queue<NodesetViewerNode> queue = new Queue<NodesetViewerNode>(VisibleTopLevelNodes.Where(n => n != null));
         while (queue.Count > 0)
         {
             NodesetViewerNode node = queue.Dequeue();
@@ -2180,15 +2322,10 @@
             }
         }
 
-        NodesetViewerNode root = TreeNodes.FirstOrDefault();
-        if (root != null && SelectedNode != null && !ReferenceEquals(SelectedNode, root) && !visible.Contains(SelectedNode))
+        NodesetViewerNode first = VisibleTopLevelNodes.FirstOrDefault(n => n != null);
+        if (first != null && SelectedNode != null && !string.IsNullOrEmpty(SelectedNode.Id) && !visible.Contains(SelectedNode))
         {
-            if (!ExpandedNodes.Contains(root))
-            {
-                ExpandedNodes.Add(root);
-            }
-
-            await SelectedNodeChanged(root).ConfigureAwait(false);
+            await SelectedNodeChanged(first).ConfigureAwait(false);
         }
     }
 

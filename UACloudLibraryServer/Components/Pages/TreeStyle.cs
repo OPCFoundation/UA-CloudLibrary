@@ -4,8 +4,8 @@ namespace MW.Blazor
     public class TreeStyle
     {
         public static readonly TreeStyle Bootstrap = new() {
-            ExpandNodeIconClass = "far fa-plus-square uic-tree--cursor-pointer",
-            CollapseNodeIconClass = "far fa-minus-square uic-tree--cursor-pointer",
+            ExpandNodeIconClass = "fas fa-chevron-right uic-tree__chevron uic-tree--cursor-pointer",
+            CollapseNodeIconClass = "fas fa-chevron-down uic-tree__chevron uic-tree--cursor-pointer",
             NodeTitleClass = "p-1",
             NodeTitleSelectableClass = "text-body uic-tree--cursor-pointer",
             NodeTitleSelectedClass = "bg-primary text-white",
