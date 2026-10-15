@@ -151,8 +151,6 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddSingleton<ApplicationInstance>();
 
-            services.AddScoped<AssetAdministrationShellEnvironmentService>();
-
             services.AddScoped<DPPService>();
             services.AddSingleton<IDppAccessPolicy, DppAccessPolicy>();
             services.AddScoped<IDppAuditLog, DppAuditLog>();
@@ -182,7 +180,10 @@ namespace Opc.Ua.Cloud.Library
             });
             services.AddScoped<IDppVersionArchive, DbFileVersionArchive>();
 
-            services.AddScoped<ValueSets.IValueSetStore, ValueSets.ValueSetStore>();
+            // Callers get the serialized wrapper, so overlapping Blazor handlers on one circuit can never
+            // interleave operations on the store's shared DbContext. See SerializedValueSetStore.
+            services.AddScoped<ValueSets.ValueSetStore>();
+            services.AddScoped<ValueSets.IValueSetStore, ValueSets.SerializedValueSetStore>();
 
             services.AddScoped<CaptchaValidation>();
 

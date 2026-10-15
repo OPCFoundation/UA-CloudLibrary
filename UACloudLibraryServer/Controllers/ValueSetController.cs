@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Cloud.Library.ValueSets;
 using Swashbuckle.AspNetCore.Annotations;
@@ -21,6 +22,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
     /// scoped to the calling user, so sets of other users are never visible.
     /// </summary>
     [Authorize(Policy = "ApiPolicy")]
+    [ServiceFilter(typeof(DppAuditFailureFilter))]
     [ApiController]
     public class ValueSetController : Controller
     {
@@ -28,14 +30,123 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
         private readonly IValueSetStore _store;
         private readonly UAClient _client;
+        private readonly IDppAuditLog _auditLog;
+        private readonly DPPService _dppService;
 
-        public ValueSetController(IValueSetStore store, UAClient client)
+        public ValueSetController(IValueSetStore store, UAClient client, IDppAuditLog auditLog, DPPService dppService)
         {
             _store = store;
             _client = client;
+            _auditLog = auditLog;
+            _dppService = dppService;
         }
 
         private string UserId => User?.Identity?.Name;
+
+        // Controlled-element write rights are role-based, exactly as for a DPP PATCH.
+        private IReadOnlyList<string> CallerRoles =>
+            User?.Claims?.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToArray()
+            ?? Array.Empty<string>();
+
+        // The authenticated caller, bound to every audit entry so value-set changes are attributable.
+        private string OperatorId => User?.Identity?.Name ?? "anonymous";
+
+        /// <summary>
+        /// Runs a value-set change between a write-ahead "Attempted" entry and an outcome entry.
+        /// </summary>
+        /// <remarks>
+        /// A value set is a Digital Product Passport, so every change to it is audited like a DPP
+        /// change. <paramref name="change"/> returns the passport id the outcome concerns, or null when
+        /// it changed nothing (an unknown set or a name clash). A completed change is durable, so its
+        /// outcome uses <see cref="DppAuditLogExtensions.RecordCommittedOutcomeAsync"/>: a failure to
+        /// log it must not be reported as a safe retry. A change that throws is recorded as failed and
+        /// the exception rethrown, so the action's own error handling still applies.
+        /// </remarks>
+        private async Task<T> AuditedAsync<T>(DppAuditOperation operation, string target, string detail, Func<Task<(T Result, string DppId)>> change)
+        {
+            string operationId = DppAuditOperationId.New();
+            await _auditLog.RecordAsync(OperatorId, operation, target, detail, "Attempted", operationId).ConfigureAwait(false);
+
+            (T Result, string DppId) outcome;
+            try
+            {
+                outcome = await change().ConfigureAwait(false);
+            }
+            catch
+            {
+                await _auditLog.RecordAsync(OperatorId, operation, target, detail, "Failed", operationId).ConfigureAwait(false);
+                throw;
+            }
+
+            if (outcome.DppId is null)
+            {
+                await _auditLog.RecordAsync(OperatorId, operation, target, detail, "Failed", operationId).ConfigureAwait(false);
+            }
+            else
+            {
+                await _auditLog.RecordCommittedOutcomeAsync(OperatorId, operation, outcome.DppId, detail, "Success", operationId).ConfigureAwait(false);
+            }
+
+            return outcome.Result;
+        }
+        /// <summary>
+        /// Applies a value change through <see cref="DPPService.UpdateValueSetValuesAsync"/> with
+        /// write-ahead auditing, and maps the outcome to a response.
+        /// </summary>
+        /// <remarks>
+        /// A value set is a passport, so a value change here has to follow the same rules as a DPP
+        /// PATCH: controlled-element roles, archiving, LastUpdate and the revision check are all
+        /// enforced by the service, not by this controller. Only outcomes that changed storage are
+        /// logged as committed; refusals are logged as plain failures, so they stay safe to retry.
+        /// </remarks>
+        private async Task<IActionResult> UpdateValuesAsync(Guid id, string detail, IReadOnlyDictionary<string, string> writes, IReadOnlyCollection<string> removals)
+        {
+            string operationId = DppAuditOperationId.New();
+            string target = id.ToString();
+            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, target, detail, "Attempted", operationId).ConfigureAwait(false);
+
+            (DPPService.UpdateDppResult result, string error) = await _dppService
+                .UpdateValueSetValuesAsync(UserId, id, writes, removals, CallerRoles).ConfigureAwait(false);
+
+            switch (result)
+            {
+                case DPPService.UpdateDppResult.Success:
+                    await _auditLog.RecordCommittedOutcomeAsync(OperatorId, DppAuditOperation.Modify, target, detail, "Success", operationId).ConfigureAwait(false);
+                    return NoContent();
+
+                case DPPService.UpdateDppResult.WriteFailedPartiallyApplied:
+                    // Unlike a clean failure, this change was committed and could not be rolled back,
+                    // so it must not be retried. Say so explicitly instead of a generic 500.
+                    await _auditLog.RecordCommittedOutcomeAsync(OperatorId, DppAuditOperation.Modify, target, detail, "PartialFailure", operationId).ConfigureAwait(false);
+                    return StatusCode((int)HttpStatusCode.InternalServerError, new ProblemDetails {
+                        Status = (int)HttpStatusCode.InternalServerError,
+                        Title = "Change committed, archive failed",
+                        Detail = "The change was saved, but the previous version could not be archived and the change could not be rolled back. Do not repeat it; report this to an administrator."
+                            + (string.IsNullOrEmpty(error) ? string.Empty : " " + error),
+                        Extensions = { ["committed"] = true, ["retryable"] = false },
+                    });
+
+                case DPPService.UpdateDppResult.NotFound:
+                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, target, detail, "Failed", operationId).ConfigureAwait(false);
+                    return NotFound();
+
+                case DPPService.UpdateDppResult.BadRequest:
+                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, target, detail, "Rejected", operationId).ConfigureAwait(false);
+                    return BadRequest(error);
+
+                case DPPService.UpdateDppResult.Forbidden:
+                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, target, detail, "Denied", operationId).ConfigureAwait(false);
+                    return StatusCode((int)HttpStatusCode.Forbidden, error);
+
+                case DPPService.UpdateDppResult.Conflict:
+                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, target, detail, "Conflict", operationId).ConfigureAwait(false);
+                    return Conflict(error);
+
+                default:
+                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, target, detail, "Failed", operationId).ConfigureAwait(false);
+                    return StatusCode((int)HttpStatusCode.InternalServerError, error);
+            }
+        }
 
         [HttpGet]
         [Route("/valuesets")]
@@ -71,7 +182,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         {
             try
             {
-                NodesetValueSet set = await _store.CreateAsync(request.NodesetIdentifier, UserId, request.Name, request.Description, ct).ConfigureAwait(false);
+                NodesetValueSet set = await AuditedAsync(DppAuditOperation.Create, request.NodesetIdentifier, $"create value set {request.Name}", async () => { NodesetValueSet s = await _store.CreateAsync(request.NodesetIdentifier, UserId, request.Name, request.Description, ct).ConfigureAwait(false); return (s, s?.Id.ToString()); }).ConfigureAwait(false);
                 return StatusCode((int)HttpStatusCode.Created, ValueSetSummary.From(set));
             }
             catch (InvalidOperationException ex)
@@ -93,8 +204,12 @@ namespace Opc.Ua.Cloud.Library.Controllers
         {
             try
             {
-                NodesetValueSet set = await _store.UpdateAsync(id, UserId, request.Name, request.Description, ct).ConfigureAwait(false);
+                NodesetValueSet set = await AuditedAsync(DppAuditOperation.Modify, id.ToString(), $"rename to {request.Name}", async () => { NodesetValueSet s = await _store.UpdateAsync(id, UserId, request.Name, request.Description, ct).ConfigureAwait(false); return (s, s?.Id.ToString()); }).ConfigureAwait(false);
                 return set == null ? NotFound() : Ok(ValueSetSummary.From(set));
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Conflict(ConcurrentChangeMessage);
             }
             catch (InvalidOperationException ex)
             {
@@ -110,11 +225,55 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [Route("/valuesets/{id:guid}")]
         [SwaggerResponse(statusCode: 204)]
         [SwaggerResponse(statusCode: 404)]
+        [SwaggerResponse(statusCode: 409, description: "The set was changed by another request; reload and retry.")]
         public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
         {
-            return await _store.DeleteAsync(id, UserId, ct).ConfigureAwait(false) ? NoContent() : NotFound();
+            try
+            {
+                bool deleted = await AuditedAsync(DppAuditOperation.Delete, id.ToString(), "delete value set", async () => { bool d = await _store.DeleteAsync(id, UserId, ct).ConfigureAwait(false); return (d, d ? id.ToString() : null); }).ConfigureAwait(false);
+                return deleted ? NoContent() : NotFound();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Conflict(ConcurrentChangeMessage);
+            }
         }
 
+        [HttpPost]
+        [Route("/valuesets/{id:guid}/publish")]
+        [SwaggerResponse(statusCode: 204, description: "The set is now readable by anyone as a Digital Product Passport.")]
+        [SwaggerResponse(statusCode: 404)]
+        [SwaggerResponse(statusCode: 409, description: "The set was changed by another request, or its nodeset has no DigitalProductPassport object and so cannot be published as a passport.")]
+        public Task<IActionResult> Publish(Guid id) => SetPublishedAsync(id, true);
+
+        [HttpPost]
+        [Route("/valuesets/{id:guid}/unpublish")]
+        [SwaggerResponse(statusCode: 204, description: "The set is private again: only its owner can read it as a passport.")]
+        [SwaggerResponse(statusCode: 404)]
+        [SwaggerResponse(statusCode: 409, description: "The set was changed by another request; reload and retry.")]
+        public Task<IActionResult> Unpublish(Guid id) => SetPublishedAsync(id, false);
+
+        private const string ConcurrentChangeMessage = "The value set was changed by another request. Reload it and try again.";
+
+        // Publish and unpublish go through DPPService, the publication path the browser uses too, so
+        // both refuse to publish a set whose nodeset cannot produce a passport.
+        private async Task<IActionResult> SetPublishedAsync(Guid id, bool publish)
+        {
+            try
+            {
+                DPPService.PublishValueSetResult result = await AuditedAsync(DppAuditOperation.Modify, id.ToString(), publish ? "publish" : "unpublish", async () => { DPPService.PublishValueSetResult r = await _dppService.SetValueSetPublishedAsync(UserId, id, publish).ConfigureAwait(false); return (r, r == DPPService.PublishValueSetResult.Success ? id.ToString() : null); }).ConfigureAwait(false);
+                return result switch {
+                    DPPService.PublishValueSetResult.Success => NoContent(),
+                    DPPService.PublishValueSetResult.NotAPassport => Conflict("This value set's nodeset has no DigitalProductPassport object, so it cannot be published as a passport."),
+                    DPPService.PublishValueSetResult.TemplateUnavailable => StatusCode((int)HttpStatusCode.ServiceUnavailable, "The value set's nodeset could not be read, so it could not be checked for a passport. Nothing was changed; try again."),
+                    _ => NotFound(),
+                };
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Conflict(ConcurrentChangeMessage);
+            }
+        }
         [HttpPost]
         [Route("/valuesets/{id:guid}/clone")]
         [SwaggerResponse(statusCode: 201, type: typeof(ValueSetSummary))]
@@ -124,7 +283,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         {
             try
             {
-                NodesetValueSet set = await _store.CloneAsync(id, UserId, request.Name, ct).ConfigureAwait(false);
+                NodesetValueSet set = await AuditedAsync(DppAuditOperation.Create, id.ToString(), $"clone as {request.Name}", async () => { NodesetValueSet s = await _store.CloneAsync(id, UserId, request.Name, ct).ConfigureAwait(false); return (s, s?.Id.ToString()); }).ConfigureAwait(false);
                 return set == null ? NotFound() : StatusCode((int)HttpStatusCode.Created, ValueSetSummary.From(set));
             }
             catch (InvalidOperationException ex)
@@ -175,8 +334,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return BadRequest(problems);
             }
 
-            await _store.SetValuesAsync(id, UserId, request.Values, ct).ConfigureAwait(false);
-            return NoContent();
+            return await UpdateValuesAsync(id, $"set {request.Values.Count} value(s)", request.Values, Array.Empty<string>()).ConfigureAwait(false);
         }
 
         [HttpPut]
@@ -199,8 +357,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return BadRequest(problem);
             }
 
-            await _store.SetValueAsync(id, UserId, nodeId, request.Value, ct).ConfigureAwait(false);
-            return NoContent();
+            return await UpdateValuesAsync(id, nodeId, new Dictionary<string, string> { [nodeId] = request.Value }, Array.Empty<string>()).ConfigureAwait(false);
         }
 
         [HttpDelete]
@@ -209,7 +366,17 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 404)]
         public async Task<IActionResult> RemoveValue(Guid id, string nodeId, CancellationToken ct)
         {
-            return await _store.RemoveValueAsync(id, UserId, Uri.UnescapeDataString(nodeId), ct).ConfigureAwait(false) ? NoContent() : NotFound();
+            string removedNodeId = Uri.UnescapeDataString(nodeId);
+
+            // Nothing to remove is a 404, as before. Without this check a no-op removal would still
+            // archive a version and advance LastUpdate, recording a change that never happened.
+            IReadOnlyDictionary<string, string> current = await _store.GetValuesAsync(id, UserId, ct).ConfigureAwait(false);
+            if (current == null || !current.ContainsKey(removedNodeId))
+            {
+                return NotFound();
+            }
+
+            return await UpdateValuesAsync(id, $"remove {removedNodeId}", new Dictionary<string, string>(), new[] { removedNodeId }).ConfigureAwait(false);
         }
 
         [HttpGet]

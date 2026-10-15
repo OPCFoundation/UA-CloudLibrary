@@ -19,6 +19,9 @@ namespace Opc.Ua.Cloud.Library.Models
 
         public DateTimeOffset LastModified { get; set; }
 
+        /// <summary>True when the set is served publicly as a Digital Product Passport.</summary>
+        public bool IsPublished { get; set; }
+
         public static ValueSetSummary From(NodesetValueSet set)
         {
             return new ValueSetSummary {
@@ -28,6 +31,7 @@ namespace Opc.Ua.Cloud.Library.Models
                 Description = set.Description,
                 CreatedAt = set.CreatedAt,
                 LastModified = set.LastModified,
+                IsPublished = set.IsPublished,
             };
         }
     }

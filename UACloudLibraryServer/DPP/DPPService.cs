@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
@@ -22,18 +21,16 @@ namespace Opc.Ua.Cloud.Library
         private readonly DbFileStorage _storage;
         private readonly IDppVersionArchive _archive;
         private readonly IDppAccessPolicy _accessPolicy;
+        private readonly ValueSets.IValueSetStore _valueSets;
 
-        // Node values may contain characters like <, >, & that System.Text.Json escapes to \uXXXX by
-        // default; relaxed escaping keeps the stored values blob readable and Newtonsoft-equivalent.
-        private static readonly JsonSerializerOptions s_valuesJsonOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
-
-        public DPPService(UAClient client, CloudLibDataProvider dataProvider, DbFileStorage storage, IDppVersionArchive archive, IDppAccessPolicy accessPolicy, ILoggerFactory loggerFactory)
+        public DPPService(UAClient client, CloudLibDataProvider dataProvider, DbFileStorage storage, IDppVersionArchive archive, IDppAccessPolicy accessPolicy, ValueSets.IValueSetStore valueSets, ILoggerFactory loggerFactory)
         {
             _client = client;
             _dataProvider = dataProvider;
             _storage = storage;
             _archive = archive;
             _accessPolicy = accessPolicy;
+            _valueSets = valueSets;
             _logger = loggerFactory.CreateLogger("DPPService");
         }
 
@@ -55,10 +52,26 @@ namespace Opc.Ua.Cloud.Library
         /// </remarks>
         public async Task<DppControlledElements.MappingResult> GetControlledElementsAsync(string dppId)
         {
+            // A passport is a value set, but its access policy lives on the template nodeset it is
+            // based on. An id that resolves to no set fails closed exactly like a missing policy row:
+            // "could not find the policy" must never read as "nothing is controlled".
+            string nodesetIdentifier = Guid.TryParse(dppId, out Guid valueSetId)
+                ? await _valueSets.GetNodesetIdentifierAsync(valueSetId).ConfigureAwait(false)
+                : null;
+
+            if (string.IsNullOrEmpty(nodesetIdentifier))
+            {
+                _logger.LogError(
+                    "DPP {DppId} does not resolve to a value set, so its template's controlled-elements mapping cannot be located; denying access to all elements.",
+                    dppId);
+
+                return DppControlledElements.Unavailable();
+            }
+
             DbFiles file;
             try
             {
-                file = await _storage.DownloadFileAsync(dppId).ConfigureAwait(false);
+                file = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -525,23 +538,14 @@ namespace Opc.Ua.Cloud.Library
         {
             DateTimeOffset target = asOfUtc.ToUniversalTime();
 
-            // Authorize against the nodeset before touching either the live DPP or the archive.
-            // BrowseDppFromRootAsync applies this guard for live reads, but the archive lookup below
-            // is a separate store keyed only by dppId: without this check an unpublished, private or
-            // deleted DPP would still surrender its historical snapshots to an anonymous caller,
-            // because GetByDppId returning null is indistinguishable from "not authorized" here.
-            if (!await IsNodesetAccessibleAsync(userId, dppId).ConfigureAwait(false))
+            // Authorize against the passport before touching either the live DPP or the archive. The
+            // archive is a separate store keyed only by dppId: without this check a private or
+            // deleted passport would still surrender its historical snapshots to any caller.
+            ValueSetPassport passport = await ResolvePassportAsync(userId, dppId).ConfigureAwait(false);
+            if (passport is null)
             {
-                if (_logger.IsEnabled(LogLevel.Information))
-                {
-                    _logger.LogInformation(
-                        "Denied DPP version read of nodeset {NodesetIdentifier}: not published and not owned by the caller.",
-                        dppId);
-                }
-
                 return null;
             }
-
             // Resolve the live DPP first: it is the active version for any target at or after its
             // own LastUpdate, which is the common case (most ReadDPPVersionByIdAndDate calls ask
             // for a timestamp that is in the past relative to "now" but still after the most
@@ -549,7 +553,16 @@ namespace Opc.Ua.Cloud.Library
             // snapshot for those calls; falling through to the archive only when target predates
             // the live activation matches the EN 18222 contract that the result is the version
             // that was actually active at 'target'.
-            DigitalProductPassport live = await GetByDppId(userId, dppId).ConfigureAwait(false);
+            DigitalProductPassport live = await BuildPassportAsync(userId, passport).ConfigureAwait(false);
+
+            // No version of a passport exists before its value set was created. BuildPassportAsync
+            // already floors LastUpdate at the creation time, but the archive below is searched
+            // independently, so the cutoff is enforced here too.
+            if (target < passport.CreatedAt.ToUniversalTime())
+            {
+                return null;
+            }
+
             if (live != null && live.LastUpdate.ToUniversalTime() <= target)
             {
                 // The live version's policy is the current stored mapping, by definition - but only
@@ -559,7 +572,7 @@ namespace Opc.Ua.Cloud.Library
                 // publish the whole element tree. Report the policy as unknown instead, which sends
                 // FilterVersionForRoles down its fail-closed path, exactly as an ordinary read
                 // treats a missing policy row as unavailable rather than absent.
-                DbFiles liveFile = await _storage.DownloadFileAsync(dppId).ConfigureAwait(false);
+                DbFiles liveFile = await _storage.DownloadFileAsync(passport.NodesetIdentifier).ConfigureAwait(false);
                 return liveFile is null
                     ? new DppVersionSnapshot(live, null, policyArchived: false)
                     : new DppVersionSnapshot(live, liveFile.Values, policyArchived: true);
@@ -567,8 +580,9 @@ namespace Opc.Ua.Cloud.Library
 
             // Target is strictly earlier than the live DPP's activation time (or the DPP has no
             // live counterpart at all). Look up the latest archived snapshot whose valid-from
-            // timestamp is at or before the target.
-            DppVersionSnapshot archived = await _archive.GetVersionAtAsync(dppId, target).ConfigureAwait(false);
+            // timestamp is at or before the target. Keyed by the normalized passport id, exactly as
+            // updates archive it, so "ABC..." and "abc..." or an undashed GUID find the same history.
+            DppVersionSnapshot archived = await _archive.GetVersionAtAsync(passport.DppId, target).ConfigureAwait(false);
             if (archived != null)
             {
                 return archived;
@@ -619,59 +633,145 @@ namespace Opc.Ua.Cloud.Library
             return FilterForRoles(snapshot.Dpp, callerRoles, mapping);
         }
 
+        /// <summary>
+        /// The readable passport whose value set gives it <paramref name="productId"/> as its unique
+        /// product identifier, or null. When several do, the most recently modified set wins.
+        /// </summary>
         public async Task<DigitalProductPassport> GetByProductId(string userId, string productId)
         {
-            List<ObjectModel> dppList = _dataProvider.GetNodeModels(nsm => nsm.Objects, userId)
-                .Where(nsm => (nsm.DisplayName != null) && (nsm.DisplayName.Count > 0) && (nsm.DisplayName[0].Text == "UniqueProductIdentifier") && (nsm.NodeId == productId))
-                .ToList();
-
-            if (dppList != null)
+            List<ValueSetPassport> matches = await FindPassportsByProductIdsAsync(userId, new[] { productId }).ConfigureAwait(false);
+            ValueSetPassport newest = matches.FirstOrDefault();
+            if (newest is null)
             {
-                // return the latest DPP if multiple are found for the same product id
-                DigitalProductPassport latestDpp = null;
-                foreach (ObjectModel dpp in dppList)
-                {
-                    if (latestDpp == null)
-                    {
-                        latestDpp = await BrowseDppFromRootAsync(userId, dpp.NodeSet.Identifier).ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        DigitalProductPassport currentDpp = await BrowseDppFromRootAsync(userId, dpp.NodeSet.Identifier).ConfigureAwait(false);
-                        if ((currentDpp != null) && (currentDpp.LastUpdate > latestDpp.LastUpdate))
-                        {
-                            latestDpp = currentDpp;
-                        }
-                    }
-                }
-
-                return latestDpp;
+                _logger.LogWarning("DPP not found for product id {ProductId}", productId);
+                return null;
             }
 
-            _logger.LogWarning("DPP not found for product id {ProductId}", productId);
-            return null;
+            return await BuildPassportAsync(userId, newest).ConfigureAwait(false);
         }
-
-        public IReadOnlyList<string> GetDppIdsByProductIds(string userId, IReadOnlyList<string> productIds)
+        /// <summary>
+        /// Ids of the readable passports whose unique product identifier is one of
+        /// <paramref name="productIds"/>, newest first. Duplicate product identifiers are allowed,
+        /// so one product id can map to several passports; all of them are returned.
+        /// </summary>
+        public async Task<IReadOnlyList<string>> GetDppIdsByProductIds(string userId, IReadOnlyList<string> productIds)
         {
             if (productIds is null || productIds.Count == 0)
             {
                 return new List<string>();
             }
 
-            // One set-based query rather than one query per product id. The previous per-id loop meant
-            // a single request could issue as many database round-trips as it listed identifiers,
-            // so a caller spending one rate-limit permit could drive thousands of queries.
-            var requested = new HashSet<string>(productIds, StringComparer.Ordinal);
+            List<ValueSetPassport> matches = await FindPassportsByProductIdsAsync(userId, productIds).ConfigureAwait(false);
+            return matches.Select(m => m.DppId).ToList();
+        }
+        /// <summary>
+        /// Every readable passport whose value set sets its template's UniqueProductIdentifier node to
+        /// one of <paramref name="productIds"/>, newest first.
+        /// </summary>
+        /// <remarks>
+        /// The store narrows candidates to sets holding a requested value in any entry, in one query.
+        /// Each candidate is then confirmed against its template's actual UniqueProductIdentifier
+        /// node, so a set that carries the same text in some other field never matches. The previous
+        /// lookup compared the product id with a node's NodeId rather than its value, so it could not
+        /// find a passport by product id at all.
+        /// </remarks>
+        private async Task<List<ValueSetPassport>> FindPassportsByProductIdsAsync(string userId, IReadOnlyCollection<string> productIds)
+        {
+            var requested = new HashSet<string>(productIds.Where(p => !string.IsNullOrEmpty(p)), StringComparer.Ordinal);
+            var found = new Dictionary<Guid, (ValueSetPassport Passport, DateTimeOffset LastModified)>();
+            if (requested.Count == 0)
+            {
+                return new List<ValueSetPassport>();
+            }
 
-            return _dataProvider.GetNodeModels(nsm => nsm.Objects, userId)
-                .Where(nsm => (nsm.DisplayName != null) && (nsm.DisplayName.Count > 0)
-                    && (nsm.DisplayName[0].Text == "UniqueProductIdentifier")
-                    && requested.Contains(nsm.NodeId))
-                .Select(nsm => nsm.NodeSet.Identifier)
-                .ToList();
+            // Per template: its identifier node, and the value a set inherits when it has no override.
+            // Resolved once each; a null node also caches "template not visible to this caller".
+            var templates = new Dictionary<string, (string IdNode, string Inherited)>(StringComparer.Ordinal);
+            async Task<(string IdNode, string Inherited)> TemplateAsync(string nodesetIdentifier)
+            {
+                if (!templates.TryGetValue(nodesetIdentifier, out (string IdNode, string Inherited) info))
+                {
+                    string idNode = await IsNodesetAccessibleAsync(userId, nodesetIdentifier).ConfigureAwait(false)
+                        ? await FindPropertyNodeIdAsync(userId, nodesetIdentifier, "UniqueProductIdentifier").ConfigureAwait(false)
+                        : null;
+                    string inherited = idNode is null ? null : await _client.VariableRead(userId, nodesetIdentifier, idNode).ConfigureAwait(false);
+                    info = (idNode, inherited);
+                    templates[nodesetIdentifier] = info;
+                }
+
+                return info;
+            }
+
+            // A set's product identifier is its override if it has one, otherwise the template's value -
+            // the same fallback a passport read applies. Matching on the effective value is what finds
+            // a set that never overrode the identifier, or had its override removed.
+            async Task ConsiderAsync(NodesetValueSet set)
+            {
+                if (found.ContainsKey(set.Id))
+                {
+                    return;
+                }
+
+                (string idNode, string inherited) = await TemplateAsync(set.NodesetIdentifier).ConfigureAwait(false);
+                if (idNode is null)
+                {
+                    return;
+                }
+
+                Dictionary<string, string> overlay = ToOverlay(set.Entries);
+                string effective = overlay.TryGetValue(idNode, out string own) ? own : inherited;
+                if (effective is not null && requested.Contains(effective))
+                {
+                    found[set.Id] = (ToPassport(set, overlay), set.LastModified);
+                }
+            }
+
+            // Candidates that override the identifier with a requested value.
+            foreach (NodesetValueSet set in await _valueSets.FindReadableByEntryValuesAsync(requested, userId).ConfigureAwait(false))
+            {
+                await ConsiderAsync(set).ConfigureAwait(false);
+            }
+
+            // Candidates that inherit it: every readable set on a template whose own identifier is a
+            // requested value. The template's identifier is read through the OPC UA client, which loads
+            // the nodeset together with its uploaded values file, so it is the same effective value a
+            // passport read returns. The indexed nodeset XML cannot be used to pick these templates: the
+            // values file is applied after indexing, so a template whose XML says "SN-0" but whose values
+            // say "SN-1" would be missed. Instead every template with at least one readable set is a
+            // candidate - bounded by the caller's readable sets, not by all nodesets.
+            var matchingTemplates = templates
+                .Where(t => t.Value.Inherited is not null && requested.Contains(t.Value.Inherited))
+                .Select(t => t.Key)
+                .ToHashSet(StringComparer.Ordinal);
+            foreach (string nodesetIdentifier in await _valueSets.ListReadableTemplatesAsync(userId).ConfigureAwait(false))
+            {
+                (string _, string inherited) = await TemplateAsync(nodesetIdentifier).ConfigureAwait(false);
+                if (inherited is not null && requested.Contains(inherited))
+                {
+                    matchingTemplates.Add(nodesetIdentifier);
+                }
+            }
+
+            foreach (NodesetValueSet set in await _valueSets.FindReadableByTemplatesAsync(matchingTemplates, userId).ConfigureAwait(false))
+            {
+                await ConsiderAsync(set).ConfigureAwait(false);
+            }
+
+            return found.Values.OrderByDescending(r => r.LastModified).Select(r => r.Passport).ToList();
         }
 
+        // The NodeId of a named property directly under the template's DigitalProductPassport object.
+        private async Task<string> FindPropertyNodeIdAsync(string userId, string nodesetIdentifier, string browseName)
+        {
+            NodesetViewerNode dppNode = await FindDppNodeAsync(userId, nodesetIdentifier).ConfigureAwait(false);
+            if (dppNode is null)
+            {
+                return null;
+            }
+
+            List<NodesetViewerNode> properties = await _client.GetChildren(userId, nodesetIdentifier, dppNode.Id).ConfigureAwait(false);
+            return properties?.FirstOrDefault(p => p.Text == browseName)?.Id;
+        }
         public async Task<(ElementResult Result, string ErrorMessage, DataElement Element)> GetElement(
             string userId, string dppId, string elementIdPath)
         {
@@ -820,7 +920,19 @@ namespace Opc.Ua.Cloud.Library
             /// longer matches any consistent version and needs operator attention. Reporting both
             /// identically would bury the second in the noise of the first.
             /// </remarks>
-            WriteFailedPartiallyApplied
+            WriteFailedPartiallyApplied,
+
+            /// <summary>
+            /// The caller lacks a role required to write a controlled element touched by the update.
+            /// Nothing was changed.
+            /// </summary>
+            Forbidden,
+
+            /// <summary>
+            /// The passport changed between being read and being written, so the update was refused
+            /// rather than applied on top of a view it never saw. Nothing was changed; re-read and retry.
+            /// </summary>
+            Conflict
         }
 
         // JSON key (camelCase per DigitalProductPassport contract) -> OPC UA BrowseName (PascalCase per nodeset).
@@ -887,25 +999,20 @@ namespace Opc.Ua.Cloud.Library
                     : (UpdateDppResult.Success, null, unchanged);
             }
 
-            // Locate the DPP root node in the OPC UA address space (same lookup pattern as the read path).
-            List<NodesetViewerNode> rootChildren = await _client.GetChildren(userId, dppId, ObjectIds.ObjectsFolder.ToString()).ConfigureAwait(false);
-            if (rootChildren == null)
-            {
-                return (UpdateDppResult.NotFound, null, null);
-            }
-
-            NodesetViewerNode dppNode = rootChildren.FirstOrDefault(n => n.Text == "DigitalProductPassport");
+            // A passport is a value set: resolve it (which also enforces read access) and browse its
+            // template for the node ids each field maps to.
+            ValueSetPassport passport = await ResolvePassportAsync(userId, dppId).ConfigureAwait(false);
+            NodesetViewerNode dppNode = passport is null ? null : await FindDppNodeAsync(userId, passport.NodesetIdentifier).ConfigureAwait(false);
             if (dppNode == null)
             {
                 return (UpdateDppResult.NotFound, null, null);
             }
 
-            List<NodesetViewerNode> dppProperties = await _client.GetChildren(userId, dppId, dppNode.Id).ConfigureAwait(false);
+            List<NodesetViewerNode> dppProperties = await _client.GetChildren(userId, passport.NodesetIdentifier, dppNode.Id).ConfigureAwait(false);
             if (dppProperties == null)
             {
                 return (UpdateDppResult.NotFound, null, null);
             }
-
             // --- Phase 1: resolve every requested write to a concrete OPC UA node id; reject the whole patch on any mismatch. ---
             var pendingWrites = new List<(string NodeId, string Value, string FieldPath)>();
 
@@ -930,7 +1037,7 @@ namespace Opc.Ua.Cloud.Library
                         return (UpdateDppResult.BadRequest, "'elements' must be a JSON array (deletion via null is not supported).", null);
                     }
 
-                    var (err, resolved) = await ResolveElementWritesAsync(userId, dppId, elementsNode, elementsArray, "elements").ConfigureAwait(false);
+                    var (err, resolved) = await ResolveElementWritesAsync(userId, passport.NodesetIdentifier, elementsNode, elementsArray, "elements").ConfigureAwait(false);
                     if (err != null)
                     {
                         return (UpdateDppResult.BadRequest, err, null);
@@ -982,126 +1089,361 @@ namespace Opc.Ua.Cloud.Library
                     : (UpdateDppResult.Success, null, unchanged);
             }
 
-            // Snapshot the current DPP before mutating so ReadDPPVersionByIdAndDate can serve the
-            // pre-update version (EN 18221 Clause 4.2 archiving requirement). The snapshot is
-            // captured here but only committed to the archive after the live writes and the
-            // persistence step both succeed, so a failed update never leaves a phantom archive row.
-            DigitalProductPassport preUpdate = await GetByDppId(userId, dppId).ConfigureAwait(false);
-
-            // Fail fast if the pre-update snapshot is unavailable: archival (EN 18221 Clause 4.2) is
-            // part of the update contract, so a missing snapshot guarantees the update would fail
-            // during archival anyway. Bailing out before any write avoids applying + persisting
-            // changes only to roll them back (and the associated PublicationDate churn / rollback
-            // risk). A null snapshot here means the DPP could not be read, so NotFound is correct.
+            // Snapshot the current version for the archive; a passport that cannot be read is gone.
+            DigitalProductPassport preUpdate = await BuildPassportAsync(userId, passport).ConfigureAwait(false);
             if (preUpdate is null)
             {
                 return (UpdateDppResult.NotFound, null, null);
             }
 
-            // Capture the access policy that governs the pre-update version too, and capture it now:
-            // PersistNodesetValuesAsync below rewrites the values blob this mapping lives in, so
-            // reading it at archive time would record the post-update policy against the pre-update
-            // data. That mismatch is what lets a historical read expose an element whose control was
-            // removed by this very update.
-            DbFiles preUpdateFile = await _storage.DownloadFileAsync(dppId).ConfigureAwait(false);
-            string preUpdatePolicy = preUpdateFile?.Values;
-
-            // will fail and there should be no changes adopted in the DPP". OPC UA writes are not
-            // transactional, so we honor that contract on a best-effort basis: capture each target's
-            // current value immediately before writing it, and on the first write failure attempt to
-            // restore every already-applied write to its captured baseline. The only residual case
-            // where the live DPP can stay partially mutated is when the compensating restore writes
-            // themselves fail, which is logged so operators can reconcile manually.
-            var appliedWrites = new List<(string NodeId, string OriginalValue, string FieldPath)>();
-
-            foreach (var (nodeId, value, fieldPath) in pendingWrites)
+            (UpdateDppResult result, string error) = await CommitValueSetWritesAsync(userId, passport, preUpdate, pendingWrites).ConfigureAwait(false);
+            if (result != UpdateDppResult.Success)
             {
-                string originalValue = await _client.VariableRead(userId, dppId, nodeId).ConfigureAwait(false);
-                bool ok = await _client.VariableWrite(userId, dppId, nodeId, value).ConfigureAwait(false);
-                if (!ok)
-                {
-                    _logger.LogError("UpdateDppById: write failed for DPP {DppId}, field '{Field}'.", dppId, fieldPath);
-                    bool fieldRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
-                    return (fieldRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
-                        $"Failed to write field '{fieldPath}'.", null);
-                }
-
-                appliedWrites.Add((nodeId, originalValue, fieldPath));
+                return (result, error, null);
             }
-
-            // Advance LastUpdate now that the field writes have all succeeded. This is the activation
-            // timestamp of the version this update produces; GetDppVersionByIdAndDate and
-            // GetByProductId rely on it to pick the correct/latest version. The bump is tracked in
-            // appliedWrites so a persistence or archival failure below rolls the timestamp back too.
-            // preUpdate was captured before this bump, so the archive still records the previous
-            // version under its own (older) LastUpdate, keeping the boundary unambiguous.
-            (string NodeId, string OriginalValue, string FieldPath)? lastUpdateWrite =
-                await BumpLastUpdateAsync(userId, dppId, dppProperties).ConfigureAwait(false);
-            if (lastUpdateWrite is null)
-            {
-                bool timestampRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
-                return (timestampRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
-                    "Update could not be completed; the version timestamp could not be advanced.", null);
-            }
-
-            appliedWrites.Add(lastUpdateWrite.Value);
-
-            // Mirror BrowserController.Save: writes go to the live SimpleServer in-memory, so we
-            // must explicitly snapshot the variable values back into DbFiles.Values for the change
-            // to survive a session / server restart.
-            if (!await PersistNodesetValuesAsync(userId, dppId).ConfigureAwait(false))
-            {
-                _logger.LogError("UpdateDppById: failed to persist updated values for DPP {DppId}.", dppId);
-                // The OPC UA writes succeeded but did not make it to durable storage. Honor the
-                // best-effort "no changes adopted on failure" contract by reverting the live nodes
-                // back to their captured pre-update values; otherwise the in-memory DPP would
-                // diverge from what is on disk until the next server restart.
-                bool persistRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
-                return (persistRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
-                    "Update applied in memory but could not be persisted to storage.", null);
-            }
-
-            // Only now that the change is durable do we commit the pre-update snapshot to the
-            // archive. Archiving last keeps the version history in sync with what actually got
-            // persisted and avoids phantom archive entries for failed updates. EN 18221 Clause 4.2
-            // makes archival part of the update contract, so if archiving fails we treat the entire
-            // update as failed and roll back the already-applied writes to honor the "no changes
-            // adopted on failure" contract. This prevents clients from seeing a 500 for a durable
-            // update and inadvertently retrying (which would apply the update twice).
-            //
-            // The archive is keyed by "valid-from" timestamps: a snapshot stored at time T is
-            // considered the active version for any query asOfUtc >= T until the next snapshot.
-            // The pre-update version became active when its own LastUpdate stamp was written, so
-            // we archive it with preUpdate.LastUpdate (UTC-normalized) rather than UtcNow. Using
-            // UtcNow would record the moment the *new* version takes over, which makes the
-            // ordered lookup in IDppVersionArchive.GetVersionAtAsync miss the snapshot for any
-            // asOfUtc < UtcNow even though that asOfUtc was inside the snapshot's validity
-            // window.
-            //
-            // preUpdate is guaranteed non-null here (we failed fast above if the snapshot could not
-            // be captured), so we always have a previous version to archive.
-            bool archived = await _archive.ArchiveAsync(dppId, preUpdate, preUpdatePolicy, preUpdate.LastUpdate.ToUniversalTime()).ConfigureAwait(false);
-            if (!archived)
-            {
-                _logger.LogError("UpdateDppById: archive write failed for DPP {DppId}; rolling back durable update to honor no-changes-on-failure contract.", dppId);
-                bool archiveRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
-                if (!await PersistNodesetValuesAsync(userId, dppId).ConfigureAwait(false))
-                {
-                    _logger.LogError("UpdateDppById: rollback persist also failed for DPP {DppId}; update is now durable but archive is missing and client sees failure.", dppId);
-
-                    // The reverted values never reached storage, so the durable state still carries
-                    // the update the client is being told failed.
-                    archiveRolledBack = false;
-                }
-
-                return (archiveRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
-                    "Update could not be completed; previous version could not be archived.", null);
-            }
-
             DigitalProductPassport updated = await GetByDppId(userId, dppId).ConfigureAwait(false);
             return (UpdateDppResult.Success, null, updated);
         }
 
+        /// <summary>
+        /// Maps every node under the template's Elements collection to its canonical access key (the
+        /// dotted element-id chain), so a write addressed by NodeId can be checked against the same
+        /// controlled-elements keys a PATCH is. Header properties are not in the map: they sit outside
+        /// Elements and no controlled-elements key can name them.
+        /// </summary>
+        private async Task<Dictionary<string, string>> MapElementAccessKeysAsync(string userId, string nodesetIdentifier)
+        {
+            var keys = new Dictionary<string, string>(StringComparer.Ordinal);
+            NodesetViewerNode dppNode = await FindDppNodeAsync(userId, nodesetIdentifier).ConfigureAwait(false);
+            if (dppNode is null)
+            {
+                return keys;
+            }
+
+            List<NodesetViewerNode> properties = await _client.GetChildren(userId, nodesetIdentifier, dppNode.Id).ConfigureAwait(false);
+            NodesetViewerNode elements = properties?.FirstOrDefault(p => p.Text == "Elements");
+            if (elements is not null)
+            {
+                await MapChildrenAsync(userId, nodesetIdentifier, elements.Id, null, keys).ConfigureAwait(false);
+            }
+
+            return keys;
+        }
+
+        private async Task MapChildrenAsync(string userId, string nodesetIdentifier, string parentId, string parentPath, Dictionary<string, string> keys)
+        {
+            List<NodesetViewerNode> children = await _client.GetChildren(userId, nodesetIdentifier, parentId).ConfigureAwait(false);
+            foreach (NodesetViewerNode child in children ?? new List<NodesetViewerNode>())
+            {
+                string path = parentPath is null ? BuildElementId(child.Id) : parentPath + "." + BuildElementId(child.Id);
+                keys[child.Id] = path;
+                await MapChildrenAsync(userId, nodesetIdentifier, child.Id, path, keys).ConfigureAwait(false);
+            }
+        }
+
+        public enum PublishValueSetResult
+        {
+            Success,
+            NotFound,
+
+            /// <summary>
+            /// The set's template has no DigitalProductPassport object, so there is no passport to
+            /// publish: the DPP URL would return 404.
+            /// </summary>
+            NotAPassport,
+
+            /// <summary>
+            /// The set's template could not be read, so it is unknown whether it is a passport.
+            /// Nothing was changed; the caller may retry.
+            /// </summary>
+            TemplateUnavailable
+        }
+
+        /// <summary>
+        /// Publishes or unpublishes a value set. The single publication path for the REST API and
+        /// the browser, so both refuse to publish a set whose template cannot produce a passport.
+        /// Unpublishing is always allowed, since it only narrows access.
+        /// </summary>
+        /// <exception cref="Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException">The set changed after it was loaded.</exception>
+        public async Task<PublishValueSetResult> SetValueSetPublishedAsync(string userId, Guid valueSetId, bool publish)
+        {
+            Models.NodesetValueSet set = await _valueSets.GetAsync(valueSetId, userId).ConfigureAwait(false);
+            if (set is null)
+            {
+                return PublishValueSetResult.NotFound;
+            }
+
+            if (publish)
+            {
+                switch (await ClassifyTemplateAsync(userId, set.NodesetIdentifier).ConfigureAwait(false))
+                {
+                    case TemplateKind.Ordinary:
+                        return PublishValueSetResult.NotAPassport;
+
+                    case TemplateKind.Unknown:
+                        return PublishValueSetResult.TemplateUnavailable;
+                }
+            }
+
+            return await _valueSets.SetPublishedAsync(valueSetId, userId, publish).ConfigureAwait(false)
+                ? PublishValueSetResult.Success
+                : PublishValueSetResult.NotFound;
+        }
+
+        /// <summary>
+        /// Writes and removes node values on a value set through the same rules as a DPP PATCH.
+        /// </summary>
+        /// <remarks>
+        /// A value set is a passport, so a value edit made through the value-set API or the nodeset
+        /// browser is a passport update and must behave like one: only the owner may write; the
+        /// caller needs the controlled-element role for every element touched; the previous version
+        /// is archived; LastUpdate advances; and a concurrent change is refused rather than
+        /// overwritten. Routing every value change through here is what keeps those rules from
+        /// depending on which screen or endpoint the change came from.
+        /// <para>
+        /// <paramref name="writes"/> maps a node id to its new value; <paramref name="removals"/>
+        /// lists node ids whose override is dropped so they fall back to the template value.
+        /// </para>
+        /// </remarks>
+        public async Task<(UpdateDppResult Result, string ErrorMessage)> UpdateValueSetValuesAsync(
+            string userId,
+            Guid valueSetId,
+            IReadOnlyDictionary<string, string> writes,
+            IReadOnlyCollection<string> removals,
+            IEnumerable<string> callerRoles)
+        {
+            ValueSetPassport passport = await ResolvePassportAsync(userId, valueSetId.ToString()).ConfigureAwait(false);
+            if (passport is null)
+            {
+                return (UpdateDppResult.NotFound, null);
+            }
+
+            // A value set on an ordinary nodeset (no DigitalProductPassport object) is a plain overlay,
+            // not a passport. It keeps the owner check, per-node validation, revision check and
+            // auditing, but has no access policy to enforce and no version history to keep. Only a
+            // template that was actually browsed and found to have no passport takes that path; if
+            // the browse fails, nothing is written.
+            switch (await ClassifyTemplateAsync(userId, passport.NodesetIdentifier).ConfigureAwait(false))
+            {
+                case TemplateKind.Unknown:
+                    return (UpdateDppResult.WriteFailed, "The nodeset could not be read, so the change could not be checked. Nothing was changed; try again.");
+
+                case TemplateKind.Ordinary:
+                    return await CommitOverlayWritesAsync(userId, passport, writes, removals).ConfigureAwait(false);
+            }
+
+            DigitalProductPassport preUpdate = await BuildPassportAsync(userId, passport).ConfigureAwait(false);
+            if (preUpdate is null)
+            {
+                return (UpdateDppResult.NotFound, null);
+            }
+
+            var resolved = (writes ?? new Dictionary<string, string>())
+                .Select(kv => (NodeId: kv.Key, Value: kv.Value, FieldPath: kv.Key))
+                .ToList();
+
+            return await CommitValueSetWritesAsync(userId, passport, preUpdate, resolved, callerRoles ?? Array.Empty<string>(), removals).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Writes and removes values on a value set whose template is not a Digital Product Passport.
+        /// </summary>
+        /// <remarks>
+        /// An ordinary nodeset's value set is a private overlay, so there is no controlled-elements
+        /// policy, version archive or LastUpdate to maintain. It still gets the rules every overlay
+        /// edit needs: only the owner may write, each value is validated against its node, and the
+        /// revision check refuses a write based on a stale read rather than overwriting a newer one.
+        /// The caller audits the outcome.
+        /// </remarks>
+        private async Task<(UpdateDppResult Result, string ErrorMessage)> CommitOverlayWritesAsync(
+            string userId,
+            ValueSetPassport set,
+            IReadOnlyDictionary<string, string> writes,
+            IReadOnlyCollection<string> removals)
+        {
+            if (!string.Equals(set.OwnerId, userId, StringComparison.Ordinal))
+            {
+                return (UpdateDppResult.NotFound, null);
+            }
+
+            var values = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (KeyValuePair<string, string> kv in writes ?? new Dictionary<string, string>())
+            {
+                string invalid = await _client.ValidateValueForNode(userId, set.NodesetIdentifier, kv.Key, kv.Value).ConfigureAwait(false);
+                if (invalid is not null)
+                {
+                    return (UpdateDppResult.BadRequest, $"Node '{kv.Key}': {invalid}");
+                }
+
+                values[kv.Key] = kv.Value;
+            }
+
+            var removed = (removals ?? Array.Empty<string>()).Where(n => !values.ContainsKey(n)).ToList();
+
+            long? committed;
+            try
+            {
+                committed = await _valueSets.ApplyChangesAsync(set.ValueSetId, userId, set.Revision, values, removed).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Value set {ValueSetId} could not be saved; nothing was changed.", set.ValueSetId);
+                return (UpdateDppResult.WriteFailed, "The change could not be saved.");
+            }
+
+            return committed is null
+                ? (UpdateDppResult.Conflict, "The value set was changed by another request. Reload it and try again.")
+                : (UpdateDppResult.Success, null);
+        }
+        /// <summary>
+        /// Commits resolved writes to a passport's value set, advancing LastUpdate, then archives the
+        /// pre-update version.
+        /// </summary>
+        /// <remarks>
+        /// A passport's values live in its value set, so an update is one database transaction rather
+        /// than a sequence of writes to the shared OPC UA server, which other passports built on the
+        /// same template also read. All writes land or none do, which satisfies EN 18222's "no changes
+        /// adopted on failure" outright instead of by best-effort rollback. Each value is checked
+        /// against the template node's type and write access first, as a value-set edit is.
+        /// <para>
+        /// The archive is written after the commit. If archiving fails the previous values are
+        /// restored in a second transaction, and only if that also fails is the update reported as
+        /// partially applied. Archive keys are the passport id, so each passport keeps its own history.
+        /// </para>
+        /// </remarks>
+        private async Task<(UpdateDppResult Result, string ErrorMessage)> CommitValueSetWritesAsync(
+            string userId,
+            ValueSetPassport passport,
+            DigitalProductPassport preUpdate,
+            List<(string NodeId, string Value, string FieldPath)> writes,
+            IEnumerable<string> callerRoles = null,
+            IReadOnlyCollection<string> removals = null)
+        {
+            if (!string.Equals(passport.OwnerId, userId, StringComparison.Ordinal))
+            {
+                // Published sets are readable by anyone but writable only by their owner.
+                return (UpdateDppResult.NotFound, null);
+            }
+
+            // Read the template's policy source exactly once. That one value is both validated here and
+            // archived below, so the policy recorded for the pre-update version can never differ from
+            // the policy this write was authorized against. A missing, unreadable or invalid source
+            // refuses the update: archiving it would record "no policy", which reads back as public.
+            DbFiles policySource;
+            try
+            {
+                policySource = await _storage.DownloadFileAsync(passport.NodesetIdentifier).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Update of DPP {DppId} refused: the template's access policy could not be loaded.", passport.DppId);
+                return (UpdateDppResult.WriteFailed, "The update was refused because the passport's access policy could not be loaded.");
+            }
+
+            DppControlledElements.MappingResult policy = policySource is null
+                ? DppControlledElements.Unavailable()
+                : DppControlledElements.Read(policySource.Values);
+            if (policy.IsInvalid)
+            {
+                _logger.LogError("Update of DPP {DppId} refused: the template's access policy is missing or invalid.", passport.DppId);
+                return (UpdateDppResult.WriteFailed, "The update was refused because the passport's access policy is missing or invalid.");
+            }
+
+            // Enforce controlled-element write rights for every element touched, against the policy
+            // read above. PATCH callers are also checked by the controller; value-set callers rely on
+            // this check alone, so it must hold for every path that changes passport values.
+            if (callerRoles is not null && policy.Entries.Count > 0)
+            {
+                string[] roles = callerRoles.ToArray();
+                Dictionary<string, string> accessKeys = await MapElementAccessKeysAsync(userId, passport.NodesetIdentifier).ConfigureAwait(false);
+                foreach (string nodeId in writes.Select(w => w.NodeId).Concat(removals ?? Array.Empty<string>()))
+                {
+                    if (accessKeys.TryGetValue(nodeId, out string key) && !_accessPolicy.CanRead(key, roles, policy.Entries))
+                    {
+                        return (UpdateDppResult.Forbidden, "Caller is not authorized to modify controlled elements of this DPP.");
+                    }
+                }
+            }
+
+            string lastUpdateNode = await FindPropertyNodeIdAsync(userId, passport.NodesetIdentifier, "LastUpdate").ConfigureAwait(false);
+            if (lastUpdateNode is null)
+            {
+                return (UpdateDppResult.WriteFailed, "The DPP template does not expose a LastUpdate node, so the version timestamp cannot be advanced.");
+            }
+
+            var values = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach ((string nodeId, string value, string fieldPath) in writes)
+            {
+                string invalid = await _client.ValidateValueForNode(userId, passport.NodesetIdentifier, nodeId, value).ConfigureAwait(false);
+                if (invalid is not null)
+                {
+                    return (UpdateDppResult.BadRequest, $"Field '{fieldPath}': {invalid}");
+                }
+
+                values[nodeId] = value;
+            }
+
+            values[lastUpdateNode] = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+            var removed = new List<string>((removals ?? Array.Empty<string>()).Where(n => !values.ContainsKey(n)));
+
+            // Remember each touched node's previous entry so a failed archive can be undone exactly:
+            // nodes the set already overrode get their old value back, the rest are removed again.
+            var previous = new Dictionary<string, string>(StringComparer.Ordinal);
+            var added = new List<string>();
+            foreach (string nodeId in values.Keys.Concat(removed))
+            {
+                if (passport.Overlay.TryGetValue(nodeId, out string old))
+                {
+                    previous[nodeId] = old;
+                }
+                else if (values.ContainsKey(nodeId))
+                {
+                    added.Add(nodeId);
+                }
+            }
+
+            // Compare-and-swap against the revision the passport was resolved at: if anything changed
+            // the set since, refuse rather than apply this update on top of a view it never saw.
+            long? committedRevision;
+            try
+            {
+                committedRevision = await _valueSets.ApplyChangesAsync(passport.ValueSetId, userId, passport.Revision, values, removed).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Update of DPP {DppId} could not be saved; nothing was changed.", passport.DppId);
+                return (UpdateDppResult.WriteFailed, "The update could not be saved.");
+            }
+
+            if (committedRevision is null)
+            {
+                return (UpdateDppResult.Conflict, "The passport was changed by another request. Reload it and try again.");
+            }
+
+            if (await _archive.ArchiveAsync(passport.DppId, preUpdate, policySource.Values, preUpdate.LastUpdate.ToUniversalTime()).ConfigureAwait(false))
+            {
+                return (UpdateDppResult.Success, null);
+            }
+
+            _logger.LogError("Update of DPP {DppId}: the previous version could not be archived; restoring the previous values.", passport.DppId);
+            try
+            {
+                // Revision-checked: only undoes this update if nothing has been written since. If a later
+                // update has landed, restoring would overwrite it, so it is left in place and reported.
+                if (await _valueSets.RestoreValuesAsync(passport.ValueSetId, userId, committedRevision.Value, previous, added).ConfigureAwait(false))
+                {
+                    return (UpdateDppResult.WriteFailed, "Update could not be completed; previous version could not be archived.");
+                }
+
+                _logger.LogError("Update of DPP {DppId}: not restored because a later update has been applied since; this update is applied but unarchived.", passport.DppId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Update of DPP {DppId}: restoring the previous values also failed; the update is applied but unarchived.", passport.DppId);
+            }
+
+            return (UpdateDppResult.WriteFailedPartiallyApplied, "Update could not be completed; previous version could not be archived.");
+        }
         /// <summary>
         /// Updates a single leaf <see cref="DataElement"/> on a DPP, addressed by an RFC 9535 JSONPath,
         /// per EN 18222 (Method UpdateDataElement).
@@ -1131,19 +1473,15 @@ namespace Opc.Ua.Cloud.Library
             }
 
             // Locate the DPP root node (same pattern as UpdateDppById).
-            List<NodesetViewerNode> rootChildren = await _client.GetChildren(userId, dppId, ObjectIds.ObjectsFolder.ToString()).ConfigureAwait(false);
-            if (rootChildren == null)
-            {
-                return (UpdateDppResult.NotFound, null, null);
-            }
-
-            NodesetViewerNode dppNode = rootChildren.FirstOrDefault(n => n.Text == "DigitalProductPassport");
+            // A passport is a value set; resolve it and browse its template, as UpdateDppById does.
+            ValueSetPassport passport = await ResolvePassportAsync(userId, dppId).ConfigureAwait(false);
+            NodesetViewerNode dppNode = passport is null ? null : await FindDppNodeAsync(userId, passport.NodesetIdentifier).ConfigureAwait(false);
             if (dppNode == null)
             {
                 return (UpdateDppResult.NotFound, null, null);
             }
 
-            List<NodesetViewerNode> dppProperties = await _client.GetChildren(userId, dppId, dppNode.Id).ConfigureAwait(false);
+            List<NodesetViewerNode> dppProperties = await _client.GetChildren(userId, passport.NodesetIdentifier, dppNode.Id).ConfigureAwait(false);
             NodesetViewerNode elementsNode = dppProperties?.FirstOrDefault(p => p.Text == "Elements");
             if (elementsNode == null)
             {
@@ -1176,7 +1514,7 @@ namespace Opc.Ua.Cloud.Library
 
             // Walk the live OPC UA tree per JSONPath segment.
             NodesetViewerNode current = elementsNode;
-            List<NodesetViewerNode> currentChildren = await _client.GetChildren(userId, dppId, current.Id).ConfigureAwait(false);
+            List<NodesetViewerNode> currentChildren = await _client.GetChildren(userId, passport.NodesetIdentifier, current.Id).ConfigureAwait(false);
 
             for (int i = startIndex; i < endIndex; i++)
             {
@@ -1199,12 +1537,12 @@ namespace Opc.Ua.Cloud.Library
 
                 if (i < endIndex - 1)
                 {
-                    currentChildren = await _client.GetChildren(userId, dppId, current.Id).ConfigureAwait(false);
+                    currentChildren = await _client.GetChildren(userId, passport.NodesetIdentifier, current.Id).ConfigureAwait(false);
                 }
                 else
                 {
                     // Final segment: confirm this is a leaf, not a collection.
-                    List<NodesetViewerNode> grandChildren = await _client.GetChildren(userId, dppId, current.Id).ConfigureAwait(false);
+                    List<NodesetViewerNode> grandChildren = await _client.GetChildren(userId, passport.NodesetIdentifier, current.Id).ConfigureAwait(false);
                     if (grandChildren != null && grandChildren.Count > 0)
                     {
                         return (UpdateDppResult.BadRequest,
@@ -1231,105 +1569,22 @@ namespace Opc.Ua.Cloud.Library
                     null);
             }
 
-            // Snapshot the pre-update DPP up front so we capture the version that was live before
-            // this write was issued. The snapshot is only committed to the archive once both the
-            // VariableWrite and PersistNodesetValuesAsync calls below succeed - that way a failed
-            // update never produces a phantom archive entry.
-            DigitalProductPassport preUpdate = await GetByDppId(userId, dppId).ConfigureAwait(false);
-
-            // Fail fast if the pre-update snapshot is unavailable: archival (EN 18221 Clause 4.2) is
-            // part of the update contract, so a missing snapshot guarantees the update would fail
-            // during archival anyway. Bailing out before the live write + LastUpdate bump +
-            // persistence avoids mutating the DPP only to roll it back (and the chance that the
-            // rollback itself fails and leaves the DPP partially mutated). A null snapshot here means
-            // the DPP could not be read, so NotFound is correct.
+            // Snapshot the current version for the archive; a passport that cannot be read is gone.
+            DigitalProductPassport preUpdate = await BuildPassportAsync(userId, passport).ConfigureAwait(false);
             if (preUpdate is null)
             {
                 return (UpdateDppResult.NotFound, null, null);
             }
 
-            // Capture the pre-update access policy now, before PersistNodesetValuesAsync rewrites
-            // the values blob it lives in; see the matching comment in UpdateDppById.
-            DbFiles elementPreUpdateFile = await _storage.DownloadFileAsync(dppId).ConfigureAwait(false);
-            string elementPreUpdatePolicy = elementPreUpdateFile?.Values;
-
-            // Capture the live leaf value immediately before the write so we can roll back to it
-            // if any of the subsequent steps fail. Mirrors the appliedWrites bookkeeping in
-            // UpdateDppById and keeps the best-effort "no changes adopted on failure" contract
-            // honest for the single-element path too. Failures of the compensating restore itself
-            // are logged but otherwise unobservable - same caveat as UpdateDppById.
-            string originalLeafValue = await _client.VariableRead(userId, dppId, current.Id).ConfigureAwait(false);
-
-            bool ok = await _client.VariableWrite(userId, dppId, current.Id, JsonNodeToWireValue(payloadValue)).ConfigureAwait(false);
-            if (!ok)
-            {
-                _logger.LogError("UpdateDataElement: write failed for DPP {DppId}, path '{Path}'.", dppId, elementIdPath);
-                return (UpdateDppResult.WriteFailed, $"Failed to write element '{elementIdPath}'.", null);
-            }
-
-            var appliedWrites = new List<(string NodeId, string OriginalValue, string FieldPath)> {
-                (current.Id, originalLeafValue, elementIdPath)
+            var elementWrite = new List<(string NodeId, string Value, string FieldPath)> {
+                (current.Id, JsonNodeToWireValue(payloadValue), elementIdPath)
             };
 
-            // Advance LastUpdate now that the leaf write has succeeded; this is the activation
-            // timestamp of the version this update produces. GetDppVersionByIdAndDate and
-            // GetByProductId rely on it to select the correct/latest version, so a leaf update must
-            // bump it just like UpdateDppById. The bump is appended to appliedWrites so a persistence
-            // or archival failure below rolls the timestamp back together with the leaf write.
-            // preUpdate was snapshotted before the bump, so the archive records the previous version
-            // under its own (older) LastUpdate, keeping the version boundary unambiguous.
-            (string NodeId, string OriginalValue, string FieldPath)? lastUpdateWrite =
-                await BumpLastUpdateAsync(userId, dppId, dppProperties).ConfigureAwait(false);
-            if (lastUpdateWrite is null)
+            (UpdateDppResult result, string error) = await CommitValueSetWritesAsync(userId, passport, preUpdate, elementWrite).ConfigureAwait(false);
+            if (result != UpdateDppResult.Success)
             {
-                bool elementTimestampRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
-                return (elementTimestampRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
-                    "Update could not be completed; the version timestamp could not be advanced.", null);
+                return (result, error, null);
             }
-
-            appliedWrites.Add(lastUpdateWrite.Value);
-
-            // Persist values to DbFiles.Values so the write survives a session restart.
-            if (!await PersistNodesetValuesAsync(userId, dppId).ConfigureAwait(false))
-            {
-                _logger.LogError("UpdateDataElement: failed to persist updated values for DPP {DppId}.", dppId);
-                bool elementPersistRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
-                return (elementPersistRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
-                    "Update applied in memory but could not be persisted to storage.", null);
-            }
-
-            // Only commit the archive snapshot after the change is durable, matching the ordering
-            // used by UpdateDppById and keeping the version history aligned with what actually got
-            // persisted (Clause 4.7 - previous version remains addressable, but only for real updates).
-            // EN 18221 Clause 4.2 treats archival as part of the update contract, so if archiving
-            // fails we roll back the already-applied writes and re-persist to honor the
-            // "no changes adopted on failure" contract (same strategy as UpdateDppById). This
-            // prevents clients from seeing a 500 for a durable update and inadvertently retrying.
-            // The snapshot is stored under its own LastUpdate stamp (i.e. when that version became
-            // active) so the archive's at-or-before lookup returns it for any asOfUtc inside its
-            // validity window - see the matching comment block in UpdateDppById for the full
-            // rationale.
-            //
-            // preUpdate is guaranteed non-null here (we failed fast above if the snapshot could not
-            // be captured), so we always have a previous version to archive.
-            bool archived = await _archive.ArchiveAsync(dppId, preUpdate, elementPreUpdatePolicy, preUpdate.LastUpdate.ToUniversalTime()).ConfigureAwait(false);
-            if (!archived)
-            {
-                _logger.LogError("UpdateDataElement: archive write failed for DPP {DppId}; rolling back durable update to honor no-changes-on-failure contract.", dppId);
-                bool elementArchiveRolledBack = await TryRollbackWritesAsync(userId, dppId, appliedWrites).ConfigureAwait(false);
-                if (!await PersistNodesetValuesAsync(userId, dppId).ConfigureAwait(false))
-                {
-                    _logger.LogError("UpdateDataElement: rollback persist also failed for DPP {DppId}; update is now durable but archive is missing and client sees failure.", dppId);
-
-                    // The reverted values never reached storage, so the durable state still carries
-                    // the update the client is being told failed.
-                    elementArchiveRolledBack = false;
-                }
-
-                return (elementArchiveRolledBack ? UpdateDppResult.WriteFailed : UpdateDppResult.WriteFailedPartiallyApplied,
-                    "Update could not be completed; previous version could not be archived.", null);
-            }
-
             // Re-read the updated element to return it in the response. We rebuild the lookup path
             // from the normalized segment range [startIndex, endIndex) so that any trailing ".value"
             // (already excluded above) is not passed to GetElement: ResolveElement matches ElementId
@@ -1488,98 +1743,6 @@ namespace Opc.Ua.Cloud.Library
             return (null, writes);
         }
 
-        // Best-effort compensating rollback for the non-transactional OPC UA write loop in
-        // UpdateDppById. The list is iterated in reverse so the most-recently mutated node is
-        // restored first, mirroring how callers would unwind a try/finally chain. Failures to
-        // restore an individual node are logged but do not throw, because the only useful action
-        // from here is to surface as much diagnostic context as possible: at this point the
-        // original UpdateDppById call is already returning WriteFailed and the live DPP may
-        // still hold some of the in-flight values - logging lets operators reconcile manually.
-        /// <summary>
-        /// Attempts to restore the original values of writes already applied, returning true only
-        /// when every one was restored.
-        /// </summary>
-        /// <remarks>
-        /// The return value matters for auditing: a failed write whose rollback succeeded left the
-        /// DPP unchanged, whereas one whose rollback failed left it partially mutated. Those are
-        /// materially different outcomes for an operator, so the caller records them differently
-        /// rather than reporting both as a plain failure.
-        /// </remarks>
-        private async Task<bool> TryRollbackWritesAsync(
-            string userId,
-            string dppId,
-            List<(string NodeId, string OriginalValue, string FieldPath)> appliedWrites)
-        {
-            bool allRestored = true;
-
-            for (int i = appliedWrites.Count - 1; i >= 0; i--)
-            {
-                var (nodeId, originalValue, fieldPath) = appliedWrites[i];
-                try
-                {
-                    bool restored = await _client.VariableWrite(userId, dppId, nodeId, originalValue ?? string.Empty).ConfigureAwait(false);
-                    if (!restored)
-                    {
-                        allRestored = false;
-                        _logger.LogError(
-                            "UpdateDppById: rollback failed for DPP {DppId}, field '{Field}'. Live value may be inconsistent with the original snapshot.",
-                            dppId,
-                            fieldPath);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    allRestored = false;
-                    _logger.LogError(
-                        ex,
-                        "UpdateDppById: rollback threw for DPP {DppId}, field '{Field}'. Live value may be inconsistent with the original snapshot.",
-                        dppId,
-                        fieldPath);
-                }
-            }
-
-            return allRestored;
-        }
-
-        // Writes a fresh UTC timestamp to the DPP's "LastUpdate" variable so version retrieval and
-        // "latest" selection stay correct after a mutation. GetDppVersionByIdAndDate uses LastUpdate
-        // as the live-vs-archive activation boundary and GetByProductId picks the latest DPP by
-        // LastUpdate, so every non-noop update must advance it. The new value is the activation time
-        // of the version produced by the current update; the pre-update snapshot is archived under
-        // its own (older) LastUpdate, giving an unambiguous boundary between the two versions.
-        //
-        // Returns the (NodeId, OriginalValue, FieldPath) tuple so the caller can add it to its
-        // appliedWrites bookkeeping and have the timestamp restored if a later step fails. Returns
-        // null when the LastUpdate node is missing or the write fails; the caller treats that as a
-        // failed update (fail-closed) rather than silently leaving the timestamp stale.
-        private async Task<(string NodeId, string OriginalValue, string FieldPath)?> BumpLastUpdateAsync(
-            string userId,
-            string dppId,
-            List<NodesetViewerNode> dppProperties)
-        {
-            NodesetViewerNode lastUpdateNode = dppProperties?.FirstOrDefault(p => p.Text == "LastUpdate");
-            if (lastUpdateNode == null)
-            {
-                _logger.LogError("UpdateDpp: DPP {DppId} does not expose a LastUpdate node; cannot advance the version timestamp.", dppId);
-                return null;
-            }
-
-            string originalValue = await _client.VariableRead(userId, dppId, lastUpdateNode.Id).ConfigureAwait(false);
-
-            // ISO 8601 round-trip ("O") format so the read path's DateTimeOffset.TryParse reconstructs
-            // the exact instant (including offset) without loss.
-            string freshTimestamp = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture);
-
-            bool ok = await _client.VariableWrite(userId, dppId, lastUpdateNode.Id, freshTimestamp).ConfigureAwait(false);
-            if (!ok)
-            {
-                _logger.LogError("UpdateDpp: failed to write LastUpdate for DPP {DppId}.", dppId);
-                return null;
-            }
-
-            return (lastUpdateNode.Id, originalValue, "lastUpdate");
-        }
-
         // Converts a JSON value to the string payload accepted by UAClient.VariableWrite.
         private static string JsonNodeToWireValue(JsonNode node)
         {
@@ -1596,126 +1759,156 @@ namespace Opc.Ua.Cloud.Library
             return node.ToJsonString();
         }
 
-        // Snapshots the current variable values from the running OPC UA server back into the
-        // DbFiles.Values blob, mirroring BrowserController.Save. Keeping write and persistency
-        // separate in UAClient means each update path (DPP, browser UI, future callers) is
-        // responsible for explicitly persisting once its in-memory writes succeed.
-        //
-        // We also advance the nodeset XML's PublicationDate attribute on every save so each
-        // persisted snapshot is a distinct version of the nodeset, rather than silently
-        // overwriting the previously stored values for the same publication date. This mirrors
-        // the in-XML date bump already used by UAClient.CopyNodeset.
-        private async Task<bool> PersistNodesetValuesAsync(string userId, string nodesetIdentifier)
+        /// <summary>
+        /// A value set resolved as a Digital Product Passport: the set supplies the values, and its
+        /// template nodeset supplies the structure and the access policy.
+        /// </summary>
+        /// <remarks>
+        /// The nodeset is only a template with default or example values. A passport exists only as
+        /// a value set, which is why <see cref="DppId"/> is the set's id rather than the nodeset's.
+        /// </remarks>
+        private sealed record ValueSetPassport(string DppId, Guid ValueSetId, string NodesetIdentifier, string OwnerId, IReadOnlyDictionary<string, string> Overlay, long Revision, DateTimeOffset CreatedAt);
+
+        private static ValueSetPassport ToPassport(NodesetValueSet set, IReadOnlyDictionary<string, string> overlay) =>
+            new(set.Id.ToString(), set.Id, set.NodesetIdentifier, set.UserId, overlay, set.Revision, set.CreatedAt);
+
+        /// <summary>
+        /// Resolves <paramref name="dppId"/> to a value set the caller may read, or null.
+        /// </summary>
+        /// <remarks>
+        /// Authorization chokepoint for every DPP read and write. A set is readable by its owner, or
+        /// by anyone once published, and its template must also be visible to the caller: the
+        /// template is browsed to build the passport, so a set must never become a way to read a
+        /// template the caller could not otherwise see. Every failure returns the same null so the
+        /// API cannot be used to confirm that a private passport exists.
+        /// </remarks>
+        private async Task<ValueSetPassport> ResolvePassportAsync(string userId, string dppId)
         {
-            try
+            if (!Guid.TryParse(dppId, out Guid valueSetId))
             {
-                DbFiles file = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
-                if (file == null)
-                {
-                    _logger.LogError("PersistNodesetValuesAsync: nodeset {NodesetIdentifier} not found in storage.", nodesetIdentifier);
-                    return false;
-                }
-
-                Dictionary<string, string> values = await _client.BrowseVariableNodesResursivelyAsync(userId, nodesetIdentifier, null).ConfigureAwait(false);
-                if (values == null)
-                {
-                    _logger.LogError("PersistNodesetValuesAsync: failed to browse variable values for nodeset {NodesetIdentifier}.", nodesetIdentifier);
-                    return false;
-                }
-
-                string updatedXml = AdvancePublicationDate(file.Blob);
-                string serialized = JsonSerializer.Serialize(values, s_valuesJsonOptions);
-                // Re-attach the per-DPP controlledElements mapping: a browse only returns node values,
-                // so without this the access mapping carried in the values blob would be lost on update.
-                string merged = DppControlledElements.Merge(serialized, file.Values);
-                string stored = await _storage.UploadFileAsync(nodesetIdentifier, updatedXml, merged).ConfigureAwait(false);
-                return !string.IsNullOrEmpty(stored);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "PersistNodesetValuesAsync failed for nodeset {NodesetIdentifier}.", nodesetIdentifier);
-                return false;
-            }
-        }
-
-        // Rewrites the PublicationDate="..." attribute in the nodeset XML to the current UTC time
-        // with millisecond precision. Millisecond precision (not second) is required because
-        // PersistNodesetValuesAsync is invoked once per update and the README/docs guarantee that
-        // every persisted save is a distinct version: two updates landing in the same wall-clock
-        // second would otherwise share the same PublicationDate value and silently overwrite each
-        // other's "version" stamp. The standard nodeset XML grammar allows a fractional-seconds
-        // component on xs:dateTime, so consumers that ignore the fraction still see a valid
-        // ISO 8601 / UA-compliant timestamp. Returns the input unchanged if the attribute is not
-        // present or appears malformed; that way callers never lose the XML blob due to a parse
-        // mismatch.
-        private static string AdvancePublicationDate(string nodesetXml)
-        {
-            if (string.IsNullOrEmpty(nodesetXml))
-            {
-                return nodesetXml;
+                return null;
             }
 
-            const string key = "PublicationDate=\"";
-            int keyIndex = nodesetXml.IndexOf(key, StringComparison.Ordinal);
-            if (keyIndex < 0)
+            NodesetValueSet set = await _valueSets.GetReadableWithValuesAsync(valueSetId, userId).ConfigureAwait(false);
+            if (set is null || !await IsNodesetAccessibleAsync(userId, set.NodesetIdentifier).ConfigureAwait(false))
             {
-                return nodesetXml;
-            }
-
-            int valueStart = keyIndex + key.Length;
-            int valueEnd = nodesetXml.IndexOf('"', valueStart);
-            if (valueEnd <= valueStart)
-            {
-                return nodesetXml;
-            }
-
-            string now = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
-            var sb = new StringBuilder(nodesetXml);
-            sb.Remove(valueStart, valueEnd - valueStart);
-            sb.Insert(valueStart, now);
-            return sb.ToString();
-        }
-
-        // Browses the OPC UA address space to construct a DPP for the given nodeset identifier.
-        private async Task<DigitalProductPassport> BrowseDppFromRootAsync(string userId, string nodesetIdentifier)
-        {
-            // Authorization chokepoint for every DPP read path (direct id, product id, and versions).
-            // The browse below ultimately loads the nodeset blob via DbFileStorage.DownloadFileAsync,
-            // which applies no publication/ownership filter of its own, so an unguarded browse would
-            // let anyone who guesses an identifier read an unpublished or privately-owned DPP.
-            if (!await IsNodesetAccessibleAsync(userId, nodesetIdentifier).ConfigureAwait(false))
-            {
-                // Deliberately indistinguishable from "not found" so the endpoint does not confirm the
-                // existence of unpublished identifiers to unauthorized callers.
                 if (_logger.IsEnabled(LogLevel.Information))
                 {
-                    _logger.LogInformation(
-                        "Denied DPP browse of nodeset {NodesetIdentifier}: not published and not owned by the caller.",
-                        nodesetIdentifier);
+                    _logger.LogInformation("Denied DPP access to {DppId}: no such value set is visible to the caller.", dppId);
                 }
 
                 return null;
             }
 
-            List<NodesetViewerNode> nodeList = await _client.GetChildren(userId, nodesetIdentifier, ObjectIds.ObjectsFolder.ToString()).ConfigureAwait(false);
-            if (nodeList == null)
+            return ToPassport(set, ToOverlay(set.Entries));
+        }
+        // Keyed by expanded NodeId, the key set entries and NodesetViewerNode.Id share. Ordinal,
+        // because NodeIds are case-sensitive: "s=Foo" and "s=foo" are different nodes.
+        private static Dictionary<string, string> ToOverlay(IEnumerable<NodesetValueSetEntry> entries)
+        {
+            var overlay = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (NodesetValueSetEntry entry in entries ?? Enumerable.Empty<NodesetValueSetEntry>())
             {
-                return null;
-            }
-
-            foreach (NodesetViewerNode node in nodeList)
-            {
-                if (node.Text == "DigitalProductPassport")
+                if (!string.IsNullOrEmpty(entry?.NodeId))
                 {
-                    return await GenerateDPPFromDPPNode(userId, nodesetIdentifier, node).ConfigureAwait(false);
+                    overlay[entry.NodeId] = entry.Value;
                 }
             }
 
-            return null;
+            return overlay;
         }
 
+        // The value set's entry for a node when it has one, otherwise the template's value.
+        private async Task<string> ReadValueAsync(string userId, string nodesetIdentifier, string nodeId, IReadOnlyDictionary<string, string> overlay)
+        {
+            if (overlay is not null && nodeId is not null && overlay.TryGetValue(nodeId, out string value))
+            {
+                return value;
+            }
+
+            return await _client.VariableRead(userId, nodesetIdentifier, nodeId).ConfigureAwait(false);
+        }
+
+        // Builds a passport from its value set over the template's address space.
+        private async Task<DigitalProductPassport> BrowseDppFromRootAsync(string userId, string dppId)
+        {
+            ValueSetPassport passport = await ResolvePassportAsync(userId, dppId).ConfigureAwait(false);
+            return passport is null ? null : await BuildPassportAsync(userId, passport).ConfigureAwait(false);
+        }
+
+        private async Task<DigitalProductPassport> BuildPassportAsync(string userId, ValueSetPassport passport)
+        {
+            NodesetViewerNode dppNode = await FindDppNodeAsync(userId, passport.NodesetIdentifier).ConfigureAwait(false);
+            if (dppNode is null)
+            {
+                return null;
+            }
+
+            DigitalProductPassport dpp = await GenerateDPPFromDPPNode(userId, passport.NodesetIdentifier, dppNode, passport.DppId, passport.Overlay).ConfigureAwait(false);
+            if (dpp is null)
+            {
+                return null;
+            }
+
+            // A passport's activation time is its own. Until the set records a LastUpdate of its own,
+            // the value read above came from the template (or, for a clone, was copied from the
+            // source set) and predates this passport, so it is replaced by the set's creation time.
+            // Without this a version request for a date before the set existed would return it.
+            string lastUpdateNode = await FindPropertyNodeIdAsync(userId, passport.NodesetIdentifier, "LastUpdate").ConfigureAwait(false);
+            bool ownLastUpdate = lastUpdateNode is not null
+                && passport.Overlay.ContainsKey(lastUpdateNode)
+                && dpp.LastUpdate >= passport.CreatedAt;
+
+            return ownLastUpdate ? dpp : WithLastUpdate(dpp, passport.CreatedAt);
+        }
+
+        private static DigitalProductPassport WithLastUpdate(DigitalProductPassport dpp, DateTimeOffset lastUpdate) => new() {
+            DigitalProductPassportId = dpp.DigitalProductPassportId,
+            UniqueProductIdentifier = dpp.UniqueProductIdentifier,
+            Granularity = dpp.Granularity,
+            DppSchemaVersion = dpp.DppSchemaVersion,
+            DppStatus = dpp.DppStatus,
+            LastUpdate = lastUpdate,
+            EconomicOperatorId = dpp.EconomicOperatorId,
+            FacilityId = dpp.FacilityId,
+            ContentSpecificationIds = dpp.ContentSpecificationIds,
+            Elements = dpp.Elements
+        };
+
+        // Locates the template's DigitalProductPassport object under the Objects folder.
+        private async Task<NodesetViewerNode> FindDppNodeAsync(string userId, string nodesetIdentifier)
+        {
+            List<NodesetViewerNode> nodeList = await _client.GetChildren(userId, nodesetIdentifier, ObjectIds.ObjectsFolder.ToString()).ConfigureAwait(false);
+            return nodeList?.FirstOrDefault(n => n.Text == "DigitalProductPassport");
+        }
+
+        private enum TemplateKind
+        {
+            /// <summary>The template has a DigitalProductPassport object.</summary>
+            Passport,
+
+            /// <summary>The template was browsed successfully and has no passport object.</summary>
+            Ordinary,
+
+            /// <summary>The template could not be browsed, so whether it is a passport is unknown.</summary>
+            Unknown
+        }
+
+        // Decides whether a template is a passport. A failed browse is Unknown, never Ordinary:
+        // treating an unreadable passport template as ordinary would skip the controlled-element
+        // role check, archiving and LastUpdate for any write made while the browse fails.
+        private async Task<TemplateKind> ClassifyTemplateAsync(string userId, string nodesetIdentifier)
+        {
+            (bool succeeded, List<NodesetViewerNode> nodes) = await _client.TryGetChildrenAsync(userId, nodesetIdentifier, ObjectIds.ObjectsFolder.ToString()).ConfigureAwait(false);
+            if (!succeeded)
+            {
+                return TemplateKind.Unknown;
+            }
+
+            return nodes?.Any(n => n.Text == "DigitalProductPassport") == true ? TemplateKind.Passport : TemplateKind.Ordinary;
+        }
         // Reads DPP properties and child elements from an OPC UA node, building the full DPP object graph.
-        private async Task<DigitalProductPassport> GenerateDPPFromDPPNode(string userId, string nodesetIdentifier, NodesetViewerNode dppNode)
+        private async Task<DigitalProductPassport> GenerateDPPFromDPPNode(string userId, string nodesetIdentifier, NodesetViewerNode dppNode, string dppId, IReadOnlyDictionary<string, string> overlay)
         {
             List<NodesetViewerNode> properties = await _client.GetChildren(userId, nodesetIdentifier, dppNode.Id).ConfigureAwait(false);
             if (properties == null)
@@ -1738,11 +1931,11 @@ namespace Opc.Ua.Cloud.Library
                 switch (prop.Text)
                 {
                     case "UniqueProductIdentifier":
-                        uniqueProductId = await _client.VariableRead(userId, nodesetIdentifier, prop.Id).ConfigureAwait(false);
+                        uniqueProductId = await ReadValueAsync(userId, nodesetIdentifier, prop.Id, overlay).ConfigureAwait(false);
                         break;
 
                     case "Granularity":
-                        string granularityStr = await _client.VariableRead(userId, nodesetIdentifier, prop.Id).ConfigureAwait(false);
+                        string granularityStr = await ReadValueAsync(userId, nodesetIdentifier, prop.Id, overlay).ConfigureAwait(false);
                         if (!string.IsNullOrWhiteSpace(granularityStr) &&
                             Enum.TryParse<Granularity>(granularityStr, ignoreCase: true, out Granularity parsedGranularity))
                         {
@@ -1751,15 +1944,15 @@ namespace Opc.Ua.Cloud.Library
                         break;
 
                     case "DppSchemaVersion":
-                        schemaVersion = await _client.VariableRead(userId, nodesetIdentifier, prop.Id).ConfigureAwait(false);
+                        schemaVersion = await ReadValueAsync(userId, nodesetIdentifier, prop.Id, overlay).ConfigureAwait(false);
                         break;
 
                     case "DppStatus":
-                        status = await _client.VariableRead(userId, nodesetIdentifier, prop.Id).ConfigureAwait(false);
+                        status = await ReadValueAsync(userId, nodesetIdentifier, prop.Id, overlay).ConfigureAwait(false);
                         break;
 
                     case "LastUpdate":
-                        string lastUpdateStr = await _client.VariableRead(userId, nodesetIdentifier, prop.Id).ConfigureAwait(false);
+                        string lastUpdateStr = await ReadValueAsync(userId, nodesetIdentifier, prop.Id, overlay).ConfigureAwait(false);
                         if (DateTimeOffset.TryParse(lastUpdateStr, out var parsed))
                         {
                             lastUpdate = parsed;
@@ -1767,26 +1960,26 @@ namespace Opc.Ua.Cloud.Library
                         break;
 
                     case "EconomicOperatorId":
-                        economicOperator = await _client.VariableRead(userId, nodesetIdentifier, prop.Id).ConfigureAwait(false);
+                        economicOperator = await ReadValueAsync(userId, nodesetIdentifier, prop.Id, overlay).ConfigureAwait(false);
                         break;
 
                     case "FacilityId":
-                        facilityId = await _client.VariableRead(userId, nodesetIdentifier, prop.Id).ConfigureAwait(false);
+                        facilityId = await ReadValueAsync(userId, nodesetIdentifier, prop.Id, overlay).ConfigureAwait(false);
                         break;
 
                     case "ContentSpecificationIds":
-                        string contentSpecRaw = await _client.VariableRead(userId, nodesetIdentifier, prop.Id).ConfigureAwait(false);
+                        string contentSpecRaw = await ReadValueAsync(userId, nodesetIdentifier, prop.Id, overlay).ConfigureAwait(false);
                         contentSpecificationIds = ParseContentSpecificationIds(contentSpecRaw);
                         break;
 
                     case "Elements":
-                        elements.AddRange(await ReadDataElementNodesAsync(userId, nodesetIdentifier, prop).ConfigureAwait(false));
+                        elements.AddRange(await ReadDataElementNodesAsync(userId, nodesetIdentifier, prop, overlay).ConfigureAwait(false));
                         break;
                 }
             }
 
             return new DigitalProductPassport {
-                DigitalProductPassportId = nodesetIdentifier,
+                DigitalProductPassportId = dppId,
                 UniqueProductIdentifier = uniqueProductId,
                 Granularity = granularity,
                 DppSchemaVersion = schemaVersion,
@@ -1848,7 +2041,7 @@ namespace Opc.Ua.Cloud.Library
         }
 
         // Recursively reads OPC UA child nodes to build a DataElement tree
-        private async Task<List<DataElement>> ReadDataElementNodesAsync(string userId, string nodesetIdentifier, NodesetViewerNode parentNode)
+        private async Task<List<DataElement>> ReadDataElementNodesAsync(string userId, string nodesetIdentifier, NodesetViewerNode parentNode, IReadOnlyDictionary<string, string> overlay)
         {
             var output = new List<DataElement>();
 
@@ -1861,7 +2054,7 @@ namespace Opc.Ua.Cloud.Library
             foreach (NodesetViewerNode childNode in childNodes)
             {
                 // Check for children – if present, create a collection; otherwise, a leaf element.
-                List<DataElement> grandChildren = await ReadDataElementNodesAsync(userId, nodesetIdentifier, childNode).ConfigureAwait(false);
+                List<DataElement> grandChildren = await ReadDataElementNodesAsync(userId, nodesetIdentifier, childNode, overlay).ConfigureAwait(false);
                 if (grandChildren.Count > 0)
                 {
                     output.Add(new DataElementCollection {
@@ -1871,7 +2064,7 @@ namespace Opc.Ua.Cloud.Library
                 }
                 else
                 {
-                    string value = await _client.VariableRead(userId, nodesetIdentifier, childNode.Id).ConfigureAwait(false);
+                    string value = await ReadValueAsync(userId, nodesetIdentifier, childNode.Id, overlay).ConfigureAwait(false);
                     output.Add(new SingleValuedDataElement {
                         ElementId = BuildElementId(childNode.Id),
                         Value = ParseLeafValue(value)

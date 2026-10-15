@@ -179,6 +179,10 @@ namespace Opc.Ua.Cloud.Library
                 .HasIndex(vs => new { vs.NodesetIdentifier, vs.UserId, vs.Name })
                 .IsUnique();
 
+            builder.Entity<NodesetValueSet>()
+                .Property(vs => vs.Revision)
+                .IsConcurrencyToken();
+
             builder.Entity<NodesetValueSetEntry>()
                 .HasKey(e => new { e.ValueSetId, e.NodeId });
 

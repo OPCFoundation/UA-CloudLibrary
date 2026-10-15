@@ -53,6 +53,9 @@ namespace Opc.Ua.Cloud.Library.ValueSets
 
             await EnsureNameAvailableAsync(nodesetIdentifier, userId, name, null, ct).ConfigureAwait(false);
 
+            // Start from a clean tracker so a change rejected by an earlier failed save is not retried here.
+            _dbContext.ChangeTracker.Clear();
+
             DateTimeOffset now = DateTimeOffset.UtcNow;
             var set = new NodesetValueSet {
                 Id = Guid.NewGuid(),
@@ -85,8 +88,26 @@ namespace Opc.Ua.Cloud.Library.ValueSets
             set.Name = name;
             set.Description = description;
             set.LastModified = DateTimeOffset.UtcNow;
-            await _dbContext.SaveChangesAsync(ct).ConfigureAwait(false);
+            set.Revision++;
+            await SaveLifecycleChangeAsync(ct).ConfigureAwait(false);
             return set;
+        }
+
+        // Saves a lifecycle change (rename, delete, publish). Revision is a concurrency token, so a
+        // change that landed after the set was loaded makes the save throw
+        // DbUpdateConcurrencyException; callers map that to a retryable conflict. The rejected change
+        // is discarded first so it is not left pending in the shared context.
+        private async Task SaveLifecycleChangeAsync(CancellationToken ct)
+        {
+            try
+            {
+                await _dbContext.SaveChangesAsync(ct).ConfigureAwait(false);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                _dbContext.ChangeTracker.Clear();
+                throw;
+            }
         }
 
         public async Task<bool> DeleteAsync(Guid id, string userId, CancellationToken ct = default)
@@ -100,7 +121,7 @@ namespace Opc.Ua.Cloud.Library.ValueSets
             }
 
             _dbContext.NodesetValueSets.Remove(set);
-            await _dbContext.SaveChangesAsync(ct).ConfigureAwait(false);
+            await SaveLifecycleChangeAsync(ct).ConfigureAwait(false);
             return true;
         }
 
@@ -108,6 +129,9 @@ namespace Opc.Ua.Cloud.Library.ValueSets
         {
             RequireUser(userId);
             newName = NormalizeName(newName);
+
+            // Start from a clean tracker so a change rejected by an earlier failed save is not retried here.
+            _dbContext.ChangeTracker.Clear();
 
             NodesetValueSet source = await GetAsync(sourceId, userId, ct).ConfigureAwait(false);
             if (source == null)
@@ -203,6 +227,7 @@ namespace Opc.Ua.Cloud.Library.ValueSets
             }
 
             set.LastModified = now;
+            set.Revision++;
             await _dbContext.SaveChangesAsync(ct).ConfigureAwait(false);
         }
 
@@ -225,12 +250,160 @@ namespace Opc.Ua.Cloud.Library.ValueSets
 
             _dbContext.NodesetValueSetEntries.Remove(entry);
             set.LastModified = DateTimeOffset.UtcNow;
+            set.Revision++;
             await _dbContext.SaveChangesAsync(ct).ConfigureAwait(false);
             return true;
         }
 
+        public async Task<bool> SetPublishedAsync(Guid id, string userId, bool isPublished, CancellationToken ct = default)
+        {
+            RequireUser(userId);
+
+            NodesetValueSet set = await TrackedAsync(id, userId, ct).ConfigureAwait(false);
+            if (set == null)
+            {
+                return false;
+            }
+
+            set.IsPublished = isPublished;
+            set.LastModified = DateTimeOffset.UtcNow;
+            set.Revision++;
+            await SaveLifecycleChangeAsync(ct).ConfigureAwait(false);
+            return true;
+        }
+
+        public async Task<NodesetValueSet> GetReadableWithValuesAsync(Guid id, string userId, CancellationToken ct = default)
+        {
+            return await Readable(userId)
+                .Include(vs => vs.Entries)
+                .FirstOrDefaultAsync(vs => vs.Id == id, ct).ConfigureAwait(false);
+        }
+
+        public async Task<IReadOnlyList<NodesetValueSet>> FindReadableByEntryValuesAsync(IReadOnlyCollection<string> values, string userId, CancellationToken ct = default)
+        {
+            if (values == null || values.Count == 0)
+            {
+                return Array.Empty<NodesetValueSet>();
+            }
+
+            List<string> requested = values.ToList();
+            return await Readable(userId)
+                .Where(vs => vs.Entries.Any(e => requested.Contains(e.Value)))
+                .Include(vs => vs.Entries)
+                .ToListAsync(ct).ConfigureAwait(false);
+        }
+
+        public async Task<IReadOnlyList<NodesetValueSet>> FindReadableByTemplatesAsync(IReadOnlyCollection<string> nodesetIdentifiers, string userId, CancellationToken ct = default)
+        {
+            if (nodesetIdentifiers == null || nodesetIdentifiers.Count == 0)
+            {
+                return Array.Empty<NodesetValueSet>();
+            }
+
+            List<string> templates = nodesetIdentifiers.ToList();
+            return await Readable(userId)
+                .Where(vs => templates.Contains(vs.NodesetIdentifier))
+                .Include(vs => vs.Entries)
+                .ToListAsync(ct).ConfigureAwait(false);
+        }
+
+        public async Task<IReadOnlyList<string>> ListReadableTemplatesAsync(string userId, CancellationToken ct = default)
+        {
+            return await Readable(userId)
+                .Select(vs => vs.NodesetIdentifier)
+                .Distinct()
+                .ToListAsync(ct).ConfigureAwait(false);
+        }
+
+        public async Task<bool> RestoreValuesAsync(Guid id, string userId, long expectedRevision, IReadOnlyDictionary<string, string> values, IReadOnlyCollection<string> removeNodeIds, CancellationToken ct = default)
+        {
+            return await ApplyChangesAsync(id, userId, expectedRevision, values, removeNodeIds, ct).ConfigureAwait(false) is not null;
+        }
+
+        public async Task<long?> ApplyChangesAsync(Guid id, string userId, long expectedRevision, IReadOnlyDictionary<string, string> values, IReadOnlyCollection<string> removeNodeIds, CancellationToken ct = default)
+        {
+            RequireUser(userId);
+
+            NodesetValueSet set = await TrackedAsync(id, userId, ct).ConfigureAwait(false);
+            if (set == null || set.Revision != expectedRevision)
+            {
+                // Another write has landed since the caller read the set. Applying now would act on a
+                // stale view, so change nothing and let the caller decide.
+                return null;
+            }
+
+            List<string> touched = (values?.Keys ?? Enumerable.Empty<string>()).Concat(removeNodeIds ?? Array.Empty<string>()).ToList();
+            Dictionary<string, NodesetValueSetEntry> existing = await _dbContext.NodesetValueSetEntries
+                .Where(e => e.ValueSetId == id && touched.Contains(e.NodeId))
+                .ToDictionaryAsync(e => e.NodeId, ct).ConfigureAwait(false);
+
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            foreach (string nodeId in removeNodeIds ?? Array.Empty<string>())
+            {
+                if (existing.TryGetValue(nodeId, out NodesetValueSetEntry stale))
+                {
+                    _dbContext.NodesetValueSetEntries.Remove(stale);
+                }
+            }
+
+            foreach (KeyValuePair<string, string> kv in values ?? new Dictionary<string, string>())
+            {
+                if (existing.TryGetValue(kv.Key, out NodesetValueSetEntry entry))
+                {
+                    entry.Value = kv.Value ?? string.Empty;
+                    entry.LastModified = now;
+                }
+                else
+                {
+                    _dbContext.NodesetValueSetEntries.Add(new NodesetValueSetEntry { ValueSetId = id, NodeId = kv.Key, Value = kv.Value ?? string.Empty, LastModified = now });
+                }
+            }
+
+            set.LastModified = now;
+            set.Revision++;
+
+            try
+            {
+                // Revision is a concurrency token, so this also fails if a write slipped in between the
+                // check above and this save - including one from another application instance.
+                await _dbContext.SaveChangesAsync(ct).ConfigureAwait(false);
+                return set.Revision;
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // Discard the rejected changes now rather than leaving them pending in the shared
+                // context; the next write also starts from a cleared tracker.
+                _dbContext.ChangeTracker.Clear();
+                return null;
+            }
+        }
+
+        public async Task<string> GetNodesetIdentifierAsync(Guid id, CancellationToken ct = default)
+        {
+            return await _dbContext.NodesetValueSets
+                .AsNoTracking()
+                .Where(vs => vs.Id == id)
+                .Select(vs => vs.NodesetIdentifier)
+                .FirstOrDefaultAsync(ct).ConfigureAwait(false);
+        }
+
+        // Sets a caller may read as a passport: their own, or anyone's once published. Unlike the
+        // editing members, this accepts an anonymous caller, because DPP reads are anonymous.
+        private IQueryable<NodesetValueSet> Readable(string userId)
+        {
+            IQueryable<NodesetValueSet> sets = _dbContext.NodesetValueSets.AsNoTracking();
+            return string.IsNullOrWhiteSpace(userId)
+                ? sets.Where(vs => vs.IsPublished)
+                : sets.Where(vs => vs.IsPublished || vs.UserId == userId);
+        }
+        // Every write starts from a clean change tracker. The store is scoped, so in a Blazor circuit
+        // its DbContext lives as long as the page: without this, FirstOrDefaultAsync would hand back a
+        // set tracked by an earlier call with its stale Revision (causing repeated false conflicts),
+        // and changes rejected by a failed SaveChanges would still be pending and be retried by the
+        // next save. Clearing here gives each write a fresh read of the current row.
         private Task<NodesetValueSet> TrackedAsync(Guid id, string userId, CancellationToken ct)
         {
+            _dbContext.ChangeTracker.Clear();
             return _dbContext.NodesetValueSets.FirstOrDefaultAsync(vs => vs.Id == id && vs.UserId == userId, ct);
         }
 

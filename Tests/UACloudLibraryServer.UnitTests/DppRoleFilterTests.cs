@@ -30,7 +30,7 @@ namespace UACloudLibraryServer.UnitTests
 
         // Only _accessPolicy and _logger are touched by the filtering path under test.
         private static DPPService CreateService() =>
-            new(null, null, null, null, new DppAccessPolicy(), NullLoggerFactory.Instance);
+            new(null, null, null, null, new DppAccessPolicy(), null, NullLoggerFactory.Instance);
 
         private static DppControlledElements.MappingResult Mapping()
         {
