@@ -57,16 +57,35 @@ namespace Opc.Ua.Cloud.Library
 
         private SimpleServer _server;
 
-        // Every server this instance started. Switching to an uncached nodeset starts a new server and
-        // replaces _server, so without this list DisposeAsync would stop only the last one and leave
-        // earlier servers listening with their address spaces loaded.
-        private readonly List<SimpleServer> _startedServers = new();
+        // A session and the embedded server it is connected to share one lifetime. Clients borrow the
+        // pair from the static cache, and it is closed and stopped only when its last borrower
+        // releases it - never by whichever client happened to create it - so disposing one client
+        // cannot pull a session out from under another that is still browsing it.
+        private sealed class SharedSession
+        {
+            public SharedSession(Opc.Ua.Client.ISession session, SimpleServer server)
+            {
+                Session = session;
+                Server = server;
+            }
 
-        // Every session this instance created, one per server in _startedServers that came up. They
-        // stay in the static _sessions cache after a switch to another nodeset, so DisposeAsync must
-        // close and evict each of them before stopping its server; otherwise a cached session to a
-        // stopped server could be handed out again and would keep this instance alive via KeepAlive.
-        private readonly List<Opc.Ua.Client.ISession> _createdSessions = new();
+            public Opc.Ua.Client.ISession Session { get; }
+
+            public SimpleServer Server { get; }
+
+            // Guarded by s_poolGate.
+            public int Borrowers { get; set; }
+        }
+
+        private static readonly object s_poolGate = new();
+
+        // The pairs this client currently borrows, at most one per nodeset. Released on DisposeAsync,
+        // or individually by DisposeSession when a pair fails.
+        private readonly Dictionary<string, SharedSession> _borrowed = new(StringComparer.Ordinal);
+
+        // Servers this client started that never produced a usable session (failed start attempts).
+        // No other client can know about them, so this client stops them itself.
+        private readonly List<SimpleServer> _orphanServers = new();
         private Opc.Ua.Client.ISession _session;
 
         // The nodeset _session was opened for. Each nodeset runs in its own server and address space,
@@ -80,7 +99,7 @@ namespace Opc.Ua.Cloud.Library
         private ITelemetryContext _telemetry;
 
         private static uint _port = 5000;
-        private static ConcurrentDictionary<string, Opc.Ua.Client.ISession> _sessions = new();
+        private static ConcurrentDictionary<string, SharedSession> _sessions = new();
 
         private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
 
@@ -960,7 +979,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 EndpointDescription selectedEndpoint = null;
 
-                if (TryGetLiveSession(nodesetIdentifier, out Opc.Ua.Client.ISession value))
+                if (TryBorrowLiveSession(nodesetIdentifier, out Opc.Ua.Client.ISession value))
                 {
                     Console.WriteLine("Re-using existing OPC UA server and session for nodeset " + nodesetIdentifier);
                     InstallSession(value, nodesetIdentifier);
@@ -978,7 +997,7 @@ namespace Opc.Ua.Cloud.Library
                         // concurrently after a page load). Starting a second server here would reload
                         // the dependent nodesets into LoadedNamespaces a second time and fail, and the
                         // resulting DisposeSession would tear down the good session as well.
-                        if (TryGetLiveSession(nodesetIdentifier, out Opc.Ua.Client.ISession existing))
+                        if (TryBorrowLiveSession(nodesetIdentifier, out Opc.Ua.Client.ISession existing))
                         {
                             Console.WriteLine("Re-using OPC UA session created concurrently for nodeset " + nodesetIdentifier);
                             InstallSession(existing, nodesetIdentifier);
@@ -999,7 +1018,7 @@ namespace Opc.Ua.Cloud.Library
                                 Console.WriteLine("Starting OPC UA server on port " + _port);
 
                                 _server = new SimpleServer(_app, _port);
-                                _startedServers.Add(_server);
+                                _orphanServers.Add(_server);
 
                                 await _app.StartAsync(_server).ConfigureAwait(false);
 
@@ -1073,8 +1092,14 @@ namespace Opc.Ua.Cloud.Library
 
                         await newSession.FetchNamespaceTablesAsync().ConfigureAwait(false);
 
-                        _sessions[nodesetIdentifier] = newSession;
-                        _createdSessions.Add(newSession);
+                        var shared = new SharedSession(newSession, _server) { Borrowers = 1 };
+                        _orphanServers.Remove(_server);
+                        lock (s_poolGate)
+                        {
+                            _sessions[nodesetIdentifier] = shared;
+                        }
+
+                        _borrowed[nodesetIdentifier] = shared;
                         InstallSession(newSession, nodesetIdentifier);
 
                         Console.WriteLine("OPC UA server started and session created for nodeset " + nodesetIdentifier);
@@ -1185,118 +1210,189 @@ namespace Opc.Ua.Cloud.Library
             return nodesetFiles;
         }
 
-        // A session left in the cache after it was disposed throws ObjectDisposedException from
-        // Connected; treat it as absent and evict it so the next caller can start cleanly.
-        private static bool TryGetLiveSession(string nodesetIdentifier, out Opc.Ua.Client.ISession session)
+        // Takes a reference on the cached session for a nodeset if it is still live, and records it
+        // as borrowed by this client. A dead pair stops being handed out; clients that already
+        // borrow it keep their reference and release it themselves, and the last one closes it.
+        private bool TryBorrowLiveSession(string nodesetIdentifier, out Opc.Ua.Client.ISession session)
         {
             session = null;
+            string staleNodeset = null;
 
-            if (!_sessions.TryGetValue(nodesetIdentifier, out Opc.Ua.Client.ISession cached) || cached == null)
+            lock (s_poolGate)
             {
-                return false;
+                if (!_sessions.TryGetValue(nodesetIdentifier, out SharedSession cached) || cached == null)
+                {
+                    return false;
+                }
+
+                bool live;
+                try
+                {
+                    live = cached.Session.Connected;
+                }
+                catch (ObjectDisposedException)
+                {
+                    live = false;
+                }
+
+                if (!live)
+                {
+                    _sessions.TryRemove(new KeyValuePair<string, SharedSession>(nodesetIdentifier, cached));
+                    return false;
+                }
+
+                // A client holds at most one reference per nodeset. If it still holds an older pair
+                // for this nodeset, that reference is released below, outside the lock.
+                if (!_borrowed.TryGetValue(nodesetIdentifier, out SharedSession mine) || !ReferenceEquals(mine, cached))
+                {
+                    if (mine != null)
+                    {
+                        staleNodeset = nodesetIdentifier;
+                        mine.Borrowers--;
+                        if (mine.Borrowers > 0)
+                        {
+                            mine = null;
+                        }
+                    }
+
+                    cached.Borrowers++;
+                    _borrowed[nodesetIdentifier] = cached;
+
+                    if (staleNodeset != null && mine != null)
+                    {
+                        _ = CloseSharedAsync(mine);
+                    }
+                }
+
+                session = cached.Session;
+                return true;
+            }
+        }
+
+        // Drops this client's reference to a nodeset's pair. Only the last borrower closes the
+        // session and stops its server; until then the pair stays usable by the others.
+        private async Task ReleaseAsync(string nodesetIdentifier)
+        {
+            SharedSession toClose = null;
+
+            lock (s_poolGate)
+            {
+                if (!_borrowed.Remove(nodesetIdentifier, out SharedSession shared))
+                {
+                    return;
+                }
+
+                shared.Borrowers--;
+                if (shared.Borrowers <= 0)
+                {
+                    _sessions.TryRemove(new KeyValuePair<string, SharedSession>(nodesetIdentifier, shared));
+                    toClose = shared;
+                }
+            }
+
+            if (toClose != null)
+            {
+                await CloseSharedAsync(toClose).ConfigureAwait(false);
+            }
+        }
+
+        private async Task CloseSharedAsync(SharedSession shared)
+        {
+            try
+            {
+                shared.Session.KeepAlive -= StandardClient_KeepAlive;
+                if (shared.Session.Connected)
+                {
+                    await shared.Session.CloseAsync().ConfigureAwait(false);
+                }
+
+                shared.Session.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Failed to close OPC UA session: " + ex.Message);
+            }
+
+            await StopServerAsync(shared.Server).ConfigureAwait(false);
+        }
+
+        private static async Task StopServerAsync(SimpleServer server)
+        {
+            if (server == null)
+            {
+                return;
             }
 
             try
             {
-                if (cached.Connected)
-                {
-                    session = cached;
-                    return true;
-                }
+                await server.StopAsync().ConfigureAwait(false);
             }
-            catch (ObjectDisposedException)
+            catch (Exception ex)
             {
+                Console.WriteLine("Failed to stop OPC UA server: " + ex.Message);
             }
-
-            _sessions.TryRemove(nodesetIdentifier, out _);
-            return false;
         }
 
+        // Called after an operation on the current session failed. The session is shared, so it is
+        // not closed outright: it stops being handed out, and this client releases its reference.
+        // Other borrowers keep theirs; the last to release it closes it.
         public async Task DisposeSession()
         {
-            // remove session from our concurrent dictionary
-            foreach (var key in _sessions.Keys.ToList())
+            string nodeset;
+            lock (_sessionSwitchGate)
             {
-                if (_sessions.TryGetValue(key, out Opc.Ua.Client.ISession cached) && ReferenceEquals(cached, _session))
-                {
-                    _sessions.TryRemove(key, out _);
-                }
-            }
-
-            if (_session != null)
-            {
-                try
-                {
-                    if (_session.Connected)
-                    {
-                        await _session.CloseAsync().ConfigureAwait(false);
-                    }
-
-                    _session.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("DisposeSession: " + ex.Message);
-                }
-
+                nodeset = _sessionNodesetIdentifier;
                 _session = null;
             }
+
+            if (nodeset == null)
+            {
+                return;
+            }
+
+            lock (s_poolGate)
+            {
+                if (_borrowed.TryGetValue(nodeset, out SharedSession shared))
+                {
+                    _sessions.TryRemove(new KeyValuePair<string, SharedSession>(nodeset, shared));
+                }
+            }
+
+            await ReleaseAsync(nodeset).ConfigureAwait(false);
         }
 
         public async ValueTask DisposeAsync()
         {
-            // remove session from our concurrent dictionary
-            await DisposeSession().ConfigureAwait(false);
-
-            if (_reconnectHandler != null)
+            lock (_sessionSwitchGate)
             {
-                _reconnectHandler.Dispose();
-                _reconnectHandler = null;
+                if (_reconnectHandler != null)
+                {
+                    _reconnectHandler.Dispose();
+                    _reconnectHandler = null;
+                    _reconnectNodesetIdentifier = null;
+                }
+
+                _session = null;
             }
 
-            foreach (Opc.Ua.Client.ISession owned in _createdSessions)
+            // Release every pair this client borrows; each closes only if this was its last borrower.
+            List<string> borrowed;
+            lock (s_poolGate)
             {
-                // Evict only while the cache still holds this exact session, so a newer session for
-                // the same nodeset created by another client is left alone.
-                foreach (KeyValuePair<string, Opc.Ua.Client.ISession> entry in _sessions.ToList())
-                {
-                    if (ReferenceEquals(entry.Value, owned))
-                    {
-                        _sessions.TryRemove(entry);
-                    }
-                }
-
-                try
-                {
-                    owned.KeepAlive -= StandardClient_KeepAlive;
-                    if (owned.Connected)
-                    {
-                        await owned.CloseAsync().ConfigureAwait(false);
-                    }
-
-                    owned.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("DisposeAsync: failed to close OPC UA session: " + ex.Message);
-                }
+                borrowed = _borrowed.Keys.ToList();
             }
 
-            _createdSessions.Clear();
-
-            foreach (SimpleServer server in _startedServers)
+            foreach (string nodeset in borrowed)
             {
-                try
-                {
-                    await server.StopAsync().ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("DisposeAsync: failed to stop OPC UA server: " + ex.Message);
-                }
+                await ReleaseAsync(nodeset).ConfigureAwait(false);
             }
 
-            _startedServers.Clear();
+            foreach (SimpleServer server in _orphanServers)
+            {
+                await StopServerAsync(server).ConfigureAwait(false);
+            }
+
+            _orphanServers.Clear();
             _server = null;
         }
     }

@@ -24,20 +24,22 @@
 @inject DbFileStorage Storage
 @implements IDisposable
 
-<div class="d-flex align-items-center justify-content-between">
-    <h1 class="mb-0">@NodesetName</h1>
-    <span class="d-flex align-items-center">
-        @if (!string.IsNullOrEmpty(CopyStatus))
-        {
-            <span class="text-muted mr-3">@CopyStatus</span>
-        }
-        <button type="button" class="btn btn-primary" title="Copy nodeset file" @onclick="() => OpenCopyDialog()"><i class="fas fa-copy mr-2"></i>Copy</button>
-    </span>
-</div>
 <div style="height:100%">
     <div class="uacl-container">
         <div class="uacl-content">
             <div class="container">
+                <div class="col-12 row">
+                    <div class="col-12 d-flex align-items-center justify-content-between flex-wrap mb-3" style="gap: 0.5rem;">
+                        <h1 class="mb-0">@NodesetName</h1>
+                        <div class="d-flex align-items-center" style="gap: 0.75rem;">
+                            @if (!string.IsNullOrEmpty(CopyStatus))
+                            {
+                                <span class="text-muted">@CopyStatus</span>
+                            }
+                            <button type="button" class="btn btn-primary" title="Copy nodeset file" @onclick="() => OpenCopyDialog()"><i class="fas fa-copy mr-2"></i>Copy</button>
+                        </div>
+                    </div>
+                </div>
                 <p>
                     <div class="col-12 row">
                         <div class="col-12">
@@ -365,39 +367,30 @@
                                 </div>
                             }
                             <div class="card">
-                                <div class="card-header">
+                                <div class="card-header d-flex justify-content-between align-items-center">
                                     <b><span style="color: red;">Selected Node</span> Value</b>
-                                    <span style="float: right">
-                                        <button type="button" class="btn btn-primary" @onclick="() => OpenEditDialog(NodeValue)" disabled="@(!CanEditSelectedNode)" title="@(CanEditSelectedNode ? "Edit the value of the selected node" : EditBlockedReason)">Edit</button>
-                                        <button id="saveButton" type="button" class="btn btn-primary btn_browser" style="margin-left: 0.5rem" @onclick="SaveNodeValues" disabled="@IsSaving" title="Save the current node values to the nodeset">
-                                            @if (IsSaving)
-                                            {
-                                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                                <span> Saving...</span>
-                                            }
-                                            else
-                                            {
-                                                <span>Save</span>
-                                            }
-                                        </button>
-                                    </span><br/>
-                                    @if (!CanEditSelectedNode && !string.IsNullOrEmpty(EditBlockedReason))
-                                    {
-                                        <span class="text-muted"><i class="fas fa-lock mr-1"></i>@EditBlockedReason</span><br/>
-                                    }
-                                    @if (!string.IsNullOrEmpty(WriteStatus))
-                                    {
-                                        <span style="color: red;">@WriteStatus</span>
-                                    }
+                                    <button id="saveButton" type="button" class="btn btn-primary btn-sm btn_browser" @onclick="SaveNodeValues" disabled="@IsSaving" title="Save the current node values to the nodeset">
+                                        @if (IsSaving)
+                                        {
+                                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                            <span> Saving...</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Save</span>
+                                        }
+                                    </button>
+                                </div>
+                                <div class="card-body">
                                     @if (!string.IsNullOrEmpty(StatusMessage))
                                     {
-                                        <span>@StatusMessage</span><br/>
+                                        <div class="mb-2">@StatusMessage</div>
                                     }
-                                    <div class="input-group input-group-sm mt-2">
+                                    <div class="input-group input-group-sm uacl-control-row" style="height: 2rem; flex-wrap: nowrap;">
                                         <div class="input-group-prepend">
-                                            <span class="input-group-text" title="Node values are read from and edits are written to the selected value set. 'Nodeset values' are the owner's canonical values; your own value sets are private overlays on top of them.">Value set</span>
+                                            <span class="input-group-text" style="height: 2rem; padding: 0 .5rem; font-size: .875rem; line-height: 1;" title="Node values are read from and edits are written to the selected value set. 'Nodeset values' are the owner's canonical values; your own value sets are private overlays on top of them. Edits are stored in the set and do not change the nodeset itself.">Value set</span>
                                         </div>
-                                        <select class="form-control" value="@ActiveValueSetId" @onchange="OnValueSetSelected" disabled="@(!CanUseValueSets)">
+                                        <select class="form-control form-control-sm" style="height: 2rem; padding-top: 0; padding-bottom: 0; font-size: .875rem;" value="@ActiveValueSetId" @onchange="OnValueSetSelected" disabled="@(!CanUseValueSets)">
                                             <option value="">Nodeset values</option>
                                             @foreach (var set in ValueSets)
                                             {
@@ -406,7 +399,7 @@
                                         </select>
                                         <div class="input-group-append">
                                             <div class="btn-group @(ShowValueSetMenu ? "show" : string.Empty)">
-                                                <button type="button" class="btn btn-outline-secondary dropdown-toggle" title="Value set actions" aria-haspopup="true" aria-expanded="@ShowValueSetMenu.ToString().ToLowerInvariant()" @onclick="@(() => ShowValueSetMenu = !ShowValueSetMenu)" disabled="@(!CanUseValueSets || IsImporting)">
+                                                <button type="button" class="btn btn-primary dropdown-toggle" style="height: 2rem; padding: 0 .75rem; font-size: .875rem; border-top-left-radius: 0; border-bottom-left-radius: 0;" title="Value set actions" aria-haspopup="true" aria-expanded="@ShowValueSetMenu.ToString().ToLowerInvariant()" @onclick="@(() => ShowValueSetMenu = !ShowValueSetMenu)" disabled="@(!CanUseValueSets || IsImporting)">
                                                     @if (IsImporting)
                                                     {
                                                         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -441,19 +434,19 @@
                                     </div>
                                     @if (!CanUseValueSets)
                                     {
-                                        <small class="text-muted">Sign in to create your own value sets for this nodeset.</small>
+                                        <small class="text-muted d-block mt-2">Sign in to create your own value sets for this nodeset.</small>
                                     }
                                     else if (!_valueSetsLoaded)
                                     {
-                                        <small class="text-muted">Loading your value sets...</small>
+                                        <small class="text-muted d-block mt-2">Loading your value sets...</small>
                                     }
                                     else if (ActiveValueSet != null)
                                     {
-                                        <small class="text-muted">@ActiveValueSetEntries.Count node value(s) overridden in this set. Edits are stored in the set and do not change the nodeset itself. @(ActiveValueSet.IsPublished ? "Published: anyone can read it as passport " + ActiveValueSet.Id + "." : "Not published: only you can read it as a passport.")</small>
+                                        <small class="text-muted d-block mt-2">@ActiveValueSetEntries.Count node value(s) overridden in this set. @(ActiveValueSet.IsPublished ? "Published as passport " + ActiveValueSet.Id + "." : "Not published.")</small>
                                     }
                                     @if (!string.IsNullOrEmpty(ValueSetStatus))
                                     {
-                                        <br/><span style="color: @(ValueSetStatusIsError ? "red" : "green");">@ValueSetStatus</span>
+                                        <small class="d-block mt-1" style="color: @(ValueSetStatusIsError ? "red" : "green");">@ValueSetStatus</small>
                                         @if (ValueSetImportDetails.Count > 0)
                                         {
                                             <button type="button" class="btn btn-link btn-sm p-0 ml-2" @onclick="@(() => ShowValueSetImportDetails = !ShowValueSetImportDetails)">@(ShowValueSetImportDetails ? "Hide details" : "Show details")</button>
@@ -468,27 +461,44 @@
                                             }
                                         }
                                     }
-                                </div>
-                                <div class="card-body">
-                                    @if (!string.IsNullOrEmpty(NodeValue))
+                                    <hr class="my-3" />
+                                    <div class="d-flex align-items-center flex-wrap" style="gap: 0.5rem;">
+                                        <div class="flex-grow-1 text-break" style="min-width: 0;">
+                                            @if (!string.IsNullOrEmpty(NodeValue))
+                                            {
+                                                <span class="text-monospace">@NodeValue</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">(none)</span>
+                                            }
+                                            @if (ActiveValueSet != null && SelectedNode != null)
+                                            {
+                                                @if (SelectedNodeIsOverridden)
+                                                {
+                                                    <span class="badge badge-info ml-2" title="This value comes from the selected value set">@ActiveValueSet.Name</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge badge-light ml-2" title="This node is not overridden in the selected value set">nodeset value</span>
+                                                }
+                                            }
+                                        </div>
+                                        <div class="d-flex" style="gap: 0.5rem;">
+                                            @if (ActiveValueSet != null && SelectedNodeIsOverridden)
+                                            {
+                                                <button type="button" class="btn btn-primary btn-sm" title="Remove this node from the value set and fall back to the nodeset value" @onclick="ResetSelectedNodeValue">Reset</button>
+                                            }
+                                            <button type="button" class="btn btn-primary btn-sm" @onclick="() => OpenEditDialog(NodeValue)" disabled="@(!CanEditSelectedNode)" title="@(CanEditSelectedNode ? "Edit the value of the selected node" : EditBlockedReason)">Edit</button>
+                                        </div>
+                                    </div>
+                                    @if (!CanEditSelectedNode && !string.IsNullOrEmpty(EditBlockedReason))
                                     {
-                                        <span>@NodeValue</span>
+                                        <small class="text-muted d-block mt-2"><i class="fas fa-lock mr-1"></i>@EditBlockedReason</small>
                                     }
-                                    else
+                                    @if (!string.IsNullOrEmpty(WriteStatus))
                                     {
-                                        <span>(none)</span>
-                                    }
-                                    @if (ActiveValueSet != null && SelectedNode != null)
-                                    {
-                                        @if (SelectedNodeIsOverridden)
-                                        {
-                                            <span class="badge badge-info ml-2" title="This value comes from the selected value set">@ActiveValueSet.Name</span>
-                                            <button type="button" class="btn btn-link btn-sm" title="Remove this node from the value set and fall back to the nodeset value" @onclick="ResetSelectedNodeValue">Reset to nodeset value</button>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge badge-light ml-2" title="This node is not overridden in the selected value set">nodeset value</span>
-                                        }
+                                        <small class="d-block mt-2" style="color: red;">@WriteStatus</small>
                                     }
                                 </div>
                             </div>
