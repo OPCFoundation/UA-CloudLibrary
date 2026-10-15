@@ -2349,7 +2349,14 @@
 
         if (IsInScopeVariable(node))
         {
-            if (_editableVariables.TryGetValue(node.Id ?? string.Empty, out bool editable))
+            bool known;
+            bool editable;
+            lock (_editableVariables)
+            {
+                known = _editableVariables.TryGetValue(node.Id ?? string.Empty, out editable);
+            }
+
+            if (known)
             {
                 return editable;
             }
@@ -2432,6 +2439,7 @@
         try
         {
             int visited = 0;
+            var seen = new HashSet<NodesetViewerNode>(TreeNodes);
             var frontier = new List<NodesetViewerNode>(TreeNodes);
             while (frontier.Count > 0 && visited < SearchMaxNodes)
             {
@@ -2452,9 +2460,15 @@
                     foreach (var child in node.Children)
                     {
                         // Variables are leaves for this purpose; nothing below them needs browsing.
-                        if (!string.Equals(child.NodeClass, "Variable", StringComparison.Ordinal) && !child.ChildrenLoaded)
+                        // Branches are traversed even when already browsed, so that Variables below
+                        // nodes the user expanded earlier are checked as well (LoadChildrenBatchAsync
+                        // serves already-browsed nodes from the cache).
+                        if (!string.Equals(child.NodeClass, "Variable", StringComparison.Ordinal))
                         {
-                            next.Add(child);
+                            if (seen.Add(child))
+                            {
+                                next.Add(child);
+                            }
                         }
                         else if (IsInScopeVariable(child) && child.Id != null && !_editableVariables.ContainsKey(child.Id))
                         {
