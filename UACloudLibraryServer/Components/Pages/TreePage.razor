@@ -644,6 +644,8 @@
     private bool ShowNamespaceMapDialog { get; set; } = false;
     private Dictionary<string, JsonElement> _pendingImport;
     private string _pendingImportFileName = string.Empty;
+    private Guid _pendingImportSetId;
+    private string _pendingImportSetName = string.Empty;
     private List<ushort> PendingNamespaceIndexes { get; set; } = new List<ushort>();
     private Dictionary<ushort, string> NamespaceMappings { get; set; } = new Dictionary<ushort, string>();
     private string _valueSetUserId;
@@ -909,9 +911,16 @@
 
         if ((ModalTitle == "Edit") && save)
         {
-            if (ActiveValueSet != null)
+            if (ActiveValueSet != null && SelectedNode != null)
             {
-                string problem = await _client.ValidateValueForNode(UserName, NodesetIdentifier, SelectedNode.Id, ModalValue).ConfigureAwait(false);
+                // Capture the target and value before the first await: the set selector and tree stay
+                // enabled, so ActiveValueSet, SelectedNode and ModalValue can change during validation
+                // or the audit append. The same inputs are used for validation and the write.
+                Guid setId = ActiveValueSet.Id;
+                string nodeId = SelectedNode.Id;
+                string value = ModalValue;
+
+                string problem = await _client.ValidateValueForNode(UserName, NodesetIdentifier, nodeId, value).ConfigureAwait(false);
                 if (problem != null)
                 {
                     WriteStatus = problem;
@@ -920,13 +929,6 @@
                 {
                     try
                     {
-                        // Capture what the change depends on now: ActiveValueSet, SelectedNode and
-                        // ModalValue can change while the audit append is awaited, because the set
-                        // selector stays enabled.
-                        Guid setId = ActiveValueSet.Id;
-                        string nodeId = SelectedNode.Id;
-                        string value = ModalValue;
-
                         DPPService.UpdateDppResult result = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, setId.ToString(), nodeId, () => UpdateValuesAsync(setId, new Dictionary<string, string> { [nodeId] = value }, Array.Empty<string>())).ConfigureAwait(false);
 
                         if (result == DPPService.UpdateDppResult.Success && IsStillActive(setId))
@@ -1444,6 +1446,11 @@
             return;
         }
 
+        // The destination is fixed when the file is chosen; the selector stays enabled while the file
+        // is read and matched, so ActiveValueSet must not be read again later.
+        Guid targetSetId = ActiveValueSet.Id;
+        string targetSetName = ActiveValueSet.Name;
+
         IsImporting = true;
         ValueSetStatus = string.Empty;
         ValueSetImportDetails = new List<string>();
@@ -1469,13 +1476,15 @@
             {
                 _pendingImport = parsed;
                 _pendingImportFileName = e.File.Name;
+                _pendingImportSetId = targetSetId;
+                _pendingImportSetName = targetSetName;
                 PendingNamespaceIndexes = indexes;
                 NamespaceMappings = indexes.ToDictionary(i => i, _ => string.Empty);
                 ShowNamespaceMapDialog = true;
                 return;
             }
 
-            await ApplyValueSetImportAsync(parsed, e.File.Name, null).ConfigureAwait(false);
+            await ApplyValueSetImportAsync(targetSetId, targetSetName, parsed, e.File.Name, null).ConfigureAwait(false);
         }
         catch (JsonException ex)
         {
@@ -1552,13 +1561,15 @@
         {
             Dictionary<string, JsonElement> parsed = _pendingImport;
             string fileName = _pendingImportFileName;
+            Guid setId = _pendingImportSetId;
+            string setName = _pendingImportSetName;
             var mapping = NamespaceMappings.Where(kv => !string.IsNullOrEmpty(kv.Value)).ToDictionary(kv => kv.Key, kv => kv.Value);
 
             ShowNamespaceMapDialog = false;
             _pendingImport = null;
             _pendingImportFileName = string.Empty;
 
-            await ApplyValueSetImportAsync(parsed, fileName, mapping).ConfigureAwait(false);
+            await ApplyValueSetImportAsync(setId, setName, parsed, fileName, mapping).ConfigureAwait(false);
         }
         catch (DppAuditException ex)
         {
@@ -1585,13 +1596,8 @@
         ValueSetStatus = "Import cancelled.";
     }
 
-    private async Task ApplyValueSetImportAsync(Dictionary<string, JsonElement> parsed, string fileName, Dictionary<ushort, string> namespaceMapping)
+    private async Task ApplyValueSetImportAsync(Guid setId, string setName, Dictionary<string, JsonElement> parsed, string fileName, Dictionary<ushort, string> namespaceMapping)
     {
-        if (ActiveValueSet == null)
-        {
-            return;
-        }
-
         Dictionary<string, string> canonical = await _client.BrowseVariableNodesResursivelyAsync(UserName, NodesetIdentifier, null).ConfigureAwait(false)
             ?? new Dictionary<string, string>();
 
@@ -1657,9 +1663,7 @@
 
         if (toImport.Count > 0)
         {
-            // Capture the target now; the selection can change while the audit append is awaited.
-            Guid setId = ActiveValueSet.Id;
-
+            // setId is the destination captured when the file was chosen, not the current selection.
             DPPService.UpdateDppResult result = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, setId.ToString(), $"import {toImport.Count} value(s) from {fileName}", () => UpdateValuesAsync(setId, toImport, Array.Empty<string>())).ConfigureAwait(false);
             if (result != DPPService.UpdateDppResult.Success)
             {
@@ -1692,7 +1696,7 @@
             notes.Add($"{unchanged} value(s) identical to the nodeset value not stored");
         }
 
-        ValueSetStatus = $"Imported {toImport.Count} value(s) from '{fileName}' into '{ActiveValueSet.Name}'"
+        ValueSetStatus = $"Imported {toImport.Count} value(s) from '{fileName}' into '{setName}'"
             + (notes.Count > 0 ? " (" + string.Join(", ", notes) + ")" : string.Empty) + ".";
         ValueSetStatusIsError = toImport.Count == 0 && (unmapped > 0 || unknown > 0);
         ValueSetImportDetails = skippedDetails;
