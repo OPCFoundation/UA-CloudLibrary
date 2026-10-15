@@ -66,8 +66,8 @@
             </div>
         </nav>
     </header>
-    <div class="container">
-        <main role="main" class="pt-2 pb-3 mb-4">
+    <div class="@(ViewData["FullWidth"] as bool? == true ? "container-fluid px-0" : "container")">
+        <main role="main" class="@(ViewData["FullWidth"] as bool? == true ? "uacl-main--full" : "pt-2 pb-3 mb-4")">
             @RenderBody()
         </main>
     </div>

@@ -27,7 +27,8 @@
 <div style="height:100%">
     <div class="uacl-container">
         <div class="uacl-content">
-            <div class="container">
+            <div class="uacl-browser-layout">
+                <div class="uacl-browser-layout__top">
                 <div class="col-12 row">
                     <div class="col-12 d-flex align-items-center justify-content-between flex-wrap mb-3" style="gap: 0.5rem;">
                         <h1 class="mb-0">@NodesetName</h1>
@@ -101,10 +102,9 @@
                         </div>
                     </p>
                 }
-                <p>
-                    <div class="col-12 row">
-                        <div class="col-6">
-                            <div class="card h-100">
+                </div>
+                <aside class="uacl-browser-layout__tree">
+                            <div class="card">
                                 <div class="card-header">
                                     <b>Nodeset Browser</b>
                                     <div class="input-group input-group-sm mt-2">
@@ -303,8 +303,8 @@
                                     </Tree>
                                 </div>
                             </div>
-                        </div>
-                        <div class="col-6">
+                </aside>
+                <div class="uacl-browser-layout__details">
                             <div class="card mb-3">
                                 <div class="card-header">
                                     <b><i class="fas fa-info-circle mr-2"></i>Selected Node Information</b>
@@ -535,9 +535,7 @@
                                     }
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </p>
+                </div>
             </div>
         </div>
     </div>
