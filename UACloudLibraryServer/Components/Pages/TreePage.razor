@@ -709,7 +709,7 @@
         }
     }
     private HashSet<string> SearchMatchIds { get; set; } = new HashSet<string>(StringComparer.Ordinal);
-    private List<NodesetViewerNode> SearchMatches { get; set; }
+    private List<NodesetViewerNode> SearchMatches { get; set; } = new List<NodesetViewerNode>();
     private List<List<NodesetViewerNode>> SearchMatchAncestors { get; set; } = new List<List<NodesetViewerNode>>();
     private int SearchCursor { get; set; } = -1;
     private bool FindAll { get; set; } = false;
@@ -2660,9 +2660,9 @@
         // does not persist while (or after) a new search runs.
         SelectedNode = new NodesetViewerNode();
         NodeValue = string.Empty;
-        SearchMatchIds.Clear();
-        SearchMatches.Clear();
-        SearchMatchAncestors.Clear();
+        SearchMatchIds?.Clear();
+        SearchMatches?.Clear();
+        SearchMatchAncestors?.Clear();
         SearchCursor = -1;
         if (!preserveExcludes)
         {
