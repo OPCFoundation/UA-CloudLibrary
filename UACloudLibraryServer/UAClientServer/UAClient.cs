@@ -303,6 +303,7 @@ namespace Opc.Ua.Cloud.Library
                     Text = description.DisplayName.ToString(),
                     BrowseName = description.BrowseName?.Name ?? string.Empty,
                     NodeClass = description.NodeClass.ToString(),
+                    Icon = await NodeIcons.ResolveAsync(description.NodeClass, description.TypeDefinition, session).ConfigureAwait(false),
                     Children = new List<NodesetViewerNode>()
                 });
             }

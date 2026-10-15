@@ -1,4 +1,8 @@
 ﻿
+.uic-tree {
+    --font-tree: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", "Segoe UI", Roboto, Arial, sans-serif;
+    font-family: var(--font-tree);
+}
 .uic-tree .uic-tree {
     margin-left: 1.25rem;
 }
@@ -10,6 +14,16 @@
 }
 .uic-tree__title {
     margin-left: 1.25rem;
+}
+.uic-tree__title span,
+.uic-tree__title b {
+    font-family: var(--font-tree);
+}
+.uic-tree__node-icon {
+    font-size: 1.1em;
+    vertical-align: -0.2em;
+    margin-right: 0.6rem;
+    color: #6c757d;
 }
 .uic-tree .curosr-pointer {
     cursor: pointer;

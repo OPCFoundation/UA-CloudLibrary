@@ -251,6 +251,11 @@
                                                     + (isMatch && !isSelected ? "background-color:#fff3cd;" : string.Empty);
                                                 string setValue = null;
                                                 bool hasSetValue = ActiveValueSet != null && context.Id != null && ActiveValueSetEntries.TryGetValue(context.Id, out setValue);
+                                                string iconName = NodeIcons.GetIconName(context.Icon);
+                                            }
+                                            @if (!string.IsNullOrEmpty(iconName))
+                                            {
+                                                <iconify-icon class="uic-tree__node-icon" icon="@iconName" title="@context.NodeClass" aria-hidden="true"></iconify-icon>
                                             }
                                             <span style="@style">
                                                 @if (bold)
@@ -1920,6 +1925,7 @@
         {
             Id = ObjectIds.RootFolder.ToString(),
             Text = "Root",
+            Icon = NodeIcons.Folder,
             Children = new List<NodesetViewerNode>()
         };
 
