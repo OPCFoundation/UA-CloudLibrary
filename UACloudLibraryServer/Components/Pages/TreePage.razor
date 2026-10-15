@@ -105,58 +105,55 @@
                 </div>
                 <aside class="uacl-browser-layout__tree">
                             <div class="card">
-                                <div class="card-header">
+                                <div class="card-header uacl-browser-filter">
                                     <b>Nodeset Browser</b>
-                                    <div class="input-group input-group-sm mt-2">
-                                        <div class="input-group-prepend">
-                                            <span class="input-group-text">Nodeset scope</span>
-                                        </div>
-                                        <select class="form-control" @bind="SearchScope" disabled="@IsSearching">
-                                            <option value="">All</option>
-                                            @if (_client?.LoadedNamespaces != null)
-                                            {
-                                                @foreach (var ns in _client.LoadedNamespaces.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase))
+                                    <label class="uacl-pill mt-2" title="Nodeset scope">
+                                        <i class="fas fa-layer-group uacl-pill__icon" aria-hidden="true"></i>
+                                        <span class="uacl-pill__body">
+                                            <span class="uacl-pill__label">Nodeset scope</span>
+                                            <select class="uacl-pill__control" @bind="SearchScope" disabled="@IsSearching" aria-label="Nodeset scope">
+                                                <option value="">All</option>
+                                                @if (_client?.LoadedNamespaces != null)
                                                 {
-                                                    <option value="@ns">@ns</option>
+                                                    @foreach (var ns in _client.LoadedNamespaces.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase))
+                                                    {
+                                                        <option value="@ns">@ns</option>
+                                                    }
                                                 }
-                                            }
-                                        </select>
-                                    </div>
-                                    <div class="input-group input-group-sm mt-2">
-                                        <div class="input-group-prepend">
-                                            <button type="button" class="btn btn-outline-secondary" title="Search help" aria-label="Search help" @onclick="@(() => ShowSearchHelp = true)" disabled="@IsSearching">
-                                                <strong>?</strong>
-                                            </button>
-                                        </div>
-                                        <input type="text" class="form-control" placeholder="Search (name:, type:, id: or plain text)..."
+                                            </select>
+                                        </span>
+                                        <i class="fas fa-chevron-down uacl-pill__caret" aria-hidden="true"></i>
+                                    </label>
+                                    <div class="uacl-pill mt-2">
+                                        <button type="button" class="uacl-pill__btn" title="Search help" aria-label="Search help" @onclick="@(() => ShowSearchHelp = true)" disabled="@IsSearching">
+                                            <i class="far fa-question-circle" aria-hidden="true"></i>
+                                        </button>
+                                        <input type="text" class="uacl-pill__control uacl-pill__input" placeholder="Search (name:, type:, id: or plain text)..."
                                                @bind="SearchQuery" @bind:event="oninput"
                                                @onkeydown="OnSearchKeyDown" disabled="@IsSearching" />
-                                        <div class="input-group-append">
-                                            @if (!string.IsNullOrEmpty(SearchQuery))
-                                            {
-                                                <button type="button" class="btn btn-outline-secondary" title="Clear" @onclick="ClearSearch" disabled="@IsSearching">
-                                                    <i class="fas fa-times"></i>
-                                                </button>
-                                            }
-                                            <button type="button" class="btn btn-primary" aria-label="Search tree" @onclick="SearchTree" disabled="@(IsSearching || string.IsNullOrWhiteSpace(SearchQuery))">
-
-                                                @if (IsSearching)
-                                                {
-                                                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                                }
-                                                else
-                                                {
-                                                    <i class="fas fa-search"></i>
-                                                }
+                                        @if (!string.IsNullOrEmpty(SearchQuery))
+                                        {
+                                            <button type="button" class="uacl-pill__btn" title="Clear" @onclick="ClearSearch" disabled="@IsSearching">
+                                                <i class="fas fa-times" aria-hidden="true"></i>
                                             </button>
-                                        </div>
+                                        }
+                                        <button type="button" class="uacl-pill__btn uacl-pill__btn--primary" aria-label="Search tree" @onclick="SearchTree" disabled="@(IsSearching || string.IsNullOrWhiteSpace(SearchQuery))">
+                                            @if (IsSearching)
+                                            {
+                                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                            }
+                                            else
+                                            {
+                                                <i class="fas fa-search" aria-hidden="true"></i>
+                                            }
+                                        </button>
                                     </div>
                                     @if (!string.IsNullOrEmpty(SearchStatus))
                                     {
                                         <small class="text-muted d-block mt-1">@SearchStatus</small>
                                     }
 
-                                    <div class="d-flex align-items-center mt-2">
+                                    <div class="d-flex align-items-center flex-wrap mt-2" style="gap: 0.25rem 0;">
                                         <div class="custom-control custom-checkbox mr-3">
                                             <input type="checkbox" class="custom-control-input" id="findAllCheckbox"
                                                    @bind="FindAll" disabled="@IsSearching" />
@@ -304,6 +301,7 @@
                                 </div>
                             </div>
                 </aside>
+                <div class="uacl-browser-layout__splitter" role="separator" aria-orientation="vertical" aria-label="Resize tree pane" title="Drag to resize"></div>
                 <div class="uacl-browser-layout__details">
                             <div class="card mb-3">
                                 <div class="card-header">
