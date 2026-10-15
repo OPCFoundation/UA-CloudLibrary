@@ -23,7 +23,7 @@ namespace UACloudLibraryServer.UnitTests
         private static readonly string[] s_mutations =
         {
             "CreateAsync", "UpdateAsync", "DeleteAsync", "CloneAsync", "SetPublishedAsync",
-            "SetValueAsync", "SetValuesAsync", "RemoveValueAsync", "RestoreValuesAsync",
+            "SetValueAsync", "SetValuesAsync", "RemoveValueAsync", "RestoreValuesAsync", "ApplyChangesAsync",
         };
 
         private static readonly string[] s_helpers = { "AuditedAsync(", "AuditedValueSetChangeAsync(" };
@@ -69,8 +69,26 @@ namespace UACloudLibraryServer.UnitTests
                 string.Join(Environment.NewLine, offenders));
 
             // Guards the guard: a scan that stopped matching (a rename, a moved folder) would pass
-            // vacuously. 17 = 9 in ValueSetController + 8 in TreePage.
-            Assert.True(audited >= 17, $"Expected at least 17 audited value-set mutations, found {audited}; the scan may have stopped matching.");
+            // vacuously. Value edits now go through DPPService.UpdateValueSetValuesAsync rather than the
+            // store, so the store calls left here are the set lifecycle changes: 6 in ValueSetController
+            // (create, rename, delete, publish, unpublish, clone) + 5 in TreePage (create, rename, clone,
+            // delete, publish), plus one read-only GetValuesAsync check that isn't counted.
+            Assert.True(audited >= 11, $"Expected at least 11 audited value-set mutations, found {audited}; the scan may have stopped matching.");
+
+            // Value edits must use the passport write path, never the store, so the passport rules
+            // (roles, archiving, LastUpdate, revision check) cannot be bypassed.
+            Assert.True(ValueEditCallsOutsideService() == 0,
+                "A value-set value edit calls the store directly. Use DPPService.UpdateValueSetValuesAsync so controlled-element roles, archiving and LastUpdate apply.");
+        }
+
+        // Counts direct store calls that change node values, which must now go through DPPService.
+        private static int ValueEditCallsOutsideService()
+        {
+            string[] valueEdits = { "SetValueAsync", "SetValuesAsync", "RemoveValueAsync", "ApplyChangesAsync" };
+            return SourceFiles()
+                .SelectMany(File.ReadAllLines)
+                .SelectMany(line => StoreCallRegex().Matches(line))
+                .Count(m => valueEdits.Contains(m.Groups[1].Value, StringComparer.Ordinal));
         }
 
         private static IEnumerable<string> SourceFiles()

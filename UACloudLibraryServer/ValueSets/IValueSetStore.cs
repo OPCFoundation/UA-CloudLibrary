@@ -55,15 +55,30 @@ namespace Opc.Ua.Cloud.Library.ValueSets
         Task<IReadOnlyList<NodesetValueSet>> FindReadableByEntryValuesAsync(IReadOnlyCollection<string> values, string userId, CancellationToken ct = default);
 
         /// <summary>
+        /// Every set, with entries, that the caller may read on any of <paramref name="nodesetIdentifiers"/>.
+        /// Used for product-id lookup of sets that inherit their identifier from the template.
+        /// </summary>
+        Task<IReadOnlyList<NodesetValueSet>> FindReadableByTemplatesAsync(IReadOnlyCollection<string> nodesetIdentifiers, string userId, CancellationToken ct = default);
+
+        /// <summary>
         /// The template nodeset a set is based on, regardless of who may read the set. Used only to
         /// locate the template's access policy, which is never returned to the caller.
         /// </summary>
         Task<string> GetNodesetIdentifierAsync(Guid id, CancellationToken ct = default);
         /// <summary>
         /// Applies <paramref name="values"/> and removes <paramref name="removeNodeIds"/> in one
-        /// transaction. Used to restore a set's previous state when a passport update must be undone,
-        /// including removing entries the failed update added.
+        /// transaction, but only if the set is still at <paramref name="expectedRevision"/>. Used to
+        /// undo a passport update whose archive failed. Returns false, changing nothing, when another
+        /// write has landed since, so a stale baseline can never overwrite a newer update.
         /// </summary>
-        Task RestoreValuesAsync(Guid id, string userId, IReadOnlyDictionary<string, string> values, IReadOnlyCollection<string> removeNodeIds, CancellationToken ct = default);
+        Task<bool> RestoreValuesAsync(Guid id, string userId, long expectedRevision, IReadOnlyDictionary<string, string> values, IReadOnlyCollection<string> removeNodeIds, CancellationToken ct = default);
+
+        /// <summary>
+        /// Applies <paramref name="values"/> and removes <paramref name="removeNodeIds"/> in one
+        /// transaction, but only if the set is still at <paramref name="expectedRevision"/>. Returns
+        /// the new revision, or null when the set changed since it was read, in which case nothing
+        /// is written and the caller should re-read and retry.
+        /// </summary>
+        Task<long?> ApplyChangesAsync(Guid id, string userId, long expectedRevision, IReadOnlyDictionary<string, string> values, IReadOnlyCollection<string> removeNodeIds, CancellationToken ct = default);
     }
 }

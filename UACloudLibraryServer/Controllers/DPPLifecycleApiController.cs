@@ -350,6 +350,24 @@ namespace Opc.Ua.Cloud.Library.Controllers
                         result: new ApiResult(new() { new ApiMessage("Error", errorMessage) })
                     ));
 
+                case DPPService.UpdateDppResult.Forbidden:
+                    // Refused before any write: nothing changed, so not a committed outcome.
+                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, null, "Denied", operationId).ConfigureAwait(false);
+                    return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status403Forbidden, new ApiResponse<DigitalProductPassport>(
+                        DppApiStatusCodes.ClientForbidden,
+                        payload: null,
+                        result: new ApiResult(new() { new ApiMessage("Error", errorMessage) })
+                    ));
+
+                case DPPService.UpdateDppResult.Conflict:
+                    // Refused by the revision check: nothing changed, and retrying after a re-read is safe.
+                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, null, "Conflict", operationId).ConfigureAwait(false);
+                    return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status409Conflict, new ApiResponse<DigitalProductPassport>(
+                        DppApiStatusCodes.ClientResourceConflict,
+                        payload: null,
+                        result: new ApiResult(new() { new ApiMessage("Error", errorMessage) })
+                    ));
+
                 case DPPService.UpdateDppResult.WriteFailedPartiallyApplied:
                     // The write failed AND the compensating rollback did not fully restore the
                     // original values, so the DPP is left in a state matching no version. Recorded
@@ -432,6 +450,22 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "Rejected", elementOperationId).ConfigureAwait(false);
                     return BadRequest(new ApiResponse<DataElement>(
                         DppApiStatusCodes.ClientErrorBadRequest,
+                        payload: null,
+                        result: new ApiResult(new() { new ApiMessage("Error", errorMessage) })
+                    ));
+
+                case DPPService.UpdateDppResult.Forbidden:
+                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "Denied", elementOperationId).ConfigureAwait(false);
+                    return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status403Forbidden, new ApiResponse<DataElement>(
+                        DppApiStatusCodes.ClientForbidden,
+                        payload: null,
+                        result: new ApiResult(new() { new ApiMessage("Error", errorMessage) })
+                    ));
+
+                case DPPService.UpdateDppResult.Conflict:
+                    await _auditLog.RecordAsync(User.Identity.Name, DppAuditOperation.Modify, dppId, elementIdPath, "Conflict", elementOperationId).ConfigureAwait(false);
+                    return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status409Conflict, new ApiResponse<DataElement>(
+                        DppApiStatusCodes.ClientResourceConflict,
                         payload: null,
                         result: new ApiResult(new() { new ApiMessage("Error", errorMessage) })
                     ));

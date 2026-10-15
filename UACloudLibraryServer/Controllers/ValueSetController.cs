@@ -30,15 +30,22 @@ namespace Opc.Ua.Cloud.Library.Controllers
         private readonly IValueSetStore _store;
         private readonly UAClient _client;
         private readonly IDppAuditLog _auditLog;
+        private readonly DPPService _dppService;
 
-        public ValueSetController(IValueSetStore store, UAClient client, IDppAuditLog auditLog)
+        public ValueSetController(IValueSetStore store, UAClient client, IDppAuditLog auditLog, DPPService dppService)
         {
             _store = store;
             _client = client;
             _auditLog = auditLog;
+            _dppService = dppService;
         }
 
         private string UserId => User?.Identity?.Name;
+
+        // Controlled-element write rights are role-based, exactly as for a DPP PATCH.
+        private IReadOnlyList<string> CallerRoles =>
+            User?.Claims?.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToArray()
+            ?? Array.Empty<string>();
 
         // The authenticated caller, bound to every audit entry so value-set changes are attributable.
         private string OperatorId => User?.Identity?.Name ?? "anonymous";
@@ -81,6 +88,57 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             return outcome.Result;
         }
+        /// <summary>
+        /// Applies a value change through <see cref="DPPService.UpdateValueSetValuesAsync"/> with
+        /// write-ahead auditing, and maps the outcome to a response.
+        /// </summary>
+        /// <remarks>
+        /// A value set is a passport, so a value change here has to follow the same rules as a DPP
+        /// PATCH: controlled-element roles, archiving, LastUpdate and the revision check are all
+        /// enforced by the service, not by this controller. Only outcomes that changed storage are
+        /// logged as committed; refusals are logged as plain failures, so they stay safe to retry.
+        /// </remarks>
+        private async Task<IActionResult> UpdateValuesAsync(Guid id, string detail, IReadOnlyDictionary<string, string> writes, IReadOnlyCollection<string> removals)
+        {
+            string operationId = DppAuditOperationId.New();
+            string target = id.ToString();
+            await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, target, detail, "Attempted", operationId).ConfigureAwait(false);
+
+            (DPPService.UpdateDppResult result, string error) = await _dppService
+                .UpdateValueSetValuesAsync(UserId, id, writes, removals, CallerRoles).ConfigureAwait(false);
+
+            switch (result)
+            {
+                case DPPService.UpdateDppResult.Success:
+                    await _auditLog.RecordCommittedOutcomeAsync(OperatorId, DppAuditOperation.Modify, target, detail, "Success", operationId).ConfigureAwait(false);
+                    return NoContent();
+
+                case DPPService.UpdateDppResult.WriteFailedPartiallyApplied:
+                    await _auditLog.RecordCommittedOutcomeAsync(OperatorId, DppAuditOperation.Modify, target, detail, "PartialFailure", operationId).ConfigureAwait(false);
+                    return StatusCode((int)HttpStatusCode.InternalServerError, error);
+
+                case DPPService.UpdateDppResult.NotFound:
+                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, target, detail, "Failed", operationId).ConfigureAwait(false);
+                    return NotFound();
+
+                case DPPService.UpdateDppResult.BadRequest:
+                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, target, detail, "Rejected", operationId).ConfigureAwait(false);
+                    return BadRequest(error);
+
+                case DPPService.UpdateDppResult.Forbidden:
+                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, target, detail, "Denied", operationId).ConfigureAwait(false);
+                    return StatusCode((int)HttpStatusCode.Forbidden, error);
+
+                case DPPService.UpdateDppResult.Conflict:
+                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, target, detail, "Conflict", operationId).ConfigureAwait(false);
+                    return Conflict(error);
+
+                default:
+                    await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Modify, target, detail, "Failed", operationId).ConfigureAwait(false);
+                    return StatusCode((int)HttpStatusCode.InternalServerError, error);
+            }
+        }
+
         [HttpGet]
         [Route("/valuesets")]
         [SwaggerResponse(statusCode: 200, type: typeof(ValueSetSummary[]), description: "The calling user's value sets for the given nodeset.")]
@@ -239,8 +297,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return BadRequest(problems);
             }
 
-            await AuditedAsync(DppAuditOperation.Modify, id.ToString(), $"set {request.Values.Count} value(s)", async () => { await _store.SetValuesAsync(id, UserId, request.Values, ct).ConfigureAwait(false); return (true, id.ToString()); }).ConfigureAwait(false);
-            return NoContent();
+            return await UpdateValuesAsync(id, $"set {request.Values.Count} value(s)", request.Values, Array.Empty<string>()).ConfigureAwait(false);
         }
 
         [HttpPut]
@@ -263,8 +320,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return BadRequest(problem);
             }
 
-            await AuditedAsync(DppAuditOperation.Modify, id.ToString(), nodeId, async () => { await _store.SetValueAsync(id, UserId, nodeId, request.Value, ct).ConfigureAwait(false); return (true, id.ToString()); }).ConfigureAwait(false);
-            return NoContent();
+            return await UpdateValuesAsync(id, nodeId, new Dictionary<string, string> { [nodeId] = request.Value }, Array.Empty<string>()).ConfigureAwait(false);
         }
 
         [HttpDelete]
@@ -274,8 +330,16 @@ namespace Opc.Ua.Cloud.Library.Controllers
         public async Task<IActionResult> RemoveValue(Guid id, string nodeId, CancellationToken ct)
         {
             string removedNodeId = Uri.UnescapeDataString(nodeId);
-            bool removed = await AuditedAsync(DppAuditOperation.Modify, id.ToString(), $"remove {removedNodeId}", async () => { bool r = await _store.RemoveValueAsync(id, UserId, removedNodeId, ct).ConfigureAwait(false); return (r, r ? id.ToString() : null); }).ConfigureAwait(false);
-            return removed ? NoContent() : NotFound();
+
+            // Nothing to remove is a 404, as before. Without this check a no-op removal would still
+            // archive a version and advance LastUpdate, recording a change that never happened.
+            IReadOnlyDictionary<string, string> current = await _store.GetValuesAsync(id, UserId, ct).ConfigureAwait(false);
+            if (current == null || !current.ContainsKey(removedNodeId))
+            {
+                return NotFound();
+            }
+
+            return await UpdateValuesAsync(id, $"remove {removedNodeId}", new Dictionary<string, string>(), new[] { removedNodeId }).ConfigureAwait(false);
         }
 
         [HttpGet]

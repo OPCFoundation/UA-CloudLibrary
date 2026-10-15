@@ -151,8 +151,6 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddSingleton<ApplicationInstance>();
 
-            services.AddScoped<AssetAdministrationShellEnvironmentService>();
-
             services.AddScoped<DPPService>();
             services.AddSingleton<IDppAccessPolicy, DppAccessPolicy>();
             services.AddScoped<IDppAuditLog, DppAuditLog>();

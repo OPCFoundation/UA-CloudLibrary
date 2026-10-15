@@ -57,6 +57,10 @@ namespace Opc.Ua.Cloud.Library
 
         private SimpleServer _server;
         private Opc.Ua.Client.ISession _session;
+
+        // The nodeset _session was opened for. Each nodeset runs in its own server and address space,
+        // so a session is only valid for the nodeset it was created for.
+        private string _sessionNodesetIdentifier;
         private SessionReconnectHandler _reconnectHandler;
         private ITelemetryContext _telemetry;
 
@@ -825,6 +829,14 @@ namespace Opc.Ua.Cloud.Library
                 return false;
             }
 
+            // A connected session for a *different* nodeset must not be reused: it would browse that
+            // nodeset's address space and return the wrong nodes. Drop this instance's reference (the
+            // session itself stays cached in _sessions for its own nodeset) and select the right one.
+            if (_session != null && !string.Equals(_sessionNodesetIdentifier, nodesetIdentifier, StringComparison.Ordinal))
+            {
+                _session = null;
+            }
+
             // check if we have an existing session for this nodeset
             if (_session == null || !_session.Connected)
             {
@@ -834,6 +846,7 @@ namespace Opc.Ua.Cloud.Library
                 {
                     Console.WriteLine("Re-using existing OPC UA server and session for nodeset " + nodesetIdentifier);
                     _session = value;
+                    _sessionNodesetIdentifier = nodesetIdentifier;
                 }
                 else
                 {
@@ -852,6 +865,7 @@ namespace Opc.Ua.Cloud.Library
                         {
                             Console.WriteLine("Re-using OPC UA session created concurrently for nodeset " + nodesetIdentifier);
                             _session = existing;
+                            _sessionNodesetIdentifier = nodesetIdentifier;
                             return true;
                         }
 
@@ -944,6 +958,7 @@ namespace Opc.Ua.Cloud.Library
 
                         _sessions[nodesetIdentifier] = newSession;
                         _session = newSession;
+                        _sessionNodesetIdentifier = nodesetIdentifier;
 
                         Console.WriteLine("OPC UA server started and session created for nodeset " + nodesetIdentifier);
                     }

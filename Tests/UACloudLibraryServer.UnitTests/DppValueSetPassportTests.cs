@@ -94,6 +94,9 @@ namespace UACloudLibraryServer.UnitTests
             public Task<IReadOnlyList<NodesetValueSet>> FindReadableByEntryValuesAsync(IReadOnlyCollection<string> values, string userId, CancellationToken ct = default) =>
                 Task.FromResult<IReadOnlyList<NodesetValueSet>>(Array.Empty<NodesetValueSet>());
 
+            public Task<IReadOnlyList<NodesetValueSet>> FindReadableByTemplatesAsync(IReadOnlyCollection<string> nodesetIdentifiers, string userId, CancellationToken ct = default) =>
+                Task.FromResult<IReadOnlyList<NodesetValueSet>>(Array.Empty<NodesetValueSet>());
+
             public Task<string> GetNodesetIdentifierAsync(Guid id, CancellationToken ct = default) => Task.FromResult<string>(null);
 
             public Task<IReadOnlyList<NodesetValueSet>> ListAsync(string nodesetIdentifier, string userId, CancellationToken ct = default) => throw new NotSupportedException();
@@ -107,7 +110,8 @@ namespace UACloudLibraryServer.UnitTests
             public Task SetValuesAsync(Guid id, string userId, IReadOnlyDictionary<string, string> values, CancellationToken ct = default) => throw new NotSupportedException();
             public Task<bool> RemoveValueAsync(Guid id, string userId, string nodeId, CancellationToken ct = default) => throw new NotSupportedException();
             public Task<bool> SetPublishedAsync(Guid id, string userId, bool isPublished, CancellationToken ct = default) => throw new NotSupportedException();
-            public Task RestoreValuesAsync(Guid id, string userId, IReadOnlyDictionary<string, string> values, IReadOnlyCollection<string> removeNodeIds, CancellationToken ct = default) => throw new NotSupportedException();
+            public Task<bool> RestoreValuesAsync(Guid id, string userId, long expectedRevision, IReadOnlyDictionary<string, string> values, IReadOnlyCollection<string> removeNodeIds, CancellationToken ct = default) => throw new NotSupportedException();
+            public Task<long?> ApplyChangesAsync(Guid id, string userId, long expectedRevision, IReadOnlyDictionary<string, string> values, IReadOnlyCollection<string> removeNodeIds, CancellationToken ct = default) => throw new NotSupportedException();
         }
     }
 }

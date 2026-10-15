@@ -17,6 +17,7 @@
 @inject IJSRuntime JSRuntime
 @inject IDppAuditLog _auditLog
 @inject IValueSetStore ValueSetStore
+@inject DPPService DppService
 @inject AuthenticationStateProvider AuthStateProvider
 @inject DbFileStorage Storage
 @implements IDisposable
@@ -906,12 +907,23 @@
                 {
                     try
                     {
-                        await AuditedValueSetChangeAsync(DppAuditOperation.Modify, ActiveValueSet.Id.ToString(), SelectedNode.Id, async () => { await ValueSetStore.SetValueAsync(ActiveValueSet.Id, _valueSetUserId, SelectedNode.Id, ModalValue).ConfigureAwait(false); return (true, ActiveValueSet.Id.ToString()); }).ConfigureAwait(false);
-                        ActiveValueSetEntries[SelectedNode.Id] = ModalValue;
-                        NodeValue = ModalValue;
-                        WriteStatus = string.Empty;
-                    }
-                    catch (DppAuditException ex)
+                        // Capture what the change depends on now: ActiveValueSet, SelectedNode and
+                        // ModalValue can change while the audit append is awaited, because the set
+                        // selector stays enabled.
+                        Guid setId = ActiveValueSet.Id;
+                        string nodeId = SelectedNode.Id;
+                        string value = ModalValue;
+
+                        DPPService.UpdateDppResult result = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, setId.ToString(), nodeId, () => UpdateValuesAsync(setId, new Dictionary<string, string> { [nodeId] = value }, Array.Empty<string>())).ConfigureAwait(false);
+
+                        if (result == DPPService.UpdateDppResult.Success && IsStillActive(setId))
+                        {
+                            ActiveValueSetEntries[nodeId] = value;
+                            NodeValue = value;
+                        }
+
+                        WriteStatus = DescribeUpdateResult(result);
+                    }                    catch (DppAuditException ex)
                     {
                         WriteStatus = DescribeAuditFailure(ex);
                     }
@@ -955,6 +967,7 @@
         {
             var state = await AuthStateProvider.GetAuthenticationStateAsync().ConfigureAwait(false);
             _valueSetUserId = state?.User?.Identity?.IsAuthenticated == true ? state.User.Identity.Name : null;
+            _valueSetUserRoles = state?.User?.Claims?.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToArray() ?? Array.Empty<string>();
         }
         catch (Exception ex)
         {
@@ -1075,22 +1088,27 @@
 
         try
         {
+            // Capture the inputs now: ActiveValueSet and ModalValue can change while the audit append
+            // is awaited, and the change must act on the set and name the Attempted record names.
+            NodesetValueSet active = ActiveValueSet;
+            string name = ModalValue;
+
             NodesetValueSet result = null;
             switch (ModalTitle)
             {
                 case "New value set":
-                    result = await AuditedValueSetChangeAsync(DppAuditOperation.Create, NodesetIdentifier, $"create value set {ModalValue}", async () => { NodesetValueSet s = await ValueSetStore.CreateAsync(NodesetIdentifier, _valueSetUserId, ModalValue, null).ConfigureAwait(false); return (s, s?.Id.ToString()); }).ConfigureAwait(false);
+                    result = await AuditedValueSetChangeAsync(DppAuditOperation.Create, NodesetIdentifier, $"create value set {name}", async () => { NodesetValueSet s = await ValueSetStore.CreateAsync(NodesetIdentifier, _valueSetUserId, name, null).ConfigureAwait(false); return (s, s?.Id.ToString()); }).ConfigureAwait(false);
                     break;
                 case "Rename value set":
-                    if (ActiveValueSet != null)
+                    if (active != null)
                     {
-                        result = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, ActiveValueSet.Id.ToString(), $"rename to {ModalValue}", async () => { NodesetValueSet s = await ValueSetStore.UpdateAsync(ActiveValueSet.Id, _valueSetUserId, ModalValue, ActiveValueSet.Description).ConfigureAwait(false); return (s, s?.Id.ToString()); }).ConfigureAwait(false);
+                        result = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, active.Id.ToString(), $"rename to {name}", async () => { NodesetValueSet s = await ValueSetStore.UpdateAsync(active.Id, _valueSetUserId, name, active.Description).ConfigureAwait(false); return (s, s?.Id.ToString()); }).ConfigureAwait(false);
                     }
                     break;
                 case "Clone value set":
-                    if (ActiveValueSet != null)
+                    if (active != null)
                     {
-                        result = await AuditedValueSetChangeAsync(DppAuditOperation.Create, ActiveValueSet.Id.ToString(), $"clone as {ModalValue}", async () => { NodesetValueSet s = await ValueSetStore.CloneAsync(ActiveValueSet.Id, _valueSetUserId, ModalValue).ConfigureAwait(false); return (s, s?.Id.ToString()); }).ConfigureAwait(false);
+                        result = await AuditedValueSetChangeAsync(DppAuditOperation.Create, active.Id.ToString(), $"clone as {name}", async () => { NodesetValueSet s = await ValueSetStore.CloneAsync(active.Id, _valueSetUserId, name).ConfigureAwait(false); return (s, s?.Id.ToString()); }).ConfigureAwait(false);
                     }
                     break;
             }
@@ -1245,7 +1263,40 @@
     private static string DescribeAuditFailure(DppAuditException ex) =>
         ex.MutationCommitted
             ? "The change was saved but could not be recorded in the audit log. Do not repeat it; report this to an administrator."
-            : "The change was refused because it could not be recorded in the audit log. Nothing was changed; you can try again.";    // An exported file holds the full node values with the set applied, in the same shape as the
+            : "The change was refused because it could not be recorded in the audit log. Nothing was changed; you can try again.";
+
+    // Roles of the signed-in user, needed because value edits are subject to the template's
+    // controlled-element write rights, exactly as a DPP PATCH is.
+    private string[] _valueSetUserRoles = Array.Empty<string>();
+
+    // The service's message for the last value-set update, shown when the update is refused.
+    private string _lastValueSetError;
+
+    // Value edits are passport updates: they go through DPPService so controlled-element roles,
+    // archiving, LastUpdate and the revision check apply exactly as they do to a DPP PATCH.
+    private async Task<(DPPService.UpdateDppResult Result, string DppId)> UpdateValuesAsync(Guid setId, IReadOnlyDictionary<string, string> writes, IReadOnlyCollection<string> removals)
+    {
+        (DPPService.UpdateDppResult result, string error) = await DppService.UpdateValueSetValuesAsync(_valueSetUserId, setId, writes, removals, _valueSetUserRoles).ConfigureAwait(false);
+        _lastValueSetError = error;
+
+        // Only outcomes that changed storage are logged as committed; refusals stay retryable.
+        bool changed = result is DPPService.UpdateDppResult.Success or DPPService.UpdateDppResult.WriteFailedPartiallyApplied;
+        return (result, changed ? setId.ToString() : null);
+    }
+
+    // True when setId is still the selected set, so a finished update only refreshes the page's
+    // cached values if the user has not switched to another set in the meantime.
+    private bool IsStillActive(Guid setId) => ActiveValueSet?.Id == setId;
+
+    private string DescribeUpdateResult(DPPService.UpdateDppResult result) => result switch
+    {
+        DPPService.UpdateDppResult.Success => string.Empty,
+        DPPService.UpdateDppResult.Forbidden => "You do not have the role required to change this element.",
+        DPPService.UpdateDppResult.Conflict => "This value set was changed elsewhere. Reload the page and try again.",
+        DPPService.UpdateDppResult.WriteFailedPartiallyApplied => "The change was saved, but the previous version could not be archived. Do not repeat it; report this to an administrator.",
+        _ => _lastValueSetError ?? "The change could not be saved.",
+    };
+    // An exported file holds the full node values with the set applied, in the same shape as the
     // owner's saved values. Only entries that differ from the current nodeset value are stored in
     // the set, so importing an export does not override every node with an identical copy.
     private async Task ImportValueSetFile(InputFileChangeEventArgs e)
@@ -1468,13 +1519,25 @@
 
         if (toImport.Count > 0)
         {
-            await AuditedValueSetChangeAsync(DppAuditOperation.Modify, ActiveValueSet.Id.ToString(), $"import {toImport.Count} value(s) from {fileName}", async () => { await ValueSetStore.SetValuesAsync(ActiveValueSet.Id, _valueSetUserId, toImport).ConfigureAwait(false); return (true, ActiveValueSet.Id.ToString()); }).ConfigureAwait(false);
-            foreach (KeyValuePair<string, string> kv in toImport)
+            // Capture the target now; the selection can change while the audit append is awaited.
+            Guid setId = ActiveValueSet.Id;
+
+            DPPService.UpdateDppResult result = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, setId.ToString(), $"import {toImport.Count} value(s) from {fileName}", () => UpdateValuesAsync(setId, toImport, Array.Empty<string>())).ConfigureAwait(false);
+            if (result != DPPService.UpdateDppResult.Success)
             {
-                ActiveValueSetEntries[kv.Key] = kv.Value;
+                // Nothing was imported, so don't report the counts below as if it had been.
+                ValueSetStatus = DescribeUpdateResult(result);
+                return;
+            }
+
+            if (IsStillActive(setId))
+            {
+                foreach (KeyValuePair<string, string> kv in toImport)
+                {
+                    ActiveValueSetEntries[kv.Key] = kv.Value;
+                }
             }
         }
-
         var notes = new List<string>();
         if (skipped > 0)
         {
@@ -1584,9 +1647,20 @@
 
         try
         {
-            await AuditedValueSetChangeAsync(DppAuditOperation.Modify, ActiveValueSet.Id.ToString(), $"remove {SelectedNode.Id}", async () => { bool removed = await ValueSetStore.RemoveValueAsync(ActiveValueSet.Id, _valueSetUserId, SelectedNode.Id).ConfigureAwait(false); return (removed, removed ? ActiveValueSet.Id.ToString() : null); }).ConfigureAwait(false);
-            ActiveValueSetEntries.Remove(SelectedNode.Id);
-            NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, SelectedNode.Id).ConfigureAwait(false);
+            // Capture the target now; the selection can change while the audit append is awaited.
+            Guid setId = ActiveValueSet.Id;
+            string nodeId = SelectedNode.Id;
+
+            DPPService.UpdateDppResult result = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, setId.ToString(), $"remove {nodeId}", () => UpdateValuesAsync(setId, new Dictionary<string, string>(), new[] { nodeId })).ConfigureAwait(false);
+
+            if (result == DPPService.UpdateDppResult.Success && IsStillActive(setId))
+            {
+                ActiveValueSetEntries.Remove(nodeId);
+                NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, nodeId).ConfigureAwait(false);
+            }
+
+            ValueSetStatus = DescribeUpdateResult(result);
+            ValueSetStatusIsError = result != DPPService.UpdateDppResult.Success;
         }
         catch (DppAuditException ex)
         {

@@ -35,7 +35,8 @@ An uploaded nodeset is a DPP **template**: it defines the structure of a passpor
 - The DPP identifier (`dppId`) is the value set's id, a GUID. Nodeset identifiers are not passports and are not accepted by the DPP endpoints.
 - A value set is private to its owner until the owner publishes it (`POST /valuesets/{id}/publish`). Published passports can be read by anyone; unpublished ones only by their owner. The template must also be visible to the caller.
 - `dppsByProductId` and `dppsByProductIds` find passports by the value their set gives to `uniqueProductIdentifier`. Several passports may share a product identifier: `dppsByProductIds` returns all of them, and `dppsByProductId` returns the most recently modified one.
-- Updates (`PATCH`) change the passport's value set, not the template, and require the caller to own the set. Each update is applied as a single database transaction, so it either takes full effect or none.
+- Changing a passport's values works the same way whether it is done through the DPP API (`PATCH`), the `/valuesets` endpoints or the nodeset browser. Every such change requires the caller to own the set and to hold the role for any controlled element it touches, archives the previous version, advances `lastUpdate`, and is applied as a single database transaction, so it either takes full effect or none.
+- If a passport is changed by someone else between being read and being written, the update is refused with `409` rather than overwriting the other change. Re-read and retry.
 - Access control (controlled elements) comes from the template, so every passport built on a template is governed by the same policy. Version history is kept per passport.
 
 The DPP header follows EN 18223 Clause 4.1.2.1 Table 1:
@@ -133,7 +134,7 @@ $['battery']['cells']['voltage']
 
 ## Version history
 
-Every change to a DPP is archived, so any past version remains retrievable for the lifetime of the passport (EN 18221 Clause 4.2). `GET v1/dpps/{dppId}/versions/{date}` returns the version that was active at the timestamp you supply: if the timestamp is at or after the passport's own `lastUpdate`, you get the current version; otherwise you get the most recent archived snapshot at or before that moment. A `404` means no version of that DPP existed yet at the requested time.
+Every change to a DPP is archived, so any past version remains retrievable for the lifetime of the passport (EN 18221 Clause 4.2). `GET v1/dpps/{dppId}/versions/{date}` returns the version that was active at the timestamp you supply: if the timestamp is at or after the passport's own `lastUpdate`, you get the current version; otherwise you get the most recent archived snapshot at or before that moment. A `404` means no version of that DPP existed yet at the requested time; in particular, a passport has no version before its value set was created, even if its template is older.
 
 Archiving is part of the update contract: if a snapshot cannot be stored, the update itself fails rather than silently losing a version.
 
@@ -352,6 +353,7 @@ A double underscore (`__`) in an environment variable key creates a nested confi
 | `400` | Malformed request: an unsupported `elementIdPath`, an invalid timestamp, an empty or oversized batch. |
 | `401` / `403` | Authentication missing, or the caller lacks a role required to write a controlled element. |
 | `404` | No such DPP, element, or no version at the requested time. Also returned for a passport the caller may not read, and for a write by anyone other than the value set's owner, so the API does not reveal that a private passport exists. |
+| `409` | The passport was changed by another request after you read it. Nothing was applied; re-read it and retry. |
 | `429` | Rate limit exceeded. |
 | `500` | The change was applied but could not be fully recorded. **Do not retry**; verify current state first. |
 | `503` | The request was refused because it could not be audited. Nothing was applied; retrying is safe. |

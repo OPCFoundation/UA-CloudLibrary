@@ -531,6 +531,10 @@ namespace Opc.Ua.Cloud.Library
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
                     b.Property<string>("UserId")
                         .IsRequired()
                         .HasColumnType("text");

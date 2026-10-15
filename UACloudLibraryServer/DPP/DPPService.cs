@@ -554,6 +554,15 @@ namespace Opc.Ua.Cloud.Library
             // the live activation matches the EN 18222 contract that the result is the version
             // that was actually active at 'target'.
             DigitalProductPassport live = await BuildPassportAsync(userId, passport).ConfigureAwait(false);
+
+            // No version of a passport exists before its value set was created. BuildPassportAsync
+            // already floors LastUpdate at the creation time, but the archive below is searched
+            // independently, so the cutoff is enforced here too.
+            if (target < passport.CreatedAt.ToUniversalTime())
+            {
+                return null;
+            }
+
             if (live != null && live.LastUpdate.ToUniversalTime() <= target)
             {
                 // The live version's policy is the current stored mapping, by definition - but only
@@ -571,8 +580,9 @@ namespace Opc.Ua.Cloud.Library
 
             // Target is strictly earlier than the live DPP's activation time (or the DPP has no
             // live counterpart at all). Look up the latest archived snapshot whose valid-from
-            // timestamp is at or before the target.
-            DppVersionSnapshot archived = await _archive.GetVersionAtAsync(dppId, target).ConfigureAwait(false);
+            // timestamp is at or before the target. Keyed by the normalized passport id, exactly as
+            // updates archive it, so "ABC..." and "abc..." or an undashed GUID find the same history.
+            DppVersionSnapshot archived = await _archive.GetVersionAtAsync(passport.DppId, target).ConfigureAwait(false);
             if (archived != null)
             {
                 return archived;
@@ -668,34 +678,102 @@ namespace Opc.Ua.Cloud.Library
         private async Task<List<ValueSetPassport>> FindPassportsByProductIdsAsync(string userId, IReadOnlyCollection<string> productIds)
         {
             var requested = new HashSet<string>(productIds.Where(p => !string.IsNullOrEmpty(p)), StringComparer.Ordinal);
-            var found = new List<(ValueSetPassport Passport, DateTimeOffset LastModified)>();
+            var found = new Dictionary<Guid, (ValueSetPassport Passport, DateTimeOffset LastModified)>();
             if (requested.Count == 0)
             {
                 return new List<ValueSetPassport>();
             }
 
-            IReadOnlyList<NodesetValueSet> candidates = await _valueSets.FindReadableByEntryValuesAsync(requested, userId).ConfigureAwait(false);
-            var idNodeByTemplate = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (NodesetValueSet set in candidates)
+            // Per template: its identifier node, and the value a set inherits when it has no override.
+            // Resolved once each; a null node also caches "template not visible to this caller".
+            var templates = new Dictionary<string, (string IdNode, string Inherited)>(StringComparer.Ordinal);
+            async Task<(string IdNode, string Inherited)> TemplateAsync(string nodesetIdentifier)
             {
-                // Resolve each template's identifier node once; a null entry also caches "template
-                // not visible to this caller", so such sets are skipped without re-checking.
-                if (!idNodeByTemplate.TryGetValue(set.NodesetIdentifier, out string idNode))
+                if (!templates.TryGetValue(nodesetIdentifier, out (string IdNode, string Inherited) info))
                 {
-                    idNode = await IsNodesetAccessibleAsync(userId, set.NodesetIdentifier).ConfigureAwait(false)
-                        ? await FindPropertyNodeIdAsync(userId, set.NodesetIdentifier, "UniqueProductIdentifier").ConfigureAwait(false)
+                    string idNode = await IsNodesetAccessibleAsync(userId, nodesetIdentifier).ConfigureAwait(false)
+                        ? await FindPropertyNodeIdAsync(userId, nodesetIdentifier, "UniqueProductIdentifier").ConfigureAwait(false)
                         : null;
-                    idNodeByTemplate[set.NodesetIdentifier] = idNode;
+                    string inherited = idNode is null ? null : await _client.VariableRead(userId, nodesetIdentifier, idNode).ConfigureAwait(false);
+                    info = (idNode, inherited);
+                    templates[nodesetIdentifier] = info;
+                }
+
+                return info;
+            }
+
+            // A set's product identifier is its override if it has one, otherwise the template's value -
+            // the same fallback a passport read applies. Matching on the effective value is what finds
+            // a set that never overrode the identifier, or had its override removed.
+            async Task ConsiderAsync(NodesetValueSet set)
+            {
+                if (found.ContainsKey(set.Id))
+                {
+                    return;
+                }
+
+                (string idNode, string inherited) = await TemplateAsync(set.NodesetIdentifier).ConfigureAwait(false);
+                if (idNode is null)
+                {
+                    return;
                 }
 
                 Dictionary<string, string> overlay = ToOverlay(set.Entries);
-                if (idNode is not null && overlay.TryGetValue(idNode, out string value) && requested.Contains(value))
+                string effective = overlay.TryGetValue(idNode, out string own) ? own : inherited;
+                if (effective is not null && requested.Contains(effective))
                 {
-                    found.Add((new ValueSetPassport(set.Id.ToString(), set.Id, set.NodesetIdentifier, set.UserId, overlay), set.LastModified));
+                    found[set.Id] = (ToPassport(set, overlay), set.LastModified);
                 }
             }
 
-            return found.OrderByDescending(r => r.LastModified).Select(r => r.Passport).ToList();
+            // Candidates that override the identifier with a requested value.
+            foreach (NodesetValueSet set in await _valueSets.FindReadableByEntryValuesAsync(requested, userId).ConfigureAwait(false))
+            {
+                await ConsiderAsync(set).ConfigureAwait(false);
+            }
+
+            // Candidates that inherit it: every readable set on a template whose own identifier is a
+            // requested value. Templates are found from the candidate sets already seen plus the
+            // nodesets the index says carry the value, so a template is only browsed when it could match.
+            var matchingTemplates = templates
+                .Where(t => t.Value.Inherited is not null && requested.Contains(t.Value.Inherited))
+                .Select(t => t.Key)
+                .ToHashSet(StringComparer.Ordinal);
+            foreach (string nodesetIdentifier in IndexedTemplatesWithProductIds(userId, requested))
+            {
+                (string _, string inherited) = await TemplateAsync(nodesetIdentifier).ConfigureAwait(false);
+                if (inherited is not null && requested.Contains(inherited))
+                {
+                    matchingTemplates.Add(nodesetIdentifier);
+                }
+            }
+
+            foreach (NodesetValueSet set in await _valueSets.FindReadableByTemplatesAsync(matchingTemplates, userId).ConfigureAwait(false))
+            {
+                await ConsiderAsync(set).ConfigureAwait(false);
+            }
+
+            return found.Values.OrderByDescending(r => r.LastModified).Select(r => r.Passport).ToList();
+        }
+
+        // Nodesets whose indexed model has a UniqueProductIdentifier variable carrying one of the
+        // requested values. Only a pre-filter: the effective value is confirmed through the OPC UA
+        // client, so a value that differs at runtime is still handled correctly.
+        private List<string> IndexedTemplatesWithProductIds(string userId, IReadOnlyCollection<string> requested)
+        {
+            if (_dataProvider is null)
+            {
+                return new List<string>();
+            }
+
+            List<string> values = requested.ToList();
+            return _dataProvider.GetNodeModels(nsm => nsm.DataVariables, userId)
+                .Where(v => v.DisplayName != null && v.DisplayName.Count > 0
+                    && v.DisplayName[0].Text == "UniqueProductIdentifier"
+                    && values.Contains(v.Value))
+                .Select(v => v.NodeSet.Identifier)
+                .Distinct()
+                .ToList();
         }
 
         // The NodeId of a named property directly under the template's DigitalProductPassport object.
@@ -858,7 +936,19 @@ namespace Opc.Ua.Cloud.Library
             /// longer matches any consistent version and needs operator attention. Reporting both
             /// identically would bury the second in the noise of the first.
             /// </remarks>
-            WriteFailedPartiallyApplied
+            WriteFailedPartiallyApplied,
+
+            /// <summary>
+            /// The caller lacks a role required to write a controlled element touched by the update.
+            /// Nothing was changed.
+            /// </summary>
+            Forbidden,
+
+            /// <summary>
+            /// The passport changed between being read and being written, so the update was refused
+            /// rather than applied on top of a view it never saw. Nothing was changed; re-read and retry.
+            /// </summary>
+            Conflict
         }
 
         // JSON key (camelCase per DigitalProductPassport contract) -> OPC UA BrowseName (PascalCase per nodeset).
@@ -1032,6 +1122,83 @@ namespace Opc.Ua.Cloud.Library
         }
 
         /// <summary>
+        /// Maps every node under the template's Elements collection to its canonical access key (the
+        /// dotted element-id chain), so a write addressed by NodeId can be checked against the same
+        /// controlled-elements keys a PATCH is. Header properties are not in the map: they sit outside
+        /// Elements and no controlled-elements key can name them.
+        /// </summary>
+        private async Task<Dictionary<string, string>> MapElementAccessKeysAsync(string userId, string nodesetIdentifier)
+        {
+            var keys = new Dictionary<string, string>(StringComparer.Ordinal);
+            NodesetViewerNode dppNode = await FindDppNodeAsync(userId, nodesetIdentifier).ConfigureAwait(false);
+            if (dppNode is null)
+            {
+                return keys;
+            }
+
+            List<NodesetViewerNode> properties = await _client.GetChildren(userId, nodesetIdentifier, dppNode.Id).ConfigureAwait(false);
+            NodesetViewerNode elements = properties?.FirstOrDefault(p => p.Text == "Elements");
+            if (elements is not null)
+            {
+                await MapChildrenAsync(userId, nodesetIdentifier, elements.Id, null, keys).ConfigureAwait(false);
+            }
+
+            return keys;
+        }
+
+        private async Task MapChildrenAsync(string userId, string nodesetIdentifier, string parentId, string parentPath, Dictionary<string, string> keys)
+        {
+            List<NodesetViewerNode> children = await _client.GetChildren(userId, nodesetIdentifier, parentId).ConfigureAwait(false);
+            foreach (NodesetViewerNode child in children ?? new List<NodesetViewerNode>())
+            {
+                string path = parentPath is null ? BuildElementId(child.Id) : parentPath + "." + BuildElementId(child.Id);
+                keys[child.Id] = path;
+                await MapChildrenAsync(userId, nodesetIdentifier, child.Id, path, keys).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// Writes and removes node values on a value set through the same rules as a DPP PATCH.
+        /// </summary>
+        /// <remarks>
+        /// A value set is a passport, so a value edit made through the value-set API or the nodeset
+        /// browser is a passport update and must behave like one: only the owner may write; the
+        /// caller needs the controlled-element role for every element touched; the previous version
+        /// is archived; LastUpdate advances; and a concurrent change is refused rather than
+        /// overwritten. Routing every value change through here is what keeps those rules from
+        /// depending on which screen or endpoint the change came from.
+        /// <para>
+        /// <paramref name="writes"/> maps a node id to its new value; <paramref name="removals"/>
+        /// lists node ids whose override is dropped so they fall back to the template value.
+        /// </para>
+        /// </remarks>
+        public async Task<(UpdateDppResult Result, string ErrorMessage)> UpdateValueSetValuesAsync(
+            string userId,
+            Guid valueSetId,
+            IReadOnlyDictionary<string, string> writes,
+            IReadOnlyCollection<string> removals,
+            IEnumerable<string> callerRoles)
+        {
+            ValueSetPassport passport = await ResolvePassportAsync(userId, valueSetId.ToString()).ConfigureAwait(false);
+            if (passport is null)
+            {
+                return (UpdateDppResult.NotFound, null);
+            }
+
+            DigitalProductPassport preUpdate = await BuildPassportAsync(userId, passport).ConfigureAwait(false);
+            if (preUpdate is null)
+            {
+                return (UpdateDppResult.NotFound, null);
+            }
+
+            var resolved = (writes ?? new Dictionary<string, string>())
+                .Select(kv => (NodeId: kv.Key, Value: kv.Value, FieldPath: kv.Key))
+                .ToList();
+
+            return await CommitValueSetWritesAsync(userId, passport, preUpdate, resolved, callerRoles ?? Array.Empty<string>(), removals).ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// Commits resolved writes to a passport's value set, advancing LastUpdate, then archives the
         /// pre-update version.
         /// </summary>
@@ -1051,12 +1218,54 @@ namespace Opc.Ua.Cloud.Library
             string userId,
             ValueSetPassport passport,
             DigitalProductPassport preUpdate,
-            List<(string NodeId, string Value, string FieldPath)> writes)
+            List<(string NodeId, string Value, string FieldPath)> writes,
+            IEnumerable<string> callerRoles = null,
+            IReadOnlyCollection<string> removals = null)
         {
             if (!string.Equals(passport.OwnerId, userId, StringComparison.Ordinal))
             {
                 // Published sets are readable by anyone but writable only by their owner.
                 return (UpdateDppResult.NotFound, null);
+            }
+
+            // Read the template's policy source exactly once. That one value is both validated here and
+            // archived below, so the policy recorded for the pre-update version can never differ from
+            // the policy this write was authorized against. A missing, unreadable or invalid source
+            // refuses the update: archiving it would record "no policy", which reads back as public.
+            DbFiles policySource;
+            try
+            {
+                policySource = await _storage.DownloadFileAsync(passport.NodesetIdentifier).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Update of DPP {DppId} refused: the template's access policy could not be loaded.", passport.DppId);
+                return (UpdateDppResult.WriteFailed, "The update was refused because the passport's access policy could not be loaded.");
+            }
+
+            DppControlledElements.MappingResult policy = policySource is null
+                ? DppControlledElements.Unavailable()
+                : DppControlledElements.Read(policySource.Values);
+            if (policy.IsInvalid)
+            {
+                _logger.LogError("Update of DPP {DppId} refused: the template's access policy is missing or invalid.", passport.DppId);
+                return (UpdateDppResult.WriteFailed, "The update was refused because the passport's access policy is missing or invalid.");
+            }
+
+            // Enforce controlled-element write rights for every element touched, against the policy
+            // read above. PATCH callers are also checked by the controller; value-set callers rely on
+            // this check alone, so it must hold for every path that changes passport values.
+            if (callerRoles is not null && policy.Entries.Count > 0)
+            {
+                string[] roles = callerRoles.ToArray();
+                Dictionary<string, string> accessKeys = await MapElementAccessKeysAsync(userId, passport.NodesetIdentifier).ConfigureAwait(false);
+                foreach (string nodeId in writes.Select(w => w.NodeId).Concat(removals ?? Array.Empty<string>()))
+                {
+                    if (accessKeys.TryGetValue(nodeId, out string key) && !_accessPolicy.CanRead(key, roles, policy.Entries))
+                    {
+                        return (UpdateDppResult.Forbidden, "Caller is not authorized to modify controlled elements of this DPP.");
+                    }
+                }
             }
 
             string lastUpdateNode = await FindPropertyNodeIdAsync(userId, passport.NodesetIdentifier, "LastUpdate").ConfigureAwait(false);
@@ -1078,29 +1287,30 @@ namespace Opc.Ua.Cloud.Library
             }
 
             values[lastUpdateNode] = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+            var removed = new List<string>((removals ?? Array.Empty<string>()).Where(n => !values.ContainsKey(n)));
+
             // Remember each touched node's previous entry so a failed archive can be undone exactly:
             // nodes the set already overrode get their old value back, the rest are removed again.
             var previous = new Dictionary<string, string>(StringComparer.Ordinal);
             var added = new List<string>();
-            foreach (string nodeId in values.Keys)
+            foreach (string nodeId in values.Keys.Concat(removed))
             {
                 if (passport.Overlay.TryGetValue(nodeId, out string old))
                 {
                     previous[nodeId] = old;
                 }
-                else
+                else if (values.ContainsKey(nodeId))
                 {
                     added.Add(nodeId);
                 }
             }
 
-            // The pre-update policy is the template's, which a passport update never changes.
-            DppControlledElements.MappingResult policy = await GetControlledElementsAsync(passport.DppId).ConfigureAwait(false);
-            string preUpdatePolicy = policy.IsInvalid ? null : (await _storage.DownloadFileAsync(passport.NodesetIdentifier).ConfigureAwait(false))?.Values;
-
+            // Compare-and-swap against the revision the passport was resolved at: if anything changed
+            // the set since, refuse rather than apply this update on top of a view it never saw.
+            long? committedRevision;
             try
             {
-                await _valueSets.SetValuesAsync(passport.ValueSetId, userId, values).ConfigureAwait(false);
+                committedRevision = await _valueSets.ApplyChangesAsync(passport.ValueSetId, userId, passport.Revision, values, removed).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -1108,7 +1318,12 @@ namespace Opc.Ua.Cloud.Library
                 return (UpdateDppResult.WriteFailed, "The update could not be saved.");
             }
 
-            if (await _archive.ArchiveAsync(passport.DppId, preUpdate, preUpdatePolicy, preUpdate.LastUpdate.ToUniversalTime()).ConfigureAwait(false))
+            if (committedRevision is null)
+            {
+                return (UpdateDppResult.Conflict, "The passport was changed by another request. Reload it and try again.");
+            }
+
+            if (await _archive.ArchiveAsync(passport.DppId, preUpdate, policySource.Values, preUpdate.LastUpdate.ToUniversalTime()).ConfigureAwait(false))
             {
                 return (UpdateDppResult.Success, null);
             }
@@ -1116,14 +1331,21 @@ namespace Opc.Ua.Cloud.Library
             _logger.LogError("Update of DPP {DppId}: the previous version could not be archived; restoring the previous values.", passport.DppId);
             try
             {
-                await _valueSets.RestoreValuesAsync(passport.ValueSetId, userId, previous, added).ConfigureAwait(false);
-                return (UpdateDppResult.WriteFailed, "Update could not be completed; previous version could not be archived.");
+                // Revision-checked: only undoes this update if nothing has been written since. If a later
+                // update has landed, restoring would overwrite it, so it is left in place and reported.
+                if (await _valueSets.RestoreValuesAsync(passport.ValueSetId, userId, committedRevision.Value, previous, added).ConfigureAwait(false))
+                {
+                    return (UpdateDppResult.WriteFailed, "Update could not be completed; previous version could not be archived.");
+                }
+
+                _logger.LogError("Update of DPP {DppId}: not restored because a later update has been applied since; this update is applied but unarchived.", passport.DppId);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Update of DPP {DppId}: restoring the previous values also failed; the update is applied but unarchived.", passport.DppId);
-                return (UpdateDppResult.WriteFailedPartiallyApplied, "Update could not be completed; previous version could not be archived.");
             }
+
+            return (UpdateDppResult.WriteFailedPartiallyApplied, "Update could not be completed; previous version could not be archived.");
         }
         /// <summary>
         /// Updates a single leaf <see cref="DataElement"/> on a DPP, addressed by an RFC 9535 JSONPath,
@@ -1448,7 +1670,10 @@ namespace Opc.Ua.Cloud.Library
         /// The nodeset is only a template with default or example values. A passport exists only as
         /// a value set, which is why <see cref="DppId"/> is the set's id rather than the nodeset's.
         /// </remarks>
-        private sealed record ValueSetPassport(string DppId, Guid ValueSetId, string NodesetIdentifier, string OwnerId, IReadOnlyDictionary<string, string> Overlay);
+        private sealed record ValueSetPassport(string DppId, Guid ValueSetId, string NodesetIdentifier, string OwnerId, IReadOnlyDictionary<string, string> Overlay, long Revision, DateTimeOffset CreatedAt);
+
+        private static ValueSetPassport ToPassport(NodesetValueSet set, IReadOnlyDictionary<string, string> overlay) =>
+            new(set.Id.ToString(), set.Id, set.NodesetIdentifier, set.UserId, overlay, set.Revision, set.CreatedAt);
 
         /// <summary>
         /// Resolves <paramref name="dppId"/> to a value set the caller may read, or null.
@@ -1478,7 +1703,7 @@ namespace Opc.Ua.Cloud.Library
                 return null;
             }
 
-            return new ValueSetPassport(valueSetId.ToString(), valueSetId, set.NodesetIdentifier, set.UserId, ToOverlay(set.Entries));
+            return ToPassport(set, ToOverlay(set.Entries));
         }
         // Keyed by expanded NodeId, the key set entries and NodesetViewerNode.Id share. Ordinal,
         // because NodeIds are case-sensitive: "s=Foo" and "s=foo" are different nodes.
@@ -1517,10 +1742,41 @@ namespace Opc.Ua.Cloud.Library
         private async Task<DigitalProductPassport> BuildPassportAsync(string userId, ValueSetPassport passport)
         {
             NodesetViewerNode dppNode = await FindDppNodeAsync(userId, passport.NodesetIdentifier).ConfigureAwait(false);
-            return dppNode is null
-                ? null
-                : await GenerateDPPFromDPPNode(userId, passport.NodesetIdentifier, dppNode, passport.DppId, passport.Overlay).ConfigureAwait(false);
+            if (dppNode is null)
+            {
+                return null;
+            }
+
+            DigitalProductPassport dpp = await GenerateDPPFromDPPNode(userId, passport.NodesetIdentifier, dppNode, passport.DppId, passport.Overlay).ConfigureAwait(false);
+            if (dpp is null)
+            {
+                return null;
+            }
+
+            // A passport's activation time is its own. Until the set records a LastUpdate of its own,
+            // the value read above came from the template (or, for a clone, was copied from the
+            // source set) and predates this passport, so it is replaced by the set's creation time.
+            // Without this a version request for a date before the set existed would return it.
+            string lastUpdateNode = await FindPropertyNodeIdAsync(userId, passport.NodesetIdentifier, "LastUpdate").ConfigureAwait(false);
+            bool ownLastUpdate = lastUpdateNode is not null
+                && passport.Overlay.ContainsKey(lastUpdateNode)
+                && dpp.LastUpdate >= passport.CreatedAt;
+
+            return ownLastUpdate ? dpp : WithLastUpdate(dpp, passport.CreatedAt);
         }
+
+        private static DigitalProductPassport WithLastUpdate(DigitalProductPassport dpp, DateTimeOffset lastUpdate) => new() {
+            DigitalProductPassportId = dpp.DigitalProductPassportId,
+            UniqueProductIdentifier = dpp.UniqueProductIdentifier,
+            Granularity = dpp.Granularity,
+            DppSchemaVersion = dpp.DppSchemaVersion,
+            DppStatus = dpp.DppStatus,
+            LastUpdate = lastUpdate,
+            EconomicOperatorId = dpp.EconomicOperatorId,
+            FacilityId = dpp.FacilityId,
+            ContentSpecificationIds = dpp.ContentSpecificationIds,
+            Elements = dpp.Elements
+        };
 
         // Locates the template's DigitalProductPassport object under the Objects folder.
         private async Task<NodesetViewerNode> FindDppNodeAsync(string userId, string nodesetIdentifier)

@@ -43,6 +43,16 @@ namespace Opc.Ua.Cloud.Library.Models
         /// </summary>
         public bool IsPublished { get; set; }
 
+        /// <summary>
+        /// Incremented by every write to the set or its entries. Configured as a concurrency token,
+        /// so a write based on a stale read fails instead of silently overwriting a newer one.
+        /// </summary>
+        /// <remarks>
+        /// A counter rather than <see cref="LastModified"/>: two writes in the same clock tick would
+        /// share a timestamp and the second could pass a check meant to reject it.
+        /// </remarks>
+        public long Revision { get; set; }
+
         public virtual ICollection<NodesetValueSetEntry> Entries { get; set; } = new List<NodesetValueSetEntry>();
     }
 }

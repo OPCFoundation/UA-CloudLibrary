@@ -85,6 +85,7 @@ namespace Opc.Ua.Cloud.Library.ValueSets
             set.Name = name;
             set.Description = description;
             set.LastModified = DateTimeOffset.UtcNow;
+            set.Revision++;
             await _dbContext.SaveChangesAsync(ct).ConfigureAwait(false);
             return set;
         }
@@ -203,6 +204,7 @@ namespace Opc.Ua.Cloud.Library.ValueSets
             }
 
             set.LastModified = now;
+            set.Revision++;
             await _dbContext.SaveChangesAsync(ct).ConfigureAwait(false);
         }
 
@@ -225,6 +227,7 @@ namespace Opc.Ua.Cloud.Library.ValueSets
 
             _dbContext.NodesetValueSetEntries.Remove(entry);
             set.LastModified = DateTimeOffset.UtcNow;
+            set.Revision++;
             await _dbContext.SaveChangesAsync(ct).ConfigureAwait(false);
             return true;
         }
@@ -241,6 +244,7 @@ namespace Opc.Ua.Cloud.Library.ValueSets
 
             set.IsPublished = isPublished;
             set.LastModified = DateTimeOffset.UtcNow;
+            set.Revision++;
             await _dbContext.SaveChangesAsync(ct).ConfigureAwait(false);
             return true;
         }
@@ -266,12 +270,36 @@ namespace Opc.Ua.Cloud.Library.ValueSets
                 .ToListAsync(ct).ConfigureAwait(false);
         }
 
-        public async Task RestoreValuesAsync(Guid id, string userId, IReadOnlyDictionary<string, string> values, IReadOnlyCollection<string> removeNodeIds, CancellationToken ct = default)
+        public async Task<IReadOnlyList<NodesetValueSet>> FindReadableByTemplatesAsync(IReadOnlyCollection<string> nodesetIdentifiers, string userId, CancellationToken ct = default)
+        {
+            if (nodesetIdentifiers == null || nodesetIdentifiers.Count == 0)
+            {
+                return Array.Empty<NodesetValueSet>();
+            }
+
+            List<string> templates = nodesetIdentifiers.ToList();
+            return await Readable(userId)
+                .Where(vs => templates.Contains(vs.NodesetIdentifier))
+                .Include(vs => vs.Entries)
+                .ToListAsync(ct).ConfigureAwait(false);
+        }
+
+        public async Task<bool> RestoreValuesAsync(Guid id, string userId, long expectedRevision, IReadOnlyDictionary<string, string> values, IReadOnlyCollection<string> removeNodeIds, CancellationToken ct = default)
+        {
+            return await ApplyChangesAsync(id, userId, expectedRevision, values, removeNodeIds, ct).ConfigureAwait(false) is not null;
+        }
+
+        public async Task<long?> ApplyChangesAsync(Guid id, string userId, long expectedRevision, IReadOnlyDictionary<string, string> values, IReadOnlyCollection<string> removeNodeIds, CancellationToken ct = default)
         {
             RequireUser(userId);
 
-            NodesetValueSet set = await TrackedAsync(id, userId, ct).ConfigureAwait(false)
-                ?? throw new KeyNotFoundException($"Value set {id} not found.");
+            NodesetValueSet set = await TrackedAsync(id, userId, ct).ConfigureAwait(false);
+            if (set == null || set.Revision != expectedRevision)
+            {
+                // Another write has landed since the caller read the set. Applying now would act on a
+                // stale view, so change nothing and let the caller decide.
+                return null;
+            }
 
             List<string> touched = (values?.Keys ?? Enumerable.Empty<string>()).Concat(removeNodeIds ?? Array.Empty<string>()).ToList();
             Dictionary<string, NodesetValueSetEntry> existing = await _dbContext.NodesetValueSetEntries
@@ -301,8 +329,21 @@ namespace Opc.Ua.Cloud.Library.ValueSets
             }
 
             set.LastModified = now;
-            await _dbContext.SaveChangesAsync(ct).ConfigureAwait(false);
+            set.Revision++;
+
+            try
+            {
+                // Revision is a concurrency token, so this also fails if a write slipped in between the
+                // check above and this save - including one from another application instance.
+                await _dbContext.SaveChangesAsync(ct).ConfigureAwait(false);
+                return set.Revision;
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return null;
+            }
         }
+
         public async Task<string> GetNodesetIdentifierAsync(Guid id, CancellationToken ct = default)
         {
             return await _dbContext.NodesetValueSets
