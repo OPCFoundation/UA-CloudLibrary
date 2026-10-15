@@ -765,6 +765,7 @@
     {
         if (!firstRender)
         {
+            await EnsureVisibleNodesBrowsedAsync().ConfigureAwait(false);
             return;
         }
 
@@ -2081,6 +2082,75 @@
                 Console.WriteLine($"Look-ahead browse failed for node '{child.Id}': {ex.Message}");
             }
         }
+    }
+
+    private bool _isBrowsingVisibleNodes;
+    // Nodes whose look-ahead browse failed are not retried by the render-driven safety net, or a
+    // persistent failure would re-render forever; they are retried when the user expands them.
+    private readonly HashSet<string> _lookAheadFailed = new HashSet<string>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Safety net for every path that expands nodes without <see cref="LoadChildrenWithLookAheadAsync"/>
+    /// (search, the variables-only scan, state restore): any node currently visible in the tree whose
+    /// children are still unknown is browsed, so leaves lose their chevron as soon as they are shown.
+    /// </summary>
+    private async Task EnsureVisibleNodesBrowsedAsync()
+    {
+        if (_isBrowsingVisibleNodes || !_isInteractive || !_initialLoad.Task.IsCompleted)
+        {
+            return;
+        }
+
+        List<NodesetViewerNode> pending = new List<NodesetViewerNode>();
+        Queue<NodesetViewerNode> queue = new Queue<NodesetViewerNode>(VisibleTopLevelNodes.Where(n => n != null));
+        while (queue.Count > 0)
+        {
+            NodesetViewerNode node = queue.Dequeue();
+            if (!node.ChildrenLoaded && !_lookAheadFailed.Contains(node.Id))
+            {
+                pending.Add(node);
+            }
+
+            if (ExpandedNodes.Contains(node))
+            {
+                foreach (NodesetViewerNode child in VisibleChildren(node))
+                {
+                    queue.Enqueue(child);
+                }
+            }
+        }
+
+        if (pending.Count == 0)
+        {
+            return;
+        }
+
+        _isBrowsingVisibleNodes = true;
+        try
+        {
+            foreach (NodesetViewerNode node in pending)
+            {
+                try
+                {
+                    await LoadChildrenAsync(node).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Browsing visible node '{node.Id}' failed: {ex.Message}");
+                }
+
+                if (!node.ChildrenLoaded)
+                {
+                    _lookAheadFailed.Add(node.Id);
+                }
+            }
+        }
+        finally
+        {
+            _isBrowsingVisibleNodes = false;
+        }
+
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
     }
 
     private async Task LoadChildrenAsync(NodesetViewerNode node)
