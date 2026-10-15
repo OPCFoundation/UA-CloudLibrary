@@ -233,12 +233,13 @@
                                     </div>
                                 </div>
                                 <div class="card-body">
-                                    <Tree Nodes="TreeNodes" TNode="NodesetViewerNode" @key="_treeVersion" ChildSelector="VisibleChildren" SelectedNodeChanged="SelectedNodeChanged" OnNodeExpand="OnNodeExpand" HasChildNodes="HasChildNodes" ExpandedNodes="ExpandedNodes" ExpandedNodesChanged="OnExpandedNodesChanged">
+                                    <Tree Nodes="TreeNodes" TNode="NodesetViewerNode" ChildSelector="VisibleChildren" SelectedNode="SelectedNode" SelectedNodeChanged="SelectedNodeChanged" OnNodeExpand="OnNodeExpand" HasChildNodes="HasChildNodes" ExpandedNodes="ExpandedNodes" ExpandedNodesChanged="OnExpandedNodesChanged">
                                         <TitleTemplate>
                                             @{
                                                 bool isSelected = context.Id == SelectedNode.Id;
                                                 bool isMatch = SearchMatchIds != null && SearchMatchIds.Contains(context.Id);
-                                                string color = isSelected ? "red" : (isMatch ? "#0d6efd" : null);
+                                                // The Tree component renders the selected node as white-on-blue; only non-selected matches get extra styling here.
+                                                string color = !isSelected && isMatch ? "#0d6efd" : null;
                                                 bool bold = context.Id != null
                                                     && context.Id.StartsWith("nsu=")
                                                     && IsNodeInScope(context, SearchScope);
@@ -677,9 +678,6 @@
     private bool IsVariablesOnlyFilterActive => ShowVariablesOnly && !string.IsNullOrEmpty(SearchScope);
     private bool IsScanningVariables { get; set; } = false;
     private CancellationTokenSource _scanCts;
-    // Bumped whenever the Variables-only filter changes so the <Tree> is recreated (via @key)
-    // instead of diffed, giving a complete redraw of the visible branches.
-    private int _treeVersion = 0;
     private string SearchStatus { get; set; } = string.Empty;
     private bool IsSearching { get; set; } = false;
     private bool ShowSearchHelp { get; set; } = false;
@@ -1917,7 +1915,13 @@
             return true;
         }
 
-        return IsVariablesOnlyFilterActive ? node.Children.Any(MayContainVariables) : node.Children.Count > 0;
+        if (!IsVariablesOnlyFilterActive)
+        {
+            return node.Children.Count > 0;
+        }
+
+        // The root must always stay openable so the user can never end up with an empty, dead tree.
+        return TreeNodes.Contains(node) ? node.Children.Count > 0 : node.Children.Any(MayContainVariables);
     }
 
     private IEnumerable<NodesetViewerNode> VisibleChildren(NodesetViewerNode node)
@@ -1927,7 +1931,19 @@
             return Enumerable.Empty<NodesetViewerNode>();
         }
 
-        return IsVariablesOnlyFilterActive ? node.Children.Where(MayContainVariables) : node.Children;
+        if (!IsVariablesOnlyFilterActive)
+        {
+            return node.Children;
+        }
+
+        // If nothing under the root qualifies (scope without Variables), show the root's real
+        // children instead of an empty tree so the user can still navigate.
+        if (TreeNodes.Contains(node) && !node.Children.Any(MayContainVariables))
+        {
+            return node.Children;
+        }
+
+        return node.Children.Where(MayContainVariables);
     }
 
     // A branch is shown only if its subtree contains a Variable that belongs to the selected
@@ -1947,9 +1963,12 @@
             return true;
         }
 
+        // Variables are not browsed by the scan, so an out-of-scope Variable with no loaded
+        // children is a leaf that does not qualify. Other unbrowsed branches stay visible only
+        // while the scan is still running; afterwards every branch has been resolved.
         if (!node.ChildrenLoaded)
         {
-            return IsScanningVariables;
+            return IsScanningVariables && !string.Equals(node.NodeClass, "Variable", StringComparison.Ordinal);
         }
 
         return node.Children != null && node.Children.Any(MayContainVariables);
@@ -1957,13 +1976,14 @@
 
     private void ApplyVariablesOnlyFilter()
     {
-        _treeVersion++;
         StartVariablesOnlyScan();
+        StateHasChanged();
     }
 
-    // Once every branch has been resolved, drop expanded branches that contain no in-scope
-    // Variables so they cannot stay open, and fall back to the root if the selected node is no
-    // longer reachable through the filtered tree.
+    // Once every branch has been resolved, fall back to the root if the selected node is no longer
+    // reachable through the filtered tree. ExpandedNodes is deliberately left untouched: hidden
+    // branches are simply not rendered while the filter is on, and keeping their expanded state
+    // means they reappear exactly as the user left them when the filter is turned off again.
     private async Task ReconcileTreeWithVariablesOnlyFilterAsync()
     {
         if (!IsVariablesOnlyFilterActive)
@@ -1987,30 +2007,16 @@
             }
         }
 
-        bool changed = false;
-        for (int i = ExpandedNodes.Count - 1; i >= 0; i--)
-        {
-            NodesetViewerNode expanded = ExpandedNodes[i];
-            if (expanded == null || !visible.Contains(expanded) || !HasChildNodes(expanded))
-            {
-                ExpandedNodes.RemoveAt(i);
-                changed = true;
-            }
-        }
-
         NodesetViewerNode root = TreeNodes.FirstOrDefault();
-        if (SelectedNode != null && !visible.Contains(SelectedNode) && root != null)
+        if (root != null && SelectedNode != null && !ReferenceEquals(SelectedNode, root) && !visible.Contains(SelectedNode))
         {
+            if (!ExpandedNodes.Contains(root))
+            {
+                ExpandedNodes.Add(root);
+            }
+
             await SelectedNodeChanged(root).ConfigureAwait(false);
-            changed = false;
         }
-
-        if (changed)
-        {
-            await PersistTreeStateAsync().ConfigureAwait(false);
-        }
-
-        _treeVersion++;
     }
 
     private void StartVariablesOnlyScan()
