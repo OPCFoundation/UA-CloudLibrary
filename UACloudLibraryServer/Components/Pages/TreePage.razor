@@ -2314,9 +2314,9 @@
         return FilterVisible(node.Children);
     }
 
-    // Branches are never hidden: every node that has (or may still have) children is rendered so
-    // the tree can always be browsed. The Variables-only filter only drops leaf nodes that are
-    // not Variables of the selected scope.
+    // With the Variables-only filter on, a node is shown only if it is (or contains) an editable
+    // Variable of the selected nodeset scope. Branches that are still unbrowsed stay visible while
+    // the scan runs so the tree does not flicker; afterwards every branch has been resolved.
     private IEnumerable<NodesetViewerNode> FilterVisible(IEnumerable<NodesetViewerNode> nodes)
     {
         if (!IsVariablesOnlyFilterActive)
@@ -2324,14 +2324,22 @@
             return nodes;
         }
 
-        return nodes.Where(n => n != null && (HasChildNodes(n) || MayContainVariables(n)));
+        return nodes.Where(n => n != null && MayContainVariables(n));
     }
 
-    // A branch is shown only if its subtree contains a Variable that belongs to the selected
-    // nodeset scope; branches with no in-scope nodes, or with in-scope nodes but no Variables, are
-    // hidden. Children are browsed lazily, so enabling the filter triggers a scan that loads the
-    // whole tree up front (see StartVariablesOnlyScan); while that scan runs, unbrowsed branches
-    // stay visible so the tree does not flicker, and afterwards every branch has been resolved.
+    // Editability (write access level, data type, namespace) of in-scope Variables as determined
+    // by the scan; a Variable that is not in the cache yet counts as a candidate while scanning.
+    private readonly Dictionary<string, bool> _editableVariables = new Dictionary<string, bool>(StringComparer.Ordinal);
+
+    private bool IsInScopeVariable(NodesetViewerNode node)
+    {
+        return string.Equals(node.NodeClass, "Variable", StringComparison.Ordinal) && IsNodeInScope(node, SearchScope);
+    }
+
+    // A branch is shown only if its subtree contains an editable Variable that belongs to the
+    // selected nodeset scope; branches with no in-scope nodes, or with in-scope nodes but no
+    // editable Variables, are hidden. Children are browsed lazily, so enabling the filter triggers
+    // a scan that loads the whole tree up front (see StartVariablesOnlyScan).
     private bool MayContainVariables(NodesetViewerNode node)
     {
         if (node == null)
@@ -2339,9 +2347,14 @@
             return false;
         }
 
-        if (string.Equals(node.NodeClass, "Variable", StringComparison.Ordinal) && IsNodeInScope(node, SearchScope))
+        if (IsInScopeVariable(node))
         {
-            return true;
+            if (_editableVariables.TryGetValue(node.Id ?? string.Empty, out bool editable))
+            {
+                return editable;
+            }
+
+            return IsScanningVariables;
         }
 
         // Variables are not browsed by the scan, so an out-of-scope Variable with no loaded
@@ -2428,6 +2441,7 @@
                 visited += frontier.Count;
 
                 var next = new List<NodesetViewerNode>();
+                var variablesToCheck = new List<NodesetViewerNode>();
                 foreach (var node in frontier)
                 {
                     if (node.Children == null)
@@ -2442,8 +2456,14 @@
                         {
                             next.Add(child);
                         }
+                        else if (IsInScopeVariable(child) && child.Id != null && !_editableVariables.ContainsKey(child.Id))
+                        {
+                            variablesToCheck.Add(child);
+                        }
                     }
                 }
+
+                await CheckVariablesEditableAsync(variablesToCheck, ct).ConfigureAwait(false);
 
                 frontier = next;
                 await InvokeAsync(StateHasChanged).ConfigureAwait(false);
@@ -2466,6 +2486,39 @@
                 await InvokeAsync(StateHasChanged).ConfigureAwait(false);
             }
         }
+    }
+
+    private async Task CheckVariablesEditableAsync(List<NodesetViewerNode> variables, CancellationToken ct)
+    {
+        if (variables.Count == 0)
+        {
+            return;
+        }
+
+        using var throttle = new SemaphoreSlim(SearchMaxConcurrentBrowses, SearchMaxConcurrentBrowses);
+        var tasks = new List<Task>(variables.Count);
+        foreach (var variable in variables)
+        {
+            ct.ThrowIfCancellationRequested();
+            await throttle.WaitAsync(ct).ConfigureAwait(false);
+            tasks.Add(Task.Run(async () =>
+            {
+                try
+                {
+                    string blocker = await _client.GetVariableWriteBlocker(UserName, NodesetIdentifier, variable.Id).ConfigureAwait(false);
+                    lock (_editableVariables)
+                    {
+                        _editableVariables[variable.Id] = string.IsNullOrEmpty(blocker);
+                    }
+                }
+                finally
+                {
+                    throttle.Release();
+                }
+            }, ct));
+        }
+
+        await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
     private static string ExtractNodeIdSuffix(string nodeId)
