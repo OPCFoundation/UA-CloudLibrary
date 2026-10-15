@@ -1,20 +1,13 @@
 ﻿
-@using System.Net
-@using System.Net.Http
-@using System.Net.Http.Headers
-@using System.Net.Http.Json
-@using System.Text.Json
-@using System.Web
 @using System.IO
 @using System.IO.Compression
+@using System.Text.Json
 @using System.Threading
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Web;
-@using Microsoft.AspNetCore.Http
 @using Microsoft.JSInterop
-@using AdminShell
 @using Opc.Ua
 @using Opc.Ua.Cloud.Library.Models
 @using Opc.Ua.Cloud.Library.ValueSets
@@ -24,24 +17,29 @@
 @inject IJSRuntime JSRuntime
 @inject IDppAuditLog _auditLog
 @inject IValueSetStore ValueSetStore
+@inject DPPService DppService
 @inject AuthenticationStateProvider AuthStateProvider
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
 @inject DbFileStorage Storage
 @implements IDisposable
 
-<div class="d-flex align-items-center justify-content-between">
-    <h1 class="mb-0">@NodesetName</h1>
-    <span class="d-flex align-items-center">
-        @if (!string.IsNullOrEmpty(CopyStatus))
-        {
-            <span class="text-muted mr-3">@CopyStatus</span>
-        }
-        <button type="button" class="btn btn-primary" title="Copy nodeset file" @onclick="() => OpenCopyDialog()"><i class="fas fa-copy mr-2"></i>Copy</button>
-    </span>
-</div>
 <div style="height:100%">
     <div class="uacl-container">
         <div class="uacl-content">
             <div class="container">
+                <div class="col-12 row">
+                    <div class="col-12 d-flex align-items-center justify-content-between flex-wrap mb-3" style="gap: 0.5rem;">
+                        <h1 class="mb-0">@NodesetName</h1>
+                        <div class="d-flex align-items-center" style="gap: 0.75rem;">
+                            @if (!string.IsNullOrEmpty(CopyStatus))
+                            {
+                                <span class="text-muted">@CopyStatus</span>
+                            }
+                            <button type="button" class="btn btn-primary" title="Copy nodeset file" @onclick="() => OpenCopyDialog()"><i class="fas fa-copy mr-2"></i>Copy</button>
+                        </div>
+                    </div>
+                </div>
                 <p>
                     <div class="col-12 row">
                         <div class="col-12">
@@ -369,39 +367,30 @@
                                 </div>
                             }
                             <div class="card">
-                                <div class="card-header">
+                                <div class="card-header d-flex justify-content-between align-items-center">
                                     <b><span style="color: red;">Selected Node</span> Value</b>
-                                    <span style="float: right">
-                                        <button type="button" class="btn btn-primary" @onclick="() => OpenEditDialog(NodeValue)" disabled="@(!CanEditSelectedNode)" title="@(CanEditSelectedNode ? "Edit the value of the selected node" : EditBlockedReason)">Edit</button>
-                                        <button id="saveButton" type="button" class="btn btn-primary btn_browser" style="margin-left: 0.5rem" @onclick="SaveNodeValues" disabled="@IsSaving" title="Save the current node values to the nodeset">
-                                            @if (IsSaving)
-                                            {
-                                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                                <span> Saving...</span>
-                                            }
-                                            else
-                                            {
-                                                <span>Save</span>
-                                            }
-                                        </button>
-                                    </span><br/>
-                                    @if (!CanEditSelectedNode && !string.IsNullOrEmpty(EditBlockedReason))
-                                    {
-                                        <span class="text-muted"><i class="fas fa-lock mr-1"></i>@EditBlockedReason</span><br/>
-                                    }
-                                    @if (!string.IsNullOrEmpty(WriteStatus))
-                                    {
-                                        <span style="color: red;">@WriteStatus</span>
-                                    }
+                                    <button id="saveButton" type="button" class="btn btn-primary btn-sm btn_browser" @onclick="SaveNodeValues" disabled="@IsSaving" title="Save the current node values to the nodeset">
+                                        @if (IsSaving)
+                                        {
+                                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                            <span> Saving...</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Save</span>
+                                        }
+                                    </button>
+                                </div>
+                                <div class="card-body">
                                     @if (!string.IsNullOrEmpty(StatusMessage))
                                     {
-                                        <span>@StatusMessage</span><br/>
+                                        <div class="mb-2">@StatusMessage</div>
                                     }
-                                    <div class="input-group input-group-sm mt-2">
+                                    <div class="input-group input-group-sm uacl-control-row" style="height: 2rem; flex-wrap: nowrap;">
                                         <div class="input-group-prepend">
-                                            <span class="input-group-text" title="Node values are read from and edits are written to the selected value set. 'Nodeset values' are the owner's canonical values; your own value sets are private overlays on top of them.">Value set</span>
+                                            <span class="input-group-text" style="height: 2rem; padding: 0 .5rem; font-size: .875rem; line-height: 1;" title="Node values are read from and edits are written to the selected value set. 'Nodeset values' are the owner's canonical values; your own value sets are private overlays on top of them. Edits are stored in the set and do not change the nodeset itself.">Value set</span>
                                         </div>
-                                        <select class="form-control" value="@ActiveValueSetId" @onchange="OnValueSetSelected" disabled="@(!CanUseValueSets)">
+                                        <select class="form-control form-control-sm" style="height: 2rem; padding-top: 0; padding-bottom: 0; font-size: .875rem;" value="@ActiveValueSetId" @onchange="OnValueSetSelected" disabled="@(!CanUseValueSets)">
                                             <option value="">Nodeset values</option>
                                             @foreach (var set in ValueSets)
                                             {
@@ -410,7 +399,7 @@
                                         </select>
                                         <div class="input-group-append">
                                             <div class="btn-group @(ShowValueSetMenu ? "show" : string.Empty)">
-                                                <button type="button" class="btn btn-outline-secondary dropdown-toggle" title="Value set actions" aria-haspopup="true" aria-expanded="@ShowValueSetMenu.ToString().ToLowerInvariant()" @onclick="@(() => ShowValueSetMenu = !ShowValueSetMenu)" disabled="@(!CanUseValueSets || IsImporting)">
+                                                <button type="button" class="btn btn-primary dropdown-toggle" style="height: 2rem; padding: 0 .75rem; font-size: .875rem; border-top-left-radius: 0; border-bottom-left-radius: 0;" title="Value set actions" aria-haspopup="true" aria-expanded="@ShowValueSetMenu.ToString().ToLowerInvariant()" @onclick="@(() => ShowValueSetMenu = !ShowValueSetMenu)" disabled="@(!CanUseValueSets || IsImporting)">
                                                     @if (IsImporting)
                                                     {
                                                         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -424,6 +413,7 @@
                                                     <button type="button" class="dropdown-item" title="Create a new empty value set" @onclick="@(() => { ShowValueSetMenu = false; OpenNewValueSetDialog(); })">New</button>
                                                     <button type="button" class="dropdown-item" title="Rename the selected value set" @onclick="@(() => { ShowValueSetMenu = false; OpenRenameValueSetDialog(); })" disabled="@(ActiveValueSet == null)">Rename</button>
                                                     <button type="button" class="dropdown-item" title="Copy the selected value set" @onclick="@(() => { ShowValueSetMenu = false; OpenCloneValueSetDialog(); })" disabled="@(ActiveValueSet == null)">Clone</button>
+                                                    <button type="button" class="dropdown-item" title="@(ActiveValueSet?.IsPublished == true ? "Make this passport private again: only you will be able to read it through the DPP API" : "Publish this value set as a Digital Product Passport that anyone can read through the DPP API")" @onclick="@(() => { ShowValueSetMenu = false; return ToggleActiveValueSetPublished(); })" disabled="@(ActiveValueSet == null)">@(ActiveValueSet?.IsPublished == true ? "Unpublish" : "Publish")</button>
                                                     <div class="dropdown-divider"></div>
                                                     @if (ActiveValueSet == null)
                                                     {
@@ -444,19 +434,19 @@
                                     </div>
                                     @if (!CanUseValueSets)
                                     {
-                                        <small class="text-muted">Sign in to create your own value sets for this nodeset.</small>
+                                        <small class="text-muted d-block mt-2">Sign in to create your own value sets for this nodeset.</small>
                                     }
                                     else if (!_valueSetsLoaded)
                                     {
-                                        <small class="text-muted">Loading your value sets...</small>
+                                        <small class="text-muted d-block mt-2">Loading your value sets...</small>
                                     }
                                     else if (ActiveValueSet != null)
                                     {
-                                        <small class="text-muted">@ActiveValueSetEntries.Count node value(s) overridden in this set. Edits are stored privately in the set and do not change the nodeset itself.</small>
+                                        <small class="text-muted d-block mt-2">@ActiveValueSetEntries.Count node value(s) overridden in this set. @(ActiveValueSet.IsPublished ? "Published as passport " + ActiveValueSet.Id + "." : "Not published.")</small>
                                     }
                                     @if (!string.IsNullOrEmpty(ValueSetStatus))
                                     {
-                                        <br/><span style="color: @(ValueSetStatusIsError ? "red" : "green");">@ValueSetStatus</span>
+                                        <small class="d-block mt-1" style="color: @(ValueSetStatusIsError ? "red" : "green");">@ValueSetStatus</small>
                                         @if (ValueSetImportDetails.Count > 0)
                                         {
                                             <button type="button" class="btn btn-link btn-sm p-0 ml-2" @onclick="@(() => ShowValueSetImportDetails = !ShowValueSetImportDetails)">@(ShowValueSetImportDetails ? "Hide details" : "Show details")</button>
@@ -471,27 +461,44 @@
                                             }
                                         }
                                     }
-                                </div>
-                                <div class="card-body">
-                                    @if (!string.IsNullOrEmpty(NodeValue))
+                                    <hr class="my-3" />
+                                    <div class="d-flex align-items-center flex-wrap" style="gap: 0.5rem;">
+                                        <div class="flex-grow-1 text-break" style="min-width: 0;">
+                                            @if (!string.IsNullOrEmpty(NodeValue))
+                                            {
+                                                <span class="text-monospace">@NodeValue</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">(none)</span>
+                                            }
+                                            @if (ActiveValueSet != null && SelectedNode != null)
+                                            {
+                                                @if (SelectedNodeIsOverridden)
+                                                {
+                                                    <span class="badge badge-info ml-2" title="This value comes from the selected value set">@ActiveValueSet.Name</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge badge-light ml-2" title="This node is not overridden in the selected value set">nodeset value</span>
+                                                }
+                                            }
+                                        </div>
+                                        <div class="d-flex" style="gap: 0.5rem;">
+                                            @if (ActiveValueSet != null && SelectedNodeIsOverridden)
+                                            {
+                                                <button type="button" class="btn btn-primary btn-sm" title="Remove this node from the value set and fall back to the nodeset value" @onclick="ResetSelectedNodeValue">Reset</button>
+                                            }
+                                            <button type="button" class="btn btn-primary btn-sm" @onclick="() => OpenEditDialog(NodeValue)" disabled="@(!CanEditSelectedNode)" title="@(CanEditSelectedNode ? "Edit the value of the selected node" : EditBlockedReason)">Edit</button>
+                                        </div>
+                                    </div>
+                                    @if (!CanEditSelectedNode && !string.IsNullOrEmpty(EditBlockedReason))
                                     {
-                                        <span>@NodeValue</span>
+                                        <small class="text-muted d-block mt-2"><i class="fas fa-lock mr-1"></i>@EditBlockedReason</small>
                                     }
-                                    else
+                                    @if (!string.IsNullOrEmpty(WriteStatus))
                                     {
-                                        <span>(none)</span>
-                                    }
-                                    @if (ActiveValueSet != null && SelectedNode != null)
-                                    {
-                                        @if (SelectedNodeIsOverridden)
-                                        {
-                                            <span class="badge badge-info ml-2" title="This value comes from the selected value set">@ActiveValueSet.Name</span>
-                                            <button type="button" class="btn btn-link btn-sm" title="Remove this node from the value set and fall back to the nodeset value" @onclick="ResetSelectedNodeValue">Reset to nodeset value</button>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge badge-light ml-2" title="This node is not overridden in the selected value set">nodeset value</span>
-                                        }
+                                        <small class="d-block mt-2" style="color: red;">@WriteStatus</small>
                                     }
                                 </div>
                             </div>
@@ -637,6 +644,8 @@
     private bool ShowNamespaceMapDialog { get; set; } = false;
     private Dictionary<string, JsonElement> _pendingImport;
     private string _pendingImportFileName = string.Empty;
+    private Guid _pendingImportSetId;
+    private string _pendingImportSetName = string.Empty;
     private List<ushort> PendingNamespaceIndexes { get; set; } = new List<ushort>();
     private Dictionary<ushort, string> NamespaceMappings { get; set; } = new Dictionary<ushort, string>();
     private string _valueSetUserId;
@@ -723,13 +732,16 @@
 
         _isInteractive = true;
 
+        // Value sets come from the database only, so list them straight away instead of waiting for
+        // the embedded OPC UA server to start and expand the root, which can take a long time.
+        await LoadValueSetsAsync().ConfigureAwait(false);
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+
         // OnInitializedAsync is still expanding the root when the first render completes. Browsing
         // the same nodeset from two paths at once makes UAClient start a second embedded server for
         // it, which fails and tears down the working session - leaving an empty tree.
         await _initialLoad.Task.ConfigureAwait(false);
 
-        await LoadValueSetsAsync().ConfigureAwait(false);
-        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
         await RestoreTreeStateAsync().ConfigureAwait(false);
     }
 
@@ -899,9 +911,16 @@
 
         if ((ModalTitle == "Edit") && save)
         {
-            if (ActiveValueSet != null)
+            if (ActiveValueSet != null && SelectedNode != null)
             {
-                string problem = await _client.ValidateValueForNode(UserName, NodesetIdentifier, SelectedNode.Id, ModalValue).ConfigureAwait(false);
+                // Capture the target and value before the first await: the set selector and tree stay
+                // enabled, so ActiveValueSet, SelectedNode and ModalValue can change during validation
+                // or the audit append. The same inputs are used for validation and the write.
+                Guid setId = ActiveValueSet.Id;
+                string nodeId = SelectedNode.Id;
+                string value = ModalValue;
+
+                string problem = await _client.ValidateValueForNode(UserName, NodesetIdentifier, nodeId, value).ConfigureAwait(false);
                 if (problem != null)
                 {
                     WriteStatus = problem;
@@ -910,10 +929,19 @@
                 {
                     try
                     {
-                        await ValueSetStore.SetValueAsync(ActiveValueSet.Id, _valueSetUserId, SelectedNode.Id, ModalValue).ConfigureAwait(false);
-                        ActiveValueSetEntries[SelectedNode.Id] = ModalValue;
-                        NodeValue = ModalValue;
-                        WriteStatus = string.Empty;
+                        DPPService.UpdateDppResult result = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, setId.ToString(), nodeId, () => UpdateValuesAsync(setId, new Dictionary<string, string> { [nodeId] = value }, Array.Empty<string>())).ConfigureAwait(false);
+
+                        if (result == DPPService.UpdateDppResult.Success && IsStillActive(setId))
+                        {
+                            // The service also writes LastUpdate, so only the persisted entries are correct.
+                            await ReloadPersistedEntriesAsync(setId).ConfigureAwait(false);
+                        }
+
+                        WriteStatus = DescribeUpdateResult(result);
+                    }
+                    catch (DppAuditException ex)
+                    {
+                        WriteStatus = DescribeAuditFailure(ex);
                     }
                     catch (Exception ex)
                     {
@@ -979,8 +1007,12 @@
             ValueSets = (await ValueSetStore.ListAsync(NodesetIdentifier, _valueSetUserId).ConfigureAwait(false)).ToList();
             _valueSetsLoaded = true;
 
-            // Like the tree state, the active set survives the Save redirect via sessionStorage.
-            string stored = await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", ValueSetStorageKey).ConfigureAwait(false);
+            // Show the list now; restoring the previously active set below waits on browser storage.
+            await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+
+            // The last active set is kept in localStorage so it is selected again by default, across
+            // tabs and browser restarts. It is only restored if it is still one of this user's sets.
+            string stored = await JSRuntime.InvokeAsync<string>("localStorage.getItem", ValueSetStorageKey).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(stored) && ValueSets.Any(vs => vs.Id.ToString() == stored))
             {
                 await ActivateValueSetAsync(stored).ConfigureAwait(false);
@@ -1023,7 +1055,7 @@
 
             if (_isInteractive)
             {
-                await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", ValueSetStorageKey, ActiveValueSetId).ConfigureAwait(false);
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", ValueSetStorageKey, ActiveValueSetId).ConfigureAwait(false);
             }
         }
         catch (Exception ex)
@@ -1075,22 +1107,27 @@
 
         try
         {
+            // Capture the inputs now: ActiveValueSet and ModalValue can change while the audit append
+            // is awaited, and the change must act on the set and name the Attempted record names.
+            NodesetValueSet active = ActiveValueSet;
+            string name = ModalValue;
+
             NodesetValueSet result = null;
             switch (ModalTitle)
             {
                 case "New value set":
-                    result = await ValueSetStore.CreateAsync(NodesetIdentifier, _valueSetUserId, ModalValue, null).ConfigureAwait(false);
+                    result = await AuditedValueSetChangeAsync(DppAuditOperation.Create, NodesetIdentifier, $"create value set {name}", async () => { NodesetValueSet s = await ValueSetStore.CreateAsync(NodesetIdentifier, _valueSetUserId, name, null).ConfigureAwait(false); return (s, s?.Id.ToString()); }).ConfigureAwait(false);
                     break;
                 case "Rename value set":
-                    if (ActiveValueSet != null)
+                    if (active != null)
                     {
-                        result = await ValueSetStore.UpdateAsync(ActiveValueSet.Id, _valueSetUserId, ModalValue, ActiveValueSet.Description).ConfigureAwait(false);
+                        result = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, active.Id.ToString(), $"rename to {name}", async () => { NodesetValueSet s = await ValueSetStore.UpdateAsync(active.Id, _valueSetUserId, name, active.Description).ConfigureAwait(false); return (s, s?.Id.ToString()); }).ConfigureAwait(false);
                     }
                     break;
                 case "Clone value set":
-                    if (ActiveValueSet != null)
+                    if (active != null)
                     {
-                        result = await ValueSetStore.CloneAsync(ActiveValueSet.Id, _valueSetUserId, ModalValue).ConfigureAwait(false);
+                        result = await AuditedValueSetChangeAsync(DppAuditOperation.Create, active.Id.ToString(), $"clone as {name}", async () => { NodesetValueSet s = await ValueSetStore.CloneAsync(active.Id, _valueSetUserId, name).ConfigureAwait(false); return (s, s?.Id.ToString()); }).ConfigureAwait(false);
                     }
                     break;
             }
@@ -1107,6 +1144,14 @@
 
             ValueSetStatus = string.Empty;
         }
+        catch (DppAuditException ex)
+        {
+            ValueSetStatus = DescribeAuditFailure(ex);
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+        {
+            ValueSetStatus = "This value set was changed elsewhere. Reload the page and try again.";
+        }
         catch (Exception ex)
         {
             ValueSetStatus = ex.Message;
@@ -1120,7 +1165,9 @@
             return;
         }
 
-        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Delete value set '{ActiveValueSet.Name}' and all its node values?").ConfigureAwait(false);
+        // Capture the target before the confirmation is awaited, so the confirmed set is the one deleted.
+        Guid deletedId = ActiveValueSet.Id;
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Delete value set '{ActiveValueSet?.Name}' and all its node values?").ConfigureAwait(false);
         if (!confirmed)
         {
             return;
@@ -1128,13 +1175,21 @@
 
         try
         {
-            await ValueSetStore.DeleteAsync(ActiveValueSet.Id, _valueSetUserId).ConfigureAwait(false);
+            await AuditedValueSetChangeAsync(DppAuditOperation.Delete, deletedId.ToString(), "delete value set", async () => { bool deleted = await ValueSetStore.DeleteAsync(deletedId, _valueSetUserId).ConfigureAwait(false); return (deleted, deleted ? deletedId.ToString() : null); }).ConfigureAwait(false);
             ValueSets = (await ValueSetStore.ListAsync(NodesetIdentifier, _valueSetUserId).ConfigureAwait(false)).ToList();
             await ActivateValueSetAsync(string.Empty).ConfigureAwait(false);
             if (SelectedNode != null)
             {
                 await SelectedNodeChanged(SelectedNode).ConfigureAwait(false);
             }
+        }
+        catch (DppAuditException ex)
+        {
+            ValueSetStatus = DescribeAuditFailure(ex);
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+        {
+            ValueSetStatus = "This value set was changed elsewhere. Reload the page and try again.";
         }
         catch (Exception ex)
         {
@@ -1144,6 +1199,247 @@
         await InvokeAsync(StateHasChanged).ConfigureAwait(false);
     }
 
+    // Publishing makes the set a Digital Product Passport that anyone can read through the DPP API,
+    // addressed by the set's id. Confirmed first, because it exposes values the owner may consider
+    // private; unpublishing needs no confirmation since it only narrows access.
+    private async Task ToggleActiveValueSetPublished()
+    {
+        if (ActiveValueSet == null)
+        {
+            return;
+        }
+
+        // Capture the target before the confirmation is awaited: the selection can change while the
+        // dialog is open, and the confirmed set must be the one that is published.
+        Guid publishId = ActiveValueSet.Id;
+        bool publish = !ActiveValueSet.IsPublished;
+        if (publish)
+        {
+            bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Publish value set '{ActiveValueSet.Name}'? Anyone will be able to read it through the DPP API as passport {publishId}.").ConfigureAwait(false);
+            if (!confirmed)
+            {
+                return;
+            }
+        }
+
+        string activeId = publishId.ToString();
+        try
+        {
+            // Publishing exposes private values, so refuse it for a session that value edits would
+            // refuse: the circuit's principal can outlive a security-stamp change.
+            if (await GetCurrentRolesAsync().ConfigureAwait(false) == null)
+            {
+                ValueSetStatus = "Your session is no longer valid. Sign in again.";
+                ValueSetStatusIsError = true;
+                await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+                return;
+            }
+
+            // Same publication path as the REST API, so a set whose nodeset has no passport object
+            // cannot be published here either.
+            DPPService.PublishValueSetResult outcome = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, publishId.ToString(), publish ? "publish" : "unpublish", async () => { DPPService.PublishValueSetResult r = await DppService.SetValueSetPublishedAsync(_valueSetUserId, publishId, publish).ConfigureAwait(false); return (r, r == DPPService.PublishValueSetResult.Success ? publishId.ToString() : null); }).ConfigureAwait(false);
+            if (outcome == DPPService.PublishValueSetResult.NotAPassport)
+            {
+                ValueSetStatus = "This nodeset has no DigitalProductPassport object, so the value set cannot be published as a passport.";
+            }
+            else if (outcome == DPPService.PublishValueSetResult.TemplateUnavailable)
+            {
+                ValueSetStatus = "The nodeset could not be read, so the value set could not be published. Nothing was changed; try again.";
+            }
+            else if (outcome != DPPService.PublishValueSetResult.Success)
+            {
+                ValueSetStatus = "Value set could not be found; it may have been deleted.";
+            }
+            else
+            {
+                // Reload so ActiveValueSet, which is looked up from this list, reflects the new state.
+                // Keep whichever set is selected now: the user may have switched sets while this was
+                // awaited, and the page's values were loaded for that set. Forcing the selection back
+                // to the published set would show one set's values under another's name.
+                ValueSets = (await ValueSetStore.ListAsync(NodesetIdentifier, _valueSetUserId).ConfigureAwait(false)).ToList();
+                ValueSetStatus = publish
+                    ? $"Published. Passport id: {activeId}"
+                    : "Unpublished. The passport is private again.";
+                ValueSetStatusIsError = false;
+            }
+        }
+        catch (DppAuditException ex)
+        {
+            ValueSetStatus = DescribeAuditFailure(ex);
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+        {
+            ValueSetStatus = "This value set was changed elsewhere. Reload the page and try again.";
+        }
+        catch (Exception ex)
+        {
+            ValueSetStatus = (publish ? "Value set could not be published: " : "Value set could not be unpublished: ") + ex.Message;
+        }
+
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+    }
+
+    // A value set is a Digital Product Passport, so every change to it is audited like any other
+    // DPP change: a write-ahead "Attempted" entry, the change, then its outcome. The operator is the
+    // authenticated user (_valueSetUserId), never the UserName parameter, which comes from the query
+    // string. The change returns the passport id it touched, or null when it changed nothing. A
+    // completed change is durable, so its outcome uses RecordCommittedOutcomeAsync; a failure there
+    // surfaces as a DppAuditException with MutationCommitted set, which callers report as "saved but
+    // not logged" rather than as a retryable failure.
+    private async Task<T> AuditedValueSetChangeAsync<T>(DppAuditOperation operation, string target, string detail, Func<Task<(T Result, string DppId)>> change)
+    {
+        string operationId = DppAuditOperationId.New();
+        await _auditLog.RecordAsync(_valueSetUserId, operation, target, detail, "Attempted", operationId).ConfigureAwait(false);
+
+        (T Result, string DppId) outcome;
+        try
+        {
+            outcome = await change().ConfigureAwait(false);
+        }
+        catch
+        {
+            await _auditLog.RecordAsync(_valueSetUserId, operation, target, detail, "Failed", operationId).ConfigureAwait(false);
+            throw;
+        }
+
+        if (outcome.DppId is null)
+        {
+            await _auditLog.RecordAsync(_valueSetUserId, operation, target, detail, "Failed", operationId).ConfigureAwait(false);
+        }
+        else
+        {
+            // A change that was applied but whose previous version could not be archived is durable,
+            // so it is still a committed outcome - but it is not a success, and must be recorded as
+            // PartialFailure (as ValueSetController does) so it stays visible for reconciliation.
+            string recorded = outcome.Result is DPPService.UpdateDppResult.WriteFailedPartiallyApplied ? "PartialFailure" : "Success";
+            await _auditLog.RecordCommittedOutcomeAsync(_valueSetUserId, operation, outcome.DppId, detail, recorded, operationId).ConfigureAwait(false);
+        }
+
+        return outcome.Result;
+    }
+
+    // Shapes an audit failure the way DppAuditFailureFilter does for the REST API, since a Blazor
+    // event handler has no filter: a change that was saved must not be presented as safe to retry.
+    private static string DescribeAuditFailure(DppAuditException ex) =>
+        ex.MutationCommitted
+            ? "The change was saved but could not be recorded in the audit log. Do not repeat it; report this to an administrator."
+            : "The change was refused because it could not be recorded in the audit log. Nothing was changed; you can try again.";
+
+    // The service's message for the last value-set update, shown when the update is refused.
+    private string _lastValueSetError;
+
+    // Value edits are passport updates: they go through DPPService so controlled-element roles,
+    // archiving, LastUpdate and the revision check apply exactly as they do to a DPP PATCH.
+    private async Task<(DPPService.UpdateDppResult Result, string DppId)> UpdateValuesAsync(Guid setId, IReadOnlyDictionary<string, string> writes, IReadOnlyCollection<string> removals)
+    {
+        // DPPService and its CloudLibDataProvider share one DbContext for this circuit, and the
+        // store's own gate is released between its calls, so overlapping edits, imports and resets
+        // would run EF queries concurrently. Run each complete update on its own.
+        await _valueUpdateGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            return await UpdateValuesCoreAsync(setId, writes, removals).ConfigureAwait(false);
+        }
+        finally
+        {
+            _valueUpdateGate.Release();
+        }
+    }
+
+    private readonly SemaphoreSlim _valueUpdateGate = new(1, 1);
+
+    private async Task<(DPPService.UpdateDppResult Result, string DppId)> UpdateValuesCoreAsync(Guid setId, IReadOnlyDictionary<string, string> writes, IReadOnlyCollection<string> removals)
+    {
+        // Roles cached for the circuit can outlive a revocation: cookie revalidation does not run
+        // for events on an open circuit. Re-check the security stamp and read the current roles.
+        string[] roles = await GetCurrentRolesAsync().ConfigureAwait(false);
+        if (roles == null)
+        {
+            _lastValueSetError = "Your session is no longer valid. Sign in again.";
+            return (DPPService.UpdateDppResult.Forbidden, null);
+        }
+
+        (DPPService.UpdateDppResult result, string error) = await DppService.UpdateValueSetValuesAsync(_valueSetUserId, setId, writes, removals, roles).ConfigureAwait(false);
+        _lastValueSetError = error;
+
+        // Only outcomes that changed storage are logged as committed; refusals stay retryable.
+        bool changed = result is DPPService.UpdateDppResult.Success or DPPService.UpdateDppResult.WriteFailedPartiallyApplied;
+        return (result, changed ? setId.ToString() : null);
+    }
+
+    // True when setId is still the selected set, so a finished update only refreshes the page's
+    // cached values if the user has not switched to another set in the meantime.
+    private bool IsStillActive(Guid setId) => ActiveValueSet?.Id == setId;
+
+    // Returns the signed-in user's current roles, or null when the circuit's principal is no longer
+    // valid (user gone, or security stamp changed by a revocation). Uses its own scope so the check
+    // never shares a DbContext with an overlapping handler.
+    private async Task<string[]> GetCurrentRolesAsync()
+    {
+        AuthenticationState state = await AuthStateProvider.GetAuthenticationStateAsync().ConfigureAwait(false);
+        System.Security.Claims.ClaimsPrincipal principal = state?.User;
+        if (principal?.Identity?.IsAuthenticated != true)
+        {
+            return null;
+        }
+
+        using IServiceScope scope = ScopeFactory.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.UserManager<Microsoft.AspNetCore.Identity.IdentityUser>>();
+        Microsoft.AspNetCore.Identity.IdentityUser user = await userManager.GetUserAsync(principal).ConfigureAwait(false);
+        if (user == null || !string.Equals(user.UserName, _valueSetUserId, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        if (userManager.SupportsUserSecurityStamp)
+        {
+            string claimed = principal.FindFirst(userManager.Options.ClaimsIdentity.SecurityStampClaimType)?.Value;
+            string current = await userManager.GetSecurityStampAsync(user).ConfigureAwait(false);
+            if (!string.Equals(claimed, current, StringComparison.Ordinal))
+            {
+                return null;
+            }
+        }
+
+        return (await userManager.GetRolesAsync(user).ConfigureAwait(false)).ToArray();
+    }
+
+    // Replaces the cached entries with the stored ones and refreshes the selected node, rechecking
+    // the selection after each await.
+    private async Task ReloadPersistedEntriesAsync(Guid setId)
+    {
+        IReadOnlyDictionary<string, string> persisted = await ValueSetStore.GetValuesAsync(setId, _valueSetUserId).ConfigureAwait(false);
+        if (persisted == null || !IsStillActive(setId))
+        {
+            return;
+        }
+
+        ActiveValueSetEntries = new Dictionary<string, string>(persisted, StringComparer.Ordinal);
+
+        string nodeId = SelectedNode?.Id;
+        if (nodeId == null)
+        {
+            return;
+        }
+
+        string shown = ActiveValueSetEntries.TryGetValue(nodeId, out string own)
+            ? own
+            : await _client.VariableRead(UserName, NodesetIdentifier, nodeId).ConfigureAwait(false);
+
+        if (IsStillActive(setId) && SelectedNode?.Id == nodeId)
+        {
+            NodeValue = shown;
+        }
+    }
+
+    private string DescribeUpdateResult(DPPService.UpdateDppResult result) => result switch
+    {
+        DPPService.UpdateDppResult.Success => string.Empty,
+        DPPService.UpdateDppResult.Forbidden => "You do not have the role required to change this element.",
+        DPPService.UpdateDppResult.Conflict => "This value set was changed elsewhere. Reload the page and try again.",
+        DPPService.UpdateDppResult.WriteFailedPartiallyApplied => "The change was saved, but the previous version could not be archived. Do not repeat it; report this to an administrator.",
+        _ => _lastValueSetError ?? "The change could not be saved.",
+    };
     // An exported file holds the full node values with the set applied, in the same shape as the
     // owner's saved values. Only entries that differ from the current nodeset value are stored in
     // the set, so importing an export does not override every node with an identical copy.
@@ -1153,6 +1449,11 @@
         {
             return;
         }
+
+        // The destination is fixed when the file is chosen; the selector stays enabled while the file
+        // is read and matched, so ActiveValueSet must not be read again later.
+        Guid targetSetId = ActiveValueSet.Id;
+        string targetSetName = ActiveValueSet.Name;
 
         IsImporting = true;
         ValueSetStatus = string.Empty;
@@ -1179,13 +1480,15 @@
             {
                 _pendingImport = parsed;
                 _pendingImportFileName = e.File.Name;
+                _pendingImportSetId = targetSetId;
+                _pendingImportSetName = targetSetName;
                 PendingNamespaceIndexes = indexes;
                 NamespaceMappings = indexes.ToDictionary(i => i, _ => string.Empty);
                 ShowNamespaceMapDialog = true;
                 return;
             }
 
-            await ApplyValueSetImportAsync(parsed, e.File.Name, null).ConfigureAwait(false);
+            await ApplyValueSetImportAsync(targetSetId, targetSetName, parsed, e.File.Name, null).ConfigureAwait(false);
         }
         catch (JsonException ex)
         {
@@ -1194,6 +1497,10 @@
         catch (IOException ex)
         {
             ValueSetStatus = "The file could not be read: " + ex.Message;
+        }
+        catch (DppAuditException ex)
+        {
+            ValueSetStatus = DescribeAuditFailure(ex);
         }
         catch (Exception ex)
         {
@@ -1258,13 +1565,19 @@
         {
             Dictionary<string, JsonElement> parsed = _pendingImport;
             string fileName = _pendingImportFileName;
+            Guid setId = _pendingImportSetId;
+            string setName = _pendingImportSetName;
             var mapping = NamespaceMappings.Where(kv => !string.IsNullOrEmpty(kv.Value)).ToDictionary(kv => kv.Key, kv => kv.Value);
 
             ShowNamespaceMapDialog = false;
             _pendingImport = null;
             _pendingImportFileName = string.Empty;
 
-            await ApplyValueSetImportAsync(parsed, fileName, mapping).ConfigureAwait(false);
+            await ApplyValueSetImportAsync(setId, setName, parsed, fileName, mapping).ConfigureAwait(false);
+        }
+        catch (DppAuditException ex)
+        {
+            ValueSetStatus = DescribeAuditFailure(ex);
         }
         catch (Exception ex)
         {
@@ -1287,13 +1600,8 @@
         ValueSetStatus = "Import cancelled.";
     }
 
-    private async Task ApplyValueSetImportAsync(Dictionary<string, JsonElement> parsed, string fileName, Dictionary<ushort, string> namespaceMapping)
+    private async Task ApplyValueSetImportAsync(Guid setId, string setName, Dictionary<string, JsonElement> parsed, string fileName, Dictionary<ushort, string> namespaceMapping)
     {
-        if (ActiveValueSet == null)
-        {
-            return;
-        }
-
         Dictionary<string, string> canonical = await _client.BrowseVariableNodesResursivelyAsync(UserName, NodesetIdentifier, null).ConfigureAwait(false)
             ?? new Dictionary<string, string>();
 
@@ -1359,13 +1667,21 @@
 
         if (toImport.Count > 0)
         {
-            await ValueSetStore.SetValuesAsync(ActiveValueSet.Id, _valueSetUserId, toImport).ConfigureAwait(false);
-            foreach (KeyValuePair<string, string> kv in toImport)
+            // setId is the destination captured when the file was chosen, not the current selection.
+            DPPService.UpdateDppResult result = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, setId.ToString(), $"import {toImport.Count} value(s) from {fileName}", () => UpdateValuesAsync(setId, toImport, Array.Empty<string>())).ConfigureAwait(false);
+            if (result != DPPService.UpdateDppResult.Success)
             {
-                ActiveValueSetEntries[kv.Key] = kv.Value;
+                // Nothing was imported, so don't report the counts below as if it had been.
+                ValueSetStatus = DescribeUpdateResult(result);
+                return;
+            }
+
+            if (IsStillActive(setId))
+            {
+                // The service also writes LastUpdate, so only the persisted entries are correct.
+                await ReloadPersistedEntriesAsync(setId).ConfigureAwait(false);
             }
         }
-
         var notes = new List<string>();
         if (skipped > 0)
         {
@@ -1384,7 +1700,7 @@
             notes.Add($"{unchanged} value(s) identical to the nodeset value not stored");
         }
 
-        ValueSetStatus = $"Imported {toImport.Count} value(s) from '{fileName}' into '{ActiveValueSet.Name}'"
+        ValueSetStatus = $"Imported {toImport.Count} value(s) from '{fileName}' into '{setName}'"
             + (notes.Count > 0 ? " (" + string.Join(", ", notes) + ")" : string.Empty) + ".";
         ValueSetStatusIsError = toImport.Count == 0 && (unmapped > 0 || unknown > 0);
         ValueSetImportDetails = skippedDetails;
@@ -1475,9 +1791,45 @@
 
         try
         {
-            await ValueSetStore.RemoveValueAsync(ActiveValueSet.Id, _valueSetUserId, SelectedNode.Id).ConfigureAwait(false);
-            ActiveValueSetEntries.Remove(SelectedNode.Id);
-            NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, SelectedNode.Id).ConfigureAwait(false);
+            // Capture the target now; the selection can change while the audit append is awaited.
+            Guid setId = ActiveValueSet.Id;
+            string nodeId = SelectedNode.Id;
+
+            DPPService.UpdateDppResult result = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, setId.ToString(), $"remove {nodeId}", () => UpdateValuesAsync(setId, new Dictionary<string, string>(), new[] { nodeId })).ConfigureAwait(false);
+
+            if (result == DPPService.UpdateDppResult.Success && IsStillActive(setId))
+            {
+                // Reload the stored entries rather than just removing this one from the cache. For a
+                // passport the service also writes a fresh LastUpdate, and resetting LastUpdate itself
+                // replaces it with that timestamp instead of removing it, so only the persisted entries
+                // describe the set correctly.
+                IReadOnlyDictionary<string, string> persisted = await ValueSetStore.GetValuesAsync(setId, _valueSetUserId).ConfigureAwait(false);
+
+                // The selection can change during each await; re-check before touching page state.
+                if (persisted != null && IsStillActive(setId))
+                {
+                    ActiveValueSetEntries = new Dictionary<string, string>(persisted, StringComparer.Ordinal);
+
+                    if (SelectedNode?.Id == nodeId)
+                    {
+                        string shown = ActiveValueSetEntries.TryGetValue(nodeId, out string own)
+                            ? own
+                            : await _client.VariableRead(UserName, NodesetIdentifier, nodeId).ConfigureAwait(false);
+
+                        if (IsStillActive(setId) && SelectedNode?.Id == nodeId)
+                        {
+                            NodeValue = shown;
+                        }
+                    }
+                }
+            }
+
+            ValueSetStatus = DescribeUpdateResult(result);
+            ValueSetStatusIsError = result != DPPService.UpdateDppResult.Success;
+        }
+        catch (DppAuditException ex)
+        {
+            ValueSetStatus = DescribeAuditFailure(ex);
         }
         catch (Exception ex)
         {

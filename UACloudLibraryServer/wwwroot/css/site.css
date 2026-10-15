@@ -430,6 +430,26 @@ header .nav-link {
     text-decoration: none
 }
 
+/* site.css redefines .btn after Bootstrap, which drops Bootstrap's .btn-sm sizing. Restore it so
+   small buttons match small form controls (e.g. in an .input-group-sm). */
+.btn-sm, .btn-group-sm > .btn, .input-group-sm > .input-group-append > .btn, .input-group-sm > .input-group-append > .btn-group > .btn {
+    padding: .25rem .5rem;
+    font-size: .875rem;
+    line-height: 1.5;
+    border-radius: .2rem;
+}
+
+/* One fixed height for every part of a small input group: label, select and trailing button. */
+.input-group-sm.uacl-control-row > .input-group-prepend > .input-group-text,
+.input-group-sm.uacl-control-row > .form-control,
+.input-group-sm.uacl-control-row > .input-group-append .btn {
+    height: calc(1.5em + .5rem + 2px);
+    padding-top: .25rem;
+    padding-bottom: .25rem;
+    font-size: .875rem;
+    line-height: 1.5;
+}
+
 .btn.focus, .btn:focus {
     outline: 0;
     box-shadow: 0 0 0 .2rem rgba(0,123,255,.25)

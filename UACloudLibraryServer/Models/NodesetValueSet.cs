@@ -36,6 +36,23 @@ namespace Opc.Ua.Cloud.Library.Models
 
         public DateTimeOffset LastModified { get; set; }
 
+        /// <summary>
+        /// When true the set is served as a public Digital Product Passport: anyone may read it
+        /// through the DPP API and find it by its unique product identifier. Sets stay private by
+        /// default, so publishing the template nodeset never exposes the values other users keep.
+        /// </summary>
+        public bool IsPublished { get; set; }
+
+        /// <summary>
+        /// Incremented by every write to the set or its entries. Configured as a concurrency token,
+        /// so a write based on a stale read fails instead of silently overwriting a newer one.
+        /// </summary>
+        /// <remarks>
+        /// A counter rather than <see cref="LastModified"/>: two writes in the same clock tick would
+        /// share a timestamp and the second could pass a check meant to reject it.
+        /// </remarks>
+        public long Revision { get; set; }
+
         public virtual ICollection<NodesetValueSetEntry> Entries { get; set; } = new List<NodesetValueSetEntry>();
     }
 }
