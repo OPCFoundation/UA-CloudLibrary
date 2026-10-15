@@ -61,20 +61,144 @@ namespace Opc.Ua.Cloud.Library
         // pair from the static cache, and it is closed and stopped only when its last borrower
         // releases it - never by whichever client happened to create it - so disposing one client
         // cannot pull a session out from under another that is still browsing it.
-        private sealed class SharedSession
+        // The pair also owns its keepalive and reconnect, so they keep working for every borrower no
+        // matter which client created the pair or has since released it.
+        private sealed class SharedSession : IDisposable
         {
-            public SharedSession(Opc.Ua.Client.ISession session, SimpleServer server)
+            private readonly object _gate = new();
+            private readonly ITelemetryContext _telemetry;
+            private SessionReconnectHandler _reconnectHandler;
+            private Opc.Ua.Client.ISession _session;
+            private bool _closed;
+
+            public SharedSession(Opc.Ua.Client.ISession session, SimpleServer server, ITelemetryContext telemetry)
             {
-                Session = session;
+                _session = session;
                 Server = server;
+                _telemetry = telemetry;
+                _session.KeepAlive += OnKeepAlive;
             }
 
-            public Opc.Ua.Client.ISession Session { get; }
+            // The current session. A reconnect may replace it, so borrowers read it on every use
+            // rather than caching it.
+            public Opc.Ua.Client.ISession Session
+            {
+                get
+                {
+                    lock (_gate)
+                    {
+                        return _session;
+                    }
+                }
+            }
 
             public SimpleServer Server { get; }
 
             // Guarded by s_poolGate.
             public int Borrowers { get; set; }
+
+            private void OnKeepAlive(Opc.Ua.Client.ISession sender, KeepAliveEventArgs e)
+            {
+                if (e == null || sender == null || ServiceResult.IsGood(e.Status))
+                {
+                    return;
+                }
+
+                Console.WriteLine(string.Format(
+                    CultureInfo.InvariantCulture,
+                    "Status: {0} Outstanding requests: {1} Defunct requests: {2}",
+                    e.Status,
+                    sender.OutstandingRequestCount,
+                    sender.DefunctRequestCount));
+
+                if (e.Status.StatusCode != StatusCodes.BadNoCommunication)
+                {
+                    return;
+                }
+
+                lock (_gate)
+                {
+                    // Ignore a stale session's events, a reconnect already running, or a closed pair.
+                    if (_closed || _reconnectHandler != null || !ReferenceEquals(sender, _session))
+                    {
+                        return;
+                    }
+
+                    Console.WriteLine("--- RECONNECTING --- {0}", sender.Endpoint.EndpointUrl);
+                    _reconnectHandler = new SessionReconnectHandler(_telemetry);
+                    _reconnectHandler.BeginReconnect(sender, 10000, OnReconnectComplete);
+                }
+            }
+
+            private void OnReconnectComplete(object sender, EventArgs e)
+            {
+                lock (_gate)
+                {
+                    if (!ReferenceEquals(sender, _reconnectHandler))
+                    {
+                        return;
+                    }
+
+                    Opc.Ua.Client.ISession reconnected = _reconnectHandler.Session;
+                    _reconnectHandler.Dispose();
+                    _reconnectHandler = null;
+
+                    if (_closed || reconnected == null)
+                    {
+                        return;
+                    }
+
+                    if (!ReferenceEquals(reconnected, _session))
+                    {
+                        // The handler created a replacement session; move the keepalive to it.
+                        _session.KeepAlive -= OnKeepAlive;
+                        reconnected.KeepAlive += OnKeepAlive;
+                        _session = reconnected;
+                    }
+
+                    Console.WriteLine(string.Format(CultureInfo.InvariantCulture, "--- RECONNECTED --- {0}", _session.Endpoint.EndpointUrl));
+                }
+            }
+
+            // Stops any reconnect in progress. CloseAsync calls this; it is safe to call more than once.
+            public void Dispose()
+            {
+                lock (_gate)
+                {
+                    _closed = true;
+                    _reconnectHandler?.Dispose();
+                    _reconnectHandler = null;
+                }
+            }
+
+            // Closes the session and stops the server. Called once, by the last borrower.
+            public async Task CloseAsync()
+            {
+                Dispose();
+
+                Opc.Ua.Client.ISession session;
+                lock (_gate)
+                {
+                    session = _session;
+                    session.KeepAlive -= OnKeepAlive;
+                }
+
+                try
+                {
+                    if (session.Connected)
+                    {
+                        await session.CloseAsync().ConfigureAwait(false);
+                    }
+
+                    session.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Failed to close OPC UA session: " + ex.Message);
+                }
+
+                await StopServerAsync(Server).ConfigureAwait(false);
+            }
         }
 
         private static readonly object s_poolGate = new();
@@ -86,16 +210,18 @@ namespace Opc.Ua.Cloud.Library
         // Servers this client started that never produced a usable session (failed start attempts).
         // No other client can know about them, so this client stops them itself.
         private readonly List<SimpleServer> _orphanServers = new();
-        private Opc.Ua.Client.ISession _session;
 
-        // The nodeset _session was opened for. Each nodeset runs in its own server and address space,
-        // so a session is only valid for the nodeset it was created for.
+        // The pair this client is currently using. The session is read through it on every use, so a
+        // reconnect performed by the pair is picked up by all of its borrowers.
+        private SharedSession _current;
+
+#pragma warning disable IDE1006 // keeps the long-standing name used throughout this class
+        private Opc.Ua.Client.ISession _session => _current?.Session;
+#pragma warning restore IDE1006
+
+        // The nodeset _current was borrowed for. Each nodeset runs in its own server and address
+        // space, so a session is only valid for the nodeset it was created for.
         private string _sessionNodesetIdentifier;
-        private SessionReconnectHandler _reconnectHandler;
-
-        // The nodeset the pending reconnect was started for. A reconnect that completes after this
-        // instance has moved to another nodeset must not install its session as current.
-        private string _reconnectNodesetIdentifier;
         private ITelemetryContext _telemetry;
 
         private static uint _port = 5000;
@@ -392,95 +518,17 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
-        private void Client_ReconnectComplete(object sender, EventArgs e)
-        {
-            // The check and the install must be one step with respect to session switches in
-            // ValidateSession, which take the same gate; otherwise a switch could land between them.
-            lock (_sessionSwitchGate)
-            {
-                // ignore callbacks from discarded objects.
-                if (!Object.ReferenceEquals(sender, _reconnectHandler))
-                {
-                    return;
-                }
-
-                Opc.Ua.Client.ISession reconnected = _reconnectHandler.Session;
-                string reconnectedFor = _reconnectNodesetIdentifier;
-                _reconnectHandler.Dispose();
-                _reconnectHandler = null;
-                _reconnectNodesetIdentifier = null;
-
-                // This instance may have switched to another nodeset while the reconnect was running.
-                // Installing the old nodeset's session now would send the current nodeset's calls into
-                // the wrong address space, so only install it if it still belongs to the current one.
-                if (!string.Equals(reconnectedFor, _sessionNodesetIdentifier, StringComparison.Ordinal))
-                {
-                    return;
-                }
-
-                _session = reconnected;
-
-                Console.WriteLine(string.Format(CultureInfo.InvariantCulture, "--- RECONNECTED --- {0}", _session.Endpoint.EndpointUrl));
-            }
-        }
-
-        // Guards every change of _session / _sessionNodesetIdentifier / _reconnectHandler, so a
-        // reconnect completing on another thread cannot interleave with a nodeset switch. Held only
-        // for synchronous field updates, never across an await.
+        // Guards changes of _current / _sessionNodesetIdentifier. Held only for synchronous field
+        // updates, never across an await.
         private readonly object _sessionSwitchGate = new();
 
-        // Installs a session for a nodeset atomically with its tag, discarding any reconnect that
-        // belongs to a different nodeset.
-        private void InstallSession(Opc.Ua.Client.ISession session, string nodesetIdentifier)
+        // Makes a borrowed pair this client's current one, atomically with its nodeset tag.
+        private void InstallSession(SharedSession shared, string nodesetIdentifier)
         {
             lock (_sessionSwitchGate)
             {
-                if (_reconnectHandler != null && !string.Equals(_reconnectNodesetIdentifier, nodesetIdentifier, StringComparison.Ordinal))
-                {
-                    _reconnectHandler.Dispose();
-                    _reconnectHandler = null;
-                    _reconnectNodesetIdentifier = null;
-                }
-
-                _session = session;
+                _current = shared;
                 _sessionNodesetIdentifier = nodesetIdentifier;
-            }
-        }
-
-        private void StandardClient_KeepAlive(Opc.Ua.Client.ISession sender, KeepAliveEventArgs e)
-        {
-            if (e != null && sender != null)
-            {
-                // ignore callbacks from discarded objects.
-                if (!Object.ReferenceEquals(sender, _session))
-                {
-                    return;
-                }
-
-                if (!ServiceResult.IsGood(e.Status))
-                {
-                    Console.WriteLine(String.Format(
-                        CultureInfo.InvariantCulture,
-                        "Status: {0} Outstanding requests: {1} Defunct requests: {2}",
-                        e.Status,
-                        sender.OutstandingRequestCount,
-                        sender.DefunctRequestCount));
-
-                    if (e.Status.StatusCode == StatusCodes.BadNoCommunication)
-                    {
-                        lock (_sessionSwitchGate)
-                        {
-                            // Re-check under the gate: the session may have been switched meanwhile.
-                            if (_reconnectHandler == null && Object.ReferenceEquals(sender, _session))
-                            {
-                                Console.WriteLine("--- RECONNECTING --- {0}", sender.Endpoint.EndpointUrl);
-                                _reconnectNodesetIdentifier = _sessionNodesetIdentifier;
-                                _reconnectHandler = new SessionReconnectHandler(_telemetry);
-                                _reconnectHandler.BeginReconnect(sender, 10000, Client_ReconnectComplete);
-                            }
-                        }
-                    }
-                }
             }
         }
 
@@ -954,23 +1002,13 @@ namespace Opc.Ua.Cloud.Library
             }
 
             // A connected session for a *different* nodeset must not be reused: it would browse that
-            // nodeset's address space and return the wrong nodes. Drop this instance's reference (the
-            // session itself stays cached in _sessions for its own nodeset) and select the right one.
+            // nodeset's address space and return the wrong nodes. Stop using it (this client keeps
+            // its borrow of that pair, so it can switch back) and select the right one.
             lock (_sessionSwitchGate)
             {
-                if (_session != null && !string.Equals(_sessionNodesetIdentifier, nodesetIdentifier, StringComparison.Ordinal))
+                if (_current != null && !string.Equals(_sessionNodesetIdentifier, nodesetIdentifier, StringComparison.Ordinal))
                 {
-                    _session = null;
-
-                    // A reconnect still running for the previous nodeset belongs to that nodeset, not this
-                    // one. Discard it so its completion callback is ignored (it checks the sender against
-                    // _reconnectHandler) and cannot install the old session after the switch.
-                    if (_reconnectHandler != null)
-                    {
-                        _reconnectHandler.Dispose();
-                        _reconnectHandler = null;
-                        _reconnectNodesetIdentifier = null;
-                    }
+                    _current = null;
                 }
             }
 
@@ -979,7 +1017,7 @@ namespace Opc.Ua.Cloud.Library
             {
                 EndpointDescription selectedEndpoint = null;
 
-                if (TryBorrowLiveSession(nodesetIdentifier, out Opc.Ua.Client.ISession value))
+                if (TryBorrowLiveSession(nodesetIdentifier, out SharedSession value))
                 {
                     Console.WriteLine("Re-using existing OPC UA server and session for nodeset " + nodesetIdentifier);
                     InstallSession(value, nodesetIdentifier);
@@ -997,7 +1035,7 @@ namespace Opc.Ua.Cloud.Library
                         // concurrently after a page load). Starting a second server here would reload
                         // the dependent nodesets into LoadedNamespaces a second time and fail, and the
                         // resulting DisposeSession would tear down the good session as well.
-                        if (TryBorrowLiveSession(nodesetIdentifier, out Opc.Ua.Client.ISession existing))
+                        if (TryBorrowLiveSession(nodesetIdentifier, out SharedSession existing))
                         {
                             Console.WriteLine("Re-using OPC UA session created concurrently for nodeset " + nodesetIdentifier);
                             InstallSession(existing, nodesetIdentifier);
@@ -1088,19 +1126,29 @@ namespace Opc.Ua.Cloud.Library
                             return false;
                         }
 
-                        newSession.KeepAlive += new KeepAliveEventHandler(StandardClient_KeepAlive);
-
                         await newSession.FetchNamespaceTablesAsync().ConfigureAwait(false);
 
-                        var shared = new SharedSession(newSession, _server) { Borrowers = 1 };
+                        // The pair now owns the session's keepalive and reconnect.
+                        var shared = new SharedSession(newSession, _server, _telemetry) { Borrowers = 1 };
                         _orphanServers.Remove(_server);
+
+                        // Register in the cache and as this client's borrow in one step, releasing any
+                        // earlier pair this client still held for the nodeset (e.g. a disconnected one
+                        // that was evicted); otherwise its count could never reach zero.
+                        SharedSession previous;
                         lock (s_poolGate)
                         {
+                            previous = TakePreviousBorrow(nodesetIdentifier);
                             _sessions[nodesetIdentifier] = shared;
+                            _borrowed[nodesetIdentifier] = shared;
                         }
 
-                        _borrowed[nodesetIdentifier] = shared;
-                        InstallSession(newSession, nodesetIdentifier);
+                        if (previous != null)
+                        {
+                            await previous.CloseAsync().ConfigureAwait(false);
+                        }
+
+                        InstallSession(shared, nodesetIdentifier);
 
                         Console.WriteLine("OPC UA server started and session created for nodeset " + nodesetIdentifier);
                     }
@@ -1210,13 +1258,13 @@ namespace Opc.Ua.Cloud.Library
             return nodesetFiles;
         }
 
-        // Takes a reference on the cached session for a nodeset if it is still live, and records it
-        // as borrowed by this client. A dead pair stops being handed out; clients that already
-        // borrow it keep their reference and release it themselves, and the last one closes it.
-        private bool TryBorrowLiveSession(string nodesetIdentifier, out Opc.Ua.Client.ISession session)
+        // Takes a reference on the cached pair for a nodeset if it is still live, and records it as
+        // borrowed by this client. A dead pair stops being handed out; clients that already borrow it
+        // keep their reference and release it themselves, and the last one closes it.
+        private bool TryBorrowLiveSession(string nodesetIdentifier, out SharedSession shared)
         {
-            session = null;
-            string staleNodeset = null;
+            shared = null;
+            SharedSession previous = null;
 
             lock (s_poolGate)
             {
@@ -1241,79 +1289,58 @@ namespace Opc.Ua.Cloud.Library
                     return false;
                 }
 
-                // A client holds at most one reference per nodeset. If it still holds an older pair
-                // for this nodeset, that reference is released below, outside the lock.
+                // A client holds at most one reference per nodeset; drop any older one first.
                 if (!_borrowed.TryGetValue(nodesetIdentifier, out SharedSession mine) || !ReferenceEquals(mine, cached))
                 {
-                    if (mine != null)
-                    {
-                        staleNodeset = nodesetIdentifier;
-                        mine.Borrowers--;
-                        if (mine.Borrowers > 0)
-                        {
-                            mine = null;
-                        }
-                    }
-
+                    previous = TakePreviousBorrow(nodesetIdentifier);
                     cached.Borrowers++;
                     _borrowed[nodesetIdentifier] = cached;
-
-                    if (staleNodeset != null && mine != null)
-                    {
-                        _ = CloseSharedAsync(mine);
-                    }
                 }
 
-                session = cached.Session;
-                return true;
+                shared = cached;
             }
+
+            if (previous != null)
+            {
+                _ = previous.CloseAsync();
+            }
+
+            return true;
+        }
+
+        // Removes this client's borrow for a nodeset and decrements the pair's count. Returns the pair
+        // if this was its last borrower, so the caller closes it outside the lock. Call under s_poolGate.
+        private SharedSession TakePreviousBorrow(string nodesetIdentifier)
+        {
+            if (!_borrowed.Remove(nodesetIdentifier, out SharedSession shared))
+            {
+                return null;
+            }
+
+            shared.Borrowers--;
+            if (shared.Borrowers > 0)
+            {
+                return null;
+            }
+
+            _sessions.TryRemove(new KeyValuePair<string, SharedSession>(nodesetIdentifier, shared));
+            return shared;
         }
 
         // Drops this client's reference to a nodeset's pair. Only the last borrower closes the
         // session and stops its server; until then the pair stays usable by the others.
         private async Task ReleaseAsync(string nodesetIdentifier)
         {
-            SharedSession toClose = null;
-
+            SharedSession toClose;
             lock (s_poolGate)
             {
-                if (!_borrowed.Remove(nodesetIdentifier, out SharedSession shared))
-                {
-                    return;
-                }
-
-                shared.Borrowers--;
-                if (shared.Borrowers <= 0)
-                {
-                    _sessions.TryRemove(new KeyValuePair<string, SharedSession>(nodesetIdentifier, shared));
-                    toClose = shared;
-                }
+                toClose = TakePreviousBorrow(nodesetIdentifier);
             }
 
             if (toClose != null)
             {
-                await CloseSharedAsync(toClose).ConfigureAwait(false);
+                await toClose.CloseAsync().ConfigureAwait(false);
             }
-        }
-
-        private async Task CloseSharedAsync(SharedSession shared)
-        {
-            try
-            {
-                shared.Session.KeepAlive -= StandardClient_KeepAlive;
-                if (shared.Session.Connected)
-                {
-                    await shared.Session.CloseAsync().ConfigureAwait(false);
-                }
-
-                shared.Session.Dispose();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Failed to close OPC UA session: " + ex.Message);
-            }
-
-            await StopServerAsync(shared.Server).ConfigureAwait(false);
         }
 
         private static async Task StopServerAsync(SimpleServer server)
@@ -1342,7 +1369,7 @@ namespace Opc.Ua.Cloud.Library
             lock (_sessionSwitchGate)
             {
                 nodeset = _sessionNodesetIdentifier;
-                _session = null;
+                _current = null;
             }
 
             if (nodeset == null)
@@ -1365,17 +1392,11 @@ namespace Opc.Ua.Cloud.Library
         {
             lock (_sessionSwitchGate)
             {
-                if (_reconnectHandler != null)
-                {
-                    _reconnectHandler.Dispose();
-                    _reconnectHandler = null;
-                    _reconnectNodesetIdentifier = null;
-                }
-
-                _session = null;
+                _current = null;
             }
 
             // Release every pair this client borrows; each closes only if this was its last borrower.
+            // Keepalive and reconnect belong to the pair, so they keep running for the others.
             List<string> borrowed;
             lock (s_poolGate)
             {
