@@ -53,6 +53,9 @@ namespace Opc.Ua.Cloud.Library.ValueSets
 
             await EnsureNameAvailableAsync(nodesetIdentifier, userId, name, null, ct).ConfigureAwait(false);
 
+            // Start from a clean tracker so a change rejected by an earlier failed save is not retried here.
+            _dbContext.ChangeTracker.Clear();
+
             DateTimeOffset now = DateTimeOffset.UtcNow;
             var set = new NodesetValueSet {
                 Id = Guid.NewGuid(),
@@ -109,6 +112,9 @@ namespace Opc.Ua.Cloud.Library.ValueSets
         {
             RequireUser(userId);
             newName = NormalizeName(newName);
+
+            // Start from a clean tracker so a change rejected by an earlier failed save is not retried here.
+            _dbContext.ChangeTracker.Clear();
 
             NodesetValueSet source = await GetAsync(sourceId, userId, ct).ConfigureAwait(false);
             if (source == null)
@@ -284,6 +290,14 @@ namespace Opc.Ua.Cloud.Library.ValueSets
                 .ToListAsync(ct).ConfigureAwait(false);
         }
 
+        public async Task<IReadOnlyList<string>> ListReadableTemplatesAsync(string userId, CancellationToken ct = default)
+        {
+            return await Readable(userId)
+                .Select(vs => vs.NodesetIdentifier)
+                .Distinct()
+                .ToListAsync(ct).ConfigureAwait(false);
+        }
+
         public async Task<bool> RestoreValuesAsync(Guid id, string userId, long expectedRevision, IReadOnlyDictionary<string, string> values, IReadOnlyCollection<string> removeNodeIds, CancellationToken ct = default)
         {
             return await ApplyChangesAsync(id, userId, expectedRevision, values, removeNodeIds, ct).ConfigureAwait(false) is not null;
@@ -340,6 +354,9 @@ namespace Opc.Ua.Cloud.Library.ValueSets
             }
             catch (DbUpdateConcurrencyException)
             {
+                // Discard the rejected changes now rather than leaving them pending in the shared
+                // context; the next write also starts from a cleared tracker.
+                _dbContext.ChangeTracker.Clear();
                 return null;
             }
         }
@@ -362,8 +379,14 @@ namespace Opc.Ua.Cloud.Library.ValueSets
                 ? sets.Where(vs => vs.IsPublished)
                 : sets.Where(vs => vs.IsPublished || vs.UserId == userId);
         }
+        // Every write starts from a clean change tracker. The store is scoped, so in a Blazor circuit
+        // its DbContext lives as long as the page: without this, FirstOrDefaultAsync would hand back a
+        // set tracked by an earlier call with its stale Revision (causing repeated false conflicts),
+        // and changes rejected by a failed SaveChanges would still be pending and be retried by the
+        // next save. Clearing here gives each write a fresh read of the current row.
         private Task<NodesetValueSet> TrackedAsync(Guid id, string userId, CancellationToken ct)
         {
+            _dbContext.ChangeTracker.Clear();
             return _dbContext.NodesetValueSets.FirstOrDefaultAsync(vs => vs.Id == id && vs.UserId == userId, ct);
         }
 

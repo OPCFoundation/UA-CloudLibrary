@@ -733,13 +733,17 @@ namespace Opc.Ua.Cloud.Library
             }
 
             // Candidates that inherit it: every readable set on a template whose own identifier is a
-            // requested value. Templates are found from the candidate sets already seen plus the
-            // nodesets the index says carry the value, so a template is only browsed when it could match.
+            // requested value. The template's identifier is read through the OPC UA client, which loads
+            // the nodeset together with its uploaded values file, so it is the same effective value a
+            // passport read returns. The indexed nodeset XML cannot be used to pick these templates: the
+            // values file is applied after indexing, so a template whose XML says "SN-0" but whose values
+            // say "SN-1" would be missed. Instead every template with at least one readable set is a
+            // candidate - bounded by the caller's readable sets, not by all nodesets.
             var matchingTemplates = templates
                 .Where(t => t.Value.Inherited is not null && requested.Contains(t.Value.Inherited))
                 .Select(t => t.Key)
                 .ToHashSet(StringComparer.Ordinal);
-            foreach (string nodesetIdentifier in IndexedTemplatesWithProductIds(userId, requested))
+            foreach (string nodesetIdentifier in await _valueSets.ListReadableTemplatesAsync(userId).ConfigureAwait(false))
             {
                 (string _, string inherited) = await TemplateAsync(nodesetIdentifier).ConfigureAwait(false);
                 if (inherited is not null && requested.Contains(inherited))
@@ -754,26 +758,6 @@ namespace Opc.Ua.Cloud.Library
             }
 
             return found.Values.OrderByDescending(r => r.LastModified).Select(r => r.Passport).ToList();
-        }
-
-        // Nodesets whose indexed model has a UniqueProductIdentifier variable carrying one of the
-        // requested values. Only a pre-filter: the effective value is confirmed through the OPC UA
-        // client, so a value that differs at runtime is still handled correctly.
-        private List<string> IndexedTemplatesWithProductIds(string userId, IReadOnlyCollection<string> requested)
-        {
-            if (_dataProvider is null)
-            {
-                return new List<string>();
-            }
-
-            List<string> values = requested.ToList();
-            return _dataProvider.GetNodeModels(nsm => nsm.DataVariables, userId)
-                .Where(v => v.DisplayName != null && v.DisplayName.Count > 0
-                    && v.DisplayName[0].Text == "UniqueProductIdentifier"
-                    && values.Contains(v.Value))
-                .Select(v => v.NodeSet.Identifier)
-                .Distinct()
-                .ToList();
         }
 
         // The NodeId of a named property directly under the template's DigitalProductPassport object.
@@ -1185,6 +1169,14 @@ namespace Opc.Ua.Cloud.Library
                 return (UpdateDppResult.NotFound, null);
             }
 
+            // A value set on an ordinary nodeset (no DigitalProductPassport object) is a plain overlay,
+            // not a passport. It keeps the owner check, per-node validation, revision check and
+            // auditing, but has no access policy to enforce and no version history to keep.
+            if (await FindDppNodeAsync(userId, passport.NodesetIdentifier).ConfigureAwait(false) is null)
+            {
+                return await CommitOverlayWritesAsync(userId, passport, writes, removals).ConfigureAwait(false);
+            }
+
             DigitalProductPassport preUpdate = await BuildPassportAsync(userId, passport).ConfigureAwait(false);
             if (preUpdate is null)
             {
@@ -1198,6 +1190,56 @@ namespace Opc.Ua.Cloud.Library
             return await CommitValueSetWritesAsync(userId, passport, preUpdate, resolved, callerRoles ?? Array.Empty<string>(), removals).ConfigureAwait(false);
         }
 
+        /// <summary>
+        /// Writes and removes values on a value set whose template is not a Digital Product Passport.
+        /// </summary>
+        /// <remarks>
+        /// An ordinary nodeset's value set is a private overlay, so there is no controlled-elements
+        /// policy, version archive or LastUpdate to maintain. It still gets the rules every overlay
+        /// edit needs: only the owner may write, each value is validated against its node, and the
+        /// revision check refuses a write based on a stale read rather than overwriting a newer one.
+        /// The caller audits the outcome.
+        /// </remarks>
+        private async Task<(UpdateDppResult Result, string ErrorMessage)> CommitOverlayWritesAsync(
+            string userId,
+            ValueSetPassport set,
+            IReadOnlyDictionary<string, string> writes,
+            IReadOnlyCollection<string> removals)
+        {
+            if (!string.Equals(set.OwnerId, userId, StringComparison.Ordinal))
+            {
+                return (UpdateDppResult.NotFound, null);
+            }
+
+            var values = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (KeyValuePair<string, string> kv in writes ?? new Dictionary<string, string>())
+            {
+                string invalid = await _client.ValidateValueForNode(userId, set.NodesetIdentifier, kv.Key, kv.Value).ConfigureAwait(false);
+                if (invalid is not null)
+                {
+                    return (UpdateDppResult.BadRequest, $"Node '{kv.Key}': {invalid}");
+                }
+
+                values[kv.Key] = kv.Value;
+            }
+
+            var removed = (removals ?? Array.Empty<string>()).Where(n => !values.ContainsKey(n)).ToList();
+
+            long? committed;
+            try
+            {
+                committed = await _valueSets.ApplyChangesAsync(set.ValueSetId, userId, set.Revision, values, removed).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Value set {ValueSetId} could not be saved; nothing was changed.", set.ValueSetId);
+                return (UpdateDppResult.WriteFailed, "The change could not be saved.");
+            }
+
+            return committed is null
+                ? (UpdateDppResult.Conflict, "The value set was changed by another request. Reload it and try again.")
+                : (UpdateDppResult.Success, null);
+        }
         /// <summary>
         /// Commits resolved writes to a passport's value set, advancing LastUpdate, then archives the
         /// pre-update version.

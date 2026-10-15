@@ -93,6 +93,7 @@ namespace UACloudLibraryServer.UnitTests
             public Task SetValuesAsync(Guid id, string userId, IReadOnlyDictionary<string, string> values, CancellationToken ct = default) => throw new NotSupportedException();
             public Task<bool> RemoveValueAsync(Guid id, string userId, string nodeId, CancellationToken ct = default) => throw new NotSupportedException();
             public Task<bool> SetPublishedAsync(Guid id, string userId, bool isPublished, CancellationToken ct = default) => throw new NotSupportedException();
+            public Task<IReadOnlyList<string>> ListReadableTemplatesAsync(string userId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
         }
     }
 }

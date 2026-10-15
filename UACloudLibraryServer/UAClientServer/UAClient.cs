@@ -62,6 +62,10 @@ namespace Opc.Ua.Cloud.Library
         // so a session is only valid for the nodeset it was created for.
         private string _sessionNodesetIdentifier;
         private SessionReconnectHandler _reconnectHandler;
+
+        // The nodeset the pending reconnect was started for. A reconnect that completes after this
+        // instance has moved to another nodeset must not install its session as current.
+        private string _reconnectNodesetIdentifier;
         private ITelemetryContext _telemetry;
 
         private static uint _port = 5000;
@@ -366,9 +370,21 @@ namespace Opc.Ua.Cloud.Library
                 return;
             }
 
-            _session = (Opc.Ua.Client.Session)_reconnectHandler.Session;
+            Opc.Ua.Client.ISession reconnected = _reconnectHandler.Session;
+            string reconnectedFor = _reconnectNodesetIdentifier;
             _reconnectHandler.Dispose();
             _reconnectHandler = null;
+            _reconnectNodesetIdentifier = null;
+
+            // This instance may have switched to another nodeset while the reconnect was running.
+            // Installing the old nodeset's session now would send the current nodeset's calls into
+            // the wrong address space, so only install it if it still belongs to the current one.
+            if (!string.Equals(reconnectedFor, _sessionNodesetIdentifier, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _session = reconnected;
 
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture, "--- RECONNECTED --- {0}", _session.Endpoint.EndpointUrl));
         }
@@ -395,6 +411,7 @@ namespace Opc.Ua.Cloud.Library
                     if (e.Status.StatusCode == StatusCodes.BadNoCommunication && _reconnectHandler == null)
                     {
                         Console.WriteLine("--- RECONNECTING --- {0}", sender.Endpoint.EndpointUrl);
+                        _reconnectNodesetIdentifier = _sessionNodesetIdentifier;
                         _reconnectHandler = new SessionReconnectHandler(_telemetry);
                         _reconnectHandler.BeginReconnect(sender, 10000, Client_ReconnectComplete);
                     }
@@ -835,6 +852,16 @@ namespace Opc.Ua.Cloud.Library
             if (_session != null && !string.Equals(_sessionNodesetIdentifier, nodesetIdentifier, StringComparison.Ordinal))
             {
                 _session = null;
+
+                // A reconnect still running for the previous nodeset belongs to that nodeset, not this
+                // one. Discard it so its completion callback is ignored (it checks the sender against
+                // _reconnectHandler) and cannot install the old session after the switch.
+                if (_reconnectHandler != null)
+                {
+                    _reconnectHandler.Dispose();
+                    _reconnectHandler = null;
+                    _reconnectNodesetIdentifier = null;
+                }
             }
 
             // check if we have an existing session for this nodeset

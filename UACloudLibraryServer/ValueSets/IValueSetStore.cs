@@ -61,6 +61,13 @@ namespace Opc.Ua.Cloud.Library.ValueSets
         Task<IReadOnlyList<NodesetValueSet>> FindReadableByTemplatesAsync(IReadOnlyCollection<string> nodesetIdentifiers, string userId, CancellationToken ct = default);
 
         /// <summary>
+        /// The distinct templates that have at least one set the caller may read. Used to find
+        /// passports that inherit their product identifier, whose effective value is only known once
+        /// the template is loaded with its uploaded values, not from the indexed nodeset XML.
+        /// </summary>
+        Task<IReadOnlyList<string>> ListReadableTemplatesAsync(string userId, CancellationToken ct = default);
+
+        /// <summary>
         /// The template nodeset a set is based on, regardless of who may read the set. Used only to
         /// locate the template's access policy, which is never returned to the caller.
         /// </summary>

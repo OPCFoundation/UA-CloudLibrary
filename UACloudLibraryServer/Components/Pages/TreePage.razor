@@ -1250,7 +1250,11 @@
         }
         else
         {
-            await _auditLog.RecordCommittedOutcomeAsync(_valueSetUserId, operation, outcome.DppId, detail, "Success", operationId).ConfigureAwait(false);
+            // A change that was applied but whose previous version could not be archived is durable,
+            // so it is still a committed outcome - but it is not a success, and must be recorded as
+            // PartialFailure (as ValueSetController does) so it stays visible for reconciliation.
+            string recorded = outcome.Result is DPPService.UpdateDppResult.WriteFailedPartiallyApplied ? "PartialFailure" : "Success";
+            await _auditLog.RecordCommittedOutcomeAsync(_valueSetUserId, operation, outcome.DppId, detail, recorded, operationId).ConfigureAwait(false);
         }
 
         return outcome.Result;
