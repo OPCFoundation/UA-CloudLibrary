@@ -720,13 +720,16 @@
 
         _isInteractive = true;
 
+        // Value sets come from the database only, so list them straight away instead of waiting for
+        // the embedded OPC UA server to start and expand the root, which can take a long time.
+        await LoadValueSetsAsync().ConfigureAwait(false);
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+
         // OnInitializedAsync is still expanding the root when the first render completes. Browsing
         // the same nodeset from two paths at once makes UAClient start a second embedded server for
         // it, which fails and tears down the working session - leaving an empty tree.
         await _initialLoad.Task.ConfigureAwait(false);
 
-        await LoadValueSetsAsync().ConfigureAwait(false);
-        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
         await RestoreTreeStateAsync().ConfigureAwait(false);
     }
 
@@ -992,8 +995,12 @@
             ValueSets = (await ValueSetStore.ListAsync(NodesetIdentifier, _valueSetUserId).ConfigureAwait(false)).ToList();
             _valueSetsLoaded = true;
 
-            // Like the tree state, the active set survives the Save redirect via sessionStorage.
-            string stored = await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", ValueSetStorageKey).ConfigureAwait(false);
+            // Show the list now; restoring the previously active set below waits on browser storage.
+            await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+
+            // The last active set is kept in localStorage so it is selected again by default, across
+            // tabs and browser restarts. It is only restored if it is still one of this user's sets.
+            string stored = await JSRuntime.InvokeAsync<string>("localStorage.getItem", ValueSetStorageKey).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(stored) && ValueSets.Any(vs => vs.Id.ToString() == stored))
             {
                 await ActivateValueSetAsync(stored).ConfigureAwait(false);
@@ -1036,7 +1043,7 @@
 
             if (_isInteractive)
             {
-                await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", ValueSetStorageKey, ActiveValueSetId).ConfigureAwait(false);
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", ValueSetStorageKey, ActiveValueSetId).ConfigureAwait(false);
             }
         }
         catch (Exception ex)
@@ -1129,6 +1136,10 @@
         {
             ValueSetStatus = DescribeAuditFailure(ex);
         }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+        {
+            ValueSetStatus = "This value set was changed elsewhere. Reload the page and try again.";
+        }
         catch (Exception ex)
         {
             ValueSetStatus = ex.Message;
@@ -1142,7 +1153,9 @@
             return;
         }
 
-        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Delete value set '{ActiveValueSet.Name}' and all its node values?").ConfigureAwait(false);
+        // Capture the target before the confirmation is awaited, so the confirmed set is the one deleted.
+        Guid deletedId = ActiveValueSet.Id;
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Delete value set '{ActiveValueSet?.Name}' and all its node values?").ConfigureAwait(false);
         if (!confirmed)
         {
             return;
@@ -1150,7 +1163,6 @@
 
         try
         {
-            Guid deletedId = ActiveValueSet.Id;
             await AuditedValueSetChangeAsync(DppAuditOperation.Delete, deletedId.ToString(), "delete value set", async () => { bool deleted = await ValueSetStore.DeleteAsync(deletedId, _valueSetUserId).ConfigureAwait(false); return (deleted, deleted ? deletedId.ToString() : null); }).ConfigureAwait(false);
             ValueSets = (await ValueSetStore.ListAsync(NodesetIdentifier, _valueSetUserId).ConfigureAwait(false)).ToList();
             await ActivateValueSetAsync(string.Empty).ConfigureAwait(false);
@@ -1162,6 +1174,10 @@
         catch (DppAuditException ex)
         {
             ValueSetStatus = DescribeAuditFailure(ex);
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+        {
+            ValueSetStatus = "This value set was changed elsewhere. Reload the page and try again.";
         }
         catch (Exception ex)
         {
@@ -1207,8 +1223,14 @@
                 return;
             }
 
-            bool found = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, publishId.ToString(), publish ? "publish" : "unpublish", async () => { bool f = await ValueSetStore.SetPublishedAsync(publishId, _valueSetUserId, publish).ConfigureAwait(false); return (f, f ? publishId.ToString() : null); }).ConfigureAwait(false);
-            if (!found)
+            // Same publication path as the REST API, so a set whose nodeset has no passport object
+            // cannot be published here either.
+            DPPService.PublishValueSetResult outcome = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, publishId.ToString(), publish ? "publish" : "unpublish", async () => { DPPService.PublishValueSetResult r = await DppService.SetValueSetPublishedAsync(_valueSetUserId, publishId, publish).ConfigureAwait(false); return (r, r == DPPService.PublishValueSetResult.Success ? publishId.ToString() : null); }).ConfigureAwait(false);
+            if (outcome == DPPService.PublishValueSetResult.NotAPassport)
+            {
+                ValueSetStatus = "This nodeset has no DigitalProductPassport object, so the value set cannot be published as a passport.";
+            }
+            else if (outcome != DPPService.PublishValueSetResult.Success)
             {
                 ValueSetStatus = "Value set could not be found; it may have been deleted.";
             }
@@ -1228,6 +1250,10 @@
         catch (DppAuditException ex)
         {
             ValueSetStatus = DescribeAuditFailure(ex);
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+        {
+            ValueSetStatus = "This value set was changed elsewhere. Reload the page and try again.";
         }
         catch (Exception ex)
         {

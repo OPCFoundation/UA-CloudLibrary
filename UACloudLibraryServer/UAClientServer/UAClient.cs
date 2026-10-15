@@ -375,29 +375,57 @@ namespace Opc.Ua.Cloud.Library
 
         private void Client_ReconnectComplete(object sender, EventArgs e)
         {
-            // ignore callbacks from discarded objects.
-            if (!Object.ReferenceEquals(sender, _reconnectHandler))
+            // The check and the install must be one step with respect to session switches in
+            // ValidateSession, which take the same gate; otherwise a switch could land between them.
+            lock (_sessionSwitchGate)
             {
-                return;
+                // ignore callbacks from discarded objects.
+                if (!Object.ReferenceEquals(sender, _reconnectHandler))
+                {
+                    return;
+                }
+
+                Opc.Ua.Client.ISession reconnected = _reconnectHandler.Session;
+                string reconnectedFor = _reconnectNodesetIdentifier;
+                _reconnectHandler.Dispose();
+                _reconnectHandler = null;
+                _reconnectNodesetIdentifier = null;
+
+                // This instance may have switched to another nodeset while the reconnect was running.
+                // Installing the old nodeset's session now would send the current nodeset's calls into
+                // the wrong address space, so only install it if it still belongs to the current one.
+                if (!string.Equals(reconnectedFor, _sessionNodesetIdentifier, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _session = reconnected;
+
+                Console.WriteLine(string.Format(CultureInfo.InvariantCulture, "--- RECONNECTED --- {0}", _session.Endpoint.EndpointUrl));
             }
+        }
 
-            Opc.Ua.Client.ISession reconnected = _reconnectHandler.Session;
-            string reconnectedFor = _reconnectNodesetIdentifier;
-            _reconnectHandler.Dispose();
-            _reconnectHandler = null;
-            _reconnectNodesetIdentifier = null;
+        // Guards every change of _session / _sessionNodesetIdentifier / _reconnectHandler, so a
+        // reconnect completing on another thread cannot interleave with a nodeset switch. Held only
+        // for synchronous field updates, never across an await.
+        private readonly object _sessionSwitchGate = new();
 
-            // This instance may have switched to another nodeset while the reconnect was running.
-            // Installing the old nodeset's session now would send the current nodeset's calls into
-            // the wrong address space, so only install it if it still belongs to the current one.
-            if (!string.Equals(reconnectedFor, _sessionNodesetIdentifier, StringComparison.Ordinal))
+        // Installs a session for a nodeset atomically with its tag, discarding any reconnect that
+        // belongs to a different nodeset.
+        private void InstallSession(Opc.Ua.Client.ISession session, string nodesetIdentifier)
+        {
+            lock (_sessionSwitchGate)
             {
-                return;
+                if (_reconnectHandler != null && !string.Equals(_reconnectNodesetIdentifier, nodesetIdentifier, StringComparison.Ordinal))
+                {
+                    _reconnectHandler.Dispose();
+                    _reconnectHandler = null;
+                    _reconnectNodesetIdentifier = null;
+                }
+
+                _session = session;
+                _sessionNodesetIdentifier = nodesetIdentifier;
             }
-
-            _session = reconnected;
-
-            Console.WriteLine(string.Format(CultureInfo.InvariantCulture, "--- RECONNECTED --- {0}", _session.Endpoint.EndpointUrl));
         }
 
         private void StandardClient_KeepAlive(Opc.Ua.Client.ISession sender, KeepAliveEventArgs e)
@@ -419,12 +447,19 @@ namespace Opc.Ua.Cloud.Library
                         sender.OutstandingRequestCount,
                         sender.DefunctRequestCount));
 
-                    if (e.Status.StatusCode == StatusCodes.BadNoCommunication && _reconnectHandler == null)
+                    if (e.Status.StatusCode == StatusCodes.BadNoCommunication)
                     {
-                        Console.WriteLine("--- RECONNECTING --- {0}", sender.Endpoint.EndpointUrl);
-                        _reconnectNodesetIdentifier = _sessionNodesetIdentifier;
-                        _reconnectHandler = new SessionReconnectHandler(_telemetry);
-                        _reconnectHandler.BeginReconnect(sender, 10000, Client_ReconnectComplete);
+                        lock (_sessionSwitchGate)
+                        {
+                            // Re-check under the gate: the session may have been switched meanwhile.
+                            if (_reconnectHandler == null && Object.ReferenceEquals(sender, _session))
+                            {
+                                Console.WriteLine("--- RECONNECTING --- {0}", sender.Endpoint.EndpointUrl);
+                                _reconnectNodesetIdentifier = _sessionNodesetIdentifier;
+                                _reconnectHandler = new SessionReconnectHandler(_telemetry);
+                                _reconnectHandler.BeginReconnect(sender, 10000, Client_ReconnectComplete);
+                            }
+                        }
                     }
                 }
             }
@@ -533,10 +568,10 @@ namespace Opc.Ua.Cloud.Library
                 valueId.DataEncoding = null;
                 nodesToRead.Add(valueId);
 
-                // load complex type system
-                ComplexTypeSystem complexTypeSystem = new(_session);
-                ExpandedNodeId nodeTypeId = node.DataType;
-                await complexTypeSystem.LoadTypeAsync(nodeTypeId).ConfigureAwait(false);
+                // Load the data type's complex type once per session. ComplexTypeSystem emits a new
+                // dynamic assembly for every type it builds, so creating one per read regenerated
+                // the same types on every value read and made each read slow.
+                await EnsureComplexTypeLoadedAsync(_session, node.DataType).ConfigureAwait(false);
 
                 ReadResponse response = await _session.ReadAsync(null, 0, TimestampsToReturn.Both, nodesToRead, CancellationToken.None).ConfigureAwait(false);
 
@@ -554,6 +589,48 @@ namespace Opc.Ua.Cloud.Library
             }
 
             return value;
+        }
+
+        private sealed class SessionTypeCache
+        {
+            public SessionTypeCache(Opc.Ua.Client.ISession session) => TypeSystem = new ComplexTypeSystem(session);
+
+            public ComplexTypeSystem TypeSystem { get; }
+
+            public ConcurrentDictionary<ExpandedNodeId, bool> Loaded { get; } = new();
+
+            public SemaphoreSlim Gate { get; } = new(1, 1);
+        }
+
+        // Keyed weakly by session so a closed session's type system is collected with it.
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Opc.Ua.Client.ISession, SessionTypeCache> _typeCaches = new();
+
+        private static async Task EnsureComplexTypeLoadedAsync(Opc.Ua.Client.ISession session, ExpandedNodeId dataType)
+        {
+            if (session == null || NodeId.IsNull(dataType))
+            {
+                return;
+            }
+
+            SessionTypeCache cache = _typeCaches.GetValue(session, s => new SessionTypeCache(s));
+            if (cache.Loaded.ContainsKey(dataType))
+            {
+                return;
+            }
+
+            await cache.Gate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                if (!cache.Loaded.ContainsKey(dataType))
+                {
+                    await cache.TypeSystem.LoadTypeAsync(dataType).ConfigureAwait(false);
+                    cache.Loaded[dataType] = true;
+                }
+            }
+            finally
+            {
+                cache.Gate.Release();
+            }
         }
 
         /// <summary>
@@ -860,18 +937,21 @@ namespace Opc.Ua.Cloud.Library
             // A connected session for a *different* nodeset must not be reused: it would browse that
             // nodeset's address space and return the wrong nodes. Drop this instance's reference (the
             // session itself stays cached in _sessions for its own nodeset) and select the right one.
-            if (_session != null && !string.Equals(_sessionNodesetIdentifier, nodesetIdentifier, StringComparison.Ordinal))
+            lock (_sessionSwitchGate)
             {
-                _session = null;
-
-                // A reconnect still running for the previous nodeset belongs to that nodeset, not this
-                // one. Discard it so its completion callback is ignored (it checks the sender against
-                // _reconnectHandler) and cannot install the old session after the switch.
-                if (_reconnectHandler != null)
+                if (_session != null && !string.Equals(_sessionNodesetIdentifier, nodesetIdentifier, StringComparison.Ordinal))
                 {
-                    _reconnectHandler.Dispose();
-                    _reconnectHandler = null;
-                    _reconnectNodesetIdentifier = null;
+                    _session = null;
+
+                    // A reconnect still running for the previous nodeset belongs to that nodeset, not this
+                    // one. Discard it so its completion callback is ignored (it checks the sender against
+                    // _reconnectHandler) and cannot install the old session after the switch.
+                    if (_reconnectHandler != null)
+                    {
+                        _reconnectHandler.Dispose();
+                        _reconnectHandler = null;
+                        _reconnectNodesetIdentifier = null;
+                    }
                 }
             }
 
@@ -883,8 +963,7 @@ namespace Opc.Ua.Cloud.Library
                 if (TryGetLiveSession(nodesetIdentifier, out Opc.Ua.Client.ISession value))
                 {
                     Console.WriteLine("Re-using existing OPC UA server and session for nodeset " + nodesetIdentifier);
-                    _session = value;
-                    _sessionNodesetIdentifier = nodesetIdentifier;
+                    InstallSession(value, nodesetIdentifier);
                 }
                 else
                 {
@@ -902,8 +981,7 @@ namespace Opc.Ua.Cloud.Library
                         if (TryGetLiveSession(nodesetIdentifier, out Opc.Ua.Client.ISession existing))
                         {
                             Console.WriteLine("Re-using OPC UA session created concurrently for nodeset " + nodesetIdentifier);
-                            _session = existing;
-                            _sessionNodesetIdentifier = nodesetIdentifier;
+                            InstallSession(existing, nodesetIdentifier);
                             return true;
                         }
 
@@ -997,8 +1075,7 @@ namespace Opc.Ua.Cloud.Library
 
                         _sessions[nodesetIdentifier] = newSession;
                         _createdSessions.Add(newSession);
-                        _session = newSession;
-                        _sessionNodesetIdentifier = nodesetIdentifier;
+                        InstallSession(newSession, nodesetIdentifier);
 
                         Console.WriteLine("OPC UA server started and session created for nodeset " + nodesetIdentifier);
                     }

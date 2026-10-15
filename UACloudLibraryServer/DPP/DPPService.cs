@@ -1141,6 +1141,42 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
+        public enum PublishValueSetResult
+        {
+            Success,
+            NotFound,
+
+            /// <summary>
+            /// The set's template has no DigitalProductPassport object, so there is no passport to
+            /// publish: the DPP URL would return 404.
+            /// </summary>
+            NotAPassport
+        }
+
+        /// <summary>
+        /// Publishes or unpublishes a value set. The single publication path for the REST API and
+        /// the browser, so both refuse to publish a set whose template cannot produce a passport.
+        /// Unpublishing is always allowed, since it only narrows access.
+        /// </summary>
+        /// <exception cref="Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException">The set changed after it was loaded.</exception>
+        public async Task<PublishValueSetResult> SetValueSetPublishedAsync(string userId, Guid valueSetId, bool publish)
+        {
+            Models.NodesetValueSet set = await _valueSets.GetAsync(valueSetId, userId).ConfigureAwait(false);
+            if (set is null)
+            {
+                return PublishValueSetResult.NotFound;
+            }
+
+            if (publish && await FindDppNodeAsync(userId, set.NodesetIdentifier).ConfigureAwait(false) is null)
+            {
+                return PublishValueSetResult.NotAPassport;
+            }
+
+            return await _valueSets.SetPublishedAsync(valueSetId, userId, publish).ConfigureAwait(false)
+                ? PublishValueSetResult.Success
+                : PublishValueSetResult.NotFound;
+        }
+
         /// <summary>
         /// Writes and removes node values on a value set through the same rules as a DPP PATCH.
         /// </summary>

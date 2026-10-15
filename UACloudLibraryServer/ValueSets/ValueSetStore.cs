@@ -89,8 +89,25 @@ namespace Opc.Ua.Cloud.Library.ValueSets
             set.Description = description;
             set.LastModified = DateTimeOffset.UtcNow;
             set.Revision++;
-            await _dbContext.SaveChangesAsync(ct).ConfigureAwait(false);
+            await SaveLifecycleChangeAsync(ct).ConfigureAwait(false);
             return set;
+        }
+
+        // Saves a lifecycle change (rename, delete, publish). Revision is a concurrency token, so a
+        // change that landed after the set was loaded makes the save throw
+        // DbUpdateConcurrencyException; callers map that to a retryable conflict. The rejected change
+        // is discarded first so it is not left pending in the shared context.
+        private async Task SaveLifecycleChangeAsync(CancellationToken ct)
+        {
+            try
+            {
+                await _dbContext.SaveChangesAsync(ct).ConfigureAwait(false);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                _dbContext.ChangeTracker.Clear();
+                throw;
+            }
         }
 
         public async Task<bool> DeleteAsync(Guid id, string userId, CancellationToken ct = default)
@@ -104,7 +121,7 @@ namespace Opc.Ua.Cloud.Library.ValueSets
             }
 
             _dbContext.NodesetValueSets.Remove(set);
-            await _dbContext.SaveChangesAsync(ct).ConfigureAwait(false);
+            await SaveLifecycleChangeAsync(ct).ConfigureAwait(false);
             return true;
         }
 
@@ -251,7 +268,7 @@ namespace Opc.Ua.Cloud.Library.ValueSets
             set.IsPublished = isPublished;
             set.LastModified = DateTimeOffset.UtcNow;
             set.Revision++;
-            await _dbContext.SaveChangesAsync(ct).ConfigureAwait(false);
+            await SaveLifecycleChangeAsync(ct).ConfigureAwait(false);
             return true;
         }
 

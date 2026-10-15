@@ -22,13 +22,13 @@ namespace UACloudLibraryServer.UnitTests
     {
         private static readonly string[] s_mutations =
         {
-            "CreateAsync", "UpdateAsync", "DeleteAsync", "CloneAsync", "SetPublishedAsync",
+            "CreateAsync", "UpdateAsync", "DeleteAsync", "CloneAsync", "SetPublishedAsync", "SetValueSetPublishedAsync",
             "SetValueAsync", "SetValuesAsync", "RemoveValueAsync", "RestoreValuesAsync", "ApplyChangesAsync",
         };
 
         private static readonly string[] s_helpers = { "AuditedAsync(", "AuditedValueSetChangeAsync(" };
 
-        [GeneratedRegex(@"\b(?:_store|ValueSetStore)\.(\w+)\(")]
+        [GeneratedRegex(@"\b(?:_store|ValueSetStore|_dppService|DppService)\.(\w+)\(")]
         private static partial Regex StoreCallRegex();
 
         [Fact]
@@ -70,10 +70,10 @@ namespace UACloudLibraryServer.UnitTests
 
             // Guards the guard: a scan that stopped matching (a rename, a moved folder) would pass
             // vacuously. Value edits now go through DPPService.UpdateValueSetValuesAsync rather than the
-            // store, so the store calls left here are the set lifecycle changes: 6 in ValueSetController
-            // (create, rename, delete, publish, unpublish, clone) + 5 in TreePage (create, rename, clone,
-            // delete, publish), plus one read-only GetValuesAsync check that isn't counted.
-            Assert.True(audited >= 11, $"Expected at least 11 audited value-set mutations, found {audited}; the scan may have stopped matching.");
+            // store, so the calls left here are the set lifecycle changes: 5 in ValueSetController
+            // (create, rename, delete, publish/unpublish via DPPService, clone) + 5 in TreePage (create,
+            // rename, clone, delete, publish), plus one read-only GetValuesAsync check that isn't counted.
+            Assert.True(audited >= 10, $"Expected at least 10 audited value-set mutations, found {audited}; the scan may have stopped matching.");
 
             // Value edits must use the passport write path, never the store, so the passport rules
             // (roles, archiving, LastUpdate, revision check) cannot be bypassed.
