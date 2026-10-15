@@ -1455,19 +1455,26 @@ namespace Opc.Ua.Cloud.Library
                 }
             }
 
+            SharedSession toClose;
             lock (s_poolGate)
             {
-                // Release only if this client still holds exactly this pair for the nodeset; a newer
-                // pair borrowed meanwhile must not be released in its place.
+                // Check identity and release in one step: once this lock is released another
+                // operation on this client could replace the borrow for the nodeset, and releasing
+                // by nodeset afterwards would drop that replacement instead of the failed pair.
                 if (!_borrowed.TryGetValue(nodesetIdentifier, out SharedSession held) || !ReferenceEquals(held, pair))
                 {
                     return;
                 }
 
                 _sessions.TryRemove(new KeyValuePair<string, SharedSession>(nodesetIdentifier, pair));
+                toClose = TakePreviousBorrow(nodesetIdentifier);
             }
 
-            await ReleaseAsync(nodesetIdentifier).ConfigureAwait(false);
+            // Only the captured pair is closed, and only if this client was its last borrower.
+            if (toClose != null)
+            {
+                await toClose.CloseAsync().ConfigureAwait(false);
+            }
         }
 
         public async ValueTask DisposeAsync()
