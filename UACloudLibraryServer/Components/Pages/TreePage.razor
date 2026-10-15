@@ -917,11 +917,18 @@
                         if (result == DPPService.UpdateDppResult.Success && IsStillActive(setId))
                         {
                             ActiveValueSetEntries[nodeId] = value;
-                            NodeValue = value;
+
+                            // The tree stays interactive during the update, so another node may be
+                            // selected by now; only show the value if the edited node still is.
+                            if (SelectedNode?.Id == nodeId)
+                            {
+                                NodeValue = value;
+                            }
                         }
 
                         WriteStatus = DescribeUpdateResult(result);
-                    }                    catch (DppAuditException ex)
+                    }
+                    catch (DppAuditException ex)
                     {
                         WriteStatus = DescribeAuditFailure(ex);
                     }
@@ -1201,8 +1208,10 @@
             else
             {
                 // Reload so ActiveValueSet, which is looked up from this list, reflects the new state.
+                // Keep whichever set is selected now: the user may have switched sets while this was
+                // awaited, and the page's values were loaded for that set. Forcing the selection back
+                // to the published set would show one set's values under another's name.
                 ValueSets = (await ValueSetStore.ListAsync(NodesetIdentifier, _valueSetUserId).ConfigureAwait(false)).ToList();
-                ActiveValueSetId = activeId;
                 ValueSetStatus = publish
                     ? $"Published. Passport id: {activeId}"
                     : "Unpublished. The passport is private again.";
@@ -1657,8 +1666,29 @@
 
             if (result == DPPService.UpdateDppResult.Success && IsStillActive(setId))
             {
-                ActiveValueSetEntries.Remove(nodeId);
-                NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, nodeId).ConfigureAwait(false);
+                // Reload the stored entries rather than just removing this one from the cache. For a
+                // passport the service also writes a fresh LastUpdate, and resetting LastUpdate itself
+                // replaces it with that timestamp instead of removing it, so only the persisted entries
+                // describe the set correctly.
+                IReadOnlyDictionary<string, string> persisted = await ValueSetStore.GetValuesAsync(setId, _valueSetUserId).ConfigureAwait(false);
+
+                // The selection can change during each await; re-check before touching page state.
+                if (persisted != null && IsStillActive(setId))
+                {
+                    ActiveValueSetEntries = new Dictionary<string, string>(persisted, StringComparer.Ordinal);
+
+                    if (SelectedNode?.Id == nodeId)
+                    {
+                        string shown = ActiveValueSetEntries.TryGetValue(nodeId, out string own)
+                            ? own
+                            : await _client.VariableRead(UserName, NodesetIdentifier, nodeId).ConfigureAwait(false);
+
+                        if (IsStillActive(setId) && SelectedNode?.Id == nodeId)
+                        {
+                            NodeValue = shown;
+                        }
+                    }
+                }
             }
 
             ValueSetStatus = DescribeUpdateResult(result);

@@ -56,6 +56,11 @@ namespace Opc.Ua.Cloud.Library
         private readonly CloudLibDataProvider _database;
 
         private SimpleServer _server;
+
+        // Every server this instance started. Switching to an uncached nodeset starts a new server and
+        // replaces _server, so without this list DisposeAsync would stop only the last one and leave
+        // earlier servers listening with their address spaces loaded.
+        private readonly List<SimpleServer> _startedServers = new();
         private Opc.Ua.Client.ISession _session;
 
         // The nodeset _session was opened for. Each nodeset runs in its own server and address space,
@@ -910,6 +915,7 @@ namespace Opc.Ua.Cloud.Library
                                 Console.WriteLine("Starting OPC UA server on port " + _port);
 
                                 _server = new SimpleServer(_app, _port);
+                                _startedServers.Add(_server);
 
                                 await _app.StartAsync(_server).ConfigureAwait(false);
 
@@ -1164,11 +1170,20 @@ namespace Opc.Ua.Cloud.Library
                 _reconnectHandler = null;
             }
 
-            if (_server != null)
+            foreach (SimpleServer server in _startedServers)
             {
-                await _server.StopAsync().ConfigureAwait(false);
-                _server = null;
+                try
+                {
+                    await server.StopAsync().ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("DisposeAsync: failed to stop OPC UA server: " + ex.Message);
+                }
             }
+
+            _startedServers.Clear();
+            _server = null;
         }
     }
 }
