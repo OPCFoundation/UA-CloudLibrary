@@ -897,11 +897,17 @@ namespace Opc.Ua.Cloud.Library
 
             if (pair == null)
             {
-                return "No OPC UA session is available for this nodeset.";
+                return NoSessionMessage();
             }
 
             return await GetVariableWriteBlockerAsync(pair.Session, nodeId).ConfigureAwait(false);
         }
+
+        // Set by AcquireSessionAsync when it returns null, so callers can say why.
+        private string _lastSessionFailure;
+
+        private string NoSessionMessage() =>
+            "No OPC UA session is available for this nodeset" + (string.IsNullOrEmpty(_lastSessionFailure) ? "." : ": " + _lastSessionFailure + ".");
 
         private static async Task<string> GetVariableWriteBlockerAsync(Opc.Ua.Client.ISession session, string nodeId)
         {
@@ -980,7 +986,7 @@ namespace Opc.Ua.Cloud.Library
 
             if (pair == null)
             {
-                return "No OPC UA session is available for this nodeset.";
+                return NoSessionMessage();
             }
 
             Opc.Ua.Client.ISession session = pair.Session;
@@ -1061,9 +1067,12 @@ namespace Opc.Ua.Cloud.Library
         // this client cannot redirect an operation that is already running.
         private async Task<SharedSession> AcquireSessionAsync(string userId, string nodesetIdentifier)
         {
+            _lastSessionFailure = null;
+
             if (string.IsNullOrEmpty(nodesetIdentifier))
             {
                 Console.WriteLine("Failed to validate session: No nodeset identifier specified.");
+                _lastSessionFailure = "no nodeset identifier was given";
                 return null;
             }
 
@@ -1113,6 +1122,7 @@ namespace Opc.Ua.Cloud.Library
                             if (maxRetry < 1)
                             {
                                 Console.WriteLine("Failed to start OPC UA server: Max retries reached!");
+                                _lastSessionFailure = "the embedded OPC UA server could not be started";
                                 return null;
                             }
 
@@ -1171,6 +1181,7 @@ namespace Opc.Ua.Cloud.Library
                         else
                         {
                             Console.WriteLine($"Nodeset {nodesetIdentifier} not found in database.");
+                            _lastSessionFailure = $"nodeset '{nodesetIdentifier}' was not found in the Cloud Library";
                             return null;
                         }
 
@@ -1188,6 +1199,7 @@ namespace Opc.Ua.Cloud.Library
                         if (newSession == null || !newSession.Connected)
                         {
                             Console.WriteLine("Failed to create new OPC UA session.");
+                            _lastSessionFailure = "the OPC UA session to the embedded server could not be created";
                             return null;
                         }
 

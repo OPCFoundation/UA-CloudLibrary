@@ -29,7 +29,7 @@ namespace UACloudLibraryServer.UnitTests
             UniqueProductIdentifier = "prod-1",
             DppSchemaVersion = "1.0",
             DppStatus = "active",
-            LastUpdate = DateTimeOffset.UtcNow,
+            LastUpdated = DateTimeOffset.UtcNow,
             EconomicOperatorId = "EO-1"
         };
 
@@ -215,7 +215,7 @@ namespace UACloudLibraryServer.UnitTests
             UniqueProductIdentifier = "prod-1",
             DppSchemaVersion = "1.0",
             DppStatus = "active",
-            LastUpdate = DateTimeOffset.UtcNow,
+            LastUpdated = DateTimeOffset.UtcNow,
             EconomicOperatorId = economicOperatorId
         };
 

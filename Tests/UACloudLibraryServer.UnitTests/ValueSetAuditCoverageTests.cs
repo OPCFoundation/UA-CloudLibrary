@@ -78,7 +78,7 @@ namespace UACloudLibraryServer.UnitTests
             // Value edits must use the passport write path, never the store, so the passport rules
             // (roles, archiving, LastUpdate, revision check) cannot be bypassed.
             Assert.True(ValueEditCallsOutsideService() == 0,
-                "A value-set value edit calls the store directly. Use DPPService.UpdateValueSetValuesAsync so controlled-element roles, archiving and LastUpdate apply.");
+                "A value-set value edit calls the store directly. Use DPPService.UpdateValueSetValuesAsync so controlled-element roles, archiving and LastUpdated apply.");
         }
 
         // Counts direct store calls that change node values, which must now go through DPPService.

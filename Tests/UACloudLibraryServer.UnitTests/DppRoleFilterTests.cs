@@ -59,7 +59,7 @@ namespace UACloudLibraryServer.UnitTests
             UniqueProductIdentifier = "prod-1",
             DppSchemaVersion = "1.0",
             DppStatus = "active",
-            LastUpdate = System.DateTimeOffset.UtcNow,
+            LastUpdated = System.DateTimeOffset.UtcNow,
             EconomicOperatorId = "EO-1",
             Elements = new List<DataElement> { root }
         };

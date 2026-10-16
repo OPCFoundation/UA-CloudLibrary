@@ -382,7 +382,7 @@ namespace Opc.Ua.Cloud.Library
                     Granularity = dpp.Granularity,
                     DppSchemaVersion = dpp.DppSchemaVersion,
                     DppStatus = dpp.DppStatus,
-                    LastUpdate = dpp.LastUpdate,
+                    LastUpdated = dpp.LastUpdated,
                     EconomicOperatorId = dpp.EconomicOperatorId,
                     FacilityId = dpp.FacilityId,
                     ContentSpecificationIds = dpp.ContentSpecificationIds,
@@ -410,7 +410,7 @@ namespace Opc.Ua.Cloud.Library
                 Granularity = dpp.Granularity,
                 DppSchemaVersion = dpp.DppSchemaVersion,
                 DppStatus = dpp.DppStatus,
-                LastUpdate = dpp.LastUpdate,
+                LastUpdated = dpp.LastUpdated,
                 EconomicOperatorId = dpp.EconomicOperatorId,
                 FacilityId = dpp.FacilityId,
                 ContentSpecificationIds = dpp.ContentSpecificationIds,
@@ -530,7 +530,7 @@ namespace Opc.Ua.Cloud.Library
         /// Returns the DPP snapshot that was active at <paramref name="asOfUtc"/>, per
         /// EN 18222 (Method ReadDPPVersionByIdAndDate), together with the access policy that applied
         /// to that version. If the requested timestamp is at or after the live DPP's own
-        /// <see cref="DigitalProductPassport.LastUpdate"/>, the live DPP is returned; otherwise the
+        /// <see cref="DigitalProductPassport.LastUpdated"/>, the live DPP is returned; otherwise the
         /// archive is consulted for the latest snapshot at or before that timestamp. Returns
         /// <c>null</c> when no version of the DPP existed at the requested point in time.
         /// </summary>
@@ -563,7 +563,7 @@ namespace Opc.Ua.Cloud.Library
                 return null;
             }
 
-            if (live != null && live.LastUpdate.ToUniversalTime() <= target)
+            if (live != null && live.LastUpdated.ToUniversalTime() <= target)
             {
                 // The live version's policy is the current stored mapping, by definition - but only
                 // when that row actually exists. A DPP is materialised from the live OPC UA address
@@ -770,8 +770,20 @@ namespace Opc.Ua.Cloud.Library
             }
 
             List<NodesetViewerNode> properties = await _client.GetChildren(userId, nodesetIdentifier, dppNode.Id).ConfigureAwait(false);
-            return properties?.FirstOrDefault(p => p.Text == browseName)?.Id;
+            return properties?.FirstOrDefault(p => IsNamed(p, browseName))?.Id;
         }
+
+        // Template nodes are identified by BrowseName, which the DPP information model fixes. The
+        // DisplayName (NodesetViewerNode.Text) is free text a template author may localise or reword,
+        // so it is only a fallback for nodes without a browse name.
+        private static string NameOf(NodesetViewerNode node) =>
+            string.IsNullOrEmpty(node?.BrowseName) ? node?.Text ?? string.Empty : node.BrowseName;
+
+        private static bool IsNamed(NodesetViewerNode node, string name) =>
+            node != null
+            && (string.Equals(node.BrowseName, name, StringComparison.Ordinal)
+                || string.Equals(node.Text, name, StringComparison.Ordinal));
+
         public async Task<(ElementResult Result, string ErrorMessage, DataElement Element)> GetElement(
             string userId, string dppId, string elementIdPath)
         {
@@ -945,7 +957,7 @@ namespace Opc.Ua.Cloud.Library
                 ["granularity"] = "Granularity",
                 ["dppSchemaVersion"] = "DppSchemaVersion",
                 ["dppStatus"] = "DppStatus",
-                ["lastUpdate"] = "LastUpdate",
+                ["lastUpdated"] = "LastUpdated",
                 ["economicOperatorId"] = "EconomicOperatorId",
                 ["facilityId"] = "FacilityId",
             };
@@ -1025,7 +1037,7 @@ namespace Opc.Ua.Cloud.Library
 
                 if (string.Equals(entry.Key, "elements", StringComparison.Ordinal))
                 {
-                    NodesetViewerNode elementsNode = dppProperties.FirstOrDefault(p => p.Text == "Elements");
+                    NodesetViewerNode elementsNode = dppProperties.FirstOrDefault(p => IsNamed(p, "Elements"));
                     if (elementsNode == null)
                     {
                         return (UpdateDppResult.BadRequest, "DPP does not expose an Elements collection.", null);
@@ -1056,12 +1068,12 @@ namespace Opc.Ua.Cloud.Library
                 // timestamp so the version-activation boundary stays monotonic and authoritative.
                 // Allowing a client to set it would let callers backdate a version or collide with
                 // an archived snapshot's valid-from stamp, so reject explicit attempts.
-                if (string.Equals(entry.Key, "lastUpdate", StringComparison.Ordinal))
+                if (string.Equals(entry.Key, "lastUpdated", StringComparison.Ordinal))
                 {
-                    return (UpdateDppResult.BadRequest, "lastUpdate is server-managed and cannot be set explicitly; it is advanced automatically on every successful update.", null);
+                    return (UpdateDppResult.BadRequest, "lastUpdated is server-managed and cannot be set explicitly; it is advanced automatically on every successful update.", null);
                 }
 
-                NodesetViewerNode target = dppProperties.FirstOrDefault(p => p.Text == browseName);
+                NodesetViewerNode target = dppProperties.FirstOrDefault(p => IsNamed(p, browseName));
                 if (target == null)
                 {
                     return (UpdateDppResult.BadRequest, $"DPP does not expose field: '{entry.Key}'.", null);
@@ -1121,7 +1133,7 @@ namespace Opc.Ua.Cloud.Library
             }
 
             List<NodesetViewerNode> properties = await _client.GetChildren(userId, nodesetIdentifier, dppNode.Id).ConfigureAwait(false);
-            NodesetViewerNode elements = properties?.FirstOrDefault(p => p.Text == "Elements");
+            NodesetViewerNode elements = properties?.FirstOrDefault(p => IsNamed(p, "Elements"));
             if (elements is not null)
             {
                 await MapChildrenAsync(userId, nodesetIdentifier, elements.Id, null, keys).ConfigureAwait(false);
@@ -1365,10 +1377,10 @@ namespace Opc.Ua.Cloud.Library
                 }
             }
 
-            string lastUpdateNode = await FindPropertyNodeIdAsync(userId, passport.NodesetIdentifier, "LastUpdate").ConfigureAwait(false);
+            string lastUpdateNode = await FindPropertyNodeIdAsync(userId, passport.NodesetIdentifier, "LastUpdated").ConfigureAwait(false);
             if (lastUpdateNode is null)
             {
-                return (UpdateDppResult.WriteFailed, "The DPP template does not expose a LastUpdate node, so the version timestamp cannot be advanced.");
+                return (UpdateDppResult.WriteFailed, "The DPP template does not expose a LastUpdated node, so the version timestamp cannot be advanced.");
             }
 
             var values = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -1420,7 +1432,7 @@ namespace Opc.Ua.Cloud.Library
                 return (UpdateDppResult.Conflict, "The passport was changed by another request. Reload it and try again.");
             }
 
-            if (await _archive.ArchiveAsync(passport.DppId, preUpdate, policySource.Values, preUpdate.LastUpdate.ToUniversalTime()).ConfigureAwait(false))
+            if (await _archive.ArchiveAsync(passport.DppId, preUpdate, policySource.Values, preUpdate.LastUpdated.ToUniversalTime()).ConfigureAwait(false))
             {
                 return (UpdateDppResult.Success, null);
             }
@@ -1482,7 +1494,7 @@ namespace Opc.Ua.Cloud.Library
             }
 
             List<NodesetViewerNode> dppProperties = await _client.GetChildren(userId, passport.NodesetIdentifier, dppNode.Id).ConfigureAwait(false);
-            NodesetViewerNode elementsNode = dppProperties?.FirstOrDefault(p => p.Text == "Elements");
+            NodesetViewerNode elementsNode = dppProperties?.FirstOrDefault(p => IsNamed(p, "Elements"));
             if (elementsNode == null)
             {
                 return (UpdateDppResult.NotFound, null, null);
@@ -1854,10 +1866,10 @@ namespace Opc.Ua.Cloud.Library
             // the value read above came from the template (or, for a clone, was copied from the
             // source set) and predates this passport, so it is replaced by the set's creation time.
             // Without this a version request for a date before the set existed would return it.
-            string lastUpdateNode = await FindPropertyNodeIdAsync(userId, passport.NodesetIdentifier, "LastUpdate").ConfigureAwait(false);
+            string lastUpdateNode = await FindPropertyNodeIdAsync(userId, passport.NodesetIdentifier, "LastUpdated").ConfigureAwait(false);
             bool ownLastUpdate = lastUpdateNode is not null
                 && passport.Overlay.ContainsKey(lastUpdateNode)
-                && dpp.LastUpdate >= passport.CreatedAt;
+                && dpp.LastUpdated >= passport.CreatedAt;
 
             return ownLastUpdate ? dpp : WithLastUpdate(dpp, passport.CreatedAt);
         }
@@ -1868,7 +1880,7 @@ namespace Opc.Ua.Cloud.Library
             Granularity = dpp.Granularity,
             DppSchemaVersion = dpp.DppSchemaVersion,
             DppStatus = dpp.DppStatus,
-            LastUpdate = lastUpdate,
+            LastUpdated = lastUpdate,
             EconomicOperatorId = dpp.EconomicOperatorId,
             FacilityId = dpp.FacilityId,
             ContentSpecificationIds = dpp.ContentSpecificationIds,
@@ -1879,7 +1891,7 @@ namespace Opc.Ua.Cloud.Library
         private async Task<NodesetViewerNode> FindDppNodeAsync(string userId, string nodesetIdentifier)
         {
             List<NodesetViewerNode> nodeList = await _client.GetChildren(userId, nodesetIdentifier, ObjectIds.ObjectsFolder.ToString()).ConfigureAwait(false);
-            return nodeList?.FirstOrDefault(n => n.Text == "DigitalProductPassport");
+            return nodeList?.FirstOrDefault(n => IsNamed(n, "DigitalProductPassport"));
         }
 
         private enum TemplateKind
@@ -1905,7 +1917,7 @@ namespace Opc.Ua.Cloud.Library
                 return TemplateKind.Unknown;
             }
 
-            return nodes?.Any(n => n.Text == "DigitalProductPassport") == true ? TemplateKind.Passport : TemplateKind.Ordinary;
+            return nodes?.Any(n => IsNamed(n, "DigitalProductPassport")) == true ? TemplateKind.Passport : TemplateKind.Ordinary;
         }
         // Reads DPP properties and child elements from an OPC UA node, building the full DPP object graph.
         private async Task<DigitalProductPassport> GenerateDPPFromDPPNode(string userId, string nodesetIdentifier, NodesetViewerNode dppNode, string dppId, IReadOnlyDictionary<string, string> overlay)
@@ -1928,7 +1940,7 @@ namespace Opc.Ua.Cloud.Library
 
             foreach (NodesetViewerNode prop in properties)
             {
-                switch (prop.Text)
+                switch (NameOf(prop))
                 {
                     case "UniqueProductIdentifier":
                         uniqueProductId = await ReadValueAsync(userId, nodesetIdentifier, prop.Id, overlay).ConfigureAwait(false);
@@ -1951,7 +1963,7 @@ namespace Opc.Ua.Cloud.Library
                         status = await ReadValueAsync(userId, nodesetIdentifier, prop.Id, overlay).ConfigureAwait(false);
                         break;
 
-                    case "LastUpdate":
+                    case "LastUpdated":
                         string lastUpdateStr = await ReadValueAsync(userId, nodesetIdentifier, prop.Id, overlay).ConfigureAwait(false);
                         if (DateTimeOffset.TryParse(lastUpdateStr, out var parsed))
                         {
@@ -1984,7 +1996,7 @@ namespace Opc.Ua.Cloud.Library
                 Granularity = granularity,
                 DppSchemaVersion = schemaVersion,
                 DppStatus = status,
-                LastUpdate = lastUpdate,
+                LastUpdated = lastUpdate,
                 EconomicOperatorId = economicOperator,
                 FacilityId = facilityId,
                 ContentSpecificationIds = contentSpecificationIds,
