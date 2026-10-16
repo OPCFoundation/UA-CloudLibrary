@@ -2511,28 +2511,34 @@
 
         using var throttle = new SemaphoreSlim(SearchMaxConcurrentBrowses, SearchMaxConcurrentBrowses);
         var tasks = new List<Task>(variables.Count);
-        foreach (var variable in variables)
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            await throttle.WaitAsync(ct).ConfigureAwait(false);
-            tasks.Add(Task.Run(async () =>
+            foreach (var variable in variables)
             {
-                try
+                ct.ThrowIfCancellationRequested();
+                await throttle.WaitAsync(ct).ConfigureAwait(false);
+                tasks.Add(Task.Run(async () =>
                 {
-                    string blocker = await _client.GetVariableWriteBlocker(UserName, NodesetIdentifier, variable.Id).ConfigureAwait(false);
-                    lock (_editableVariables)
+                    try
                     {
-                        _editableVariables[variable.Id] = string.IsNullOrEmpty(blocker);
+                        ct.ThrowIfCancellationRequested();
+                        string blocker = await _client.GetVariableWriteBlocker(UserName, NodesetIdentifier, variable.Id).ConfigureAwait(false);
+                        lock (_editableVariables)
+                        {
+                            _editableVariables[variable.Id] = string.IsNullOrEmpty(blocker);
+                        }
                     }
-                }
-                finally
-                {
-                    throttle.Release();
-                }
-            }, ct));
+                    finally
+                    {
+                        throttle.Release();
+                    }
+                }));
+            }
         }
-
-        await Task.WhenAll(tasks).ConfigureAwait(false);
+        finally
+        {
+            await Task.WhenAll(tasks).ConfigureAwait(false);
+        }
     }
 
     private static string ExtractNodeIdSuffix(string nodeId)
