@@ -1142,6 +1142,7 @@
 
     private async Task ActivateValueSetAsync(string id)
     {
+        CancelInlineEdit();
         ActiveValueSetId = id ?? string.Empty;
         ValueSetStatus = string.Empty;
         ActiveValueSetEntries = new Dictionary<string, string>(StringComparer.Ordinal);
