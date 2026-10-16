@@ -66,8 +66,8 @@
             </div>
         </nav>
     </header>
-    <div class="container">
-        <main role="main" class="pt-2 pb-3 mb-4">
+    <div class="@(ViewData["FullWidth"] as bool? == true ? "container-fluid px-0" : "container")">
+        <main role="main" class="@(ViewData["FullWidth"] as bool? == true ? "uacl-main--full" : "pt-2 pb-3 mb-4")">
             @RenderBody()
         </main>
     </div>
@@ -88,6 +88,7 @@
     </footer>
     <script src="_framework/blazor.server.js"></script>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="https://code.iconify.design/iconify-icon/2.3.0/iconify-icon.min.js"></script>
     <script>
         async function downloadFileFromBase64(filename, base64Data) {
             // Decode base64 via fetch data-URL (efficient native decoding, no char-by-char loop)

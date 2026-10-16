@@ -23,17 +23,19 @@
 
         <div>
 
-            @if (hasChildren)
-            {
-                <span class="uic-tree__icon" @onclick="() => OnToggleNode(node, !nodeExpanded)">
-                    <i class="@(nodeLoading ? Style.NodeLoadingClass : nodeExpanded ? Style.CollapseNodeIconClass : Style.ExpandNodeIconClass)"></i>
+            <div class="uic-tree__row">
+                <span class="uic-tree__icon" @onclick="() => OnToggleIconClick(node, nodeExpanded, hasChildren)">
+                    @if (hasChildren)
+                    {
+                        <i class="@(nodeLoading ? Style.NodeLoadingClass : nodeExpanded ? Style.CollapseNodeIconClass : Style.ExpandNodeIconClass)"></i>
+                    }
                 </span>
-            }
 
-            <div class="uic-tree__title">
-                <span class="@Style.NodeTitleClass @(nodeSelected ? Style.NodeTitleSelectedClass : nodeDisabled ? Style.NodeTitleDisabledClass : Style.NodeTitleSelectableClass)" @onclick="() => OnSelectNode(node)">
-                    @TitleTemplate(node)
-                </span>
+                <div class="uic-tree__title">
+                    <span class="@Style.NodeTitleClass @(nodeSelected ? Style.NodeTitleSelectedClass : nodeDisabled ? Style.NodeTitleDisabledClass : Style.NodeTitleSelectableClass)" @onclick="() => OnSelectNode(node)">
+                        @TitleTemplate(node)
+                    </span>
+                </div>
             </div>
 
             @if (hasChildren && nodeExpanded)
@@ -85,6 +87,11 @@
     [Parameter] public Func<TNode, Task> OnNodeExpand { get; set; }
 
     List<TNode> loadingNodes = new List<TNode>();
+
+    private Task OnToggleIconClick(TNode node, bool nodeExpanded, bool hasChildren)
+    {
+        return hasChildren ? OnToggleNode(node, !nodeExpanded) : Task.CompletedTask;
+    }
 
     private async Task OnToggleNode(TNode node, bool expand)
     {

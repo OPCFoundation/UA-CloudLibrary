@@ -27,7 +27,8 @@
 <div style="height:100%">
     <div class="uacl-container">
         <div class="uacl-content">
-            <div class="container">
+            <div class="uacl-browser-layout">
+                <div class="uacl-browser-layout__top">
                 <div class="col-12 row">
                     <div class="col-12 d-flex align-items-center justify-content-between flex-wrap mb-3" style="gap: 0.5rem;">
                         <h1 class="mb-0">@NodesetName</h1>
@@ -101,62 +102,58 @@
                         </div>
                     </p>
                 }
-                <p>
-                    <div class="col-12 row">
-                        <div class="col-6">
-                            <div class="card h-100">
-                                <div class="card-header">
+                </div>
+                <aside class="uacl-browser-layout__tree">
+                            <div class="card">
+                                <div class="card-header uacl-browser-filter">
                                     <b>Nodeset Browser</b>
-                                    <div class="input-group input-group-sm mt-2">
-                                        <div class="input-group-prepend">
-                                            <span class="input-group-text">Nodeset scope</span>
-                                        </div>
-                                        <select class="form-control" @bind="SearchScope" disabled="@IsSearching">
-                                            <option value="">All</option>
-                                            @if (_client?.LoadedNamespaces != null)
-                                            {
-                                                @foreach (var ns in _client.LoadedNamespaces.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase))
+                                    <label class="uacl-pill mt-2" title="Nodeset scope">
+                                        <i class="fas fa-layer-group uacl-pill__icon" aria-hidden="true"></i>
+                                        <span class="uacl-pill__body">
+                                            <span class="uacl-pill__label">Nodeset scope</span>
+                                            <select class="uacl-pill__control" @bind="SearchScope" disabled="@IsSearching" aria-label="Nodeset scope">
+                                                <option value="">All</option>
+                                                @if (_client?.LoadedNamespaces != null)
                                                 {
-                                                    <option value="@ns">@ns</option>
+                                                    @foreach (var ns in _client.LoadedNamespaces.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase))
+                                                    {
+                                                        <option value="@ns">@ns</option>
+                                                    }
                                                 }
-                                            }
-                                        </select>
-                                    </div>
-                                    <div class="input-group input-group-sm mt-2">
-                                        <div class="input-group-prepend">
-                                            <button type="button" class="btn btn-outline-secondary" title="Search help" aria-label="Search help" @onclick="@(() => ShowSearchHelp = true)" disabled="@IsSearching">
-                                                <strong>?</strong>
-                                            </button>
-                                        </div>
-                                        <input type="text" class="form-control" placeholder="Search (name:, type:, id: or plain text)..."
+                                            </select>
+                                        </span>
+                                        <i class="fas fa-chevron-down uacl-pill__caret" aria-hidden="true"></i>
+                                    </label>
+                                    <div class="uacl-pill mt-2">
+                                        <button type="button" class="uacl-pill__btn" title="Search help" aria-label="Search help" @onclick="@(() => ShowSearchHelp = true)" disabled="@IsSearching">
+                                            <i class="far fa-question-circle" aria-hidden="true"></i>
+                                        </button>
+                                        <input type="text" class="uacl-pill__control uacl-pill__input" placeholder="Search (name:, type:, id: or plain text)..."
                                                @bind="SearchQuery" @bind:event="oninput"
                                                @onkeydown="OnSearchKeyDown" disabled="@IsSearching" />
-                                        <div class="input-group-append">
-                                            @if (!string.IsNullOrEmpty(SearchQuery))
-                                            {
-                                                <button type="button" class="btn btn-outline-secondary" title="Clear" @onclick="ClearSearch" disabled="@IsSearching">
-                                                    <i class="fas fa-times"></i>
-                                                </button>
-                                            }
-                                            <button type="button" class="btn btn-primary" aria-label="Search tree" @onclick="SearchTree" disabled="@(IsSearching || string.IsNullOrWhiteSpace(SearchQuery))">
-
-                                                @if (IsSearching)
-                                                {
-                                                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                                }
-                                                else
-                                                {
-                                                    <i class="fas fa-search"></i>
-                                                }
+                                        @if (!string.IsNullOrEmpty(SearchQuery))
+                                        {
+                                            <button type="button" class="uacl-pill__btn" title="Clear" @onclick="ClearSearch" disabled="@IsSearching">
+                                                <i class="fas fa-times" aria-hidden="true"></i>
                                             </button>
-                                        </div>
+                                        }
+                                        <button type="button" class="uacl-pill__btn uacl-pill__btn--primary" aria-label="Search tree" @onclick="SearchTree" disabled="@(IsSearching || string.IsNullOrWhiteSpace(SearchQuery))">
+                                            @if (IsSearching)
+                                            {
+                                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                            }
+                                            else
+                                            {
+                                                <i class="fas fa-search" aria-hidden="true"></i>
+                                            }
+                                        </button>
                                     </div>
                                     @if (!string.IsNullOrEmpty(SearchStatus))
                                     {
                                         <small class="text-muted d-block mt-1">@SearchStatus</small>
                                     }
 
-                                    <div class="d-flex align-items-center mt-2">
+                                    <div class="d-flex align-items-center flex-wrap mt-2" style="gap: 0.25rem 0;">
                                         <div class="custom-control custom-checkbox mr-3">
                                             <input type="checkbox" class="custom-control-input" id="findAllCheckbox"
                                                    @bind="FindAll" disabled="@IsSearching" />
@@ -237,7 +234,7 @@
                                     </div>
                                 </div>
                                 <div class="card-body">
-                                    <Tree Nodes="TreeNodes" TNode="NodesetViewerNode" ChildSelector="VisibleChildren" SelectedNode="SelectedNode" SelectedNodeChanged="SelectedNodeChanged" OnNodeExpand="OnNodeExpand" HasChildNodes="HasChildNodes" ExpandedNodes="ExpandedNodes" ExpandedNodesChanged="OnExpandedNodesChanged">
+                                    <Tree Nodes="VisibleTopLevelNodes" TNode="NodesetViewerNode" ChildSelector="VisibleChildren" SelectedNode="SelectedNode" SelectedNodeChanged="SelectedNodeChanged" OnNodeExpand="OnNodeExpand" HasChildNodes="HasChildNodes" ExpandedNodes="ExpandedNodes" ExpandedNodesChanged="OnExpandedNodesChanged">
                                         <TitleTemplate>
                                             @{
                                                 bool isSelected = context.Id == SelectedNode.Id;
@@ -251,6 +248,12 @@
                                                     + (isMatch && !isSelected ? "background-color:#fff3cd;" : string.Empty);
                                                 string setValue = null;
                                                 bool hasSetValue = ActiveValueSet != null && context.Id != null && ActiveValueSetEntries.TryGetValue(context.Id, out setValue);
+                                                string iconName = NodeIcons.GetIconName(context.Icon);
+                                                bool isSelectedVariable = isSelected && string.Equals(context.NodeClass, "Variable", StringComparison.Ordinal);
+                                            }
+                                            @if (!string.IsNullOrEmpty(iconName))
+                                            {
+                                                <iconify-icon class="uic-tree__node-icon" icon="@iconName" title="@context.NodeClass" aria-hidden="true"></iconify-icon>
                                             }
                                             <span style="@style">
                                                 @if (bold)
@@ -262,16 +265,44 @@
                                                     @context.Text
                                                 }
                                             </span>
-                                            @if (hasSetValue)
+                                            @if (isSelectedVariable)
                                             {
-                                                <span class="text-muted ml-1" title="Value in value set '@ActiveValueSet.Name'">[@setValue]</span>
+                                                @if (IsInlineEditing)
+                                                {
+                                                    <span class="uic-tree__inline-edit ml-2" @onclick:stopPropagation="true">
+                                                        <input class="form-control form-control-sm uic-tree__inline-input" type="text" @bind="InlineEditValue" @bind:event="oninput" @onkeydown="OnInlineEditKeyDown" disabled="@IsInlineSaving" placeholder="Enter a value" title="Enter saves, Escape cancels" />
+                                                        <button type="button" class="btn btn-sm btn-light" title="Save value" @onclick="CommitInlineEdit" disabled="@IsInlineSaving"><i class="fas fa-check"></i></button>
+                                                        <button type="button" class="btn btn-sm btn-light" title="Cancel" @onclick="CancelInlineEdit" disabled="@IsInlineSaving"><i class="fas fa-times"></i></button>
+                                                    </span>
+                                                }
+                                                else if (!string.IsNullOrEmpty(NodeValue))
+                                                {
+                                                    <span class="uic-tree__value ml-2 @(CanEditSelectedNode ? "uic-tree__value--editable" : null)" title="@(CanEditSelectedNode ? "Click to edit the value" : EditBlockedReason)" @onclick="BeginInlineEdit" @onclick:stopPropagation="true">
+                                                        <span class="text-monospace">@NodeValue</span>
+                                                        @if (CanEditSelectedNode)
+                                                        {
+                                                            <i class="fas fa-pencil-alt uic-tree__value-edit-icon" aria-hidden="true"></i>
+                                                        }
+                                                    </span>
+                                                }
+                                                else if (CanEditSelectedNode)
+                                                {
+                                                    <span class="uic-tree__value uic-tree__value--empty ml-2" title="No value yet. Click to set one." @onclick="BeginInlineEdit" @onclick:stopPropagation="true">
+                                                        <i class="fas fa-pencil-alt mr-1" aria-hidden="true"></i>set value
+                                                    </span>
+                                                }
+                                            }
+                                            else if (hasSetValue)
+                                            {
+                                                <span class="@(isSelected ? "ml-1" : "text-muted ml-1")" title="Value in value set '@ActiveValueSet.Name'">[@setValue]</span>
                                             }
                                         </TitleTemplate>
                                     </Tree>
                                 </div>
                             </div>
-                        </div>
-                        <div class="col-6">
+                </aside>
+                <div class="uacl-browser-layout__splitter" role="separator" aria-orientation="vertical" aria-label="Resize tree pane" title="Drag to resize"></div>
+                <div class="uacl-browser-layout__details">
                             <div class="card mb-3">
                                 <div class="card-header">
                                     <b><i class="fas fa-info-circle mr-2"></i>Selected Node Information</b>
@@ -502,9 +533,7 @@
                                     }
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </p>
+                </div>
             </div>
         </div>
     </div>
@@ -613,6 +642,11 @@
 
     private bool IsSaving = false;
 
+    // Inline value editor shown in the tree for the selected Variable node.
+    private bool IsInlineEditing = false;
+    private bool IsInlineSaving = false;
+    private string InlineEditValue = string.Empty;
+
     private string EditBlockedReason = "Select a Variable node in the tree to edit its value.";
 
     private bool CanEditSelectedNode => string.IsNullOrEmpty(EditBlockedReason);
@@ -675,7 +709,7 @@
         }
     }
     private HashSet<string> SearchMatchIds { get; set; } = new HashSet<string>(StringComparer.Ordinal);
-    private List<NodesetViewerNode> SearchMatches { get; set; }
+    private List<NodesetViewerNode> SearchMatches { get; set; } = new List<NodesetViewerNode>();
     private List<List<NodesetViewerNode>> SearchMatchAncestors { get; set; } = new List<List<NodesetViewerNode>>();
     private int SearchCursor { get; set; } = -1;
     private bool FindAll { get; set; } = false;
@@ -727,6 +761,7 @@
     {
         if (!firstRender)
         {
+            await EnsureVisibleNodesBrowsedAsync().ConfigureAwait(false);
             return;
         }
 
@@ -814,7 +849,7 @@
                         continue;
                     }
 
-                    await LoadChildrenAsync(node).ConfigureAwait(false);
+                    await LoadChildrenWithLookAheadAsync(node).ConfigureAwait(false);
                     if (!ExpandedNodes.Contains(node))
                     {
                         ExpandedNodes.Add(node);
@@ -911,57 +946,7 @@
 
         if ((ModalTitle == "Edit") && save)
         {
-            if (ActiveValueSet != null && SelectedNode != null)
-            {
-                // Capture the target and value before the first await: the set selector and tree stay
-                // enabled, so ActiveValueSet, SelectedNode and ModalValue can change during validation
-                // or the audit append. The same inputs are used for validation and the write.
-                Guid setId = ActiveValueSet.Id;
-                string nodeId = SelectedNode.Id;
-                string value = ModalValue;
-
-                string problem = await _client.ValidateValueForNode(UserName, NodesetIdentifier, nodeId, value).ConfigureAwait(false);
-                if (problem != null)
-                {
-                    WriteStatus = problem;
-                }
-                else
-                {
-                    try
-                    {
-                        DPPService.UpdateDppResult result = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, setId.ToString(), nodeId, () => UpdateValuesAsync(setId, new Dictionary<string, string> { [nodeId] = value }, Array.Empty<string>())).ConfigureAwait(false);
-
-                        if (result == DPPService.UpdateDppResult.Success && IsStillActive(setId))
-                        {
-                            // The service also writes LastUpdate, so only the persisted entries are correct.
-                            await ReloadPersistedEntriesAsync(setId).ConfigureAwait(false);
-                        }
-
-                        WriteStatus = DescribeUpdateResult(result);
-                    }
-                    catch (DppAuditException ex)
-                    {
-                        WriteStatus = DescribeAuditFailure(ex);
-                    }
-                    catch (Exception ex)
-                    {
-                        WriteStatus = "Failed to store the value in the value set: " + ex.Message;
-                    }
-                }
-            }
-            else
-            {
-                bool writeSucceeded = await _client.VariableWrite(UserName, NodesetIdentifier, SelectedNode.Id, ModalValue).ConfigureAwait(false);
-                if (writeSucceeded)
-                {
-                    NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, SelectedNode.Id).ConfigureAwait(false);
-                    WriteStatus = string.Empty;
-                }
-                else
-                {
-                    WriteStatus = "Failed to write variable value.";
-                }
-            }
+            await SaveSelectedNodeValueAsync(ModalValue).ConfigureAwait(false);
         }
 
         if ((ModalTitle == "Copy") && save)
@@ -975,6 +960,125 @@
         }
 
         await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Stores a new value for the selected node: in the active value set when one is selected,
+    /// otherwise directly on the embedded server. Returns true when the value was accepted.
+    /// Shared by the edit dialog and the inline editor in the tree.
+    /// </summary>
+    private async Task<bool> SaveSelectedNodeValueAsync(string newValue)
+    {
+        if (SelectedNode == null || !CanEditSelectedNode)
+        {
+            return false;
+        }
+
+        if (ActiveValueSet != null)
+        {
+            // Capture the target and value before the first await: the set selector and tree stay
+            // enabled, so ActiveValueSet and SelectedNode can change during validation
+            // or the audit append. The same inputs are used for validation and the write.
+            Guid setId = ActiveValueSet.Id;
+            string nodeId = SelectedNode.Id;
+            string value = newValue;
+
+            string problem = await _client.ValidateValueForNode(UserName, NodesetIdentifier, nodeId, value).ConfigureAwait(false);
+            if (problem != null)
+            {
+                WriteStatus = problem;
+                return false;
+            }
+
+            try
+            {
+                DPPService.UpdateDppResult result = await AuditedValueSetChangeAsync(DppAuditOperation.Modify, setId.ToString(), nodeId, () => UpdateValuesAsync(setId, new Dictionary<string, string> { [nodeId] = value }, Array.Empty<string>())).ConfigureAwait(false);
+
+                if (result == DPPService.UpdateDppResult.Success && IsStillActive(setId))
+                {
+                    // The service also writes LastUpdate, so only the persisted entries are correct.
+                    await ReloadPersistedEntriesAsync(setId).ConfigureAwait(false);
+                }
+
+                WriteStatus = DescribeUpdateResult(result);
+                return result == DPPService.UpdateDppResult.Success;
+            }
+            catch (DppAuditException ex)
+            {
+                WriteStatus = DescribeAuditFailure(ex);
+            }
+            catch (Exception ex)
+            {
+                WriteStatus = "Failed to store the value in the value set: " + ex.Message;
+            }
+
+            return false;
+        }
+
+        bool writeSucceeded = await _client.VariableWrite(UserName, NodesetIdentifier, SelectedNode.Id, newValue).ConfigureAwait(false);
+        if (writeSucceeded)
+        {
+            NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, SelectedNode.Id).ConfigureAwait(false);
+            WriteStatus = string.Empty;
+            return true;
+        }
+
+        WriteStatus = "Failed to write variable value.";
+        return false;
+    }
+
+    private void BeginInlineEdit()
+    {
+        if (!CanEditSelectedNode || IsInlineSaving)
+        {
+            return;
+        }
+
+        InlineEditValue = NodeValue ?? string.Empty;
+        IsInlineEditing = true;
+    }
+
+    private void CancelInlineEdit()
+    {
+        IsInlineEditing = false;
+        InlineEditValue = string.Empty;
+    }
+
+    private async Task CommitInlineEdit()
+    {
+        if (!IsInlineEditing || IsInlineSaving)
+        {
+            return;
+        }
+
+        IsInlineSaving = true;
+        try
+        {
+            bool saved = await SaveSelectedNodeValueAsync(InlineEditValue).ConfigureAwait(false);
+            if (saved)
+            {
+                IsInlineEditing = false;
+                InlineEditValue = string.Empty;
+            }
+        }
+        finally
+        {
+            IsInlineSaving = false;
+        }
+
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+    }
+
+    private async Task OnInlineEditKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await CommitInlineEdit().ConfigureAwait(false);
+        }
+        else if (e.Key == "Escape")
+        {
+            CancelInlineEdit();
+        }
     }
 
     private async Task ResolveValueSetUserAsync()
@@ -1038,6 +1142,7 @@
 
     private async Task ActivateValueSetAsync(string id)
     {
+        CancelInlineEdit();
         ActiveValueSetId = id ?? string.Empty;
         ValueSetStatus = string.Empty;
         ActiveValueSetEntries = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -1916,19 +2021,28 @@
 
         TreeNodes.Clear();
 
+        // The OPC UA Root folder is not shown; the tree starts with its children (Objects, Types, Views).
         NodesetViewerNode root = new NodesetViewerNode()
         {
             Id = ObjectIds.RootFolder.ToString(),
             Text = "Root",
+            Icon = NodeIcons.Folder,
             Children = new List<NodesetViewerNode>()
         };
 
-        TreeNodes.Add(root);
-        SelectedNode = root;
+        SelectedNode = new NodesetViewerNode();
 
         try
         {
             await OnNodeExpand(root).ConfigureAwait(false);
+            if (root.ChildrenLoaded)
+            {
+                TreeNodes.AddRange(root.Children ?? new List<NodesetViewerNode>());
+            }
+            else
+            {
+                TreeNodes.Add(root);
+            }
         }
         finally
         {
@@ -1944,7 +2058,103 @@
 
     private async Task OnNodeExpand(NodesetViewerNode node)
     {
+        await LoadChildrenWithLookAheadAsync(node).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Loads a node's children and then browses one level deeper, so every visible child knows
+    /// whether it has children of its own: branches get a chevron, leaves do not. Runs sequentially
+    /// because parallel browses right after a session was created can tear it down.
+    /// </summary>
+    private async Task LoadChildrenWithLookAheadAsync(NodesetViewerNode node)
+    {
         await LoadChildrenAsync(node).ConfigureAwait(false);
+
+        if (node?.Children == null)
+        {
+            return;
+        }
+
+        foreach (NodesetViewerNode child in node.Children.ToList())
+        {
+            try
+            {
+                await LoadChildrenAsync(child).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Look-ahead browse failed for node '{child.Id}': {ex.Message}");
+            }
+        }
+    }
+
+    private bool _isBrowsingVisibleNodes;
+    // Nodes whose look-ahead browse failed are not retried by the render-driven safety net, or a
+    // persistent failure would re-render forever; they are retried when the user expands them.
+    private readonly HashSet<string> _lookAheadFailed = new HashSet<string>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Safety net for every path that expands nodes without <see cref="LoadChildrenWithLookAheadAsync"/>
+    /// (search, the variables-only scan, state restore): any node currently visible in the tree whose
+    /// children are still unknown is browsed, so leaves lose their chevron as soon as they are shown.
+    /// </summary>
+    private async Task EnsureVisibleNodesBrowsedAsync()
+    {
+        if (_isBrowsingVisibleNodes || !_isInteractive || !_initialLoad.Task.IsCompleted)
+        {
+            return;
+        }
+
+        List<NodesetViewerNode> pending = new List<NodesetViewerNode>();
+        Queue<NodesetViewerNode> queue = new Queue<NodesetViewerNode>(VisibleTopLevelNodes.Where(n => n != null));
+        while (queue.Count > 0)
+        {
+            NodesetViewerNode node = queue.Dequeue();
+            if (!node.ChildrenLoaded && !_lookAheadFailed.Contains(node.Id))
+            {
+                pending.Add(node);
+            }
+
+            if (ExpandedNodes.Contains(node))
+            {
+                foreach (NodesetViewerNode child in VisibleChildren(node))
+                {
+                    queue.Enqueue(child);
+                }
+            }
+        }
+
+        if (pending.Count == 0)
+        {
+            return;
+        }
+
+        _isBrowsingVisibleNodes = true;
+        try
+        {
+            foreach (NodesetViewerNode node in pending)
+            {
+                try
+                {
+                    await LoadChildrenAsync(node).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Browsing visible node '{node.Id}' failed: {ex.Message}");
+                }
+
+                if (!node.ChildrenLoaded)
+                {
+                    _lookAheadFailed.Add(node.Id);
+                }
+            }
+        }
+        finally
+        {
+            _isBrowsingVisibleNodes = false;
+        }
+
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
     }
 
     private async Task LoadChildrenAsync(NodesetViewerNode node)
@@ -1958,12 +2168,21 @@
         bool browseSucceeded = true;
         try
         {
-            children = await _client.GetChildren(UserName, NodesetIdentifier, node.Id, true).ConfigureAwait(false);
+            // TryGetChildrenAsync distinguishes a failed browse from a node without children; a
+            // failure must not be cached as a leaf or the node would lose its expand chevron.
+            (browseSucceeded, children) = await _client.TryGetChildrenAsync(UserName, NodesetIdentifier, node.Id, true).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             browseSucceeded = false;
             Console.WriteLine($"OnNodeExpand failed for node '{node.Id}': {ex}");
+        }
+
+        if (!browseSucceeded)
+        {
+            // Keep whatever was known and leave the node retryable.
+            node.Children ??= new List<NodesetViewerNode>();
+            return;
         }
 
         // Filter out any null entries and drop nulls in place so downstream
@@ -2026,6 +2245,11 @@
 
     private async Task SelectedNodeChanged(NodesetViewerNode node)
     {
+        if (!ReferenceEquals(SelectedNode, node))
+        {
+            CancelInlineEdit();
+        }
+
         SelectedNode = node;
         SelectedNodeDocumentationUrl = null;
         SelectedNodeEnumFields = null;
@@ -2082,14 +2306,11 @@
             return true;
         }
 
-        if (!IsVariablesOnlyFilterActive)
-        {
-            return node.Children.Count > 0;
-        }
-
-        // The root must always stay openable so the user can never end up with an empty, dead tree.
-        return TreeNodes.Contains(node) ? node.Children.Count > 0 : node.Children.Any(MayContainVariables);
+        return node.Children.Count > 0;
     }
+
+    // Top-level nodes are the children of the hidden Root folder.
+    private IEnumerable<NodesetViewerNode> VisibleTopLevelNodes => FilterVisible(TreeNodes);
 
     private IEnumerable<NodesetViewerNode> VisibleChildren(NodesetViewerNode node)
     {
@@ -2098,26 +2319,35 @@
             return Enumerable.Empty<NodesetViewerNode>();
         }
 
-        if (!IsVariablesOnlyFilterActive)
-        {
-            return node.Children;
-        }
-
-        // If nothing under the root qualifies (scope without Variables), show the root's real
-        // children instead of an empty tree so the user can still navigate.
-        if (TreeNodes.Contains(node) && !node.Children.Any(MayContainVariables))
-        {
-            return node.Children;
-        }
-
-        return node.Children.Where(MayContainVariables);
+        return FilterVisible(node.Children);
     }
 
-    // A branch is shown only if its subtree contains a Variable that belongs to the selected
-    // nodeset scope; branches with no in-scope nodes, or with in-scope nodes but no Variables, are
-    // hidden. Children are browsed lazily, so enabling the filter triggers a scan that loads the
-    // whole tree up front (see StartVariablesOnlyScan); while that scan runs, unbrowsed branches
-    // stay visible so the tree does not flicker, and afterwards every branch has been resolved.
+    // With the Variables-only filter on, a node is shown only if it is (or contains) an editable
+    // Variable of the selected nodeset scope. Branches that are still unbrowsed stay visible while
+    // the scan runs so the tree does not flicker; afterwards every branch has been resolved.
+    private IEnumerable<NodesetViewerNode> FilterVisible(IEnumerable<NodesetViewerNode> nodes)
+    {
+        if (!IsVariablesOnlyFilterActive)
+        {
+            return nodes;
+        }
+
+        return nodes.Where(n => n != null && MayContainVariables(n));
+    }
+
+    // Editability (write access level, data type, namespace) of in-scope Variables as determined
+    // by the scan; a Variable that is not in the cache yet counts as a candidate while scanning.
+    private readonly Dictionary<string, bool> _editableVariables = new Dictionary<string, bool>(StringComparer.Ordinal);
+
+    private bool IsInScopeVariable(NodesetViewerNode node)
+    {
+        return string.Equals(node.NodeClass, "Variable", StringComparison.Ordinal) && IsNodeInScope(node, SearchScope);
+    }
+
+    // A branch is shown only if its subtree contains an editable Variable that belongs to the
+    // selected nodeset scope; branches with no in-scope nodes, or with in-scope nodes but no
+    // editable Variables, are hidden. Children are browsed lazily, so enabling the filter triggers
+    // a scan that loads the whole tree up front (see StartVariablesOnlyScan).
     private bool MayContainVariables(NodesetViewerNode node)
     {
         if (node == null)
@@ -2125,9 +2355,21 @@
             return false;
         }
 
-        if (string.Equals(node.NodeClass, "Variable", StringComparison.Ordinal) && IsNodeInScope(node, SearchScope))
+        if (IsInScopeVariable(node))
         {
-            return true;
+            bool known;
+            bool editable;
+            lock (_editableVariables)
+            {
+                known = _editableVariables.TryGetValue(node.Id ?? string.Empty, out editable);
+            }
+
+            if (known)
+            {
+                return editable;
+            }
+
+            return IsScanningVariables;
         }
 
         // Variables are not browsed by the scan, so an out-of-scope Variable with no loaded
@@ -2159,7 +2401,7 @@
         }
 
         HashSet<NodesetViewerNode> visible = new HashSet<NodesetViewerNode>();
-        Queue<NodesetViewerNode> queue = new Queue<NodesetViewerNode>(TreeNodes.Where(n => n != null));
+        Queue<NodesetViewerNode> queue = new Queue<NodesetViewerNode>(VisibleTopLevelNodes.Where(n => n != null));
         while (queue.Count > 0)
         {
             NodesetViewerNode node = queue.Dequeue();
@@ -2174,15 +2416,10 @@
             }
         }
 
-        NodesetViewerNode root = TreeNodes.FirstOrDefault();
-        if (root != null && SelectedNode != null && !ReferenceEquals(SelectedNode, root) && !visible.Contains(SelectedNode))
+        NodesetViewerNode first = VisibleTopLevelNodes.FirstOrDefault(n => n != null);
+        if (first != null && SelectedNode != null && !string.IsNullOrEmpty(SelectedNode.Id) && !visible.Contains(SelectedNode))
         {
-            if (!ExpandedNodes.Contains(root))
-            {
-                ExpandedNodes.Add(root);
-            }
-
-            await SelectedNodeChanged(root).ConfigureAwait(false);
+            await SelectedNodeChanged(first).ConfigureAwait(false);
         }
     }
 
@@ -2210,6 +2447,7 @@
         try
         {
             int visited = 0;
+            var seen = new HashSet<NodesetViewerNode>(TreeNodes);
             var frontier = new List<NodesetViewerNode>(TreeNodes);
             while (frontier.Count > 0 && visited < SearchMaxNodes)
             {
@@ -2219,6 +2457,7 @@
                 visited += frontier.Count;
 
                 var next = new List<NodesetViewerNode>();
+                var variablesToCheck = new List<NodesetViewerNode>();
                 foreach (var node in frontier)
                 {
                     if (node.Children == null)
@@ -2229,12 +2468,24 @@
                     foreach (var child in node.Children)
                     {
                         // Variables are leaves for this purpose; nothing below them needs browsing.
-                        if (!string.Equals(child.NodeClass, "Variable", StringComparison.Ordinal) && !child.ChildrenLoaded)
+                        // Branches are traversed even when already browsed, so that Variables below
+                        // nodes the user expanded earlier are checked as well (LoadChildrenBatchAsync
+                        // serves already-browsed nodes from the cache).
+                        if (!string.Equals(child.NodeClass, "Variable", StringComparison.Ordinal))
                         {
-                            next.Add(child);
+                            if (seen.Add(child))
+                            {
+                                next.Add(child);
+                            }
+                        }
+                        else if (IsInScopeVariable(child) && child.Id != null && !_editableVariables.ContainsKey(child.Id))
+                        {
+                            variablesToCheck.Add(child);
                         }
                     }
                 }
+
+                await CheckVariablesEditableAsync(variablesToCheck, ct).ConfigureAwait(false);
 
                 frontier = next;
                 await InvokeAsync(StateHasChanged).ConfigureAwait(false);
@@ -2256,6 +2507,45 @@
                 await InvokeAsync(ReconcileTreeWithVariablesOnlyFilterAsync).ConfigureAwait(false);
                 await InvokeAsync(StateHasChanged).ConfigureAwait(false);
             }
+        }
+    }
+
+    private async Task CheckVariablesEditableAsync(List<NodesetViewerNode> variables, CancellationToken ct)
+    {
+        if (variables.Count == 0)
+        {
+            return;
+        }
+
+        using var throttle = new SemaphoreSlim(SearchMaxConcurrentBrowses, SearchMaxConcurrentBrowses);
+        var tasks = new List<Task>(variables.Count);
+        try
+        {
+            foreach (var variable in variables)
+            {
+                ct.ThrowIfCancellationRequested();
+                await throttle.WaitAsync(ct).ConfigureAwait(false);
+                tasks.Add(Task.Run(async () =>
+                {
+                    try
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        string blocker = await _client.GetVariableWriteBlocker(UserName, NodesetIdentifier, variable.Id).ConfigureAwait(false);
+                        lock (_editableVariables)
+                        {
+                            _editableVariables[variable.Id] = string.IsNullOrEmpty(blocker);
+                        }
+                    }
+                    finally
+                    {
+                        throttle.Release();
+                    }
+                }));
+            }
+        }
+        finally
+        {
+            await Task.WhenAll(tasks).ConfigureAwait(false);
         }
     }
 
@@ -2398,9 +2688,9 @@
         // does not persist while (or after) a new search runs.
         SelectedNode = new NodesetViewerNode();
         NodeValue = string.Empty;
-        SearchMatchIds.Clear();
-        SearchMatches.Clear();
-        SearchMatchAncestors.Clear();
+        SearchMatchIds?.Clear();
+        SearchMatches?.Clear();
+        SearchMatchAncestors?.Clear();
         SearchCursor = -1;
         if (!preserveExcludes)
         {

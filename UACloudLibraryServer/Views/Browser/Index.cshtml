@@ -4,6 +4,7 @@
 
 @{
     ViewData["Title"] = "Browser";
+    ViewData["FullWidth"] = true;
 }
 
 @model BrowserModel
@@ -28,3 +29,7 @@
         cursor: pointer;
     }
 </style>
+
+@section Scripts {
+    <script src="~/js/browserSplitter.js" asp-append-version="true"></script>
+}

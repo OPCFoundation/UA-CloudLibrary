@@ -42,6 +42,11 @@ namespace Opc.Ua.Cloud.Library
 
         public string NodeClass { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Icon concept key from the 'nodeIcon' section of wwwroot/images/icon-map.json (see <see cref="NodeIcons"/>).
+        /// </summary>
+        public string Icon { get; set; } = NodeIcons.Unknown;
+
         public List<NodesetViewerNode> Children { get; set; }
 
         /// <summary>
