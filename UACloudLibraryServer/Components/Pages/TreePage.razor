@@ -2034,7 +2034,14 @@
         try
         {
             await OnNodeExpand(root).ConfigureAwait(false);
-            TreeNodes.AddRange(root.Children ?? new List<NodesetViewerNode>());
+            if (root.ChildrenLoaded)
+            {
+                TreeNodes.AddRange(root.Children ?? new List<NodesetViewerNode>());
+            }
+            else
+            {
+                TreeNodes.Add(root);
+            }
         }
         finally
         {
