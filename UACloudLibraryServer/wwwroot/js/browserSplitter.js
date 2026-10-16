@@ -66,6 +66,7 @@
     } else {
         restore();
     }
+    window.addEventListener("resize", restore);
 
     // Blazor replaces the prerendered markup once the circuit connects; re-apply the saved width.
     new MutationObserver(function (mutations, observer) {
