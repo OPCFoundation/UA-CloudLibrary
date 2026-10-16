@@ -47,8 +47,8 @@ namespace Opc.Ua.Cloud.Library.Models
         public required string DppStatus { get; init; }
 
         // ISO 8601 UTC timestamp string.
-        [JsonPropertyName("lastUpdate")]
-        public required DateTimeOffset LastUpdate { get; init; }
+        [JsonPropertyName("lastUpdated")]
+        public required DateTimeOffset LastUpdated { get; init; }
 
         [JsonPropertyName("economicOperatorId")]
         public required string EconomicOperatorId { get; init; }
