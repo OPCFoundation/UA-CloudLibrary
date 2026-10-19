@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using Opc.Ua.Cloud.Client;
 using Opc.Ua.Cloud.Client.Models;
 using Xunit;
-using Xunit.Abstractions;
 
 [assembly: CLSCompliant(false)]
 namespace CloudLibClient.Tests

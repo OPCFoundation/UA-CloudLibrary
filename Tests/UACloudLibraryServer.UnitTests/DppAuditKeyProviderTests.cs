@@ -58,8 +58,8 @@ namespace UACloudLibraryServer.UnitTests
         [Fact]
         public async Task CurrentKey_CarriesAStableFingerprint()
         {
-            DppAuditKey first = await Provider(KeyOf(1)).GetCurrentKeyAsync();
-            DppAuditKey second = await Provider(KeyOf(1)).GetCurrentKeyAsync();
+            DppAuditKey first = await Provider(KeyOf(1)).GetCurrentKeyAsync(TestContext.Current.CancellationToken);
+            DppAuditKey second = await Provider(KeyOf(1)).GetCurrentKeyAsync(TestContext.Current.CancellationToken);
 
             Assert.NotNull(first.KeyId);
             Assert.Equal(first.KeyId, second.KeyId);
@@ -68,8 +68,8 @@ namespace UACloudLibraryServer.UnitTests
         [Fact]
         public async Task DifferentKeys_ProduceDifferentFingerprints()
         {
-            DppAuditKey a = await Provider(KeyOf(1)).GetCurrentKeyAsync();
-            DppAuditKey b = await Provider(KeyOf(50)).GetCurrentKeyAsync();
+            DppAuditKey a = await Provider(KeyOf(1)).GetCurrentKeyAsync(TestContext.Current.CancellationToken);
+            DppAuditKey b = await Provider(KeyOf(50)).GetCurrentKeyAsync(TestContext.Current.CancellationToken);
 
             Assert.NotEqual(a.KeyId, b.KeyId);
         }
@@ -77,7 +77,7 @@ namespace UACloudLibraryServer.UnitTests
         [Fact]
         public async Task NoKeyConfigured_YieldsNullKeyAndNullFingerprint()
         {
-            DppAuditKey key = await Provider(null).GetCurrentKeyAsync();
+            DppAuditKey key = await Provider(null).GetCurrentKeyAsync(TestContext.Current.CancellationToken);
 
             Assert.Null(key.Key);
             Assert.Null(key.KeyId);
@@ -88,7 +88,7 @@ namespace UACloudLibraryServer.UnitTests
         {
             // Entries written before any key was configured carry a null id. Treating that as a
             // missing key would make enabling a key for the first time look like mass tampering.
-            DppAuditKeyLookup lookup = await Provider(KeyOf(1)).TryGetKeyByIdAsync(null);
+            DppAuditKeyLookup lookup = await Provider(KeyOf(1)).TryGetKeyByIdAsync(null, TestContext.Current.CancellationToken);
 
             Assert.True(lookup.Found);
             Assert.Null(lookup.Key);
@@ -101,10 +101,10 @@ namespace UACloudLibraryServer.UnitTests
             string oldKey = KeyOf(1);
             string newKey = KeyOf(90);
 
-            string oldKeyId = (await Provider(oldKey).GetCurrentKeyAsync()).KeyId;
+            string oldKeyId = (await Provider(oldKey).GetCurrentKeyAsync(TestContext.Current.CancellationToken)).KeyId;
 
             DppAuditKeyProvider rotated = Provider(newKey, oldKey);
-            DppAuditKeyLookup lookup = await rotated.TryGetKeyByIdAsync(oldKeyId);
+            DppAuditKeyLookup lookup = await rotated.TryGetKeyByIdAsync(oldKeyId, TestContext.Current.CancellationToken);
 
             Assert.True(lookup.Found);
             Assert.Equal(Convert.FromBase64String(oldKey), lookup.Key);
@@ -114,9 +114,9 @@ namespace UACloudLibraryServer.UnitTests
         public async Task CurrentKey_IsResolvableByItsOwnFingerprint()
         {
             DppAuditKeyProvider provider = Provider(KeyOf(1));
-            DppAuditKey current = await provider.GetCurrentKeyAsync();
+            DppAuditKey current = await provider.GetCurrentKeyAsync(TestContext.Current.CancellationToken);
 
-            DppAuditKeyLookup lookup = await provider.TryGetKeyByIdAsync(current.KeyId);
+            DppAuditKeyLookup lookup = await provider.TryGetKeyByIdAsync(current.KeyId, TestContext.Current.CancellationToken);
 
             Assert.True(lookup.Found);
             Assert.Equal(current.Key, lookup.Key);
@@ -127,7 +127,7 @@ namespace UACloudLibraryServer.UnitTests
         {
             // Must be distinguishable from "verified" AND from "tampered": the caller turns this into
             // an explicit "unverifiable" signal rather than a tampering claim.
-            DppAuditKeyLookup lookup = await Provider(KeyOf(1)).TryGetKeyByIdAsync("DEADBEEFDEADBEEFDEADBEEFDEADBEEF");
+            DppAuditKeyLookup lookup = await Provider(KeyOf(1)).TryGetKeyByIdAsync("DEADBEEFDEADBEEFDEADBEEFDEADBEEF", TestContext.Current.CancellationToken);
 
             Assert.False(lookup.Found);
             Assert.Null(lookup.Key);
@@ -138,9 +138,9 @@ namespace UACloudLibraryServer.UnitTests
         {
             // Documents the residual limitation: dropping a retired key is not recoverable, and the
             // old entries become unverifiable rather than silently passing.
-            string oldKeyId = (await Provider(KeyOf(1)).GetCurrentKeyAsync()).KeyId;
+            string oldKeyId = (await Provider(KeyOf(1)).GetCurrentKeyAsync(TestContext.Current.CancellationToken)).KeyId;
 
-            DppAuditKeyLookup lookup = await Provider(KeyOf(90)).TryGetKeyByIdAsync(oldKeyId);
+            DppAuditKeyLookup lookup = await Provider(KeyOf(90)).TryGetKeyByIdAsync(oldKeyId, TestContext.Current.CancellationToken);
 
             Assert.False(lookup.Found);
         }
@@ -151,7 +151,7 @@ namespace UACloudLibraryServer.UnitTests
         {
             // Falling back to unkeyed would quietly weaken the log.
             DppAuditKeyProvider provider = Provider(configured);
-            await Assert.ThrowsAsync<InvalidOperationException>(() => provider.GetCurrentKeyAsync());
+            await Assert.ThrowsAsync<InvalidOperationException>(() => provider.GetCurrentKeyAsync(TestContext.Current.CancellationToken));
         }
 
         [Fact]
@@ -160,7 +160,7 @@ namespace UACloudLibraryServer.UnitTests
             string tooShort = Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
 
             DppAuditKeyProvider provider = Provider(tooShort);
-            await Assert.ThrowsAsync<InvalidOperationException>(() => provider.GetCurrentKeyAsync());
+            await Assert.ThrowsAsync<InvalidOperationException>(() => provider.GetCurrentKeyAsync(TestContext.Current.CancellationToken));
         }
     }
 }
