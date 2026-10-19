@@ -296,6 +296,10 @@
                                             {
                                                 <span class="@(isSelected ? "ml-1" : "text-muted ml-1")" title="Value in value set '@ActiveValueSet.Name'">[@setValue]</span>
                                             }
+                                            else if (!string.IsNullOrEmpty(context.Value))
+                                            {
+                                                <span class="@(isSelected ? "ml-1" : "text-muted ml-1")" title="Nodeset value">[@context.Value]</span>
+                                            }
                                         </TitleTemplate>
                                     </Tree>
                                 </div>
@@ -1019,6 +1023,7 @@
         if (writeSucceeded)
         {
             NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, SelectedNode.Id).ConfigureAwait(false);
+            SelectedNode.Value = NodeValue ?? string.Empty;
             WriteStatus = string.Empty;
             return true;
         }
@@ -2202,6 +2207,31 @@
         }
 
         safeChildren.Sort();
+
+        // Read the template value of each Variable child so the tree can show it inline. Without this
+        // only values overridden in the active set appeared, and every other variable looked empty
+        // until it was selected. Reads run a few at a time to keep large branches responsive.
+        List<NodesetViewerNode> variables = safeChildren.Where(c => string.Equals(c.NodeClass, "Variable", StringComparison.Ordinal)).ToList();
+        using (var throttle = new SemaphoreSlim(SearchMaxConcurrentBrowses))
+        {
+            await Task.WhenAll(variables.Select(async v =>
+            {
+                await throttle.WaitAsync().ConfigureAwait(false);
+                try
+                {
+                    v.Value = await _client.VariableRead(UserName, NodesetIdentifier, v.Id).ConfigureAwait(false) ?? string.Empty;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Reading value of '{v.Id}' failed: {ex.Message}");
+                }
+                finally
+                {
+                    throttle.Release();
+                }
+            })).ConfigureAwait(false);
+        }
+
         node.Children = safeChildren;
 
         // Only cache the result when the browse itself did not throw, so that a
@@ -2256,6 +2286,7 @@
         WriteStatus = string.Empty;
 
         NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, node.Id).ConfigureAwait(false);
+        node.Value = NodeValue ?? string.Empty;
 
         if (ActiveValueSet != null && ActiveValueSetEntries.TryGetValue(node.Id, out string overlayValue) && ReferenceEquals(SelectedNode, node))
         {
