@@ -57,7 +57,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
             ///     directly from your code. This API may change or be removed in future releases.
             /// </summary>
             [Required]
-            [DataType(DataType.Text)]
+            [System.ComponentModel.DataAnnotations.DataType(DataType.Text)]
             [Display(Name = "API Key Name")]
             public string NewApiKeyName { get; set; }
 

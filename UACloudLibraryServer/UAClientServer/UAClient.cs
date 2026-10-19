@@ -226,13 +226,13 @@ namespace Opc.Ua.Cloud.Library
 
         private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
 
-        public UAClient(ApplicationInstance app, DbFileStorage storage, CloudLibDataProvider database)
+        public UAClient(ApplicationInstance app, DbFileStorage storage, CloudLibDataProvider database, ITelemetryContext telemetry)
         {
             _app = app;
             _storage = storage;
             _database = database;
 
-            _telemetry = DefaultTelemetry.Create(builder => builder.AddConsole());
+            _telemetry = telemetry ?? DefaultTelemetry.Create(builder => builder.AddConsole());
         }
 
         public async Task<List<NodesetViewerNode>> GetChildren(string userId, string nodesetIdentifier, string nodeId, bool includeTypes = false)
@@ -250,7 +250,7 @@ namespace Opc.Ua.Cloud.Library
         {
             SharedSession pair = null;
             Opc.Ua.Client.ISession session;
-            ReferenceDescriptionCollection references;
+            List<ReferenceDescription> references;
 
             try
             {
@@ -269,7 +269,7 @@ namespace Opc.Ua.Cloud.Library
                 }
 
                 BrowseDescription nodeToBrowse = new() {
-                    NodeId = ExpandedNodeId.ToNodeId(nodeId, session.NamespaceUris),
+                    NodeId = ExpandedNodeId.ToNodeId(ExpandedNodeId.Parse(nodeId), session.NamespaceUris),
                     BrowseDirection = BrowseDirection.Forward,
                     ReferenceTypeId = ReferenceTypeIds.HierarchicalReferences,
                     IncludeSubtypes = true,
@@ -301,7 +301,7 @@ namespace Opc.Ua.Cloud.Library
                 nodes.Add(new NodesetViewerNode() {
                     Id = NodeId.ToExpandedNodeId(id, session.NamespaceUris).ToString(),
                     Text = description.DisplayName.ToString(),
-                    BrowseName = description.BrowseName?.Name ?? string.Empty,
+                    BrowseName = description.BrowseName.Name ?? string.Empty,
                     NodeClass = description.NodeClass.ToString(),
                     Icon = await NodeIcons.ResolveAsync(description.NodeClass, description.TypeDefinition, session).ConfigureAwait(false),
                     Children = new List<NodesetViewerNode>()
@@ -356,7 +356,7 @@ namespace Opc.Ua.Cloud.Library
 
                 Opc.Ua.Client.ISession session = pair.Session;
                 NodeId id = ExpandedNodeId.ToNodeId(expanded, session.NamespaceUris);
-                if (NodeId.IsNull(id))
+                if (id.IsNull)
                 {
                     return $"namespace '{expanded.NamespaceUri}' is not in the server namespace table";
                 }
@@ -395,7 +395,7 @@ namespace Opc.Ua.Cloud.Library
                 nodeId = ObjectIds.ObjectsFolder.ToString();
             }
 
-            ReferenceDescriptionCollection references = null;
+            List<ReferenceDescription> references = null;
             SharedSession pair = null;
 
             try
@@ -407,7 +407,7 @@ namespace Opc.Ua.Cloud.Library
                 }
 
                 BrowseDescription nodeToBrowse = new BrowseDescription {
-                    NodeId = nodeId,
+                    NodeId = ExpandedNodeId.ToNodeId(ExpandedNodeId.Parse(nodeId), pair.Session.NamespaceUris),
                     BrowseDirection = BrowseDirection.Forward,
                     ReferenceTypeId = ReferenceTypeIds.HierarchicalReferences,
                     IncludeSubtypes = true,
@@ -480,29 +480,16 @@ namespace Opc.Ua.Cloud.Library
                         if (!LoadedNamespaces.ContainsKey(Namespaces.OpcUa))
                         {
                             // Get the default namespace metadata node
-                            NodeState defaultNamespace = _server.CurrentInstance.NodeManager.ConfigurationNodeManager.Find(ObjectIds.OPCUANamespaceMetadata);
+                            NamespaceMetadataState defaultNamespace = await _server.CurrentInstance.NodeManager.ConfigurationNodeManager.GetNamespaceMetadataStateAsync(Namespaces.OpcUa).ConfigureAwait(false);
                             if (defaultNamespace == null)
                             {
                                 continue;
                             }
 
-                            if (string.Equals(defaultNamespace.BrowseName.Name, Namespaces.OpcUa, StringComparison.Ordinal))
+                            string version = defaultNamespace.NamespaceVersion?.Value;
+                            if (!string.IsNullOrEmpty(version))
                             {
-                                List<BaseInstanceState> namespaceProperty = new();
-                                defaultNamespace.GetChildren(_server.CurrentInstance.DefaultSystemContext, namespaceProperty);
-                                foreach (var property in namespaceProperty)
-                                {
-                                    if (string.Equals(property.BrowseName.Name, "NamespaceVersion", StringComparison.Ordinal))
-                                    {
-                                        string version = ((BaseVariableState)property).Value.ToString();
-                                        if (!string.IsNullOrEmpty(version))
-                                        {
-                                            LoadedNamespaces.Add(Namespaces.OpcUa, new Tuple<string, string>(requiredModel.Version, version));
-                                        }
-
-                                        break;
-                                    }
-                                }
+                                LoadedNamespaces.Add(Namespaces.OpcUa, new Tuple<string, string>(requiredModel.Version, version));
                             }
                         }
 
@@ -552,11 +539,11 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
-        private async Task<ReferenceDescriptionCollection> Browse(Opc.Ua.Client.ISession session, BrowseDescription nodeToBrowse)
+        private async Task<List<ReferenceDescription>> Browse(Opc.Ua.Client.ISession session, BrowseDescription nodeToBrowse)
         {
             (ResponseHeader responseHeader,
-            Byte[] continuationPoints,
-            ReferenceDescriptionCollection referencesList) = await session.BrowseAsync(
+            ByteString continuationPoint,
+            ArrayOf<ReferenceDescription> referencesList) = await session.BrowseAsync(
                 null,
                 null,
                 nodeToBrowse.NodeId,
@@ -567,39 +554,41 @@ namespace Opc.Ua.Cloud.Library
                 nodeToBrowse.NodeClassMask
                 ).ConfigureAwait(false);
 
+            List<ReferenceDescription> references = referencesList.IsNull ? new List<ReferenceDescription>() : referencesList.ToList();
+
             do
             {
-                if (referencesList.Count == 0 || continuationPoints == null)
+                if (references.Count == 0 || continuationPoint.IsNull || continuationPoint.Length == 0)
                 {
                     break;
                 }
 
                 (ResponseHeader responseHeaderNext,
-                Byte[] continuationPointsNext,
-                ReferenceDescriptionCollection referencesListNext) = await session.BrowseNextAsync(
+                ByteString continuationPointNext,
+                ArrayOf<ReferenceDescription> referencesListNext) = await session.BrowseNextAsync(
                     null,
                     false,
-                    continuationPoints
+                    continuationPoint
                 ).ConfigureAwait(false);
 
-                if (referencesListNext.Count > 0)
+                if (!referencesListNext.IsNull && referencesListNext.Count > 0)
                 {
                     // append results to the master list
-                    referencesList.AddRange(referencesListNext);
+                    references.AddRange(referencesListNext.ToList());
                 }
 
-                if (continuationPointsNext == null)
+                if (continuationPointNext.IsNull || continuationPointNext.Length == 0)
                 {
                     break;
                 }
                 else
                 {
-                    continuationPoints = continuationPointsNext;
+                    continuationPoint = continuationPointNext;
                 }
             }
             while (true);
 
-            return referencesList;
+            return references;
         }
 
         public async Task<object> GetTypeDefinition(string userId, string nodesetIdentifier, string nodeId)
@@ -613,7 +602,7 @@ namespace Opc.Ua.Cloud.Library
             Opc.Ua.Client.ISession session = pair.Session;
 
             // read the variable node from the OPC UA server
-            Node node = await session.ReadNodeAsync(ExpandedNodeId.ToNodeId(new ExpandedNodeId(nodeId), session.NamespaceUris)).ConfigureAwait(false);
+            Node node = await session.ReadNodeAsync(ExpandedNodeId.ToNodeId(ExpandedNodeId.Parse(nodeId), session.NamespaceUris)).ConfigureAwait(false);
             if (node?.NodeClass == NodeClass.DataType)
             {
                 // return complex type definition
@@ -623,10 +612,10 @@ namespace Opc.Ua.Cloud.Library
             else
             {
                 // return references
-                ReferenceDescriptionCollection references = await Browse(session, new BrowseDescription {
-                    NodeId = ExpandedNodeId.ToNodeId(new ExpandedNodeId(nodeId), session.NamespaceUris),
+                List<ReferenceDescription> references = await Browse(session, new BrowseDescription {
+                    NodeId = ExpandedNodeId.ToNodeId(ExpandedNodeId.Parse(nodeId), session.NamespaceUris),
                     BrowseDirection = BrowseDirection.Forward,
-                    ReferenceTypeId = null,
+                    ReferenceTypeId = NodeId.Null,
                     IncludeSubtypes = true,
                     NodeClassMask = 0,
                     ResultMask = (uint)BrowseResultMask.All
@@ -641,7 +630,7 @@ namespace Opc.Ua.Cloud.Library
 
             try
             {
-                ReadValueIdCollection nodesToRead = new();
+                List<ReadValueId> nodesToRead = new();
 
                 SharedSession pair = await AcquireSessionAsync(userId, nodesetIdentifier).ConfigureAwait(false);
                 if (pair == null)
@@ -652,13 +641,14 @@ namespace Opc.Ua.Cloud.Library
                 Opc.Ua.Client.ISession session = pair.Session;
 
                 // read the variable node from the OPC UA server
-                VariableNode node = (VariableNode)await session.ReadNodeAsync(ExpandedNodeId.ToNodeId(nodeId, session.NamespaceUris)).ConfigureAwait(false);
+                NodeId id = ExpandedNodeId.ToNodeId(ExpandedNodeId.Parse(nodeId), session.NamespaceUris);
+                VariableNode node = (VariableNode)await session.ReadNodeAsync(id).ConfigureAwait(false);
 
                 ReadValueId valueId = new();
-                valueId.NodeId = ExpandedNodeId.ToNodeId(nodeId, session.NamespaceUris);
+                valueId.NodeId = id;
                 valueId.AttributeId = Attributes.Value;
                 valueId.IndexRange = null;
-                valueId.DataEncoding = null;
+                valueId.DataEncoding = QualifiedName.Null;
                 nodesToRead.Add(valueId);
 
                 // Load the data type's complex type once per session. ComplexTypeSystem emits a new
@@ -668,10 +658,11 @@ namespace Opc.Ua.Cloud.Library
 
                 ReadResponse response = await session.ReadAsync(null, 0, TimestampsToReturn.Both, nodesToRead, CancellationToken.None).ConfigureAwait(false);
 
-                ClientBase.ValidateResponse(response.Results, nodesToRead);
-                ClientBase.ValidateDiagnosticInfos(response.DiagnosticInfos, nodesToRead);
+                ArrayOf<ReadValueId> requested = nodesToRead;
+                ClientBase.ValidateResponse(response.Results, requested);
+                ClientBase.ValidateDiagnosticInfos(response.DiagnosticInfos, requested);
 
-                if ((response.Results.Count > 0) && (response.Results[0].Value != null))
+                if ((response.Results.Count > 0) && !response.Results[0].WrappedValue.IsNull)
                 {
                     value = response.Results[0].ToString();
                 }
@@ -686,7 +677,7 @@ namespace Opc.Ua.Cloud.Library
 
         private sealed class SessionTypeCache
         {
-            public SessionTypeCache(Opc.Ua.Client.ISession session) => TypeSystem = new ComplexTypeSystem(session);
+            public SessionTypeCache(Opc.Ua.Client.ISession session) => TypeSystem = ComplexTypeSystemClientExtensions.Create(session, session.MessageContext.Telemetry);
 
             public ComplexTypeSystem TypeSystem { get; }
 
@@ -700,7 +691,7 @@ namespace Opc.Ua.Cloud.Library
 
         private static async Task EnsureComplexTypeLoadedAsync(Opc.Ua.Client.ISession session, ExpandedNodeId dataType)
         {
-            if (session == null || NodeId.IsNull(dataType))
+            if (session == null || dataType.IsNull)
             {
                 return;
             }
@@ -741,28 +732,31 @@ namespace Opc.Ua.Cloud.Library
                 }
 
                 Opc.Ua.Client.ISession session = pair.Session;
-                NodeId id = ExpandedNodeId.ToNodeId(nodeId, session.NamespaceUris);
+                NodeId id = ExpandedNodeId.ToNodeId(ExpandedNodeId.Parse(nodeId), session.NamespaceUris);
 
-                ReadValueIdCollection nodesToRead = new() {
+                List<ReadValueId> nodesToRead = new() {
                     new ReadValueId { NodeId = id, AttributeId = Attributes.NodeClass },
                     new ReadValueId { NodeId = id, AttributeId = Attributes.DataTypeDefinition }
                 };
 
                 ReadResponse response = await session.ReadAsync(null, 0, TimestampsToReturn.Neither, nodesToRead, CancellationToken.None).ConfigureAwait(false);
-                ClientBase.ValidateResponse(response.Results, nodesToRead);
+                ArrayOf<ReadValueId> requested = nodesToRead;
+                ClientBase.ValidateResponse(response.Results, requested);
 
-                if (response.Results.Count < 2 || response.Results[0].Value is not int nodeClass || (NodeClass)nodeClass != NodeClass.DataType)
+                if (response.Results.Count < 2 || !response.Results[0].WrappedValue.TryGetValue(out int nodeClass) || (NodeClass)nodeClass != NodeClass.DataType)
                 {
                     return null;
                 }
 
-                if (ExtensionObject.ToEncodeable(response.Results[1].Value as ExtensionObject) is EnumDefinition enumDefinition && enumDefinition.Fields != null && enumDefinition.Fields.Count > 0)
+                if (response.Results[1].WrappedValue.TryGetValue(out ExtensionObject definition)
+                    && definition.TryGetValue(out EnumDefinition enumDefinition, session.MessageContext)
+                    && !enumDefinition.Fields.IsNull && enumDefinition.Fields.Count > 0)
                 {
-                    return enumDefinition.Fields.Select(f => new EnumFieldInfo {
+                    return enumDefinition.Fields.ToList().Select(f => new EnumFieldInfo {
                         Name = f.Name ?? string.Empty,
                         Value = f.Value,
-                        DisplayName = f.DisplayName?.Text ?? string.Empty,
-                        Description = f.Description?.Text ?? string.Empty
+                        DisplayName = f.DisplayName.Text ?? string.Empty,
+                        Description = f.Description.Text ?? string.Empty
                     }).ToList();
                 }
 
@@ -786,7 +780,7 @@ namespace Opc.Ua.Cloud.Library
                 ResultMask = (uint)BrowseResultMask.All
             };
 
-            ReferenceDescriptionCollection references = await Browse(session, nodeToBrowse).ConfigureAwait(false);
+            List<ReferenceDescription> references = await Browse(session, nodeToBrowse).ConfigureAwait(false);
             if (references == null)
             {
                 return null;
@@ -794,7 +788,7 @@ namespace Opc.Ua.Cloud.Library
 
             foreach (ReferenceDescription reference in references)
             {
-                string name = reference.BrowseName?.Name;
+                string name = reference.BrowseName.Name;
                 if (name != BrowseNames.EnumStrings && name != BrowseNames.EnumValues)
                 {
                     continue;
@@ -802,27 +796,27 @@ namespace Opc.Ua.Cloud.Library
 
                 DataValue dataValue = await session.ReadValueAsync(ExpandedNodeId.ToNodeId(reference.NodeId, session.NamespaceUris)).ConfigureAwait(false);
 
-                if (dataValue?.Value is LocalizedText[] enumStrings)
+                if (dataValue.WrappedValue.TryGetValue(out ArrayOf<LocalizedText> enumStrings))
                 {
-                    return enumStrings.Select((s, i) => new EnumFieldInfo {
-                        Name = s?.Text ?? string.Empty,
+                    return enumStrings.ToList().Select((s, i) => new EnumFieldInfo {
+                        Name = s.Text ?? string.Empty,
                         Value = i,
-                        DisplayName = s?.Text ?? string.Empty
+                        DisplayName = s.Text ?? string.Empty
                     }).ToList();
                 }
 
-                if (dataValue?.Value is ExtensionObject[] enumValues)
+                if (dataValue.WrappedValue.TryGetValue(out ArrayOf<ExtensionObject> enumValues))
                 {
                     List<EnumFieldInfo> fields = new();
                     foreach (ExtensionObject extensionObject in enumValues)
                     {
-                        if (ExtensionObject.ToEncodeable(extensionObject) is EnumValueType enumValue)
+                        if (extensionObject.TryGetValue(out EnumValueType enumValue, session.MessageContext))
                         {
                             fields.Add(new EnumFieldInfo {
-                                Name = enumValue.DisplayName?.Text ?? string.Empty,
+                                Name = enumValue.DisplayName.Text ?? string.Empty,
                                 Value = enumValue.Value,
-                                DisplayName = enumValue.DisplayName?.Text ?? string.Empty,
-                                Description = enumValue.Description?.Text ?? string.Empty
+                                DisplayName = enumValue.DisplayName.Text ?? string.Empty,
+                                Description = enumValue.Description.Text ?? string.Empty
                             });
                         }
                     }
@@ -848,15 +842,15 @@ namespace Opc.Ua.Cloud.Library
                 }
 
                 Opc.Ua.Client.ISession session = pair.Session;
-                NodeId nodeID = ExpandedNodeId.ToNodeId(nodeId, session.NamespaceUris);
+                NodeId nodeID = ExpandedNodeId.ToNodeId(ExpandedNodeId.Parse(nodeId), session.NamespaceUris);
 
                 WriteValue nodeToWrite = new() {
                     NodeId = nodeID,
                     AttributeId = Attributes.Value,
-                    Value = new DataValue(new Variant(await ConvertPayloadToNodeDataType(session, nodeID, payload).ConfigureAwait(false)))
+                    Value = new DataValue(await ConvertPayloadToNodeDataType(session, nodeID, payload).ConfigureAwait(false))
                 };
 
-                WriteValueCollection nodesToWrite = new() {
+                ArrayOf<WriteValue> nodesToWrite = new List<WriteValue> {
                     nodeToWrite
                 };
 
@@ -913,7 +907,7 @@ namespace Opc.Ua.Cloud.Library
         {
             try
             {
-                Node node = await session.ReadNodeAsync(ExpandedNodeId.ToNodeId(nodeId, session.NamespaceUris)).ConfigureAwait(false);
+                Node node = await session.ReadNodeAsync(ExpandedNodeId.ToNodeId(ExpandedNodeId.Parse(nodeId), session.NamespaceUris)).ConfigureAwait(false);
                 if (node == null)
                 {
                     return "The node could not be read from the nodeset.";
@@ -998,13 +992,13 @@ namespace Opc.Ua.Cloud.Library
 
             try
             {
-                Node node = await session.ReadNodeAsync(ExpandedNodeId.ToNodeId(nodeId, session.NamespaceUris)).ConfigureAwait(false);
+                Node node = await session.ReadNodeAsync(ExpandedNodeId.ToNodeId(ExpandedNodeId.Parse(nodeId), session.NamespaceUris)).ConfigureAwait(false);
                 if (node is VariableNode variable)
                 {
                     BuiltInType builtInType = TypeInfo.GetBuiltInType(variable.DataType, session.TypeTree);
                     if (builtInType != BuiltInType.Null && builtInType != BuiltInType.String)
                     {
-                        TypeInfo.Cast(value, builtInType);
+                        Variant.From(value).ConvertTo(builtInType);
                     }
                 }
 
@@ -1039,7 +1033,7 @@ namespace Opc.Ua.Cloud.Library
         // The browser UI always submits a string, but the server rejects writes whose value does
         // not match the variable's data type (BadTypeMismatch). Cast to the target built-in type
         // when possible and fall back to the raw string otherwise.
-        private static async Task<object> ConvertPayloadToNodeDataType(Opc.Ua.Client.ISession session, NodeId nodeID, string payload)
+        private static async Task<Variant> ConvertPayloadToNodeDataType(Opc.Ua.Client.ISession session, NodeId nodeID, string payload)
         {
             try
             {
@@ -1049,7 +1043,7 @@ namespace Opc.Ua.Cloud.Library
                     BuiltInType builtInType = TypeInfo.GetBuiltInType(variable.DataType, session.TypeTree);
                     if (builtInType != BuiltInType.Null && builtInType != BuiltInType.String)
                     {
-                        return TypeInfo.Cast(payload, builtInType);
+                        return Variant.From(payload).ConvertTo(builtInType);
                     }
                 }
             }
@@ -1058,7 +1052,7 @@ namespace Opc.Ua.Cloud.Library
                 Console.WriteLine("Converting payload to node data type failed, writing as string: " + ex.Message);
             }
 
-            return payload;
+            return Variant.From(payload);
         }
 
         // Returns the live pair for a nodeset, borrowing or creating it as needed, or null if no
@@ -1130,7 +1124,7 @@ namespace Opc.Ua.Cloud.Library
                             {
                                 Console.WriteLine("Starting OPC UA server on port " + _port);
 
-                                _server = new SimpleServer(_app, _port);
+                                _server = new SimpleServer(_app, _port, _telemetry);
                                 _orphanServers.Add(_server);
 
                                 await _app.StartAsync(_server).ConfigureAwait(false);
@@ -1194,7 +1188,7 @@ namespace Opc.Ua.Cloud.Library
                             string.Empty,
                             30000,
                             new UserIdentity(new AnonymousIdentityToken()),
-                            null).ConfigureAwait(false);
+                            ArrayOf<string>.Null).ConfigureAwait(false);
 
                         if (newSession == null || !newSession.Connected)
                         {

@@ -148,7 +148,7 @@ namespace Opc.Ua.Cloud.Library
             if (nodeId != null && modelUri == null)
             {
                 var expandedNodeId = ExpandedNodeId.Parse(nodeId);
-                if (expandedNodeId?.NamespaceUri != null)
+                if (expandedNodeId.NamespaceUri != null)
                 {
                     modelUri = expandedNodeId.NamespaceUri;
                 }
