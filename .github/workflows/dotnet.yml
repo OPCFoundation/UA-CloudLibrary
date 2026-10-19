@@ -87,7 +87,10 @@ jobs:
     - name: Test
       env:
         ServiceUsername: "admin"
-      run: dotnet test UA-CloudLibrary.sln --no-build --configuration Release --verbosity normal  -l:"console;verbosity=normal"
+      # The repo-root dotnet.config opts into the Microsoft.Testing.Platform test runner
+      # (required for xunit.v3 on the .NET 10 SDK). The VSTest-only "-l:console" logger
+      # argument is not supported by that runner, so it is not passed here.
+      run: dotnet test UA-CloudLibrary.sln --no-build --configuration Release --verbosity normal
     - name: List databases after test run
       run: |
         sudo -u postgres psql -l --command="\du"

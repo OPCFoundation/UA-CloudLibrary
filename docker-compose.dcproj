@@ -16,6 +16,7 @@
     </None>
     <None Include="docker-compose.yml" />
     <None Include=".dockerignore" />
+    <None Include="dotnet.config" />
     <None Include="Tests\UACloudLibraryServer.UnitTests\DppApiResponseSerializationTests.cs" />
     <None Include="Tests\UACloudLibraryServer.UnitTests\DppJsonPathTests.cs" />
     <None Include="Tests\UACloudLibraryServer.UnitTests\ParseLeafValueTests.cs" />
