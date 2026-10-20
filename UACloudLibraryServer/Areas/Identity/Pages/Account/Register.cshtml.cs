@@ -143,21 +143,6 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account
             string captchaResult = await _captchaValidation.ValidateCaptcha(CaptchaResponseToken);
             if (!string.IsNullOrEmpty(captchaResult)) ModelState.AddModelError("CaptchaResponseToken", captchaResult);
 
-            // The service account signs in with its own credentials and owns the published catalogue.
-            // A self-registered account with the same name would share that identity everywhere the
-            // name is compared, so the name is reserved. Compared case-insensitively, like Identity
-            // compares user names.
-            string serviceUsername = Environment.GetEnvironmentVariable("ServiceUsername");
-            if (string.IsNullOrEmpty(serviceUsername))
-            {
-                serviceUsername = _configuration["ServiceUsername"];
-            }
-
-            if (!string.IsNullOrEmpty(serviceUsername) && string.Equals(Input?.Email?.Trim(), serviceUsername.Trim(), StringComparison.OrdinalIgnoreCase))
-            {
-                ModelState.AddModelError(string.Empty, "This name is reserved. Please choose another one.");
-            }
-
             if (ModelState.IsValid)
             {
                 IdentityUser user = CreateUser();

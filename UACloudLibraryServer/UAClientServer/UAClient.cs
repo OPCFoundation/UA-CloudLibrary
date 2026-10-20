@@ -1292,7 +1292,7 @@ namespace Opc.Ua.Cloud.Library
 
                 // An approval is the authorized publishing operation: the approved copy is public and
                 // may replace a published nodeset. A user's own copy is private and may not.
-                return await _database.UploadNamespaceAndNodesetWithResultAsync(userId, metadata, file.Values, false, publish: asApprover).ConfigureAwait(false);
+                return await _database.UploadNamespaceAndNodesetWithResultAsync(userId, metadata, file.Values, overwrite: asApprover, publish: asApprover).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
