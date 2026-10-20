@@ -61,8 +61,16 @@ namespace Opc.Ua.Cloud.Library
             _logger = logger.CreateLogger("CloudLibDataProvider");
         }
 
-        private Expression<Func<NamespaceMetaDataModel, bool>> GetMetadataUserFilter(string userId)
+        // Administrators review, download and delete submissions, which are unpublished and owned by
+        // other users, so callers that have checked the Administrator role pass allNodesets = true.
+        // It always comes from the authenticated role, never from a user name.
+        private static Expression<Func<NamespaceMetaDataModel, bool>> GetMetadataUserFilter(string userId, bool allNodesets = false)
         {
+            if (allNodesets)
+            {
+                return nsm => true;
+            }
+
             // Anonymous fast path: only published rows. Enables index-only scans on
             // the IX_NamespaceMeta_Published_Nodeset partial index.
             if (string.IsNullOrEmpty(userId))
@@ -76,8 +84,12 @@ namespace Opc.Ua.Cloud.Library
                 string.IsNullOrEmpty(nsm.UserId);
         }
 
-        private Expression<Func<NodeSetModel, bool>> GetNodesetUserFilter(string userId)
+        private static Expression<Func<NodeSetModel, bool>> GetNodesetUserFilter(string userId, bool allNodesets = false)
         {
+            if (allNodesets)
+            {
+                return nsm => true;
+            }
             // Anonymous fast path: only nodesets whose metadata is published.
             if (string.IsNullOrEmpty(userId))
             {
@@ -95,7 +107,8 @@ namespace Opc.Ua.Cloud.Library
             string identifier = null,
             string modelUri = null,
             DateTime? publicationDate = null,
-            string[] keywords = null)
+            string[] keywords = null,
+            bool allNodesets = false)
         {
             IQueryable<NodeSetModel> nodeSets;
             if (!string.IsNullOrEmpty(identifier))
@@ -109,7 +122,7 @@ namespace Opc.Ua.Cloud.Library
                     .AsNoTracking()
                     .AsExpandable()
                     .Where(nsm => nsm.Identifier == identifier)
-                    .Where(GetNodesetUserFilter(userId));
+                    .Where(GetNodesetUserFilter(userId, allNodesets));
             }
             else if (!string.IsNullOrEmpty(modelUri) && (publicationDate == null) && (keywords == null))
             {
@@ -117,7 +130,7 @@ namespace Opc.Ua.Cloud.Library
                     .AsNoTracking()
                     .AsExpandable()
                     .Where(nsm => nsm.ModelUri == modelUri)
-                    .Where(GetNodesetUserFilter(userId));
+                    .Where(GetNodesetUserFilter(userId, allNodesets));
             }
             else if (!string.IsNullOrEmpty(modelUri) && (publicationDate != null))
             {
@@ -126,23 +139,23 @@ namespace Opc.Ua.Cloud.Library
                     .AsExpandable()
                     .Where(nsm => nsm.ModelUri == modelUri)
                     .Where(nsm => nsm.PublicationDate == publicationDate)
-                    .Where(GetNodesetUserFilter(userId));
+                    .Where(GetNodesetUserFilter(userId, allNodesets));
             }
             else if (keywords != null && keywords.Length > 0)
             {
-                nodeSets = SearchNodesets(userId, keywords);
+                nodeSets = SearchNodesets(userId, keywords, allNodesets);
             }
             else
             {
                 nodeSets = _dbContext.NodeSetsWithUnapproved
                     .AsNoTracking()
-                    .Where(GetNodesetUserFilter(userId));
+                    .Where(GetNodesetUserFilter(userId, allNodesets));
             }
 
             return nodeSets;
         }
 
-        public IQueryable<T> GetNodeModels<T>(Expression<Func<NodeSetModel, IEnumerable<T>>> selector, string userId, string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<T> GetNodeModels<T>(Expression<Func<NodeSetModel, IEnumerable<T>>> selector, string userId, string modelUri = null, DateTime? publicationDate = null, string nodeId = null, bool allNodesets = false)
             where T : NodeModel
         {
             if (nodeId != null && modelUri == null)
@@ -162,7 +175,7 @@ namespace Opc.Ua.Cloud.Library
                     .AsExpandable()
                     .Where(nsm => nsm.ModelUri == modelUri)
                     .Where(nsm => nsm.PublicationDate == publicationDate)
-                    .Where(GetNodesetUserFilter(userId));
+                    .Where(GetNodesetUserFilter(userId, allNodesets));
             }
             else if (modelUri != null)
             {
@@ -170,13 +183,13 @@ namespace Opc.Ua.Cloud.Library
                     .AsNoTracking()
                     .AsExpandable()
                     .Where(nsm => nsm.ModelUri == modelUri)
-                    .Where(GetNodesetUserFilter(userId));
+                    .Where(GetNodesetUserFilter(userId, allNodesets));
             }
             else
             {
                 nodeSets = _dbContext.NodeSetsWithUnapproved
                     .AsNoTracking()
-                    .Where(GetNodesetUserFilter(userId));
+                    .Where(GetNodesetUserFilter(userId, allNodesets));
             }
 
             IQueryable<T> nodeModels = nodeSets.SelectMany(selector);
@@ -686,11 +699,11 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
-        internal IQueryable<NodeSetModel> SearchNodesets(string userId, string[] keywords)
+        internal IQueryable<NodeSetModel> SearchNodesets(string userId, string[] keywords, bool allNodesets = false)
         {
             IQueryable<NodeSetModel> query = _dbContext.NodeSetsWithUnapproved
                 .AsExpandable()
-                .Where(GetNodesetUserFilter(userId));
+                .Where(GetNodesetUserFilter(userId, allNodesets));
 
             if ((keywords != null) && (keywords.Length != 0) && (keywords[0] != "*") && (keywords[0] != ""))
             {
@@ -860,9 +873,9 @@ namespace Opc.Ua.Cloud.Library
             return null;
         }
 
-        public UANameSpace[] FindNodesets(string userId, string[] keywords, string namespaceUri, int? offset, int? limit)
+        public UANameSpace[] FindNodesets(string userId, string[] keywords, string namespaceUri, int? offset, int? limit, bool allNodesets = false)
         {
-            List<NamespaceMetaDataModel> uaNamespaceModels = SearchNodesets(userId, keywords)
+            List<NamespaceMetaDataModel> uaNamespaceModels = SearchNodesets(userId, keywords, allNodesets)
                 .OrderBy(n => n.ModelUri)
                 .Skip(offset ?? 0)
                 .Take(limit ?? 100)
@@ -870,7 +883,7 @@ namespace Opc.Ua.Cloud.Library
                     .AsExpandable()
                     .Where(nmd => (namespaceUri == null) || (nmd.NodeSet.ModelUri == namespaceUri))
                     .Where(nmd => nmd.NodesetId == n.Identifier)
-                    .Where(GetMetadataUserFilter(userId))
+                    .Where(GetMetadataUserFilter(userId, allNodesets))
                 .Include(nmd => nmd.NodeSet).FirstOrDefault())
                 .Where(n => n != null)
                 .ToList();
@@ -1048,17 +1061,17 @@ namespace Opc.Ua.Cloud.Library
             };
         }
 
-        public async Task<string[]> GetAllTypes(string userId, string nodeSetID)
+        public async Task<string[]> GetAllTypes(string userId, string nodeSetID, bool allNodesets = false)
         {
-            NodeSetModel nodeSetMeta = await GetNodeSets(userId, nodeSetID).FirstOrDefaultAsync().ConfigureAwait(false);
+            NodeSetModel nodeSetMeta = await GetNodeSets(userId, nodeSetID, allNodesets: allNodesets).FirstOrDefaultAsync().ConfigureAwait(false);
             if (nodeSetMeta != null)
             {
                 List<NodeModel> types =
                 [
-                    .. GetNodeModels(nsm => nsm.ObjectTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
-                    .. GetNodeModels(nsm => nsm.VariableTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
-                    .. GetNodeModels(nsm => nsm.DataTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
-                    .. GetNodeModels(nsm => nsm.ReferenceTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
+                    .. GetNodeModels(nsm => nsm.ObjectTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate, allNodesets: allNodesets),
+                    .. GetNodeModels(nsm => nsm.VariableTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate, allNodesets: allNodesets),
+                    .. GetNodeModels(nsm => nsm.DataTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate, allNodesets: allNodesets),
+                    .. GetNodeModels(nsm => nsm.ReferenceTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate, allNodesets: allNodesets),
                 ];
 
                 List<string> typeList = new();
@@ -1134,16 +1147,16 @@ namespace Opc.Ua.Cloud.Library
                     && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp));
         }
 
-        public async Task<string[]> GetAllInstances(string userId, string nodeSetID)
+        public async Task<string[]> GetAllInstances(string userId, string nodeSetID, bool allNodesets = false)
         {
-            NodeSetModel nodeSetMeta = await GetNodeSets(userId, nodeSetID).FirstOrDefaultAsync().ConfigureAwait(false);
+            NodeSetModel nodeSetMeta = await GetNodeSets(userId, nodeSetID, allNodesets: allNodesets).FirstOrDefaultAsync().ConfigureAwait(false);
             if (nodeSetMeta != null)
             {
                 List<NodeModel> instances =
                 [
-                    .. GetNodeModels(nsm => nsm.Objects, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
-                    .. GetNodeModels(nsm => nsm.Properties, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
-                    .. GetNodeModels(nsm => nsm.DataVariables, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
+                    .. GetNodeModels(nsm => nsm.Objects, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate, allNodesets: allNodesets),
+                    .. GetNodeModels(nsm => nsm.Properties, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate, allNodesets: allNodesets),
+                    .. GetNodeModels(nsm => nsm.DataVariables, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate, allNodesets: allNodesets),
                 ];
 
                 List<string> instanceList = new();
