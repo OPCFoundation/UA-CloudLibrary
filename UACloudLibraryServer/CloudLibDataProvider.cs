@@ -54,24 +54,11 @@ namespace Opc.Ua.Cloud.Library
         private readonly DbFileStorage _storage;
         private readonly ILogger _logger;
 
-        // Nodesets owned by the service user are the published catalogue: the IsPublished migration
-        // marks exactly those rows, and new uploads or approvals by that user must be marked the same
-        // way or they stay invisible to everyone else.
-        private readonly string _serviceUsername;
-
-        private bool IsServiceUser(string userId) =>
-            !string.IsNullOrEmpty(_serviceUsername) && string.Equals(userId, _serviceUsername, StringComparison.Ordinal);
-
         public CloudLibDataProvider(AppDbContext context, ILoggerFactory logger, DbFileStorage storage, IConfiguration configuration)
         {
             _dbContext = context;
             _storage = storage;
             _logger = logger.CreateLogger("CloudLibDataProvider");
-            _serviceUsername = Environment.GetEnvironmentVariable("ServiceUsername");
-            if (string.IsNullOrEmpty(_serviceUsername))
-            {
-                _serviceUsername = configuration?["ServiceUsername"];
-            }
         }
 
         private Expression<Func<NamespaceMetaDataModel, bool>> GetMetadataUserFilter(string userId)
@@ -237,7 +224,13 @@ namespace Opc.Ua.Cloud.Library
         /// that distinction: a partially-applied upload has to be recorded as such, and a later
         /// audit failure must not tell the client the request was safely retryable.
         /// </remarks>
-        public async Task<UploadResult> UploadNamespaceAndNodesetWithResultAsync(string userId, UANameSpace uaNamespace, string values, bool overwrite)
+        /// <param name="publish">
+        /// Publish the nodeset (make it visible to everyone) and allow it to replace a published
+        /// nodeset. Only the approval endpoint, which requires the Administrator role, passes true:
+        /// uploads are always private. It is never derived from the user name, which a caller can
+        /// choose.
+        /// </param>
+        public async Task<UploadResult> UploadNamespaceAndNodesetWithResultAsync(string userId, UANameSpace uaNamespace, string values, bool overwrite, bool publish = false)
         {
             UANodeSet nodeSet = null;
 
@@ -307,7 +300,7 @@ namespace Opc.Ua.Cloud.Library
                         if (existingLegacyNamespaces != null)
                         {
                             // we treat no user in the database like an admin user
-                            if ((string.IsNullOrEmpty(existingLegacyNamespaces.UserId) || existingLegacyNamespaces.IsPublished) && !IsServiceUser(userId))
+                            if ((string.IsNullOrEmpty(existingLegacyNamespaces.UserId) || existingLegacyNamespaces.IsPublished) && !publish)
                             {
                                 return UploadResult.Failed($"Nodeset already exists for admin user. Cannot overwrite with user {userId}");
                             }
@@ -342,8 +335,8 @@ namespace Opc.Ua.Cloud.Library
             if (existingNamespaces != null)
             {
                 // we treat no user in the database like an admin user. Published and unowned nodesets
-                // belong to the service user, who may still overwrite them; nobody else may.
-                if ((string.IsNullOrEmpty(existingNamespaces.UserId) || existingNamespaces.IsPublished) && !IsServiceUser(userId))
+                // may only be replaced by an authorized publishing operation.
+                if ((string.IsNullOrEmpty(existingNamespaces.UserId) || existingNamespaces.IsPublished) && !publish)
                 {
                     return UploadResult.Failed($"Nodeset already exists for admin user. Cannot overwrite with user {userId}");
                 }
@@ -401,7 +394,7 @@ namespace Opc.Ua.Cloud.Library
             // changed, so it must be reported as partially applied rather than as a clean failure -
             // otherwise the audit trail records the upload as never having happened, and the client
             // is told the request is safe to repeat.
-            string dbMessage = await AddMetaDataAsync(userId, uaNamespace, nodeSet, legacyNodesetHashCode).ConfigureAwait(false);
+            string dbMessage = await AddMetaDataAsync(userId, uaNamespace, nodeSet, legacyNodesetHashCode, publish).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(dbMessage))
             {
                 _logger.LogError(dbMessage);
@@ -522,7 +515,7 @@ namespace Opc.Ua.Cloud.Library
             return (uint)hashCode;
         }
 
-        public async Task<string> AddMetaDataAsync(string userId, UANameSpace uaNamespace, UANodeSet nodeSet, uint legacyNodesetHashCode)
+        public async Task<string> AddMetaDataAsync(string userId, UANameSpace uaNamespace, UANodeSet nodeSet, uint legacyNodesetHashCode, bool publish = false)
         {
             string message = "Internal error: transaction not executed";
             try
@@ -549,7 +542,7 @@ namespace Opc.Ua.Cloud.Library
                         return;
                     }
 
-                    NamespaceMetaDataModel nameSpaceModel = MapRESTNamespaceToNamespaceMetaDataModel(userId, uaNamespace);
+                    NamespaceMetaDataModel nameSpaceModel = MapRESTNamespaceToNamespaceMetaDataModel(userId, uaNamespace, publish);
 
 
                     await _dbContext.AddAsync(nameSpaceModel).ConfigureAwait(false);
@@ -943,7 +936,7 @@ namespace Opc.Ua.Cloud.Library
             return Task.FromResult(Array.Empty<string>());
         }
 
-        private NamespaceMetaDataModel MapRESTNamespaceToNamespaceMetaDataModel(string userId, UANameSpace uaNamespace)
+        private static NamespaceMetaDataModel MapRESTNamespaceToNamespaceMetaDataModel(string userId, UANameSpace uaNamespace, bool publish)
         {
             // fix up license expression
             string licenseExpression = uaNamespace.License switch {
@@ -971,7 +964,7 @@ namespace Opc.Ua.Cloud.Library
                 ApprovalStatus = ApprovalStatus.Approved,
                 CreationTime = uaNamespace.CreationTime != null ? uaNamespace.CreationTime.GetNormalizedDate() : DateTime.UtcNow,
                 UserId = userId,
-                IsPublished = !string.IsNullOrEmpty(_serviceUsername) && string.Equals(userId, _serviceUsername, StringComparison.Ordinal)
+                IsPublished = publish
             };
 
             return metadataModel;

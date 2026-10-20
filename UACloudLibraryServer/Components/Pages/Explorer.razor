@@ -299,9 +299,9 @@
                                         {
                                             <dt class="col-5 text-muted">Visibility</dt>
                                             <dd class="col-7">
-                                                @if (SelectedItem.IsPublished || string.IsNullOrEmpty(SelectedItem.UserId))
+                                                @if (SelectedItem.IsPublished)
                                                 {
-                                                    <span class="badge badge-success" title="This nodeset is published: everyone can find and browse it."><i class="fas fa-globe mr-1" aria-hidden="true"></i>Visible to everyone</span>
+                                                    <span class="badge badge-success" title="This nodeset is published: every Cloud Library user can find and browse it."><i class="fas fa-globe mr-1" aria-hidden="true"></i>Visible to everyone</span>
                                                 }
                                                 else
                                                 {

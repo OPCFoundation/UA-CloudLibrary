@@ -289,6 +289,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Attempted", operationId).ConfigureAwait(false);
 
+            // Uploads are always private; a nodeset is published only by an approval.
             UploadResult uploadResult = await _database.UploadNamespaceAndNodesetWithResultAsync(User.Identity.Name, uaNamespace, values, overwrite).ConfigureAwait(false);
             if (!uploadResult.Succeeded)
             {

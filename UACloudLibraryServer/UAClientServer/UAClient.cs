@@ -1290,7 +1290,9 @@ namespace Opc.Ua.Cloud.Library
                 sb.Insert(start, now);
                 metadata.Nodeset.NodesetXml = sb.ToString();
 
-                return await _database.UploadNamespaceAndNodesetWithResultAsync(userId, metadata, file.Values, false).ConfigureAwait(false);
+                // An approval is the authorized publishing operation: the approved copy is public and
+                // may replace a published nodeset. A user's own copy is private and may not.
+                return await _database.UploadNamespaceAndNodesetWithResultAsync(userId, metadata, file.Values, false, publish: asApprover).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
