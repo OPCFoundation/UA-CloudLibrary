@@ -128,7 +128,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             foreach (var type in types)
             {
                 string[] parts = type.Split(',');
-                object definition = await _client.GetTypeDefinition(User.Identity.Name, identifier, parts[0]).ConfigureAwait(false);
+                object definition = await _client.GetTypeDefinition(User.Identity.Name, identifier, parts[0], User.IsInRole(Roles.Administrator)).ConfigureAwait(false);
                 results.Add(new UATypeDefinitionResult { Type = type, Definition = definition });
             }
 
