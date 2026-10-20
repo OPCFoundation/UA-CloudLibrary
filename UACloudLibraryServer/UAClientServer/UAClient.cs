@@ -1265,7 +1265,8 @@ namespace Opc.Ua.Cloud.Library
         }
 
         /// <summary>
-        /// Copies an existing nodeset under a new title, republishing it with the current date.
+        /// Copies an existing nodeset under a new title. A user's copy is republished with the current
+        /// date; an approval keeps the original publication date and publishes the nodeset in place.
         /// </summary>
         /// <remarks>
         /// Returns an <see cref="UploadResult"/> rather than a message so the caller can tell a
@@ -1293,19 +1294,26 @@ namespace Opc.Ua.Cloud.Library
                 metadata.Title = name;
                 metadata.Nodeset.NodesetXml = file.Blob;
 
-                // update publication date in nodeset XML with current date in UTC format
-                const string key = "PublicationDate=\"";
-                int keyIndex = metadata.Nodeset.NodesetXml.IndexOf(key, StringComparison.Ordinal);
-                int start = keyIndex + key.Length;
-                string now = DateTime.UtcNow.Date.ToString("yyyy-MM-ddTHH:mm:ss'Z'", CultureInfo.InvariantCulture);
+                // An approval must keep the publication date: it identifies the released specification
+                // and must match it. The identifier is derived from the model URI and publication date,
+                // so the approved nodeset keeps the submission's identifier and replaces it in place.
+                if (!asApprover)
+                {
+                    // update publication date in nodeset XML with current date in UTC format
+                    const string key = "PublicationDate=\"";
+                    int keyIndex = metadata.Nodeset.NodesetXml.IndexOf(key, StringComparison.Ordinal);
+                    int start = keyIndex + key.Length;
+                    string now = DateTime.UtcNow.Date.ToString("yyyy-MM-ddTHH:mm:ss'Z'", CultureInfo.InvariantCulture);
 
-                var sb = new StringBuilder(metadata.Nodeset.NodesetXml);
-                sb.Remove(start, now.Length);
-                sb.Insert(start, now);
-                metadata.Nodeset.NodesetXml = sb.ToString();
+                    var sb = new StringBuilder(metadata.Nodeset.NodesetXml);
+                    sb.Remove(start, now.Length);
+                    sb.Insert(start, now);
+                    metadata.Nodeset.NodesetXml = sb.ToString();
+                }
 
-                // An approval is the authorized publishing operation: the approved copy is public and
-                // may replace a published nodeset. A user's own copy is private and may not.
+                // An approval is the authorized publishing operation: the approved nodeset is public and
+                // replaces the submission it was approved from. A user's own copy is private and may not
+                // replace anything.
                 return await _database.UploadNamespaceAndNodesetWithResultAsync(userId, metadata, file.Values, overwrite: asApprover, publish: asApprover).ConfigureAwait(false);
             }
             catch (Exception ex)
