@@ -77,7 +77,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             string operationId = DppAuditOperationId.New();
             await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Create, identifier, $"approve as {name}", "Attempted", operationId).ConfigureAwait(false);
 
-            UploadResult result = await _client.CopyNodeset(User.Identity.Name, identifier, name).ConfigureAwait(false);
+            UploadResult result = await _client.CopyNodeset(User.Identity.Name, identifier, name, asApprover: true).ConfigureAwait(false);
 
             if (result.Succeeded)
             {

@@ -90,7 +90,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 200, type: typeof(string[]), description: "All OPC UA Information Model namespace URIs and associated identifiers of the models found in the UA Cloud Library.")]
         public async Task<IActionResult> GetAllNamespacesandIdentifiersAsync()
         {
-            string[] results = await _database.GetAllNamespacesAndNodesets(User.Identity.Name).ConfigureAwait(false);
+            // Administrators see unpublished submissions too: they need those identifiers to approve them.
+            string[] results = await _database.GetAllNamespacesAndNodesets(User.Identity.Name, User.IsInRole(Roles.Administrator)).ConfigureAwait(false);
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -99,7 +100,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 200, type: typeof(string[]), description: "All OPC UA Information Model names and associated identifiers of the models found in the UA Cloud Library.")]
         public async Task<IActionResult> GetAllNamesandIdentifiersAsync()
         {
-            string[] results = await _database.GetAllNamesAndNodesets(User.Identity.Name).ConfigureAwait(false);
+            string[] results = await _database.GetAllNamesAndNodesets(User.Identity.Name, User.IsInRole(Roles.Administrator)).ConfigureAwait(false);
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 

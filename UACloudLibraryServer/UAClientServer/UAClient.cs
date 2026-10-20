@@ -1258,7 +1258,7 @@ namespace Opc.Ua.Cloud.Library
         /// failure that changed nothing from one that left the copied nodeset stored. The copy may
         /// carry a DPP, so the caller is also responsible for auditing the operation.
         /// </remarks>
-        public async Task<UploadResult> CopyNodeset(string userId, string nodesetIdentifier, string name)
+        public async Task<UploadResult> CopyNodeset(string userId, string nodesetIdentifier, string name, bool asApprover = false)
         {
             try
             {
@@ -1268,7 +1268,9 @@ namespace Opc.Ua.Cloud.Library
                     return UploadResult.Failed($"Nodeset {nodesetIdentifier} was not found.");
                 }
 
-                UANameSpace metadata = await _database.RetrieveAllMetadataAsync(userId, uint.Parse(nodesetIdentifier, CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                // An approver copies a nodeset another user submitted, which is not published and so
+                // is not visible to the approver through the normal owner filter.
+                UANameSpace metadata = await _database.RetrieveAllMetadataAsync(userId, uint.Parse(nodesetIdentifier, CultureInfo.InvariantCulture), ignoreOwner: asApprover).ConfigureAwait(false);
                 if (metadata?.Nodeset == null)
                 {
                     return UploadResult.Failed($"Metadata for nodeset {nodesetIdentifier} was not found.");

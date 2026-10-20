@@ -54,11 +54,21 @@ namespace Opc.Ua.Cloud.Library
         private readonly DbFileStorage _storage;
         private readonly ILogger _logger;
 
+        // Nodesets owned by the service user are the published catalogue: the IsPublished migration
+        // marks exactly those rows, and new uploads or approvals by that user must be marked the same
+        // way or they stay invisible to everyone else.
+        private readonly string _serviceUsername;
+
         public CloudLibDataProvider(AppDbContext context, ILoggerFactory logger, DbFileStorage storage, IConfiguration configuration)
         {
             _dbContext = context;
             _storage = storage;
             _logger = logger.CreateLogger("CloudLibDataProvider");
+            _serviceUsername = Environment.GetEnvironmentVariable("ServiceUsername");
+            if (string.IsNullOrEmpty(_serviceUsername))
+            {
+                _serviceUsername = configuration?["ServiceUsername"];
+            }
         }
 
         private Expression<Func<NamespaceMetaDataModel, bool>> GetMetadataUserFilter(string userId)
@@ -644,14 +654,24 @@ namespace Opc.Ua.Cloud.Library
             return true;
         }
 
-        public async Task<UANameSpace> RetrieveAllMetadataAsync(string userId, uint nodesetId)
+        /// <param name="ignoreOwner">
+        /// Read the metadata whoever owns it. Only for administrative paths such as approval, which
+        /// must read a nodeset another user submitted and has not published.
+        /// </param>
+        public async Task<UANameSpace> RetrieveAllMetadataAsync(string userId, uint nodesetId, bool ignoreOwner = false)
         {
             try
             {
-                NamespaceMetaDataModel namespaceModel = await _dbContext.NamespaceMetaDataWithUnapproved
+                IQueryable<NamespaceMetaDataModel> query = _dbContext.NamespaceMetaDataWithUnapproved
                     .AsExpandable()
-                    .Where(md => md.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture))
-                    .Where(GetMetadataUserFilter(userId))
+                    .Where(md => md.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture));
+
+                if (!ignoreOwner)
+                {
+                    query = query.Where(GetMetadataUserFilter(userId));
+                }
+
+                NamespaceMetaDataModel namespaceModel = await query
                     .Include(md => md.NodeSet)
                     .FirstOrDefaultAsync().ConfigureAwait(false);
 
@@ -861,12 +881,21 @@ namespace Opc.Ua.Cloud.Library
             return uaNamespaceModels.Select(MapNamespaceMetaDataModelToRESTNamespace).ToArray();
         }
 
-        public Task<string[]> GetAllNamespacesAndNodesets(string userId)
+        /// <param name="includeAll">
+        /// List every nodeset regardless of owner or publication. Only for administrators, who need
+        /// the identifiers of submitted, unpublished nodesets to approve them.
+        /// </param>
+        public Task<string[]> GetAllNamespacesAndNodesets(string userId, bool includeAll = false)
         {
             try
             {
-                string[] namesAndIds = _dbContext.NodeSetsWithUnapproved
-                    .Where(GetNodesetUserFilter(userId))
+                IQueryable<NodeSetModel> query = _dbContext.NodeSetsWithUnapproved;
+                if (!includeAll)
+                {
+                    query = query.Where(GetNodesetUserFilter(userId));
+                }
+
+                string[] namesAndIds = query
                     .Select(nsm => new { nsm.ModelUri, nsm.Identifier, nsm.Version, nsm.PublicationDate })
                     .Select(n => $"{n.ModelUri},{n.Identifier},{n.Version},{n.PublicationDate}")
                     .ToArray();
@@ -881,12 +910,18 @@ namespace Opc.Ua.Cloud.Library
             return Task.FromResult(Array.Empty<string>());
         }
 
-        public Task<string[]> GetAllNamesAndNodesets(string userId)
+        /// <param name="includeAll">See <see cref="GetAllNamespacesAndNodesets"/>.</param>
+        public Task<string[]> GetAllNamesAndNodesets(string userId, bool includeAll = false)
         {
             try
             {
-                var categoryAndNodesetIds = _dbContext.NamespaceMetaDataWithUnapproved
-                    .Where(GetMetadataUserFilter(userId))
+                IQueryable<NamespaceMetaDataModel> query = _dbContext.NamespaceMetaDataWithUnapproved;
+                if (!includeAll)
+                {
+                    query = query.Where(GetMetadataUserFilter(userId));
+                }
+
+                var categoryAndNodesetIds = query
                     .Select(md => new { md.Title, md.NodesetId })
                     .ToList();
 
@@ -931,7 +966,8 @@ namespace Opc.Ua.Cloud.Library
                 NumberOfDownloads = uaNamespace.NumberOfDownloads,
                 ApprovalStatus = ApprovalStatus.Approved,
                 CreationTime = uaNamespace.CreationTime != null ? uaNamespace.CreationTime.GetNormalizedDate() : DateTime.UtcNow,
-                UserId = userId
+                UserId = userId,
+                IsPublished = !string.IsNullOrEmpty(_serviceUsername) && string.Equals(userId, _serviceUsername, StringComparison.Ordinal)
             };
 
             return metadataModel;
