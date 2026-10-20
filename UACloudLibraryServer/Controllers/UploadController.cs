@@ -209,6 +209,7 @@ namespace UANodesetWebViewer.Controllers
 
                 await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Attempted", operationId).ConfigureAwait(false);
 
+                // Uploads are always private; a nodeset is published only by an approval.
                 UploadResult uploadResult = await _database.UploadNamespaceAndNodesetWithResultAsync(User.Identity.Name, nameSpace, valuesContent, overwrite).ConfigureAwait(false);
                 string result = uploadResult.Message;
 

@@ -97,6 +97,9 @@ namespace Opc.Ua.Cloud.Library
             // Guarded by s_poolGate.
             public int Borrowers { get; set; }
 
+            // The cache key the pair is registered under (user, override and nodeset).
+            public string Key { get; init; }
+
             private void OnKeepAlive(Opc.Ua.Client.ISession sender, KeepAliveEventArgs e)
             {
                 if (e == null || sender == null || ServiceResult.IsGood(e.Status))
@@ -202,6 +205,10 @@ namespace Opc.Ua.Cloud.Library
         }
 
         private static readonly object s_poolGate = new();
+
+        // '\n' cannot occur in a user name or nodeset identifier, so keys cannot collide.
+        private static string SessionKey(string userId, string nodesetIdentifier, bool allNodesets) =>
+            (userId ?? string.Empty) + "\n" + (allNodesets ? "all" : "own") + "\n" + nodesetIdentifier;
 
         // The pairs this client currently borrows, at most one per nodeset. Released on DisposeAsync,
         // or individually by DisposeSession when a pair fails.
@@ -468,9 +475,9 @@ namespace Opc.Ua.Cloud.Library
             return results;
         }
 
-        private async Task LoadDependentNodesetsRecursiveAsync(string userId, string nodesetIdentifier, NodesetFileNodeManager nodeManager)
+        private async Task LoadDependentNodesetsRecursiveAsync(string userId, string nodesetIdentifier, NodesetFileNodeManager nodeManager, bool allNodesets = false)
         {
-            NodeSetModel nodeSetMeta = await _database.GetNodeSets(userId, nodesetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false);
+            NodeSetModel nodeSetMeta = await _database.GetNodeSets(userId, nodesetIdentifier, allNodesets: allNodesets).FirstOrDefaultAsync().ConfigureAwait(false);
             if ((nodeSetMeta != null) && (nodeSetMeta.RequiredModels != null) && (nodeSetMeta.RequiredModels.Count > 0))
             {
                 foreach (RequiredModelInfoModel requiredModel in nodeSetMeta.RequiredModels)
@@ -504,7 +511,7 @@ namespace Opc.Ua.Cloud.Library
                     }
 
                     // check if we have the required model in the database
-                    List<NodeSetModel> matchingNodeSets = await _database.GetNodeSets(userId, null, requiredModel.ModelUri).ToListAsync().ConfigureAwait(false);
+                    List<NodeSetModel> matchingNodeSets = await _database.GetNodeSets(userId, null, requiredModel.ModelUri, allNodesets: allNodesets).ToListAsync().ConfigureAwait(false);
                     if (matchingNodeSets == null || matchingNodeSets.Count == 0)
                     {
                         Console.WriteLine($"Required model {requiredModel.ModelUri} for {nodesetIdentifier} not found in database.");
@@ -514,7 +521,7 @@ namespace Opc.Ua.Cloud.Library
 
                     NodeSetModel dependentNodeset = NodeModelUtils.GetMatchingOrHigherNodeSet(matchingNodeSets, requiredModel.PublicationDate, requiredModel.Version);
 
-                    await LoadDependentNodesetsRecursiveAsync(userId, dependentNodeset.Identifier, nodeManager).ConfigureAwait(false);
+                    await LoadDependentNodesetsRecursiveAsync(userId, dependentNodeset.Identifier, nodeManager, allNodesets).ConfigureAwait(false);
 
                     DbFiles nodesetXml = await _storage.DownloadFileAsync(dependentNodeset.Identifier).ConfigureAwait(false);
                     nodeManager.AddNamespace(nodesetXml.Blob);
@@ -591,9 +598,9 @@ namespace Opc.Ua.Cloud.Library
             return references;
         }
 
-        public async Task<object> GetTypeDefinition(string userId, string nodesetIdentifier, string nodeId)
+        public async Task<object> GetTypeDefinition(string userId, string nodesetIdentifier, string nodeId, bool allNodesets = false)
         {
-            SharedSession pair = await AcquireSessionAsync(userId, nodesetIdentifier).ConfigureAwait(false);
+            SharedSession pair = await AcquireSessionAsync(userId, nodesetIdentifier, allNodesets).ConfigureAwait(false);
             if (pair == null)
             {
                 return string.Empty;
@@ -1059,7 +1066,7 @@ namespace Opc.Ua.Cloud.Library
         // session could be established. Callers use the returned pair for the whole operation and
         // never re-read _current after an await, so a concurrent selection of another nodeset on
         // this client cannot redirect an operation that is already running.
-        private async Task<SharedSession> AcquireSessionAsync(string userId, string nodesetIdentifier)
+        private async Task<SharedSession> AcquireSessionAsync(string userId, string nodesetIdentifier, bool allNodesets = false)
         {
             _lastSessionFailure = null;
 
@@ -1070,10 +1077,17 @@ namespace Opc.Ua.Cloud.Library
                 return null;
             }
 
+            // Each user sees a different set of nodesets (published, plus their own unpublished ones;
+            // administrators see all), and a session's address space holds the dependencies loaded for
+            // whoever created it. Sessions are therefore never shared across users: the cache key
+            // includes the user and the administrator override. Anonymous callers all see the same
+            // published set, so they share one key.
+            string sessionKey = SessionKey(userId, nodesetIdentifier, allNodesets);
+
             // Reuse the current pair if it is for this nodeset and still connected.
             lock (_sessionSwitchGate)
             {
-                if (_current != null && string.Equals(_sessionNodesetIdentifier, nodesetIdentifier, StringComparison.Ordinal) && IsConnected(_current))
+                if (_current != null && string.Equals(_sessionNodesetIdentifier, sessionKey, StringComparison.Ordinal) && IsConnected(_current))
                 {
                     return _current;
                 }
@@ -1084,10 +1098,10 @@ namespace Opc.Ua.Cloud.Library
             {
                 EndpointDescription selectedEndpoint = null;
 
-                if (TryBorrowLiveSession(nodesetIdentifier, out SharedSession value))
+                if (TryBorrowLiveSession(sessionKey, out SharedSession value))
                 {
                     Console.WriteLine("Re-using existing OPC UA server and session for nodeset " + nodesetIdentifier);
-                    InstallSession(value, nodesetIdentifier);
+                    InstallSession(value, sessionKey);
                     return value;
                 }
                 else
@@ -1103,10 +1117,10 @@ namespace Opc.Ua.Cloud.Library
                         // concurrently after a page load). Starting a second server here would reload
                         // the dependent nodesets into LoadedNamespaces a second time and fail, and the
                         // resulting DisposeSession would tear down the good session as well.
-                        if (TryBorrowLiveSession(nodesetIdentifier, out SharedSession existing))
+                        if (TryBorrowLiveSession(sessionKey, out SharedSession existing))
                         {
                             Console.WriteLine("Re-using OPC UA session created concurrently for nodeset " + nodesetIdentifier);
-                            InstallSession(existing, nodesetIdentifier);
+                            InstallSession(existing, sessionKey);
                             return existing;
                         }
 
@@ -1149,7 +1163,7 @@ namespace Opc.Ua.Cloud.Library
                         NodesetFileNodeManager nodeManager = (NodesetFileNodeManager)_server.CurrentInstance.NodeManager.NodeManagers[2];
 
                         // first load dependencies
-                        await LoadDependentNodesetsRecursiveAsync(userId, nodesetIdentifier, nodeManager).ConfigureAwait(false);
+                        await LoadDependentNodesetsRecursiveAsync(userId, nodesetIdentifier, nodeManager, allNodesets).ConfigureAwait(false);
 
                         // now load the nodeset itself
                         DbFiles nodesetXml = await _storage.DownloadFileAsync(nodesetIdentifier).ConfigureAwait(false);
@@ -1161,7 +1175,7 @@ namespace Opc.Ua.Cloud.Library
 
                             if (!LoadedNamespaces.ContainsKey(nodeManager.NamespaceUris.Last()))
                             {
-                                NodeSetModel nodeSetMeta = await _database.GetNodeSets(userId, nodesetIdentifier).FirstOrDefaultAsync().ConfigureAwait(false);
+                                NodeSetModel nodeSetMeta = await _database.GetNodeSets(userId, nodesetIdentifier, allNodesets: allNodesets).FirstOrDefaultAsync().ConfigureAwait(false);
                                 if (nodeSetMeta != null)
                                 {
                                     LoadedNamespaces.Add(nodeManager.NamespaceUris.Last(), new Tuple<string, string>(nodeSetMeta.Version, nodeSetMeta.Version));
@@ -1200,7 +1214,7 @@ namespace Opc.Ua.Cloud.Library
                         await newSession.FetchNamespaceTablesAsync().ConfigureAwait(false);
 
                         // The pair now owns the session's keepalive and reconnect.
-                        var shared = new SharedSession(newSession, _server, _telemetry) { Borrowers = 1 };
+                        var shared = new SharedSession(newSession, _server, _telemetry) { Borrowers = 1, Key = sessionKey };
                         _orphanServers.Remove(_server);
 
                         // Register in the cache and as this client's borrow in one step, releasing any
@@ -1209,9 +1223,9 @@ namespace Opc.Ua.Cloud.Library
                         SharedSession previous;
                         lock (s_poolGate)
                         {
-                            previous = TakePreviousBorrow(nodesetIdentifier);
-                            _sessions[nodesetIdentifier] = shared;
-                            _borrowed[nodesetIdentifier] = shared;
+                            previous = TakePreviousBorrow(sessionKey);
+                            _sessions[sessionKey] = shared;
+                            _borrowed[sessionKey] = shared;
                         }
 
                         if (previous != null)
@@ -1219,7 +1233,7 @@ namespace Opc.Ua.Cloud.Library
                             await previous.CloseAsync().ConfigureAwait(false);
                         }
 
-                        InstallSession(shared, nodesetIdentifier);
+                        InstallSession(shared, sessionKey);
 
                         Console.WriteLine("OPC UA server started and session created for nodeset " + nodesetIdentifier);
                         return shared;
@@ -1245,14 +1259,15 @@ namespace Opc.Ua.Cloud.Library
         }
 
         /// <summary>
-        /// Copies an existing nodeset under a new title, republishing it with the current date.
+        /// Copies an existing nodeset under a new title. A user's copy is republished with the current
+        /// date; an approval keeps the original publication date and publishes the nodeset in place.
         /// </summary>
         /// <remarks>
         /// Returns an <see cref="UploadResult"/> rather than a message so the caller can tell a
         /// failure that changed nothing from one that left the copied nodeset stored. The copy may
         /// carry a DPP, so the caller is also responsible for auditing the operation.
         /// </remarks>
-        public async Task<UploadResult> CopyNodeset(string userId, string nodesetIdentifier, string name)
+        public async Task<UploadResult> CopyNodeset(string userId, string nodesetIdentifier, string name, bool asApprover = false)
         {
             try
             {
@@ -1262,7 +1277,9 @@ namespace Opc.Ua.Cloud.Library
                     return UploadResult.Failed($"Nodeset {nodesetIdentifier} was not found.");
                 }
 
-                UANameSpace metadata = await _database.RetrieveAllMetadataAsync(userId, uint.Parse(nodesetIdentifier, CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                // An approver copies a nodeset another user submitted, which is not published and so
+                // is not visible to the approver through the normal owner filter.
+                UANameSpace metadata = await _database.RetrieveAllMetadataAsync(userId, uint.Parse(nodesetIdentifier, CultureInfo.InvariantCulture), ignoreOwner: asApprover).ConfigureAwait(false);
                 if (metadata?.Nodeset == null)
                 {
                     return UploadResult.Failed($"Metadata for nodeset {nodesetIdentifier} was not found.");
@@ -1271,18 +1288,27 @@ namespace Opc.Ua.Cloud.Library
                 metadata.Title = name;
                 metadata.Nodeset.NodesetXml = file.Blob;
 
-                // update publication date in nodeset XML with current date in UTC format
-                const string key = "PublicationDate=\"";
-                int keyIndex = metadata.Nodeset.NodesetXml.IndexOf(key, StringComparison.Ordinal);
-                int start = keyIndex + key.Length;
-                string now = DateTime.UtcNow.Date.ToString("yyyy-MM-ddTHH:mm:ss'Z'", CultureInfo.InvariantCulture);
+                // An approval must keep the publication date: it identifies the released specification
+                // and must match it. The identifier is derived from the model URI and publication date,
+                // so the approved nodeset keeps the submission's identifier and replaces it in place.
+                if (!asApprover)
+                {
+                    // update publication date in nodeset XML with current date in UTC format
+                    const string key = "PublicationDate=\"";
+                    int keyIndex = metadata.Nodeset.NodesetXml.IndexOf(key, StringComparison.Ordinal);
+                    int start = keyIndex + key.Length;
+                    string now = DateTime.UtcNow.Date.ToString("yyyy-MM-ddTHH:mm:ss'Z'", CultureInfo.InvariantCulture);
 
-                var sb = new StringBuilder(metadata.Nodeset.NodesetXml);
-                sb.Remove(start, now.Length);
-                sb.Insert(start, now);
-                metadata.Nodeset.NodesetXml = sb.ToString();
+                    var sb = new StringBuilder(metadata.Nodeset.NodesetXml);
+                    sb.Remove(start, now.Length);
+                    sb.Insert(start, now);
+                    metadata.Nodeset.NodesetXml = sb.ToString();
+                }
 
-                return await _database.UploadNamespaceAndNodesetWithResultAsync(userId, metadata, file.Values, false).ConfigureAwait(false);
+                // An approval is the authorized publishing operation: the approved nodeset is public and
+                // replaces the submission it was approved from. A user's own copy is private and may not
+                // replace anything.
+                return await _database.UploadNamespaceAndNodesetWithResultAsync(userId, metadata, file.Values, overwrite: asApprover, publish: asApprover).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -1452,6 +1478,9 @@ namespace Opc.Ua.Cloud.Library
             {
                 return;
             }
+
+            // The pair is cached per user, so it is released under its own key, not the bare identifier.
+            nodesetIdentifier = pair.Key;
 
             lock (_sessionSwitchGate)
             {

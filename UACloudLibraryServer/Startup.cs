@@ -31,6 +31,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Security.Claims;
@@ -570,6 +571,10 @@ namespace Opc.Ua.Cloud.Library
                     try
                     {
                         await dbContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+
+                        // Before EnsureIsPublishedColumnAsync, which disposes the context's connection.
+                        // Needs the IsPublished column, so it is skipped until that column exists.
+                        await AssignOwnerlessNodesetsAsync(dbContext, cancellationToken).ConfigureAwait(false);
                         await EnsureIsPublishedColumnAsync(dbContext, cancellationToken).ConfigureAwait(false);
                         break;
                     }
@@ -627,6 +632,41 @@ namespace Opc.Ua.Cloud.Library
                     environment.EnvironmentName);
 
                 await Task.CompletedTask.ConfigureAwait(false);
+            }
+
+            // Every nodeset must have an owner. Rows from before user ownership have none; they were
+            // always part of the public catalogue, so the service user takes them over and they stay
+            // published. Runs on every start (it is a no-op once no ownerless rows remain) because the
+            // IsPublished script above runs only once and so cannot repair databases it already ran on.
+            private static async Task AssignOwnerlessNodesetsAsync(AppDbContext dbContext, CancellationToken cancellationToken)
+            {
+                string serviceUsername = System.Environment.GetEnvironmentVariable("ServiceUsername");
+                if (string.IsNullOrWhiteSpace(serviceUsername))
+                {
+                    serviceUsername = "admin";
+                }
+
+                // On a database the IsPublished script has not reached yet the column does not exist;
+                // that script assigns owners itself when it adds the column.
+                bool hasColumn = await dbContext.Database
+                    .SqlQueryRaw<int>("SELECT COUNT(1)::int AS \"Value\" FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'NamespaceMeta' AND column_name = 'IsPublished'")
+                    .SingleAsync(cancellationToken).ConfigureAwait(false) > 0;
+                if (!hasColumn)
+                {
+                    return;
+                }
+
+                int updated = await dbContext.NamespaceMetaDataWithUnapproved
+                    .Where(n => n.UserId == null || n.UserId == string.Empty)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(n => n.UserId, serviceUsername)
+                        .SetProperty(n => n.IsPublished, true), cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (updated > 0)
+                {
+                    Console.WriteLine($"Assigned {updated} ownerless nodeset(s) to service user '{serviceUsername}' and published them.");
+                }
             }
 
             private static async Task EnsureIsPublishedColumnAsync(AppDbContext dbContext, CancellationToken cancellationToken)

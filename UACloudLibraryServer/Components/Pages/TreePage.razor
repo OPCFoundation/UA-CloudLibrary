@@ -1962,6 +1962,11 @@
         var state = await AuthStateProvider.GetAuthenticationStateAsync().ConfigureAwait(false);
         string operatorId = state?.User?.Identity?.Name ?? "anonymous";
 
+        if (state?.User?.Identity?.IsAuthenticated != true || string.IsNullOrEmpty(state.User.Identity.Name))
+        {
+            return "Sign in to copy a nodeset.";
+        }
+
         // Write the intent first: the copy touches the blob store and the database, which share no
         // transaction, so an "Attempted" entry with no matching outcome is the signal that a copy may
         // have landed without being fully logged.
@@ -1979,7 +1984,9 @@
             return "Copy refused: the operation could not be recorded in the audit log.";
         }
 
-        UploadResult result = await _client.CopyNodeset(UserName, NodesetIdentifier, ModalValue).ConfigureAwait(false);
+        // Own the copy as the authenticated user, never the UserName query parameter: a caller could
+        // otherwise name any account, including the service account, as the copy's owner.
+        UploadResult result = await _client.CopyNodeset(operatorId, NodesetIdentifier, ModalValue).ConfigureAwait(false);
 
         try
         {

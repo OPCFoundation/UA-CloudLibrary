@@ -294,6 +294,22 @@
                                         <dt class="col-5 text-muted">Owner</dt>
                                         <dd class="col-7">@(string.IsNullOrEmpty(SelectedItem.UserId) ? "Administrator" : SelectedItem.UserId)</dd>
 
+                                        @* Everyone can see this: a user's list only ever holds published nodesets and their own. *@
+                                        @if (SelectedItem != null)
+                                        {
+                                            <dt class="col-5 text-muted">Visibility</dt>
+                                            <dd class="col-7">
+                                                @if (SelectedItem.IsPublished)
+                                                {
+                                                    <span class="badge badge-success" title="This nodeset is published: every Cloud Library user can find and browse it."><i class="fas fa-globe mr-1" aria-hidden="true"></i>Visible to everyone</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge badge-secondary" title="This nodeset is not published: only you (and administrators) can see it. Request approval to publish it."><i class="fas fa-lock mr-1" aria-hidden="true"></i>Only visible to you</span>
+                                                }
+                                            </dd>
+                                        }
+
                                         <dt class="col-5 text-muted">License</dt>
                                         <dd class="col-7">@(string.IsNullOrWhiteSpace(SelectedItem.License) ? "-" : SelectedItem.License)</dd>
 

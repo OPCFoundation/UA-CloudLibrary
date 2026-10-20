@@ -61,8 +61,16 @@ namespace Opc.Ua.Cloud.Library
             _logger = logger.CreateLogger("CloudLibDataProvider");
         }
 
-        private Expression<Func<NamespaceMetaDataModel, bool>> GetMetadataUserFilter(string userId)
+        // Administrators review, download and delete submissions, which are unpublished and owned by
+        // other users, so callers that have checked the Administrator role pass allNodesets = true.
+        // It always comes from the authenticated role, never from a user name.
+        private static Expression<Func<NamespaceMetaDataModel, bool>> GetMetadataUserFilter(string userId, bool allNodesets = false)
         {
+            if (allNodesets)
+            {
+                return nsm => true;
+            }
+
             // Anonymous fast path: only published rows. Enables index-only scans on
             // the IX_NamespaceMeta_Published_Nodeset partial index.
             if (string.IsNullOrEmpty(userId))
@@ -76,8 +84,12 @@ namespace Opc.Ua.Cloud.Library
                 string.IsNullOrEmpty(nsm.UserId);
         }
 
-        private Expression<Func<NodeSetModel, bool>> GetNodesetUserFilter(string userId)
+        private static Expression<Func<NodeSetModel, bool>> GetNodesetUserFilter(string userId, bool allNodesets = false)
         {
+            if (allNodesets)
+            {
+                return nsm => true;
+            }
             // Anonymous fast path: only nodesets whose metadata is published.
             if (string.IsNullOrEmpty(userId))
             {
@@ -95,7 +107,8 @@ namespace Opc.Ua.Cloud.Library
             string identifier = null,
             string modelUri = null,
             DateTime? publicationDate = null,
-            string[] keywords = null)
+            string[] keywords = null,
+            bool allNodesets = false)
         {
             IQueryable<NodeSetModel> nodeSets;
             if (!string.IsNullOrEmpty(identifier))
@@ -109,7 +122,7 @@ namespace Opc.Ua.Cloud.Library
                     .AsNoTracking()
                     .AsExpandable()
                     .Where(nsm => nsm.Identifier == identifier)
-                    .Where(GetNodesetUserFilter(userId));
+                    .Where(GetNodesetUserFilter(userId, allNodesets));
             }
             else if (!string.IsNullOrEmpty(modelUri) && (publicationDate == null) && (keywords == null))
             {
@@ -117,7 +130,7 @@ namespace Opc.Ua.Cloud.Library
                     .AsNoTracking()
                     .AsExpandable()
                     .Where(nsm => nsm.ModelUri == modelUri)
-                    .Where(GetNodesetUserFilter(userId));
+                    .Where(GetNodesetUserFilter(userId, allNodesets));
             }
             else if (!string.IsNullOrEmpty(modelUri) && (publicationDate != null))
             {
@@ -126,23 +139,23 @@ namespace Opc.Ua.Cloud.Library
                     .AsExpandable()
                     .Where(nsm => nsm.ModelUri == modelUri)
                     .Where(nsm => nsm.PublicationDate == publicationDate)
-                    .Where(GetNodesetUserFilter(userId));
+                    .Where(GetNodesetUserFilter(userId, allNodesets));
             }
             else if (keywords != null && keywords.Length > 0)
             {
-                nodeSets = SearchNodesets(userId, keywords);
+                nodeSets = SearchNodesets(userId, keywords, allNodesets);
             }
             else
             {
                 nodeSets = _dbContext.NodeSetsWithUnapproved
                     .AsNoTracking()
-                    .Where(GetNodesetUserFilter(userId));
+                    .Where(GetNodesetUserFilter(userId, allNodesets));
             }
 
             return nodeSets;
         }
 
-        public IQueryable<T> GetNodeModels<T>(Expression<Func<NodeSetModel, IEnumerable<T>>> selector, string userId, string modelUri = null, DateTime? publicationDate = null, string nodeId = null)
+        public IQueryable<T> GetNodeModels<T>(Expression<Func<NodeSetModel, IEnumerable<T>>> selector, string userId, string modelUri = null, DateTime? publicationDate = null, string nodeId = null, bool allNodesets = false)
             where T : NodeModel
         {
             if (nodeId != null && modelUri == null)
@@ -162,7 +175,7 @@ namespace Opc.Ua.Cloud.Library
                     .AsExpandable()
                     .Where(nsm => nsm.ModelUri == modelUri)
                     .Where(nsm => nsm.PublicationDate == publicationDate)
-                    .Where(GetNodesetUserFilter(userId));
+                    .Where(GetNodesetUserFilter(userId, allNodesets));
             }
             else if (modelUri != null)
             {
@@ -170,13 +183,13 @@ namespace Opc.Ua.Cloud.Library
                     .AsNoTracking()
                     .AsExpandable()
                     .Where(nsm => nsm.ModelUri == modelUri)
-                    .Where(GetNodesetUserFilter(userId));
+                    .Where(GetNodesetUserFilter(userId, allNodesets));
             }
             else
             {
                 nodeSets = _dbContext.NodeSetsWithUnapproved
                     .AsNoTracking()
-                    .Where(GetNodesetUserFilter(userId));
+                    .Where(GetNodesetUserFilter(userId, allNodesets));
             }
 
             IQueryable<T> nodeModels = nodeSets.SelectMany(selector);
@@ -224,7 +237,13 @@ namespace Opc.Ua.Cloud.Library
         /// that distinction: a partially-applied upload has to be recorded as such, and a later
         /// audit failure must not tell the client the request was safely retryable.
         /// </remarks>
-        public async Task<UploadResult> UploadNamespaceAndNodesetWithResultAsync(string userId, UANameSpace uaNamespace, string values, bool overwrite)
+        /// <param name="publish">
+        /// Publish the nodeset (make it visible to everyone) and allow it to replace a published
+        /// nodeset. Only the approval endpoint, which requires the Administrator role, passes true:
+        /// uploads are always private. It is never derived from the user name, which a caller can
+        /// choose.
+        /// </param>
+        public async Task<UploadResult> UploadNamespaceAndNodesetWithResultAsync(string userId, UANameSpace uaNamespace, string values, bool overwrite, bool publish = false)
         {
             UANodeSet nodeSet = null;
 
@@ -294,7 +313,7 @@ namespace Opc.Ua.Cloud.Library
                         if (existingLegacyNamespaces != null)
                         {
                             // we treat no user in the database like an admin user
-                            if (string.IsNullOrEmpty(existingLegacyNamespaces.UserId) || existingLegacyNamespaces.IsPublished)
+                            if ((string.IsNullOrEmpty(existingLegacyNamespaces.UserId) || existingLegacyNamespaces.IsPublished) && !publish)
                             {
                                 return UploadResult.Failed($"Nodeset already exists for admin user. Cannot overwrite with user {userId}");
                             }
@@ -328,8 +347,9 @@ namespace Opc.Ua.Cloud.Library
 
             if (existingNamespaces != null)
             {
-                // we treat no user in the database like an admin user
-                if (string.IsNullOrEmpty(existingNamespaces.UserId) || existingNamespaces.IsPublished)
+                // we treat no user in the database like an admin user. Published and unowned nodesets
+                // may only be replaced by an authorized publishing operation.
+                if ((string.IsNullOrEmpty(existingNamespaces.UserId) || existingNamespaces.IsPublished) && !publish)
                 {
                     return UploadResult.Failed($"Nodeset already exists for admin user. Cannot overwrite with user {userId}");
                 }
@@ -387,7 +407,7 @@ namespace Opc.Ua.Cloud.Library
             // changed, so it must be reported as partially applied rather than as a clean failure -
             // otherwise the audit trail records the upload as never having happened, and the client
             // is told the request is safe to repeat.
-            string dbMessage = await AddMetaDataAsync(userId, uaNamespace, nodeSet, legacyNodesetHashCode).ConfigureAwait(false);
+            string dbMessage = await AddMetaDataAsync(userId, uaNamespace, nodeSet, legacyNodesetHashCode, publish).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(dbMessage))
             {
                 _logger.LogError(dbMessage);
@@ -508,7 +528,7 @@ namespace Opc.Ua.Cloud.Library
             return (uint)hashCode;
         }
 
-        public async Task<string> AddMetaDataAsync(string userId, UANameSpace uaNamespace, UANodeSet nodeSet, uint legacyNodesetHashCode)
+        public async Task<string> AddMetaDataAsync(string userId, UANameSpace uaNamespace, UANodeSet nodeSet, uint legacyNodesetHashCode, bool publish = false)
         {
             string message = "Internal error: transaction not executed";
             try
@@ -535,7 +555,7 @@ namespace Opc.Ua.Cloud.Library
                         return;
                     }
 
-                    NamespaceMetaDataModel nameSpaceModel = MapRESTNamespaceToNamespaceMetaDataModel(userId, uaNamespace);
+                    NamespaceMetaDataModel nameSpaceModel = MapRESTNamespaceToNamespaceMetaDataModel(userId, uaNamespace, publish);
 
 
                     await _dbContext.AddAsync(nameSpaceModel).ConfigureAwait(false);
@@ -644,14 +664,24 @@ namespace Opc.Ua.Cloud.Library
             return true;
         }
 
-        public async Task<UANameSpace> RetrieveAllMetadataAsync(string userId, uint nodesetId)
+        /// <param name="ignoreOwner">
+        /// Read the metadata whoever owns it. Only for administrative paths such as approval, which
+        /// must read a nodeset another user submitted and has not published.
+        /// </param>
+        public async Task<UANameSpace> RetrieveAllMetadataAsync(string userId, uint nodesetId, bool ignoreOwner = false)
         {
             try
             {
-                NamespaceMetaDataModel namespaceModel = await _dbContext.NamespaceMetaDataWithUnapproved
+                IQueryable<NamespaceMetaDataModel> query = _dbContext.NamespaceMetaDataWithUnapproved
                     .AsExpandable()
-                    .Where(md => md.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture))
-                    .Where(GetMetadataUserFilter(userId))
+                    .Where(md => md.NodesetId == nodesetId.ToString(CultureInfo.InvariantCulture));
+
+                if (!ignoreOwner)
+                {
+                    query = query.Where(GetMetadataUserFilter(userId));
+                }
+
+                NamespaceMetaDataModel namespaceModel = await query
                     .Include(md => md.NodeSet)
                     .FirstOrDefaultAsync().ConfigureAwait(false);
 
@@ -669,11 +699,11 @@ namespace Opc.Ua.Cloud.Library
             }
         }
 
-        internal IQueryable<NodeSetModel> SearchNodesets(string userId, string[] keywords)
+        internal IQueryable<NodeSetModel> SearchNodesets(string userId, string[] keywords, bool allNodesets = false)
         {
             IQueryable<NodeSetModel> query = _dbContext.NodeSetsWithUnapproved
                 .AsExpandable()
-                .Where(GetNodesetUserFilter(userId));
+                .Where(GetNodesetUserFilter(userId, allNodesets));
 
             if ((keywords != null) && (keywords.Length != 0) && (keywords[0] != "*") && (keywords[0] != ""))
             {
@@ -843,9 +873,9 @@ namespace Opc.Ua.Cloud.Library
             return null;
         }
 
-        public UANameSpace[] FindNodesets(string userId, string[] keywords, string namespaceUri, int? offset, int? limit)
+        public UANameSpace[] FindNodesets(string userId, string[] keywords, string namespaceUri, int? offset, int? limit, bool allNodesets = false)
         {
-            List<NamespaceMetaDataModel> uaNamespaceModels = SearchNodesets(userId, keywords)
+            List<NamespaceMetaDataModel> uaNamespaceModels = SearchNodesets(userId, keywords, allNodesets)
                 .OrderBy(n => n.ModelUri)
                 .Skip(offset ?? 0)
                 .Take(limit ?? 100)
@@ -853,7 +883,7 @@ namespace Opc.Ua.Cloud.Library
                     .AsExpandable()
                     .Where(nmd => (namespaceUri == null) || (nmd.NodeSet.ModelUri == namespaceUri))
                     .Where(nmd => nmd.NodesetId == n.Identifier)
-                    .Where(GetMetadataUserFilter(userId))
+                    .Where(GetMetadataUserFilter(userId, allNodesets))
                 .Include(nmd => nmd.NodeSet).FirstOrDefault())
                 .Where(n => n != null)
                 .ToList();
@@ -861,12 +891,21 @@ namespace Opc.Ua.Cloud.Library
             return uaNamespaceModels.Select(MapNamespaceMetaDataModelToRESTNamespace).ToArray();
         }
 
-        public Task<string[]> GetAllNamespacesAndNodesets(string userId)
+        /// <param name="includeAll">
+        /// List every nodeset regardless of owner or publication. Only for administrators, who need
+        /// the identifiers of submitted, unpublished nodesets to approve them.
+        /// </param>
+        public Task<string[]> GetAllNamespacesAndNodesets(string userId, bool includeAll = false)
         {
             try
             {
-                string[] namesAndIds = _dbContext.NodeSetsWithUnapproved
-                    .Where(GetNodesetUserFilter(userId))
+                IQueryable<NodeSetModel> query = _dbContext.NodeSetsWithUnapproved;
+                if (!includeAll)
+                {
+                    query = query.Where(GetNodesetUserFilter(userId));
+                }
+
+                string[] namesAndIds = query
                     .Select(nsm => new { nsm.ModelUri, nsm.Identifier, nsm.Version, nsm.PublicationDate })
                     .Select(n => $"{n.ModelUri},{n.Identifier},{n.Version},{n.PublicationDate}")
                     .ToArray();
@@ -881,12 +920,18 @@ namespace Opc.Ua.Cloud.Library
             return Task.FromResult(Array.Empty<string>());
         }
 
-        public Task<string[]> GetAllNamesAndNodesets(string userId)
+        /// <param name="includeAll">See <see cref="GetAllNamespacesAndNodesets"/>.</param>
+        public Task<string[]> GetAllNamesAndNodesets(string userId, bool includeAll = false)
         {
             try
             {
-                var categoryAndNodesetIds = _dbContext.NamespaceMetaDataWithUnapproved
-                    .Where(GetMetadataUserFilter(userId))
+                IQueryable<NamespaceMetaDataModel> query = _dbContext.NamespaceMetaDataWithUnapproved;
+                if (!includeAll)
+                {
+                    query = query.Where(GetMetadataUserFilter(userId));
+                }
+
+                var categoryAndNodesetIds = query
                     .Select(md => new { md.Title, md.NodesetId })
                     .ToList();
 
@@ -904,7 +949,7 @@ namespace Opc.Ua.Cloud.Library
             return Task.FromResult(Array.Empty<string>());
         }
 
-        private NamespaceMetaDataModel MapRESTNamespaceToNamespaceMetaDataModel(string userId, UANameSpace uaNamespace)
+        private static NamespaceMetaDataModel MapRESTNamespaceToNamespaceMetaDataModel(string userId, UANameSpace uaNamespace, bool publish)
         {
             // fix up license expression
             string licenseExpression = uaNamespace.License switch {
@@ -931,7 +976,8 @@ namespace Opc.Ua.Cloud.Library
                 NumberOfDownloads = uaNamespace.NumberOfDownloads,
                 ApprovalStatus = ApprovalStatus.Approved,
                 CreationTime = uaNamespace.CreationTime != null ? uaNamespace.CreationTime.GetNormalizedDate() : DateTime.UtcNow,
-                UserId = userId
+                UserId = userId,
+                IsPublished = publish
             };
 
             return metadataModel;
@@ -1015,17 +1061,17 @@ namespace Opc.Ua.Cloud.Library
             };
         }
 
-        public async Task<string[]> GetAllTypes(string userId, string nodeSetID)
+        public async Task<string[]> GetAllTypes(string userId, string nodeSetID, bool allNodesets = false)
         {
-            NodeSetModel nodeSetMeta = await GetNodeSets(userId, nodeSetID).FirstOrDefaultAsync().ConfigureAwait(false);
+            NodeSetModel nodeSetMeta = await GetNodeSets(userId, nodeSetID, allNodesets: allNodesets).FirstOrDefaultAsync().ConfigureAwait(false);
             if (nodeSetMeta != null)
             {
                 List<NodeModel> types =
                 [
-                    .. GetNodeModels(nsm => nsm.ObjectTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
-                    .. GetNodeModels(nsm => nsm.VariableTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
-                    .. GetNodeModels(nsm => nsm.DataTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
-                    .. GetNodeModels(nsm => nsm.ReferenceTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
+                    .. GetNodeModels(nsm => nsm.ObjectTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate, allNodesets: allNodesets),
+                    .. GetNodeModels(nsm => nsm.VariableTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate, allNodesets: allNodesets),
+                    .. GetNodeModels(nsm => nsm.DataTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate, allNodesets: allNodesets),
+                    .. GetNodeModels(nsm => nsm.ReferenceTypes, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate, allNodesets: allNodesets),
                 ];
 
                 List<string> typeList = new();
@@ -1101,16 +1147,16 @@ namespace Opc.Ua.Cloud.Library
                     && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp));
         }
 
-        public async Task<string[]> GetAllInstances(string userId, string nodeSetID)
+        public async Task<string[]> GetAllInstances(string userId, string nodeSetID, bool allNodesets = false)
         {
-            NodeSetModel nodeSetMeta = await GetNodeSets(userId, nodeSetID).FirstOrDefaultAsync().ConfigureAwait(false);
+            NodeSetModel nodeSetMeta = await GetNodeSets(userId, nodeSetID, allNodesets: allNodesets).FirstOrDefaultAsync().ConfigureAwait(false);
             if (nodeSetMeta != null)
             {
                 List<NodeModel> instances =
                 [
-                    .. GetNodeModels(nsm => nsm.Objects, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
-                    .. GetNodeModels(nsm => nsm.Properties, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
-                    .. GetNodeModels(nsm => nsm.DataVariables, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate),
+                    .. GetNodeModels(nsm => nsm.Objects, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate, allNodesets: allNodesets),
+                    .. GetNodeModels(nsm => nsm.Properties, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate, allNodesets: allNodesets),
+                    .. GetNodeModels(nsm => nsm.DataVariables, userId, nodeSetMeta.ModelUri, nodeSetMeta.PublicationDate, allNodesets: allNodesets),
                 ];
 
                 List<string> instanceList = new();
