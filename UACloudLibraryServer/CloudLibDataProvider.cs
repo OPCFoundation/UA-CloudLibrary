@@ -59,6 +59,9 @@ namespace Opc.Ua.Cloud.Library
         // way or they stay invisible to everyone else.
         private readonly string _serviceUsername;
 
+        private bool IsServiceUser(string userId) =>
+            !string.IsNullOrEmpty(_serviceUsername) && string.Equals(userId, _serviceUsername, StringComparison.Ordinal);
+
         public CloudLibDataProvider(AppDbContext context, ILoggerFactory logger, DbFileStorage storage, IConfiguration configuration)
         {
             _dbContext = context;
@@ -304,7 +307,7 @@ namespace Opc.Ua.Cloud.Library
                         if (existingLegacyNamespaces != null)
                         {
                             // we treat no user in the database like an admin user
-                            if (string.IsNullOrEmpty(existingLegacyNamespaces.UserId) || existingLegacyNamespaces.IsPublished)
+                            if ((string.IsNullOrEmpty(existingLegacyNamespaces.UserId) || existingLegacyNamespaces.IsPublished) && !IsServiceUser(userId))
                             {
                                 return UploadResult.Failed($"Nodeset already exists for admin user. Cannot overwrite with user {userId}");
                             }
@@ -338,8 +341,9 @@ namespace Opc.Ua.Cloud.Library
 
             if (existingNamespaces != null)
             {
-                // we treat no user in the database like an admin user
-                if (string.IsNullOrEmpty(existingNamespaces.UserId) || existingNamespaces.IsPublished)
+                // we treat no user in the database like an admin user. Published and unowned nodesets
+                // belong to the service user, who may still overwrite them; nobody else may.
+                if ((string.IsNullOrEmpty(existingNamespaces.UserId) || existingNamespaces.IsPublished) && !IsServiceUser(userId))
                 {
                     return UploadResult.Failed($"Nodeset already exists for admin user. Cannot overwrite with user {userId}");
                 }
