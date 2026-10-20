@@ -128,12 +128,26 @@ namespace Opc.Ua.Cloud.Library
                     Server.NodeManager.GetManagerHandle(ObjectIds.ObjectsFolder, out INodeManager objectsFolderNodeManager);
                     string namespaceUri = nodeSet.NamespaceUris[0];
 
+                    // A reference type may be written as an alias ("Organizes", or any name the file
+                    // defines in <Aliases>) or as the numeric NodeId ("i=35"); accept all of them.
+                    HashSet<string> organizesNames = new(StringComparer.Ordinal) { "Organizes", ReferenceTypeIds.Organizes.ToString() };
+                    if (nodeSet.Aliases != null)
+                    {
+                        foreach (NodeIdAlias alias in nodeSet.Aliases)
+                        {
+                            if (alias.Value == ReferenceTypeIds.Organizes.ToString())
+                            {
+                                organizesNames.Add(alias.Alias);
+                            }
+                        }
+                    }
+
                     foreach (UANode node in nodeSet.Items)
                     {
                         if (node is UAObject uAObject)
                         {
                             if ((uAObject.ParentNodeId == ObjectIds.ObjectsFolder)
-                             || (uAObject.References.Where(r => (r.ReferenceType == "Organizes") && (r.Value == ObjectIds.ObjectsFolder)).ToList().Count > 0))
+                             || (uAObject.References?.Any(r => organizesNames.Contains(r.ReferenceType) && (r.Value == ObjectIds.ObjectsFolder)) == true))
                             {
                                 if ((node.DisplayName != null) && (node.DisplayName.Length > 0))
                                 {
