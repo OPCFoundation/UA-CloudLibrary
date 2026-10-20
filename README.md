@@ -17,6 +17,7 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
   - [Authentication Options](#authentication-options)
 - [Development Setup](#development-setup)
 - [Authentication and Authorization](#authentication-and-authorization)
+- [Nodeset Visibility and the Approval Workflow](#nodeset-visibility-and-the-approval-workflow)
 - [Digital Product Passport (DPP)](#digital-product-passport-dpp)
 - [Database Configuration](#database-configuration)
 - [Cloud Hosting Setup](#cloud-hosting-setup)
@@ -127,7 +128,52 @@ There are only two types of user authorization policies supported by the UA Clou
 
 **Note: Custom roles can be added to users by the Admin user, if required by a calling service.**
 
-Approval of freshly uploaded OPC UA Information Models for download by everyone can be completed via the REST API.
+Approval of freshly uploaded OPC UA Information Models for download by everyone can be completed via the REST API, as described in the next section.
+
+## Nodeset Visibility and the Approval Workflow
+
+Every nodeset has an owner (the user name of the account that uploaded it) and is either **unpublished** or **published**. This determines who can find, browse and download it.
+
+### Who sees which nodesets
+
+| Caller | Sees |
+|---|---|
+| Anonymous (public DPP read endpoints) | Published nodesets only |
+| Signed-in user | Published nodesets, plus their own unpublished uploads |
+| Administrator (REST API) | All nodesets, including other users' unpublished uploads |
+
+The same rules apply to search, the namespace and name lists, type and instance queries, and downloads. In the UI, the Explorer details pane shows each nodeset as either **Visible to everyone** (published) or **Only visible to you** (unpublished and owned by you).
+
+The administrator view applies to the REST API (`/infomodel/find`, `/infomodel/find2`, `/infomodel/namespaces`, `/infomodel/names`, `/infomodel/types/{identifier}`, `/infomodel/instances/{identifier}`, `/infomodel/download/{identifier}` and `/infomodel/delete/{identifier}`) for callers in the `Administrator` role. The Explorer and nodeset browser UI apply the normal signed-in user rules to administrators too.
+
+Ownership is matched by user name. An account with the same user name as the uploading account (for example a UI account registered with the same name as the credentials a service uses to upload) therefore owns, and sees, the same unpublished nodesets.
+
+### Uploading
+
+Uploads (`PUT /infomodel/upload` or the UI) are always stored **unpublished** and owned by the uploading user, whoever that is, including administrators and the service account. An upload cannot publish a nodeset, and cannot replace a published nodeset.
+
+### Approving (publishing)
+
+Approval is the only way to publish a nodeset. It is performed by an administrator via:
+
+```
+PUT /approval/{identifier}?name={title}
+```
+
+What approval does:
+
+* The submitted nodeset is published under the given title, owned by the approving administrator, and becomes visible to everyone, including anonymous DPP readers.
+* The **publication date in the nodeset is kept unchanged**, because it must match the released specification. The nodeset identifier is derived from the model URI and the publication date, so the approved nodeset keeps the submission's identifier and **replaces the submission in place**. Approval does not create a second copy.
+* Re-approving the same nodeset (for example to change its title) replaces the published entry again.
+* Each approval is recorded in the DPP audit log as a create operation, with the approving administrator as the operator.
+
+Approval cannot be undone through the API. To withdraw a published nodeset, an administrator deletes it with `DELETE /infomodel/delete/{identifier}`.
+
+Copying a nodeset in the nodeset browser is different from approval: the copy gets the current date as its publication date (and therefore a new identifier), stays **unpublished**, and is owned by the user who made it.
+
+### Nodesets from before ownership was introduced
+
+Nodesets uploaded before ownership was tracked have no owner. On every start, the server assigns any such nodesets to the service user (`ServiceUsername`, default `admin`) and publishes them, so they stay in the public catalogue.
 
 ## Digital Product Passport (DPP)
 
