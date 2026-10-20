@@ -67,7 +67,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [FromQuery][SwaggerParameter("Pagination limit")] int? limit
         )
         {
-            UANameSpace[] results = _database.FindNodesets(User.Identity.Name, keywords, null, offset, limit);
+            UANameSpace[] results = _database.FindNodesets(User.Identity.Name, keywords, null, offset, limit, User.IsInRole(Roles.Administrator));
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -81,7 +81,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             [FromQuery][SwaggerParameter("Pagination limit")] int? limit
             )
         {
-            UANameSpace[] results = _database.FindNodesets(User.Identity.Name, keywords, namespaceUri, offset, limit);
+            UANameSpace[] results = _database.FindNodesets(User.Identity.Name, keywords, namespaceUri, offset, limit, User.IsInRole(Roles.Administrator));
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -90,7 +90,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 200, type: typeof(string[]), description: "All OPC UA Information Model namespace URIs and associated identifiers of the models found in the UA Cloud Library.")]
         public async Task<IActionResult> GetAllNamespacesandIdentifiersAsync()
         {
-            string[] results = await _database.GetAllNamespacesAndNodesets(User.Identity.Name).ConfigureAwait(false);
+            // Administrators see unpublished submissions too: they need those identifiers to approve them.
+            string[] results = await _database.GetAllNamespacesAndNodesets(User.Identity.Name, User.IsInRole(Roles.Administrator)).ConfigureAwait(false);
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -99,7 +100,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 200, type: typeof(string[]), description: "All OPC UA Information Model names and associated identifiers of the models found in the UA Cloud Library.")]
         public async Task<IActionResult> GetAllNamesandIdentifiersAsync()
         {
-            string[] results = await _database.GetAllNamesAndNodesets(User.Identity.Name).ConfigureAwait(false);
+            string[] results = await _database.GetAllNamesAndNodesets(User.Identity.Name, User.IsInRole(Roles.Administrator)).ConfigureAwait(false);
             return new ObjectResult(results) { StatusCode = (int)HttpStatusCode.OK };
         }
 
@@ -117,7 +118,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            string[] types = await _database.GetAllTypes(User.Identity.Name, identifier).ConfigureAwait(false);
+            string[] types = await _database.GetAllTypes(User.Identity.Name, identifier, User.IsInRole(Roles.Administrator)).ConfigureAwait(false);
             if ((types == null) || (types.Length == 0))
             {
                 return new ObjectResult("No types defined in nodeset.") { StatusCode = (int)HttpStatusCode.NotFound };
@@ -127,7 +128,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             foreach (var type in types)
             {
                 string[] parts = type.Split(',');
-                object definition = await _client.GetTypeDefinition(User.Identity.Name, identifier, parts[0]).ConfigureAwait(false);
+                object definition = await _client.GetTypeDefinition(User.Identity.Name, identifier, parts[0], User.IsInRole(Roles.Administrator)).ConfigureAwait(false);
                 results.Add(new UATypeDefinitionResult { Type = type, Definition = definition });
             }
 
@@ -148,7 +149,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            string[] instances = await _database.GetAllInstances(User.Identity.Name, identifier).ConfigureAwait(false);
+            string[] instances = await _database.GetAllInstances(User.Identity.Name, identifier, User.IsInRole(Roles.Administrator)).ConfigureAwait(false);
             if ((instances == null) || (instances.Length == 0))
             {
                 return new ObjectResult("No instances defined in nodeset.") { StatusCode = (int)HttpStatusCode.NotFound };
@@ -185,7 +186,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("Could not parse identifier") { StatusCode = (int)HttpStatusCode.BadRequest };
             }
 
-            UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(User.Identity.Name, nodeSetID).ConfigureAwait(false);
+            UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(User.Identity.Name, nodeSetID, ignoreOwner: User.IsInRole(Roles.Administrator)).ConfigureAwait(false);
             if (uaNamespace == null)
             {
                 return new ObjectResult("Failed to find nodeset metadata") { StatusCode = (int)HttpStatusCode.NotFound };
@@ -233,7 +234,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return new ObjectResult("Failed to find nodeset") { StatusCode = (int)HttpStatusCode.NotFound };
             }
 
-            UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(User.Identity.Name, nodeSetID).ConfigureAwait(false);
+            UANameSpace uaNamespace = await _database.RetrieveAllMetadataAsync(User.Identity.Name, nodeSetID, ignoreOwner: User.IsInRole(Roles.Administrator)).ConfigureAwait(false);
             if (uaNamespace == null)
             {
                 return new ObjectResult("Failed to find nodeset metadata") { StatusCode = (int)HttpStatusCode.NotFound };
@@ -288,6 +289,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             await _auditLog.RecordAsync(OperatorId, operation, auditTarget, null, "Attempted", operationId).ConfigureAwait(false);
 
+            // Uploads are always private; a nodeset is published only by an approval.
             UploadResult uploadResult = await _database.UploadNamespaceAndNodesetWithResultAsync(User.Identity.Name, uaNamespace, values, overwrite).ConfigureAwait(false);
             if (!uploadResult.Succeeded)
             {

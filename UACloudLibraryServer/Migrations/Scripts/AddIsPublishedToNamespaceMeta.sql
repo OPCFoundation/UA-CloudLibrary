@@ -7,6 +7,12 @@
 ALTER TABLE "NamespaceMeta"
     ADD COLUMN IF NOT EXISTS "IsPublished" boolean NOT NULL DEFAULT false;
 
+-- Rows from before user ownership have no owner. Every nodeset must have one, and these were
+-- always part of the public catalogue, so the service user takes them over.
+UPDATE "NamespaceMeta"
+   SET "UserId" = '{{ServiceUsername}}'
+ WHERE "UserId" IS NULL OR "UserId" = '';
+
 UPDATE "NamespaceMeta"
    SET "IsPublished" = true
  WHERE "UserId" = '{{ServiceUsername}}';
