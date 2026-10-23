@@ -64,10 +64,19 @@ namespace CloudLibClient.Tests
                 string key = line.Substring(0, separator).Trim();
                 string value = line.Substring(separator + 1).Trim();
 
-                if (value.Length >= 2 &&
-                    ((value[0] == '"' && value[^1] == '"') || (value[0] == '\'' && value[^1] == '\'')))
+                if (value.Length >= 2 && (value[0] == '"' || value[0] == '\''))
                 {
-                    value = value.Substring(1, value.Length - 2);
+                    bool escaped = false;
+                    for (int i = 1; i < value.Length; i++)
+                    {
+                        if (!escaped && value[i] == value[0])
+                        {
+                            value = value.Substring(1, i - 1);
+                            break;
+                        }
+
+                        escaped = !escaped && value[i] == '\\';
+                    }
                 }
                 else
                 {
