@@ -147,7 +147,7 @@ namespace Opc.Ua.Cloud.Library
                         if (node is UAObject uAObject)
                         {
                             if ((uAObject.ParentNodeId == ObjectIds.ObjectsFolder.ToString())
-                             || (uAObject.References.Where(r => (r.ReferenceType == "Organizes") && (r.Value == ObjectIds.ObjectsFolder.ToString())).ToList().Count > 0))
+                             || (uAObject.References?.Any(r => organizesNames.Contains(r.ReferenceType) && (r.Value == ObjectIds.ObjectsFolder.ToString())) == true))
                             {
                                 if ((node.DisplayName != null) && (node.DisplayName.Length > 0))
                                 {
