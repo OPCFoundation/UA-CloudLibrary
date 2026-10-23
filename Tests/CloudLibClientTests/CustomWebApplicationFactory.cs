@@ -53,7 +53,15 @@ namespace CloudLibClient.Tests
             if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password) && !string.IsNullOrWhiteSpace(database))
             {
                 string port = DotEnvFile.Get(TestDbPortVariable) ?? "5433";
-                return $"Server=localhost;Port={port};Username={username};Password={password};Database={database};SSLMode=Prefer;Include Error Detail=true";
+                return new Npgsql.NpgsqlConnectionStringBuilder {
+                    Host = "localhost",
+                    Port = int.Parse(port, System.Globalization.CultureInfo.InvariantCulture),
+                    Username = username,
+                    Password = password,
+                    Database = database,
+                    SslMode = Npgsql.SslMode.Prefer,
+                    IncludeErrorDetail = true
+                }.ConnectionString;
             }
 
             return DefaultTestConnectionString;
