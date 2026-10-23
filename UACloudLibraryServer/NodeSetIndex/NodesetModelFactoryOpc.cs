@@ -187,7 +187,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
         {
             ObjectTypeModel objectTypeModel = InitializeNodeModel(new ObjectTypeModel(), baseType) as ObjectTypeModel;
 
-            objectTypeModel.SuperType = baseType.SuperTypeId?.ToString();
+            objectTypeModel.SuperType = baseType.SuperTypeId.IsNull ? null : baseType.SuperTypeId.ToString();
             objectTypeModel.IsAbstract = baseType.IsAbstract;
 
             return objectTypeModel;
@@ -197,12 +197,12 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
         {
             PropertyModel propertyModel = InitializeNodeModel(new PropertyModel(), property) as PropertyModel;
 
-            if (property.Value != null)
+            if (!property.WrappedValue.IsNull)
             {
-                propertyModel.Value = property.Value.ToString();
+                propertyModel.Value = property.WrappedValue.ToString();
             }
 
-            if (property.DataType != null)
+            if (!property.DataType.IsNull)
             {
                 AddDataTypeInfo(propertyModel, property);
             }
@@ -214,12 +214,12 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
         {
             DataVariableModel variableModel = InitializeNodeModel(new DataVariableModel(), baseVariable) as DataVariableModel;
 
-            if (baseVariable.Value != null)
+            if (!baseVariable.WrappedValue.IsNull)
             {
-                variableModel.Value = baseVariable.Value.ToString();
+                variableModel.Value = baseVariable.WrappedValue.ToString();
             }
 
-            if (baseVariable.DataType != null)
+            if (!baseVariable.DataType.IsNull)
             {
                 AddDataTypeInfo(variableModel, baseVariable);
             }
@@ -250,9 +250,9 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             }
 
             var invalidBrowseNameOnTypeInformation = variableModel.Properties.Where(p =>
-                p.BrowseName.EndsWith(BrowseNames.EnumValues, false, CultureInfo.InvariantCulture) && p.BrowseName != _opcContext.GetModelBrowseName(BrowseNames.EnumValues)
-             || p.BrowseName.EndsWith(BrowseNames.EnumStrings, false, CultureInfo.InvariantCulture) && p.BrowseName != _opcContext.GetModelBrowseName(BrowseNames.EnumStrings)
-             || p.BrowseName.EndsWith(BrowseNames.OptionSetValues, false, CultureInfo.InvariantCulture) && p.BrowseName != _opcContext.GetModelBrowseName(BrowseNames.OptionSetValues)
+                p.BrowseName.EndsWith(BrowseNames.EnumValues, false, CultureInfo.InvariantCulture) && p.BrowseName != _opcContext.GetModelBrowseName(new QualifiedName(BrowseNames.EnumValues))
+             || p.BrowseName.EndsWith(BrowseNames.EnumStrings, false, CultureInfo.InvariantCulture) && p.BrowseName != _opcContext.GetModelBrowseName(new QualifiedName(BrowseNames.EnumStrings))
+             || p.BrowseName.EndsWith(BrowseNames.OptionSetValues, false, CultureInfo.InvariantCulture) && p.BrowseName != _opcContext.GetModelBrowseName(new QualifiedName(BrowseNames.OptionSetValues))
             );
 
             if (invalidBrowseNameOnTypeInformation.Any())
@@ -262,7 +262,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
 
             if (string.IsNullOrEmpty(variableModel.NodeSet.XmlSchemaUri) && baseVariable.TypeDefinitionId == VariableTypeIds.DataTypeDictionaryType)
             {
-                var namespaceUriModelBrowseName = _opcContext.GetModelBrowseName(BrowseNames.NamespaceUri);
+                var namespaceUriModelBrowseName = _opcContext.GetModelBrowseName(new QualifiedName(BrowseNames.NamespaceUri));
                 var xmlNamespaceVariable = variableModel.Properties.FirstOrDefault(dv => dv.BrowseName == namespaceUriModelBrowseName);
                 if (variableModel.Parent?.NodeId == _opcContext.GetExpandedNodeId(ObjectIds.XmlSchema_TypeSystem))
                 {
@@ -286,16 +286,16 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             AddDataTypeInfo(variableModel, $"{variableNode.GetType()} {variableNode}", variableNode.DataType, variableNode.ValueRank, variableNode.ArrayDimensions);
         }
 
-        private void AddDataTypeInfo(VariableModel variableModel, string variableNodeDiagInfo, NodeId dataTypeNodeId, int valueRank, ReadOnlyList<uint> arrayDimensions)
+        private void AddDataTypeInfo(VariableModel variableModel, string variableNodeDiagInfo, NodeId dataTypeNodeId, int valueRank, ArrayOf<uint> arrayDimensions)
         {
             variableModel.DataType = dataTypeNodeId.ToString();
 
             if (valueRank != -1)
             {
                 variableModel.ValueRank = valueRank;
-                if ((arrayDimensions != null) && (arrayDimensions.Count > 0))
+                if (!arrayDimensions.IsNull && (arrayDimensions.Count > 0))
                 {
-                    variableModel.ArrayDimensions = string.Join(",", arrayDimensions);
+                    variableModel.ArrayDimensions = string.Join(",", arrayDimensions.ToArray());
                 }
             }
         }
@@ -307,28 +307,28 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             if (variableTypeNode.ValueRank != -1)
             {
                 variableTypeModel.ValueRank = variableTypeNode.ValueRank;
-                if ((variableTypeNode.ArrayDimensions != null) && (variableTypeNode.ArrayDimensions.Count > 0))
+                if (!variableTypeNode.ArrayDimensions.IsNull && (variableTypeNode.ArrayDimensions.Count > 0))
                 {
-                    variableTypeModel.ArrayDimensions = string.Join(",", variableTypeNode.ArrayDimensions);
+                    variableTypeModel.ArrayDimensions = string.Join(",", variableTypeNode.ArrayDimensions.ToArray());
                 }
             }
 
-            if (variableTypeNode.WrappedValue.Value != null)
+            if (!variableTypeNode.WrappedValue.IsNull)
             {
-                if (variableTypeNode.WrappedValue.Value is ExtensionObject extensionObject)
+                if (variableTypeNode.WrappedValue.TryGetValue(out ExtensionObject extensionObject))
                 {
-                    if (extensionObject.Body is System.Xml.XmlNode xmlNode)
+                    if (extensionObject.TryGetAsXml(out XmlElement xmlElement, null))
                     {
-                        variableTypeModel.Value = xmlNode.OuterXml;
+                        variableTypeModel.Value = xmlElement.OuterXml;
                     }
                     else
                     {
-                        variableTypeModel.Value = extensionObject.Body.ToString();
+                        variableTypeModel.Value = extensionObject.ToString();
                     }
                 }
                 else
                 {
-                    variableTypeModel.Value = variableTypeNode.WrappedValue.Value.ToString();
+                    variableTypeModel.Value = variableTypeNode.WrappedValue.ToString();
                 }
             }
         }
@@ -347,10 +347,9 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             DataTypeModel dataTypeModel = InitializeNodeModel(new DataTypeModel(), dataType) as DataTypeModel;
 
             // check for complex type (structure or enum)
-            if (dataType.DataTypeDefinition?.Body != null)
+            if (!dataType.DataTypeDefinition.IsNull)
             {
-                StructureDefinition sd = dataType.DataTypeDefinition.Body as StructureDefinition;
-                if (sd != null)
+                if (dataType.DataTypeDefinition.TryGetValue(out StructureDefinition sd, null))
                 {
                     dataTypeModel.StructureFields = new List<DataTypeModel.StructureField>();
                     int order = 0;
@@ -369,7 +368,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                             SymbolicName = symbolicName,
                             DataType = field.DataType.ToString(),
                             ValueRank = field.ValueRank != -1 ? field.ValueRank : null,
-                            ArrayDimensions = field.ArrayDimensions != null && field.ArrayDimensions.Any() ? string.Join(",", field.ArrayDimensions) : null,
+                            ArrayDimensions = !field.ArrayDimensions.IsNull && field.ArrayDimensions.Count > 0 ? string.Join(",", field.ArrayDimensions.ToArray()) : null,
                             MaxStringLength = field.MaxStringLength != 0 ? field.MaxStringLength : null,
                             Description = field.Description.ToModel(),
                             IsOptional = field.IsOptional && sd.StructureType == StructureType.StructureWithOptionalFields,
@@ -382,13 +381,12 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
                 }
                 else
                 {
-                    var enumFields = dataType.DataTypeDefinition.Body as EnumDefinition;
-                    if (enumFields != null)
+                    if (dataType.DataTypeDefinition.TryGetValue(out EnumDefinition enumFields, null))
                     {
                         dataTypeModel.IsOptionSet = enumFields.IsOptionSet;
                         dataTypeModel.EnumFields = new List<DataTypeModel.UaEnumField>();
 
-                        UADataType uaEnum = _nodeset.Items.FirstOrDefault(n => n.NodeId == dataType.NodeId) as UADataType;
+                        UADataType uaEnum = _nodeset.Items.FirstOrDefault(n => n.NodeId == dataType.NodeId.ToString()) as UADataType;
                         foreach (var field in enumFields.Fields)
                         {
                             string symbolicName = null;
@@ -422,7 +420,7 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
         {
             ReferenceTypeModel referenceTypeModel = InitializeNodeModel(new ReferenceTypeModel(), referenceType) as ReferenceTypeModel;
 
-            referenceTypeModel.InverseName = referenceType.InverseName?.ToModel();
+            referenceTypeModel.InverseName = referenceType.InverseName.IsNull ? null : referenceType.InverseName.ToModel();
             referenceTypeModel.Symmetric = referenceType.Symmetric;
 
             return referenceTypeModel;

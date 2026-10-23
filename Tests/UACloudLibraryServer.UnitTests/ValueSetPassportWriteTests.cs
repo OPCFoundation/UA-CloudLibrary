@@ -44,7 +44,7 @@ namespace UACloudLibraryServer.UnitTests
         {
             var store = new RecordingStore(readable: null) { ApplyResult = null };
 
-            long? applied = await store.ApplyChangesAsync(s_setId, "alice", expectedRevision: 3, s_oneWrite, Array.Empty<string>());
+            long? applied = await store.ApplyChangesAsync(s_setId, "alice", expectedRevision: 3, s_oneWrite, Array.Empty<string>(), TestContext.Current.CancellationToken);
 
             Assert.Null(applied);
         }
@@ -54,7 +54,7 @@ namespace UACloudLibraryServer.UnitTests
         {
             var store = new RecordingStore(readable: null) { ApplyResult = null };
 
-            bool restored = await store.RestoreValuesAsync(s_setId, "alice", expectedRevision: 5, s_oneWrite, Array.Empty<string>());
+            bool restored = await store.RestoreValuesAsync(s_setId, "alice", expectedRevision: 5, s_oneWrite, Array.Empty<string>(), TestContext.Current.CancellationToken);
 
             Assert.False(restored);
         }

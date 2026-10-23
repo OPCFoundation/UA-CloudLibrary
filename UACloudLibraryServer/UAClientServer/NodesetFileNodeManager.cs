@@ -146,8 +146,8 @@ namespace Opc.Ua.Cloud.Library
                     {
                         if (node is UAObject uAObject)
                         {
-                            if ((uAObject.ParentNodeId == ObjectIds.ObjectsFolder)
-                             || (uAObject.References?.Any(r => organizesNames.Contains(r.ReferenceType) && (r.Value == ObjectIds.ObjectsFolder)) == true))
+                            if ((uAObject.ParentNodeId == ObjectIds.ObjectsFolder.ToString())
+                             || (uAObject.References?.Any(r => organizesNames.Contains(r.ReferenceType) && (r.Value == ObjectIds.ObjectsFolder.ToString())) == true))
                             {
                                 if ((node.DisplayName != null) && (node.DisplayName.Length > 0))
                                 {
@@ -155,7 +155,7 @@ namespace Opc.Ua.Cloud.Library
                                         new NodeStateReference(
                                             ReferenceTypeIds.Organizes,
                                             false,
-                                            new NodeId(NodeId.Parse(uAObject.NodeId).Identifier,
+                                            NodeId.Parse(uAObject.NodeId).WithNamespaceIndex(
                                             (ushort)Server.NamespaceUris.GetIndex(namespaceUri))
                                         )
                                     };
@@ -203,11 +203,11 @@ namespace Opc.Ua.Cloud.Library
                                     NodeId nodeId;
                                     if (pair.Name.StartsWith("nsu=", StringComparison.Ordinal))
                                     {
-                                        nodeId = ExpandedNodeId.ToNodeId(new ExpandedNodeId(pair.Name), Server.NamespaceUris);
+                                        nodeId = ExpandedNodeId.ToNodeId(ExpandedNodeId.Parse(pair.Name), Server.NamespaceUris);
                                     }
                                     else
                                     {
-                                        nodeId = new NodeId(NodeId.Parse(pair.Name).Identifier, (ushort)Server.NamespaceUris.GetIndex(namespaceUri));
+                                        nodeId = NodeId.Parse(pair.Name).WithNamespaceIndex((ushort)Server.NamespaceUris.GetIndex(namespaceUri));
                                     }
 
                                     if (Find(nodeId) is BaseVariableState variable)

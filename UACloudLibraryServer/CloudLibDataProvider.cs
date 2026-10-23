@@ -161,7 +161,7 @@ namespace Opc.Ua.Cloud.Library
             if (nodeId != null && modelUri == null)
             {
                 var expandedNodeId = ExpandedNodeId.Parse(nodeId);
-                if (expandedNodeId?.NamespaceUri != null)
+                if (expandedNodeId.NamespaceUri != null)
                 {
                     modelUri = expandedNodeId.NamespaceUri;
                 }
@@ -443,10 +443,43 @@ namespace Opc.Ua.Cloud.Library
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to index nodeset {Identifier} after it was stored.", uaNamespace?.Nodeset?.Identifier);
-                return UploadResult.FailedAfterStorageWrite($"Nodeset was stored but could not be indexed: {ex.Message}");
+
+                // Without a NodeSetModel the nodeset is invisible to every query, yet its blob and
+                // metadata would make any retry fail with "Nodeset already exists". Remove both so
+                // the library does not keep a half-ingested nodeset and the upload can be retried.
+                bool rolledBack = await RollbackStoredNodesetAsync(uaNamespace.Nodeset.Identifier).ConfigureAwait(false);
+                string message = $"Nodeset could not be indexed: {ex.Message}";
+
+                // With overwrite the previous entry was already replaced, so storage changed even
+                // when the rollback succeeded.
+                if (rolledBack && !overwrite)
+                {
+                    return UploadResult.Failed(message);
+                }
+
+                return UploadResult.FailedAfterStorageWrite(message);
             }
 
             return UploadResult.Success();
+        }
+
+        private async Task<bool> RollbackStoredNodesetAsync(uint nodesetId)
+        {
+            try
+            {
+                // Indexing may have left the failed NodeSetModel tracked; drop it so the rollback
+                // does not try to save it again.
+                _dbContext.ChangeTracker.Clear();
+
+                await DeleteAllRecordsForNodesetAsync(nodesetId).ConfigureAwait(false);
+                await _storage.DeleteFileAsync(nodesetId.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to roll back stored nodeset {Identifier} after indexing failed.", nodesetId);
+                return false;
+            }
         }
 
         public static UANodeSet ReadUANodeSet(string nodeSetXml)

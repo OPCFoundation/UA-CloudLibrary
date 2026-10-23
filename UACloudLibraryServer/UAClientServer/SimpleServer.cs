@@ -27,6 +27,7 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System;
 using System.Collections.Generic;
 using Opc.Ua.Configuration;
 using Opc.Ua.Server;
@@ -37,11 +38,19 @@ namespace Opc.Ua.Cloud.Library
     {
         private readonly ApplicationInstance _app;
 
-        public SimpleServer(ApplicationInstance app, uint port)
+        public SimpleServer(ApplicationInstance app, uint port, ITelemetryContext telemetry)
+            : base(telemetry)
         {
-            _app = app;
+            _app = app ?? throw new ArgumentNullException(nameof(app));
 
-            _app.ApplicationConfiguration.ServerConfiguration.BaseAddresses[0] = "opc.tcp://localhost:" + port;
+            if (_app.ApplicationConfiguration?.ServerConfiguration == null)
+            {
+                throw new InvalidOperationException("The OPC UA application configuration has not been loaded; LoadApplicationConfigurationAsync must succeed before the embedded server can be started.");
+            }
+
+            string[] baseAddresses = _app.ApplicationConfiguration.ServerConfiguration.BaseAddresses.ToArray();
+            baseAddresses[0] = "opc.tcp://localhost:" + port;
+            _app.ApplicationConfiguration.ServerConfiguration.BaseAddresses = baseAddresses;
         }
 
         protected override MasterNodeManager CreateMasterNodeManager(IServerInternal server, ApplicationConfiguration configuration)

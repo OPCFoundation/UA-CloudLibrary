@@ -55,7 +55,7 @@ namespace UACloudLibraryServer.UnitTests
                 [EsdcSigningKeyProvider.PrivateKeyConfigurationPath] = pem
             });
 
-            Assert.Equal(pem, await provider.GetOrCreatePrivateKeyPemAsync().ConfigureAwait(true));
+            Assert.Equal(pem, await provider.GetOrCreatePrivateKeyPemAsync(TestContext.Current.CancellationToken).ConfigureAwait(true));
         }
 
         [Theory]
@@ -66,7 +66,7 @@ namespace UACloudLibraryServer.UnitTests
             EsdcSigningKeyProvider provider = CreateProvider(environmentName, new Dictionary<string, string>());
 
             InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
-                () => provider.GetOrCreatePrivateKeyPemAsync()).ConfigureAwait(true);
+                () => provider.GetOrCreatePrivateKeyPemAsync(TestContext.Current.CancellationToken)).ConfigureAwait(true);
 
             // The message has to tell an operator how to resolve it, both properly and as an override.
             Assert.Contains(EsdcSigningKeyProvider.PrivateKeyConfigurationPath, ex.Message, StringComparison.Ordinal);
@@ -84,7 +84,7 @@ namespace UACloudLibraryServer.UnitTests
             // Asserting on the message distinguishes "went to the database" from "was refused", which a
             // bare exception-type assertion could not.
             Exception ex = await Record.ExceptionAsync(
-                () => provider.GetOrCreatePrivateKeyPemAsync()).ConfigureAwait(true);
+                () => provider.GetOrCreatePrivateKeyPemAsync(TestContext.Current.CancellationToken)).ConfigureAwait(true);
 
             Assert.NotNull(ex);
             Assert.DoesNotContain(
@@ -100,7 +100,7 @@ namespace UACloudLibraryServer.UnitTests
 
             // Development keeps working with no configuration at all, so the guard must not fire.
             Exception ex = await Record.ExceptionAsync(
-                () => provider.GetOrCreatePrivateKeyPemAsync()).ConfigureAwait(true);
+                () => provider.GetOrCreatePrivateKeyPemAsync(TestContext.Current.CancellationToken)).ConfigureAwait(true);
 
             Assert.NotNull(ex);
             Assert.DoesNotContain(

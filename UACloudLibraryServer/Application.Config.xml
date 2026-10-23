@@ -24,7 +24,7 @@
     <ApplicationCertificate>
       <StoreType>Directory</StoreType>
       <StorePath>./pki/own</StorePath>
-      <SubjectName>AAS-Repository</SubjectName>
+      <SubjectName>CN=UACloudLibrary</SubjectName>
     </ApplicationCertificate>
 
     <TrustedIssuerCertificates>
@@ -120,6 +120,7 @@
 
     <DiagnosticsEnabled>true</DiagnosticsEnabled>
     <MaxSessionCount>1000</MaxSessionCount>
+    <MaxChannelCount>1100</MaxChannelCount>
     <MinSessionTimeout>10000</MinSessionTimeout>
     <MaxSessionTimeout>3600000</MaxSessionTimeout>
     <MaxBrowseContinuationPoints>10</MaxBrowseContinuationPoints>

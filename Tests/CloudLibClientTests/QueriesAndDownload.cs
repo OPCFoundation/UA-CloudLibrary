@@ -11,7 +11,6 @@ using Opc.Ua.Cloud.Client;
 using Opc.Ua.Cloud.Client.Models;
 using Opc.Ua.Export;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace CloudLibClient.Tests
 {
