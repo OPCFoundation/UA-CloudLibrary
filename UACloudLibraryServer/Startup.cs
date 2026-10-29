@@ -150,7 +150,10 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddTransient<UAClient>();
 
-            services.AddSingleton<ApplicationInstance>();
+            // The OPC UA 2.0 stack requires a telemetry context; ApplicationInstance (and everything created
+            // from it) fails with a null telemetry argument if it is constructed without one.
+            services.AddSingleton<ITelemetryContext>(_ => DefaultTelemetry.Create(builder => builder.AddConsole()));
+            services.AddSingleton(sp => new ApplicationInstance(sp.GetRequiredService<ITelemetryContext>()));
 
             services.AddScoped<DPPService>();
             services.AddSingleton<IDppAccessPolicy, DppAccessPolicy>();
@@ -734,10 +737,8 @@ namespace Opc.Ua.Cloud.Library
                     // check the application certificate
                     await uaApp.CheckApplicationInstanceCertificatesAsync(false, 0).ConfigureAwait(false);
 
-                    // create cert validator
-                    config.CertificateValidator = new CertificateValidator(DefaultTelemetry.Create(builder => builder.AddConsole()));
-                    config.CertificateValidator.CertificateValidation += new CertificateValidationEventHandler(CertificateValidator_CertificateValidation);
-                    await config.CertificateValidator.UpdateAsync(config).ConfigureAwait(false);
+                    // accept all OPC UA client certificates
+                    config.SecurityConfiguration.AutoAcceptUntrustedCertificates = true;
 
                     Console.WriteLine("OPC UA client/server app started.");
                 }
@@ -745,15 +746,6 @@ namespace Opc.Ua.Cloud.Library
                 {
                     Console.WriteLine("InitOPCUAClientServerAsync: " + ex.Message);
                     return;
-                }
-            }
-
-            private static void CertificateValidator_CertificateValidation(CertificateValidator validator, CertificateValidationEventArgs e)
-            {
-                if (e.Error.StatusCode == StatusCodes.BadCertificateUntrusted)
-                {
-                    // accept all OPC UA client certificates
-                    e.Accept = true;
                 }
             }
 

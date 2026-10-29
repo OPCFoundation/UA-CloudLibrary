@@ -126,7 +126,7 @@ namespace Opc.Ua.Cloud.Library
 
         private static async Task<bool> IsTypeOfAsync(ExpandedNodeId typeDefinition, NodeId superType, ISession session)
         {
-            if (NodeId.IsNull(typeDefinition))
+            if (typeDefinition.IsNull)
             {
                 return false;
             }

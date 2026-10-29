@@ -92,7 +92,7 @@ namespace Opc.Ua.Cloud.Library.Areas.Identity.Pages.Account.Manage
             public string NewEmail { get; set; }
 
             [Required]
-            [DataType(DataType.Password)]
+            [System.ComponentModel.DataAnnotations.DataType(DataType.Password)]
             [Display(Name = "Current password")]
             public string Password { get; set; }
         }

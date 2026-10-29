@@ -6,11 +6,12 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
-using Xunit.Abstractions;
+using Xunit.Sdk;
+using Xunit.v3;
 
 // Need to turn off test parallelization so we can validate the run order
-[assembly: CollectionBehavior(DisableTestParallelization = true)]
-[assembly: TestCollectionOrderer("CloudLibClient.Tests.DisplayNameOrderer", "CloudLibClient.Tests")]
+[assembly: Parallelization(Mode = ParallelMode.None)]
+[assembly: TestCollectionOrderer(typeof(CloudLibClient.Tests.DisplayNameOrderer))]
 
 namespace CloudLibClient.Tests
 {
@@ -79,9 +80,9 @@ namespace CloudLibClient.Tests
 
     public class DisplayNameOrderer : ITestCollectionOrderer
     {
-        public DisplayNameOrderer(IMessageSink _) { }
-        public IEnumerable<ITestCollection> OrderTestCollections(
-            IEnumerable<ITestCollection> testCollections) =>
-            testCollections.OrderBy(collection => collection.DisplayName);
+        public IReadOnlyCollection<TTestCollection> OrderTestCollections<TTestCollection>(
+            IReadOnlyCollection<TTestCollection> testCollections)
+            where TTestCollection : ITestCollection =>
+            testCollections.OrderBy(collection => collection.TestCollectionDisplayName).ToArray();
     }
 }

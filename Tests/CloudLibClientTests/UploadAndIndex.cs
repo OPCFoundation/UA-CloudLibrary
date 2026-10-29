@@ -9,7 +9,6 @@ using Newtonsoft.Json.Linq;
 using Opc.Ua.Cloud.Client;
 using Opc.Ua.Cloud.Client.Models;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace CloudLibClient.Tests
 {

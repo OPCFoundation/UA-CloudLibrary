@@ -319,7 +319,7 @@ namespace Opc.Ua.CloudLib.Sync
                 using (var ms = new MemoryStream(Encoding.UTF8.GetBytes(nodeset.NodesetXml)))
                 {
                     var nodeSet = UANodeSet.Read(ms);
-                    ModelTableEntry? firstModel = nodeSet.Models?.FirstOrDefault();
+                    ModelTableEntry? firstModel = nodeSet?.Models?.FirstOrDefault();
                     if (firstModel != null)
                     {
                         if (firstModel.PublicationDateSpecified && firstModel.PublicationDate != DateTime.MinValue && firstModel.PublicationDate != nodeset.PublicationDate)
@@ -337,7 +337,7 @@ namespace Opc.Ua.CloudLib.Sync
                             changed = true;
                         }
 
-                        if (nodeSet.LastModifiedSpecified && nodeSet.LastModified != nodeset.LastModifiedDate)
+                        if (nodeSet?.LastModifiedSpecified==true && nodeSet.LastModified != nodeset.LastModifiedDate)
                         {
                             _logger.LogWarning($"Last modified date {nodeset.LastModifiedDate} in meta data does not match nodeset {nodeSet.LastModified}. Fixed up.");
                             nodeset.LastModifiedDate = nodeSet.LastModified;
@@ -346,7 +346,7 @@ namespace Opc.Ua.CloudLib.Sync
 
                         if (namespaceUri == null)
                         {
-                            namespaceUri = nodeSet.Models?.FirstOrDefault()?.ModelUri;
+                            namespaceUri = nodeSet?.Models?.FirstOrDefault()?.ModelUri;
                             changed = true;
                         }
                     }
@@ -408,8 +408,8 @@ namespace Opc.Ua.CloudLib.Sync
             {
                 var ms = new MemoryStream(Encoding.UTF8.GetBytes(nameSpace.Nodeset.NodesetXml));
                 var model = UANodeSet.Read(ms);
-                modelUri = model.Models?.FirstOrDefault()?.ModelUri;
-                publicationDate = model.Models?.FirstOrDefault()?.PublicationDate;
+                modelUri = model?.Models?.FirstOrDefault()?.ModelUri;
+                publicationDate = model?.Models?.FirstOrDefault()?.PublicationDate;
             }
 
             string tFile = GetFileNameForNamespaceUri(modelUri, publicationDate);

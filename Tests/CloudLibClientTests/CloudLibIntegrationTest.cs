@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using Opc.Ua.Cloud.Client;
 using Opc.Ua.Cloud.Client.Models;
 using Xunit;
-using Xunit.Abstractions;
 
 [assembly: CLSCompliant(false)]
 namespace CloudLibClient.Tests
@@ -40,15 +39,15 @@ namespace CloudLibClient.Tests
         {
             return new List<object[]>
             {
-                new object[ ]{ null, 64 },
+                new object[ ]{ null, 62 },
                 new object[] { item, 1 },
                 new object[] { itemArray,  0 },
-                new object[] { itemArray0, 42 },
+                new object[] { itemArray0, 40 },
                 new object[] { itemArray1, 1 },
                 new object[] { itemArray2, 15 },
                 new object[] { itemArray3, 2},
-                new object[] { itemArray4, 42 },
-                new object[] { itemArray5, 43 },
+                new object[] { itemArray4, 40 },
+                new object[] { itemArray5, 41 },
                 new object[] { itemArray6, 3 },
                 new object[] { itemArray7, 16 },
                 new object[] { itemArray8, 17 },
