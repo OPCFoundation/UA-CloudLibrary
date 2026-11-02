@@ -319,3 +319,139 @@ deliberate trade-offs to fit the existing Cloud Library data model and deploymen
 11. **Schemas, `shortself`, `capabilities` writes.**
     `schemas` is empty (no schema validation of documents), `shortself` is `false`, and the
     capabilities and model are read-only (`PUT /capabilities`, `PUT /model` are not offered).
+
+---
+
+## 8. Road map to full xRegistry compliance
+
+This chapter lists what would have to change in the Cloud Library to remove the deviations of §7
+and pass the xRegistry core conformance tests. Items are grouped by the layer they affect; the
+numbers in brackets refer to the deviation they resolve. Items marked *(breaking)* change the
+visible behaviour of the Cloud Library beyond the xRegistry API.
+
+### 8.1 Hosting and entry point
+
+* **Serve the registry at the server root** [1]. Either host the xRegistry API on its own
+  hostname/port (e.g. `xregistry.uacloudlibrary.opcfoundation.org`, a second Kestrel endpoint or a
+  reverse-proxy path rewrite that strips `/xregistry`), or let `GET /` content-negotiate: return the
+  registry entity for `Accept: application/json` and the Blazor UI otherwise. The simplest
+  non-breaking option is a dedicated hostname mapped to the `/xregistry` prefix by the proxy; the
+  `XRegistryEntityBuilder` base URL then has to be configurable (`XRegistry:BaseUrl`) instead of
+  derived from the request. Also add `/model`, `/capabilities`, `/export` and `/nodesetgroups` at the
+  root for that host.
+* **Add `OPTIONS` / CORS support** so browser-based xRegistry tools can call the API, and expose
+  `Access-Control-Expose-Headers` for the `xRegistry-*` headers.
+
+### 8.2 Data model and database
+
+* **Persist xRegistry entity state** [5, 6]. Add tables (or columns on `NamespaceMetaData`) for:
+  * per-entity `epoch` counters for registry, group, resource, meta and version;
+  * `createdat` / `modifiedat` per entity, updated on every write;
+  * group-level `name`, `description`, `documentation`, `labels` (today taken from the default
+    version);
+  * resource `meta`: `defaultversionid`, `defaultversionsticky`, `readonly`, `compatibility`,
+    `compatibilityauthority`, `deprecated`;
+  * explicit `ancestor` per version, so the chain survives re-uploads and manual default changes.
+  This is an EF Core migration plus a one-off back-fill from the derived values in §1.2.
+* **Store arbitrary extension attributes** [6]. xRegistry permits client-defined extension
+  attributes on every entity (`"*": { "type": "any" }`). Add a JSONB column per entity to hold
+  attributes that are not mapped to a dedicated column, and declare the extension policy in the
+  model.
+* **Make the version id independent of the content hash** [3]. The Cloud Library identifier is a
+  hash of `ModelUri` + `PublicationDate`; xRegistry expects client-chosen or server-generated ids
+  that are stable even when the content changes. Keep the hash as an internal key (or as the
+  `nodesetidentifier` extension attribute), add a separate `versionid` column, and allow
+  `PUT …/versions/{vid}` with a client-chosen id (`setversionid: true`). *(breaking for clients
+  that equate version id with `/infomodel` identifier.)*
+* **Allow several resources per group** [2]. If the OPC Foundation wants to publish other artefacts
+  per namespace (documentation PDFs, JSON schemas, companion-spec test files, OPC UA FX descriptors),
+  the fixed `nodeset` resource id has to become a real `nodesets` collection keyed by a resource id,
+  with `NodeSetModel` linked to a resource row rather than directly to the group.
+
+### 8.3 API surface
+
+* **Entity writes** [4, 6]:
+  * `PATCH` on registry, group, resource, meta and version with JSON merge semantics;
+  * `PUT`/`PATCH …/meta` to change `defaultversionid`, `defaultversionsticky`, `readonly`,
+    `compatibility`, `deprecated`;
+  * `?setdefaultversionid=<vid>` on version `PUT`/`POST`;
+  * `PUT`/`POST` on `/nodesetgroups` and `/nodesetgroups/{gid}` to create or update groups
+    (metadata-only, before the first nodeset exists) and `PATCH` of group attributes;
+  * bulk `POST /nodesetgroups` and `POST …/nodesets` with a map of entities, and `POST /` to import a
+    whole registry tree (the counterpart of `GET /export`);
+  * the `?nested` flag to accept inlined collections in a write body.
+* **Optimistic concurrency** [5]: honour `?epoch=` (and `?noepoch`) on every write and return
+  `412 mismatched_epoch` when it differs; include `epoch` in all write responses.
+* **Query flags** [7]:
+  * `?filter=<path>=<value>` with the spec's `=`, `!=`, `<>`, `<`, `<=`, `>`, `>=`, wildcard and
+    multi-filter (AND/OR) semantics on any attribute, including nested paths such as
+    `nodesets.versions.publicationdate`;
+  * `?sort=<attribute>[=asc|desc]`;
+  * `?doc` (document view: relative URLs and `$details` suffixes stripped);
+  * `?collections` (return only the collection URLs/counts) and `?binary` (base-64 document inlining);
+  * `?specversion=<v>` negotiation with `400 unsupported_specversion` for unknown versions.
+* **Pagination** [7]: `Link: <…>; rel="next"` headers on `/nodesetgroups`, `…/nodesets` and
+  `…/versions`, driven by a server-chosen page size, plus `Link: rel="first"/"prev"/"last"` and the
+  total count. Advertise `pagination: true`.
+* **Full `inline` semantics** [8]: `inline` / `inline=*` must include documents, `model` and
+  `capabilities` as the spec requires. Either implement it exactly and rely on pagination to bound
+  responses, or keep the current behaviour and advertise it as a documented
+  `inline` limitation in the capabilities (`"flags": [...]` with a custom
+  `inlinelimit` extension); only the former is fully compliant.
+* **Version `GET`s without side effects** [9]: stop counting downloads on xRegistry document
+  reads, or count them only when `?xregistry_count=true` (a Cloud Library extension) is passed.
+* **Remove the `overwrite` extension** [9]: with persisted epochs and client-chosen version ids,
+  `PUT …/versions/{vid}` + `?epoch=` replaces it. Keep `xRegistry-overwrite` for one deprecation
+  cycle.
+* **Capabilities and model management** [11]: `PUT /capabilities` (at least to toggle
+  `pagination`, `shortself` and the `apis`/`flags` lists within what the server supports) and
+  `PUT /model` to register additional groups/resources and extension attributes, both admin-only.
+  Serve `/model` with `$schema`, `labels`, `attributes` for the registry itself, and emit
+  `modelsource` as uploaded.
+* **`shortself`** [11]: optional, but if advertised, implement a stable short-URL table
+  (`/s/<id>`) and return the short URLs in `self` when `shortself: true`.
+* **Schemas** [11]: declare the NodeSet2 XSD under `schemas`
+  (`"xsd/http://opcfoundation.org/UA/2011/03/UANodeSet.xsd"`), validate uploaded documents against
+  it and return `400 invalid_data` on failure.
+* **Error catalogue**: return every applicable spec error id (`mismatched_epoch`,
+  `unsupported_specversion`, `data_retrieval_error`, `header_decoding_error`, `missing_versions`,
+  `multiple_roots`, `readonly`, `too_many_versions`, `unknown_attribute`, `unknown_id`, …) and the
+  spec's `title` wording, instead of the current subset.
+
+### 8.4 Authorization and workflow
+
+* **Model the approval workflow in xRegistry terms** [6, 10]. The private-until-approved state has
+  no spec equivalent. Options: expose unpublished versions only to their owner **and** mark them
+  with a `published: false` extension attribute (current behaviour, documented); or make approval
+  a `PATCH …/meta` of a `published` meta attribute by an administrator so the whole lifecycle is
+  reachable through the API; or keep unpublished nodesets out of the registry entirely and leave
+  submission to `/infomodel/upload`. The second option is the one that keeps the API self-contained.
+* **Uniform access rules**: let owners delete a group/resource when they own every version, and
+  return `403 forbidden` consistently (the spec reserves `401`/`403` semantics to the deployment,
+  but conformance tests expect them to be uniform across entity levels).
+* **Anonymous reads** [4]: the spec expects unauthenticated `GET`s of public data to work. The
+  `ApiPolicy` currently requires an authenticated identity; add an `AllowAnonymous` read path (as the
+  DPP public read endpoints already do) that is restricted to published nodesets.
+
+### 8.5 Verification
+
+* Run the official conformance test suite (the `xreg` / `xrserver` test harness from
+  `github.com/xregistry/server`) against a Cloud Library instance in CI, alongside the existing
+  `CloudLibClientTests`.
+* Add integration tests in `Tests/CloudLibClientTests` for the end-to-end upload → approval →
+  default version → delete flow once the write surface above exists; the current unit tests cover
+  routing and entity shape only.
+* Publish the registry's `GET /model` as part of the release so downstream xRegistry clients can
+  code-generate against it, and add the xRegistry routes to the Swagger document group
+  (`SwaggerDoc("xregistry", …)`) so the OpenAPI description matches the spec's resource naming.
+
+### 8.6 Suggested order
+
+1. Persist epochs/timestamps/meta (8.2) and enforce `?epoch` (8.3) – this unblocks every write
+   feature and is invisible to current clients.
+2. `PATCH`/`meta` writes and `setdefaultversionid`.
+3. `filter`, `sort`, pagination and full `inline`.
+4. Client-chosen version ids and multiple resources per group *(breaking; align with a major
+   release)*.
+5. Root-level hosting and anonymous reads.
+6. Conformance suite in CI.
