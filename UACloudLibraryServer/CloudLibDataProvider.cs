@@ -924,6 +924,28 @@ namespace Opc.Ua.Cloud.Library
             return uaNamespaceModels.Select(MapNamespaceMetaDataModelToRESTNamespace).ToArray();
         }
 
+        /// <summary>
+        /// Returns the metadata (without nodeset XML) of every nodeset visible to the user.
+        /// Used by the xRegistry API, which derives its groups and versions from the complete list.
+        /// </summary>
+        /// <param name="allNodesets">See <see cref="FindNodesets"/>: administrators see unpublished submissions.</param>
+        public async Task<UANameSpace[]> GetAllNodesetMetadataAsync(string userId, bool allNodesets = false)
+        {
+            List<NamespaceMetaDataModel> models = await _dbContext.NamespaceMetaDataWithUnapproved
+                .AsNoTracking()
+                .AsExpandable()
+                .Where(GetMetadataUserFilter(userId, allNodesets))
+                .Include(nmd => nmd.NodeSet)
+                .OrderBy(nmd => nmd.NodeSet.ModelUri)
+                .ThenBy(nmd => nmd.NodeSet.PublicationDate)
+                .ToListAsync().ConfigureAwait(false);
+
+            return models
+                .Where(m => m.NodeSet != null)
+                .Select(MapNamespaceMetaDataModelToRESTNamespace)
+                .ToArray();
+        }
+
         /// <param name="includeAll">
         /// List every nodeset regardless of owner or publication. Only for administrators, who need
         /// the identifiers of submitted, unpublished nodesets to approve them.

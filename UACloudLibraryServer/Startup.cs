@@ -148,6 +148,8 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddTransient<DbFileStorage>();
 
+            services.AddTransient<XRegistry.IXRegistryNodesetStore, XRegistry.XRegistryNodesetStore>();
+
             services.AddTransient<UAClient>();
 
             // The OPC UA 2.0 stack requires a telemetry context; ApplicationInstance (and everything created
