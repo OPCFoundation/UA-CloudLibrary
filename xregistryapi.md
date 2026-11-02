@@ -455,3 +455,50 @@ visible behaviour of the Cloud Library beyond the xRegistry API.
    release)*.
 5. Root-level hosting and anonymous reads.
 6. Conformance suite in CI.
+
+### 8.7 Impact on existing APIs and functionality
+
+The table classifies every item above by its effect on what exists today: the `/infomodel` REST
+API, the GraphQL API, the DPP endpoints, the Blazor UI, the database schema, and clients of the
+current `/xregistry` API.
+
+| Change | Breaks `/infomodel`, GraphQL, DPP or UI? | Breaks current `/xregistry` clients? | Notes |
+|---|---|---|---|
+| Registry on a **dedicated hostname** (proxy rewrite) | No | No | Keep `/xregistry` on the main host as an alias; purely additive. |
+| Registry on **`GET /` of the main host** via content negotiation | **Yes** – `GET /` with `Accept: application/json` (health probes, scripts, the Blazor `_framework` boot can send `*/*` but some tooling sends JSON) no longer returns HTML; `/model`, `/capabilities`, `/export`, `/nodesetgroups` become reserved top-level routes and would shadow any future UI pages with those names. | No | Prefer the dedicated-hostname option. |
+| `OPTIONS` / CORS | No | No | Additive middleware. Verify the existing CORS policy is not widened for `/infomodel`. |
+| Persist **epochs / timestamps / meta** columns | No | No | EF Core migration with back-fill; `createdat`/`modifiedat` keep the same values until the first write. Existing clients ignore the new columns. |
+| Group-level `name` / `description` / `labels` stored separately | No | **Minor** – once editable, group attributes may no longer equal the default version's. | Today's clients that read them from the group should read the version instead. |
+| JSONB **extension attributes** | No | No | Additive. |
+| **Version id ≠ content hash** | **Yes** – the identifier returned by `/infomodel/upload` and used by `/infomodel/download/{id}` would differ from `versionid`; the UI, `UACloudLibClientLibrary` and the `nodesetidentifier` lookup in the `requiredmodels.availableversionid` chain all assume they are the same number. | **Yes** – every `…/versions/{vid}` URL changes; `xid`/`self` are not stable across the migration. | Mitigation: keep the hash as the *default* server-generated `versionid`, only allow a different id when the client sets one (`setversionid`), and keep the hash as `nodesetidentifier`. That makes the change additive for the overwhelming majority of nodesets. |
+| **Multiple resources per group** | No for `/infomodel`/GraphQL (they are unaware of resources). **Yes** for the DB: `NodeSetModel` gets a new FK to a resource row. | **Yes** – the fixed `…/nodesets/nodeset` path becomes `…/nodesets/{rid}`; `model` and all `self`/`xid` URLs change. | Mitigation: name the first resource `nodeset` so existing URLs keep resolving. |
+| `PATCH` on entities, `PUT`/`PATCH …/meta`, `setdefaultversionid` | **Yes (semantic)** – `/infomodel` and GraphQL consumers assume the *latest publication date* is the current model; a sticky default version (`defaultversionsticky`) breaks that assumption, and `Nodeset.Title`/`Description` edited through xRegistry become visible in `/infomodel` and the UI. | No | Decide whether `defaultversionsticky` is honoured by `/infomodel`/GraphQL ("latest") or only by xRegistry; document it. Editable `description`/`labels` also bypass the approval workflow unless gated. |
+| Group `PUT`/`POST` before the first nodeset, bulk `POST`, `POST /` import | **Yes (data)** – empty groups (namespace rows without a `NodeSetModel`) appear in GraphQL `namespaces` and the UI browse page, which assume every namespace has a nodeset. | No | Either hide empty groups from legacy APIs or make those APIs null-safe. |
+| `?epoch` / `412 mismatched_epoch` | No | **Yes** – a `PUT` that omits `?epoch` is still accepted by the spec, so unchanged clients keep working; only clients that send a *stale* epoch see new `412`s. | Low risk. |
+| `?filter`, `?sort`, `?doc`, `?collections`, `?binary`, `?specversion` | No | No | Additive query flags; unknown flags are ignored today. |
+| **Pagination** | No | **Yes** – a client that reads `/nodesetgroups` as one map now gets a page and must follow `Link: rel="next"`. | Advertise `pagination: true` only after a deprecation notice, or keep the default page size ≥ the total nodeset count for a release. |
+| Full `inline` / `inline=*` semantics | No | **Yes (performance)** – `inline=*` and `/export` now embed every NodeSet2 XML (hundreds of MB). | Must land together with pagination. |
+| Stop **counting downloads** on xRegistry document reads | **Yes (functional)** – `numberofdownloads` shown in the UI, GraphQL and `/infomodel` no longer reflects xRegistry downloads. | No | Keep counting behind `?xregistry_count=true` or count `…/versions/{vid}` document reads only; decide with the Foundation. |
+| Remove the `xRegistry-overwrite` extension | No | **Yes** – after the deprecation cycle, overwriting requires `PUT …/versions/{vid}?epoch=`. | Also affects `/infomodel/upload?overwrite=true`? No – that endpoint is untouched. |
+| `PUT /capabilities`, `PUT /model` | No | No | Admin-only; changing the model at runtime could remove attributes that clients rely on, so restrict to additive edits. |
+| `shortself` | No | No | Optional; additive URL table. |
+| **XSD validation** of uploads | **Yes (functional)** if applied to `/infomodel/upload` too – nodesets that today upload fine (minor XSD violations are common in the ecosystem) would be rejected. | **Yes** for the same nodesets through `PUT …/versions`. | Start with xRegistry-only validation and a `400 invalid_data` *warning* mode; make `/infomodel` validation opt-in. |
+| Complete **error catalogue** | No | **Minor** – `type`/`title` strings change for some errors (e.g. `bad_request` → `unknown_attribute`). Status codes stay the same. | |
+| Approval via `PATCH …/meta` (`published`) | **Yes (workflow)** – the approval state moves from `NamespaceMetaData.ApprovalStatus` + admin UI to a meta attribute; both paths must stay in sync or the admin UI is replaced. | No | Alternatively keep `ApprovalStatus` authoritative and expose `published` read-only. |
+| Uniform access rules (owner may delete group/resource) | No | No | Loosens, never tightens, current rules. |
+| **Anonymous reads** | **Yes (security posture)** – unauthenticated access to published nodesets through `/xregistry`, while `/infomodel` still requires an API key; the download counter and DPP audit log then record anonymous callers. | No | Scope the anonymous path to published nodesets only; the DPP public read endpoints already set this precedent. |
+| Conformance suite / integration tests / Swagger group | No | No | CI and docs only. |
+
+Summary – the changes that *definitely* break existing Cloud Library behaviour and should be tied
+to a major release are:
+
+1. version ids that differ from the `/infomodel` identifier (unless the hash stays the default id);
+2. multiple resources per group (database FK change, URL change);
+3. a sticky default version that diverges from "latest publication date";
+4. `GET /` content negotiation on the main host;
+5. XSD validation if it is also applied to `/infomodel/upload`;
+6. moving the approval state into xRegistry `meta`.
+
+Everything else is additive for the legacy APIs; pagination, full `inline`, removal of
+`xRegistry-overwrite` and the error-catalogue rename only affect clients of the current
+`/xregistry` API and can be handled with the usual deprecation notice.
