@@ -81,7 +81,6 @@ namespace Opc.Ua.Cloud.Library.Controllers
         // ------------------------------------------------------------------ registry root / model / capabilities
 
         [HttpGet("")]
-        [HttpGet("/xregistry/")]
         [SwaggerOperation(Summary = "xRegistry: registry root entity.")]
         [SwaggerResponse(200, type: typeof(JsonObject))]
         public async Task<IActionResult> GetRootAsync()
