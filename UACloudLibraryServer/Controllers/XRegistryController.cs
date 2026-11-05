@@ -61,12 +61,12 @@ namespace Opc.Ua.Cloud.Library.Controllers
         private const string DetailsSuffix = "$details";
         private const string HeaderPrefix = "xRegistry-";
 
-        private readonly IXRegistryNodesetStore _store;
+        private readonly IXRegistryNodesetStore _nodesetStore;
         private readonly IDppAuditLog _auditLog;
 
         public XRegistryController(IXRegistryNodesetStore store, IDppAuditLog auditLog)
         {
-            _store = store;
+            _nodesetStore = store;
             _auditLog = auditLog;
         }
 
@@ -302,7 +302,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return XRegistryError.Result(XRegistryError.InvalidData, 400, "No nodeset XML", "The request body must contain the NodeSet2 XML.", Request.Path);
             }
 
-            uint? identifier = _store.GetIdentifier(uaNamespace);
+            uint? identifier = _nodesetStore.GetIdentifier(uaNamespace);
             if (identifier == null)
             {
                 return XRegistryError.Result(XRegistryError.InvalidData, 400, "Invalid nodeset", "The NodeSet2 XML could not be parsed.", Request.Path);
@@ -323,7 +323,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             }
 
             bool overwrite = ReadBoolFlag("overwrite");
-            UANameSpace existing = await _store.GetAsync(UserId, identifier.Value, IsAdministrator).ConfigureAwait(false);
+            UANameSpace existing = await _nodesetStore.GetAsync(UserId, identifier.Value, IsAdministrator).ConfigureAwait(false);
             if (existing != null && !overwrite)
             {
                 return XRegistryError.Result(XRegistryError.Conflict, 409, "Version already exists",
@@ -335,7 +335,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             string target = identifier.Value.ToString(CultureInfo.InvariantCulture);
             await _auditLog.RecordAsync(OperatorId, operation, target, null, "Attempted", operationId).ConfigureAwait(false);
 
-            UploadResult result = await _store.UploadAsync(UserId, uaNamespace, overwrite).ConfigureAwait(false);
+            UploadResult result = await _nodesetStore.UploadAsync(UserId, uaNamespace, overwrite).ConfigureAwait(false);
             if (!result.Succeeded)
             {
                 if (result.PartiallyApplied)
@@ -438,9 +438,9 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             if (IsAdministrator)
             {
-                await _store.DeleteAsync(identifier).ConfigureAwait(false);
+                await _nodesetStore.DeleteAsync(identifier).ConfigureAwait(false);
             }
-            else if (!await _store.DeleteOwnedAsync(UserId, identifier).ConfigureAwait(false))
+            else if (!await _nodesetStore.DeleteOwnedAsync(UserId, identifier).ConfigureAwait(false))
             {
                 await _auditLog.RecordAsync(OperatorId, DppAuditOperation.Delete, target, null, "Failed", operationId).ConfigureAwait(false);
                 return XRegistryError.Result(XRegistryError.Forbidden, 403, "Not the owner", "Only the owner of an unpublished nodeset or an administrator may delete it.", Request.Path);
@@ -454,13 +454,13 @@ namespace Opc.Ua.Cloud.Library.Controllers
         {
             if (!details)
             {
-                string xml = await _store.GetXmlAsync(version.Nodeset.Identifier).ConfigureAwait(false);
+                string xml = await _nodesetStore.GetXmlAsync(version.Nodeset.Identifier).ConfigureAwait(false);
                 if (xml == null)
                 {
                     return NotFoundError($"Document of version '{XRegistryGroup.VersionId(version)}' not found.");
                 }
 
-                await _store.IncrementDownloadCountAsync(version.Nodeset.Identifier).ConfigureAwait(false);
+                await _nodesetStore.IncrementDownloadCountAsync(version.Nodeset.Identifier).ConfigureAwait(false);
 
                 JsonObject attributes = isResource
                     ? Builder.Resource(group, XRegistryInline.None, details: false)
@@ -472,7 +472,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             if (inline.Includes(XRegistryIds.ResourceSingular))
             {
-                version.Nodeset.NodesetXml = await _store.GetXmlAsync(version.Nodeset.Identifier).ConfigureAwait(false);
+                version.Nodeset.NodesetXml = await _nodesetStore.GetXmlAsync(version.Nodeset.Identifier).ConfigureAwait(false);
             }
 
             return Json(isResource
@@ -595,7 +595,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
         private async Task<List<XRegistryGroup>> LoadGroupsAsync()
         {
-            UANameSpace[] nodesets = await _store.GetAllAsync(UserId, IsAdministrator).ConfigureAwait(false);
+            UANameSpace[] nodesets = await _nodesetStore.GetAllAsync(UserId, IsAdministrator).ConfigureAwait(false);
             return XRegistryGroup.Build(nodesets);
         }
 
@@ -606,7 +606,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return null;
             }
 
-            UANameSpace[] nodesets = await _store.GetAllAsync(UserId, IsAdministrator).ConfigureAwait(false);
+            UANameSpace[] nodesets = await _nodesetStore.GetAllAsync(UserId, IsAdministrator).ConfigureAwait(false);
             List<UANameSpace> matching = nodesets
                 .Where(n => n?.Nodeset?.NamespaceUri != null && string.Equals(n.Nodeset.NamespaceUri.OriginalString, namespaceUri, StringComparison.Ordinal))
                 .ToList();
