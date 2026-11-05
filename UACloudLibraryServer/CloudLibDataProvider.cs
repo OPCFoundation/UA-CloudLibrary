@@ -304,19 +304,18 @@ namespace Opc.Ua.Cloud.Library
                             return UploadResult.Failed($"Nodeset exists but existing nodeset could not be validated: {ex.Message}.");
                         }
 
-                        // check userId matches if nodeset already exists
-                        NamespaceMetaDataModel existingLegacyNamespaces = _dbContext.NamespaceMetaDataWithUnapproved
-                            .Where(n => (n.NodesetId == legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)) && (n.IsPublished || (n.UserId == userId) || string.IsNullOrEmpty(n.UserId)))
-                            .Include(n => n.NodeSet)
-                            .FirstOrDefault();
-
-                        if (existingLegacyNamespaces != null)
+                    }
+                    if (legacyNodesetHashCode != 0)
+                    {
+                        NamespaceMetaDataModel existingLegacyNamespaces = await _dbContext.NamespaceMetaDataWithUnapproved
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(n => n.NodesetId == legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture))
+                            .ConfigureAwait(false);
+                        string error = ValidateExistingNodeset(existingLegacyNamespaces, userId, overwrite, publish,
+                            "Nodeset already exists. Use overwrite flag to overwrite this existing legacy entry in the Library.");
+                        if (error != null)
                         {
-                            // we treat no user in the database like an admin user
-                            if ((string.IsNullOrEmpty(existingLegacyNamespaces.UserId) || existingLegacyNamespaces.IsPublished) && !publish)
-                            {
-                                return UploadResult.Failed($"Nodeset already exists for admin user. Cannot overwrite with user {userId}");
-                            }
+                            return UploadResult.Failed(error);
                         }
                     }
                 }
@@ -326,33 +325,21 @@ namespace Opc.Ua.Cloud.Library
 
             // check if the nodeset already exists in the database for the new hashcode algorithm
             string result = await _storage.FindFileAsync(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
-            if (!string.IsNullOrEmpty(result) && !overwrite)
+            NamespaceMetaDataModel existingNamespaces = await _dbContext.NamespaceMetaDataWithUnapproved
+                .AsNoTracking()
+                .FirstOrDefaultAsync(n => n.NodesetId == uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture))
+                .ConfigureAwait(false);
+            string existingError = ValidateExistingNodeset(existingNamespaces, userId, overwrite, publish,
+                "Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.");
+            if (existingError != null)
             {
-                UANameSpace existingNamespace = await RetrieveAllMetadataAsync(userId, uaNamespace.Nodeset.Identifier).ConfigureAwait(false);
-                if (existingNamespace != null)
-                {
-                    // nodeset already exists
-                    return UploadResult.Failed("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.");
-                }
-
-                // nodeset metadata not found: allow overwrite of orphaned blob
-                overwrite = true;
+                return UploadResult.Failed(existingError);
             }
 
-            // check userId matches if nodeset already exists
-            NamespaceMetaDataModel existingNamespaces = _dbContext.NamespaceMetaDataWithUnapproved
-                .Where(n => (n.NodesetId == uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)) && (n.IsPublished || (n.UserId == userId) || string.IsNullOrEmpty(n.UserId)))
-                .Include(n => n.NodeSet)
-                .FirstOrDefault();
-
-            if (existingNamespaces != null)
+            if (!string.IsNullOrEmpty(result) && existingNamespaces == null && !overwrite)
             {
-                // we treat no user in the database like an admin user. Published and unowned nodesets
-                // may only be replaced by an authorized publishing operation.
-                if ((string.IsNullOrEmpty(existingNamespaces.UserId) || existingNamespaces.IsPublished) && !publish)
-                {
-                    return UploadResult.Failed($"Nodeset already exists for admin user. Cannot overwrite with user {userId}");
-                }
+                // nodeset metadata not found: allow overwrite of orphaned blob
+                overwrite = true;
             }
 
             uaNamespace.CreationTime = DateTime.UtcNow;
@@ -461,6 +448,36 @@ namespace Opc.Ua.Cloud.Library
             }
 
             return UploadResult.Success();
+        }
+
+        private static string ValidateExistingNodeset(
+            NamespaceMetaDataModel existing,
+            string userId,
+            bool overwrite,
+            bool publish,
+            string alreadyExistsMessage)
+        {
+            if (existing == null)
+            {
+                return null;
+            }
+
+            if (!overwrite)
+            {
+                return alreadyExistsMessage;
+            }
+
+            if ((string.IsNullOrEmpty(existing.UserId) || existing.IsPublished) && !publish)
+            {
+                return $"Nodeset already exists for admin user. Cannot overwrite with user {userId}";
+            }
+
+            if (!publish && !string.Equals(existing.UserId, userId, StringComparison.Ordinal))
+            {
+                return "Nodeset already exists for another user and cannot be overwritten.";
+            }
+
+            return null;
         }
 
         private async Task<bool> RollbackStoredNodesetAsync(uint nodesetId)
