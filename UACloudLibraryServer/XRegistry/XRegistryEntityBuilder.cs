@@ -147,7 +147,7 @@ namespace Opc.Ua.Cloud.Library.XRegistry
         {
             return new JsonObject {
                 ["apis"] = new JsonArray("/capabilities", "/export", "/model"),
-                ["flags"] = new JsonArray("doc", "epoch", "inline", "setdefaultversionid", "specversion"),
+                ["flags"] = new JsonArray("inline"),
                 ["mutable"] = new JsonArray("entities"),
                 ["pagination"] = false,
                 ["schemas"] = new JsonArray(),
