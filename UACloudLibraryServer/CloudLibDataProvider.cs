@@ -963,13 +963,29 @@ namespace Opc.Ua.Cloud.Library
                 .AsExpandable()
                 .Where(GetMetadataUserFilter(userId, allNodesets))
                 .Include(nmd => nmd.NodeSet)
+                    .ThenInclude(nsm => nsm.RequiredModels)
                 .OrderBy(nmd => nmd.NodeSet.ModelUri)
                 .ThenBy(nmd => nmd.NodeSet.PublicationDate)
                 .ToListAsync().ConfigureAwait(false);
 
+            var availableNodesetRows = await _dbContext.NodeSetsWithUnapproved
+                .AsNoTracking()
+                .Select(nsm => new { nsm.Identifier, nsm.ModelUri, nsm.Version, nsm.PublicationDate })
+                .ToListAsync().ConfigureAwait(false);
+            ILookup<string, NodeSetModel> availableNodesetsByModelUri = availableNodesetRows.ToLookup(
+                nsm => nsm.ModelUri,
+                nsm => new NodeSetModel {
+                    Identifier = nsm.Identifier,
+                    ModelUri = nsm.ModelUri,
+                    Version = nsm.Version,
+                    PublicationDate = nsm.PublicationDate
+                });
+
             return models
                 .Where(m => m.NodeSet != null)
-                .Select(MapNamespaceMetaDataModelToRESTNamespace)
+                .Select(m => MapNamespaceMetaDataModelToRESTNamespace(
+                    m,
+                    nodeSet => MapNodeSetModelToRESTNodeSet(nodeSet, availableNodesetsByModelUri)))
                 .ToArray();
         }
 
@@ -1094,6 +1110,11 @@ namespace Opc.Ua.Cloud.Library
         }
 
         private UANameSpace MapNamespaceMetaDataModelToRESTNamespace(NamespaceMetaDataModel metadataModel)
+            => MapNamespaceMetaDataModelToRESTNamespace(metadataModel, MapNodeSetModelToRESTNodeSet);
+
+        private UANameSpace MapNamespaceMetaDataModelToRESTNamespace(
+            NamespaceMetaDataModel metadataModel,
+            Func<NodeSetModel, Nodeset> mapNodeSet)
         {
             if (metadataModel == null)
             {
@@ -1115,7 +1136,38 @@ namespace Opc.Ua.Cloud.Library
                 TestSpecificationUrl = metadataModel.TestSpecificationUrl != null ? new Uri(metadataModel.TestSpecificationUrl) : null,
                 SupportedLocales = metadataModel.SupportedLocales,
                 NumberOfDownloads = metadataModel.NumberOfDownloads,
-                Nodeset = metadataModel.NodeSet == null ? null : MapNodeSetModelToRESTNodeSet(metadataModel.NodeSet)
+                Nodeset = metadataModel.NodeSet == null ? null : mapNodeSet(metadataModel.NodeSet)
+            };
+        }
+
+        private static Nodeset MapNodeSetModelToRESTNodeSet(
+            NodeSetModel model,
+            ILookup<string, NodeSetModel> availableNodesetsByModelUri)
+        {
+            return new Nodeset {
+                Identifier = uint.Parse(model.Identifier, CultureInfo.InvariantCulture),
+                NamespaceUri = model.ModelUri != null ? new Uri(model.ModelUri) : null,
+                PublicationDate = model.PublicationDate ?? default,
+                LastModifiedDate = model.LastModifiedDate ?? default,
+                Version = model.Version,
+                NodesetXml = null,
+                RequiredModels = model.RequiredModels.Select(rm => {
+                    NodeSetModel availableNodeset = NodeModelUtils.GetMatchingOrHigherNodeSet(
+                        availableNodesetsByModelUri[rm.ModelUri],
+                        rm.PublicationDate,
+                        rm.Version);
+
+                    return new RequiredModelInfo {
+                        NamespaceUri = rm.ModelUri,
+                        PublicationDate = rm.PublicationDate,
+                        Version = rm.Version,
+                        AvailableModel = availableNodeset == null
+                            ? null
+                            : new Nodeset {
+                                Identifier = uint.Parse(availableNodeset.Identifier, CultureInfo.InvariantCulture)
+                            }
+                    };
+                }).ToList()
             };
         }
 
