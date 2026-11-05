@@ -292,7 +292,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             {
                 uaNamespace = await ReadUploadAsync(details).ConfigureAwait(false);
             }
-            catch (JsonException ex)
+            catch (Exception ex) when (ex is JsonException || ex is InvalidOperationException)
             {
                 return XRegistryError.Result(XRegistryError.InvalidData, 400, "Invalid request body", ex.Message, Request.Path);
             }
