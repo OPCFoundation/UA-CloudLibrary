@@ -60,7 +60,7 @@ namespace Opc.Ua.Cloud.Library.XRegistry
         }
 
         public Task<UploadResult> UploadAsync(string userId, UANameSpace uaNamespace, bool overwrite)
-            => _database.UploadNamespaceAndNodesetWithResultAsync(userId, uaNamespace, string.Empty, overwrite);
+            => _database.UploadNamespaceAndNodesetWithResultAsync(userId, uaNamespace, string.Empty, overwrite, preserveExistingValues: true);
 
         public uint? GetIdentifier(UANameSpace uaNamespace)
         {

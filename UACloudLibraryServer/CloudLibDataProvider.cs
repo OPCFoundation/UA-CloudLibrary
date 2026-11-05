@@ -243,7 +243,7 @@ namespace Opc.Ua.Cloud.Library
         /// uploads are always private. It is never derived from the user name, which a caller can
         /// choose.
         /// </param>
-        public async Task<UploadResult> UploadNamespaceAndNodesetWithResultAsync(string userId, UANameSpace uaNamespace, string values, bool overwrite, bool publish = false)
+        public async Task<UploadResult> UploadNamespaceAndNodesetWithResultAsync(string userId, UANameSpace uaNamespace, string values, bool overwrite, bool publish = false, bool preserveExistingValues = false)
         {
             UANodeSet nodeSet = null;
 
@@ -378,6 +378,16 @@ namespace Opc.Ua.Cloud.Library
             uaNamespace.Nodeset.RequiredModels = null;
 
             // At this point all inputs are validated: ready to store
+
+            if (preserveExistingValues)
+            {
+                DbFiles existingFile = await _storage.DownloadFileAsync(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                if (existingFile == null && legacyNodesetHashCode != 0)
+                {
+                    existingFile = await _storage.DownloadFileAsync(legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                }
+                values = existingFile?.Values ?? values;
+            }
 
             // upload the new file to the storage service, and get the file handle that the storage service returned
             string storedFilename = await _storage.UploadFileAsync(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture), uaNamespace.Nodeset.NodesetXml, values).ConfigureAwait(false);
