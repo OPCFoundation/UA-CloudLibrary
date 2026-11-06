@@ -12,6 +12,10 @@ namespace UACloudLibraryServer.UnitTests
         private static readonly string[] s_groupsVersions = { "nodesetgroups.nodesets.versions" };
         private static readonly string[] s_empty = { "" };
         private static readonly string[] s_star = { "*" };
+        private static readonly string[] s_starAndModel = { "*,model" };
+        private static readonly string[] s_starAndNodeset = { "*,nodeset" };
+        private static readonly string[] s_starAndRootNodeset = { "*,nodesetgroups.nodesets.versions.nodeset" };
+        private static readonly string[] s_starAndBogus = { "*,nodesetgroups.bogus" };
         private static readonly string[] s_bogus = { "nodesetgroups.bogus" };
         private static readonly string[] s_model = { "model" };
         private static readonly string[] s_versionsFromGroup = { "nodesets.versions" };
@@ -45,6 +49,38 @@ namespace UACloudLibraryServer.UnitTests
             Assert.True(XRegistryInline.TryParse(true, s_star, string.Empty, out XRegistryInline inline, out _));
 
             Assert.True(inline.Includes("nodesetgroups"));
+        }
+
+        [Fact]
+        public void TryParse_StarAndModel_IncludesExplicitPath()
+        {
+            Assert.True(XRegistryInline.TryParse(true, s_starAndModel, string.Empty, out XRegistryInline inline, out _));
+
+            Assert.True(inline.Includes("model"));
+            Assert.True(inline.Includes("nodesetgroups"));
+            Assert.True(inline.Descend("nodesetgroups").Includes("nodesets"));
+        }
+
+        [Fact]
+        public void TryParse_StarAndNodeset_IncludesExplicitDocumentPath()
+        {
+            Assert.True(XRegistryInline.TryParse(true, s_starAndNodeset, "nodesetgroups.nodesets.versions", out XRegistryInline inline, out _));
+
+            Assert.True(inline.Includes("nodeset"));
+        }
+
+        [Fact]
+        public void TryParse_StarAndRootPath_PropagatesExplicitPathOnDescend()
+        {
+            Assert.True(XRegistryInline.TryParse(true, s_starAndRootNodeset, string.Empty, out XRegistryInline inline, out _));
+
+            Assert.True(inline.Descend("nodesetgroups").Descend("nodesets").Descend("versions").Includes("nodeset"));
+        }
+
+        [Fact]
+        public void TryParse_StarAndUnknownPath_Fails()
+        {
+            Assert.False(XRegistryInline.TryParse(true, s_starAndBogus, string.Empty, out _, out _));
         }
 
         [Fact]

@@ -91,14 +91,15 @@ namespace Opc.Ua.Cloud.Library.XRegistry
                 .SelectMany(v => v.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 .ToList();
 
-            if (paths.Count == 0 || paths.Contains("*", StringComparer.Ordinal))
-            {
-                inline = All;
-                return true;
-            }
+            bool all = paths.Count == 0 || paths.Contains("*", StringComparer.Ordinal);
 
             foreach (string path in paths)
             {
+                if (path == "*")
+                {
+                    continue;
+                }
+
                 string absolute = string.IsNullOrEmpty(scopePrefix) ? path : scopePrefix + "." + path;
                 if (!s_rootPaths.Contains(absolute))
                 {
@@ -107,13 +108,19 @@ namespace Opc.Ua.Cloud.Library.XRegistry
                 }
             }
 
-            inline = new XRegistryInline(paths, all: false);
+            inline = new XRegistryInline(paths.Where(path => path != "*"), all);
             return true;
         }
 
         /// <summary>True when the collection at <paramref name="path"/> (relative to the addressed entity) must be inlined.</summary>
         public bool Includes(string path)
         {
+            string prefix = path + ".";
+            if (_paths.Any(p => p == path || p.StartsWith(prefix, StringComparison.Ordinal)))
+            {
+                return true;
+            }
+
             if (_all)
             {
                 // "inline everything" never pulls the model or capabilities into the root entity, and
@@ -121,22 +128,16 @@ namespace Opc.Ua.Cloud.Library.XRegistry
                 return path != "model" && path != "capabilities" && !path.EndsWith("." + XRegistryIds.ResourceSingular, StringComparison.Ordinal) && path != XRegistryIds.ResourceSingular;
             }
 
-            string prefix = path + ".";
-            return _paths.Any(p => p == path || p.StartsWith(prefix, StringComparison.Ordinal));
+            return false;
         }
 
         /// <summary>Returns the view of this flag one level down, for the collection at <paramref name="path"/>.</summary>
         public XRegistryInline Descend(string path)
         {
-            if (_all)
-            {
-                return All;
-            }
-
             string prefix = path + ".";
             return new XRegistryInline(
                 _paths.Where(p => p.StartsWith(prefix, StringComparison.Ordinal)).Select(p => p[prefix.Length..]),
-                all: false);
+                _all);
         }
     }
 }
