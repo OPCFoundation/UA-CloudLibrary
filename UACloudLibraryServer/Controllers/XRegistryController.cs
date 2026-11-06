@@ -416,13 +416,22 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return NotFoundError($"Group '{groupId}' not found.");
             }
 
-            foreach (UANameSpace version in group.Versions)
+            bool mutationCommitted = false;
+            try
             {
-                IActionResult result = await DeleteAsync(version.Nodeset.Identifier).ConfigureAwait(false);
-                if (result is not NoContentResult)
+                foreach (UANameSpace version in group.Versions)
                 {
-                    return result;
+                    IActionResult result = await DeleteAsync(version.Nodeset.Identifier).ConfigureAwait(false);
+                    if (result is not NoContentResult)
+                    {
+                        return result;
+                    }
+                    mutationCommitted = true;
                 }
+            }
+            catch (DppAuditException ex) when (mutationCommitted && !ex.MutationCommitted)
+            {
+                throw new DppAuditException(ex.Message, ex, mutationCommitted: true);
             }
 
             return NoContent();
