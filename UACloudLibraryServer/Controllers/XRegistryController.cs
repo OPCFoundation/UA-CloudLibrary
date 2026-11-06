@@ -505,7 +505,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 string value = attribute.Value is JsonValue v && v.TryGetValue(out string s)
                     ? s
                     : attribute.Value.ToJsonString();
-                Response.Headers[HeaderPrefix + attribute.Key] = value;
+                Response.Headers[HeaderPrefix + attribute.Key] = EncodeHeaderValue(value);
             }
         }
 
@@ -529,8 +529,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
             {
                 uaNamespace.Nodeset.NodesetXml = body;
                 ApplyMetadata(uaNamespace,
-                    name => Request.Headers.TryGetValue(HeaderPrefix + name, out StringValues values) ? values.ToString() : null,
-                    name => Request.Headers.TryGetValue(HeaderPrefix + name, out StringValues values) ? ParseArrayHeader(values.ToString()) : null);
+                    name => Request.Headers.TryGetValue(HeaderPrefix + name, out StringValues values) ? DecodeHeaderValue(values.ToString()) : null,
+                    name => Request.Headers.TryGetValue(HeaderPrefix + name, out StringValues values) ? ParseArrayHeader(DecodeHeaderValue(values.ToString())) : null);
             }
 
             if (string.IsNullOrEmpty(uaNamespace.Title))
@@ -540,6 +540,27 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             return uaNamespace;
         }
+
+        private static string EncodeHeaderValue(string value)
+        {
+            StringBuilder encoded = new();
+            foreach (byte valueByte in Encoding.UTF8.GetBytes(value))
+            {
+                if (valueByte >= 0x20 && valueByte <= 0x7e && valueByte != (byte)'%' && valueByte != (byte)'"')
+                {
+                    encoded.Append((char)valueByte);
+                }
+                else
+                {
+                    encoded.Append('%').Append(valueByte.ToString("X2", CultureInfo.InvariantCulture));
+                }
+            }
+
+            return encoded.ToString();
+        }
+
+        private static string DecodeHeaderValue(string value)
+            => Uri.UnescapeDataString(value);
 
         private static void ApplyMetadata(UANameSpace ns, Func<string, string> scalar, Func<string, string[]> array)
         {

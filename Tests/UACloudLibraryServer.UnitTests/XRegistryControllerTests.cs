@@ -209,6 +209,7 @@ namespace UACloudLibraryServer.UnitTests
         public async Task GetResource_WithoutDetails_ReturnsXmlDocumentWithHeaders_AndCountsDownload()
         {
             FakeXRegistryNodesetStore store = FakeXRegistryNodesetStore.WithSampleData();
+            store.Nodesets.Single(n => n.Nodeset.Identifier == 1002).Description = "First line\r\nSecond line";
             XRegistryController controller = CreateController(store);
 
             IActionResult result = await controller.GetResourceAsync(DiGroupId, "nodeset");
@@ -218,6 +219,7 @@ namespace UACloudLibraryServer.UnitTests
             Assert.Equal(store.Xml[1002], content.Content);
             Assert.Equal("1002", controller.Response.Headers["xRegistry-versionid"].ToString());
             Assert.Equal("nodeset", controller.Response.Headers["xRegistry-nodesetid"].ToString());
+            Assert.Equal("First line%0D%0ASecond line", controller.Response.Headers["xRegistry-description"].ToString());
             Assert.Equal(Base + $"/nodesetgroups/{DiGroupId}/nodesets/nodeset", controller.Response.Headers["xRegistry-self"].ToString());
             Assert.Equal("2", controller.Response.Headers["xRegistry-versionscount"].ToString());
             Assert.False(controller.Response.Headers.ContainsKey("xRegistry-nodeset"));
@@ -356,6 +358,20 @@ namespace UACloudLibraryServer.UnitTests
             Assert.Equal(s_attemptedSuccess, audit.Entries.Select(e => e.Outcome));
             Assert.All(audit.Entries, e => Assert.Equal(DppAuditOperation.Create, e.Operation));
             Assert.All(audit.Entries, e => Assert.Equal("1003", e.Target));
+        }
+
+        [Fact]
+        public async Task Upload_XmlBodyWithEncodedDescriptionHeader_DecodesValue()
+        {
+            FakeXRegistryNodesetStore store = FakeXRegistryNodesetStore.WithSampleData();
+            store.IdentifierProvider = _ => 1003;
+            XRegistryController controller = CreateController(store, body: DiNodesetXml, headers: new Dictionary<string, string> {
+                ["xRegistry-description"] = "First line%0D%0ASecond line",
+            });
+
+            JsonBody(await controller.UploadVersionAsync(DiGroupId, "nodeset"), 201);
+
+            Assert.Equal("First line\r\nSecond line", Assert.Single(store.Uploads).Namespace.Description);
         }
 
         [Fact]
