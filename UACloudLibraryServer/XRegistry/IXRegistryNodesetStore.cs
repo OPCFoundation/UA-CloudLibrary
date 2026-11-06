@@ -41,6 +41,9 @@ namespace Opc.Ua.Cloud.Library.XRegistry
         /// <summary>All nodeset metadata (without XML) visible to the user, ordered by namespace URI then publication date.</summary>
         Task<UANameSpace[]> GetAllAsync(string userId, bool allNodesets);
 
+        /// <summary>Metadata (without XML) visible to the user for one namespace, ordered by publication date.</summary>
+        Task<UANameSpace[]> GetByNamespaceAsync(string userId, string namespaceUri, bool allNodesets);
+
         /// <summary>Metadata of a single nodeset, or null if it does not exist or is not visible to the user.</summary>
         Task<UANameSpace> GetAsync(string userId, uint identifier, bool allNodesets);
 

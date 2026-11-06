@@ -636,12 +636,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return null;
             }
 
-            UANameSpace[] nodesets = await _nodesetStore.GetAllAsync(UserId, IsAdministrator).ConfigureAwait(false);
-            List<UANameSpace> matching = nodesets
-                .Where(n => n?.Nodeset?.NamespaceUri != null && string.Equals(n.Nodeset.NamespaceUri.OriginalString, namespaceUri, StringComparison.Ordinal))
-                .ToList();
-
-            return matching.Count == 0 ? null : new XRegistryGroup(namespaceUri, matching);
+            UANameSpace[] matching = await _nodesetStore.GetByNamespaceAsync(UserId, namespaceUri, IsAdministrator).ConfigureAwait(false);
+            return matching.Length == 0 ? null : new XRegistryGroup(namespaceUri, matching);
         }
 
         private bool TryGetInline(string scopePrefix, out XRegistryInline inline, out IActionResult error)

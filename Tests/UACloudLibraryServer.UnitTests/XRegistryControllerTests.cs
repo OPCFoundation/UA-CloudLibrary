@@ -178,6 +178,19 @@ namespace UACloudLibraryServer.UnitTests
         }
 
         [Fact]
+        public async Task GetGroup_QueriesOnlyRequestedNamespace()
+        {
+            FakeXRegistryNodesetStore store = FakeXRegistryNodesetStore.WithSampleData();
+            XRegistryController controller = CreateController(store);
+
+            JsonObject group = JsonBody(await controller.GetGroupAsync(DiGroupId));
+
+            Assert.Equal(DiGroupId, group["nodesetgroupid"].GetValue<string>());
+            Assert.Equal(FakeXRegistryNodesetStore.DiUri, Assert.Single(store.NamespaceQueries));
+            Assert.Equal(0, store.GetAllCalls);
+        }
+
+        [Fact]
         public async Task GetGroup_UnknownId_ReturnsNotFoundProblem()
         {
             XRegistryController controller = CreateController(FakeXRegistryNodesetStore.WithSampleData());

@@ -956,20 +956,47 @@ namespace Opc.Ua.Cloud.Library
         /// Used by the xRegistry API, which derives its groups and versions from the complete list.
         /// </summary>
         /// <param name="allNodesets">See <see cref="FindNodesets"/>: administrators see unpublished submissions.</param>
-        public async Task<UANameSpace[]> GetAllNodesetMetadataAsync(string userId, bool allNodesets = false)
+        public Task<UANameSpace[]> GetAllNodesetMetadataAsync(string userId, bool allNodesets = false)
+            => GetNodesetMetadataAsync(userId, allNodesets, namespaceUri: null);
+
+        /// <summary>
+        /// Returns the metadata (without nodeset XML) of nodesets in one namespace visible to the user.
+        /// </summary>
+        public Task<UANameSpace[]> GetNodesetMetadataByNamespaceAsync(string userId, string namespaceUri, bool allNodesets = false)
+            => GetNodesetMetadataAsync(userId, allNodesets, namespaceUri);
+
+        private async Task<UANameSpace[]> GetNodesetMetadataAsync(string userId, bool allNodesets, string namespaceUri)
         {
-            List<NamespaceMetaDataModel> models = await _dbContext.NamespaceMetaDataWithUnapproved
+            IQueryable<NamespaceMetaDataModel> metadataQuery = _dbContext.NamespaceMetaDataWithUnapproved
                 .AsNoTracking()
                 .AsExpandable()
-                .Where(GetMetadataUserFilter(userId, allNodesets))
+                .Where(GetMetadataUserFilter(userId, allNodesets));
+            if (namespaceUri != null)
+            {
+                metadataQuery = metadataQuery.Where(nmd => nmd.NodeSet.ModelUri == namespaceUri);
+            }
+
+            List<NamespaceMetaDataModel> models = await metadataQuery
                 .Include(nmd => nmd.NodeSet)
                     .ThenInclude(nsm => nsm.RequiredModels)
                 .OrderBy(nmd => nmd.NodeSet.ModelUri)
                 .ThenBy(nmd => nmd.NodeSet.PublicationDate)
                 .ToListAsync().ConfigureAwait(false);
 
-            var availableNodesetRows = await _dbContext.NodeSetsWithUnapproved
-                .AsNoTracking()
+            IQueryable<NodeSetModel> availableNodesetsQuery = _dbContext.NodeSetsWithUnapproved.AsNoTracking();
+            if (namespaceUri != null)
+            {
+                string[] requiredModelUris = models
+                    .Where(m => m.NodeSet != null)
+                    .SelectMany(m => m.NodeSet.RequiredModels)
+                    .Select(rm => rm.ModelUri)
+                    .Where(uri => uri != null)
+                    .Distinct()
+                    .ToArray();
+                availableNodesetsQuery = availableNodesetsQuery.Where(nsm => requiredModelUris.Contains(nsm.ModelUri));
+            }
+
+            var availableNodesetRows = await availableNodesetsQuery
                 .Select(nsm => new { nsm.Identifier, nsm.ModelUri, nsm.Version, nsm.PublicationDate })
                 .ToListAsync().ConfigureAwait(false);
             ILookup<string, NodeSetModel> availableNodesetsByModelUri = availableNodesetRows.ToLookup(

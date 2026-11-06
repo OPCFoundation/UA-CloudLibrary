@@ -28,6 +28,10 @@ namespace UACloudLibraryServer.UnitTests
 
         public List<uint> Downloads { get; } = new();
 
+        public int GetAllCalls { get; private set; }
+
+        public List<string> NamespaceQueries { get; } = new();
+
         public List<(string UserId, UANameSpace Namespace, bool Overwrite)> Uploads { get; } = new();
 
         public UploadResult NextUploadResult { get; set; } = UploadResult.Success();
@@ -77,7 +81,18 @@ namespace UACloudLibraryServer.UnitTests
         }
 
         public Task<UANameSpace[]> GetAllAsync(string userId, bool allNodesets)
-            => Task.FromResult(Nodesets.ToArray());
+        {
+            GetAllCalls++;
+            return Task.FromResult(Nodesets.ToArray());
+        }
+
+        public Task<UANameSpace[]> GetByNamespaceAsync(string userId, string namespaceUri, bool allNodesets)
+        {
+            NamespaceQueries.Add(namespaceUri);
+            return Task.FromResult(Nodesets
+                .Where(n => string.Equals(n.Nodeset.NamespaceUri?.OriginalString, namespaceUri, StringComparison.Ordinal))
+                .ToArray());
+        }
 
         public Task<UANameSpace> GetAsync(string userId, uint identifier, bool allNodesets)
             => Task.FromResult(Nodesets.FirstOrDefault(n => n.Nodeset.Identifier == identifier));

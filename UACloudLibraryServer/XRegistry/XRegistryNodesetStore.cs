@@ -50,6 +50,9 @@ namespace Opc.Ua.Cloud.Library.XRegistry
         public Task<UANameSpace[]> GetAllAsync(string userId, bool allNodesets)
             => _database.GetAllNodesetMetadataAsync(userId, allNodesets);
 
+        public Task<UANameSpace[]> GetByNamespaceAsync(string userId, string namespaceUri, bool allNodesets)
+            => _database.GetNodesetMetadataByNamespaceAsync(userId, namespaceUri, allNodesets);
+
         public Task<UANameSpace> GetAsync(string userId, uint identifier, bool allNodesets)
             => _database.RetrieveAllMetadataAsync(userId, identifier, ignoreOwner: allNodesets);
 
