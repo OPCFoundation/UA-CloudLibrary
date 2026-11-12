@@ -983,7 +983,10 @@ namespace Opc.Ua.Cloud.Library
                 .ThenBy(nmd => nmd.NodeSet.PublicationDate)
                 .ToListAsync().ConfigureAwait(false);
 
-            IQueryable<NodeSetModel> availableNodesetsQuery = _dbContext.NodeSetsWithUnapproved.AsNoTracking();
+            IQueryable<NodeSetModel> availableNodesetsQuery = _dbContext.NodeSetsWithUnapproved
+                .AsNoTracking()
+                .AsExpandable()
+                .Where(GetNodesetUserFilter(userId, allNodesets));
             if (namespaceUri != null)
             {
                 string[] requiredModelUris = models
