@@ -243,7 +243,7 @@ namespace Opc.Ua.Cloud.Library
         /// uploads are always private. It is never derived from the user name, which a caller can
         /// choose.
         /// </param>
-        public async Task<UploadResult> UploadNamespaceAndNodesetWithResultAsync(string userId, UANameSpace uaNamespace, string values, bool overwrite, bool publish = false)
+        public async Task<UploadResult> UploadNamespaceAndNodesetWithResultAsync(string userId, UANameSpace uaNamespace, string values, bool overwrite, bool publish = false, bool preserveExistingValues = false)
         {
             UANodeSet nodeSet = null;
 
@@ -304,19 +304,18 @@ namespace Opc.Ua.Cloud.Library
                             return UploadResult.Failed($"Nodeset exists but existing nodeset could not be validated: {ex.Message}.");
                         }
 
-                        // check userId matches if nodeset already exists
-                        NamespaceMetaDataModel existingLegacyNamespaces = _dbContext.NamespaceMetaDataWithUnapproved
-                            .Where(n => (n.NodesetId == legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)) && (n.IsPublished || (n.UserId == userId) || string.IsNullOrEmpty(n.UserId)))
-                            .Include(n => n.NodeSet)
-                            .FirstOrDefault();
-
-                        if (existingLegacyNamespaces != null)
+                    }
+                    if (legacyNodesetHashCode != 0)
+                    {
+                        NamespaceMetaDataModel existingLegacyNamespaces = await _dbContext.NamespaceMetaDataWithUnapproved
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(n => n.NodesetId == legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture))
+                            .ConfigureAwait(false);
+                        string error = ValidateExistingNodeset(existingLegacyNamespaces, userId, overwrite, publish,
+                            "Nodeset already exists. Use overwrite flag to overwrite this existing legacy entry in the Library.");
+                        if (error != null)
                         {
-                            // we treat no user in the database like an admin user
-                            if ((string.IsNullOrEmpty(existingLegacyNamespaces.UserId) || existingLegacyNamespaces.IsPublished) && !publish)
-                            {
-                                return UploadResult.Failed($"Nodeset already exists for admin user. Cannot overwrite with user {userId}");
-                            }
+                            return UploadResult.Failed(error);
                         }
                     }
                 }
@@ -326,33 +325,21 @@ namespace Opc.Ua.Cloud.Library
 
             // check if the nodeset already exists in the database for the new hashcode algorithm
             string result = await _storage.FindFileAsync(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
-            if (!string.IsNullOrEmpty(result) && !overwrite)
+            NamespaceMetaDataModel existingNamespaces = await _dbContext.NamespaceMetaDataWithUnapproved
+                .AsNoTracking()
+                .FirstOrDefaultAsync(n => n.NodesetId == uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture))
+                .ConfigureAwait(false);
+            string existingError = ValidateExistingNodeset(existingNamespaces, userId, overwrite, publish,
+                "Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.");
+            if (existingError != null)
             {
-                UANameSpace existingNamespace = await RetrieveAllMetadataAsync(userId, uaNamespace.Nodeset.Identifier).ConfigureAwait(false);
-                if (existingNamespace != null)
-                {
-                    // nodeset already exists
-                    return UploadResult.Failed("Nodeset already exists. Use overwrite flag to overwrite this existing entry in the Library.");
-                }
-
-                // nodeset metadata not found: allow overwrite of orphaned blob
-                overwrite = true;
+                return UploadResult.Failed(existingError);
             }
 
-            // check userId matches if nodeset already exists
-            NamespaceMetaDataModel existingNamespaces = _dbContext.NamespaceMetaDataWithUnapproved
-                .Where(n => (n.NodesetId == uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)) && (n.IsPublished || (n.UserId == userId) || string.IsNullOrEmpty(n.UserId)))
-                .Include(n => n.NodeSet)
-                .FirstOrDefault();
-
-            if (existingNamespaces != null)
+            if (!string.IsNullOrEmpty(result) && existingNamespaces == null && !overwrite)
             {
-                // we treat no user in the database like an admin user. Published and unowned nodesets
-                // may only be replaced by an authorized publishing operation.
-                if ((string.IsNullOrEmpty(existingNamespaces.UserId) || existingNamespaces.IsPublished) && !publish)
-                {
-                    return UploadResult.Failed($"Nodeset already exists for admin user. Cannot overwrite with user {userId}");
-                }
+                // nodeset metadata not found: allow overwrite of orphaned blob
+                overwrite = true;
             }
 
             uaNamespace.CreationTime = DateTime.UtcNow;
@@ -391,6 +378,16 @@ namespace Opc.Ua.Cloud.Library
             uaNamespace.Nodeset.RequiredModels = null;
 
             // At this point all inputs are validated: ready to store
+
+            if (preserveExistingValues)
+            {
+                DbFiles existingFile = await _storage.DownloadFileAsync(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                if (existingFile == null && legacyNodesetHashCode != 0)
+                {
+                    existingFile = await _storage.DownloadFileAsync(legacyNodesetHashCode.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                }
+                values = existingFile?.Values ?? values;
+            }
 
             // upload the new file to the storage service, and get the file handle that the storage service returned
             string storedFilename = await _storage.UploadFileAsync(uaNamespace.Nodeset.Identifier.ToString(CultureInfo.InvariantCulture), uaNamespace.Nodeset.NodesetXml, values).ConfigureAwait(false);
@@ -461,6 +458,36 @@ namespace Opc.Ua.Cloud.Library
             }
 
             return UploadResult.Success();
+        }
+
+        private static string ValidateExistingNodeset(
+            NamespaceMetaDataModel existing,
+            string userId,
+            bool overwrite,
+            bool publish,
+            string alreadyExistsMessage)
+        {
+            if (existing == null)
+            {
+                return null;
+            }
+
+            if (!overwrite)
+            {
+                return alreadyExistsMessage;
+            }
+
+            if ((string.IsNullOrEmpty(existing.UserId) || existing.IsPublished) && !publish)
+            {
+                return $"Nodeset already exists for admin user. Cannot overwrite with user {userId}";
+            }
+
+            if (!publish && !string.Equals(existing.UserId, userId, StringComparison.Ordinal))
+            {
+                return "Nodeset already exists for another user and cannot be overwritten.";
+            }
+
+            return null;
         }
 
         private async Task<bool> RollbackStoredNodesetAsync(uint nodesetId)
@@ -924,6 +951,74 @@ namespace Opc.Ua.Cloud.Library
             return uaNamespaceModels.Select(MapNamespaceMetaDataModelToRESTNamespace).ToArray();
         }
 
+        /// <summary>
+        /// Returns the metadata (without nodeset XML) of every nodeset visible to the user.
+        /// Used by the xRegistry API, which derives its groups and versions from the complete list.
+        /// </summary>
+        /// <param name="allNodesets">See <see cref="FindNodesets"/>: administrators see unpublished submissions.</param>
+        public Task<UANameSpace[]> GetAllNodesetMetadataAsync(string userId, bool allNodesets = false)
+            => GetNodesetMetadataAsync(userId, allNodesets, namespaceUri: null);
+
+        /// <summary>
+        /// Returns the metadata (without nodeset XML) of nodesets in one namespace visible to the user.
+        /// </summary>
+        public Task<UANameSpace[]> GetNodesetMetadataByNamespaceAsync(string userId, string namespaceUri, bool allNodesets = false)
+            => GetNodesetMetadataAsync(userId, allNodesets, namespaceUri);
+
+        private async Task<UANameSpace[]> GetNodesetMetadataAsync(string userId, bool allNodesets, string namespaceUri)
+        {
+            IQueryable<NamespaceMetaDataModel> metadataQuery = _dbContext.NamespaceMetaDataWithUnapproved
+                .AsNoTracking()
+                .AsExpandable()
+                .Where(GetMetadataUserFilter(userId, allNodesets));
+            if (namespaceUri != null)
+            {
+                metadataQuery = metadataQuery.Where(nmd => nmd.NodeSet.ModelUri == namespaceUri);
+            }
+
+            List<NamespaceMetaDataModel> models = await metadataQuery
+                .Include(nmd => nmd.NodeSet)
+                    .ThenInclude(nsm => nsm.RequiredModels)
+                .OrderBy(nmd => nmd.NodeSet.ModelUri)
+                .ThenBy(nmd => nmd.NodeSet.PublicationDate)
+                .ToListAsync().ConfigureAwait(false);
+
+            IQueryable<NodeSetModel> availableNodesetsQuery = _dbContext.NodeSetsWithUnapproved
+                .AsNoTracking()
+                .AsExpandable()
+                .Where(GetNodesetUserFilter(userId, allNodesets));
+            if (namespaceUri != null)
+            {
+                string[] requiredModelUris = models
+                    .Where(m => m.NodeSet != null)
+                    .SelectMany(m => m.NodeSet.RequiredModels)
+                    .Select(rm => rm.ModelUri)
+                    .Where(uri => uri != null)
+                    .Distinct()
+                    .ToArray();
+                availableNodesetsQuery = availableNodesetsQuery.Where(nsm => requiredModelUris.Contains(nsm.ModelUri));
+            }
+
+            var availableNodesetRows = await availableNodesetsQuery
+                .Select(nsm => new { nsm.Identifier, nsm.ModelUri, nsm.Version, nsm.PublicationDate })
+                .ToListAsync().ConfigureAwait(false);
+            ILookup<string, NodeSetModel> availableNodesetsByModelUri = availableNodesetRows.ToLookup(
+                nsm => nsm.ModelUri,
+                nsm => new NodeSetModel {
+                    Identifier = nsm.Identifier,
+                    ModelUri = nsm.ModelUri,
+                    Version = nsm.Version,
+                    PublicationDate = nsm.PublicationDate
+                });
+
+            return models
+                .Where(m => m.NodeSet != null)
+                .Select(m => MapNamespaceMetaDataModelToRESTNamespace(
+                    m,
+                    nodeSet => MapNodeSetModelToRESTNodeSet(nodeSet, availableNodesetsByModelUri)))
+                .ToArray();
+        }
+
         /// <param name="includeAll">
         /// List every nodeset regardless of owner or publication. Only for administrators, who need
         /// the identifiers of submitted, unpublished nodesets to approve them.
@@ -1045,6 +1140,11 @@ namespace Opc.Ua.Cloud.Library
         }
 
         private UANameSpace MapNamespaceMetaDataModelToRESTNamespace(NamespaceMetaDataModel metadataModel)
+            => MapNamespaceMetaDataModelToRESTNamespace(metadataModel, MapNodeSetModelToRESTNodeSet);
+
+        private UANameSpace MapNamespaceMetaDataModelToRESTNamespace(
+            NamespaceMetaDataModel metadataModel,
+            Func<NodeSetModel, Nodeset> mapNodeSet)
         {
             if (metadataModel == null)
             {
@@ -1066,7 +1166,38 @@ namespace Opc.Ua.Cloud.Library
                 TestSpecificationUrl = metadataModel.TestSpecificationUrl != null ? new Uri(metadataModel.TestSpecificationUrl) : null,
                 SupportedLocales = metadataModel.SupportedLocales,
                 NumberOfDownloads = metadataModel.NumberOfDownloads,
-                Nodeset = metadataModel.NodeSet == null ? null : MapNodeSetModelToRESTNodeSet(metadataModel.NodeSet)
+                Nodeset = metadataModel.NodeSet == null ? null : mapNodeSet(metadataModel.NodeSet)
+            };
+        }
+
+        private static Nodeset MapNodeSetModelToRESTNodeSet(
+            NodeSetModel model,
+            ILookup<string, NodeSetModel> availableNodesetsByModelUri)
+        {
+            return new Nodeset {
+                Identifier = uint.Parse(model.Identifier, CultureInfo.InvariantCulture),
+                NamespaceUri = model.ModelUri != null ? new Uri(model.ModelUri) : null,
+                PublicationDate = model.PublicationDate ?? default,
+                LastModifiedDate = model.LastModifiedDate ?? default,
+                Version = model.Version,
+                NodesetXml = null,
+                RequiredModels = model.RequiredModels.Select(rm => {
+                    NodeSetModel availableNodeset = NodeModelUtils.GetMatchingOrHigherNodeSet(
+                        availableNodesetsByModelUri[rm.ModelUri],
+                        rm.PublicationDate,
+                        rm.Version);
+
+                    return new RequiredModelInfo {
+                        NamespaceUri = rm.ModelUri,
+                        PublicationDate = rm.PublicationDate,
+                        Version = rm.Version,
+                        AvailableModel = availableNodeset == null
+                            ? null
+                            : new Nodeset {
+                                Identifier = uint.Parse(availableNodeset.Identifier, CultureInfo.InvariantCulture)
+                            }
+                    };
+                }).ToList()
             };
         }
 
