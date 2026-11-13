@@ -261,7 +261,7 @@ namespace Opc.Ua.Cloud.Library
                                 response.EnsureSuccessStatusCode();
 
                                 string json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                                JsonElement user = JsonDocument.Parse(json).RootElement;
+                                JsonElement user = JsonElement.Parse(json);
 
                                 context.RunClaimActions(user);
                             }
