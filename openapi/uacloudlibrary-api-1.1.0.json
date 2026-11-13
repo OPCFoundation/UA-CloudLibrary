@@ -609,7 +609,7 @@
           {
             "name": "values",
             "in": "query",
-            "description": "An optional parameter containing the OPC UA Information model values to upload (as an array of JSON key-value pairs in the format {nodeId: value}).",
+            "description": "An optional parameter containing the OPC UA Information model values to upload (as JSON key-value pairs in the format {nodeId: value}). Kept for backward compatibility and limited by the maximum URL length of the hosting server: use the values property of the request body instead, which takes precedence.",
             "schema": {
               "type": "string",
               "default": ""
@@ -620,22 +620,22 @@
           "content": {
             "application/json-patch+json": {
               "schema": {
-                "$ref": "#/components/schemas/UANameSpace"
+                "$ref": "#/components/schemas/UANameSpaceUpload"
               }
             },
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UANameSpace"
+                "$ref": "#/components/schemas/UANameSpaceUpload"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/UANameSpace"
+                "$ref": "#/components/schemas/UANameSpaceUpload"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/UANameSpace"
+                "$ref": "#/components/schemas/UANameSpaceUpload"
               }
             }
           },
@@ -827,6 +827,100 @@
         ],
         "type": "object",
         "properties": {
+          "nodeset": {
+            "$ref": "#/components/schemas/Nodeset"
+          },
+          "creationTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "numberOfDownloads": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "title": {
+            "type": "string"
+          },
+          "license": {
+            "type": "string",
+            "nullable": true
+          },
+          "copyrightText": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "documentationUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "iconUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "licenseUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "purchasingInformationUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "releaseNotesUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "testSpecificationUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "supportedLocales": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UANameSpaceUpload": {
+        "required": [
+          "copyrightText",
+          "description",
+          "nodeset",
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "values": {
+            "description": "The OPC UA Information model values to store with the nodeset, as JSON key-value pairs in the format {nodeId: value}. Accepted either as a JSON object or as a string containing that JSON.",
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": { }
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "nullable": true
+          },
           "nodeset": {
             "$ref": "#/components/schemas/Nodeset"
           },
