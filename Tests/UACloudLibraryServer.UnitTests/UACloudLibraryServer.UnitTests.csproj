@@ -7,6 +7,10 @@
     <Configurations>Debug;Release</Configurations>
     <!-- xUnit test methods conventionally use Method_Scenario_Expectation naming. -->
     <NoWarn>$(NoWarn);CA1707</NoWarn>
+    <!-- A test project is never served to a browser. Since the .NET 11 SDK every Web SDK project
+         generates Hot Reload browser assets in Debug builds, and the ones generated here collide
+         with those of the referenced server project, which fails the build. -->
+    <EnableHotReloadInRuntimeConfigDevFile>false</EnableHotReloadInRuntimeConfigDevFile>
   </PropertyGroup>
 
   <ItemGroup>

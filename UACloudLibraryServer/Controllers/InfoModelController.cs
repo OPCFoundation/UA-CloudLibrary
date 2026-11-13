@@ -267,13 +267,20 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 409, type: typeof(string), description: "An existing information model with the same identifier already exists in the UA Cloud Library and the overwrite flag was not set or the contributor name of existing information model is different to the one provided.")]
         [SwaggerResponse(statusCode: 500, type: typeof(string), description: "The provided information model could not be stored or updated.")]
         public async Task<IActionResult> UploadNamespaceAsync(
-            [FromBody][Required][SwaggerParameter("The OPC UA Information model to upload.")] UANameSpace uaNamespace,
+            [FromBody][Required][SwaggerParameter("The OPC UA Information model to upload. Its optional values property carries the OPC UA Information model values (JSON key-value pairs in the format {nodeId: value}).")] UANameSpaceUpload uaNamespace,
             [FromQuery][SwaggerParameter("An optional flag if existing OPC UA Information models in the library should be overwritten.")] bool overwrite = false,
-            [FromQuery][SwaggerParameter("An optional parameter containing the OPC UA Information model values to upload (as an array of JSON key-value pairs in the format {nodeId: value}).")] string values = "")
+            [FromQuery][SwaggerParameter("An optional parameter containing the OPC UA Information model values to upload (as JSON key-value pairs in the format {nodeId: value}). Kept for backward compatibility and limited by the maximum URL length of the hosting server: use the values property of the request body instead, which takes precedence.")] string values = "")
         {
             if (uaNamespace?.Nodeset?.NodesetXml == null)
             {
                 return new ObjectResult($"No nodeset XML was specified") { StatusCode = (int)HttpStatusCode.BadRequest };
+            }
+
+            // A query string is capped by the hosting server's URL length limit, which realistic
+            // values files exceed, so the values are taken from the request body when it has them.
+            if (!string.IsNullOrEmpty(uaNamespace.Values))
+            {
+                values = uaNamespace.Values;
             }
 
             // An upload creates or overwrites a nodeset that may carry a DPP. Overwriting is a modify

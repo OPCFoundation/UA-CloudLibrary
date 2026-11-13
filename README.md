@@ -152,6 +152,20 @@ Ownership is matched by user name. An account with the same user name as the upl
 
 Uploads (`PUT /infomodel/upload` or the UI) are always stored **unpublished** and owned by the uploading user, whoever that is, including administrators and the service account. An upload cannot publish a nodeset, and cannot replace a published nodeset.
 
+The node values of a nodeset (JSON in the format `{ nodeId: value }`) are uploaded with it in the `values` property of the request body, either as a JSON object or as a string containing that JSON:
+
+```json
+{
+  "title": "My nodeset",
+  "copyrightText": "...",
+  "description": "...",
+  "nodeset": { "nodesetXml": "<UANodeSet ...>" },
+  "values": { "nsu=http://example/dpp;i=6001": "750.0" }
+}
+```
+
+The `values` query parameter is still accepted for backward compatibility, but it is limited by the maximum URL length of the hosting server (about 2,000 characters), so use the request body for anything larger. If both are supplied, the request body takes precedence.
+
 ### Approving (publishing)
 
 Approval is the only way to publish a nodeset. It is performed by an administrator via:
