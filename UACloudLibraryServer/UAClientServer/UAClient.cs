@@ -304,12 +304,16 @@ namespace Opc.Ua.Cloud.Library
             foreach (ReferenceDescription description in references)
             {
                 NodeId id = ExpandedNodeId.ToNodeId(description.NodeId, session.NamespaceUris);
+                NodeId typeDefinition = description.TypeDefinition.IsNull
+                    ? NodeId.Null
+                    : ExpandedNodeId.ToNodeId(description.TypeDefinition, session.NamespaceUris);
 
                 nodes.Add(new NodesetViewerNode() {
                     Id = NodeId.ToExpandedNodeId(id, session.NamespaceUris).ToString(),
                     Text = description.DisplayName.ToString(),
                     BrowseName = description.BrowseName.Name ?? string.Empty,
                     NodeClass = description.NodeClass.ToString(),
+                    TypeDefinition = typeDefinition.IsNull ? string.Empty : NodeId.ToExpandedNodeId(typeDefinition, session.NamespaceUris).ToString(),
                     Icon = await NodeIcons.ResolveAsync(description.NodeClass, description.TypeDefinition, session).ConfigureAwait(false),
                     Children = new List<NodesetViewerNode>()
                 });
@@ -519,11 +523,22 @@ namespace Opc.Ua.Cloud.Library
                         continue;
                     }
 
-                    NodeSetModel dependentNodeset = NodeModelUtils.GetMatchingOrHigherNodeSet(matchingNodeSets, requiredModel.PublicationDate, requiredModel.Version);
+                    NodeSetModel dependentNodeset = NodeModelUtils.GetMatchingOrBestAvailableNodeSet(matchingNodeSets, requiredModel.PublicationDate, requiredModel.Version, out bool isFallback);
+                    if (isFallback)
+                    {
+                        Console.WriteLine($"Required model {requiredModel.ModelUri} ({requiredModel.Version}, {requiredModel.PublicationDate:yyyy-MM-dd}) for {nodesetIdentifier} is not available to this caller; loading the newest available version ({dependentNodeset.Version}, {dependentNodeset.PublicationDate:yyyy-MM-dd}) instead.");
+                    }
 
                     await LoadDependentNodesetsRecursiveAsync(userId, dependentNodeset.Identifier, nodeManager, allNodesets).ConfigureAwait(false);
 
                     DbFiles nodesetXml = await _storage.DownloadFileAsync(dependentNodeset.Identifier).ConfigureAwait(false);
+                    if (nodesetXml == null)
+                    {
+                        Console.WriteLine($"Required model {requiredModel.ModelUri} for {nodesetIdentifier} has no stored nodeset file.");
+                        MissingNamespaces.Add(requiredModel.ModelUri);
+                        continue;
+                    }
+
                     nodeManager.AddNamespace(nodesetXml.Blob);
                     nodeManager.AddNodesAndValues(nodesetXml.Blob, nodesetXml.Values);
 

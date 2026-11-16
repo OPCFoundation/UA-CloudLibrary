@@ -66,6 +66,27 @@ Each data element declares its kind in an `objectType` property:
 
 > **`elementId` is a server-generated GUID.** Each element's `elementId` is a stable GUID derived from the underlying OPC UA node's identity. It is globally unique even when names collide across namespaces, and it is the same on every read &mdash; so element addressing and the per-DPP access mapping stay stable. The illustrative payloads below use readable ids (e.g. `maxPressure`) for legibility, matching the EN 18223 Annex A examples; **a live response carries GUID `elementId`s**. An element's human meaning is conveyed by its `dictionaryReference` (e.g. IEC CDD), not by its id.
 
+### Template structure
+
+A template must contain an object with the BrowseName `DigitalProductPassport` under the `Objects` folder. The header fields above are read from Variables of that object with the matching BrowseNames (`UniqueProductIdentifier`, `Granularity`, `DppSchemaVersion`, `DppStatus`, `LastUpdated`, `EconomicOperatorId`, `FacilityId`, and `ContentSpecificationIds` or `ContentSpecificationId`). A `Granularity` value may be the enumeration name or its numeric value (`0` = model, `1` = batch, `2` = item). Header fields that are empty in the template must be set by each passport's value set.
+
+Data elements can be modelled in either of two ways:
+
+- **OPC UA DPP information model** (`http://opcfoundation.org/UA/DigitalProductPassport/`). Every Object under `DigitalProductPassport` is a top-level data element. An element's `ElementId`, `DictionaryReference`, `Value`, `ContentType`, `Url`, `Language` and `ResourceTitle` are Variable properties of that Object, and its member elements are its child Objects. The element's type definition selects its `objectType`:
+
+  | Type definition | `objectType` | Members |
+  |---|---|---|
+  | `DataElementCollectionType` | `DataElementCollection` | Child Objects, under `elements`. |
+  | `SingleValuedDataElementType` | `SingleValuedDataElement` | `value` is read from and written to the `Value` property. |
+  | `MultiValuedDataElementType` | `MultiValuedDataElement` | Child Objects, under `value`. |
+  | `MultiLanguageDataElementType` | `MultiLanguageDataElement` | The `Value` property holds the `[ { "value": ..., "language": ... } ]` array. |
+  | `RelatedResourceType` | `RelatedResource` | `ContentType`, `Url`, `Language` and `ResourceTitle` properties. |
+
+  An element of any other type is classified by its structure: with child Objects it is a `DataElementCollection`, with a `Value` property a `SingleValuedDataElement`, and with a `Url` property a `RelatedResource`. Writes to an element's properties through the value-set API or the nodeset browser are governed by the element's access key.
+
+  Some generators declare the parent/child link only on the child, as an inverse `HasProperty` or `HasComponent` reference to its parent. When a nodeset is loaded, the server adds the missing forward reference on the parent, so such elements and their properties can still be browsed and read.
+- **`Elements` container.** If `DigitalProductPassport` has a child named `Elements`, its children are the top-level data elements. A node with children is a `DataElementCollection`, and a node without children is a `SingleValuedDataElement` that carries its value on the node itself.
+
 ## Serialization
 
 EN 18223 defines two equivalent JSON serializations: a **compressed** form, where each element uses its `elementId` as the JSON object key and its type information is looked up from an external data dictionary, and an **expanded** form, where every element is a self-describing JSON object.

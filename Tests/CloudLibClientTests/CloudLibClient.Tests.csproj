@@ -5,6 +5,9 @@
     <IsTestProject>true</IsTestProject>
     <IsPackable>false</IsPackable>
     <Configurations>Debug;Release</Configurations>
+    <!-- The tests serve no static files; the .NET 11 SDK's static web asset pipeline otherwise fails on
+         the Blazor hot reload JS module inherited from the server project. -->
+    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
   </PropertyGroup>
 
   <ItemGroup>

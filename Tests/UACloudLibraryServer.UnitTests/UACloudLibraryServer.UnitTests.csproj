@@ -7,6 +7,9 @@
     <Configurations>Debug;Release</Configurations>
     <!-- xUnit test methods conventionally use Method_Scenario_Expectation naming. -->
     <NoWarn>$(NoWarn);CA1707</NoWarn>
+    <!-- The tests serve no static files; the .NET 11 SDK's static web asset pipeline otherwise fails on
+         the Blazor hot reload JS module inherited from the server project. -->
+    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
   </PropertyGroup>
 
   <ItemGroup>
