@@ -927,9 +927,21 @@ namespace Opc.Ua.Cloud.Library
 
         private static async Task<string> GetVariableWriteBlockerAsync(Opc.Ua.Client.ISession session, string nodeId)
         {
+            if (string.IsNullOrEmpty(nodeId))
+            {
+                return "Select a Variable node in the tree to edit its value.";
+            }
+
             try
             {
-                Node node = await session.ReadNodeAsync(ExpandedNodeId.ToNodeId(ExpandedNodeId.Parse(nodeId), session.NamespaceUris)).ConfigureAwait(false);
+                ExpandedNodeId expanded = ExpandedNodeId.Parse(nodeId);
+                NodeId resolved = ExpandedNodeId.ToNodeId(expanded, session.NamespaceUris);
+                if (resolved.IsNull)
+                {
+                    return $"The node's namespace ({expanded.NamespaceUri}) is not loaded in this session, so its write permissions could not be determined.";
+                }
+
+                Node node = await session.ReadNodeAsync(resolved).ConfigureAwait(false);
                 if (node == null)
                 {
                     return "The node could not be read from the nodeset.";
