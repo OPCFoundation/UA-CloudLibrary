@@ -916,10 +916,10 @@
                 "additionalProperties": { }
               },
               {
-                "type": "string"
+                "type": "string",
+                "nullable": true
               }
-            ],
-            "nullable": true
+            ]
           },
           "nodeset": {
             "$ref": "#/components/schemas/Nodeset"
