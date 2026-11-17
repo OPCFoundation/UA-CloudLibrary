@@ -40,6 +40,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Primitives;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Cloud.Library.XRegistry;
@@ -54,6 +55,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
     /// </summary>
     [Authorize(Policy = "ApiPolicy")]
     [ApiController]
+    [EnableRateLimiting(Startup.ApiRateLimitPolicy)]
     [ServiceFilter(typeof(DppAuditFailureFilter))]
     [Route(XRegistryIds.BasePath)]
     public class XRegistryController : Controller
