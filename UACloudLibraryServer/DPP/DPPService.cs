@@ -1037,10 +1037,10 @@ namespace Opc.Ua.Cloud.Library
 
                 if (string.Equals(entry.Key, "elements", StringComparison.Ordinal))
                 {
-                    NodesetViewerNode elementsNode = dppProperties.FirstOrDefault(p => IsNamed(p, "Elements"));
-                    if (elementsNode == null)
+                    List<ElementNode> topLevel = await GetTopLevelElementNodesAsync(userId, passport.NodesetIdentifier, dppProperties).ConfigureAwait(false);
+                    if (topLevel.Count == 0)
                     {
-                        return (UpdateDppResult.BadRequest, "DPP does not expose an Elements collection.", null);
+                        return (UpdateDppResult.BadRequest, "DPP does not expose any data elements.", null);
                     }
 
                     if (entry.Value is not JsonArray elementsArray)
@@ -1049,7 +1049,7 @@ namespace Opc.Ua.Cloud.Library
                         return (UpdateDppResult.BadRequest, "'elements' must be a JSON array (deletion via null is not supported).", null);
                     }
 
-                    var (err, resolved) = await ResolveElementWritesAsync(userId, passport.NodesetIdentifier, elementsNode, elementsArray, "elements").ConfigureAwait(false);
+                    var (err, resolved) = await ResolveElementWritesAsync(userId, passport.NodesetIdentifier, topLevel, elementsArray, "elements").ConfigureAwait(false);
                     if (err != null)
                     {
                         return (UpdateDppResult.BadRequest, err, null);
@@ -1118,10 +1118,11 @@ namespace Opc.Ua.Cloud.Library
         }
 
         /// <summary>
-        /// Maps every node under the template's Elements collection to its canonical access key (the
-        /// dotted element-id chain), so a write addressed by NodeId can be checked against the same
-        /// controlled-elements keys a PATCH is. Header properties are not in the map: they sit outside
-        /// Elements and no controlled-elements key can name them.
+        /// Maps every node of the template's data-element tree to its canonical access key (the dotted
+        /// element-id chain), so a write addressed by NodeId can be checked against the same
+        /// controlled-elements keys a PATCH is. A spec-model element's attribute properties (Value,
+        /// DictionaryReference, ...) map to the element's own key. Header properties are not in the
+        /// map: they are not data elements and no controlled-elements key can name them.
         /// </summary>
         private async Task<Dictionary<string, string>> MapElementAccessKeysAsync(string userId, string nodesetIdentifier)
         {
@@ -1133,23 +1134,26 @@ namespace Opc.Ua.Cloud.Library
             }
 
             List<NodesetViewerNode> properties = await _client.GetChildren(userId, nodesetIdentifier, dppNode.Id).ConfigureAwait(false);
-            NodesetViewerNode elements = properties?.FirstOrDefault(p => IsNamed(p, "Elements"));
-            if (elements is not null)
-            {
-                await MapChildrenAsync(userId, nodesetIdentifier, elements.Id, null, keys).ConfigureAwait(false);
-            }
+            List<ElementNode> topLevel = await GetTopLevelElementNodesAsync(userId, nodesetIdentifier, properties).ConfigureAwait(false);
+            await MapElementsAsync(userId, nodesetIdentifier, topLevel, null, keys).ConfigureAwait(false);
 
             return keys;
         }
 
-        private async Task MapChildrenAsync(string userId, string nodesetIdentifier, string parentId, string parentPath, Dictionary<string, string> keys)
+        private async Task MapElementsAsync(string userId, string nodesetIdentifier, IEnumerable<ElementNode> elements, string parentPath, Dictionary<string, string> keys)
         {
-            List<NodesetViewerNode> children = await _client.GetChildren(userId, nodesetIdentifier, parentId).ConfigureAwait(false);
-            foreach (NodesetViewerNode child in children ?? new List<NodesetViewerNode>())
+            foreach (ElementNode element in elements)
             {
-                string path = parentPath is null ? BuildElementId(child.Id) : parentPath + "." + BuildElementId(child.Id);
-                keys[child.Id] = path;
-                await MapChildrenAsync(userId, nodesetIdentifier, child.Id, path, keys).ConfigureAwait(false);
+                string path = parentPath is null ? BuildElementId(element.Node.Id) : parentPath + "." + BuildElementId(element.Node.Id);
+                keys[element.Node.Id] = path;
+
+                ElementNodeDetail detail = await DescribeElementAsync(userId, nodesetIdentifier, element).ConfigureAwait(false);
+                foreach (NodesetViewerNode property in detail.Properties)
+                {
+                    keys[property.Id] = path;
+                }
+
+                await MapElementsAsync(userId, nodesetIdentifier, detail.Children, path, keys).ConfigureAwait(false);
             }
         }
 
@@ -1494,8 +1498,8 @@ namespace Opc.Ua.Cloud.Library
             }
 
             List<NodesetViewerNode> dppProperties = await _client.GetChildren(userId, passport.NodesetIdentifier, dppNode.Id).ConfigureAwait(false);
-            NodesetViewerNode elementsNode = dppProperties?.FirstOrDefault(p => IsNamed(p, "Elements"));
-            if (elementsNode == null)
+            List<ElementNode> currentChildren = await GetTopLevelElementNodesAsync(userId, passport.NodesetIdentifier, dppProperties).ConfigureAwait(false);
+            if (currentChildren.Count == 0)
             {
                 return (UpdateDppResult.NotFound, null, null);
             }
@@ -1504,13 +1508,13 @@ namespace Opc.Ua.Cloud.Library
             // Shared helper so this can never drift from the key authorization was checked against.
             int startIndex = ElementSegmentStart(segments);
 
-            // A trailing ".value" segment addresses the leaf's value property, not a child node. In our
-            // OPC UA model a leaf DataElement has no "value" child (its value is read/written on the
-            // element node itself), so walking that segment would fail with NotFound. RFC 9535 callers
-            // may legitimately address the leaf via "$.elements.myElement.value", so treat a trailing
-            // ".value" as addressing the owning element: drop it before the walk and re-read. We only
-            // strip it when at least one element-identifying segment remains after the optional
-            // "elements" prefix, otherwise "$.elements.value" would resolve to nothing.
+            // A trailing ".value" segment addresses the leaf's value, not a child element. RFC 9535
+            // callers may legitimately address the leaf via "$.elements.myElement.value", so treat a
+            // trailing ".value" as addressing the owning element: drop it before the walk. The element's
+            // value node (its Value property, or the node itself in the earlier template shape) is the
+            // write target either way. We only strip it when at least one element-identifying segment
+            // remains after the optional "elements" prefix, otherwise "$.elements.value" would resolve
+            // to nothing.
             int endIndex = segments.Count;
             if (segments[endIndex - 1].IsName
                 && string.Equals(segments[endIndex - 1].Name, "value", StringComparison.Ordinal)
@@ -1524,43 +1528,50 @@ namespace Opc.Ua.Cloud.Library
                 return (UpdateDppResult.BadRequest, "elementIdPath must address a specific element, not the elements root.", null);
             }
 
-            // Walk the live OPC UA tree per JSONPath segment.
-            NodesetViewerNode current = elementsNode;
-            List<NodesetViewerNode> currentChildren = await _client.GetChildren(userId, passport.NodesetIdentifier, current.Id).ConfigureAwait(false);
+            // Walk the live OPC UA element tree per JSONPath segment.
+            NodesetViewerNode valueNode = null;
 
             for (int i = startIndex; i < endIndex; i++)
             {
-                if (currentChildren == null || currentChildren.Count == 0)
+                if (currentChildren.Count == 0)
                 {
                     return (UpdateDppResult.NotFound, null, null);
                 }
 
                 DppJsonPath.Segment segment = segments[i];
-                NodesetViewerNode next = segment.IsIndex
+                ElementNode next = segment.IsIndex
                     ? (segment.Index.Value >= 0 && segment.Index.Value < currentChildren.Count ? currentChildren[segment.Index.Value] : null)
-                    : currentChildren.FirstOrDefault(c => MatchesElementId(c, segment.Name));
+                    : currentChildren.FirstOrDefault(c => MatchesElementId(c.Node, segment.Name));
 
                 if (next == null)
                 {
                     return (UpdateDppResult.NotFound, null, null);
                 }
 
-                current = next;
+                ElementNodeDetail detail = await DescribeElementAsync(userId, passport.NodesetIdentifier, next).ConfigureAwait(false);
 
                 if (i < endIndex - 1)
                 {
-                    currentChildren = await _client.GetChildren(userId, passport.NodesetIdentifier, current.Id).ConfigureAwait(false);
+                    currentChildren = detail.Children;
                 }
                 else
                 {
                     // Final segment: confirm this is a leaf, not a collection.
-                    List<NodesetViewerNode> grandChildren = await _client.GetChildren(userId, passport.NodesetIdentifier, current.Id).ConfigureAwait(false);
-                    if (grandChildren != null && grandChildren.Count > 0)
+                    if (detail.Children.Count > 0)
                     {
                         return (UpdateDppResult.BadRequest,
                             "elementIdPath addresses a collection; updates must target a single leaf data element.",
                             null);
                     }
+
+                    if (detail.ValueNode is null)
+                    {
+                        return (UpdateDppResult.BadRequest,
+                            "elementIdPath addresses an element that does not carry a single value.",
+                            null);
+                    }
+
+                    valueNode = detail.ValueNode;
                 }
             }
 
@@ -1589,7 +1600,7 @@ namespace Opc.Ua.Cloud.Library
             }
 
             var elementWrite = new List<(string NodeId, string Value, string FieldPath)> {
-                (current.Id, JsonNodeToWireValue(payloadValue), elementIdPath)
+                (valueNode.Id, JsonNodeToWireValue(payloadValue), elementIdPath)
             };
 
             (UpdateDppResult result, string error) = await CommitValueSetWritesAsync(userId, passport, preUpdate, elementWrite).ConfigureAwait(false);
@@ -1636,18 +1647,12 @@ namespace Opc.Ua.Cloud.Library
             return builder.ToString();
         }
 
-        // Walks a partial 'elements' JSON array against the live OPC UA Elements subtree,
-        // resolving each leaf write to a target node id. Returns (errorMessage, resolvedWrites).
+        // Walks a partial 'elements' JSON array against the live OPC UA element tree, resolving each
+        // leaf write to the node that holds its value. Returns (errorMessage, resolvedWrites).
         private async Task<(string Error, List<(string NodeId, string Value, string FieldPath)> Writes)> ResolveElementWritesAsync(
-            string userId, string nodesetIdentifier, NodesetViewerNode parentNode, JsonArray partialElements, string pathPrefix)
+            string userId, string nodesetIdentifier, List<ElementNode> liveChildren, JsonArray partialElements, string pathPrefix)
         {
             var writes = new List<(string, string, string)>();
-
-            List<NodesetViewerNode> liveChildren = await _client.GetChildren(userId, nodesetIdentifier, parentNode.Id).ConfigureAwait(false);
-            if (liveChildren == null)
-            {
-                return ($"Element path '{pathPrefix}' is not browsable on the server.", null);
-            }
 
             foreach (JsonNode item in partialElements)
             {
@@ -1672,19 +1677,20 @@ namespace Opc.Ua.Cloud.Library
                     return ($"Each entry under '{pathPrefix}' must carry a non-empty string 'elementId'.", null);
                 }
 
-                NodesetViewerNode match = liveChildren.FirstOrDefault(c => MatchesElementId(c, elementId));
+                ElementNode match = liveChildren.FirstOrDefault(c => MatchesElementId(c.Node, elementId));
                 if (match == null)
                 {
                     return ($"Element '{pathPrefix}.{elementId}' was not found on the DPP.", null);
                 }
 
                 string currentPath = $"{pathPrefix}.{elementId}";
+                ElementNodeDetail matchDetail = await DescribeElementAsync(userId, nodesetIdentifier, match).ConfigureAwait(false);
 
                 // Nested DataElementCollection: per EN 18223 Annex A Example 1, children live
                 // under the 'elements' array. Recurse into the live OPC UA subtree.
                 if (elementObj.TryGetPropertyValue("elements", out JsonNode nestedElements) && nestedElements is JsonArray nestedArray)
                 {
-                    var (err, nestedWrites) = await ResolveElementWritesAsync(userId, nodesetIdentifier, match, nestedArray, currentPath).ConfigureAwait(false);
+                    var (err, nestedWrites) = await ResolveElementWritesAsync(userId, nodesetIdentifier, matchDetail.Children, nestedArray, currentPath).ConfigureAwait(false);
                     if (err != null)
                     {
                         return (err, null);
@@ -1721,12 +1727,9 @@ namespace Opc.Ua.Cloud.Library
                     // node by lying about objectType.
                     if (valueNode is JsonArray valueArray)
                     {
-                        List<NodesetViewerNode> matchChildren = await _client.GetChildren(userId, nodesetIdentifier, match.Id).ConfigureAwait(false);
-                        bool isCollectionNode = matchChildren != null && matchChildren.Count > 0;
-
-                        if (isCollectionNode)
+                        if (matchDetail.Children.Count > 0)
                         {
-                            var (err, nestedWrites) = await ResolveElementWritesAsync(userId, nodesetIdentifier, match, valueArray, currentPath).ConfigureAwait(false);
+                            var (err, nestedWrites) = await ResolveElementWritesAsync(userId, nodesetIdentifier, matchDetail.Children, valueArray, currentPath).ConfigureAwait(false);
                             if (err != null)
                             {
                                 return (err, null);
@@ -1740,9 +1743,14 @@ namespace Opc.Ua.Cloud.Library
                         // Fall through to the scalar leaf write below.
                     }
 
+                    if (matchDetail.ValueNode is null)
+                    {
+                        return ($"Element '{currentPath}' does not carry a single value.", null);
+                    }
+
                     // Leaf value update: SingleValuedDataElement.value (any non-array JSON value)
                     // or MultiLanguageDataElement.value (array of {value,language} written as-is).
-                    writes.Add((match.Id, JsonNodeToWireValue(valueNode), currentPath));
+                    writes.Add((matchDetail.ValueNode.Id, JsonNodeToWireValue(valueNode), currentPath));
                     continue;
                 }
 
@@ -1936,7 +1944,6 @@ namespace Opc.Ua.Cloud.Library
             Granularity granularity = Granularity.Model;
             List<string> contentSpecificationIds = null;
             DateTimeOffset lastUpdate = DateTimeOffset.UtcNow;
-            var elements = new List<DataElement>();
 
             foreach (NodesetViewerNode prop in properties)
             {
@@ -1979,16 +1986,17 @@ namespace Opc.Ua.Cloud.Library
                         facilityId = await ReadValueAsync(userId, nodesetIdentifier, prop.Id, overlay).ConfigureAwait(false);
                         break;
 
+                    // The OPC UA DPP information model names this property in the singular.
                     case "ContentSpecificationIds":
+                    case "ContentSpecificationId":
                         string contentSpecRaw = await ReadValueAsync(userId, nodesetIdentifier, prop.Id, overlay).ConfigureAwait(false);
                         contentSpecificationIds = ParseContentSpecificationIds(contentSpecRaw);
                         break;
-
-                    case "Elements":
-                        elements.AddRange(await ReadDataElementNodesAsync(userId, nodesetIdentifier, prop, overlay).ConfigureAwait(false));
-                        break;
                 }
             }
+
+            List<ElementNode> topLevel = await GetTopLevelElementNodesAsync(userId, nodesetIdentifier, properties).ConfigureAwait(false);
+            List<DataElement> elements = await ReadDataElementsAsync(userId, nodesetIdentifier, topLevel, overlay).ConfigureAwait(false);
 
             return new DigitalProductPassport {
                 DigitalProductPassportId = dppId,
@@ -2052,39 +2060,233 @@ namespace Opc.Ua.Cloud.Library
             return split.Count == 0 ? null : split;
         }
 
-        // Recursively reads OPC UA child nodes to build a DataElement tree
-        private async Task<List<DataElement>> ReadDataElementNodesAsync(string userId, string nodesetIdentifier, NodesetViewerNode parentNode, IReadOnlyDictionary<string, string> overlay)
-        {
-            var output = new List<DataElement>();
+        /// <summary>
+        /// A node in a passport's data-element tree.
+        /// </summary>
+        /// <remarks>
+        /// Templates come in two shapes. In the OPC UA DPP information model (<see cref="SpecModel"/>)
+        /// every data element is an Object placed directly under the DigitalProductPassport object, and
+        /// its ElementId, DictionaryReference, Value (or RelatedResource) attributes are Variable
+        /// properties of that Object. In the earlier shape the elements sit under an "Elements" node and
+        /// a leaf carries its value on the element node itself.
+        /// </remarks>
+        internal sealed record ElementNode(NodesetViewerNode Node, bool SpecModel);
 
-            List<NodesetViewerNode> childNodes = await _client.GetChildren(userId, nodesetIdentifier, parentNode.Id).ConfigureAwait(false);
-            if (childNodes == null)
+        /// <summary>
+        /// An element's child elements, the node holding its value (null for a collection or an element
+        /// without a single value), and its attribute properties (spec model only).
+        /// </summary>
+        internal sealed record ElementNodeDetail(List<ElementNode> Children, NodesetViewerNode ValueNode, List<NodesetViewerNode> Properties);
+
+        private static bool IsObjectNode(NodesetViewerNode node) =>
+            string.Equals(node?.NodeClass, "Object", StringComparison.Ordinal);
+
+        private const string DppNamespaceUri = "http://opcfoundation.org/UA/DigitalProductPassport/";
+
+        internal enum ElementKind
+        {
+            Collection,
+            SingleValued,
+            MultiValued,
+            MultiLanguage,
+            RelatedResource
+        }
+
+        // The element types of the DPP information model, keyed by type definition.
+        private static readonly Dictionary<string, ElementKind> s_dppElementTypes = new(StringComparer.Ordinal) {
+            [$"nsu={DppNamespaceUri};i=19"] = ElementKind.Collection,
+            [$"nsu={DppNamespaceUri};i=12"] = ElementKind.SingleValued,
+            [$"nsu={DppNamespaceUri};i=15"] = ElementKind.MultiValued,
+            [$"nsu={DppNamespaceUri};i=22"] = ElementKind.RelatedResource,
+            [$"nsu={DppNamespaceUri};i=27"] = ElementKind.MultiLanguage,
+        };
+
+        // Classifies an element by its type in the DPP information model (DataElementCollectionType,
+        // SingleValuedDataElementType, MultiValuedDataElementType, RelatedResourceType,
+        // MultiLanguageDataElementType). An element of any other type (e.g. a subtype, or an element in
+        // the earlier "Elements" shape) is classified by its structure.
+        internal static ElementKind ClassifyElement(ElementNode element, ElementNodeDetail detail)
+        {
+            if (element.SpecModel
+                && element.Node.TypeDefinition is not null
+                && s_dppElementTypes.TryGetValue(element.Node.TypeDefinition, out ElementKind kind))
             {
-                return output;
+                return kind;
             }
 
-            foreach (NodesetViewerNode childNode in childNodes)
+            if (detail.Children.Count > 0)
             {
-                // Check for children – if present, create a collection; otherwise, a leaf element.
-                List<DataElement> grandChildren = await ReadDataElementNodesAsync(userId, nodesetIdentifier, childNode, overlay).ConfigureAwait(false);
-                if (grandChildren.Count > 0)
+                return ElementKind.Collection;
+            }
+
+            if (detail.ValueNode is not null)
+            {
+                return ElementKind.SingleValued;
+            }
+
+            return detail.Properties.Any(p => IsNamed(p, "Url")) ? ElementKind.RelatedResource : ElementKind.Collection;
+        }
+
+        // A MultiLanguageDataElement's Value is stored as the EN 18223 JSON array of { value, language }
+        // entries. A plain non-empty string (e.g. a template default) becomes a single entry without a
+        // language. Internal so the unit-test assembly can exercise it.
+        internal static List<MultiLanguageValue> ParseMultiLanguageValue(string raw)
+        {
+            var result = new List<MultiLanguageValue>();
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return result;
+            }
+
+            if (ParseLeafValue(raw) is JsonArray entries)
+            {
+                foreach (JsonNode entry in entries)
                 {
-                    output.Add(new DataElementCollection {
-                        ElementId = BuildElementId(childNode.Id),
-                        Elements = grandChildren
-                    });
+                    if (entry is JsonObject obj
+                        && obj["value"] is JsonValue v && v.TryGetValue(out string text))
+                    {
+                        string language = obj["language"] is JsonValue l && l.TryGetValue(out string lang) ? lang : string.Empty;
+                        result.Add(new MultiLanguageValue { Value = text, Language = language });
+                    }
                 }
-                else
-                {
-                    string value = await ReadValueAsync(userId, nodesetIdentifier, childNode.Id, overlay).ConfigureAwait(false);
-                    output.Add(new SingleValuedDataElement {
-                        ElementId = BuildElementId(childNode.Id),
-                        Value = ParseLeafValue(value)
-                    });
-                }
+
+                return result;
+            }
+
+            result.Add(new MultiLanguageValue { Value = raw, Language = string.Empty });
+            return result;
+        }
+
+        // The passport's top-level data elements. A template with an "Elements" node keeps the earlier
+        // shape; otherwise every Object under the passport is a data element (header fields are Variables).
+        private async Task<List<ElementNode>> GetTopLevelElementNodesAsync(string userId, string nodesetIdentifier, IReadOnlyCollection<NodesetViewerNode> dppChildren)
+        {
+            var result = new List<ElementNode>();
+            if (dppChildren is null)
+            {
+                return result;
+            }
+
+            NodesetViewerNode legacyElements = dppChildren.FirstOrDefault(p => IsNamed(p, "Elements"));
+            if (legacyElements is not null)
+            {
+                List<NodesetViewerNode> children = await _client.GetChildren(userId, nodesetIdentifier, legacyElements.Id).ConfigureAwait(false);
+                result.AddRange((children ?? new List<NodesetViewerNode>()).Select(c => new ElementNode(c, SpecModel: false)));
+                return result;
+            }
+
+            result.AddRange(SpecModelTopLevelElements(dppChildren));
+            return result;
+        }
+
+        // Spec-model top-level elements: the Objects under the passport. Header fields are Variables.
+        // Internal so the unit-test assembly can exercise the classification without a live server.
+        internal static List<ElementNode> SpecModelTopLevelElements(IEnumerable<NodesetViewerNode> dppChildren) =>
+            (dppChildren ?? Enumerable.Empty<NodesetViewerNode>()).Where(IsObjectNode).Select(c => new ElementNode(c, SpecModel: true)).ToList();
+
+        private async Task<ElementNodeDetail> DescribeElementAsync(string userId, string nodesetIdentifier, ElementNode element)
+        {
+            List<NodesetViewerNode> children = await _client.GetChildren(userId, nodesetIdentifier, element.Node.Id).ConfigureAwait(false);
+            return DescribeElement(element, children);
+        }
+
+        // Splits an element's browsed children into child elements, its value node and its attribute
+        // properties. Internal so the unit-test assembly can exercise it without a live server.
+        internal static ElementNodeDetail DescribeElement(ElementNode element, IReadOnlyCollection<NodesetViewerNode> browsedChildren)
+        {
+            IReadOnlyCollection<NodesetViewerNode> children = browsedChildren ?? Array.Empty<NodesetViewerNode>();
+
+            if (!element.SpecModel)
+            {
+                return new ElementNodeDetail(
+                    children.Select(c => new ElementNode(c, SpecModel: false)).ToList(),
+                    children.Count == 0 ? element.Node : null,
+                    new List<NodesetViewerNode>());
+            }
+
+            var elementChildren = children.Where(IsObjectNode).Select(c => new ElementNode(c, SpecModel: true)).ToList();
+            var properties = children.Where(c => !IsObjectNode(c)).ToList();
+            NodesetViewerNode valueNode = elementChildren.Count == 0 ? properties.FirstOrDefault(p => IsNamed(p, "Value")) : null;
+            return new ElementNodeDetail(elementChildren, valueNode, properties);
+        }
+
+        private async Task<List<DataElement>> ReadDataElementsAsync(string userId, string nodesetIdentifier, IEnumerable<ElementNode> elements, IReadOnlyDictionary<string, string> overlay)
+        {
+            var output = new List<DataElement>();
+            foreach (ElementNode element in elements)
+            {
+                output.Add(await ReadDataElementAsync(userId, nodesetIdentifier, element, overlay).ConfigureAwait(false));
             }
 
             return output;
+        }
+
+        // Builds one DataElement (recursively for collections) from the template node and the overlay.
+        private async Task<DataElement> ReadDataElementAsync(string userId, string nodesetIdentifier, ElementNode element, IReadOnlyDictionary<string, string> overlay)
+        {
+            ElementNodeDetail detail = await DescribeElementAsync(userId, nodesetIdentifier, element).ConfigureAwait(false);
+            string elementId = BuildElementId(element.Node.Id);
+            string dictionaryReference = await ReadPropertyAsync(userId, nodesetIdentifier, detail, "DictionaryReference", overlay).ConfigureAwait(false);
+
+            switch (ClassifyElement(element, detail))
+            {
+                case ElementKind.SingleValued:
+                    string value = detail.ValueNode is null
+                        ? string.Empty
+                        : await ReadValueAsync(userId, nodesetIdentifier, detail.ValueNode.Id, overlay).ConfigureAwait(false);
+                    return new SingleValuedDataElement {
+                        ElementId = elementId,
+                        DictionaryReference = dictionaryReference,
+                        Value = ParseLeafValue(value)
+                    };
+
+                case ElementKind.MultiValued:
+                    return new MultiValuedDataElement {
+                        ElementId = elementId,
+                        DictionaryReference = dictionaryReference,
+                        Value = await ReadDataElementsAsync(userId, nodesetIdentifier, detail.Children, overlay).ConfigureAwait(false)
+                    };
+
+                case ElementKind.MultiLanguage:
+                    string text = detail.ValueNode is null
+                        ? string.Empty
+                        : await ReadValueAsync(userId, nodesetIdentifier, detail.ValueNode.Id, overlay).ConfigureAwait(false);
+                    return new MultiLanguageDataElement {
+                        ElementId = elementId,
+                        DictionaryReference = dictionaryReference,
+                        Value = ParseMultiLanguageValue(text)
+                    };
+
+                case ElementKind.RelatedResource:
+                    return new RelatedResource {
+                        ElementId = elementId,
+                        DictionaryReference = dictionaryReference,
+                        ContentType = await ReadPropertyAsync(userId, nodesetIdentifier, detail, "ContentType", overlay).ConfigureAwait(false) ?? string.Empty,
+                        Url = await ReadPropertyAsync(userId, nodesetIdentifier, detail, "Url", overlay).ConfigureAwait(false) ?? string.Empty,
+                        Language = await ReadPropertyAsync(userId, nodesetIdentifier, detail, "Language", overlay).ConfigureAwait(false),
+                        ResourceTitle = await ReadPropertyAsync(userId, nodesetIdentifier, detail, "ResourceTitle", overlay).ConfigureAwait(false)
+                    };
+
+                default:
+                    return new DataElementCollection {
+                        ElementId = elementId,
+                        DictionaryReference = dictionaryReference,
+                        Elements = await ReadDataElementsAsync(userId, nodesetIdentifier, detail.Children, overlay).ConfigureAwait(false)
+                    };
+            }
+        }
+
+        // Reads a named attribute property of a spec-model element; null when absent or empty.
+        private async Task<string> ReadPropertyAsync(string userId, string nodesetIdentifier, ElementNodeDetail detail, string name, IReadOnlyDictionary<string, string> overlay)
+        {
+            NodesetViewerNode property = detail.Properties.FirstOrDefault(p => IsNamed(p, name));
+            if (property is null)
+            {
+                return null;
+            }
+
+            string value = await ReadValueAsync(userId, nodesetIdentifier, property.Id, overlay).ConfigureAwait(false);
+            return string.IsNullOrEmpty(value) ? null : value;
         }
 
         /// <summary>

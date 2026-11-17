@@ -14,7 +14,7 @@ namespace UACloudLibraryServer.UnitTests
     /// </summary>
     public class NodesetValueCoercionTests
     {
-        private static JsonElement Parse(string json) => JsonDocument.Parse(json).RootElement;
+        private static JsonElement Parse(string json) => JsonElement.Parse(json);
 
         [Theory]
         [InlineData("42", "42")]

@@ -651,7 +651,9 @@
     private bool IsInlineSaving = false;
     private string InlineEditValue = string.Empty;
 
-    private string EditBlockedReason = "Select a Variable node in the tree to edit its value.";
+    private const string NoNodeSelectedReason = "Select a Variable node in the tree to edit its value.";
+
+    private string EditBlockedReason = NoNodeSelectedReason;
 
     private bool CanEditSelectedNode => string.IsNullOrEmpty(EditBlockedReason);
 
@@ -2291,6 +2293,15 @@
         SelectedNodeDocumentationUrl = null;
         SelectedNodeEnumFields = null;
         WriteStatus = string.Empty;
+
+        // Value set actions refresh the selection even when no tree node has been picked yet; the
+        // placeholder node has no Id, and reading it would fail with BadNodeIdInvalid.
+        if (string.IsNullOrEmpty(node?.Id))
+        {
+            NodeValue = string.Empty;
+            EditBlockedReason = NoNodeSelectedReason;
+            return;
+        }
 
         NodeValue = await _client.VariableRead(UserName, NodesetIdentifier, node.Id).ConfigureAwait(false);
         node.Value = NodeValue ?? string.Empty;

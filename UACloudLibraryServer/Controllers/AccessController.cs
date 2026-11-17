@@ -36,6 +36,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Opc.Ua.Cloud.Library.Models;
@@ -44,6 +45,7 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace Opc.Ua.Cloud.Library.Controllers
 {
     [Authorize(Policy = "ApiPolicy")]
+    [EnableRateLimiting(Startup.ApiRateLimitPolicy)]
     [ServiceFilter(typeof(DppAuditFailureFilter))]
     [ApiController]
     public class AccessController : Controller

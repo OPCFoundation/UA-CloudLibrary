@@ -107,6 +107,30 @@ namespace Opc.Ua.Cloud.Library.NodeSetIndex
             }
         }
 
+        /// <summary>
+        /// Like <see cref="GetMatchingOrHigherNodeSet"/>, but when every candidate is older than
+        /// required, returns the newest candidate instead of null. Callers only see nodesets they may
+        /// read (anonymous callers see published ones only), so the required version can exist and
+        /// still be absent from the candidates; loading an older version beats failing the load.
+        /// </summary>
+        /// <param name="isFallback">True when the returned nodeset is older than required.</param>
+        public static NodeSetModel GetMatchingOrBestAvailableNodeSet(IEnumerable<NodeSetModel> nodeSetsWithSameNamespaceUri, DateTime? publicationDate, string version, out bool isFallback)
+        {
+            List<NodeSetModel> candidates = nodeSetsWithSameNamespaceUri?.Where(n => n != null).ToList() ?? new List<NodeSetModel>();
+
+            NodeSetModel match = candidates.Count == 0 ? null : GetMatchingOrHigherNodeSet(candidates, publicationDate, version);
+            isFallback = match == null && candidates.Count > 0;
+            if (isFallback)
+            {
+                match = candidates
+                    .OrderByDescending(n => n.PublicationDate)
+                    .ThenByDescending(n => n.Version, StringComparer.OrdinalIgnoreCase)
+                    .First();
+            }
+
+            return match;
+        }
+
         private static NodeSetModel GetMatchingOrHigherNodeSetByPublicationDate(IEnumerable<NodeSetModel> nodeSetsWithSameNamespaceUri, DateTime? publicationDate)
         {
             var orderedNodeSets = nodeSetsWithSameNamespaceUri.OrderBy(n => n.PublicationDate);
