@@ -106,7 +106,12 @@ namespace CloudLibClient.Tests
                             // to start without an authoritative operator id rather than sign credentials
                             // asserting whatever operator a hosted passport names. The test host runs the
                             // real Startup, so it has to configure this exactly as a deployment does.
-                            { "Dpp:Esdc:EconomicOperatorId", "urn:uacl:test-economic-operator" }
+                            { "Dpp:Esdc:EconomicOperatorId", "urn:uacl:test-economic-operator" },
+
+                            // The test server has no client IP, so every test shares one rate-limit
+                            // bucket; uploading and querying the test nodesets far exceeds the
+                            // production default of 100 requests per minute.
+                            { "Api:RateLimit:PermitPerMinute", "100000" }
                         })
                 )
                 // Host.CreateDefaultBuilder layers appsettings.json and process environment variables

@@ -33,12 +33,14 @@ using System.Net;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Opc.Ua.Cloud.Library.Models;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace Opc.Ua.Cloud.Library.Controllers
 {
     [Authorize(Policy = "ApiPolicy")]
+    [EnableRateLimiting(Startup.ApiRateLimitPolicy)]
     [ApiController]
     [ServiceFilter(typeof(DppAuditFailureFilter))]
     public class InfoModelController : Controller

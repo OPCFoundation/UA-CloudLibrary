@@ -43,6 +43,11 @@ namespace Opc.Ua.Cloud.Library
         public string NodeClass { get; set; } = string.Empty;
 
         /// <summary>
+        /// The node's type definition as an expanded node id ("nsu=...;i=..."), or empty when it has none.
+        /// </summary>
+        public string TypeDefinition { get; set; } = string.Empty;
+
+        /// <summary>
         /// Icon concept key from the 'nodeIcon' section of wwwroot/images/icon-map.json (see <see cref="NodeIcons"/>).
         /// </summary>
         public string Icon { get; set; } = NodeIcons.Unknown;

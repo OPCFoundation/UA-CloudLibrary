@@ -33,6 +33,7 @@ using System.Threading.Tasks;
 using AdminShell;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Logging;
 using Opc.Ua.Cloud.Library.Models;
 using Swashbuckle.AspNetCore.Annotations;
@@ -40,6 +41,7 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace Opc.Ua.Cloud.Library.Controllers
 {
     [Authorize(Policy = "ApiPolicy")]
+    [EnableRateLimiting(Startup.ApiRateLimitPolicy)]
     [ServiceFilter(typeof(DppAuditFailureFilter))]
     [ApiController]
     public class ApprovalController : Controller

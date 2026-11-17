@@ -124,6 +124,11 @@ namespace Opc.Ua.Cloud.Library
                         }
                     }
 
+                    // Some nodesets declare a parent/child link only on the child (an inverse
+                    // HasProperty/HasComponent pointing at the parent). Forward browsing from the
+                    // parent would then find nothing, so add the missing forward reference.
+                    AddMissingForwardReferences(SystemContext, predefinedNodes, Find);
+
                     // add references for our top-level nodes to the objects folder
                     Server.NodeManager.GetManagerHandle(ObjectIds.ObjectsFolder, out INodeManager objectsFolderNodeManager);
                     string namespaceUri = nodeSet.NamespaceUris[0];
@@ -224,6 +229,67 @@ namespace Opc.Ua.Cloud.Library
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// For every inverse reference declared by an imported node whose target is a node held by
+        /// this manager, adds the matching forward reference on that target when it is missing.
+        /// </summary>
+        /// <returns>The number of forward references added.</returns>
+        internal static int AddMissingForwardReferences(ISystemContext context, IEnumerable<NodeState> nodes, Func<NodeId, NodeState> findNode)
+        {
+            List<NodeState> allNodes = new();
+            foreach (NodeState node in nodes)
+            {
+                CollectNodes(context, node, allNodes);
+            }
+
+            int added = 0;
+            foreach (NodeState node in allNodes)
+            {
+                List<IReference> references = new();
+                node.GetReferences(context, references);
+
+                foreach (IReference reference in references)
+                {
+                    if (!reference.IsInverse || reference.TargetId.IsNull || reference.TargetId.IsAbsolute)
+                    {
+                        continue;
+                    }
+
+                    NodeState target = findNode((NodeId)reference.TargetId);
+                    if ((target == null) || IsChildOf(context, target, node.NodeId))
+                    {
+                        continue;
+                    }
+
+                    if (target.AddReferenceIfMissing(reference.ReferenceTypeId, false, node.NodeId))
+                    {
+                        added++;
+                    }
+                }
+            }
+
+            return added;
+        }
+
+        private static void CollectNodes(ISystemContext context, NodeState node, List<NodeState> allNodes)
+        {
+            allNodes.Add(node);
+
+            List<BaseInstanceState> children = new();
+            node.GetChildren(context, children);
+            foreach (BaseInstanceState child in children)
+            {
+                CollectNodes(context, child, allNodes);
+            }
+        }
+
+        private static bool IsChildOf(ISystemContext context, NodeState parent, NodeId childId)
+        {
+            List<BaseInstanceState> children = new();
+            parent.GetChildren(context, children);
+            return children.Any(c => c.NodeId == childId);
         }
 
         /// <summary>
