@@ -347,6 +347,7 @@ A double underscore (`__`) in an environment variable key creates a nested confi
 | Setting | Description |
 |---|---|
 | `Dpp__RateLimit__PermitPerMinute` | Requests permitted per minute per client IP on the DPP endpoints. Must be greater than zero; the server refuses to start otherwise. (default: `100`) |
+| `Api__RateLimit__PermitPerMinute` | Requests permitted per minute per client IP on the other REST APIs (`/infomodel`, `/valuesets`, `/access`, `/approval`). Counted separately from the DPP allowance. Must be greater than zero; the server refuses to start otherwise. (default: `100`) |
 | `Dpp__ForwardedHeaders__KnownProxies__0`, `__1`, ... | IP addresses of trusted reverse proxies whose `X-Forwarded-For`/`X-Forwarded-Proto` headers should be honoured. |
 | `Dpp__ForwardedHeaders__KnownNetworks__0`, `__1`, ... | Trusted proxy networks in CIDR form (e.g. `10.0.0.0/8`). |
 | `Dpp__ForwardedHeaders__TrustAllProxies` | Set to `true` **only** when the server is network-isolated behind a proxy and cannot be reached directly. (default: `false`) |
@@ -359,7 +360,7 @@ A double underscore (`__`) in an environment variable key creates a nested confi
 
 **Access-rights management and revocation (EN 18239 Clause 5.2(16)/(17)/(19), Clause 6.3).** Roles and their assignments are managed through the access API. Revoking a role also invalidates the affected user's existing sessions, so a revoked role stops granting access immediately rather than when the session cookie happens to expire. The last administrator cannot be demoted, so a deployment cannot be locked out of its own administration.
 
-**Abuse prevention and rate limiting (EN 18239 Clause 5.2(11)/(15)).** The DPP endpoints are rate-limited per client IP, so anonymous public reads cannot be used to exhaust the service.
+**Abuse prevention and rate limiting (EN 18239 Clause 5.2(11)/(15)).** The DPP endpoints and the other REST APIs are rate-limited per client IP, so anonymous public reads cannot be used to exhaust the service.
 
 **Data authentication and integrity (EN 18246 Clause 4.5, 4.7, 5.1).** ESDCs over full-DPP reads, a tamper-evident audit log, and unauthenticated public read of non-controlled data.
 

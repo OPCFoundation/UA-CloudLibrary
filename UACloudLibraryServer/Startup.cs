@@ -74,6 +74,36 @@ namespace Opc.Ua.Cloud.Library
         // (EN 18239 §5.2(11)/(15)).
         public const string DppRateLimitPolicy = "DppRateLimit";
 
+        // Rate-limit policy applied to all other REST API controllers. It has its own per-IP bucket,
+        // so heavy use of one API family cannot lock a client out of the other.
+        public const string ApiRateLimitPolicy = "ApiRateLimit";
+
+        internal const string DppRateLimitPermitKey = "Dpp:RateLimit:PermitPerMinute";
+        internal const string ApiRateLimitPermitKey = "Api:RateLimit:PermitPerMinute";
+        internal const int DefaultRateLimitPermitPerMinute = 100;
+
+        /// <summary>
+        /// Reads a per-minute rate-limit permit from configuration, falling back to the default.
+        /// </summary>
+        /// <remarks>
+        /// Validated here rather than left to the limiter. The partition factory is lazy, so an
+        /// invalid value would not surface until the first request and would then throw on a user
+        /// request instead of failing the deployment - a configuration typo presenting as a runtime
+        /// fault. FixedWindowRateLimiter requires a positive permit limit.
+        /// </remarks>
+        internal static int ResolveRateLimitPermit(IConfiguration configuration, string key)
+        {
+            int permitPerMinute = configuration.GetValue<int?>(key) ?? DefaultRateLimitPermitPerMinute;
+            if (permitPerMinute <= 0)
+            {
+                throw new InvalidOperationException(
+                    $"{key} is {permitPerMinute}, but it must be greater than zero. " +
+                    $"Remove the setting to use the default of {DefaultRateLimitPermitPerMinute} requests per minute per client IP.");
+            }
+
+            return permitPerMinute;
+        }
+
         public Startup(IConfiguration configuration, IWebHostEnvironment environment)
         {
             Configuration = configuration;
@@ -460,35 +490,29 @@ namespace Opc.Ua.Cloud.Library
                 // for a server that may be directly reachable.
             });
 
-            // Limit access to DPP services to prevent attacks or unauthorized
-            // mass data scraping. Partition the window per client IP so one caller cannot exhaust others.
-            int permitPerMinute = Configuration.GetValue<int?>("Dpp:RateLimit:PermitPerMinute") ?? 100;
-
-            // Validated here rather than left to the limiter. The partition factory is lazy, so an
-            // invalid value would not surface until the first DPP request and would then throw on a
-            // user request instead of failing the deployment - a configuration typo presenting as a
-            // runtime fault. FixedWindowRateLimiter requires a positive permit limit.
-            if (permitPerMinute <= 0)
-            {
-                throw new InvalidOperationException(
-                    $"Dpp:RateLimit:PermitPerMinute is {permitPerMinute}, but it must be greater than zero. " +
-                    "Remove the setting to use the default of 100 requests per minute per client IP.");
-            }
+            // Limit access to the DPP services and the other REST APIs to prevent attacks or
+            // unauthorized mass data scraping. Partition each window per client IP so one caller
+            // cannot exhaust others.
+            int dppPermitPerMinute = ResolveRateLimitPermit(Configuration, DppRateLimitPermitKey);
+            int apiPermitPerMinute = ResolveRateLimitPermit(Configuration, ApiRateLimitPermitKey);
 
             services.AddRateLimiter(options => {
                 options.RejectionStatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status429TooManyRequests;
-                options.AddPolicy(DppRateLimitPolicy, httpContext =>
-                    RateLimitPartition.GetFixedWindowLimiter(
-                        partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
-                        factory: _ => new FixedWindowRateLimiterOptions {
-                            PermitLimit = permitPerMinute,
-                            Window = TimeSpan.FromMinutes(1),
-                            QueueLimit = 0
-                        }));
+                options.AddPolicy(DppRateLimitPolicy, httpContext => PerClientIpWindow(httpContext, dppPermitPerMinute));
+                options.AddPolicy(ApiRateLimitPolicy, httpContext => PerClientIpWindow(httpContext, apiPermitPerMinute));
             });
 
             services.AddHostedService<CloudLibStartupTask>();
         }
+
+        private static RateLimitPartition<string> PerClientIpWindow(Microsoft.AspNetCore.Http.HttpContext httpContext, int permitPerMinute) =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+                factory: _ => new FixedWindowRateLimiterOptions {
+                    PermitLimit = permitPerMinute,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0
+                });
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, AppDbContext appDbContext, ApplicationInstance uaApp)
@@ -516,7 +540,7 @@ namespace Opc.Ua.Cloud.Library
 
             app.UseRouting();
 
-            // Enforce DPP service rate limits (must follow UseRouting so endpoint policies are resolved).
+            // Enforce DPP and REST API rate limits (must follow UseRouting so endpoint policies are resolved).
             app.UseRateLimiter();
 
             app.UseAuthentication();

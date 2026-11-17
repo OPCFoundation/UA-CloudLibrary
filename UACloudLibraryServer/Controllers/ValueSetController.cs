@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Opc.Ua.Cloud.Library.Models;
 using Opc.Ua.Cloud.Library.ValueSets;
@@ -22,6 +23,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
     /// scoped to the calling user, so sets of other users are never visible.
     /// </summary>
     [Authorize(Policy = "ApiPolicy")]
+    [EnableRateLimiting(Startup.ApiRateLimitPolicy)]
     [ServiceFilter(typeof(DppAuditFailureFilter))]
     [ApiController]
     public class ValueSetController : Controller
