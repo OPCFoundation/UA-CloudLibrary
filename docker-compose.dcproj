@@ -21,5 +21,6 @@
     <None Include="Tests\UACloudLibraryServer.UnitTests\DppJsonPathTests.cs" />
     <None Include="Tests\UACloudLibraryServer.UnitTests\ParseLeafValueTests.cs" />
     <None Include="Tests\UACloudLibraryServer.UnitTests\UACloudLibraryServer.UnitTests.csproj" />
+    <None Include="xregistryapi.md" />
   </ItemGroup>
 </Project>
