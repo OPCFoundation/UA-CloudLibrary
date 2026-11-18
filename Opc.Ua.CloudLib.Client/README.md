@@ -147,6 +147,14 @@ else
 }
 ```
 
+To upload the node values of the nodeset with it, pass them as JSON in the format `{ nodeId: value }`. They are sent in the request body, so their size is not limited by the maximum URL length of the server:
+
+```csharp
+string values = File.ReadAllText("nodevalues.json");
+
+var (status, message) = await client.UploadNodeSetAsync(myNodeset, values, overwrite: false);
+```
+
 ## Using with Dependency Injection
 
 Configure the client in your `appsettings.json`:

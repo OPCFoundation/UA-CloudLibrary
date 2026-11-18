@@ -361,6 +361,7 @@ namespace Opc.Ua.Cloud.Library
                 }
 
                 options.CustomSchemaIds(type => type.ToString());
+                options.SchemaFilter<Swagger.NodesetValuesSchemaFilter>();
 
                 options.EnableAnnotations();
             });

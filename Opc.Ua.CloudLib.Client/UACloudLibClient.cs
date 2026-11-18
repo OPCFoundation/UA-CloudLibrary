@@ -199,6 +199,19 @@ namespace Opc.Ua.Cloud.Client
         /// <returns></returns>
         public Task<(HttpStatusCode Status, string Message)> UploadNodeSetAsync(UANameSpace nameSpace, bool overwrite = false) => _restClient.UploadNamespaceAsync(nameSpace, overwrite);
 
+        /// <summary>
+        /// Upload a nodeset together with its node values to the cloud library
+        /// </summary>
+        /// <remarks>
+        /// The values are sent in the request body, so their size is not limited by the maximum URL length of the server.
+        /// This requires a cloud library that reads the values from the request body: older versions ignore them.
+        /// </remarks>
+        /// <param name="nameSpace"></param>
+        /// <param name="values">The node values as JSON in the format {nodeId: value}, for example the content of a values file</param>
+        /// <param name="overwrite"></param>
+        /// <returns></returns>
+        public Task<(HttpStatusCode Status, string Message)> UploadNodeSetAsync(UANameSpace nameSpace, string values, bool overwrite = false) => _restClient.UploadNamespaceAsync(nameSpace, overwrite, values);
+
         /// <summary>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.</summary>
         public void Dispose()
         {

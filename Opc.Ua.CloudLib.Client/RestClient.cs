@@ -36,6 +36,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Opc.Ua.Cloud.Client.Models;
 
 namespace Opc.Ua.Cloud.Client
@@ -194,14 +195,29 @@ namespace Opc.Ua.Cloud.Client
             return stringBuilder.ToString();
         }
 
-        internal async Task<(HttpStatusCode Status, string Message)> UploadNamespaceAsync(UANameSpace nameSpace, bool overwrite = false)
+        internal async Task<(HttpStatusCode Status, string Message)> UploadNamespaceAsync(UANameSpace nameSpace, bool overwrite = false, string values = null)
         {
             // upload infomodel to cloud library
             Uri uploadAddress = client.BaseAddress != null ?
                 new Uri(client.BaseAddress, $"infomodel/upload{((overwrite) ? "?overwrite=true" : "")}") :
                 null;
 
-            HttpContent content = new StringContent(JsonConvert.SerializeObject(nameSpace), Encoding.UTF8, "application/json");
+            string payload;
+            if (string.IsNullOrEmpty(values))
+            {
+                payload = JsonConvert.SerializeObject(nameSpace);
+            }
+            else
+            {
+                // The values travel in the request body, not in the query string: a URL is capped by
+                // the hosting server's length limit, which realistic values files exceed. They are
+                // sent as a string so the server stores exactly the text that was passed in.
+                JObject payloadJson = JObject.FromObject(nameSpace);
+                payloadJson["values"] = values;
+                payload = payloadJson.ToString(Formatting.None);
+            }
+
+            HttpContent content = new StringContent(payload, Encoding.UTF8, "application/json");
 
             HttpResponseMessage uploadResponse = await client.SendAsync(new HttpRequestMessage(HttpMethod.Put, uploadAddress) { Content = content }).ConfigureAwait(false);
             string uploadResponseStr = await uploadResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
