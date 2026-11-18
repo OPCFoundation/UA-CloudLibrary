@@ -1,0 +1,29 @@
+{
+  "profiles": {
+    "NodesetUploader (dry run)": {
+      "commandName": "Project",
+      "commandLineArgs": "--dry-run",
+      "environmentVariables": {
+        "CLOUDLIB_URL": "https://uacloudlibrary.opcfoundation.org",
+        "CLOUDLIB_USERNAME": "",
+        "CLOUDLIB_PASSWORD": "",
+        "CLOUDLIB_LICENSE": "MIT",
+        "CLOUDLIB_COPYRIGHT": "Copyright (c) OPC Foundation"
+      }
+    },
+    "NodesetUploader (delete, upload and publish)": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "CLOUDLIB_URL": "https://uacloudlibrary.opcfoundation.org",
+        "CLOUDLIB_USERNAME": "",
+        "CLOUDLIB_PASSWORD": "",
+        "CLOUDLIB_LICENSE": "MIT",
+        "CLOUDLIB_COPYRIGHT": "Copyright (c) OPC Foundation"
+      }
+    },
+    "NodesetUploader (list titles)": {
+      "commandName": "Project",
+      "commandLineArgs": "--list"
+    }
+  }
+}

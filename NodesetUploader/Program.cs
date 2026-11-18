@@ -3,31 +3,54 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Xml.Linq;
 using Newtonsoft.Json;
+using Opc.Ua.Cloud.Client;
 using Opc.Ua.Cloud.Client.Models;
 
 namespace NodesetUploader
 {
     /// <summary>
-    /// Uploads every nodeset (*.xml) found in the application directory, together with its optional
-    /// values file, to a UA Cloud Library, overwriting existing entries and publishing (approving) them.
+    /// Uploads every nodeset (*.xml) found in the source directory, together with its optional values
+    /// file, to a UA Cloud Library and publishes (approves) it. Entries already in the library with the
+    /// same name (title) as a nodeset being uploaded are deleted first.
+    ///
+    /// Usage: NodesetUploader [directory] [--dry-run] [--list]
+    ///   directory   optional, the folder holding the nodesets and values files. Defaults to the
+    ///               NodesetUploader project folder when run from its build output (e.g. dotnet run),
+    ///               otherwise to the application directory.
+    ///   --dry-run   lists the library entries that would be deleted and the files that would be
+    ///               uploaded, without changing the library.
+    ///   --list      writes the generated titles to titles.csv in the source directory and exits.
     ///
     /// Environment variables:
     ///   CLOUDLIB_URL         optional, defaults to https://uacloudlibrary.opcfoundation.org
-    ///   CLOUDLIB_USERNAME    user name (must hold the Administrator role to publish)
+    ///   CLOUDLIB_USERNAME    user name (must hold the Administrator role to delete and publish)
     ///   CLOUDLIB_PASSWORD    password
     ///   CLOUDLIB_LICENSE     optional, defaults to "MIT"
     ///   CLOUDLIB_COPYRIGHT   optional, defaults to "Copyright (c) OPC Foundation"
     ///
     /// Values file lookup for "Foo.NodeSet2.xml": "Foo.NodeSet2.values.json", then "Foo.values.json".
+    /// The values are sent in the upload request body, so their size is not limited by the server's
+    /// maximum URL length. Requests rejected by the server's rate limiter (429) are retried.
     /// </summary>
     public static partial class Program
     {
+        private sealed record NodesetFile(string Path, string Xml, string ModelUri, string Title, string? ValuesPath);
+
         public static async Task<int> Main(string[] args)
         {
+            string directory = ResolveSourceDirectory(args);
+            if (!Directory.Exists(directory))
+            {
+                Console.Error.WriteLine($"Directory {directory} does not exist.");
+                return 1;
+            }
+
             if (args.Contains("--list", StringComparer.OrdinalIgnoreCase))
             {
-                return await ListTitlesAsync().ConfigureAwait(false);
+                return await ListTitlesAsync(directory).ConfigureAwait(false);
             }
+
+            bool dryRun = args.Contains("--dry-run", StringComparer.OrdinalIgnoreCase);
 
             string url = Environment.GetEnvironmentVariable("CLOUDLIB_URL") is { Length: > 0 } envUrl ? envUrl : "https://uacloudlibrary.opcfoundation.org";
             string? username = Environment.GetEnvironmentVariable("CLOUDLIB_USERNAME");
@@ -41,80 +64,216 @@ namespace NodesetUploader
                 return 1;
             }
 
-            using var client = new HttpClient { BaseAddress = new Uri(url.TrimEnd('/') + "/") };
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-                "Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{password}")));
-
-            string[] nodesetFiles = Directory.GetFiles(AppContext.BaseDirectory, "*.xml", SearchOption.TopDirectoryOnly)
-                .Where(IsNodeset)
-                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-
-            if (nodesetFiles.Length == 0)
+            List<NodesetFile> nodesets = await LoadNodesetsAsync(directory).ConfigureAwait(false);
+            if (nodesets.Count == 0)
             {
-                Console.WriteLine($"No nodeset files found in {AppContext.BaseDirectory}.");
+                Console.WriteLine($"No nodeset files found in {directory}.");
                 return 0;
             }
 
-            int failures = 0;
-            foreach (string nodesetFile in nodesetFiles)
+            // Existing entries are matched by title, so two local nodesets with the same title would
+            // each delete the entry the other one just created.
+            var duplicateTitles = nodesets.GroupBy(n => n.Title, StringComparer.Ordinal).Where(g => g.Count() > 1).ToList();
+            if (duplicateTitles.Count > 0)
             {
+                foreach (var duplicate in duplicateTitles)
+                {
+                    Console.Error.WriteLine($"Title '{duplicate.Key}' is generated for more than one nodeset: {string.Join(", ", duplicate.Select(n => Path.GetFileName(n.Path)))}");
+                }
+
+                return 1;
+            }
+
+            // The retry handler waits for the server's rate-limit window to reset, which can take up to
+            // a minute per attempt, so the default 100 second timeout would cut retries short.
+            var httpClient = new HttpClient(new RateLimitRetryHandler(new HttpClientHandler())) {
+                BaseAddress = new Uri(url.TrimEnd('/') + "/"),
+                Timeout = TimeSpan.FromMinutes(15)
+            };
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{password}")));
+
+            // Disposing the cloud library client also disposes the HttpClient.
+            using var cloudLib = new UACloudLibClient(httpClient);
+
+            Console.WriteLine($"{(dryRun ? "Dry run: " : string.Empty)}{nodesets.Count} nodesets in {directory}, cloud library {httpClient.BaseAddress}");
+
+            List<(string Title, string Identifier)>? existing = await GetExistingNamesAsync(httpClient).ConfigureAwait(false);
+            if (existing == null)
+            {
+                return 1;
+            }
+
+            var titles = new HashSet<string>(nodesets.Select(n => n.Title), StringComparer.Ordinal);
+            List<(string Title, string Identifier)> toDelete = existing.Where(e => titles.Contains(e.Title)).ToList();
+            Console.WriteLine($"{toDelete.Count} existing entries have the same name as a nodeset to upload.");
+
+            int deleted = 0;
+            int failures = 0;
+            var notDeleted = new HashSet<string>(StringComparer.Ordinal);
+            foreach ((string title, string identifier) in toDelete)
+            {
+                if (dryRun)
+                {
+                    Console.WriteLine($"Would delete '{title}' ({identifier}).");
+                    continue;
+                }
+
                 try
                 {
-                    if (!await UploadAndPublishAsync(client, nodesetFile, license, copyright).ConfigureAwait(false))
+                    if (await DeleteAsync(httpClient, title, identifier).ConfigureAwait(false))
                     {
-                        failures++;
+                        deleted++;
+                        continue;
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.Error.WriteLine($"{Path.GetFileName(nodesetFile)}: {ex.Message}");
-                    failures++;
+                    Console.Error.WriteLine($"Deleting '{title}' ({identifier}) failed: {ex.Message}");
                 }
+
+                failures++;
+                notDeleted.Add(title);
             }
 
-            Console.WriteLine($"Done. {nodesetFiles.Length - failures} succeeded, {failures} failed.");
+            int uploaded = 0;
+            int skipped = 0;
+            foreach (NodesetFile nodeset in nodesets)
+            {
+                string fileName = Path.GetFileName(nodeset.Path);
+                if (notDeleted.Contains(nodeset.Title))
+                {
+                    Console.Error.WriteLine($"{fileName}: skipped, because an existing entry named '{nodeset.Title}' could not be deleted.");
+                    skipped++;
+                    continue;
+                }
+
+                if (dryRun)
+                {
+                    Console.WriteLine($"Would upload {fileName} as '{nodeset.Title}'{(nodeset.ValuesPath != null ? $" with values from {Path.GetFileName(nodeset.ValuesPath)}" : " without values")}.");
+                    continue;
+                }
+
+                try
+                {
+                    if (await UploadAndPublishAsync(cloudLib, httpClient, nodeset, license, copyright).ConfigureAwait(false))
+                    {
+                        uploaded++;
+                        continue;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"{fileName}: {ex.Message}");
+                }
+
+                failures++;
+            }
+
+            if (dryRun)
+            {
+                Console.WriteLine($"Dry run done. {toDelete.Count} entries would be deleted and {nodesets.Count} nodesets uploaded.");
+                return 0;
+            }
+
+            Console.WriteLine($"Done. {deleted} deleted, {uploaded} uploaded and published, {skipped} skipped, {failures} failed.");
             return failures == 0 ? 0 : 1;
         }
 
-        private static async Task<bool> UploadAndPublishAsync(HttpClient client, string nodesetFile, string license, string copyright)
+        // Defaults to the project folder when run from the build output, so the nodesets kept next to
+        // the project are found without copying them into bin.
+        private static string ResolveSourceDirectory(string[] args)
         {
-            string fileName = Path.GetFileName(nodesetFile);
-            string xml = await File.ReadAllTextAsync(nodesetFile).ConfigureAwait(false);
-
-            XElement? model = XDocument.Parse(xml).Root?.Elements().FirstOrDefault(e => e.Name.LocalName == "Models")
-                ?.Elements().FirstOrDefault(e => e.Name.LocalName == "Model");
-            string modelUri = model?.Attribute("ModelUri")?.Value ?? Path.GetFileNameWithoutExtension(nodesetFile);
-            string title = GetTitle(modelUri);
-
-            var nameSpace = new UANameSpace {
-                Title = title,
-                License = license,
-                CopyrightText = copyright,
-                Description = $"Information model {modelUri}",
-            };
-            nameSpace.Nodeset.NodesetXml = xml;
-
-            string? valuesFile = FindValuesFile(nodesetFile);
-            string values = valuesFile != null ? await File.ReadAllTextAsync(valuesFile).ConfigureAwait(false) : string.Empty;
-
-            string uploadUri = "infomodel/upload?overwrite=true";
-            if (!string.IsNullOrWhiteSpace(values))
+            string? argument = args.FirstOrDefault(a => !a.StartsWith("--", StringComparison.Ordinal));
+            if (argument != null)
             {
-                uploadUri += "&values=" + Uri.EscapeDataString(values);
+                return Path.GetFullPath(argument);
             }
 
-            using var content = new StringContent(JsonConvert.SerializeObject(nameSpace), Encoding.UTF8, "application/json");
-            using HttpResponseMessage uploadResponse = await client.PutAsync(uploadUri, content).ConfigureAwait(false);
-            string uploadBody = await uploadResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
-            if (uploadResponse.StatusCode != HttpStatusCode.OK)
+            for (DirectoryInfo? current = new DirectoryInfo(AppContext.BaseDirectory); current != null; current = current.Parent)
             {
-                Console.Error.WriteLine($"{fileName}: upload failed ({(int)uploadResponse.StatusCode}): {uploadBody}");
+                if (File.Exists(Path.Combine(current.FullName, "NodesetUploader.csproj")))
+                {
+                    return current.FullName;
+                }
+            }
+
+            return AppContext.BaseDirectory;
+        }
+
+        private static async Task<List<NodesetFile>> LoadNodesetsAsync(string directory)
+        {
+            var nodesets = new List<NodesetFile>();
+            foreach (string file in Directory.GetFiles(directory, "*.xml", SearchOption.TopDirectoryOnly)
+                .Where(IsNodeset)
+                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+            {
+                string xml = await File.ReadAllTextAsync(file).ConfigureAwait(false);
+                string modelUri = GetModelUri(xml) ?? Path.GetFileNameWithoutExtension(file);
+                nodesets.Add(new NodesetFile(file, xml, modelUri, GetTitle(modelUri), FindValuesFile(file)));
+            }
+
+            return nodesets;
+        }
+
+        // Administrators see every entry, including unpublished submissions.
+        private static async Task<List<(string Title, string Identifier)>?> GetExistingNamesAsync(HttpClient client)
+        {
+            using HttpResponseMessage response = await client.GetAsync("infomodel/names").ConfigureAwait(false);
+            string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if (response.StatusCode != HttpStatusCode.OK)
+            {
+                Console.Error.WriteLine($"Listing the existing nodesets failed ({(int)response.StatusCode}): {body}");
+                return null;
+            }
+
+            // Each entry is "Title,Identifier". The title may itself contain commas, the identifier cannot.
+            return (JsonConvert.DeserializeObject<string[]>(body) ?? [])
+                .Select(entry => (Entry: entry, Comma: entry.LastIndexOf(',')))
+                .Where(e => e.Comma > 0)
+                .Select(e => (Title: e.Entry[..e.Comma], Identifier: e.Entry[(e.Comma + 1)..].Trim()))
+                .DistinctBy(e => e.Identifier)
+                .ToList();
+        }
+
+        private static async Task<bool> DeleteAsync(HttpClient client, string title, string identifier)
+        {
+            using HttpResponseMessage response = await client.DeleteAsync($"infomodel/delete/{Uri.EscapeDataString(identifier)}").ConfigureAwait(false);
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                Console.WriteLine($"Deleted '{title}' ({identifier}).");
+                return true;
+            }
+
+            string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            Console.Error.WriteLine($"Deleting '{title}' ({identifier}) failed ({(int)response.StatusCode}): {body}");
+            return false;
+        }
+
+        private static async Task<bool> UploadAndPublishAsync(UACloudLibClient cloudLib, HttpClient client, NodesetFile nodeset, string license, string copyright)
+        {
+            string fileName = Path.GetFileName(nodeset.Path);
+
+            var nameSpace = new UANameSpace {
+                Title = nodeset.Title,
+                License = license,
+                CopyrightText = copyright,
+                Description = $"Information model {nodeset.ModelUri}",
+            };
+            nameSpace.Nodeset.NodesetXml = nodeset.Xml;
+
+            string values = nodeset.ValuesPath != null ? await File.ReadAllTextAsync(nodeset.ValuesPath).ConfigureAwait(false) : string.Empty;
+
+            // Sends the values in the request body rather than the query string.
+            (HttpStatusCode status, string message) = await cloudLib.UploadNodeSetAsync(nameSpace, values, overwrite: true).ConfigureAwait(false);
+            if (status != HttpStatusCode.OK)
+            {
+                Console.Error.WriteLine($"{fileName}: upload failed ({(int)status}): {message}");
                 return false;
             }
 
-            string identifier = uploadBody.Trim().Trim('"');
-            Console.WriteLine($"{fileName}: uploaded as {identifier}{(valuesFile != null ? $" with values from {Path.GetFileName(valuesFile)}" : string.Empty)}.");
+            string identifier = message.Trim().Trim('"');
+            Console.WriteLine($"{fileName}: uploaded as {identifier}{(nodeset.ValuesPath != null ? $" with values from {Path.GetFileName(nodeset.ValuesPath)}" : string.Empty)}.");
 
             string approvalUri = $"approval/{Uri.EscapeDataString(identifier)}?name={Uri.EscapeDataString(nameSpace.Title)}";
             using HttpResponseMessage approvalResponse = await client.PutAsync(approvalUri, null).ConfigureAwait(false);
@@ -180,23 +339,16 @@ namespace NodesetUploader
         [System.Text.RegularExpressions.GeneratedRegex(@"^\d[\d.\-]*$")]
         private static partial System.Text.RegularExpressions.Regex VersionSegment();
 
-        private static async Task<int> ListTitlesAsync()
+        private static async Task<int> ListTitlesAsync(string directory)
         {
-            string[] nodesetFiles = Directory.GetFiles(AppContext.BaseDirectory, "*.xml", SearchOption.TopDirectoryOnly)
-                .Where(IsNodeset)
-                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+            List<NodesetFile> nodesets = await LoadNodesetsAsync(directory).ConfigureAwait(false);
 
             var lines = new List<string> { "Title,ModelUri,File" };
-            foreach (string nodesetFile in nodesetFiles)
-            {
-                string modelUri = GetModelUri(await File.ReadAllTextAsync(nodesetFile).ConfigureAwait(false)) ?? Path.GetFileNameWithoutExtension(nodesetFile);
-                lines.Add($"\"{GetTitle(modelUri)}\",\"{modelUri}\",\"{Path.GetFileName(nodesetFile)}\"");
-            }
+            lines.AddRange(nodesets.Select(n => $"\"{n.Title}\",\"{n.ModelUri}\",\"{Path.GetFileName(n.Path)}\""));
 
-            string output = Path.Combine(AppContext.BaseDirectory, "titles.csv");
+            string output = Path.Combine(directory, "titles.csv");
             await File.WriteAllLinesAsync(output, lines).ConfigureAwait(false);
-            Console.WriteLine($"Wrote {nodesetFiles.Length} titles to {output}");
+            Console.WriteLine($"Wrote {nodesets.Count} titles to {output}");
             return 0;
         }
 
