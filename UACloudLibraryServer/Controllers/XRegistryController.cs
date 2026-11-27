@@ -78,14 +78,16 @@ namespace Opc.Ua.Cloud.Library.Controllers
         private readonly IXRegistryNodesetStore _nodesetStore;
         private readonly IDppAuditLog _auditLog;
         private readonly IWotThingModelGenerator _wotGenerator;
+        private readonly IWotDocumentTypeCache _wotDocumentTypes;
 
         private NodesetDocumentFormat _documentFormat = NodesetDocumentFormat.Wot;
 
-        public XRegistryController(IXRegistryNodesetStore store, IDppAuditLog auditLog, IWotThingModelGenerator wotGenerator)
+        public XRegistryController(IXRegistryNodesetStore store, IDppAuditLog auditLog, IWotThingModelGenerator wotGenerator, IWotDocumentTypeCache wotDocumentTypes)
         {
             _nodesetStore = store;
             _auditLog = auditLog;
             _wotGenerator = wotGenerator;
+            _wotDocumentTypes = wotDocumentTypes;
         }
 
         private string UserId => User?.Identity?.Name;
@@ -96,22 +98,34 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
         private XRegistryEntityBuilder Builder => CreateBuilder();
 
-        private XRegistryEntityBuilder CreateBuilder(IReadOnlyDictionary<uint, XRegistryInlineDocument> inlineDocuments = null)
-            => new($"{Request.Scheme}://{Request.Host}{Request.PathBase}{XRegistryIds.BasePath}", _documentFormat, inlineDocuments);
+        private XRegistryEntityBuilder CreateBuilder(IReadOnlyDictionary<uint, XRegistryInlineDocument> inlineDocuments = null, IReadOnlyDictionary<uint, string> contentTypes = null)
+            => new($"{Request.Scheme}://{Request.Host}{Request.PathBase}{XRegistryIds.BasePath}", _documentFormat, inlineDocuments, contentTypes);
 
         /// <summary>
-        /// Loads the documents of <paramref name="versions"/> in the requested format (generating WoT
-        /// documents as needed) and returns a builder that inlines them. A version whose XML is missing
-        /// is left out and keeps its <c>nodeseturl</c>.
+        /// Prepares what the entities of <paramref name="selection"/> need: the documents to inline in the
+        /// requested format (generating WoT documents as needed) and, for WoT, the actual media type of
+        /// every other version, which is a Thing Model or a Thing Description depending on the nodeset.
+        /// A version whose XML is missing is left out; it keeps its <c>nodeseturl</c> and the format's
+        /// default media type.
         /// </summary>
-        private async Task<(XRegistryEntityBuilder Builder, IActionResult Error)> PrepareBuilderAsync(IEnumerable<UANameSpace> versions)
+        private async Task<(XRegistryEntityBuilder Builder, IActionResult Error)> PrepareBuilderAsync(IEnumerable<XRegistryVersionSelection> selection)
         {
             Dictionary<uint, XRegistryInlineDocument> documents = new();
-            foreach (UANameSpace version in versions)
+            Dictionary<uint, string> contentTypes = new();
+            foreach (IGrouping<uint, XRegistryVersionSelection> selected in selection.GroupBy(s => s.Version.Nodeset.Identifier))
             {
-                uint identifier = version.Nodeset.Identifier;
-                if (documents.ContainsKey(identifier))
+                uint identifier = selected.Key;
+                UANameSpace version = selected.First().Version;
+                if (!selected.Any(s => s.InlinesDocument))
                 {
+                    if (_documentFormat == NodesetDocumentFormat.Wot)
+                    {
+                        string contentType = await _wotDocumentTypes.GetContentTypeAsync(version, () => _nodesetStore.GetXmlAsync(identifier)).ConfigureAwait(false);
+                        if (contentType != null)
+                        {
+                            contentTypes[identifier] = contentType;
+                        }
+                    }
                     continue;
                 }
 
@@ -133,11 +147,12 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     return (null, WotGenerationError(thingModel));
                 }
 
+                _wotDocumentTypes.Remember(version, thingModel.ContentType);
                 JsonNode content = JsonNode.Parse(thingModel.Utf8Json.Span, documentOptions: new JsonDocumentOptions { MaxDepth = MaxJsonDepth });
                 documents[identifier] = new XRegistryInlineDocument(content, thingModel.ContentType);
             }
 
-            return (CreateBuilder(documents.Count == 0 ? null : documents), null);
+            return (CreateBuilder(documents.Count == 0 ? null : documents, contentTypes.Count == 0 ? null : contentTypes), null);
         }
 
         // ------------------------------------------------------------------ registry root / model / capabilities
@@ -153,7 +168,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             }
 
             List<XRegistryGroup> groups = await LoadGroupsAsync().ConfigureAwait(false);
-            (XRegistryEntityBuilder builder, error) = await PrepareBuilderAsync(XRegistryEntityBuilder.RootDocuments(groups, inline)).ConfigureAwait(false);
+            (XRegistryEntityBuilder builder, error) = await PrepareBuilderAsync(XRegistryEntityBuilder.RootSelection(groups, inline)).ConfigureAwait(false);
             return error ?? Json(builder.Root(groups, inline));
         }
 
@@ -175,7 +190,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             }
 
             List<XRegistryGroup> groups = await LoadGroupsAsync().ConfigureAwait(false);
-            (XRegistryEntityBuilder builder, error) = await PrepareBuilderAsync(XRegistryEntityBuilder.RootDocuments(groups, XRegistryInline.All)).ConfigureAwait(false);
+            (XRegistryEntityBuilder builder, error) = await PrepareBuilderAsync(XRegistryEntityBuilder.RootSelection(groups, XRegistryInline.All)).ConfigureAwait(false);
             if (error != null)
             {
                 return error;
@@ -199,7 +214,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
             }
 
             List<XRegistryGroup> groups = await LoadGroupsAsync().ConfigureAwait(false);
-            (XRegistryEntityBuilder builder, error) = await PrepareBuilderAsync(XRegistryEntityBuilder.GroupCollectionDocuments(groups, inline)).ConfigureAwait(false);
+            (XRegistryEntityBuilder builder, error) = await PrepareBuilderAsync(XRegistryEntityBuilder.GroupCollectionSelection(groups, inline)).ConfigureAwait(false);
             return error ?? Json(builder.GroupCollection(groups, inline));
         }
 
@@ -218,7 +233,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return NotFoundError($"Group '{groupId}' not found.");
             }
 
-            (XRegistryEntityBuilder builder, error) = await PrepareBuilderAsync(XRegistryEntityBuilder.GroupDocuments(group, inline)).ConfigureAwait(false);
+            (XRegistryEntityBuilder builder, error) = await PrepareBuilderAsync(XRegistryEntityBuilder.GroupSelection(group, inline)).ConfigureAwait(false);
             return error ?? Json(builder.Group(group, inline));
         }
 
@@ -237,7 +252,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return NotFoundError($"Group '{groupId}' not found.");
             }
 
-            (XRegistryEntityBuilder builder, error) = await PrepareBuilderAsync(XRegistryEntityBuilder.ResourceDocuments(group, inline)).ConfigureAwait(false);
+            (XRegistryEntityBuilder builder, error) = await PrepareBuilderAsync(XRegistryEntityBuilder.ResourceSelection(group, inline)).ConfigureAwait(false);
             return error ?? Json(new JsonObject { [XRegistryIds.ResourceId] = builder.Resource(group, inline, details: true) });
         }
 
@@ -307,7 +322,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return NotFoundError($"Group '{groupId}' not found.");
             }
 
-            (XRegistryEntityBuilder builder, error) = await PrepareBuilderAsync(XRegistryEntityBuilder.VersionCollectionDocuments(group, inline)).ConfigureAwait(false);
+            (XRegistryEntityBuilder builder, error) = await PrepareBuilderAsync(XRegistryEntityBuilder.VersionCollectionSelection(group, inline)).ConfigureAwait(false);
             return error ?? Json(builder.VersionCollection(group, inline));
         }
 
@@ -438,8 +453,14 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return StatusCode((int)HttpStatusCode.Created);
             }
 
-            JsonObject entity = Builder.Version(group, created, details: true, XRegistryInline.None);
-            Response.Headers.Location = Builder.VersionUrl(group, created) + DetailsSuffix;
+            (XRegistryEntityBuilder builder, error) = await PrepareBuilderAsync(XRegistryEntityBuilder.VersionSelection(created, XRegistryInline.None)).ConfigureAwait(false);
+            if (error != null)
+            {
+                return error;
+            }
+
+            JsonObject entity = builder.Version(group, created, details: true, XRegistryInline.None);
+            Response.Headers.Location = builder.VersionUrl(group, created) + DetailsSuffix;
             return new JsonResult(entity) { StatusCode = (int)HttpStatusCode.Created };
         }
 
@@ -555,6 +576,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     {
                         return WotGenerationError(thingModel);
                     }
+
+                    _wotDocumentTypes.Remember(version, thingModel.ContentType);
                 }
 
                 await _nodesetStore.IncrementDownloadCountAsync(version.Nodeset.Identifier).ConfigureAwait(false);
@@ -574,9 +597,9 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return File(thingModel.OpenRead(), thingModel.ContentType);
             }
 
-            IEnumerable<UANameSpace> selected = isResource
-                ? XRegistryEntityBuilder.ResourceDocuments(group, inline)
-                : XRegistryEntityBuilder.VersionDocuments(version, inline);
+            IEnumerable<XRegistryVersionSelection> selected = isResource
+                ? XRegistryEntityBuilder.ResourceSelection(group, inline)
+                : XRegistryEntityBuilder.VersionSelection(version, inline);
             (XRegistryEntityBuilder builder, IActionResult error) = await PrepareBuilderAsync(selected).ConfigureAwait(false);
             if (error != null)
             {

@@ -83,8 +83,12 @@ namespace Opc.Ua.Cloud.Library.Wot
                 return cached;
             }
 
+            // The cache is checked again inside the factory: another request may have finished the same
+            // conversion (and removed its in-flight entry) between the lookup above and this point.
             Lazy<WotThingModelResult> pending = _inFlight.GetOrAdd(key,
-                _ => new Lazy<WotThingModelResult>(() => Create(nodesetXml), LazyThreadSafetyMode.ExecutionAndPublication));
+                _ => new Lazy<WotThingModelResult>(
+                    () => _cache.TryGetValue(key, out WotThingModelResult completed) ? completed : Create(nodesetXml),
+                    LazyThreadSafetyMode.ExecutionAndPublication));
             try
             {
                 WotThingModelResult result = pending.Value;
@@ -104,7 +108,65 @@ namespace Opc.Ua.Cloud.Library.Wot
             }
         }
 
+        public string GetContentType(string nodesetXml)
+        {
+            if (string.IsNullOrWhiteSpace(nodesetXml))
+            {
+                return null;
+            }
+
+            string key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(nodesetXml)));
+            if (_cache.TryGetValue(key, out WotThingModelResult cached))
+            {
+                return cached.ContentType;
+            }
+
+            UANodeSet nodeSet;
+            try
+            {
+                nodeSet = CloudLibDataProvider.ReadUANodeSet(nodesetXml);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not parse the NodeSet2 XML to determine its WoT document type.");
+                return null;
+            }
+
+            return ProjectsInstance(nodeSet) ? WotMediaTypes.ThingDescription : WotMediaTypes.ThingModel;
+        }
+
         public void Dispose() => _cache.Dispose();
+
+        /// <summary>
+        /// Mirrors the converter's choice of document kind without converting: the projection root is the
+        /// node the document describes, and only an Object or Variable root makes a Thing Description.
+        /// </summary>
+        internal static bool ProjectsInstance(UANodeSet nodeSet)
+        {
+            ExpandedNodeId root = WotNodeSetConverter.TrySelectProjectionRoot(nodeSet);
+            if (root.IsNull || nodeSet.Items == null)
+            {
+                return false;
+            }
+
+            foreach (UANode node in nodeSet.Items)
+            {
+                if (node is not (UAObject or UAVariable) || !NodeId.TryParse(node.NodeId, out NodeId nodeId))
+                {
+                    continue;
+                }
+
+                string namespaceUri = nodeId.NamespaceIndex == 0
+                    ? Namespaces.OpcUa
+                    : nodeSet.NamespaceUris is { } uris && nodeId.NamespaceIndex <= uris.Length ? uris[nodeId.NamespaceIndex - 1] : null;
+                if (namespaceUri != null && new ExpandedNodeId(nodeId, namespaceUri).Equals(root))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         private WotThingModelResult Create(string nodesetXml)
         {

@@ -88,19 +88,26 @@ namespace Opc.Ua.Cloud.Library.XRegistry
         private readonly string _baseUrl;
         private readonly NodesetDocumentFormat _documentFormat;
         private readonly IReadOnlyDictionary<uint, XRegistryInlineDocument> _inlineDocuments;
+        private readonly IReadOnlyDictionary<uint, string> _contentTypes;
 
         /// <param name="baseUrl">Absolute URL of the registry root, without trailing slash.</param>
         /// <param name="documentFormat">The format the version documents are served in.</param>
         /// <param name="inlineDocuments">
         /// The prepared documents in <paramref name="documentFormat"/>, keyed by nodeset identifier;
-        /// see the <c>*Documents</c> methods for which versions need one. A NodeSet2 version without an
+        /// see the <c>*Selection</c> methods for which versions need one. A NodeSet2 version without an
         /// entry falls back to <see cref="Nodeset.NodesetXml"/>.
         /// </param>
-        public XRegistryEntityBuilder(string baseUrl, NodesetDocumentFormat documentFormat = NodesetDocumentFormat.Wot, IReadOnlyDictionary<uint, XRegistryInlineDocument> inlineDocuments = null)
+        /// <param name="contentTypes">
+        /// The actual media types of the versions whose document is not inlined, keyed by nodeset
+        /// identifier. A WoT document is a Thing Model or a Thing Description depending on the nodeset;
+        /// a version without an entry advertises the format's default media type.
+        /// </param>
+        public XRegistryEntityBuilder(string baseUrl, NodesetDocumentFormat documentFormat = NodesetDocumentFormat.Wot, IReadOnlyDictionary<uint, XRegistryInlineDocument> inlineDocuments = null, IReadOnlyDictionary<uint, string> contentTypes = null)
         {
             _baseUrl = (baseUrl ?? string.Empty).TrimEnd('/');
             _documentFormat = documentFormat;
             _inlineDocuments = inlineDocuments;
+            _contentTypes = contentTypes;
         }
 
         public string BaseUrl => _baseUrl;
@@ -119,36 +126,37 @@ namespace Opc.Ua.Cloud.Library.XRegistry
 
         public string VersionUrl(XRegistryGroup group, UANameSpace version) => $"{VersionsUrl(group)}/{XRegistryGroup.VersionId(version)}";
 
-        // The *Documents methods mirror the traversal of the entity methods of the same name and
-        // return the versions whose document the given inline flag embeds, so that the caller can
-        // prepare exactly those documents before building the entity.
+        // The *Selection methods mirror the traversal of the entity methods of the same name and
+        // return every version whose attributes the entity contains, flagged when the given inline
+        // flag also embeds its document, so that the caller can prepare exactly those documents and
+        // content types before building the entity.
 
-        public static IEnumerable<UANameSpace> RootDocuments(IEnumerable<XRegistryGroup> groups, XRegistryInline inline)
+        public static IEnumerable<XRegistryVersionSelection> RootSelection(IEnumerable<XRegistryGroup> groups, XRegistryInline inline)
             => inline.Includes(XRegistryIds.GroupsPlural)
-                ? GroupCollectionDocuments(groups, inline.Descend(XRegistryIds.GroupsPlural))
-                : Enumerable.Empty<UANameSpace>();
+                ? GroupCollectionSelection(groups, inline.Descend(XRegistryIds.GroupsPlural))
+                : Enumerable.Empty<XRegistryVersionSelection>();
 
-        public static IEnumerable<UANameSpace> GroupCollectionDocuments(IEnumerable<XRegistryGroup> groups, XRegistryInline inline)
-            => groups.SelectMany(group => GroupDocuments(group, inline));
+        public static IEnumerable<XRegistryVersionSelection> GroupCollectionSelection(IEnumerable<XRegistryGroup> groups, XRegistryInline inline)
+            => groups.SelectMany(group => GroupSelection(group, inline));
 
-        public static IEnumerable<UANameSpace> GroupDocuments(XRegistryGroup group, XRegistryInline inline)
+        public static IEnumerable<XRegistryVersionSelection> GroupSelection(XRegistryGroup group, XRegistryInline inline)
             => inline.Includes(XRegistryIds.ResourcesPlural)
-                ? ResourceDocuments(group, inline.Descend(XRegistryIds.ResourcesPlural))
-                : Enumerable.Empty<UANameSpace>();
+                ? ResourceSelection(group, inline.Descend(XRegistryIds.ResourcesPlural))
+                : Enumerable.Empty<XRegistryVersionSelection>();
 
-        public static IEnumerable<UANameSpace> ResourceDocuments(XRegistryGroup group, XRegistryInline inline)
+        public static IEnumerable<XRegistryVersionSelection> ResourceSelection(XRegistryGroup group, XRegistryInline inline)
         {
-            IEnumerable<UANameSpace> own = VersionDocuments(group.DefaultVersion, inline);
+            IEnumerable<XRegistryVersionSelection> own = VersionSelection(group.DefaultVersion, inline);
             return inline.Includes("versions")
-                ? own.Concat(VersionCollectionDocuments(group, inline.Descend("versions")))
+                ? own.Concat(VersionCollectionSelection(group, inline.Descend("versions")))
                 : own;
         }
 
-        public static IEnumerable<UANameSpace> VersionCollectionDocuments(XRegistryGroup group, XRegistryInline inline)
-            => inline.Includes(XRegistryIds.ResourceSingular) ? group.Versions : Enumerable.Empty<UANameSpace>();
+        public static IEnumerable<XRegistryVersionSelection> VersionCollectionSelection(XRegistryGroup group, XRegistryInline inline)
+            => group.Versions.SelectMany(version => VersionSelection(version, inline));
 
-        public static IEnumerable<UANameSpace> VersionDocuments(UANameSpace version, XRegistryInline inline)
-            => inline.Includes(XRegistryIds.ResourceSingular) ? new[] { version } : Enumerable.Empty<UANameSpace>();
+        public static IEnumerable<XRegistryVersionSelection> VersionSelection(UANameSpace version, XRegistryInline inline)
+            => new[] { new XRegistryVersionSelection(version, inline.Includes(XRegistryIds.ResourceSingular)) };
 
         public JsonObject Root(IReadOnlyList<XRegistryGroup> groups, XRegistryInline inline)
         {
@@ -400,9 +408,15 @@ namespace Opc.Ua.Cloud.Library.XRegistry
             int index = IndexOf(group.Versions, version);
             entity["ancestor"] = index > 0 ? XRegistryGroup.VersionId(group.Versions[index - 1]) : versionId;
 
-            // A prepared document knows whether it is a Thing Model or a Thing Description.
+            // A WoT document is a Thing Model or a Thing Description depending on the nodeset, so the
+            // type comes from the prepared document or the type resolved for this version.
             XRegistryInlineDocument document = FindDocument(version);
-            entity["contenttype"] = document?.ContentType ?? XRegistryIds.DocumentContentType(_documentFormat);
+            string contentType = document?.ContentType;
+            if (contentType == null && _contentTypes != null)
+            {
+                _contentTypes.TryGetValue(version.Nodeset.Identifier, out contentType);
+            }
+            entity["contenttype"] = contentType ?? XRegistryIds.DocumentContentType(_documentFormat);
 
             entity["namespaceuri"] = nodeset.NamespaceUri?.OriginalString;
             entity["version"] = nodeset.Version;

@@ -89,7 +89,8 @@ namespace UACloudLibraryServer.UnitTests
             }
             httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(claims, user != null ? "Test" : null));
 
-            return new XRegistryController(store, audit ?? new RecordingAuditLog(), wot ?? new FakeWotThingModelGenerator()) {
+            wot ??= new FakeWotThingModelGenerator();
+            return new XRegistryController(store, audit ?? new RecordingAuditLog(), wot, new WotDocumentTypeCache(wot)) {
                 ControllerContext = new ControllerContext { HttpContext = httpContext }
             };
         }
@@ -448,6 +449,93 @@ namespace UACloudLibraryServer.UnitTests
 
             Assert.Equal(WotMediaTypes.ThingModel, entity["contenttype"].GetValue<string>());
             Assert.Equal(Base + $"/nodesetgroups/{DiGroupId}/nodesets/nodeset?format=wot", entity["nodeseturl"].GetValue<string>());
+        }
+
+        [Fact]
+        public async Task GetResource_DetailsNotInlined_InstanceNodeset_AdvertisesThingDescriptionWithoutConverting()
+        {
+            FakeXRegistryNodesetStore store = FakeXRegistryNodesetStore.WithSampleData();
+            FakeWotThingModelGenerator wot = new() { ContentType = WotMediaTypes.ThingDescription };
+            XRegistryController controller = CreateController(store, wot: wot);
+
+            JsonObject entity = JsonBody(await controller.GetResourceAsync(DiGroupId, "nodeset$details"));
+
+            Assert.Null(entity["nodeset"]);
+            Assert.Equal(Base + $"/nodesetgroups/{DiGroupId}/nodesets/nodeset?format=wot", entity["nodeseturl"].GetValue<string>());
+            Assert.Equal(WotMediaTypes.ThingDescription, entity["contenttype"].GetValue<string>());
+            Assert.Equal(store.Xml[1002], Assert.Single(wot.ContentTypeRequests));
+            Assert.Empty(wot.Requests);
+        }
+
+        [Fact]
+        public async Task GetVersion_DetailsNotInlined_InstanceNodeset_AdvertisesThingDescription()
+        {
+            FakeWotThingModelGenerator wot = new() { ContentType = WotMediaTypes.ThingDescription };
+            XRegistryController controller = CreateController(FakeXRegistryNodesetStore.WithSampleData(), wot: wot);
+
+            JsonObject entity = JsonBody(await controller.GetVersionAsync(DiGroupId, "nodeset", "1001$details"));
+
+            Assert.Equal(WotMediaTypes.ThingDescription, entity["contenttype"].GetValue<string>());
+            Assert.Empty(wot.Requests);
+        }
+
+        [Fact]
+        public async Task GetVersions_NotInlined_InstanceNodesets_AdvertiseThingDescription()
+        {
+            FakeWotThingModelGenerator wot = new() { ContentType = WotMediaTypes.ThingDescription };
+            XRegistryController controller = CreateController(FakeXRegistryNodesetStore.WithSampleData(), wot: wot);
+
+            JsonObject versions = JsonBody(await controller.GetVersionsAsync(DiGroupId, "nodeset"));
+
+            foreach (string versionId in s_diVersionIds)
+            {
+                Assert.Equal(WotMediaTypes.ThingDescription, versions[versionId]["contenttype"].GetValue<string>());
+                Assert.Null(versions[versionId]["nodeset"]);
+            }
+            Assert.Equal(2, wot.ContentTypeRequests.Count);
+            Assert.Empty(wot.Requests);
+        }
+
+        [Fact]
+        public async Task Export_InstanceNodesets_AdvertiseThingDescriptionWithoutConverting()
+        {
+            FakeWotThingModelGenerator wot = new() { ContentType = WotMediaTypes.ThingDescription };
+            XRegistryController controller = CreateController(FakeXRegistryNodesetStore.WithSampleData(), wot: wot);
+
+            JsonObject root = JsonBody(await controller.ExportAsync());
+
+            List<string> advertised = XRegistryEntityBuilderTests.CollectContentTypes(root["nodesetgroups"]);
+            // Each group's resource (the default version) and every entry of its versions collection.
+            Assert.Equal(5, advertised.Count);
+            Assert.All(advertised, contentType => Assert.Equal(WotMediaTypes.ThingDescription, contentType));
+            Assert.Equal(3, wot.ContentTypeRequests.Count);
+            Assert.Empty(wot.Requests);
+        }
+
+        [Fact]
+        public async Task GetResource_DetailsAsNodeSet2_DoesNotInspectDocumentType()
+        {
+            FakeWotThingModelGenerator wot = new() { ContentType = WotMediaTypes.ThingDescription };
+            XRegistryController controller = CreateController(FakeXRegistryNodesetStore.WithSampleData(), query: "?format=nodeset2", wot: wot);
+
+            JsonObject entity = JsonBody(await controller.GetResourceAsync(DiGroupId, "nodeset$details"));
+
+            Assert.Equal(WotMediaTypes.NodeSet2, entity["contenttype"].GetValue<string>());
+            Assert.Empty(wot.ContentTypeRequests);
+        }
+
+        [Fact]
+        public async Task Upload_InstanceNodeset_ResponseAdvertisesThingDescription()
+        {
+            FakeXRegistryNodesetStore store = FakeXRegistryNodesetStore.WithSampleData();
+            store.IdentifierProvider = _ => 1003;
+            FakeWotThingModelGenerator wot = new() { ContentType = WotMediaTypes.ThingDescription };
+            XRegistryController controller = CreateController(store, body: DiNodesetXml, wot: wot);
+
+            JsonObject entity = JsonBody(await controller.UploadVersionAsync(DiGroupId, "nodeset"), 201);
+
+            Assert.Equal(WotMediaTypes.ThingDescription, entity["contenttype"].GetValue<string>());
+            Assert.Equal(DiNodesetXml, Assert.Single(wot.ContentTypeRequests));
         }
 
         [Fact]

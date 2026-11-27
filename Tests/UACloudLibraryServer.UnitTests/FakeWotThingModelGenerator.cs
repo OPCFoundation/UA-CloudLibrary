@@ -14,6 +14,8 @@ namespace UACloudLibraryServer.UnitTests
 
         public List<string> Requests { get; } = new();
 
+        public List<string> ContentTypeRequests { get; } = new();
+
         public string ContentType { get; set; } = WotMediaTypes.ThingModel;
 
         public string FailWith { get; set; }
@@ -24,6 +26,12 @@ namespace UACloudLibraryServer.UnitTests
             return FailWith != null
                 ? WotThingModelResult.Failure(FailWith)
                 : WotThingModelResult.Success(Encoding.UTF8.GetBytes(Document), ContentType, null);
+        }
+
+        public string GetContentType(string nodesetXml)
+        {
+            ContentTypeRequests.Add(nodesetXml);
+            return ContentType;
         }
     }
 }

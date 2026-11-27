@@ -240,32 +240,88 @@ namespace UACloudLibraryServer.UnitTests
         }
 
         [Theory]
-        [InlineData(null, new uint[0])]
-        [InlineData("*", new uint[0])]
-        [InlineData("nodesetgroups.nodesets", new uint[0])]
-        [InlineData("nodesetgroups.nodesets.nodeset", new uint[] { 1002, 2001 })]
-        [InlineData("nodesetgroups.nodesets.versions.nodeset", new uint[] { 1001, 1002, 2001 })]
-        public void RootDocuments_SelectsTheVersionsWhoseDocumentIsInlined(string path, uint[] expected)
+        [InlineData(null, new uint[0], new uint[0])]
+        [InlineData("*", new uint[0], new uint[] { 1001, 1002, 2001 })]
+        [InlineData("nodesetgroups.nodesets", new uint[0], new uint[] { 1002, 2001 })]
+        [InlineData("nodesetgroups.nodesets.nodeset", new uint[] { 1002, 2001 }, new uint[] { 1002, 2001 })]
+        [InlineData("nodesetgroups.nodesets.versions.nodeset", new uint[] { 1001, 1002, 2001 }, new uint[] { 1001, 1002, 2001 })]
+        public void RootSelection_SelectsEveryEmittedVersionAndFlagsTheInlinedOnes(string path, uint[] expectedInlined, uint[] expectedEmitted)
         {
             Assert.True(XRegistryInline.TryParse(path != null, path == null ? null : new[] { path }, string.Empty, out XRegistryInline inline, out _));
             List<XRegistryGroup> groups = SampleGroups();
 
-            uint[] selected = XRegistryEntityBuilder.RootDocuments(groups, inline).Select(v => v.Nodeset.Identifier).Distinct().OrderBy(i => i).ToArray();
-            Assert.Equal(expected, selected);
+            List<XRegistryVersionSelection> selection = XRegistryEntityBuilder.RootSelection(groups, inline).ToList();
+            uint[] inlined = selection.Where(s => s.InlinesDocument).Select(s => s.Version.Nodeset.Identifier).Distinct().OrderBy(i => i).ToArray();
+            uint[] emitted = selection.Select(s => s.Version.Nodeset.Identifier).Distinct().OrderBy(i => i).ToArray();
+            Assert.Equal(expectedInlined, inlined);
+            Assert.Equal(expectedEmitted, emitted);
 
-            // Every selected document is actually embedded when the builder has it.
-            Dictionary<uint, XRegistryInlineDocument> documents = selected.ToDictionary(i => i, i => new XRegistryInlineDocument(JsonNode.Parse("{\"marker\":true}"), WotMediaTypes.ThingModel));
-            string json = new XRegistryEntityBuilder(Base, NodesetDocumentFormat.Wot, documents).Root(groups, inline).ToJsonString();
-            Assert.Equal(selected.Length, json.Split("\"marker\":true").Length - 1);
+            // Every inlined document is actually embedded, and every emitted version takes its content
+            // type from what was prepared for it.
+            Dictionary<uint, XRegistryInlineDocument> documents = inlined.ToDictionary(i => i, i => new XRegistryInlineDocument(JsonNode.Parse("{\"marker\":true}"), WotMediaTypes.ThingDescription));
+            Dictionary<uint, string> contentTypes = emitted.Except(inlined).ToDictionary(i => i, i => WotMediaTypes.ThingDescription);
+            JsonObject root = new XRegistryEntityBuilder(Base, NodesetDocumentFormat.Wot, documents, contentTypes).Root(groups, inline);
+            Assert.Equal(inlined.Length, root.ToJsonString().Split("\"marker\":true").Length - 1);
+            List<string> advertised = CollectContentTypes(root);
+            Assert.Equal(selection.Count, advertised.Count);
+            Assert.All(advertised, contentType => Assert.Equal(WotMediaTypes.ThingDescription, contentType));
+        }
+
+        internal static List<string> CollectContentTypes(JsonNode node)
+        {
+            List<string> contentTypes = new();
+            void collect(JsonNode current)
+            {
+                if (current is JsonObject o)
+                {
+                    foreach (KeyValuePair<string, JsonNode> property in o)
+                    {
+                        if (property.Key == "contenttype")
+                        {
+                            contentTypes.Add(property.Value.GetValue<string>());
+                        }
+                        else
+                        {
+                            collect(property.Value);
+                        }
+                    }
+                }
+                else if (current is JsonArray a)
+                {
+                    foreach (JsonNode item in a)
+                    {
+                        collect(item);
+                    }
+                }
+            }
+
+            collect(node);
+            return contentTypes;
         }
 
         [Fact]
-        public void ResourceDocuments_NestedVersionsPath_SelectsEveryVersion()
+        public void ResourceSelection_NestedVersionsPath_SelectsEveryVersion()
         {
             XRegistryGroup group = DiGroup();
             Assert.True(XRegistryInline.TryParse(true, s_versionsNodeset, "nodesetgroups.nodesets", out XRegistryInline inline, out _));
 
-            Assert.Equal(s_diVersions, XRegistryEntityBuilder.ResourceDocuments(group, inline).Select(v => v.Nodeset.Identifier).ToArray());
+            List<XRegistryVersionSelection> selection = XRegistryEntityBuilder.ResourceSelection(group, inline).ToList();
+            Assert.Equal(s_diVersions, selection.Where(s => s.InlinesDocument).Select(s => s.Version.Nodeset.Identifier).Distinct().ToArray());
+            Assert.False(selection[0].InlinesDocument);
+        }
+
+        [Fact]
+        public void Version_NotInlined_AdvertisesResolvedContentType()
+        {
+            XRegistryGroup group = DiGroup();
+            XRegistryEntityBuilder builder = new(Base, NodesetDocumentFormat.Wot, contentTypes: new Dictionary<uint, string> { [1002] = WotMediaTypes.ThingDescription });
+
+            JsonObject entity = builder.Version(group, group.DefaultVersion, details: true, XRegistryInline.None);
+            JsonObject other = builder.Version(group, group.Versions[0], details: true, XRegistryInline.None);
+
+            Assert.Equal(WotMediaTypes.ThingDescription, entity["contenttype"].GetValue<string>());
+            Assert.Equal($"{Base}/nodesetgroups/{DiGroupId}/nodesets/nodeset/versions/1002?format=wot", entity["nodeseturl"].GetValue<string>());
+            Assert.Equal(WotMediaTypes.ThingModel, other["contenttype"].GetValue<string>());
         }
 
         [Fact]

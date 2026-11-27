@@ -181,6 +181,7 @@ namespace Opc.Ua.Cloud.Library
             services.AddTransient<XRegistry.IXRegistryNodesetStore, XRegistry.XRegistryNodesetStore>();
 
             services.AddSingleton<Wot.IWotThingModelGenerator, Wot.WotThingModelGenerator>();
+            services.AddSingleton<Wot.IWotDocumentTypeCache, Wot.WotDocumentTypeCache>();
 
             services.AddTransient<UAClient>();
 

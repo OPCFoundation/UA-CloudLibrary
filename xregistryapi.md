@@ -120,11 +120,15 @@ document. Uploads nevertheless take NodeSet2 XML only. A nodeset that contains i
 The format also governs the `contenttype` attribute and the `nodeseturl` of `$details` responses
 (`nodeseturl` always carries `?format=wot` or `?format=nodeset2`, so following it returns the
 document `contenttype` describes whatever `Accept` header is sent), and what `inline=nodeset`
-embeds. Document responses without an explicit `format` carry `Vary: Accept`; the
-`xRegistry-contenttype` header of a document response states the actual type (Thing Model or Thing
-Description). Documents are generated on first request and cached in memory (keyed by a hash of the
-XML, so an overwritten nodeset is never served stale). If a nodeset cannot be converted the server
-answers `500 server_error`; `?format=nodeset2` still returns the XML.
+embeds. Document responses without an explicit `format` carry `Vary: Accept`. In the WoT format,
+`contenttype` (and the `xRegistry-contenttype` header of a document response) always states the
+actual type of the version's document – `application/tm+json` for a Thing Model,
+`application/td+json` for a Thing Description – whether or not the document is inlined. For
+versions whose document is not inlined, the type is determined by inspecting the NodeSet2 XML without
+converting it and is then cached per version, so the first metadata listing (or `/export`) after a
+restart reads each listed nodeset once. Documents are generated on first request and cached in
+memory (keyed by a hash of the XML, so an overwritten nodeset is never served stale). If a nodeset
+cannot be converted the server answers `500 server_error`; `?format=nodeset2` still returns the XML.
 
 #### `?inline` flag
 
@@ -141,10 +145,8 @@ Inlining `nodeset` embeds the document in the `nodeset` attribute (and omits `no
 WoT Thing Model as a JSON object, or with `?format=nodeset2` the NodeSet2 XML as a string. This
 works at every level, e.g. `nodeset$details?inline=versions.nodeset` embeds the document of every
 version, `/xregistry?inline=nodesetgroups.nodesets.nodeset` that of every group's default version;
-each selected document is converted on demand. The `contenttype` of an entity whose document was
-embedded states the embedded document's actual type (`application/td+json` for a Thing
-Description). `inline=*` deliberately does **not** include the documents, the model or the
-capabilities; ask for them explicitly.
+each selected document is converted on demand. `inline=*` deliberately does **not** include the
+documents, the model or the capabilities; ask for them explicitly.
 
 ### 3.2 Write
 

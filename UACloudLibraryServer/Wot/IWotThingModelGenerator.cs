@@ -43,5 +43,12 @@ namespace Opc.Ua.Cloud.Library.Wot
         /// unconvertible input; failures are reported in the result.
         /// </summary>
         WotThingModelResult Generate(string nodesetXml);
+
+        /// <summary>
+        /// The media type of the document <see cref="Generate"/> returns for <paramref name="nodesetXml"/>
+        /// (Thing Model or Thing Description), determined without converting the nodeset. Returns
+        /// <c>null</c> if the XML cannot be parsed.
+        /// </summary>
+        string GetContentType(string nodesetXml);
     }
 }
