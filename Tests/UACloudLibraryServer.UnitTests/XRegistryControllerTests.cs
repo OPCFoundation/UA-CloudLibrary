@@ -261,7 +261,7 @@ namespace UACloudLibraryServer.UnitTests
             Assert.Equal(store.Xml[1002], Assert.Single(wot.Requests));
             Assert.Equal(WotMediaTypes.ThingModel, controller.Response.Headers["xRegistry-contenttype"].ToString());
             Assert.Equal("1002", controller.Response.Headers["xRegistry-versionid"].ToString());
-            Assert.Equal(Base + $"/nodesetgroups/{DiGroupId}/nodesets/nodeset", controller.Response.Headers["xRegistry-nodeseturl"].ToString());
+            Assert.Equal(Base + $"/nodesetgroups/{DiGroupId}/nodesets/nodeset?format=wot", controller.Response.Headers["xRegistry-nodeseturl"].ToString());
             Assert.Contains("Accept", controller.Response.Headers["Vary"].ToString(), StringComparison.Ordinal);
             Assert.Equal(new uint[] { 1002 }, store.Downloads);
         }
@@ -389,6 +389,148 @@ namespace UACloudLibraryServer.UnitTests
 
             Assert.Equal(Base + $"/nodesetgroups/{DiGroupId}/nodesets/nodeset?format=nodeset2", entity["nodeseturl"].GetValue<string>());
             Assert.Empty(wot.Requests);
+        }
+
+        [Fact]
+        public async Task GetResource_DetailsInlineVersionsNodeset_EmbedsEveryVersionDocument()
+        {
+            FakeXRegistryNodesetStore store = FakeXRegistryNodesetStore.WithSampleData();
+            FakeWotThingModelGenerator wot = new();
+            XRegistryController controller = CreateController(store, query: "?inline=versions.nodeset", wot: wot);
+
+            JsonObject entity = JsonBody(await controller.GetResourceAsync(DiGroupId, "nodeset$details"));
+
+            // Only the versions were asked to carry their document, not the resource itself.
+            Assert.Null(entity["nodeset"]);
+            Assert.Equal(Base + $"/nodesetgroups/{DiGroupId}/nodesets/nodeset?format=wot", entity["nodeseturl"].GetValue<string>());
+            foreach (string versionId in s_diVersionIds)
+            {
+                JsonObject version = Assert.IsType<JsonObject>(entity["versions"][versionId]);
+                Assert.Equal("Fake", version["nodeset"]["title"].GetValue<string>());
+                Assert.Null(version["nodeseturl"]);
+            }
+            Assert.Equal(new[] { store.Xml[1001], store.Xml[1002] }, wot.Requests.OrderBy(x => x, StringComparer.Ordinal));
+            Assert.Empty(store.Downloads);
+        }
+
+        [Fact]
+        public async Task GetResource_DetailsInlineNodesetAndVersions_GeneratesEachDocumentOnce()
+        {
+            FakeWotThingModelGenerator wot = new();
+            XRegistryController controller = CreateController(FakeXRegistryNodesetStore.WithSampleData(), query: "?inline=nodeset,versions.nodeset", wot: wot);
+
+            JsonObject entity = JsonBody(await controller.GetResourceAsync(DiGroupId, "nodeset$details"));
+
+            Assert.NotNull(entity["nodeset"]);
+            Assert.NotNull(entity["versions"]["1002"]["nodeset"]);
+            Assert.Equal(2, wot.Requests.Count);
+        }
+
+        [Fact]
+        public async Task GetResource_DetailsInlineThingDescription_AdvertisesThingDescriptionContentType()
+        {
+            FakeWotThingModelGenerator wot = new() { ContentType = WotMediaTypes.ThingDescription };
+            XRegistryController controller = CreateController(FakeXRegistryNodesetStore.WithSampleData(), query: "?inline=nodeset,versions.nodeset", wot: wot);
+
+            JsonObject entity = JsonBody(await controller.GetResourceAsync(DiGroupId, "nodeset$details"));
+
+            Assert.Equal(WotMediaTypes.ThingDescription, entity["contenttype"].GetValue<string>());
+            Assert.Equal(WotMediaTypes.ThingDescription, entity["versions"]["1001"]["contenttype"].GetValue<string>());
+        }
+
+        [Fact]
+        public async Task GetResource_DetailsExplicitWotWithXmlAccept_LinksFormatQualifiedDocument()
+        {
+            XRegistryController controller = CreateController(FakeXRegistryNodesetStore.WithSampleData(), query: "?format=wot",
+                headers: new Dictionary<string, string> { ["Accept"] = "application/xml" });
+
+            JsonObject entity = JsonBody(await controller.GetResourceAsync(DiGroupId, "nodeset$details"));
+
+            Assert.Equal(WotMediaTypes.ThingModel, entity["contenttype"].GetValue<string>());
+            Assert.Equal(Base + $"/nodesetgroups/{DiGroupId}/nodesets/nodeset?format=wot", entity["nodeseturl"].GetValue<string>());
+        }
+
+        [Fact]
+        public async Task GetRoot_InlineNestedDocuments_EmbedsEachGroupsDocument()
+        {
+            FakeWotThingModelGenerator wot = new();
+            XRegistryController controller = CreateController(FakeXRegistryNodesetStore.WithSampleData(), query: "?inline=nodesetgroups.nodesets.nodeset", wot: wot);
+
+            JsonObject root = JsonBody(await controller.GetRootAsync());
+
+            foreach (KeyValuePair<string, JsonNode> group in root["nodesetgroups"].AsObject())
+            {
+                Assert.Equal("Fake", group.Value["nodesets"]["nodeset"]["nodeset"]["title"].GetValue<string>());
+            }
+            Assert.Equal(2, wot.Requests.Count);
+        }
+
+        [Fact]
+        public async Task GetRoot_InlineEverything_DoesNotGenerateDocuments()
+        {
+            FakeWotThingModelGenerator wot = new();
+            XRegistryController controller = CreateController(FakeXRegistryNodesetStore.WithSampleData(), query: "?inline=*", wot: wot);
+
+            JsonBody(await controller.GetRootAsync());
+
+            Assert.Empty(wot.Requests);
+        }
+
+        [Fact]
+        public async Task GetGroups_InlineNestedDocuments_EmbedsThem()
+        {
+            FakeWotThingModelGenerator wot = new();
+            XRegistryController controller = CreateController(FakeXRegistryNodesetStore.WithSampleData(), query: "?inline=nodesets.nodeset", wot: wot);
+
+            JsonObject groups = JsonBody(await controller.GetGroupsAsync());
+
+            Assert.NotNull(groups[DiGroupId]["nodesets"]["nodeset"]["nodeset"]);
+            Assert.Equal(2, wot.Requests.Count);
+        }
+
+        [Fact]
+        public async Task GetGroup_InlineNestedVersionDocumentsAsNodeSet2_EmbedsXml()
+        {
+            FakeXRegistryNodesetStore store = FakeXRegistryNodesetStore.WithSampleData();
+            FakeWotThingModelGenerator wot = new();
+            XRegistryController controller = CreateController(store, query: "?inline=nodesets.versions.nodeset&format=nodeset2", wot: wot);
+
+            JsonObject group = JsonBody(await controller.GetGroupAsync(DiGroupId));
+
+            JsonObject versions = Assert.IsType<JsonObject>(group["nodesets"]["nodeset"]["versions"]);
+            Assert.Equal(store.Xml[1001], versions["1001"]["nodeset"].GetValue<string>());
+            Assert.Equal(store.Xml[1002], versions["1002"]["nodeset"].GetValue<string>());
+            Assert.Equal("application/xml", versions["1001"]["contenttype"].GetValue<string>());
+            Assert.Empty(wot.Requests);
+        }
+
+        [Fact]
+        public async Task GetResources_InlineNodeset_EmbedsDocument()
+        {
+            XRegistryController controller = CreateController(FakeXRegistryNodesetStore.WithSampleData(), query: "?inline=nodeset");
+
+            JsonObject resources = JsonBody(await controller.GetResourcesAsync(DiGroupId));
+
+            Assert.IsType<JsonObject>(resources["nodeset"]["nodeset"]);
+        }
+
+        [Fact]
+        public async Task GetVersions_InlineNodeset_EmbedsEveryVersionDocument()
+        {
+            XRegistryController controller = CreateController(FakeXRegistryNodesetStore.WithSampleData(), query: "?inline=nodeset");
+
+            JsonObject versions = JsonBody(await controller.GetVersionsAsync(DiGroupId, "nodeset"));
+
+            Assert.All(versions, v => Assert.IsType<JsonObject>(v.Value["nodeset"]));
+        }
+
+        [Fact]
+        public async Task GetVersions_InlineNodesetGenerationFails_ReturnsServerError()
+        {
+            XRegistryController controller = CreateController(FakeXRegistryNodesetStore.WithSampleData(), query: "?inline=nodeset",
+                wot: new FakeWotThingModelGenerator { FailWith = "boom" });
+
+            ProblemBody(await controller.GetVersionsAsync(DiGroupId, "nodeset"), 500, XRegistryError.ServerError);
         }
 
         [Fact]

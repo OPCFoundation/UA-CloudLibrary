@@ -96,8 +96,49 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
         private XRegistryEntityBuilder Builder => CreateBuilder();
 
-        private XRegistryEntityBuilder CreateBuilder(IReadOnlyDictionary<uint, JsonNode> inlineDocuments = null)
+        private XRegistryEntityBuilder CreateBuilder(IReadOnlyDictionary<uint, XRegistryInlineDocument> inlineDocuments = null)
             => new($"{Request.Scheme}://{Request.Host}{Request.PathBase}{XRegistryIds.BasePath}", _documentFormat, inlineDocuments);
+
+        /// <summary>
+        /// Loads the documents of <paramref name="versions"/> in the requested format (generating WoT
+        /// documents as needed) and returns a builder that inlines them. A version whose XML is missing
+        /// is left out and keeps its <c>nodeseturl</c>.
+        /// </summary>
+        private async Task<(XRegistryEntityBuilder Builder, IActionResult Error)> PrepareBuilderAsync(IEnumerable<UANameSpace> versions)
+        {
+            Dictionary<uint, XRegistryInlineDocument> documents = new();
+            foreach (UANameSpace version in versions)
+            {
+                uint identifier = version.Nodeset.Identifier;
+                if (documents.ContainsKey(identifier))
+                {
+                    continue;
+                }
+
+                string xml = await _nodesetStore.GetXmlAsync(identifier).ConfigureAwait(false);
+                if (xml == null)
+                {
+                    continue;
+                }
+
+                if (_documentFormat == NodesetDocumentFormat.NodeSet2)
+                {
+                    documents[identifier] = new XRegistryInlineDocument(JsonValue.Create(xml), WotMediaTypes.NodeSet2);
+                    continue;
+                }
+
+                WotThingModelResult thingModel = _wotGenerator.Generate(xml);
+                if (!thingModel.Succeeded)
+                {
+                    return (null, WotGenerationError(thingModel));
+                }
+
+                JsonNode content = JsonNode.Parse(thingModel.Utf8Json.Span, documentOptions: new JsonDocumentOptions { MaxDepth = MaxJsonDepth });
+                documents[identifier] = new XRegistryInlineDocument(content, thingModel.ContentType);
+            }
+
+            return (CreateBuilder(documents.Count == 0 ? null : documents), null);
+        }
 
         // ------------------------------------------------------------------ registry root / model / capabilities
 
@@ -112,7 +153,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
             }
 
             List<XRegistryGroup> groups = await LoadGroupsAsync().ConfigureAwait(false);
-            return Json(Builder.Root(groups, inline));
+            (XRegistryEntityBuilder builder, error) = await PrepareBuilderAsync(XRegistryEntityBuilder.RootDocuments(groups, inline)).ConfigureAwait(false);
+            return error ?? Json(builder.Root(groups, inline));
         }
 
         [HttpGet("model")]
@@ -133,7 +175,13 @@ namespace Opc.Ua.Cloud.Library.Controllers
             }
 
             List<XRegistryGroup> groups = await LoadGroupsAsync().ConfigureAwait(false);
-            JsonObject root = Builder.Root(groups, XRegistryInline.All);
+            (XRegistryEntityBuilder builder, error) = await PrepareBuilderAsync(XRegistryEntityBuilder.RootDocuments(groups, XRegistryInline.All)).ConfigureAwait(false);
+            if (error != null)
+            {
+                return error;
+            }
+
+            JsonObject root = builder.Root(groups, XRegistryInline.All);
             root["model"] = XRegistryEntityBuilder.Model();
             root["capabilities"] = XRegistryEntityBuilder.Capabilities();
             return Json(root);
@@ -151,7 +199,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
             }
 
             List<XRegistryGroup> groups = await LoadGroupsAsync().ConfigureAwait(false);
-            return Json(Builder.GroupCollection(groups, inline));
+            (XRegistryEntityBuilder builder, error) = await PrepareBuilderAsync(XRegistryEntityBuilder.GroupCollectionDocuments(groups, inline)).ConfigureAwait(false);
+            return error ?? Json(builder.GroupCollection(groups, inline));
         }
 
         [HttpGet(XRegistryIds.GroupsPlural + "/{groupId}")]
@@ -169,7 +218,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return NotFoundError($"Group '{groupId}' not found.");
             }
 
-            return Json(Builder.Group(group, inline));
+            (XRegistryEntityBuilder builder, error) = await PrepareBuilderAsync(XRegistryEntityBuilder.GroupDocuments(group, inline)).ConfigureAwait(false);
+            return error ?? Json(builder.Group(group, inline));
         }
 
         [HttpGet(XRegistryIds.GroupsPlural + "/{groupId}/" + XRegistryIds.ResourcesPlural)]
@@ -187,7 +237,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return NotFoundError($"Group '{groupId}' not found.");
             }
 
-            return Json(new JsonObject { [XRegistryIds.ResourceId] = Builder.Resource(group, inline, details: true) });
+            (XRegistryEntityBuilder builder, error) = await PrepareBuilderAsync(XRegistryEntityBuilder.ResourceDocuments(group, inline)).ConfigureAwait(false);
+            return error ?? Json(new JsonObject { [XRegistryIds.ResourceId] = builder.Resource(group, inline, details: true) });
         }
 
         // ------------------------------------------------------------------ resource (default version)
@@ -256,7 +307,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return NotFoundError($"Group '{groupId}' not found.");
             }
 
-            return Json(Builder.VersionCollection(group, inline));
+            (XRegistryEntityBuilder builder, error) = await PrepareBuilderAsync(XRegistryEntityBuilder.VersionCollectionDocuments(group, inline)).ConfigureAwait(false);
+            return error ?? Json(builder.VersionCollection(group, inline));
         }
 
         [HttpGet(XRegistryIds.GroupsPlural + "/{groupId}/" + XRegistryIds.ResourcesPlural + "/{resourceId}/versions/{versionId}")]
@@ -522,29 +574,15 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return File(thingModel.OpenRead(), thingModel.ContentType);
             }
 
-            Dictionary<uint, JsonNode> inlineDocuments = null;
-            if (inline.Includes(XRegistryIds.ResourceSingular))
+            IEnumerable<UANameSpace> selected = isResource
+                ? XRegistryEntityBuilder.ResourceDocuments(group, inline)
+                : XRegistryEntityBuilder.VersionDocuments(version, inline);
+            (XRegistryEntityBuilder builder, IActionResult error) = await PrepareBuilderAsync(selected).ConfigureAwait(false);
+            if (error != null)
             {
-                string xml = await _nodesetStore.GetXmlAsync(version.Nodeset.Identifier).ConfigureAwait(false);
-                if (_documentFormat == NodesetDocumentFormat.NodeSet2)
-                {
-                    version.Nodeset.NodesetXml = xml;
-                }
-                else if (xml != null)
-                {
-                    WotThingModelResult thingModel = _wotGenerator.Generate(xml);
-                    if (!thingModel.Succeeded)
-                    {
-                        return WotGenerationError(thingModel);
-                    }
-
-                    inlineDocuments = new Dictionary<uint, JsonNode> {
-                        [version.Nodeset.Identifier] = JsonNode.Parse(thingModel.Utf8Json.Span, documentOptions: new JsonDocumentOptions { MaxDepth = MaxJsonDepth }),
-                    };
-                }
+                return error;
             }
 
-            XRegistryEntityBuilder builder = CreateBuilder(inlineDocuments);
             return Json(isResource
                 ? builder.Resource(group, inline, details: true)
                 : builder.Version(group, version, details: true, inline));

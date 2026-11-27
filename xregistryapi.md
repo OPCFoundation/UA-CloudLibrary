@@ -118,7 +118,8 @@ document. Uploads nevertheless take NodeSet2 XML only. A nodeset that contains i
 | any other `format` | `400 bad_flag` |
 
 The format also governs the `contenttype` attribute and the `nodeseturl` of `$details` responses
-(`nodeseturl` carries `?format=nodeset2` when the XML was requested), and what `inline=nodeset`
+(`nodeseturl` always carries `?format=wot` or `?format=nodeset2`, so following it returns the
+document `contenttype` describes whatever `Accept` header is sent), and what `inline=nodeset`
 embeds. Document responses without an explicit `format` carry `Vary: Accept`; the
 `xRegistry-contenttype` header of a document response states the actual type (Thing Model or Thing
 Description). Documents are generated on first request and cached in memory (keyed by a hash of the
@@ -137,8 +138,12 @@ collections. Paths are relative to the addressed entity:
 | resource / version | `meta`, `versions`, `nodeset`, `versions.nodeset` |
 
 Inlining `nodeset` embeds the document in the `nodeset` attribute (and omits `nodeseturl`): the
-WoT Thing Model as a JSON object, or with `?format=nodeset2` the NodeSet2 XML as a string.
-`inline=*` deliberately does **not** include the documents, the model or the
+WoT Thing Model as a JSON object, or with `?format=nodeset2` the NodeSet2 XML as a string. This
+works at every level, e.g. `nodeset$details?inline=versions.nodeset` embeds the document of every
+version, `/xregistry?inline=nodesetgroups.nodesets.nodeset` that of every group's default version;
+each selected document is converted on demand. The `contenttype` of an entity whose document was
+embedded states the embedded document's actual type (`application/td+json` for a Thing
+Description). `inline=*` deliberately does **not** include the documents, the model or the
 capabilities; ask for them explicitly.
 
 ### 3.2 Write

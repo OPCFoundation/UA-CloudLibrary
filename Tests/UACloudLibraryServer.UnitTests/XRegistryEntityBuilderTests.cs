@@ -21,6 +21,10 @@ namespace UACloudLibraryServer.UnitTests
 
         private static readonly string[] s_inlineNodeset = { "nodeset" };
 
+        private static readonly string[] s_versionsNodeset = { "versions.nodeset" };
+
+        private static readonly uint[] s_diVersions = { 1001, 1002 };
+
         private static List<XRegistryGroup> SampleGroups()
             => XRegistryGroup.Build(FakeXRegistryNodesetStore.WithSampleData().Nodesets);
 
@@ -114,7 +118,7 @@ namespace UACloudLibraryServer.UnitTests
             Assert.Equal("1002", entity["versionid"].GetValue<string>());
             Assert.True(entity["isdefault"].GetValue<bool>());
             Assert.Equal(resourceUrl + "$details", entity["self"].GetValue<string>());
-            Assert.Equal(resourceUrl, entity["nodeseturl"].GetValue<string>());
+            Assert.Equal(resourceUrl + "?format=wot", entity["nodeseturl"].GetValue<string>());
             Assert.Equal(resourceUrl + "/meta", entity["metaurl"].GetValue<string>());
             Assert.Equal(resourceUrl + "/versions", entity["versionsurl"].GetValue<string>());
             Assert.Equal(2, entity["versionscount"].GetValue<int>());
@@ -207,10 +211,10 @@ namespace UACloudLibraryServer.UnitTests
 
             JsonObject withoutDocument = new XRegistryEntityBuilder(Base).Version(group, group.DefaultVersion, details: true, inline);
             Assert.Null(withoutDocument["nodeset"]);
-            Assert.Equal($"{Base}/nodesetgroups/{DiGroupId}/nodesets/nodeset/versions/1002", withoutDocument["nodeseturl"].GetValue<string>());
+            Assert.Equal($"{Base}/nodesetgroups/{DiGroupId}/nodesets/nodeset/versions/1002?format=wot", withoutDocument["nodeseturl"].GetValue<string>());
 
             JsonNode thingModel = JsonNode.Parse("{\"@type\":\"tm:ThingModel\",\"title\":\"DI\"}");
-            XRegistryEntityBuilder builder = new(Base, NodesetDocumentFormat.Wot, new Dictionary<uint, JsonNode> { [1002] = thingModel });
+            XRegistryEntityBuilder builder = new(Base, NodesetDocumentFormat.Wot, new Dictionary<uint, XRegistryInlineDocument> { [1002] = new(thingModel, WotMediaTypes.ThingModel) });
 
             JsonObject first = builder.Version(group, group.DefaultVersion, details: true, inline);
             JsonObject second = builder.Version(group, group.DefaultVersion, details: true, inline);
@@ -219,6 +223,49 @@ namespace UACloudLibraryServer.UnitTests
             Assert.Equal("DI", second["nodeset"]["title"].GetValue<string>());
             Assert.Null(first["nodeseturl"]);
             Assert.Equal(WotMediaTypes.ThingModel, first["contenttype"].GetValue<string>());
+        }
+
+        [Fact]
+        public void Version_InlinedThingDescription_AdvertisesItsOwnContentType()
+        {
+            XRegistryGroup group = DiGroup();
+            Assert.True(XRegistryInline.TryParse(true, s_inlineNodeset, "nodesetgroups.nodesets.versions", out XRegistryInline inline, out _));
+            JsonNode thingDescription = JsonNode.Parse("{\"@type\":\"Thing\",\"title\":\"DPP\"}");
+            XRegistryEntityBuilder builder = new(Base, NodesetDocumentFormat.Wot, new Dictionary<uint, XRegistryInlineDocument> { [1002] = new(thingDescription, WotMediaTypes.ThingDescription) });
+
+            JsonObject entity = builder.Version(group, group.DefaultVersion, details: true, inline);
+
+            Assert.Equal("DPP", entity["nodeset"]["title"].GetValue<string>());
+            Assert.Equal(WotMediaTypes.ThingDescription, entity["contenttype"].GetValue<string>());
+        }
+
+        [Theory]
+        [InlineData(null, new uint[0])]
+        [InlineData("*", new uint[0])]
+        [InlineData("nodesetgroups.nodesets", new uint[0])]
+        [InlineData("nodesetgroups.nodesets.nodeset", new uint[] { 1002, 2001 })]
+        [InlineData("nodesetgroups.nodesets.versions.nodeset", new uint[] { 1001, 1002, 2001 })]
+        public void RootDocuments_SelectsTheVersionsWhoseDocumentIsInlined(string path, uint[] expected)
+        {
+            Assert.True(XRegistryInline.TryParse(path != null, path == null ? null : new[] { path }, string.Empty, out XRegistryInline inline, out _));
+            List<XRegistryGroup> groups = SampleGroups();
+
+            uint[] selected = XRegistryEntityBuilder.RootDocuments(groups, inline).Select(v => v.Nodeset.Identifier).Distinct().OrderBy(i => i).ToArray();
+            Assert.Equal(expected, selected);
+
+            // Every selected document is actually embedded when the builder has it.
+            Dictionary<uint, XRegistryInlineDocument> documents = selected.ToDictionary(i => i, i => new XRegistryInlineDocument(JsonNode.Parse("{\"marker\":true}"), WotMediaTypes.ThingModel));
+            string json = new XRegistryEntityBuilder(Base, NodesetDocumentFormat.Wot, documents).Root(groups, inline).ToJsonString();
+            Assert.Equal(selected.Length, json.Split("\"marker\":true").Length - 1);
+        }
+
+        [Fact]
+        public void ResourceDocuments_NestedVersionsPath_SelectsEveryVersion()
+        {
+            XRegistryGroup group = DiGroup();
+            Assert.True(XRegistryInline.TryParse(true, s_versionsNodeset, "nodesetgroups.nodesets", out XRegistryInline inline, out _));
+
+            Assert.Equal(s_diVersions, XRegistryEntityBuilder.ResourceDocuments(group, inline).Select(v => v.Nodeset.Identifier).ToArray());
         }
 
         [Fact]
