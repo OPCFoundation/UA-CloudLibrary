@@ -27,6 +27,7 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Opc.Ua.Cloud.Library.Models;
 
@@ -49,6 +50,12 @@ namespace Opc.Ua.Cloud.Library.XRegistry
 
         /// <summary>The stored NodeSet2 XML of a nodeset, or null if it does not exist.</summary>
         Task<string> GetXmlAsync(uint identifier);
+
+        /// <summary>
+        /// The stored NodeSet2 XML of several nodesets in one round trip, keyed by identifier. Nodesets
+        /// that do not exist are absent from the result.
+        /// </summary>
+        Task<IReadOnlyDictionary<uint, string>> GetXmlAsync(IReadOnlyCollection<uint> identifiers);
 
         /// <summary>Uploads or overwrites a nodeset. Uploads are always private; publication is a separate approval.</summary>
         Task<UploadResult> UploadAsync(string userId, UANameSpace uaNamespace, bool overwrite);

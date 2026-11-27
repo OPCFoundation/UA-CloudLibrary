@@ -27,7 +27,9 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading.Tasks;
 using Opc.Ua.Cloud.Library.Models;
 
@@ -60,6 +62,23 @@ namespace Opc.Ua.Cloud.Library.XRegistry
         {
             DbFiles file = await _storage.DownloadFileAsync(identifier.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
             return file?.Blob;
+        }
+
+        public async Task<IReadOnlyDictionary<uint, string>> GetXmlAsync(IReadOnlyCollection<uint> identifiers)
+        {
+            IReadOnlyDictionary<string, string> blobs = await _storage.DownloadBlobsAsync(
+                identifiers.Select(id => id.ToString(CultureInfo.InvariantCulture)).ToList()).ConfigureAwait(false);
+
+            Dictionary<uint, string> xml = new(blobs.Count);
+            foreach (KeyValuePair<string, string> blob in blobs)
+            {
+                if (blob.Value != null && uint.TryParse(blob.Key, NumberStyles.None, CultureInfo.InvariantCulture, out uint identifier))
+                {
+                    xml[identifier] = blob.Value;
+                }
+            }
+
+            return xml;
         }
 
         public Task<UploadResult> UploadAsync(string userId, UANameSpace uaNamespace, bool overwrite)

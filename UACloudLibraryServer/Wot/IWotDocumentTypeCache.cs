@@ -28,6 +28,7 @@
  * ======================================================================*/
 
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Opc.Ua.Cloud.Library.Models;
 
@@ -41,10 +42,15 @@ namespace Opc.Ua.Cloud.Library.Wot
     public interface IWotDocumentTypeCache
     {
         /// <summary>
-        /// Returns the WoT media type of <paramref name="version"/>'s document. On a cache miss the XML is
-        /// obtained from <paramref name="loadXml"/>; returns <c>null</c> if it is missing or unreadable.
+        /// Returns the WoT media type of each of <paramref name="versions"/>' documents, keyed by nodeset
+        /// identifier. The XML of cache misses is obtained from <paramref name="loadXml"/> in batches (one
+        /// call per batch, keyed by identifier) and inspected in parallel; concurrent callers missing the
+        /// same version share one load and inspection. Versions whose XML is missing or unreadable are
+        /// absent from the result.
         /// </summary>
-        Task<string> GetContentTypeAsync(UANameSpace version, Func<Task<string>> loadXml);
+        Task<IReadOnlyDictionary<uint, string>> GetContentTypesAsync(
+            IReadOnlyCollection<UANameSpace> versions,
+            Func<IReadOnlyCollection<uint>, Task<IReadOnlyDictionary<uint, string>>> loadXml);
 
         /// <summary>Records the media type of a document that has actually been generated.</summary>
         void Remember(UANameSpace version, string contentType);

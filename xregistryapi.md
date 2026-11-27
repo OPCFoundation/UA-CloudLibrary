@@ -125,10 +125,20 @@ embeds. Document responses without an explicit `format` carry `Vary: Accept`. In
 actual type of the version's document – `application/tm+json` for a Thing Model,
 `application/td+json` for a Thing Description – whether or not the document is inlined. For
 versions whose document is not inlined, the type is determined by inspecting the NodeSet2 XML without
-converting it and is then cached per version, so the first metadata listing (or `/export`) after a
-restart reads each listed nodeset once. Documents are generated on first request and cached in
-memory (keyed by a hash of the XML, so an overwritten nodeset is never served stale). If a nodeset
-cannot be converted the server answers `500 server_error`; `?format=nodeset2` still returns the XML.
+converting it and is then cached per version. After a restart, the first metadata listing (or
+`/export`) resolves all uncached versions of the response together: their XML is read 16 versions
+per database round trip and inspected in parallel, and concurrent requests for the same version
+share one read and inspection. The kind is not stored in the database, so no schema migration or
+backfill is needed; the cost is this one-off batched read per version after each restart. Documents
+are generated on first request and cached in memory (keyed by a hash of the XML, so an overwritten
+nodeset is never served stale). If a nodeset cannot be converted the server answers
+`500 server_error`; `?format=nodeset2` still returns the XML.
+
+Conversions are expensive, so the server bounds them process-wide: at most
+`Wot__MaxConcurrentConversions` (default `2`) run at a time and at most `Wot__MaxQueuedConversions`
+(default `8`) wait for a slot. A request that needs a further conversion is answered with
+`503 server_busy` and a `Retry-After` header (seconds); concurrent requests for the same nodeset
+share one conversion and count once, and documents already in the cache are served without waiting.
 
 #### `?inline` flag
 
@@ -205,7 +215,7 @@ Errors are RFC 9457 problem details (`application/problem+json`):
 ```
 
 Error types used: `not_found`, `mismatched_id`, `invalid_data`, `bad_flag`, `action_not_supported`,
-`conflict`, `forbidden`, `server_error`.
+`conflict`, `forbidden`, `server_error`, `server_busy`.
 
 ---
 

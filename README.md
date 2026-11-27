@@ -270,6 +270,13 @@ Curtail bot access using the Google reCAPTCHA.
 * `Api__RateLimit__PermitPerMinute`: Requests permitted per minute per client IP on the REST APIs (`/infomodel`, `/valuesets`, `/access`, `/approval`). Requests above the limit receive `429 Too Many Requests`. Must be greater than zero; the server refuses to start otherwise. (default: `100`)
 * The DPP endpoints (`v1/dpps/*`) have their own allowance, `Dpp__RateLimit__PermitPerMinute` (default: `100`). Behind a reverse proxy, configure the `Dpp__ForwardedHeaders__*` settings so the limits apply per caller rather than to the proxy's address &mdash; see [dpp.md](dpp.md#rate-limiting-and-proxies).
 
+### Optional Settings - WoT document generation
+
+Generating a WoT Thing Model or Thing Description (`/infomodel/download/{identifier}?format=wot` and the [xRegistry API](xregistryapi.md)) is CPU- and memory-intensive, so conversions are bounded process-wide, independently of the per-client rate limits. Documents already in the in-memory cache are served without waiting.
+
+* `Wot__MaxConcurrentConversions`: Conversions that may run at the same time. (default: `2`)
+* `Wot__MaxQueuedConversions`: Conversions that may wait for a free slot; further requests receive `503 Service Unavailable` with a `Retry-After` header. (default: `8`)
+
 ### Settings - DPP
 
 `Dpp__Esdc__PrivateKeyPem` and `Dpp__Esdc__EconomicOperatorId` are **required outside Development** &mdash; see [Required environment variables](#required-environment-variables) above.

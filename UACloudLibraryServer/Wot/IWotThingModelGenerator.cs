@@ -27,6 +27,8 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
+using System.Threading.Tasks;
+
 namespace Opc.Ua.Cloud.Library.Wot
 {
     /// <summary>
@@ -40,12 +42,14 @@ namespace Opc.Ua.Cloud.Library.Wot
     {
         /// <summary>
         /// Generates the WoT document for <paramref name="nodesetXml"/>. Never throws for invalid or
-        /// unconvertible input; failures are reported in the result.
+        /// unconvertible input; failures are reported in the result. Conversions are expensive, so only
+        /// a bounded number run at a time and a bounded number may wait; beyond that the result is
+        /// <see cref="WotThingModelResult.IsBusy"/>. Cached documents are returned without waiting.
         /// </summary>
-        WotThingModelResult Generate(string nodesetXml);
+        Task<WotThingModelResult> GenerateAsync(string nodesetXml);
 
         /// <summary>
-        /// The media type of the document <see cref="Generate"/> returns for <paramref name="nodesetXml"/>
+        /// The media type of the document <see cref="GenerateAsync"/> returns for <paramref name="nodesetXml"/>
         /// (Thing Model or Thing Description), determined without converting the nodeset. Returns
         /// <c>null</c> if the XML cannot be parsed.
         /// </summary>

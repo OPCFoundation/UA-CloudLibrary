@@ -156,6 +156,33 @@ namespace Opc.Ua.Cloud.Library
                 throw;
             }
         }
+
+        /// <summary>
+        /// Downloads the blobs of several files in one query, keyed by name. Names without a row are
+        /// absent from the result; storage faults propagate as in <see cref="DownloadFileAsync"/>.
+        /// </summary>
+        public async Task<IReadOnlyDictionary<string, string>> DownloadBlobsAsync(IReadOnlyCollection<string> names, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(names);
+            if (names.Count == 0)
+            {
+                return new Dictionary<string, string>(StringComparer.Ordinal);
+            }
+
+            try
+            {
+                return await _dbContext.DBFiles.AsNoTracking()
+                    .Where(n => names.Contains(n.Name))
+                    .Select(n => new { n.Name, n.Blob })
+                    .ToDictionaryAsync(n => n.Name, n => n.Blob, StringComparer.Ordinal, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "DownloadBlobsAsync failed for {Count} files.", names.Count);
+                throw;
+            }
+        }
         public async Task DeleteFileAsync(string name, CancellationToken cancellationToken = default)
         {
             try

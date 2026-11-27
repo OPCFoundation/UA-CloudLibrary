@@ -111,7 +111,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         private async Task<(XRegistryEntityBuilder Builder, IActionResult Error)> PrepareBuilderAsync(IEnumerable<XRegistryVersionSelection> selection)
         {
             Dictionary<uint, XRegistryInlineDocument> documents = new();
-            Dictionary<uint, string> contentTypes = new();
+            List<UANameSpace> typeOnly = new();
             foreach (IGrouping<uint, XRegistryVersionSelection> selected in selection.GroupBy(s => s.Version.Nodeset.Identifier))
             {
                 uint identifier = selected.Key;
@@ -120,11 +120,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 {
                     if (_documentFormat == NodesetDocumentFormat.Wot)
                     {
-                        string contentType = await _wotDocumentTypes.GetContentTypeAsync(version, () => _nodesetStore.GetXmlAsync(identifier)).ConfigureAwait(false);
-                        if (contentType != null)
-                        {
-                            contentTypes[identifier] = contentType;
-                        }
+                        typeOnly.Add(version);
                     }
                     continue;
                 }
@@ -141,7 +137,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     continue;
                 }
 
-                WotThingModelResult thingModel = _wotGenerator.Generate(xml);
+                WotThingModelResult thingModel = await _wotGenerator.GenerateAsync(xml).ConfigureAwait(false);
                 if (!thingModel.Succeeded)
                 {
                     return (null, WotGenerationError(thingModel));
@@ -152,7 +148,13 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 documents[identifier] = new XRegistryInlineDocument(content, thingModel.ContentType);
             }
 
-            return (CreateBuilder(documents.Count == 0 ? null : documents, contentTypes.Count == 0 ? null : contentTypes), null);
+            // Versions that are only described resolve their document kind in one batch: cached kinds cost
+            // nothing, and the XML of the others is loaded a batch per round trip and inspected in parallel.
+            IReadOnlyDictionary<uint, string> contentTypes = typeOnly.Count == 0
+                ? null
+                : await _wotDocumentTypes.GetContentTypesAsync(typeOnly, _nodesetStore.GetXmlAsync).ConfigureAwait(false);
+
+            return (CreateBuilder(documents.Count == 0 ? null : documents, contentTypes?.Count > 0 ? contentTypes : null), null);
         }
 
         // ------------------------------------------------------------------ registry root / model / capabilities
@@ -571,7 +573,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 WotThingModelResult thingModel = null;
                 if (_documentFormat == NodesetDocumentFormat.Wot)
                 {
-                    thingModel = _wotGenerator.Generate(xml);
+                    thingModel = await _wotGenerator.GenerateAsync(xml).ConfigureAwait(false);
                     if (!thingModel.Succeeded)
                     {
                         return WotGenerationError(thingModel);
@@ -612,9 +614,19 @@ namespace Opc.Ua.Cloud.Library.Controllers
         }
 
         private ObjectResult WotGenerationError(WotThingModelResult thingModel)
-            => XRegistryError.Result(XRegistryError.ServerError, 500, "WoT Thing Model generation failed",
+        {
+            if (thingModel.IsBusy)
+            {
+                Response.Headers.RetryAfter = WotThingModelResult.BusyRetryAfterSeconds.ToString(CultureInfo.InvariantCulture);
+                return XRegistryError.Result(XRegistryError.ServerBusy, 503, "Server busy",
+                    $"{thingModel.ErrorMessage} Use '?{FormatQuery}={NodesetDocumentFormats.NodeSet2Name}' to get the NodeSet2 XML.",
+                    Request.Path);
+            }
+
+            return XRegistryError.Result(XRegistryError.ServerError, 500, "WoT Thing Model generation failed",
                 $"The WoT Thing Model could not be generated from the NodeSet2 XML: {thingModel.ErrorMessage} Use '?{FormatQuery}={NodesetDocumentFormats.NodeSet2Name}' to get the NodeSet2 XML.",
                 Request.Path);
+        }
 
         /// <summary>
         /// Document responses carry the entity's scalar attributes as <c>xRegistry-*</c> headers; maps and

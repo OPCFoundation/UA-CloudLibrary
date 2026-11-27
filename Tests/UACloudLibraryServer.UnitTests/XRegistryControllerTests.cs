@@ -36,6 +36,7 @@ namespace UACloudLibraryServer.UnitTests
         private static readonly string DiGroupId = XRegistryIds.EncodeGroupId(FakeXRegistryNodesetStore.DiUri);
 
         private static readonly string[] s_diVersionIds = { "1001", "1002" };
+        private static readonly uint[] s_sampleIds = { 1001, 1002, 2001 };
         private static readonly string[] s_devicesDi = { "devices", "di" };
         private static readonly string[] s_aB = { "a", "b" };
         private static readonly string[] s_attemptedSuccess = { "Attempted", "Success" };
@@ -56,7 +57,7 @@ namespace UACloudLibraryServer.UnitTests
                 => Task.FromResult(default(DppAuditVerificationOutcome));
         }
 
-        private static XRegistryController CreateController(FakeXRegistryNodesetStore store, RecordingAuditLog audit = null, string user = "alice", bool admin = false, string query = null, string body = null, IDictionary<string, string> headers = null, FakeWotThingModelGenerator wot = null)
+        private static XRegistryController CreateController(FakeXRegistryNodesetStore store, RecordingAuditLog audit = null, string user = "alice", bool admin = false, string query = null, string body = null, IDictionary<string, string> headers = null, FakeWotThingModelGenerator wot = null, WotDocumentTypeCache types = null)
         {
             DefaultHttpContext httpContext = new();
             httpContext.Request.Scheme = "https";
@@ -90,7 +91,7 @@ namespace UACloudLibraryServer.UnitTests
             httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(claims, user != null ? "Test" : null));
 
             wot ??= new FakeWotThingModelGenerator();
-            return new XRegistryController(store, audit ?? new RecordingAuditLog(), wot, new WotDocumentTypeCache(wot)) {
+            return new XRegistryController(store, audit ?? new RecordingAuditLog(), wot, types ?? new WotDocumentTypeCache(wot)) {
                 ControllerContext = new ControllerContext { HttpContext = httpContext }
             };
         }
@@ -619,6 +620,45 @@ namespace UACloudLibraryServer.UnitTests
                 wot: new FakeWotThingModelGenerator { FailWith = "boom" });
 
             ProblemBody(await controller.GetVersionsAsync(DiGroupId, "nodeset"), 500, XRegistryError.ServerError);
+        }
+
+        [Fact]
+        public async Task GetResource_ConversionGateFull_ReturnsServerBusyWithRetryAfter()
+        {
+            FakeXRegistryNodesetStore store = FakeXRegistryNodesetStore.WithSampleData();
+            XRegistryController controller = CreateController(store, wot: new FakeWotThingModelGenerator { Busy = true });
+
+            JsonObject problem = ProblemBody(await controller.GetResourceAsync(DiGroupId, "nodeset"), 503, XRegistryError.ServerBusy);
+
+            Assert.Equal("10", controller.Response.Headers.RetryAfter.ToString());
+            Assert.Contains("format=nodeset2", problem["detail"].GetValue<string>(), StringComparison.Ordinal);
+            Assert.Empty(store.Downloads);
+        }
+
+        [Fact]
+        public async Task GetVersions_InlineWhileConversionGateFull_ReturnsServerBusy()
+        {
+            XRegistryController controller = CreateController(FakeXRegistryNodesetStore.WithSampleData(), query: "?inline=nodeset",
+                wot: new FakeWotThingModelGenerator { Busy = true });
+
+            ProblemBody(await controller.GetVersionsAsync(DiGroupId, "nodeset"), 503, XRegistryError.ServerBusy);
+            Assert.Equal("10", controller.Response.Headers.RetryAfter.ToString());
+        }
+
+        [Fact]
+        public async Task Export_ColdTypeCache_LoadsAllXmlInOneBatchAndThenNone()
+        {
+            FakeXRegistryNodesetStore store = FakeXRegistryNodesetStore.WithSampleData();
+            FakeWotThingModelGenerator wot = new();
+            using WotDocumentTypeCache types = new(wot);
+
+            JsonBody(await CreateController(store, wot: wot, types: types).ExportAsync());
+            uint[] batch = Assert.Single(store.XmlBatches);
+            Assert.Equal(s_sampleIds, batch.Order());
+
+            JsonBody(await CreateController(store, wot: wot, types: types).ExportAsync());
+            Assert.Single(store.XmlBatches);
+            Assert.Equal(3, wot.ContentTypeRequests.Count);
         }
 
         [Fact]

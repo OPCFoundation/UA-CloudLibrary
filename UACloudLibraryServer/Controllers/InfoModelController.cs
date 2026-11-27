@@ -29,12 +29,14 @@
 
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Net;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Opc.Ua.Cloud.Library.Models;
+using Opc.Ua.Cloud.Library.Swagger;
 using Opc.Ua.Cloud.Library.Wot;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -169,6 +171,8 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The identifier or format provided could not be parsed, or format=wot was combined with metadataOnly.")]
         [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The identifier provided could not be found.")]
         [SwaggerResponse(statusCode: 500, type: typeof(string), description: "The WoT document could not be generated from the nodeset.")]
+        [SwaggerResponse(statusCode: 503, type: typeof(string), description: "format=wot only: the server is already generating as many WoT documents as it allows. Retry after the number of seconds in the Retry-After header.")]
+        [WotDocumentResponse]
         public async Task<IActionResult> DownloadNamespaceAsync(
             [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier,
             [FromQuery][SwaggerParameter("Download NodeSet XML only, omitting metadata")] bool nodesetXMLOnly = false,
@@ -213,7 +217,13 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
             if (documentFormat == NodesetDocumentFormat.Wot)
             {
-                WotThingModelResult thingModel = _wotGenerator.Generate(nodesetXml.Blob);
+                WotThingModelResult thingModel = await _wotGenerator.GenerateAsync(nodesetXml.Blob).ConfigureAwait(false);
+                if (thingModel.IsBusy)
+                {
+                    Response.Headers.RetryAfter = WotThingModelResult.BusyRetryAfterSeconds.ToString(CultureInfo.InvariantCulture);
+                    return new ObjectResult(thingModel.ErrorMessage) { StatusCode = (int)HttpStatusCode.ServiceUnavailable };
+                }
+
                 if (!thingModel.Succeeded)
                 {
                     return new ObjectResult($"The WoT Thing Model could not be generated: {thingModel.ErrorMessage}") { StatusCode = (int)HttpStatusCode.InternalServerError };

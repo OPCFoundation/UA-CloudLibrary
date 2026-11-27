@@ -39,17 +39,27 @@ namespace Opc.Ua.Cloud.Library.Wot
     /// </summary>
     public sealed class WotThingModelResult
     {
+        /// <summary>How long a client rejected with <see cref="IsBusy"/> should wait before retrying.</summary>
+        public const int BusyRetryAfterSeconds = 10;
+
         private readonly byte[] _utf8Json;
 
-        private WotThingModelResult(byte[] utf8Json, string contentType, IReadOnlyList<string> diagnostics)
+        private WotThingModelResult(byte[] utf8Json, string contentType, IReadOnlyList<string> diagnostics, bool isBusy = false)
         {
             _utf8Json = utf8Json;
             ContentType = contentType;
             Diagnostics = diagnostics ?? Array.Empty<string>();
+            IsBusy = isBusy;
         }
 
         /// <summary>True when a document was generated.</summary>
         public bool Succeeded => _utf8Json != null;
+
+        /// <summary>
+        /// True when the conversion was not attempted because the server is already converting as many
+        /// nodesets as it allows; the request may be retried later.
+        /// </summary>
+        public bool IsBusy { get; }
 
         /// <summary>The UTF-8 encoded JSON document, or empty when generation failed.</summary>
         public ReadOnlyMemory<byte> Utf8Json => _utf8Json;
@@ -90,6 +100,11 @@ namespace Opc.Ua.Cloud.Library.Wot
         public static WotThingModelResult Failure(string error)
             => Failure(string.IsNullOrEmpty(error) ? null : new[] { error });
 
+        public static WotThingModelResult Busy()
+            => new(null, null, s_busy, isBusy: true);
+
         private static readonly string[] s_unknownFailure = { "The WoT document could not be generated." };
+
+        private static readonly string[] s_busy = { "The server is busy generating other WoT documents. Please try again later." };
     }
 }

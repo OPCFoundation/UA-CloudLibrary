@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 using Opc.Ua.Cloud.Library.Wot;
 
 namespace UACloudLibraryServer.UnitTests
@@ -12,25 +13,52 @@ namespace UACloudLibraryServer.UnitTests
     {
         public const string Document = "{\"@context\":[\"https://www.w3.org/2022/wot/td/v1.1\"],\"@type\":\"tm:ThingModel\",\"title\":\"Fake\"}";
 
-        public List<string> Requests { get; } = new();
+        private readonly object _lock = new();
+        private readonly List<string> _requests = new();
+        private readonly List<string> _contentTypeRequests = new();
 
-        public List<string> ContentTypeRequests { get; } = new();
+        /// <summary>The nodesets converted so far (a snapshot; recorded thread-safely).</summary>
+        public IReadOnlyList<string> Requests
+        {
+            get { lock (_lock) { return _requests.ToArray(); } }
+        }
+
+        /// <summary>The nodesets inspected for their document kind so far (a snapshot).</summary>
+        public IReadOnlyList<string> ContentTypeRequests
+        {
+            get { lock (_lock) { return _contentTypeRequests.ToArray(); } }
+        }
 
         public string ContentType { get; set; } = WotMediaTypes.ThingModel;
 
         public string FailWith { get; set; }
 
-        public WotThingModelResult Generate(string nodesetXml)
+        public bool Busy { get; set; }
+
+        public Task<WotThingModelResult> GenerateAsync(string nodesetXml)
         {
-            Requests.Add(nodesetXml);
-            return FailWith != null
+            lock (_lock)
+            {
+                _requests.Add(nodesetXml);
+            }
+
+            if (Busy)
+            {
+                return Task.FromResult(WotThingModelResult.Busy());
+            }
+
+            return Task.FromResult(FailWith != null
                 ? WotThingModelResult.Failure(FailWith)
-                : WotThingModelResult.Success(Encoding.UTF8.GetBytes(Document), ContentType, null);
+                : WotThingModelResult.Success(Encoding.UTF8.GetBytes(Document), ContentType, null));
         }
 
         public string GetContentType(string nodesetXml)
         {
-            ContentTypeRequests.Add(nodesetXml);
+            lock (_lock)
+            {
+                _contentTypeRequests.Add(nodesetXml);
+            }
+
             return ContentType;
         }
     }
