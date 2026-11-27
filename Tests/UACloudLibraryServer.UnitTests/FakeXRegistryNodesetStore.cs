@@ -100,6 +100,19 @@ namespace UACloudLibraryServer.UnitTests
         public Task<string> GetXmlAsync(uint identifier)
             => Task.FromResult(Xml.TryGetValue(identifier, out string xml) ? xml : null);
 
+        /// <summary>The identifiers of each batched XML load, in call order.</summary>
+        public List<uint[]> XmlBatches { get; } = new();
+
+        public Task<IReadOnlyDictionary<uint, string>> GetXmlAsync(IReadOnlyCollection<uint> identifiers)
+        {
+            XmlBatches.Add(identifiers.ToArray());
+            IReadOnlyDictionary<uint, string> found = identifiers
+                .Where(Xml.ContainsKey)
+                .Distinct()
+                .ToDictionary(id => id, id => Xml[id]);
+            return Task.FromResult(found);
+        }
+
         public Task<UploadResult> UploadAsync(string userId, UANameSpace uaNamespace, bool overwrite)
         {
             Uploads.Add((userId, uaNamespace, overwrite));

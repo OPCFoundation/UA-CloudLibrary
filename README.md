@@ -40,6 +40,8 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
 * Swagger UI
 * User management UI
 * OPC UA Information Model upload and download
+* OPC UA Information Model download as a W3C Web of Things (WoT) Thing Model, generated from the NodeSet2 XML by the OPC UA .NET stack (`GET /infomodel/download/{identifier}?format=wot`)
+* [xRegistry API](xregistryapi.md) serving Information Models as WoT Thing Models by default (NodeSet2 XML with `?format=nodeset2`)
 * OPC UA Information Model browse and search
 * Simple OPC UA Information Model authoring UI
 * Cross-platform: Runs on any edge or cloud that can host a container and a PostgreSQL instance
@@ -267,6 +269,13 @@ Curtail bot access using the Google reCAPTCHA.
 
 * `Api__RateLimit__PermitPerMinute`: Requests permitted per minute per client IP on the REST APIs (`/infomodel`, `/valuesets`, `/access`, `/approval`). Requests above the limit receive `429 Too Many Requests`. Must be greater than zero; the server refuses to start otherwise. (default: `100`)
 * The DPP endpoints (`v1/dpps/*`) have their own allowance, `Dpp__RateLimit__PermitPerMinute` (default: `100`). Behind a reverse proxy, configure the `Dpp__ForwardedHeaders__*` settings so the limits apply per caller rather than to the proxy's address &mdash; see [dpp.md](dpp.md#rate-limiting-and-proxies).
+
+### Optional Settings - WoT document generation
+
+Generating a WoT Thing Model or Thing Description (`/infomodel/download/{identifier}?format=wot` and the [xRegistry API](xregistryapi.md)) is CPU- and memory-intensive, so conversions are bounded process-wide, independently of the per-client rate limits. Documents already in the in-memory cache are served without waiting.
+
+* `Wot__MaxConcurrentConversions`: Conversions that may run at the same time. (default: `2`)
+* `Wot__MaxQueuedConversions`: Conversions that may wait for a free slot; further requests receive `503 Service Unavailable` with a `Retry-After` header. (default: `8`)
 
 ### Settings - DPP
 

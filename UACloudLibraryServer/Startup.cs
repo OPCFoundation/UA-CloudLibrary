@@ -180,6 +180,9 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddTransient<XRegistry.IXRegistryNodesetStore, XRegistry.XRegistryNodesetStore>();
 
+            services.AddSingleton<Wot.IWotThingModelGenerator, Wot.WotThingModelGenerator>();
+            services.AddSingleton<Wot.IWotDocumentTypeCache, Wot.WotDocumentTypeCache>();
+
             services.AddTransient<UAClient>();
 
             // The OPC UA 2.0 stack requires a telemetry context; ApplicationInstance (and everything created
@@ -362,6 +365,7 @@ namespace Opc.Ua.Cloud.Library
 
                 options.CustomSchemaIds(type => type.ToString());
                 options.SchemaFilter<Swagger.NodesetValuesSchemaFilter>();
+                options.OperationFilter<Swagger.WotDocumentResponseOperationFilter>();
 
                 options.EnableAnnotations();
             });

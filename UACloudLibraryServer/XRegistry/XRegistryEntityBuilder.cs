@@ -33,6 +33,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json.Nodes;
 using Opc.Ua.Cloud.Library.Models;
+using Opc.Ua.Cloud.Library.Wot;
 
 namespace Opc.Ua.Cloud.Library.XRegistry
 {
@@ -85,14 +86,33 @@ namespace Opc.Ua.Cloud.Library.XRegistry
     public sealed class XRegistryEntityBuilder
     {
         private readonly string _baseUrl;
+        private readonly NodesetDocumentFormat _documentFormat;
+        private readonly IReadOnlyDictionary<uint, XRegistryInlineDocument> _inlineDocuments;
+        private readonly IReadOnlyDictionary<uint, string> _contentTypes;
 
         /// <param name="baseUrl">Absolute URL of the registry root, without trailing slash.</param>
-        public XRegistryEntityBuilder(string baseUrl)
+        /// <param name="documentFormat">The format the version documents are served in.</param>
+        /// <param name="inlineDocuments">
+        /// The prepared documents in <paramref name="documentFormat"/>, keyed by nodeset identifier;
+        /// see the <c>*Selection</c> methods for which versions need one. A NodeSet2 version without an
+        /// entry falls back to <see cref="Nodeset.NodesetXml"/>.
+        /// </param>
+        /// <param name="contentTypes">
+        /// The actual media types of the versions whose document is not inlined, keyed by nodeset
+        /// identifier. A WoT document is a Thing Model or a Thing Description depending on the nodeset;
+        /// a version without an entry advertises the format's default media type.
+        /// </param>
+        public XRegistryEntityBuilder(string baseUrl, NodesetDocumentFormat documentFormat = NodesetDocumentFormat.Wot, IReadOnlyDictionary<uint, XRegistryInlineDocument> inlineDocuments = null, IReadOnlyDictionary<uint, string> contentTypes = null)
         {
             _baseUrl = (baseUrl ?? string.Empty).TrimEnd('/');
+            _documentFormat = documentFormat;
+            _inlineDocuments = inlineDocuments;
+            _contentTypes = contentTypes;
         }
 
         public string BaseUrl => _baseUrl;
+
+        public NodesetDocumentFormat DocumentFormat => _documentFormat;
 
         public string GroupsUrl => $"{_baseUrl}/{XRegistryIds.GroupsPlural}";
 
@@ -105,6 +125,38 @@ namespace Opc.Ua.Cloud.Library.XRegistry
         public string VersionsUrl(XRegistryGroup group) => $"{ResourceUrl(group)}/versions";
 
         public string VersionUrl(XRegistryGroup group, UANameSpace version) => $"{VersionsUrl(group)}/{XRegistryGroup.VersionId(version)}";
+
+        // The *Selection methods mirror the traversal of the entity methods of the same name and
+        // return every version whose attributes the entity contains, flagged when the given inline
+        // flag also embeds its document, so that the caller can prepare exactly those documents and
+        // content types before building the entity.
+
+        public static IEnumerable<XRegistryVersionSelection> RootSelection(IEnumerable<XRegistryGroup> groups, XRegistryInline inline)
+            => inline.Includes(XRegistryIds.GroupsPlural)
+                ? GroupCollectionSelection(groups, inline.Descend(XRegistryIds.GroupsPlural))
+                : Enumerable.Empty<XRegistryVersionSelection>();
+
+        public static IEnumerable<XRegistryVersionSelection> GroupCollectionSelection(IEnumerable<XRegistryGroup> groups, XRegistryInline inline)
+            => groups.SelectMany(group => GroupSelection(group, inline));
+
+        public static IEnumerable<XRegistryVersionSelection> GroupSelection(XRegistryGroup group, XRegistryInline inline)
+            => inline.Includes(XRegistryIds.ResourcesPlural)
+                ? ResourceSelection(group, inline.Descend(XRegistryIds.ResourcesPlural))
+                : Enumerable.Empty<XRegistryVersionSelection>();
+
+        public static IEnumerable<XRegistryVersionSelection> ResourceSelection(XRegistryGroup group, XRegistryInline inline)
+        {
+            IEnumerable<XRegistryVersionSelection> own = VersionSelection(group.DefaultVersion, inline);
+            return inline.Includes("versions")
+                ? own.Concat(VersionCollectionSelection(group, inline.Descend("versions")))
+                : own;
+        }
+
+        public static IEnumerable<XRegistryVersionSelection> VersionCollectionSelection(XRegistryGroup group, XRegistryInline inline)
+            => group.Versions.SelectMany(version => VersionSelection(version, inline));
+
+        public static IEnumerable<XRegistryVersionSelection> VersionSelection(UANameSpace version, XRegistryInline inline)
+            => new[] { new XRegistryVersionSelection(version, inline.Includes(XRegistryIds.ResourceSingular)) };
 
         public JsonObject Root(IReadOnlyList<XRegistryGroup> groups, XRegistryInline inline)
         {
@@ -183,13 +235,17 @@ namespace Opc.Ua.Cloud.Library.XRegistry
                             [XRegistryIds.ResourcesPlural] = new JsonObject {
                                 ["plural"] = XRegistryIds.ResourcesPlural,
                                 ["singular"] = XRegistryIds.ResourceSingular,
-                                ["description"] = "The OPC UA NodeSet2 XML document(s) of the namespace. Every group has exactly one resource with the id 'nodeset'; each published revision of the information model is a version, whose id is the UA Cloud Library nodeset identifier.",
+                                ["description"] = "The OPC UA information model document(s) of the namespace. Every group has exactly one resource with the id 'nodeset'; each published revision of the information model is a version, whose id is the UA Cloud Library nodeset identifier. Documents are served by default as a W3C Web of Things Thing Model (application/tm+json; a Thing Description, application/td+json, for a nodeset of instances) generated losslessly from the NodeSet2 XML; add '?format=nodeset2' or send 'Accept: application/xml' to get the NodeSet2 XML instead. Uploads take NodeSet2 XML.",
                                 ["maxversions"] = 0,
                                 ["setversionid"] = false,
                                 ["setdefaultversionsticky"] = true,
                                 ["hasdocument"] = true,
                                 ["singleversionroot"] = false,
-                                ["typemap"] = new JsonObject { ["application/xml"] = "xml" },
+                                ["typemap"] = new JsonObject {
+                                    [WotMediaTypes.NodeSet2] = "xml",
+                                    [WotMediaTypes.ThingModel] = "json",
+                                    [WotMediaTypes.ThingDescription] = "json",
+                                },
                                 ["attributes"] = attributes(
                                     ("namespaceuri", "url", "The OPC UA namespace URI of the information model."),
                                     ("version", "string", "The informational version string of the information model."),
@@ -352,7 +408,15 @@ namespace Opc.Ua.Cloud.Library.XRegistry
             int index = IndexOf(group.Versions, version);
             entity["ancestor"] = index > 0 ? XRegistryGroup.VersionId(group.Versions[index - 1]) : versionId;
 
-            entity["contenttype"] = XRegistryIds.DocumentContentType;
+            // A WoT document is a Thing Model or a Thing Description depending on the nodeset, so the
+            // type comes from the prepared document or the type resolved for this version.
+            XRegistryInlineDocument document = FindDocument(version);
+            string contentType = document?.ContentType;
+            if (contentType == null && _contentTypes != null)
+            {
+                _contentTypes.TryGetValue(version.Nodeset.Identifier, out contentType);
+            }
+            entity["contenttype"] = contentType ?? XRegistryIds.DocumentContentType(_documentFormat);
 
             entity["namespaceuri"] = nodeset.NamespaceUri?.OriginalString;
             entity["version"] = nodeset.Version;
@@ -397,16 +461,36 @@ namespace Opc.Ua.Cloud.Library.XRegistry
             }
             entity["numberofdownloads"] = version.NumberOfDownloads;
 
-            if (inline.Includes(XRegistryIds.ResourceSingular) && !string.IsNullOrEmpty(nodeset.NodesetXml))
+            if (document != null && inline.Includes(XRegistryIds.ResourceSingular))
             {
-                entity[XRegistryIds.ResourceSingular] = nodeset.NodesetXml;
+                // A node can only have one parent, and the same version may be inlined twice (as the
+                // resource and inside its versions collection).
+                entity[XRegistryIds.ResourceSingular] = document.Content.Parent == null ? document.Content : document.Content.DeepClone();
             }
             else
             {
-                entity[XRegistryIds.ResourceSingular + "url"] = self;
+                // The format is always stated, so that following the URL yields the document the
+                // advertised contenttype describes whatever Accept header the client sends.
+                string format = _documentFormat == NodesetDocumentFormat.Wot ? NodesetDocumentFormats.WotName : NodesetDocumentFormats.NodeSet2Name;
+                entity[XRegistryIds.ResourceSingular + "url"] = $"{self}?format={format}";
             }
 
             return entity;
+        }
+
+        private XRegistryInlineDocument FindDocument(UANameSpace version)
+        {
+            if (_inlineDocuments != null && _inlineDocuments.TryGetValue(version.Nodeset.Identifier, out XRegistryInlineDocument document) && document != null)
+            {
+                return document;
+            }
+
+            if (_documentFormat == NodesetDocumentFormat.NodeSet2 && !string.IsNullOrEmpty(version.Nodeset.NodesetXml))
+            {
+                return new XRegistryInlineDocument(JsonValue.Create(version.Nodeset.NodesetXml), WotMediaTypes.NodeSet2);
+            }
+
+            return null;
         }
 
         private static int IndexOf(IReadOnlyList<UANameSpace> list, UANameSpace item)

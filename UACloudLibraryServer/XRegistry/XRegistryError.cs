@@ -50,6 +50,7 @@ namespace Opc.Ua.Cloud.Library.XRegistry
         public const string Conflict = "conflict";
         public const string Forbidden = "forbidden";
         public const string ServerError = "server_error";
+        public const string ServerBusy = "server_busy";
 
         public static JsonObject Body(string errorId, int status, string title, string detail, string instance)
         {
