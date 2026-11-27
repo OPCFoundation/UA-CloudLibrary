@@ -30,6 +30,7 @@
 using System;
 using System.Globalization;
 using System.Text;
+using Opc.Ua.Cloud.Library.Wot;
 
 namespace Opc.Ua.Cloud.Library.XRegistry
 {
@@ -64,7 +65,13 @@ namespace Opc.Ua.Cloud.Library.XRegistry
         /// <summary>The single resource id used inside every group.</summary>
         public const string ResourceId = "nodeset";
 
-        public const string DocumentContentType = "application/xml";
+        /// <summary>
+        /// The <c>contenttype</c> of a version's document in <paramref name="format"/>. Nodesets of
+        /// instances are served as a Thing Description (<see cref="WotMediaTypes.ThingDescription"/>);
+        /// that is only known once the document is generated, so the document response states it.
+        /// </summary>
+        public static string DocumentContentType(NodesetDocumentFormat format)
+            => format == NodesetDocumentFormat.NodeSet2 ? WotMediaTypes.NodeSet2 : WotMediaTypes.ThingModel;
 
         private const char EscapeChar = '~';
 

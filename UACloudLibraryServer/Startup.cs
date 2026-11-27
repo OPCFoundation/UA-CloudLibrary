@@ -180,6 +180,8 @@ namespace Opc.Ua.Cloud.Library
 
             services.AddTransient<XRegistry.IXRegistryNodesetStore, XRegistry.XRegistryNodesetStore>();
 
+            services.AddSingleton<Wot.IWotThingModelGenerator, Wot.WotThingModelGenerator>();
+
             services.AddTransient<UAClient>();
 
             // The OPC UA 2.0 stack requires a telemetry context; ApplicationInstance (and everything created

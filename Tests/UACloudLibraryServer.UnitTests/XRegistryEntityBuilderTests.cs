@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text.Json.Nodes;
 
 using Opc.Ua.Cloud.Library.Models;
+using Opc.Ua.Cloud.Library.Wot;
 using Opc.Ua.Cloud.Library.XRegistry;
 
 using Xunit;
@@ -118,9 +119,29 @@ namespace UACloudLibraryServer.UnitTests
             Assert.Equal(resourceUrl + "/versions", entity["versionsurl"].GetValue<string>());
             Assert.Equal(2, entity["versionscount"].GetValue<int>());
             Assert.Equal("1.04", entity["version"].GetValue<string>());
-            Assert.Equal(XRegistryIds.DocumentContentType, entity["contenttype"].GetValue<string>());
+            Assert.Equal(WotMediaTypes.ThingModel, entity["contenttype"].GetValue<string>());
             Assert.Null(entity["meta"]);
             Assert.Null(entity["versions"]);
+        }
+
+        [Fact]
+        public void Resource_NodeSet2Format_AdvertisesXmlAndFormatQualifiedDocumentUrl()
+        {
+            XRegistryGroup group = DiGroup();
+            JsonObject entity = new XRegistryEntityBuilder(Base, NodesetDocumentFormat.NodeSet2).Resource(group, XRegistryInline.None, details: true);
+
+            Assert.Equal(WotMediaTypes.NodeSet2, entity["contenttype"].GetValue<string>());
+            Assert.Equal($"{Base}/nodesetgroups/{DiGroupId}/nodesets/nodeset?format=nodeset2", entity["nodeseturl"].GetValue<string>());
+        }
+
+        [Fact]
+        public void Model_TypemapCoversAllDocumentFormats()
+        {
+            JsonObject typemap = Assert.IsType<JsonObject>(XRegistryEntityBuilder.Model()["groups"]["nodesetgroups"]["resources"]["nodesets"]["typemap"]);
+
+            Assert.Equal("xml", typemap[WotMediaTypes.NodeSet2].GetValue<string>());
+            Assert.Equal("json", typemap[WotMediaTypes.ThingModel].GetValue<string>());
+            Assert.Equal("json", typemap[WotMediaTypes.ThingDescription].GetValue<string>());
         }
 
         [Fact]
@@ -164,7 +185,7 @@ namespace UACloudLibraryServer.UnitTests
         public void Version_InlinesDocumentOnlyWhenRequestedAndPresent()
         {
             XRegistryGroup group = DiGroup();
-            XRegistryEntityBuilder builder = new(Base);
+            XRegistryEntityBuilder builder = new(Base, NodesetDocumentFormat.NodeSet2);
             Assert.True(XRegistryInline.TryParse(true, s_inlineNodeset, "nodesetgroups.nodesets.versions", out XRegistryInline inline, out _));
 
             JsonObject withoutXml = builder.Version(group, group.DefaultVersion, details: true, inline);
@@ -175,6 +196,29 @@ namespace UACloudLibraryServer.UnitTests
             JsonObject withXml = builder.Version(group, group.DefaultVersion, details: true, inline);
             Assert.Equal("<UANodeSet />", withXml["nodeset"].GetValue<string>());
             Assert.Null(withXml["nodeseturl"]);
+        }
+
+        [Fact]
+        public void Version_WotFormat_InlinesGeneratedDocumentInsteadOfXml()
+        {
+            XRegistryGroup group = DiGroup();
+            group.DefaultVersion.Nodeset.NodesetXml = "<UANodeSet />";
+            Assert.True(XRegistryInline.TryParse(true, s_inlineNodeset, "nodesetgroups.nodesets.versions", out XRegistryInline inline, out _));
+
+            JsonObject withoutDocument = new XRegistryEntityBuilder(Base).Version(group, group.DefaultVersion, details: true, inline);
+            Assert.Null(withoutDocument["nodeset"]);
+            Assert.Equal($"{Base}/nodesetgroups/{DiGroupId}/nodesets/nodeset/versions/1002", withoutDocument["nodeseturl"].GetValue<string>());
+
+            JsonNode thingModel = JsonNode.Parse("{\"@type\":\"tm:ThingModel\",\"title\":\"DI\"}");
+            XRegistryEntityBuilder builder = new(Base, NodesetDocumentFormat.Wot, new Dictionary<uint, JsonNode> { [1002] = thingModel });
+
+            JsonObject first = builder.Version(group, group.DefaultVersion, details: true, inline);
+            JsonObject second = builder.Version(group, group.DefaultVersion, details: true, inline);
+
+            Assert.Equal("DI", first["nodeset"]["title"].GetValue<string>());
+            Assert.Equal("DI", second["nodeset"]["title"].GetValue<string>());
+            Assert.Null(first["nodeseturl"]);
+            Assert.Equal(WotMediaTypes.ThingModel, first["contenttype"].GetValue<string>());
         }
 
         [Fact]

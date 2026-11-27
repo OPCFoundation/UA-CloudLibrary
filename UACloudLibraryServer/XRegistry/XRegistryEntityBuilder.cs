@@ -33,6 +33,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json.Nodes;
 using Opc.Ua.Cloud.Library.Models;
+using Opc.Ua.Cloud.Library.Wot;
 
 namespace Opc.Ua.Cloud.Library.XRegistry
 {
@@ -85,14 +86,26 @@ namespace Opc.Ua.Cloud.Library.XRegistry
     public sealed class XRegistryEntityBuilder
     {
         private readonly string _baseUrl;
+        private readonly NodesetDocumentFormat _documentFormat;
+        private readonly IReadOnlyDictionary<uint, JsonNode> _inlineDocuments;
 
         /// <param name="baseUrl">Absolute URL of the registry root, without trailing slash.</param>
-        public XRegistryEntityBuilder(string baseUrl)
+        /// <param name="documentFormat">The format the version documents are served in.</param>
+        /// <param name="inlineDocuments">
+        /// The generated WoT documents to inline, keyed by nodeset identifier. Only used for
+        /// <see cref="NodesetDocumentFormat.Wot"/>; NodeSet2 documents are inlined from
+        /// <see cref="Nodeset.NodesetXml"/>.
+        /// </param>
+        public XRegistryEntityBuilder(string baseUrl, NodesetDocumentFormat documentFormat = NodesetDocumentFormat.Wot, IReadOnlyDictionary<uint, JsonNode> inlineDocuments = null)
         {
             _baseUrl = (baseUrl ?? string.Empty).TrimEnd('/');
+            _documentFormat = documentFormat;
+            _inlineDocuments = inlineDocuments;
         }
 
         public string BaseUrl => _baseUrl;
+
+        public NodesetDocumentFormat DocumentFormat => _documentFormat;
 
         public string GroupsUrl => $"{_baseUrl}/{XRegistryIds.GroupsPlural}";
 
@@ -183,13 +196,17 @@ namespace Opc.Ua.Cloud.Library.XRegistry
                             [XRegistryIds.ResourcesPlural] = new JsonObject {
                                 ["plural"] = XRegistryIds.ResourcesPlural,
                                 ["singular"] = XRegistryIds.ResourceSingular,
-                                ["description"] = "The OPC UA NodeSet2 XML document(s) of the namespace. Every group has exactly one resource with the id 'nodeset'; each published revision of the information model is a version, whose id is the UA Cloud Library nodeset identifier.",
+                                ["description"] = "The OPC UA information model document(s) of the namespace. Every group has exactly one resource with the id 'nodeset'; each published revision of the information model is a version, whose id is the UA Cloud Library nodeset identifier. Documents are served by default as a W3C Web of Things Thing Model (application/tm+json; a Thing Description, application/td+json, for a nodeset of instances) generated losslessly from the NodeSet2 XML; add '?format=nodeset2' or send 'Accept: application/xml' to get the NodeSet2 XML instead. Uploads take NodeSet2 XML.",
                                 ["maxversions"] = 0,
                                 ["setversionid"] = false,
                                 ["setdefaultversionsticky"] = true,
                                 ["hasdocument"] = true,
                                 ["singleversionroot"] = false,
-                                ["typemap"] = new JsonObject { ["application/xml"] = "xml" },
+                                ["typemap"] = new JsonObject {
+                                    [WotMediaTypes.NodeSet2] = "xml",
+                                    [WotMediaTypes.ThingModel] = "json",
+                                    [WotMediaTypes.ThingDescription] = "json",
+                                },
                                 ["attributes"] = attributes(
                                     ("namespaceuri", "url", "The OPC UA namespace URI of the information model."),
                                     ("version", "string", "The informational version string of the information model."),
@@ -352,7 +369,7 @@ namespace Opc.Ua.Cloud.Library.XRegistry
             int index = IndexOf(group.Versions, version);
             entity["ancestor"] = index > 0 ? XRegistryGroup.VersionId(group.Versions[index - 1]) : versionId;
 
-            entity["contenttype"] = XRegistryIds.DocumentContentType;
+            entity["contenttype"] = XRegistryIds.DocumentContentType(_documentFormat);
 
             entity["namespaceuri"] = nodeset.NamespaceUri?.OriginalString;
             entity["version"] = nodeset.Version;
@@ -397,16 +414,38 @@ namespace Opc.Ua.Cloud.Library.XRegistry
             }
             entity["numberofdownloads"] = version.NumberOfDownloads;
 
-            if (inline.Includes(XRegistryIds.ResourceSingular) && !string.IsNullOrEmpty(nodeset.NodesetXml))
+            JsonNode document = inline.Includes(XRegistryIds.ResourceSingular) ? InlineDocument(version) : null;
+            if (document != null)
             {
-                entity[XRegistryIds.ResourceSingular] = nodeset.NodesetXml;
+                entity[XRegistryIds.ResourceSingular] = document;
             }
             else
             {
-                entity[XRegistryIds.ResourceSingular + "url"] = self;
+                // The default format needs no query; the other one must be asked for, so that following
+                // the URL yields the document the advertised contenttype describes.
+                entity[XRegistryIds.ResourceSingular + "url"] = _documentFormat == NodesetDocumentFormat.Wot
+                    ? self
+                    : $"{self}?format={NodesetDocumentFormats.NodeSet2Name}";
             }
 
             return entity;
+        }
+
+        private JsonNode InlineDocument(UANameSpace version)
+        {
+            if (_documentFormat == NodesetDocumentFormat.NodeSet2)
+            {
+                return string.IsNullOrEmpty(version.Nodeset.NodesetXml) ? null : JsonValue.Create(version.Nodeset.NodesetXml);
+            }
+
+            if (_inlineDocuments == null || !_inlineDocuments.TryGetValue(version.Nodeset.Identifier, out JsonNode document) || document == null)
+            {
+                return null;
+            }
+
+            // A node can only have one parent, and the same version may be inlined twice (as the
+            // resource and inside its versions collection).
+            return document.Parent == null ? document : document.DeepClone();
         }
 
         private static int IndexOf(IReadOnlyList<UANameSpace> list, UANameSpace item)

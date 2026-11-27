@@ -20,7 +20,7 @@ specification are listed at the end of this document.
 | Resource (`nodesets` / `nodeset`) | The NodeSet2 document family of that namespace | Always the constant `nodeset` – every group has exactly one resource |
 | Version | One stored NodeSet2 file (a revision of the model) | The Cloud Library **nodeset identifier** (the number used by `/infomodel/download/{identifier}`) |
 | Default version | The version with the **latest publication date** | – |
-| Resource document | The NodeSet2 XML (`application/xml`) | – |
+| Resource document | By default a W3C Web of Things **Thing Model** (`application/tm+json`) generated from the NodeSet2 XML – a **Thing Description** (`application/td+json`) for a nodeset that contains instances; the NodeSet2 XML (`application/xml`) on request (see §3.1) | – |
 
 Example: the three published revisions of *OPC UA for Devices* (`http://opcfoundation.org/UA/DI/`)
 appear as one group with one resource `nodeset` that has three versions.
@@ -91,15 +91,39 @@ All routes are relative to the registry root `https://<host>/xregistry`.
 | `GET /xregistry/nodesetgroups` | Map of all groups, keyed by group id |
 | `GET /xregistry/nodesetgroups/{gid}` | One group |
 | `GET /xregistry/nodesetgroups/{gid}/nodesets` | Map with the single `nodeset` resource |
-| `GET /xregistry/nodesetgroups/{gid}/nodesets/nodeset` | **NodeSet2 XML** of the default version, metadata in `xRegistry-*` headers |
+| `GET /xregistry/nodesetgroups/{gid}/nodesets/nodeset` | **Document** (WoT Thing Model by default, see below) of the default version, metadata in `xRegistry-*` headers |
 | `GET /xregistry/nodesetgroups/{gid}/nodesets/nodeset$details` | JSON metadata of the resource (default version) |
 | `GET /xregistry/nodesetgroups/{gid}/nodesets/nodeset/meta` | Resource meta entity (`defaultversionid`, `defaultversionurl`, …) |
 | `GET /xregistry/nodesetgroups/{gid}/nodesets/nodeset/versions` | Map of all versions, keyed by nodeset identifier |
-| `GET /xregistry/nodesetgroups/{gid}/nodesets/nodeset/versions/{vid}` | **NodeSet2 XML** of that version, metadata in `xRegistry-*` headers |
+| `GET /xregistry/nodesetgroups/{gid}/nodesets/nodeset/versions/{vid}` | **Document** (WoT Thing Model by default, see below) of that version, metadata in `xRegistry-*` headers |
 | `GET /xregistry/nodesetgroups/{gid}/nodesets/nodeset/versions/{vid}$details` | JSON metadata of that version |
 
 Document responses (`…/nodeset` and `…/versions/{vid}` without `$details`) increment the nodeset's
 download counter, exactly like `/infomodel/download`. `$details` responses do not.
+
+#### Document format
+
+Version documents are served as a W3C Web of Things (WoT) **Thing Model** that the OPC UA .NET stack
+(`Opc.Ua.Wot.WotNodeSetConverter`) generates from the stored NodeSet2 XML. The conversion is
+designed to be lossless: whatever the WoT vocabulary cannot express is carried verbatim in the
+document. Uploads nevertheless take NodeSet2 XML only. A nodeset that contains instances (for example a DPP) is served as a
+**Thing Description** instead. The NodeSet2 XML remains available:
+
+| Request | Document |
+|---|---|
+| no `format`, any `Accept` that admits JSON (or none, or `*/*`) | WoT Thing Model `application/tm+json` (Thing Description `application/td+json` for instance nodesets) |
+| no `format`, `Accept` listing only `application/xml` and/or `text/xml` | NodeSet2 XML `application/xml` |
+| `?format=wot` (aliases `tm`, `thingmodel`) | WoT, regardless of `Accept` |
+| `?format=nodeset2` (aliases `nodeset`, `xml`) | NodeSet2 XML, regardless of `Accept` |
+| any other `format` | `400 bad_flag` |
+
+The format also governs the `contenttype` attribute and the `nodeseturl` of `$details` responses
+(`nodeseturl` carries `?format=nodeset2` when the XML was requested), and what `inline=nodeset`
+embeds. Document responses without an explicit `format` carry `Vary: Accept`; the
+`xRegistry-contenttype` header of a document response states the actual type (Thing Model or Thing
+Description). Documents are generated on first request and cached in memory (keyed by a hash of the
+XML, so an overwritten nodeset is never served stale). If a nodeset cannot be converted the server
+answers `500 server_error`; `?format=nodeset2` still returns the XML.
 
 #### `?inline` flag
 
@@ -112,8 +136,9 @@ collections. Paths are relative to the addressed entity:
 | group | `nodesets`, `nodesets.meta`, `nodesets.versions`, `nodesets.nodeset`, `nodesets.versions.nodeset` |
 | resource / version | `meta`, `versions`, `nodeset`, `versions.nodeset` |
 
-Inlining `nodeset` embeds the NodeSet2 XML as a string in the `nodeset` attribute (and omits
-`nodeseturl`). `inline=*` deliberately does **not** include the documents, the model or the
+Inlining `nodeset` embeds the document in the `nodeset` attribute (and omits `nodeseturl`): the
+WoT Thing Model as a JSON object, or with `?format=nodeset2` the NodeSet2 XML as a string.
+`inline=*` deliberately does **not** include the documents, the model or the
 capabilities; ask for them explicitly.
 
 ### 3.2 Write
@@ -129,6 +154,8 @@ capabilities; ask for them explicitly.
 | `PUT /xregistry/nodesetgroups/{gid}` | `405` – groups are created implicitly by uploading a nodeset |
 
 **Upload body**
+
+Uploads always take the NodeSet2 XML; WoT documents are a download format only.
 
 * *Document form* (`…/nodeset`): the body is the NodeSet2 XML. Metadata is passed as
   `xRegistry-<attribute>` request headers: `xRegistry-name`, `xRegistry-description`,
@@ -205,11 +232,18 @@ curl $AUTH "$BASE/nodesetgroups/$GID?inline"
 # Metadata of the latest DI nodeset
 curl $AUTH "$BASE/nodesetgroups/$GID/nodesets/nodeset\$details"
 
+# Download the latest DI information model as a WoT Thing Model (the default)
+curl $AUTH -o Opc.Ua.Di.tm.json "$BASE/nodesetgroups/$GID/nodesets/nodeset"
+
 # Download the latest DI NodeSet2 XML
-curl $AUTH -o Opc.Ua.Di.NodeSet2.xml "$BASE/nodesetgroups/$GID/nodesets/nodeset"
+curl $AUTH -o Opc.Ua.Di.NodeSet2.xml "$BASE/nodesetgroups/$GID/nodesets/nodeset?format=nodeset2"
+curl $AUTH -H "Accept: application/xml" -o Opc.Ua.Di.NodeSet2.xml "$BASE/nodesetgroups/$GID/nodesets/nodeset"
 
 # Download a specific revision (nodeset identifier 2844662655)
-curl $AUTH -o Opc.Ua.Di.1.03.NodeSet2.xml "$BASE/nodesetgroups/$GID/nodesets/nodeset/versions/2844662655"
+curl $AUTH -o Opc.Ua.Di.1.03.NodeSet2.xml "$BASE/nodesetgroups/$GID/nodesets/nodeset/versions/2844662655?format=nodeset2"
+
+# Metadata of the latest DI nodeset with its Thing Model inlined
+curl $AUTH "$BASE/nodesetgroups/$GID/nodesets/nodeset\$details?inline=nodeset"
 
 # Upload a new revision with metadata in headers
 curl $AUTH -X PUT "$BASE/nodesetgroups/$GID/nodesets/nodeset" \

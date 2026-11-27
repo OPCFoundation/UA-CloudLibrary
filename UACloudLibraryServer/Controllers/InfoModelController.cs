@@ -35,6 +35,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Opc.Ua.Cloud.Library.Models;
+using Opc.Ua.Cloud.Library.Wot;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace Opc.Ua.Cloud.Library.Controllers
@@ -49,13 +50,15 @@ namespace Opc.Ua.Cloud.Library.Controllers
         private readonly CloudLibDataProvider _database;
         private readonly UAClient _client;
         private readonly IDppAuditLog _auditLog;
+        private readonly IWotThingModelGenerator _wotGenerator;
 
-        public InfoModelController(DbFileStorage storage, CloudLibDataProvider database, UAClient client, IDppAuditLog auditLog)
+        public InfoModelController(DbFileStorage storage, CloudLibDataProvider database, UAClient client, IDppAuditLog auditLog, IWotThingModelGenerator wotGenerator)
         {
             _storage = storage;
             _database = database;
             _client = client;
             _auditLog = auditLog;
+            _wotGenerator = wotGenerator;
         }
 
         private string OperatorId => User?.Identity?.Name ?? "anonymous";
@@ -162,15 +165,27 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
         [HttpGet]
         [Route("/infomodel/download/{identifier}")]
-        [SwaggerResponse(statusCode: 200, type: typeof(UANameSpace), description: "The OPC UA Information model and its metadata.")]
-        [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The identifier provided could not be parsed.")]
+        [SwaggerResponse(statusCode: 200, type: typeof(UANameSpace), description: "The OPC UA Information model and its metadata. With format=wot, the W3C WoT Thing Model (application/tm+json), or Thing Description (application/td+json) for a nodeset of instances, generated from the NodeSet2 XML.")]
+        [SwaggerResponse(statusCode: 400, type: typeof(string), description: "The identifier or format provided could not be parsed, or format=wot was combined with metadataOnly.")]
         [SwaggerResponse(statusCode: 404, type: typeof(string), description: "The identifier provided could not be found.")]
+        [SwaggerResponse(statusCode: 500, type: typeof(string), description: "The WoT document could not be generated from the nodeset.")]
         public async Task<IActionResult> DownloadNamespaceAsync(
             [FromRoute][Required][SwaggerParameter("OPC UA Information model identifier.")] string identifier,
             [FromQuery][SwaggerParameter("Download NodeSet XML only, omitting metadata")] bool nodesetXMLOnly = false,
-            [FromQuery][SwaggerParameter("Download metadata only, omitting NodeSet XML")] bool metadataOnly = false
+            [FromQuery][SwaggerParameter("Download metadata only, omitting NodeSet XML")] bool metadataOnly = false,
+            [FromQuery][SwaggerParameter("Document format: 'nodeset2' (default) returns the NodeSet2 XML as selected by the other flags; 'wot' returns only the W3C Web of Things Thing Model generated losslessly from the NodeSet2 XML (a Thing Description for a nodeset of instances).")] string format = null
             )
         {
+            if (!NodesetDocumentFormats.TryParse(format, NodesetDocumentFormat.NodeSet2, out NodesetDocumentFormat documentFormat))
+            {
+                return new ObjectResult($"Unknown format '{format}'. Use '{NodesetDocumentFormats.NodeSet2Name}' or '{NodesetDocumentFormats.WotName}'.") { StatusCode = (int)HttpStatusCode.BadRequest };
+            }
+
+            if (documentFormat == NodesetDocumentFormat.Wot && metadataOnly)
+            {
+                return new ObjectResult($"format={NodesetDocumentFormats.WotName} cannot be combined with metadataOnly.") { StatusCode = (int)HttpStatusCode.BadRequest };
+            }
+
             DbFiles nodesetXml = null;
 
             if (!metadataOnly)
@@ -195,6 +210,18 @@ namespace Opc.Ua.Cloud.Library.Controllers
             }
 
             // if we got here, the user is allowed to download the nodeset
+
+            if (documentFormat == NodesetDocumentFormat.Wot)
+            {
+                WotThingModelResult thingModel = _wotGenerator.Generate(nodesetXml.Blob);
+                if (!thingModel.Succeeded)
+                {
+                    return new ObjectResult($"The WoT Thing Model could not be generated: {thingModel.ErrorMessage}") { StatusCode = (int)HttpStatusCode.InternalServerError };
+                }
+
+                await _database.IncrementDownloadCountAsync(nodeSetID).ConfigureAwait(false);
+                return File(thingModel.OpenRead(), thingModel.ContentType);
+            }
 
             if (nodesetXMLOnly)
             {

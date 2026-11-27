@@ -42,7 +42,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Net.Http.Headers;
 using Opc.Ua.Cloud.Library.Models;
+using Opc.Ua.Cloud.Library.Wot;
 using Opc.Ua.Cloud.Library.XRegistry;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -51,7 +53,9 @@ namespace Opc.Ua.Cloud.Library.Controllers
     /// <summary>
     /// xRegistry (https://xregistry.io) view of the UA Cloud Library. Groups are OPC UA namespaces,
     /// each group has one resource (<c>nodeset</c>) whose versions are the individual NodeSet2 files
-    /// stored in the library.
+    /// stored in the library. Version documents are served as W3C WoT Thing Models generated from the
+    /// NodeSet2 XML unless the NodeSet2 XML is asked for with <c>?format=nodeset2</c> or an
+    /// <c>Accept: application/xml</c> header.
     /// </summary>
     [Authorize(Policy = "ApiPolicy")]
     [ApiController]
@@ -62,14 +66,26 @@ namespace Opc.Ua.Cloud.Library.Controllers
     {
         private const string DetailsSuffix = "$details";
         private const string HeaderPrefix = "xRegistry-";
+        private const string FormatQuery = "format";
+
+        /// <summary>
+        /// Generated WoT documents nest far deeper than the MVC default of 32 levels.
+        /// </summary>
+        private const int MaxJsonDepth = 256;
+
+        private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web) { MaxDepth = MaxJsonDepth };
 
         private readonly IXRegistryNodesetStore _nodesetStore;
         private readonly IDppAuditLog _auditLog;
+        private readonly IWotThingModelGenerator _wotGenerator;
 
-        public XRegistryController(IXRegistryNodesetStore store, IDppAuditLog auditLog)
+        private NodesetDocumentFormat _documentFormat = NodesetDocumentFormat.Wot;
+
+        public XRegistryController(IXRegistryNodesetStore store, IDppAuditLog auditLog, IWotThingModelGenerator wotGenerator)
         {
             _nodesetStore = store;
             _auditLog = auditLog;
+            _wotGenerator = wotGenerator;
         }
 
         private string UserId => User?.Identity?.Name;
@@ -78,7 +94,10 @@ namespace Opc.Ua.Cloud.Library.Controllers
 
         private bool IsAdministrator => User?.IsInRole(Roles.Administrator) == true;
 
-        private XRegistryEntityBuilder Builder => new($"{Request.Scheme}://{Request.Host}{Request.PathBase}{XRegistryIds.BasePath}");
+        private XRegistryEntityBuilder Builder => CreateBuilder();
+
+        private XRegistryEntityBuilder CreateBuilder(IReadOnlyDictionary<uint, JsonNode> inlineDocuments = null)
+            => new($"{Request.Scheme}://{Request.Host}{Request.PathBase}{XRegistryIds.BasePath}", _documentFormat, inlineDocuments);
 
         // ------------------------------------------------------------------ registry root / model / capabilities
 
@@ -87,7 +106,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerResponse(200, type: typeof(JsonObject))]
         public async Task<IActionResult> GetRootAsync()
         {
-            if (!TryGetInline(string.Empty, out XRegistryInline inline, out IActionResult error))
+            if (!TryGetReadFlags(string.Empty, out XRegistryInline inline, out IActionResult error))
             {
                 return error;
             }
@@ -108,6 +127,11 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerOperation(Summary = "xRegistry: the whole registry with everything inlined.")]
         public async Task<IActionResult> ExportAsync()
         {
+            if (!TryGetDocumentFormat(out IActionResult error))
+            {
+                return error;
+            }
+
             List<XRegistryGroup> groups = await LoadGroupsAsync().ConfigureAwait(false);
             JsonObject root = Builder.Root(groups, XRegistryInline.All);
             root["model"] = XRegistryEntityBuilder.Model();
@@ -121,7 +145,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerOperation(Summary = "xRegistry: all groups (OPC UA namespaces).")]
         public async Task<IActionResult> GetGroupsAsync()
         {
-            if (!TryGetInline(XRegistryIds.GroupsPlural, out XRegistryInline inline, out IActionResult error))
+            if (!TryGetReadFlags(XRegistryIds.GroupsPlural, out XRegistryInline inline, out IActionResult error))
             {
                 return error;
             }
@@ -134,7 +158,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerOperation(Summary = "xRegistry: a single group (OPC UA namespace).")]
         public async Task<IActionResult> GetGroupAsync([FromRoute] string groupId)
         {
-            if (!TryGetInline(XRegistryIds.GroupsPlural, out XRegistryInline inline, out IActionResult error))
+            if (!TryGetReadFlags(XRegistryIds.GroupsPlural, out XRegistryInline inline, out IActionResult error))
             {
                 return error;
             }
@@ -152,7 +176,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         [SwaggerOperation(Summary = "xRegistry: the resources of a group. Every group has exactly one resource named 'nodeset'.")]
         public async Task<IActionResult> GetResourcesAsync([FromRoute] string groupId)
         {
-            if (!TryGetInline(XRegistryIds.GroupsPlural + "." + XRegistryIds.ResourcesPlural, out XRegistryInline inline, out IActionResult error))
+            if (!TryGetReadFlags(XRegistryIds.GroupsPlural + "." + XRegistryIds.ResourcesPlural, out XRegistryInline inline, out IActionResult error))
             {
                 return error;
             }
@@ -169,7 +193,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         // ------------------------------------------------------------------ resource (default version)
 
         [HttpGet(XRegistryIds.GroupsPlural + "/{groupId}/" + XRegistryIds.ResourcesPlural + "/{resourceId}")]
-        [SwaggerOperation(Summary = "xRegistry: the resource. Returns the NodeSet2 XML of the default (latest) version, or the metadata when '$details' is appended to the resource id.")]
+        [SwaggerOperation(Summary = "xRegistry: the resource. Returns the document of the default (latest) version - a WoT Thing Model generated from the NodeSet2 XML, or the NodeSet2 XML with '?format=nodeset2' or 'Accept: application/xml' - or the metadata when '$details' is appended to the resource id.")]
         public async Task<IActionResult> GetResourceAsync([FromRoute] string groupId, [FromRoute] string resourceId)
         {
             bool details = StripDetails(ref resourceId);
@@ -178,7 +202,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return error;
             }
 
-            if (!TryGetInline(XRegistryIds.GroupsPlural + "." + XRegistryIds.ResourcesPlural, out XRegistryInline inline, out error))
+            if (!TryGetReadFlags(XRegistryIds.GroupsPlural + "." + XRegistryIds.ResourcesPlural, out XRegistryInline inline, out error))
             {
                 return error;
             }
@@ -221,7 +245,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return error;
             }
 
-            if (!TryGetInline(XRegistryIds.GroupsPlural + "." + XRegistryIds.ResourcesPlural + ".versions", out XRegistryInline inline, out error))
+            if (!TryGetReadFlags(XRegistryIds.GroupsPlural + "." + XRegistryIds.ResourcesPlural + ".versions", out XRegistryInline inline, out error))
             {
                 return error;
             }
@@ -236,7 +260,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         }
 
         [HttpGet(XRegistryIds.GroupsPlural + "/{groupId}/" + XRegistryIds.ResourcesPlural + "/{resourceId}/versions/{versionId}")]
-        [SwaggerOperation(Summary = "xRegistry: a single version (nodeset). Returns the NodeSet2 XML, or the metadata when '$details' is appended to the version id.")]
+        [SwaggerOperation(Summary = "xRegistry: a single version (nodeset). Returns its document - a WoT Thing Model generated from the NodeSet2 XML, or the NodeSet2 XML with '?format=nodeset2' or 'Accept: application/xml' - or the metadata when '$details' is appended to the version id.")]
         public async Task<IActionResult> GetVersionAsync([FromRoute] string groupId, [FromRoute] string resourceId, [FromRoute] string versionId)
         {
             bool details = StripDetails(ref versionId);
@@ -245,7 +269,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
                 return error;
             }
 
-            if (!TryGetInline(XRegistryIds.GroupsPlural + "." + XRegistryIds.ResourcesPlural + ".versions", out XRegistryInline inline, out error))
+            if (!TryGetReadFlags(XRegistryIds.GroupsPlural + "." + XRegistryIds.ResourcesPlural + ".versions", out XRegistryInline inline, out error))
             {
                 return error;
             }
@@ -471,6 +495,16 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     return NotFoundError($"Document of version '{XRegistryGroup.VersionId(version)}' not found.");
                 }
 
+                WotThingModelResult thingModel = null;
+                if (_documentFormat == NodesetDocumentFormat.Wot)
+                {
+                    thingModel = _wotGenerator.Generate(xml);
+                    if (!thingModel.Succeeded)
+                    {
+                        return WotGenerationError(thingModel);
+                    }
+                }
+
                 await _nodesetStore.IncrementDownloadCountAsync(version.Nodeset.Identifier).ConfigureAwait(false);
 
                 JsonObject attributes = isResource
@@ -478,18 +512,48 @@ namespace Opc.Ua.Cloud.Library.Controllers
                     : Builder.Version(group, version, details: false, XRegistryInline.None);
                 WriteEntityHeaders(attributes);
 
-                return Content(xml, XRegistryIds.DocumentContentType, Encoding.UTF8);
+                if (thingModel == null)
+                {
+                    return Content(xml, WotMediaTypes.NodeSet2, Encoding.UTF8);
+                }
+
+                // Only the generated document tells a Thing Model from a Thing Description.
+                Response.Headers[HeaderPrefix + "contenttype"] = thingModel.ContentType;
+                return File(thingModel.OpenRead(), thingModel.ContentType);
             }
 
+            Dictionary<uint, JsonNode> inlineDocuments = null;
             if (inline.Includes(XRegistryIds.ResourceSingular))
             {
-                version.Nodeset.NodesetXml = await _nodesetStore.GetXmlAsync(version.Nodeset.Identifier).ConfigureAwait(false);
+                string xml = await _nodesetStore.GetXmlAsync(version.Nodeset.Identifier).ConfigureAwait(false);
+                if (_documentFormat == NodesetDocumentFormat.NodeSet2)
+                {
+                    version.Nodeset.NodesetXml = xml;
+                }
+                else if (xml != null)
+                {
+                    WotThingModelResult thingModel = _wotGenerator.Generate(xml);
+                    if (!thingModel.Succeeded)
+                    {
+                        return WotGenerationError(thingModel);
+                    }
+
+                    inlineDocuments = new Dictionary<uint, JsonNode> {
+                        [version.Nodeset.Identifier] = JsonNode.Parse(thingModel.Utf8Json.Span, documentOptions: new JsonDocumentOptions { MaxDepth = MaxJsonDepth }),
+                    };
+                }
             }
 
+            XRegistryEntityBuilder builder = CreateBuilder(inlineDocuments);
             return Json(isResource
-                ? Builder.Resource(group, inline, details: true)
-                : Builder.Version(group, version, details: true, inline));
+                ? builder.Resource(group, inline, details: true)
+                : builder.Version(group, version, details: true, inline));
         }
+
+        private ObjectResult WotGenerationError(WotThingModelResult thingModel)
+            => XRegistryError.Result(XRegistryError.ServerError, 500, "WoT Thing Model generation failed",
+                $"The WoT Thing Model could not be generated from the NodeSet2 XML: {thingModel.ErrorMessage} Use '?{FormatQuery}={NodesetDocumentFormats.NodeSet2Name}' to get the NodeSet2 XML.",
+                Request.Path);
 
         /// <summary>
         /// Document responses carry the entity's scalar attributes as <c>xRegistry-*</c> headers; maps and
@@ -642,9 +706,14 @@ namespace Opc.Ua.Cloud.Library.Controllers
             return matching.Length == 0 ? null : new XRegistryGroup(namespaceUri, matching);
         }
 
-        private bool TryGetInline(string scopePrefix, out XRegistryInline inline, out IActionResult error)
+        private bool TryGetReadFlags(string scopePrefix, out XRegistryInline inline, out IActionResult error)
         {
-            error = null;
+            inline = XRegistryInline.None;
+            if (!TryGetDocumentFormat(out error))
+            {
+                return false;
+            }
+
             bool present = Request.Query.ContainsKey("inline");
             if (XRegistryInline.TryParse(present, Request.Query["inline"], scopePrefix, out inline, out string message))
             {
@@ -654,6 +723,40 @@ namespace Opc.Ua.Cloud.Library.Controllers
             error = XRegistryError.Result(XRegistryError.BadFlag, 400, "Invalid inline flag", message, Request.Path);
             return false;
         }
+
+        /// <summary>
+        /// Selects the format version documents are served (and described) in: an explicit
+        /// <c>?format=</c> wins; otherwise the NodeSet2 XML is served only to clients that accept
+        /// nothing but XML, and everybody else gets the WoT Thing Model.
+        /// </summary>
+        private bool TryGetDocumentFormat(out IActionResult error)
+        {
+            error = null;
+            if (Request.Query.TryGetValue(FormatQuery, out StringValues requested))
+            {
+                if (NodesetDocumentFormats.TryParse(requested.ToString(), NodesetDocumentFormat.Wot, out _documentFormat))
+                {
+                    return true;
+                }
+
+                error = XRegistryError.Result(XRegistryError.BadFlag, 400, "Invalid format flag",
+                    $"Unknown format '{requested}'. Use '{NodesetDocumentFormats.WotName}' or '{NodesetDocumentFormats.NodeSet2Name}'.", Request.Path);
+                return false;
+            }
+
+            Response.Headers.Append(HeaderNames.Vary, HeaderNames.Accept);
+
+            IList<MediaTypeHeaderValue> accept = Request.GetTypedHeaders().Accept;
+            List<MediaTypeHeaderValue> accepted = accept?.Where(a => a.Quality is null or > 0).ToList();
+            _documentFormat = accepted is { Count: > 0 } && accepted.All(IsXml)
+                ? NodesetDocumentFormat.NodeSet2
+                : NodesetDocumentFormat.Wot;
+            return true;
+        }
+
+        private static bool IsXml(MediaTypeHeaderValue mediaType)
+            => mediaType.MediaType.Equals("application/xml", StringComparison.OrdinalIgnoreCase)
+            || mediaType.MediaType.Equals("text/xml", StringComparison.OrdinalIgnoreCase);
 
         private bool TryValidateResourceId(string resourceId, out IActionResult error)
         {
@@ -681,7 +784,7 @@ namespace Opc.Ua.Cloud.Library.Controllers
         private ObjectResult NotFoundError(string detail)
             => XRegistryError.Result(XRegistryError.NotFound, 404, "Not found", detail, Request.Path);
 
-        private JsonResult Json(JsonNode node)
-            => new JsonResult(node) { StatusCode = (int)HttpStatusCode.OK, ContentType = "application/json" };
+        private static JsonResult Json(JsonNode node)
+            => new JsonResult(node, s_jsonOptions) { StatusCode = (int)HttpStatusCode.OK, ContentType = "application/json" };
     }
 }

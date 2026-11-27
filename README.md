@@ -40,6 +40,8 @@ The reference implementation of the UA Cloud Library. The UA Cloud Library enabl
 * Swagger UI
 * User management UI
 * OPC UA Information Model upload and download
+* OPC UA Information Model download as a W3C Web of Things (WoT) Thing Model, generated from the NodeSet2 XML by the OPC UA .NET stack (`GET /infomodel/download/{identifier}?format=wot`)
+* [xRegistry API](xregistryapi.md) serving Information Models as WoT Thing Models by default (NodeSet2 XML with `?format=nodeset2`)
 * OPC UA Information Model browse and search
 * Simple OPC UA Information Model authoring UI
 * Cross-platform: Runs on any edge or cloud that can host a container and a PostgreSQL instance
